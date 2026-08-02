@@ -1268,6 +1268,201 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
+    it.each(['auto', 'always'] as const)('releases pointer-focused %s rail controls before YouTube reports its chrome hidden', async controlsMode => {
+        vi.useFakeTimers();
+        let controller: SubtitlePlayerController | undefined;
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=focus123') as unknown as Location,
+        });
+        try {
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
+            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: controlsMode })).controller;
+            controller.init();
+            const player = document.querySelector<HTMLElement>('#movie_player')!;
+            const video = player.querySelector<HTMLVideoElement>('video')!;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const railHandle = root.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
+
+            // Searching before using the iPad player leaves keyboard as the last
+            // input modality. The rail owns pointerdown and stops it bubbling, so
+            // the pointer press must still replace that stale modality marker.
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+            railHandle.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 24,
+                clientY: 24,
+                pointerId: 41,
+                pointerType: 'touch',
+            }));
+            railHandle.focus();
+
+            expect(document.activeElement).toBe(railHandle);
+            const focusState = controllerInternals<{
+                controlsIdleTimer?: number;
+                subtitleStylePanelOpen: boolean;
+            }>(controller);
+            expect(focusState.subtitleStylePanelOpen).toBe(false);
+            expect(player.classList.contains('ytp-autohide')).toBe(false);
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            // A long press must remain actionable: start the idle countdown
+            // only after the finger lifts, not while the press is active.
+            expect(document.activeElement).toBe(railHandle);
+            railHandle.dispatchEvent(pointerEvent('pointerup', {
+                clientX: 24,
+                clientY: 24,
+                pointerId: 41,
+                pointerType: 'touch',
+            }));
+
+            // A later tap on non-focusable player chrome must not erase the
+            // provenance of Safari's still-focused rail button. Focusout or a
+            // new focused control replaces it; pointer activity alone does not.
+            video.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 512,
+                clientY: 288,
+                pointerId: 45,
+                pointerType: 'touch',
+            }));
+            video.dispatchEvent(pointerEvent('pointerup', {
+                clientX: 512,
+                clientY: 288,
+                pointerId: 45,
+                pointerType: 'touch',
+            }));
+            expect(document.activeElement).toBe(railHandle);
+
+            await vi.advanceTimersByTimeAsync(750);
+            expect(focusState.controlsIdleTimer).toBeDefined();
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            // Yomu must release transient pointer focus on its own timeout. Waiting
+            // for ytp-autohide first is circular: YouTube keeps its chrome awake
+            // while a control inside the player surface remains focused.
+            expect(document.activeElement).not.toBe(railHandle);
+            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(controlsMode === 'auto');
+            expect(player.classList.contains('ytp-autohide')).toBe(false);
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+            controller?.destroy();
+            vi.useRealTimers();
+        }
+    });
+
+    it('preserves programmatic rail focus without explicit pointer provenance', async () => {
+        vi.useFakeTimers();
+        let controller: SubtitlePlayerController | undefined;
+        try {
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
+            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: 'auto' })).controller;
+            controller.init();
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
+            controller.refresh();
+
+            const railHandle = document.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
+            railHandle.focus();
+
+            expect(document.activeElement).toBe(railHandle);
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            expect(document.activeElement).toBe(railHandle);
+        } finally {
+            controller?.destroy();
+            vi.useRealTimers();
+        }
+    });
+
+    it('releases pointer focus inside an open style panel without closing the panel', async () => {
+        vi.useFakeTimers();
+        let controller: SubtitlePlayerController | undefined;
+        try {
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
+            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: 'auto' })).controller;
+            controller.init();
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            root.querySelector<HTMLButtonElement>('[data-action="style"]')!.click();
+            const range = root.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]')!;
+            const labelText = range.closest('label')!.querySelector<HTMLElement>('span')!;
+            const focusState = controllerInternals<{
+                controlsIdleTimer?: number;
+                subtitleStylePanelOpen: boolean;
+            }>(controller);
+            labelText.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 24,
+                clientY: 24,
+                pointerId: 42,
+                pointerType: 'touch',
+            }));
+            range.focus();
+            labelText.dispatchEvent(pointerEvent('pointerup', {
+                clientX: 24,
+                clientY: 24,
+                pointerId: 42,
+                pointerType: 'touch',
+            }));
+            labelText.click();
+
+            expect(focusState.subtitleStylePanelOpen).toBe(true);
+            expect(document.activeElement).toBe(range);
+            expect(focusState.controlsIdleTimer).toBeDefined();
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            expect(document.activeElement).not.toBe(range);
+            expect(focusState.subtitleStylePanelOpen).toBe(true);
+            expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
+        } finally {
+            controller?.destroy();
+            vi.useRealTimers();
+        }
+    });
+
+    it('preserves a style control when keyboard input follows its pointer focus', async () => {
+        vi.useFakeTimers();
+        let controller: SubtitlePlayerController | undefined;
+        try {
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
+            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: 'auto' })).controller;
+            controller.init();
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            root.querySelector<HTMLButtonElement>('[data-action="style"]')!.click();
+            const range = root.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]')!;
+            range.dispatchEvent(pointerEvent('pointerdown', {
+                pointerId: 44,
+                pointerType: 'touch',
+            }));
+            range.focus();
+            range.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+            range.dispatchEvent(pointerEvent('pointerup', {
+                pointerId: 44,
+                pointerType: 'touch',
+            }));
+
+            await vi.advanceTimersByTimeAsync(2600);
+
+            expect(document.activeElement).toBe(range);
+        } finally {
+            controller?.destroy();
+            vi.useRealTimers();
+        }
+    });
+
     it('keeps the mobile rail in lockstep while preserving deliberate keyboard focus', async () => {
         vi.useFakeTimers();
         let controller: SubtitlePlayerController | undefined;
@@ -1294,7 +1489,19 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             // the sticky :focus-within would block idling forever. Use the
             // always-present visibility toggle — prev/next hide without lines.
             const railButton = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="visibility"]')!;
+            railButton.dispatchEvent(pointerEvent('pointerdown', {
+                clientX: 24,
+                clientY: 24,
+                pointerId: 43,
+                pointerType: 'touch',
+            }));
             railButton.focus();
+            railButton.dispatchEvent(pointerEvent('pointerup', {
+                clientX: 24,
+                clientY: 24,
+                pointerId: 43,
+                pointerType: 'touch',
+            }));
 
             overlay.classList.remove('fadein');
             internals.syncPlayerChromeIdleState();

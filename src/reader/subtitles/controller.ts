@@ -174,6 +174,7 @@ import {
     type SubtitlePanelMode,
 } from './subtitle-surface';
 import { bindSubtitleControlRail, type SubtitleControlRailBinding } from './subtitle-control-rail';
+import { SubtitleRailPointerFocus } from './subtitle-rail-pointer-focus';
 import { isTranscriptScrollIntentKey, TranscriptFollowState } from './transcript-follow-state';
 import {
     TRANSCRIPT_PANEL_ANIMATION_MS,
@@ -975,7 +976,8 @@ export class SubtitlePlayerController {
     // that displaced line must briefly own control visibility even while the
     // host player's chrome remains autohidden (notably on touch devices).
     private subtitleSurfaceWakeActive = false;
-    private lastControlsInputWasKeyboard = false;
+    private readonly railPointerFocus = new SubtitleRailPointerFocus(
+        () => this.root, () => this.videoPlayerChromeHidden(), () => this.scheduleControlsIdle());
     private transcriptHydrationSerial = 0;
     private transcriptCacheWarmupSerial = 0;
     private transcriptCacheWarmupSignature = '';
@@ -1145,6 +1147,7 @@ export class SubtitlePlayerController {
         // line still wakes its controls without intercepting the underlying
         // video click or the word interaction.
         document.addEventListener('pointerdown', event => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
+        this.railPointerFocus.bind(this.abortController?.signal);
         document.addEventListener('click', event => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
@@ -1300,6 +1303,7 @@ export class SubtitlePlayerController {
         this.clearTranscriptPanelAnimation();
         this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
         this.pendingPointerActivity = undefined;
+        this.railPointerFocus.destroy();
         this.clearVideoInsetForTranscriptPanel();
         this.subtitleStylePanelOpen = false;
         // The controller instance outlives its own teardown (the app destroys and
@@ -2221,7 +2225,7 @@ export class SubtitlePlayerController {
         // player subtree (fullscreen reparents the rail into it) blocks
         // YouTube's own autohide in EVERY controls mode, so blur whenever the
         // player chrome has faded — not only in auto mode.
-        if (chromeHidden) this.blurFocusedRailControl();
+        if (chromeHidden) this.railPointerFocus.blurPointerFocus();
         if (!this.hasAutoIdleMode(this.options.getSettings())) {
             this.setControlsAway(false);
             this.lastPlayerChromeHidden = chromeHidden;
@@ -2268,18 +2272,6 @@ export class SubtitlePlayerController {
         const rootTop = this.root.getBoundingClientRect().top;
         const inset = Math.round(Math.min(Math.max(rowRect.bottom - rootTop + 8, 48), 160));
         this.root.style.setProperty('--jpdb-subtitle-native-top-inset', `${inset}px`);
-    }
-
-    private blurFocusedRailControl(): void {
-        // Touch browsers can leave a clicked control focused after their chrome
-        // fades, but a hardware-keyboard user deliberately tabbed there. Only
-        // clear the former; preserving real keyboard focus keeps the control
-        // visible and prevents focus from disappearing into an idle surface.
-        if (this.lastControlsInputWasKeyboard) return;
-        const active = document.activeElement;
-        if (active instanceof HTMLElement && this.root?.contains(active) && active.closest('.jpdb-subtitle-rail')) {
-            active.blur();
-        }
     }
 
     private isVideoPlayerChromeSurface(): boolean {
@@ -3803,14 +3795,16 @@ export class SubtitlePlayerController {
     // subtitle rectangle so it remains recoverable; the document-level hit
     // test does not add a pointer-catching layer over transparent player space.
     private wakeControlsFromSubtitleSurface(event: PointerEvent): void {
-        if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
         const target = event.target instanceof Element ? event.target : null;
+        this.railPointerFocus.handlePointerDown(event, target);
+        if (target && this.isInSubtitleUi(target)) this.railPointerFocus.notePointerInput();
+        if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
         // Pressing inside a reader dialog that happens to overlap the video is
         // not a press on the subtitle surface, so it must not wake the rail.
         // The subtitle UI is itself a reader surface, and pressing THAT is
         // exactly the gesture this wake exists for, so it stays eligible.
         if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
-        this.lastControlsInputWasKeyboard = false;
+        this.railPointerFocus.notePointerInput();
         // The native caption line is not blank subtitle space — it IS the blur
         // toggle. A press that lands on it is a deliberate act on that control,
         // so the geometric wake must yield rather than answer the tap by
@@ -3847,6 +3841,7 @@ export class SubtitlePlayerController {
     private handleSubtitleUiFocusOut(event: FocusEvent): void {
         const previous = event.target instanceof Element ? event.target : null;
         if (!previous || !this.isInSubtitleUi(previous)) return;
+        this.railPointerFocus.handleFocusOut(previous);
         const next = event.relatedTarget instanceof Element ? event.relatedTarget : null;
         if (next && this.isInSubtitleUi(next)) return;
         // focusout fires during the focus transfer. Re-check in a microtask so
@@ -3862,11 +3857,12 @@ export class SubtitlePlayerController {
     private handleSubtitleUiFocusIn(event: FocusEvent): void {
         const target = event.target instanceof Element ? event.target : null;
         if (!target || !this.isInSubtitleUi(target)) return;
+        this.railPointerFocus.handleFocusIn(target);
         // Tapping the native caption line focuses it on the browsers that focus
         // buttons from a press, which would wake the rail through the back door
         // after the pointerdown and click gates have both declined. A keyboard
         // user who deliberately tabbed there still gets the reveal.
-        if (!this.lastControlsInputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
+        if (!this.railPointerFocus.inputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
         // Idle controls remain in the accessibility tree as a skip-link-style
         // gateway. Real DOM focus must paint the whole control cluster even on
         // touch browsers whose :focus-within invalidation can lag behind Tab.
@@ -4355,6 +4351,7 @@ export class SubtitlePlayerController {
     private hideControlsImmediately(): void {
         this.clearControlsIdleTimer();
         this.subtitleSurfaceWakeActive = false;
+        this.railPointerFocus.blurPointerFocus();
         if (!this.root || !this.shouldAutoIdleControls()) return;
         this.root.classList.add('jpdb-subtitle-controls-idle');
         // The grip stub is only kept as a stand-in for a native player that is
@@ -4409,7 +4406,8 @@ export class SubtitlePlayerController {
         this.clearControlsIdleTimer();
         const shouldExpireSubtitleSurfaceWake = this.subtitleSurfaceWakeActive
             && this.hasAutoIdleMode(this.options.getSettings());
-        if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake) return;
+        const shouldReleasePointerFocusedRail = this.railPointerFocus.shouldReleasePointerFocus();
+        if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake && !shouldReleasePointerFocusedRail) return;
         this.controlsIdleTimer = window.setTimeout(() => {
             this.controlsIdleTimer = undefined;
             this.subtitleSurfaceWakeActive = false;
@@ -4575,8 +4573,9 @@ export class SubtitlePlayerController {
     private handleKeydown(event: KeyboardEvent): void {
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
-        if (isEditableTarget(event.target)) return;
-        this.lastControlsInputWasKeyboard = true;
+        const editable = isEditableTarget(event.target);
+        this.railPointerFocus.handleKeydown(event.target, editable);
+        if (editable) return;
         const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
         const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
         if (previousSubtitle || nextSubtitle) {

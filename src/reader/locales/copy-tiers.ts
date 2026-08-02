@@ -69,7 +69,7 @@ const startsWithAny = (path: string, prefixes: readonly string[]): boolean =>
 // Ranked by cost of a bad translation, not by frequency: a mistranslated delete
 // confirmation costs a learner their deck, a mistranslated tooltip costs them a
 // second. The first matching rule wins, and the rule name is reported.
-const COPY_TIER_RULES: readonly CopyTierRule[] = Object.freeze([
+const COPY_TIER_RULES: readonly CopyTierRule[] = /* @__PURE__ */ Object.freeze([
     {
         rule: 'destructive-and-irreversible',
         category: 'destructive-actions',
@@ -247,7 +247,7 @@ const COPY_TIER_RULES: readonly CopyTierRule[] = Object.freeze([
  * tier no matter how its ID reads, so the default rule cannot quietly swallow a
  * confirmation dialog that happens to be named `pruneTail`.
  */
-export const HUMAN_TIER_ESCALATION_PHRASES: readonly string[] = Object.freeze([
+export const HUMAN_TIER_ESCALATION_PHRASES: readonly string[] = /* @__PURE__ */ Object.freeze([
     'cannot be undone',
     "can't be undone",
     'permanently',
@@ -303,6 +303,6 @@ export function copyTierOf(id: MessageId, sourceText?: string): CopyTierDecision
     return { id, tier: matched.tier, category: matched.category, rule: matched.rule };
 }
 
-export const COPY_TIER_RULE_NAMES: readonly string[] = Object.freeze(
-    COPY_TIER_RULES.map((rule) => rule.rule),
+export const COPY_TIER_RULE_NAMES: readonly string[] = /* @__PURE__ */ Object.freeze(
+    /* @__PURE__ */ COPY_TIER_RULES.map((rule) => rule.rule),
 );

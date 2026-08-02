@@ -12297,170 +12297,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   });
   const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
   new Set(MESSAGE_NAMESPACES);
-  function messageNamespaceOf(id) {
-    return id.slice(0, id.indexOf("."));
-  }
-  const containsAny = (path, needles) => {
-    const lowered = path.toLowerCase();
-    return needles.some((needle) => lowered.includes(needle));
-  };
-  const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path.startsWith(prefix));
-  const COPY_TIER_RULES = Object.freeze([
-    {
-      rule: "destructive-and-irreversible",
-      category: "destructive-actions",
-      tier: "human-critical",
-      matches: (_id, path) => containsAny(path, [
-        "delete",
-        "remove",
-        "reset",
-        "clear",
-        "overwrite",
-        "restore",
-        "import",
-        "unlink",
-        "revoke",
-        "discard",
-        "wipe",
-        "purge",
-        "forget",
-        "blacklist",
-        "suspend",
-        "conflict",
-        "replaceall"
-      ])
-    },
-    {
-      rule: "privacy-permissions-credentials-and-account",
-      category: "privacy-and-credentials",
-      tier: "human-critical",
-      matches: (_id, path) => containsAny(path, [
-        "privacy",
-        "permission",
-        "consent",
-        "apikey",
-        "apitoken",
-        "credential",
-        "password",
-        "secret",
-        "token",
-        "account",
-        "signin",
-        "signout",
-        "login",
-        "logout",
-        "sync",
-        "proxy",
-        "remote",
-        "cloud",
-        "upload",
-        "network",
-        "sentto"
-      ])
-    },
-    {
-      rule: "first-run-setup-and-language-choice",
-      category: "first-run-and-language-choice",
-      tier: "human-critical",
-      matches: (id, path) => messageNamespaceOf(id) === "setup" || containsAny(path, ["onboarding", "welcome", "firstrun"]) || containsAny(path, [
-        "interfacelanguage",
-        "interfacelocale",
-        "learnerlanguage",
-        "targetlanguage",
-        "outputlanguage",
-        "settingslanguage",
-        "languageprofile"
-      ])
-    },
-    {
-      rule: "degraded-empty-and-unavailable-states",
-      category: "degraded-and-empty-states",
-      tier: "human-critical",
-      matches: (id, path) => messageNamespaceOf(id) === "errors" || startsWithAny(path, ["no", "cannot", "could"]) || containsAny(path, [
-        "unavailable",
-        "unsupported",
-        "offline",
-        "empty",
-        "failed",
-        "failure",
-        "error",
-        "retry",
-        "missing",
-        "notfound",
-        "degraded",
-        "unlicensed",
-        "blocked",
-        "pending",
-        "expired",
-        "timeout"
-      ])
-    },
-    {
-      rule: "lookup-primary-actions",
-      category: "lookup-primary-actions",
-      tier: "human-critical",
-      matches: (_id, path) => startsWithAny(path, ["add", "save", "mine", "lookup", "play", "state", "open", "copy"]) || containsAny(path, [
-        "revealtranslation",
-        "showtranslation",
-        "hidetranslation",
-        "playaudio",
-        "opensource",
-        "opendictionary",
-        "markknown",
-        "marklearning",
-        "knownstate"
-      ])
-    },
-    {
-      rule: "study-loop-and-grading",
-      category: "study-loop",
-      tier: "human-critical",
-      matches: (_id, path) => startsWithAny(path, ["grade", "study", "review", "due", "session", "reveal"]) || containsAny(path, ["duetoday", "sessioncomplete", "nothingdue"])
-    },
-    {
-      rule: "accessible-names-and-announcements",
-      category: "accessibility-names",
-      tier: "human-critical",
-      matches: (id, path) => messageNamespaceOf(id) === "a11y" || /(?:arialabel|screenreader|announce)/i.test(path) || /(?:^|[a-z])(?:AriaLabel|Announcement)$/.test(path)
-    },
-    {
-      rule: "install-update-support-membership-and-claims",
-      category: "product-claims-and-commerce",
-      tier: "human-critical",
-      matches: (_id, path) => containsAny(path, [
-        "update",
-        "install",
-        "store",
-        "support",
-        "membership",
-        "patreon",
-        "payment",
-        "subscribe",
-        "donate",
-        "price",
-        "academyaccess",
-        "feedback"
-      ])
-    },
-    {
-      rule: "learner-facing-docs-entry-pages",
-      category: "critical-docs",
-      tier: "human-critical",
-      matches: (id) => messageNamespaceOf(id) === "docs" && /^docs\.(?:index|install|installation|getting-started|start|guide\.first)\b/.test(id)
-    },
-    {
-      // The documented default. Setting help, tooltips, status detail,
-      // reference tables, older changelog prose and deep technical docs may
-      // ship as labelled machine drafts while native review catches up.
-      rule: "default-supplementary-copy",
-      category: "supplementary",
-      tier: "machine-draft-ok",
-      matches: () => true
-    }
-  ]);
-  Object.freeze(
-    COPY_TIER_RULES.map((rule) => rule.rule)
-  );
   const JAPANESE_SETUP_MESSAGES = Object.freeze({
     setupTitle: "よむをあなたの言語で設定",
     learnerLanguageLabel: "あなたの言語",
@@ -59362,7 +59198,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.72".trim() ? "1.8.72".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.73".trim() ? "1.8.73".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -112332,6 +112168,116 @@ ${reading}`);
   function squaredDistance(first2, second) {
     return (first2.left - second.left) ** 2 + (first2.top - second.top) ** 2;
   }
+  class SubtitleRailPointerFocus {
+    constructor(getRoot, playerChromeHidden, scheduleIdle2) {
+      this.getRoot = getRoot;
+      this.playerChromeHidden = playerChromeHidden;
+      this.scheduleIdle = scheduleIdle2;
+    }
+    inputWasKeyboardValue = false;
+    pendingControl;
+    pointerFocusedControl;
+    gestureControl;
+    pressId;
+    completionTimer;
+    get inputWasKeyboard() {
+      return this.inputWasKeyboardValue;
+    }
+    bind(signal) {
+      document.addEventListener("pointerup", (event) => this.handlePointerEnd(event), { passive: true, capture: true, signal });
+      document.addEventListener("pointercancel", (event) => this.handlePointerEnd(event), { passive: true, capture: true, signal });
+      document.addEventListener("click", (event) => this.handleClick(event), { capture: true, signal });
+    }
+    notePointerInput() {
+      this.inputWasKeyboardValue = false;
+    }
+    handlePointerDown(event, target) {
+      const control = this.controlForTarget(target);
+      if (!control && this.hasPointerFocusedControl()) return;
+      this.clearCompletionTimer();
+      this.pendingControl = control;
+      this.gestureControl = control;
+      this.pressId = control ? event.pointerId : void 0;
+      const active = document.activeElement;
+      if (control && active === control) this.pointerFocusedControl = control;
+      else if (!this.hasPointerFocusedControl()) this.pointerFocusedControl = void 0;
+    }
+    handlePointerEnd(event) {
+      if (event.pointerId !== this.pressId) return;
+      this.pressId = void 0;
+      this.queueCompletion(event.type === "pointercancel" ? 0 : 750);
+    }
+    handleClick(event) {
+      const target = event.target instanceof Element ? event.target : null;
+      if (this.controlForTarget(target) !== this.gestureControl) return;
+      this.queueCompletion(50);
+    }
+    handleFocusIn(target) {
+      this.pointerFocusedControl = (target === this.pendingControl || target === this.gestureControl) && target instanceof HTMLElement ? target : void 0;
+      this.pendingControl = void 0;
+    }
+    handleFocusOut(target) {
+      if (target === this.pointerFocusedControl) this.pointerFocusedControl = void 0;
+    }
+    handleKeydown(target, editable) {
+      if (target instanceof Element && target.closest(".jpdb-subtitle-rail")) this.clearProvenance();
+      if (editable) return;
+      this.inputWasKeyboardValue = true;
+      this.clearProvenance();
+    }
+    hasPointerFocusedControl() {
+      const active = document.activeElement;
+      return Boolean(active === this.pointerFocusedControl && active instanceof HTMLElement && this.getRoot()?.contains(active) && active.closest(".jpdb-subtitle-rail"));
+    }
+    shouldReleasePointerFocus() {
+      return this.pressId === void 0 && this.hasPointerFocusedControl();
+    }
+    blurPointerFocus() {
+      if (this.pressId !== void 0 || !this.hasPointerFocusedControl()) return;
+      const active = document.activeElement;
+      this.pointerFocusedControl = void 0;
+      if (active instanceof HTMLElement) active.blur();
+    }
+    destroy() {
+      this.clearCompletionTimer();
+      this.pendingControl = void 0;
+      this.pointerFocusedControl = void 0;
+      this.gestureControl = void 0;
+      this.pressId = void 0;
+      this.inputWasKeyboardValue = false;
+    }
+    controlForTarget(target) {
+      const selector = "button, input, select, textarea, a[href], [tabindex]";
+      const direct = target?.closest(
+        ".jpdb-subtitle-rail button, .jpdb-subtitle-rail input, .jpdb-subtitle-rail select, .jpdb-subtitle-rail textarea, .jpdb-subtitle-rail a[href], .jpdb-subtitle-rail [tabindex]"
+      );
+      const labelled = target?.closest(".jpdb-subtitle-rail label")?.querySelector(selector);
+      return direct ?? labelled ?? void 0;
+    }
+    queueCompletion(delay2) {
+      const candidate = this.gestureControl;
+      if (!candidate) return;
+      this.clearCompletionTimer();
+      this.completionTimer = window.setTimeout(() => {
+        this.completionTimer = void 0;
+        if (this.gestureControl !== candidate) return;
+        this.gestureControl = void 0;
+        if (this.pendingControl === candidate) this.pendingControl = void 0;
+        if (!this.hasPointerFocusedControl()) return;
+        if (this.playerChromeHidden()) this.blurPointerFocus();
+        else this.scheduleIdle();
+      }, delay2);
+    }
+    clearCompletionTimer() {
+      window.clearTimeout(this.completionTimer);
+      this.completionTimer = void 0;
+    }
+    clearProvenance() {
+      this.pendingControl = void 0;
+      this.pointerFocusedControl = void 0;
+      this.gestureControl = void 0;
+    }
+  }
   const TRANSCRIPT_SCROLL_INTENT_WINDOW_MS = 1500;
   class TranscriptFollowState {
     intentUntil = 0;
@@ -113537,7 +113483,11 @@ ${reading}`);
     // that displaced line must briefly own control visibility even while the
     // host player's chrome remains autohidden (notably on touch devices).
     subtitleSurfaceWakeActive = false;
-    lastControlsInputWasKeyboard = false;
+    railPointerFocus = new SubtitleRailPointerFocus(
+      () => this.root,
+      () => this.videoPlayerChromeHidden(),
+      () => this.scheduleControlsIdle()
+    );
     transcriptHydrationSerial = 0;
     transcriptCacheWarmupSerial = 0;
     transcriptCacheWarmupSignature = "";
@@ -113717,6 +113667,7 @@ ${reading}`);
       document.addEventListener("focusin", (event) => this.handleSubtitleUiFocusIn(event), this.eventOptions({ capture: true }));
       document.addEventListener("focusout", (event) => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
+      this.railPointerFocus.bind(this.abortController?.signal);
       document.addEventListener("click", (event) => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
@@ -113842,6 +113793,7 @@ ${reading}`);
       this.clearTranscriptPanelAnimation();
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
+      this.railPointerFocus.destroy();
       this.clearVideoInsetForTranscriptPanel();
       this.subtitleStylePanelOpen = false;
       this.pinnedPlayer.reset();
@@ -114588,7 +114540,7 @@ ${reading}`);
     syncPlayerChromeIdleState() {
       if (!this.root) return;
       const chromeHidden = this.videoPlayerChromeHidden();
-      if (chromeHidden) this.blurFocusedRailControl();
+      if (chromeHidden) this.railPointerFocus.blurPointerFocus();
       if (!this.hasAutoIdleMode(this.options.getSettings())) {
         this.setControlsAway(false);
         this.lastPlayerChromeHidden = chromeHidden;
@@ -114624,13 +114576,6 @@ ${reading}`);
       const rootTop = this.root.getBoundingClientRect().top;
       const inset = Math.round(Math.min(Math.max(rowRect.bottom - rootTop + 8, 48), 160));
       this.root.style.setProperty("--jpdb-subtitle-native-top-inset", `${inset}px`);
-    }
-    blurFocusedRailControl() {
-      if (this.lastControlsInputWasKeyboard) return;
-      const active = document.activeElement;
-      if (active instanceof HTMLElement && this.root?.contains(active) && active.closest(".jpdb-subtitle-rail")) {
-        active.blur();
-      }
     }
     isVideoPlayerChromeSurface() {
       return Boolean(this.mobileYouTubeControlOverlay() || this.video?.closest("#movie_player, .html5-video-player"));
@@ -115821,10 +115766,12 @@ ${reading}`);
     // subtitle rectangle so it remains recoverable; the document-level hit
     // test does not add a pointer-catching layer over transparent player space.
     wakeControlsFromSubtitleSurface(event) {
-      if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
       const target = event.target instanceof Element ? event.target : null;
+      this.railPointerFocus.handlePointerDown(event, target);
+      if (target && this.isInSubtitleUi(target)) this.railPointerFocus.notePointerInput();
+      if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
       if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
-      this.lastControlsInputWasKeyboard = false;
+      this.railPointerFocus.notePointerInput();
       if (target && this.isNativeSubtitleBlurControl(target)) return;
       this.showControlsTemporarily({ independentOfPlayerChrome: true });
     }
@@ -115844,6 +115791,7 @@ ${reading}`);
     handleSubtitleUiFocusOut(event) {
       const previous = event.target instanceof Element ? event.target : null;
       if (!previous || !this.isInSubtitleUi(previous)) return;
+      this.railPointerFocus.handleFocusOut(previous);
       const next = event.relatedTarget instanceof Element ? event.relatedTarget : null;
       if (next && this.isInSubtitleUi(next)) return;
       const signal = this.abortController?.signal;
@@ -115855,7 +115803,8 @@ ${reading}`);
     handleSubtitleUiFocusIn(event) {
       const target = event.target instanceof Element ? event.target : null;
       if (!target || !this.isInSubtitleUi(target)) return;
-      if (!this.lastControlsInputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
+      this.railPointerFocus.handleFocusIn(target);
+      if (!this.railPointerFocus.inputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
       this.showControlsTemporarily();
     }
     isInSubtitleUi(element2) {
@@ -116250,6 +116199,7 @@ ${reading}`);
     hideControlsImmediately() {
       this.clearControlsIdleTimer();
       this.subtitleSurfaceWakeActive = false;
+      this.railPointerFocus.blurPointerFocus();
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
       const keepGripForNativeChrome = this.canObservePlayerChromeFade() && !this.videoPlayerChromeHidden();
@@ -116290,7 +116240,8 @@ ${reading}`);
     scheduleControlsIdle() {
       this.clearControlsIdleTimer();
       const shouldExpireSubtitleSurfaceWake = this.subtitleSurfaceWakeActive && this.hasAutoIdleMode(this.options.getSettings());
-      if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake) return;
+      const shouldReleasePointerFocusedRail = this.railPointerFocus.shouldReleasePointerFocus();
+      if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake && !shouldReleasePointerFocusedRail) return;
       this.controlsIdleTimer = window.setTimeout(() => {
         this.controlsIdleTimer = void 0;
         this.subtitleSurfaceWakeActive = false;
@@ -116396,8 +116347,9 @@ ${reading}`);
     handleKeydown(event) {
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
-      if (isEditableTarget(event.target)) return;
-      this.lastControlsInputWasKeyboard = true;
+      const editable = isEditableTarget(event.target);
+      this.railPointerFocus.handleKeydown(event.target, editable);
+      if (editable) return;
       const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
       const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
       if (previousSubtitle || nextSubtitle) {

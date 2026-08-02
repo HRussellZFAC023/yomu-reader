@@ -485,13 +485,26 @@ function controlsWakeDesktopWatchHtml({ playerResponse }) {
     video.pause = () => { if (playing) { playing = false; window.__wake.pauses++; wakeControls('pause'); video.dispatchEvent(new Event('pause')); } };
 
     // ---- emulated YouTube control auto-hide ----
-    window.__wake = { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0 };
+    window.__wake = { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0, focusBlocks: 0 };
     let hideTimer;
+    function focusedYomuPlayerControl() {
+      const active = document.activeElement;
+      return active instanceof Element && Boolean(active.closest('.jpdb-subtitle-player .jpdb-subtitle-rail'));
+    }
+    function hideControls() {
+      if (!playing) return;
+      if (focusedYomuPlayerControl()) {
+        window.__wake.focusBlocks++;
+        hideTimer = setTimeout(hideControls, 100);
+        return;
+      }
+      player.classList.add('ytp-autohide');
+    }
     function wakeControls(reason) {
       window.__wake.wakes.push({ reason, t: Math.round(performance.now()) });
       player.classList.remove('ytp-autohide');
       clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => { if (playing) player.classList.add('ytp-autohide'); }, 3000);
+      hideTimer = setTimeout(hideControls, 3000);
     }
     window.addEventListener('resize', (e) => {
       window.__wake.resizes++;
@@ -580,14 +593,27 @@ function controlsWakeMobileWatchHtml({ playerResponse }) {
     video.play = () => { if (!playing) { playing = true; window.__wake.plays++; wakeControls('play'); video.dispatchEvent(new Event('play')); video.dispatchEvent(new Event('playing')); } return Promise.resolve(); };
     video.pause = () => { if (playing) { playing = false; window.__wake.pauses++; wakeControls('pause'); video.dispatchEvent(new Event('pause')); } };
 
-    window.__wake = { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0 };
+    window.__wake = { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0, focusBlocks: 0 };
     let hideTimer;
+    function focusedYomuPlayerControl() {
+      const active = document.activeElement;
+      return active instanceof Element && Boolean(active.closest('.jpdb-subtitle-player .jpdb-subtitle-rail'));
+    }
+    function hideControls() {
+      if (!playing) return;
+      if (focusedYomuPlayerControl()) {
+        window.__wake.focusBlocks++;
+        hideTimer = setTimeout(hideControls, 100);
+        return;
+      }
+      overlay.classList.remove('fadein');
+    }
     function wakeControls(reason) {
       window.__wake.wakes.push({ reason, t: Math.round(performance.now()) });
       overlay.classList.add('fadein');
       clearTimeout(hideTimer);
       // m.youtube.com keeps controls while paused; only fades while playing
-      hideTimer = setTimeout(() => { if (playing) overlay.classList.remove('fadein'); }, 3000);
+      hideTimer = setTimeout(hideControls, 3000);
     }
     window.addEventListener('resize', (e) => {
       window.__wake.resizes++;
@@ -912,5 +938,4 @@ function subtitleE2eMobileWatchHtml({ playerResponse, fixtureVideoUrl }) {
 </body>
 </html>`;
 }
-
 

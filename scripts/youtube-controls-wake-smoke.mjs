@@ -7,7 +7,7 @@
 // shadow drawer, shadow+auto-pause.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, webkit } from 'playwright';
 import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
@@ -19,6 +19,14 @@ const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const WATCH_URL = 'https://www.youtube.com/watch?v=wake123';
 const HEADED = process.env.HEADED === '1';
+const ENGINE_NAME = process.env.YOMU_YOUTUBE_CONTROLS_WAKE_ENGINE?.trim()
+    || process.env.YOMU_E2E_BROWSER?.trim()
+    || 'chromium';
+const ENGINE = ENGINE_NAME === 'webkit' ? webkit : chromium;
+const FOCUS_ONLY = process.env.YOMU_YOUTUBE_CONTROLS_WAKE_FOCUS_ONLY === '1';
+if (!['chromium', 'webkit'].includes(ENGINE_NAME)) {
+    throw new Error(`Unknown YOMU_YOUTUBE_CONTROLS_WAKE_ENGINE: ${ENGINE_NAME}`);
+}
 
 const baseSettings = {
     onboardingSeen: true,
@@ -43,7 +51,7 @@ const youtubeTimedTextFixture = youtubeTimedText([
     { start: 8000, duration: 1500, text: '五番目の字幕行です。' },
 ]);
 
-async function runMode(browser, { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport }) {
+async function runMode(browser, { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport, focusRail }) {
     const ctx = await browser.newContext({
         viewport: viewport ?? { width: 1180, height: 820 },
         hasTouch: true,
@@ -132,7 +140,7 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
     // this reset, so any synthetic resize Yomu emits while going/being fullscreen
     // is counted (that is exactly the regression under test).
     await page.evaluate(() => {
-        Object.assign(window.__wake, { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0 });
+        Object.assign(window.__wake, { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0, focusBlocks: 0 });
     });
 
     if (inlineFullscreen) {
@@ -176,6 +184,27 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         }
     }
 
+    let focusedRailBeforeIdle = false;
+    if (focusRail) {
+        const railControl = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+        // Drive a trusted touch gesture. Automated WebKit does not retain
+        // button focus as reported iPad Safari did, so a target click hook
+        // models only the post-click sticky focus tail, after Yomu's normal
+        // click blur; every pointer/drag/click event remains browser-generated.
+        await railControl.evaluate(control => {
+            control.addEventListener('click', () => {
+                window.setTimeout(() => control.focus(), 0);
+            }, { once: true });
+        });
+        await railControl.tap({ force: true });
+        await page.waitForTimeout(50);
+        focusedRailBeforeIdle = await railControl.evaluate(control => document.activeElement === control);
+        const railDragging = await railControl.evaluate(control => (
+            control.closest('.jpdb-subtitle-rail')?.classList.contains('jpdb-subtitle-rail-dragging') ?? false
+        ));
+        assert(!railDragging, 'ipad-focused-rail: pointer gesture left rail drag active');
+    }
+
     await page.waitForTimeout(8000);
 
     if (screenshot) await page.screenshot({ path: screenshot }).catch(() => {});
@@ -193,13 +222,28 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         return document.querySelector('#movie_player').classList.contains('ytp-autohide');
     });
     const playing = await page.evaluate(() => !document.querySelector('video').paused);
+    const railFocusedAtEnd = await page.evaluate(() => Boolean(
+        document.activeElement?.closest?.('.jpdb-subtitle-player .jpdb-subtitle-rail'),
+    ));
     await ctx.close();
-    return { name, wake, controlsHidden, playing, pageErrors, yomuState, nudgeViewport: Boolean(nudgeViewport) };
+    return {
+        name,
+        wake,
+        controlsHidden,
+        playing,
+        pageErrors,
+        yomuState,
+        nudgeViewport: Boolean(nudgeViewport),
+        focusRail: Boolean(focusRail),
+        focusedRailBeforeIdle,
+        railFocusedAtEnd,
+    };
 }
 
-const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: !HEADED });
+const browser = await launchSmokeBrowser(ENGINE, ENGINE_NAME, { headless: !HEADED });
 
 const results = [];
+if (!FOCUS_ONLY) {
 results.push(await runMode(browser, { name: 'lines-drawer', settings: baseSettings }));
 results.push(await runMode(browser, { name: 'lines-drawer-ipad', settings: baseSettings, viewport: { width: 810, height: 1080 } }));
 results.push(await runMode(browser, { name: 'lines-drawer-phone', settings: baseSettings, viewport: { width: 390, height: 844 } }));
@@ -282,6 +326,17 @@ results.push(await runMode(browser, {
         await page.waitForTimeout(800);
     },
 }));
+}
+
+// Reproduce iPad Safari's sticky-focus path. The fixture refuses to hide its
+// native chrome while a Yomu rail control owns document focus, matching the
+// host dependency that made waiting for ytp-autohide before blurring circular.
+results.push(await runMode(browser, {
+    name: 'ipad-focused-rail',
+    settings: baseSettings,
+    viewport: { width: 1024, height: 768 },
+    focusRail: true,
+}));
 
 await browser.close();
 
@@ -299,6 +354,9 @@ for (const result of results) {
         pauses: wake.pauses,
         seeks: wake.seeks,
         visibleFraction: wake.samples ? +(wake.visibleSamples / wake.samples).toFixed(2) : 0,
+        focusBlocks: wake.focusBlocks,
+        focusedRailBeforeIdle: result.focusedRailBeforeIdle,
+        railFocusedAtEnd: result.railFocusedAtEnd,
         lastWakes: wake.wakes.slice(-6),
         pageErrors: result.pageErrors.slice(0, 3),
     };
@@ -317,6 +375,11 @@ for (const result of results) {
         // own during a genuinely idle window (all other modes).
         if (!result.nudgeViewport) {
             assert(wake.setSizes === 0, `${result.name}: no player.setSize calls during steady-state playback (got ${wake.setSizes})`);
+        }
+        if (result.focusRail) {
+            assert(result.focusedRailBeforeIdle, `${result.name}: rail control did not receive the modelled sticky focus`);
+            assert(wake.focusBlocks > 0, `${result.name}: fixture never observed focus blocking native auto-hide`);
+            assert(!result.railFocusedAtEnd, `${result.name}: Yomu did not release pointer-focused rail control`);
         }
         assert(result.controlsHidden, `${result.name}: native controls auto-hid during hands-off playback`);
     } catch (error) {

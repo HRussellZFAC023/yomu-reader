@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.72
+// @version 1.8.73
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.ec5dedecc117.user.js#sha256=7F3t7MEX9hsbl5e5qht5oz2E4NSS9sejH9org6ye2yc=
+// @require https://yomureader.com/greasyfork/yomu-runtime.2e692f54d841.user.js#sha256=LmkvVNhBrHd9Ahs7u6FivQ5zo6jLoDapyG7OGHGQCUA=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -31773,167 +31773,6 @@ defineLocaleCatalog("zh", "machine-draft", {
 });
 const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
 new Set(MESSAGE_NAMESPACES);
-function messageNamespaceOf(id) {
-  return id.slice(0, id.indexOf("."));
-}
-const containsAny = (path, needles) => {
-  const lowered = path.toLowerCase();
-  return needles.some((needle) => lowered.includes(needle));
-};
-const startsWithAny = (path, prefixes) => prefixes.some((prefix) => path.startsWith(prefix));
-const COPY_TIER_RULES = Object.freeze([
-  {
-  rule: "destructive-and-irreversible",
-  category: "destructive-actions",
-  tier: "human-critical",
-  matches: (_id, path) => containsAny(path, [
-    "delete",
-    "remove",
-    "reset",
-    "clear",
-    "overwrite",
-    "restore",
-    "import",
-    "unlink",
-    "revoke",
-    "discard",
-    "wipe",
-    "purge",
-    "forget",
-    "blacklist",
-    "suspend",
-    "conflict",
-    "replaceall"
-  ])
-  },
-  {
-  rule: "privacy-permissions-credentials-and-account",
-  category: "privacy-and-credentials",
-  tier: "human-critical",
-  matches: (_id, path) => containsAny(path, [
-    "privacy",
-    "permission",
-    "consent",
-    "apikey",
-    "apitoken",
-    "credential",
-    "password",
-    "secret",
-    "token",
-    "account",
-    "signin",
-    "signout",
-    "login",
-    "logout",
-    "sync",
-    "proxy",
-    "remote",
-    "cloud",
-    "upload",
-    "network",
-    "sentto"
-  ])
-  },
-  {
-  rule: "first-run-setup-and-language-choice",
-  category: "first-run-and-language-choice",
-  tier: "human-critical",
-  matches: (id, path) => messageNamespaceOf(id) === "setup" || containsAny(path, ["onboarding", "welcome", "firstrun"]) || containsAny(path, [
-    "interfacelanguage",
-    "interfacelocale",
-    "learnerlanguage",
-    "targetlanguage",
-    "outputlanguage",
-    "settingslanguage",
-    "languageprofile"
-  ])
-  },
-  {
-  rule: "degraded-empty-and-unavailable-states",
-  category: "degraded-and-empty-states",
-  tier: "human-critical",
-  matches: (id, path) => messageNamespaceOf(id) === "errors" || startsWithAny(path, ["no", "cannot", "could"]) || containsAny(path, [
-    "unavailable",
-    "unsupported",
-    "offline",
-    "empty",
-    "failed",
-    "failure",
-    "error",
-    "retry",
-    "missing",
-    "notfound",
-    "degraded",
-    "unlicensed",
-    "blocked",
-    "pending",
-    "expired",
-    "timeout"
-  ])
-  },
-  {
-  rule: "lookup-primary-actions",
-  category: "lookup-primary-actions",
-  tier: "human-critical",
-  matches: (_id, path) => startsWithAny(path, ["add", "save", "mine", "lookup", "play", "state", "open", "copy"]) || containsAny(path, [
-    "revealtranslation",
-    "showtranslation",
-    "hidetranslation",
-    "playaudio",
-    "opensource",
-    "opendictionary",
-    "markknown",
-    "marklearning",
-    "knownstate"
-  ])
-  },
-  {
-  rule: "study-loop-and-grading",
-  category: "study-loop",
-  tier: "human-critical",
-  matches: (_id, path) => startsWithAny(path, ["grade", "study", "review", "due", "session", "reveal"]) || containsAny(path, ["duetoday", "sessioncomplete", "nothingdue"])
-  },
-  {
-  rule: "accessible-names-and-announcements",
-  category: "accessibility-names",
-  tier: "human-critical",
-  matches: (id, path) => messageNamespaceOf(id) === "a11y" || /(?:arialabel|screenreader|announce)/i.test(path) || /(?:^|[a-z])(?:AriaLabel|Announcement)$/.test(path)
-  },
-  {
-  rule: "install-update-support-membership-and-claims",
-  category: "product-claims-and-commerce",
-  tier: "human-critical",
-  matches: (_id, path) => containsAny(path, [
-    "update",
-    "install",
-    "store",
-    "support",
-    "membership",
-    "patreon",
-    "payment",
-    "subscribe",
-    "donate",
-    "price",
-    "academyaccess",
-    "feedback"
-  ])
-  },
-  {
-  rule: "learner-facing-docs-entry-pages",
-  category: "critical-docs",
-  tier: "human-critical",
-  matches: (id) => messageNamespaceOf(id) === "docs" && /^docs\.(?:index|install|installation|getting-started|start|guide\.first)\b/.test(id)
-  },
-  {
-  rule: "default-supplementary-copy",
-  category: "supplementary",
-  tier: "machine-draft-ok",
-  matches: () => true
-  }
-]);
-Object.freeze(
-  COPY_TIER_RULES.map((rule) => rule.rule)
-);
 const locales = [
   {
   tag: "en",
@@ -33482,8 +33321,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.72"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.72"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.73"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.73"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33626,7 +33465,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.72"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.73"}`;
   } catch {
   return null;
   }

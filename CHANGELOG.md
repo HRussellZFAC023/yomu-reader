@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.73] - 2026-08-02
+
+### Fixed
+
+- On iPad YouTube, touching Yomu's subtitle controls no longer leaves YouTube's own controls permanently visible. Yomu releases only focus created by that completed touch—preserving keyboard, assistive-technology, programmatic, style-panel, and long-press interactions—so YouTube's normal auto-hide can finish.
+
 ## [1.8.72] - 2026-08-02
 
 ### Fixed

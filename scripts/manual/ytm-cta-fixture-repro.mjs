@@ -2,12 +2,23 @@
 // labels. Ellipsis-constrained native chrome must stay page-owned while real
 // page content remains annotated. Runs Chromium + WebKit.
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { chromium, webkit } from 'playwright';
-import { assert, installUserscriptFixtureBridge, mockJpdbApiRequest } from '../lib/smoke-harness.mjs';
+import {
+    assert,
+    assertBuiltArtifacts,
+    installUserscriptFixtureBridge,
+    mockJpdbApiRequest,
+} from '../lib/smoke-harness.mjs';
 
-const USERSCRIPT = readFileSync(new URL('../../dist/yomu.user.js', import.meta.url), 'utf8');
-const RUNTIME = readFileSync(new URL('../../dist/greasyfork/yomu-runtime.user.js', import.meta.url), 'utf8');
-const CSS = readFileSync(new URL('../../dist/yomu.css', import.meta.url), 'utf8');
+const ROOT = resolve(import.meta.dirname, '../..');
+const SCRIPT_PATH = resolve(ROOT, 'dist/yomu.user.js');
+const RUNTIME_PATH = resolve(ROOT, process.env.YOMU_YTM_CTA_RUNTIME ?? 'dist/greasyfork/yomu-runtime.user.js');
+const CSS_PATH = resolve(ROOT, 'dist/yomu.css');
+assertBuiltArtifacts([SCRIPT_PATH, RUNTIME_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+const USERSCRIPT = readFileSync(SCRIPT_PATH, 'utf8');
+const RUNTIME = readFileSync(RUNTIME_PATH, 'utf8');
+const CSS = readFileSync(CSS_PATH, 'utf8');
 
 const VOCAB = [
     ['共有', '共有', 'きょうゆう', 'share', 'n', 900, 'new', 'heiban'],
