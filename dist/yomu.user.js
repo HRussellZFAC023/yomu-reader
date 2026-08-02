@@ -35123,7 +35123,8 @@ function renderedWordSubwordRange(word, candidate) {
   return isProperRenderedWordSubword(token, subword) ? subword : null;
 }
 function renderedWordNeedsSubwordRecovery(word, surface) {
-  if (word.dataset.cardSource === "fallback") return true;
+  const source = word.dataset.cardSource;
+  if (!source || source === "fallback") return true;
   const normalizedSurface = normalizedLookupText(surface);
   if (!normalizedSurface) return false;
   return [word.dataset.expression, word.dataset.reading].some((value) => {

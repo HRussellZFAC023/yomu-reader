@@ -386,9 +386,14 @@ function renderedWordNeedsSubwordRecovery(word: HTMLElement, surface: string): b
     // ICU segmentation is useful for recovering from an over-broad rendered
     // card, but it is not dictionary evidence. A trusted compound such as
     // 東京都立大学 must keep its whole-card lookup even if Segmenter can
-    // divide it. Narrow only fallback cards or a card whose own expression /
-    // reading is visibly a strict component of the rendered surface.
-    if (word.dataset.cardSource === 'fallback') return true;
+    // divide it. Narrow only unstamped/fallback cards or a card whose own
+    // expression / reading is visibly a strict component of the surface.
+    const source = word.dataset.cardSource;
+    // An unstamped OCR/legacy wrapper has no authoritative dictionary identity,
+    // even when its provisional expression merely repeats the whole surface.
+    // Resolve that surface from the exact glyph just like an explicit fallback;
+    // source-backed exact-identity compounds keep their whole-card lookup.
+    if (!source || source === 'fallback') return true;
     const normalizedSurface = normalizedLookupText(surface);
     if (!normalizedSurface) return false;
     return [word.dataset.expression, word.dataset.reading].some(value => {

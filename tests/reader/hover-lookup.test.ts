@@ -1864,35 +1864,30 @@ describe('hover lookup', () => {
         }
     });
 
-    it('selects やさしい and full ことば independently inside an overbroad OCR token', () => {
+    it('selects each exact word inside an unstamped overbroad OCR token', () => {
         const app = new ReaderApp();
         const layer = document.createElement('div');
         layer.className = 'jpdb-ocr-layer';
         layer.dataset.jpdbReaderRoot = 'true';
         const line = document.createElement('div');
-        line.className = 'jpdb-ocr-line';
+        line.className = 'jpdb-ocr-line jpdb-ocr-line-visible';
+        line.dataset.ocrText = 'やさしいことばニュース';
+        const lineText = document.createElement('span');
+        lineText.className = 'jpdb-ocr-line-text';
         const broadWord = document.createElement('span');
         broadWord.className = 'jpdb-reader-word';
         broadWord.dataset.vid = '1';
         broadWord.dataset.sid = '2';
         broadWord.dataset.sentence = NHK_ISSUE_48_SENTENCE;
         broadWord.dataset.tokenStart = '4';
-        broadWord.dataset.tokenEnd = '11';
-        broadWord.dataset.cardSource = 'jiten';
-        broadWord.dataset.expression = 'やさしい';
-        broadWord.dataset.reading = 'やさしい';
-        broadWord.textContent = 'やさしいことば';
-        broadWord.getBoundingClientRect = () => new DOMRect(20, 20, 140, 24);
-        const news = document.createElement('span');
-        news.className = 'jpdb-reader-word';
-        news.dataset.vid = '3';
-        news.dataset.sid = '4';
-        news.dataset.sentence = NHK_ISSUE_48_SENTENCE;
-        news.dataset.tokenStart = '11';
-        news.dataset.tokenEnd = '15';
-        news.textContent = 'ニュース';
-        news.getBoundingClientRect = () => new DOMRect(162, 20, 80, 24);
-        line.append(broadWord, news);
+        broadWord.dataset.tokenEnd = '15';
+        broadWord.dataset.expression = 'やさしいことばニュース';
+        broadWord.dataset.reading = 'やさしいことばニュース';
+        broadWord.dataset.surface = 'やさしいことばニュース';
+        broadWord.textContent = 'やさしいことばニュース';
+        broadWord.getBoundingClientRect = () => new DOMRect(20, 20, 220, 24);
+        lineText.append(broadWord);
+        line.append(lineText);
         layer.append(line);
         document.body.append(layer);
         const internals = app as unknown as HoverLookupInternals;
@@ -1905,45 +1900,44 @@ describe('hover lookup', () => {
         };
         internals.scheduleHoverLookup = scheduleHoverLookup;
         internals.schedulePointerTextLookup = schedulePointerTextLookup;
-        const restorePoint = stubElementFromPoint(line);
-        const restoreStack = stubElementsFromPoint([line]);
+        const restorePoint = stubElementFromPoint(broadWord);
+        const restoreStack = stubElementsFromPoint([broadWord, line]);
         const broadText = broadWord.firstChild as Text;
         let restoreCaret = (): void => undefined;
 
         try {
-            restoreCaret = stubCaretPositionFromPoint(broadText, 1);
-            internals.handleHoverPointer(hoverPointerEvent(line, 'mouse', 'pointermove', {}, null, { x: 40, y: 32 }));
-            expect(schedulePointerTextLookup).toHaveBeenLastCalledWith(
-                expect.objectContaining({
-                    text: NHK_ISSUE_48_SENTENCE,
-                    offset: 5,
-                    start: 4,
-                    end: 8,
-                    anchor: broadWord,
-                }),
-                expect.any(Event),
-                expect.any(Object),
-            );
-
-            restoreCaret();
-            restoreCaret = stubCaretPositionFromPoint(broadText, 6);
-            internals.handleHoverPointer(hoverPointerEvent(line, 'mouse', 'pointermove', {}, null, { x: 150, y: 32 }));
-            expect(schedulePointerTextLookup).toHaveBeenLastCalledWith(
-                expect.objectContaining({
-                    text: NHK_ISSUE_48_SENTENCE,
-                    offset: 10,
-                    start: 8,
-                    end: 11,
-                    anchor: broadWord,
-                }),
-                expect.any(Event),
-                expect.any(Object),
-            );
-
-            restoreCaret();
-            restoreCaret = stubCaretPositionFromPoint(news.firstChild as Text, 2);
-            internals.handleHoverPointer(hoverPointerEvent(line, 'mouse', 'pointermove', {}, null, { x: 200, y: 32 }));
-            expect(scheduleHoverLookup).toHaveBeenLastCalledWith(news, expect.any(Event));
+            expect(line.querySelectorAll('.jpdb-reader-word')).toHaveLength(1);
+            expect(broadWord.dataset.cardSource).toBeUndefined();
+            for (const target of [
+                { characterOffset: 1, start: 4, end: 8 },
+                { characterOffset: 5, start: 8, end: 11 },
+                { characterOffset: 6, start: 8, end: 11 },
+                { characterOffset: 9, start: 11, end: 15 },
+            ]) {
+                restoreCaret();
+                restoreCaret = stubCaretPositionFromPoint(broadText, target.characterOffset);
+                internals.handleHoverPointer(hoverPointerEvent(
+                    broadWord,
+                    'mouse',
+                    'pointermove',
+                    {},
+                    null,
+                    { x: 40 + target.characterOffset * 18, y: 32 },
+                ));
+                expect(schedulePointerTextLookup).toHaveBeenLastCalledWith(
+                    expect.objectContaining({
+                        text: NHK_ISSUE_48_SENTENCE,
+                        offset: 4 + target.characterOffset,
+                        start: target.start,
+                        end: target.end,
+                        anchor: broadWord,
+                    }),
+                    expect.any(Event),
+                    expect.any(Object),
+                );
+            }
+            expect(schedulePointerTextLookup).toHaveBeenCalledTimes(4);
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
         } finally {
             restoreCaret();
             restoreStack();
