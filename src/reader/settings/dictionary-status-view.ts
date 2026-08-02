@@ -32,24 +32,13 @@ export function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatu
 
 export function dictionaryStatusSettingsForRender(
     form: HTMLFormElement,
-    elements: DictionaryStatusElements,
     settings: ReaderSettings,
 ): ReaderSettings {
-    if (!elements.lookupPills?.isConnected) return settings;
     const live = readFormSettings(new FormData(form), settings);
-    const currentNames = new Set(settings.dictionaryPreferences.map(preference => preference.name));
-    const livePreferences = live.dictionaryPreferences.filter(preference => currentNames.has(preference.name));
-    const liveNames = new Set(livePreferences.map(preference => preference.name));
-    return {
-        ...live,
-        // The form owns unsaved order, toggles, aliases, and translation
-        // choices. The current settings own installed membership, so append a
-        // just-imported row and omit one that a concurrent delete removed.
-        dictionaryPreferences: [
-            ...livePreferences,
-            ...settings.dictionaryPreferences.filter(preference => !liveNames.has(preference.name)),
-        ],
-    };
+    const missing = new Map(settings.dictionaryPreferences.map(preference => [preference.name, preference]));
+    live.dictionaryPreferences = live.dictionaryPreferences.filter(preference => missing.delete(preference.name));
+    live.dictionaryPreferences.push(...missing.values());
+    return live;
 }
 
 export function renderDictionaryStatusElements(

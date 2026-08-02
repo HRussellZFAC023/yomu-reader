@@ -2135,13 +2135,16 @@ describe('settings dialog dictionary imports', () => {
     });
 
     it('does not let an older summary re-add a dictionary while it is being deleted', async () => {
-        const staleSummary = deferred<{
+        type SummaryValue = {
             dictionaries: Array<{ title: string; alias: string; enabled: boolean; priority: number; type: 'terms' }>;
             terms: number;
             kanji: number;
             termMeta: number;
             kanjiMeta: number;
-        }>();
+        };
+        const staleBeforeDelete = deferred<SummaryValue>();
+        const staleDuringDelete = deferred<SummaryValue>();
+        const deletion = deferred<void>();
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             dictionaryPreferences: [{
@@ -2152,26 +2155,33 @@ describe('settings dialog dictionary imports', () => {
                 type: 'terms',
             }],
         };
-        const deleteDictionary = vi.fn().mockResolvedValue(undefined);
+        const deleteDictionary = vi.fn(() => deletion.promise);
+        const summary = vi.fn()
+            .mockImplementationOnce(() => staleBeforeDelete.promise)
+            .mockImplementationOnce(() => staleDuringDelete.promise);
         const dialog = createSettingsDialog({
             getSettings: () => settings,
             setSettings: (next: ReaderSettings) => { settings = next; },
             dictionaries: {
-                summary: vi.fn(() => staleSummary.promise),
+                summary,
                 deleteDictionary,
             },
         });
         vi.spyOn(window, 'confirm').mockReturnValue(true);
 
-        const staleRefresh = dialog.refreshDictionaryStatus(dialog.form);
+        const refreshBeforeDelete = dialog.refreshDictionaryStatus(dialog.form);
         await waitForCondition(() => dialog.form.querySelector('[data-dictionary-name="Deleted dictionary"]') !== null);
         dialog.form.querySelector<HTMLButtonElement>(
             '[data-action="delete-yomitan-dictionary"][data-dictionary-name="Deleted dictionary"]',
         )!.click();
-        await waitForCondition(() => deleteDictionary.mock.calls.length === 1
-            && !settings.dictionaryPreferences.some(preference => preference.name === 'Deleted dictionary'));
+        await waitForCondition(() => deleteDictionary.mock.calls.length === 1);
+        const refreshDuringDelete = dialog.refreshDictionaryStatus(dialog.form);
+        await waitForCondition(() => summary.mock.calls.length === 2);
+        deletion.resolve();
+        await waitForCondition(() => !settings.dictionaryPreferences
+            .some(preference => preference.name === 'Deleted dictionary'));
 
-        staleSummary.resolve({
+        const staleValue: SummaryValue = {
             dictionaries: [{
                 title: 'Deleted dictionary',
                 alias: 'Deleted dictionary',
@@ -2183,8 +2193,10 @@ describe('settings dialog dictionary imports', () => {
             kanji: 0,
             termMeta: 0,
             kanjiMeta: 0,
-        });
-        await staleRefresh;
+        };
+        staleBeforeDelete.resolve(staleValue);
+        staleDuringDelete.resolve(staleValue);
+        await Promise.all([refreshBeforeDelete, refreshDuringDelete]);
 
         expect(settings.dictionaryPreferences.map(preference => preference.name))
             .not.toContain('Deleted dictionary');

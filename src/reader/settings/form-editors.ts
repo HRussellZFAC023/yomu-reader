@@ -508,9 +508,8 @@ function updateDictionaryLookupLinks(links: DictionaryLookupLink[], action: stri
 }
 
 function addDictionaryLookupLink(links: DictionaryLookupLink[], targetLanguage: string): void {
-    const builtInIds = new Set(defaultDictionaryLookupLinks('local', targetLanguage).map(link => link.id));
-    const additionalCount = links.filter(link => !builtInIds.has(link.id)).length;
-    if (additionalCount >= MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS) return;
+    if (links.length >= defaultDictionaryLookupLinks('local', targetLanguage).length
+        + MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS) return;
     links.push({
         id: `custom-${Date.now().toString(36)}`,
         label: '',

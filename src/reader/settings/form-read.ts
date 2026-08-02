@@ -953,7 +953,6 @@ export function readDictionaryLookupLinks(data: FormData): DictionaryLookupLink[
     return normalizeDictionaryLookupLinks(readSubmittedDictionaryLookupLinks(data), false, readTargetLanguage(data, 'ja'));
 }
 
-/** Read the live rows before target-specific built-ins are normalized. */
 export function readSubmittedDictionaryLookupLinks(data: FormData): DictionaryLookupLink[] {
     const get = (key: string) => String(data.get(key) ?? '');
     const count = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get('dictionaryLookupLinkCount')) || 0));

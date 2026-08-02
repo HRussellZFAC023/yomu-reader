@@ -1537,14 +1537,13 @@ export class SettingsDialogController {
         if (!this.shouldApplyDictionaryStatus(form, requestId)) return;
         await this.dependencies.refreshDictionaryStyles();
         if (!this.shouldApplyDictionaryStatus(form, requestId)) return;
-        const renderSettings = dictionaryStatusSettingsForRender(form, elements, this.settings);
-        const targetLanguage = selectedTargetLanguage(form, this.settings);
+        const renderSettings = dictionaryStatusSettingsForRender(form, this.settings);
         renderDictionaryStatusElements(
             elements,
             summary,
             renderSettings,
             selectedLearnerLanguage(form, this.settings),
-            targetLanguage,
+            selectedTargetLanguage(form, this.settings),
             dictionaryStatusText(summary, renderSettings.interfaceLanguage),
         );
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
@@ -1578,7 +1577,6 @@ export class SettingsDialogController {
     }
 
     private async enqueueDictionaryOperation<T>(form: HTMLFormElement, task: () => Promise<T>): Promise<T> {
-        this.dictionaryStatusRefreshId++;
         this.pendingDictionaryOperations++;
         this.syncDictionaryOperationState(form);
         const operation = this.dictionaryOperationQueue.then(task);
@@ -2453,6 +2451,7 @@ export class SettingsDialogController {
                     // GM archive is deliberately untouched, so enabling dictionaries
                     // later can replicate them back without another import.
                     await this.dependencies.dictionaries.deleteDatabase();
+                    this.dictionaryStatusRefreshId++;
                     await this.dependencies.refreshDictionaryStyles();
                     const dictionaryStatus = form.querySelector<HTMLElement>('[data-dictionary-status]');
                     if (dictionaryStatus) dictionaryStatus.textContent = uiText(language, 'noLocalDictionariesImported');
@@ -2495,10 +2494,10 @@ export class SettingsDialogController {
         const dictionary = control?.dataset.dictionaryName;
         if (!dictionary) throw new Error('Dictionary not found.');
         if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoveConfirm'), { dictionary }))) return;
-        this.dictionaryStatusRefreshId++;
         control?.setAttribute('disabled', 'true');
         setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoving'), { dictionary }));
         await this.dependencies.dictionaries.deleteDictionary(dictionary);
+        this.dictionaryStatusRefreshId++;
         await clearNewTabOfflineCache().catch(() => undefined);
         this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
         await saveSettings(this.settings);
@@ -2585,6 +2584,7 @@ export class SettingsDialogController {
     }
 
     private async persistDictionaryImport(summary: ImportSummary): Promise<void> {
+        this.dictionaryStatusRefreshId++;
         const dictionaryPreferences = mergeDictionaryPreferences(
             this.settings.dictionaryPreferences,
             summary.dictionaries,
@@ -2677,7 +2677,6 @@ export class SettingsDialogController {
     private async importReaderSettingsFromFile(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
         const file = await pickFile(form, 'settings');
         if (!file) return;
-        this.dictionaryStatusRefreshId++;
         const previousSettings = this.settings;
         const json = JSON.parse(await file.text()) as unknown;
         try {
@@ -2688,6 +2687,7 @@ export class SettingsDialogController {
             const restoredValues = await importStoredValues(getReaderStorageExport(json));
             const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
             await this.mergeImportedDictionaryPreferences();
+            this.dictionaryStatusRefreshId++;
             await this.saveCurrentSettings(previousSettings);
             setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
         } catch (error) {

@@ -150,9 +150,6 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     COPY_LOOKUP_LINK,
 ];
 
-// The shipped Japanese row already contains 16 built-ins. Imported frequency
-// dictionaries and learner-created links are additional rows, not replacements
-// for those built-ins, so reserve a separate capacity for them.
 export const MAX_DICTIONARY_LOOKUP_LINKS = DEFAULT_DICTIONARY_LOOKUP_LINKS.length
     + MAX_ADDITIONAL_DICTIONARY_LOOKUP_LINKS;
 
