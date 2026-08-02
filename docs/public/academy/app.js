@@ -42907,7 +42907,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const present = new Set(targetLookupSites(targetLanguage2).flatMap((site) => site.components));
     return LOOKUP_LINK_COMPONENTS.filter((component) => !present.has(component));
   }
-  const MAX_DICTIONARY_LOOKUP_LINKS = 16;
+  const MAX_EXTRA_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
     label: "JPDB",
@@ -43027,6 +43027,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     UCHISEN_LOOKUP_LINK,
     COPY_LOOKUP_LINK
   ];
+  const MAX_LOOKUP_LINK_ROWS = DEFAULT_DICTIONARY_LOOKUP_LINKS.length + MAX_EXTRA_LOOKUP_LINKS;
   const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
     { ...JPDB_LOOKUP_LINK, enabled: false },
     { ...JISHO_LOOKUP_LINK, enabled: true },
@@ -43212,18 +43213,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) return builtIns;
     const normalized2 = [];
     const seen = /* @__PURE__ */ new Set();
+    const defaults = new Set(builtIns.map((link) => link.id));
+    let extras = 0;
     const add = (link) => {
       const id2 = link.id.trim();
-      if (!id2 || seen.has(id2) || normalized2.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
+      if (!id2 || seen.has(id2)) return;
+      const known = defaults.has(id2);
+      if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
       seen.add(id2);
       normalized2.push({ ...link, id: id2 });
+      if (!known) extras++;
     };
     for (const item2 of value) {
       const link = normalizeDictionaryLookupLink(item2);
       if (link && !isRemovedBuiltInLookupLink(link)) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
-    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized2.slice(0, MAX_DICTIONARY_LOOKUP_LINKS)));
+    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized2));
   }
   function isRemovedBuiltInLookupLink(link) {
     return isRemovedBuiltInLookupLinkId(link.id);
@@ -364446,11 +364452,11 @@ ${options.version}`;
     return !source2.enabled && !source2.url && !source2.voice && !builtInTypes.has(source2.type);
   }
   function readDictionaryLookupLinks(data) {
-    return normalizeDictionaryLookupLinks(submittedDictionaryLookupLinkRows(data), false, readTargetLanguage(data, "ja"));
+    return normalizeDictionaryLookupLinks(lookupLinkRows(data), false, readTargetLanguage(data, "ja"));
   }
-  function submittedDictionaryLookupLinkRows(data) {
+  function lookupLinkRows(data) {
     const get = (key2) => String(data.get(key2) ?? "");
-    const count2 = Math.max(0, Math.min(MAX_DICTIONARY_LOOKUP_LINKS, Number(get("dictionaryLookupLinkCount")) || 0));
+    const count2 = Math.max(0, Math.min(MAX_LOOKUP_LINK_ROWS, Number(get("dictionaryLookupLinkCount")) || 0));
     const links = [];
     for (let index = 0; index < count2; index++) {
       const link = readDictionaryLookupLinkRow(data, get, index);
@@ -364462,7 +364468,7 @@ ${options.version}`;
     const active = activeLanguageProfile(current.languageProfiles, current.activeLanguageProfileId);
     const previous = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
     const next = readTargetLanguage(data, previous);
-    return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(submittedDictionaryLookupLinkRows(data), next);
+    return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
   }
   function readDictionaryLookupLinkRow(data, get, index) {
     const label = get(`dictionaryLookupLinks.${index}.label`).trim();
@@ -365135,7 +365141,7 @@ ${options.version}`;
     if (index >= 0 && sources.length > 1) sources.splice(index, 1);
   }
   function renderDictionaryLookupLinkEditor(links, localFrequencyPreferences = [], targetLanguage2 = "ja") {
-    const rows = lookupPillEditorRows(links, localFrequencyPreferences);
+    const rows = lookupPillEditorRows(links, localFrequencyPreferences, targetLanguage2);
     return `
         <div class="jpdb-reader-lookup-link-head jpdb-reader-order-head">
             <span>On</span>
@@ -365204,8 +365210,8 @@ ${options.version}`;
     }).join("")}
     `;
   }
-  function lookupPillEditorRows(links, localFrequencyPreferences) {
-    const normalized2 = normalizeDictionaryLookupLinks(links);
+  function lookupPillEditorRows(links, localFrequencyPreferences, target2) {
+    const normalized2 = normalizeDictionaryLookupLinks(links, false, target2);
     const byId2 = new Map(normalized2.map((link) => [link.id, link]));
     for (const preference of localFrequencyPreferences) {
       const id2 = localFrequencyLookupPillId$1(preference.name);
@@ -365220,7 +365226,7 @@ ${options.version}`;
         });
       }
     }
-    return Array.from(byId2.values()).sort(compareLookupPillEditorRows).slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+    return normalizeDictionaryLookupLinks(Array.from(byId2.values()), false, target2).sort(compareLookupPillEditorRows);
   }
   function compareLookupPillEditorRows(a, b) {
     const priority = (a.priority ?? Number.MAX_SAFE_INTEGER) - (b.priority ?? Number.MAX_SAFE_INTEGER);
@@ -365245,18 +365251,19 @@ ${options.version}`;
     }
     const data = new FormData(form2);
     const links = readDictionaryLookupLinks(data);
-    updateDictionaryLookupLinks(links, action2, index);
-    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], formTargetLanguage(data)));
+    const target2 = formTargetLanguage(data);
+    updateDictionaryLookupLinks(links, action2, index, target2);
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(links, [], target2));
   }
   function formTargetLanguage(data) {
     return String(data.get("targetLanguage") ?? "") || "ja";
   }
-  function updateDictionaryLookupLinks(links, action2, index) {
-    if (action2 === "lookup-link-add") addDictionaryLookupLink(links);
+  function updateDictionaryLookupLinks(links, action2, index, target2) {
+    if (action2 === "lookup-link-add") addDictionaryLookupLink(links, target2);
     if (action2 === "lookup-link-remove") removeDictionaryLookupLink(links, index);
   }
-  function addDictionaryLookupLink(links) {
-    if (links.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
+  function addDictionaryLookupLink(links, target2) {
+    if (links.length >= defaultDictionaryLookupLinks("local", target2).length + MAX_EXTRA_LOOKUP_LINKS) return;
     links.push({
       id: `custom-${Date.now().toString(36)}`,
       label: "",
@@ -369003,11 +369010,11 @@ ${options.version}`;
       showAlias: true
     });
   }
-  function renderLookupPillsEditor(settings, installed = installedDictionariesFromPreferences(settings.dictionaryPreferences)) {
+  function renderLookupPillsEditor(settings, installed = installedDictionariesFromPreferences(settings.dictionaryPreferences), targetLanguage2 = activeTargetLanguageId(settings)) {
     return renderDictionaryLookupLinkEditor(
       settings.dictionaryLookupLinks,
       installedFrequencyDictionaryPreferences(settings, installed),
-      activeTargetLanguageId(settings)
+      targetLanguage2
     );
   }
   function installedFrequencyDictionaryPreferences(settings, installed) {
@@ -370084,6 +370091,49 @@ ${options.version}`;
       return false;
     }
   }
+  function dictionaryStatusElements(form2) {
+    return {
+      status: form2.querySelector("[data-dictionary-status]"),
+      priorities: form2.querySelector("[data-definition-source-editor]"),
+      lookupPills: form2.querySelector(".jpdb-reader-lookup-links"),
+      recommended: form2.querySelector("[data-recommended-dictionaries]")
+    };
+  }
+  function liveDictionarySettings(form2, settings) {
+    const live = readFormSettings(new FormData(form2), settings);
+    const missing2 = new Map(settings.dictionaryPreferences.map((item2) => [item2.name, item2]));
+    live.dictionaryPreferences = live.dictionaryPreferences.filter((item2) => missing2.delete(item2.name));
+    live.dictionaryPreferences.push(...missing2.values());
+    return live;
+  }
+  function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2, targetLanguage2) {
+    if (elements.status) {
+      elements.status.textContent = summary.dictionaries.length ? formatUiText(settings.interfaceLanguage, "dictionaryStatusSummary", {
+        dictionaries: summary.dictionaries.length.toLocaleString(),
+        terms: summary.terms.toLocaleString(),
+        kanji: summary.kanji.toLocaleString(),
+        metadata: summary.termMeta.toLocaleString()
+      }) : uiText(settings.interfaceLanguage, "noLocalDictionariesImported");
+    }
+    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
+    if (elements.lookupPills) {
+      setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage2));
+    }
+    if (elements.recommended) {
+      setInnerHtml(
+        elements.recommended,
+        renderRecommendedDictionaries(summary.dictionaries, learnerLanguage2, true, targetLanguage2)
+      );
+    }
+  }
+  function selectedLearnerLanguage(form2, settings) {
+    const value = form2.querySelector('select[name="learnerLanguage"]')?.value;
+    return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
+  }
+  function selectedTargetLanguage(form2, settings) {
+    const value = form2.querySelector('select[name="targetLanguage"]')?.value;
+    return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
+  }
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
   }
@@ -370271,44 +370321,6 @@ ${options.version}`;
   function shouldReenableSettingsAction(action2) {
     return action2 === "download-recommended-dictionary" || action2 === "delete-yomitan-dictionary";
   }
-  function dictionaryStatusElements(form2) {
-    return {
-      status: form2.querySelector("[data-dictionary-status]"),
-      priorities: form2.querySelector("[data-definition-source-editor]"),
-      lookupPills: form2.querySelector(".jpdb-reader-lookup-links"),
-      recommended: form2.querySelector("[data-recommended-dictionaries]")
-    };
-  }
-  function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2, targetLanguage2) {
-    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
-    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.lookupPills) setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries));
-    if (elements.recommended) {
-      setInnerHtml(
-        elements.recommended,
-        renderRecommendedDictionaries(summary.dictionaries, learnerLanguage2, true, targetLanguage2)
-      );
-    }
-  }
-  function selectedLearnerLanguage(form2, settings) {
-    const value = form2.querySelector('select[name="learnerLanguage"]')?.value;
-    return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
-  }
-  function selectedTargetLanguage(form2, settings) {
-    const value = form2.querySelector('select[name="targetLanguage"]')?.value;
-    return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
-  }
-  function dictionaryStatusText(summary, language2) {
-    if (summary.dictionaries.length) {
-      return formatUiTemplate(uiText(language2, "dictionaryStatusSummary"), {
-        dictionaries: summary.dictionaries.length.toLocaleString(),
-        terms: summary.terms.toLocaleString(),
-        kanji: summary.kanji.toLocaleString(),
-        metadata: summary.termMeta.toLocaleString()
-      });
-    }
-    return uiText(language2, "noLocalDictionariesImported");
-  }
   function setDictionaryStatusError(status2, error, language2) {
     if (status2) status2.textContent = userFacingErrorText(language2, "dictionaryStatusUnavailable", error);
   }
@@ -370335,6 +370347,7 @@ ${options.version}`;
     ankiLibraryScanId = 0;
     ankiModelUpdatePromptId = 0;
     yomuUpdateCheckId = 0;
+    dictionaryRefreshId = 0;
     targetDictionaryAvailabilityRequestId = 0;
     publishedDictionaryLanguagesPromise;
     academyAccountSync;
@@ -370716,7 +370729,7 @@ ${options.version}`;
     renderLookupPillsForTarget(form2, targetLanguage2) {
       const container = form2.querySelector(".jpdb-reader-lookup-links");
       if (!container) return;
-      const submitted = readDictionaryLookupLinks(new FormData(form2));
+      const submitted = lookupLinkRows(new FormData(form2));
       setInnerHtml(container, renderDictionaryLookupLinkEditor(
         dictionaryLookupLinksForTarget(submitted, targetLanguage2),
         [],
@@ -371223,11 +371236,15 @@ ${options.version}`;
       this.setAnkiStatusLine(form2, { message, tone, action: action2, state, details });
     }
     async refreshDictionaryStatus(form2) {
+      const id2 = ++this.dictionaryRefreshId;
+      const current = () => this.currentForm === form2 && form2.isConnected && id2 === this.dictionaryRefreshId;
       const elements = dictionaryStatusElements(form2);
       try {
         const summary = await this.dependencies.dictionaries.summary();
-        await this.applyDictionaryStatus(form2, elements, summary);
+        if (!current()) return;
+        await this.applyDictionaryStatus(form2, elements, summary, current);
       } catch (error) {
+        if (!current()) return;
         log$3.warn("Dictionary status unavailable", error);
         setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form2, this.settings.interfaceLanguage));
       }
@@ -371276,13 +371293,16 @@ ${options.version}`;
         this.refreshSettingsJapaneseParse(form2);
       }
     }
-    async applyDictionaryStatus(form2, elements, summary) {
+    async applyDictionaryStatus(form2, elements, summary, current) {
       await this.mergeDictionaryPreferencesFromSummary(summary);
+      if (!current()) return;
       await this.dependencies.refreshDictionaryStyles();
+      if (!current()) return;
+      const live = liveDictionarySettings(form2, this.settings);
       renderDictionaryStatusElements(
         elements,
         summary,
-        this.settings,
+        live,
         selectedLearnerLanguage(form2, this.settings),
         selectedTargetLanguage(form2, this.settings)
       );
@@ -372033,6 +372053,7 @@ ${options.version}`;
             if (enabled) enabled.checked = false;
             await waitForLocalDictionaryReplicationIdle();
             await this.dependencies.dictionaries.deleteDatabase();
+            this.dictionaryRefreshId++;
             await this.dependencies.refreshDictionaryStyles();
             const dictionaryStatus = form2.querySelector("[data-dictionary-status]");
             if (dictionaryStatus) dictionaryStatus.textContent = uiText(language2, "noLocalDictionariesImported");
@@ -372076,6 +372097,7 @@ ${options.version}`;
       control2?.setAttribute("disabled", "true");
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoving"), { dictionary }));
       await this.dependencies.dictionaries.deleteDictionary(dictionary);
+      this.dictionaryRefreshId++;
       await clearNewTabOfflineCache().catch(() => void 0);
       this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item2) => item2.name !== dictionary);
       await saveSettings(this.settings);
@@ -372155,6 +372177,7 @@ ${options.version}`;
       });
     }
     async persistDictionaryImport(summary) {
+      this.dictionaryRefreshId++;
       const dictionaryPreferences = mergeDictionaryPreferences(
         this.settings.dictionaryPreferences,
         summary.dictionaries,
@@ -372234,6 +372257,7 @@ ${options.version}`;
         const restoredValues = await importStoredValues(getReaderStorageExport(json));
         const dictionarySummary = await this.importReaderDictionaryBackup(json, setStatus);
         await this.mergeImportedDictionaryPreferences();
+        this.dictionaryRefreshId++;
         await this.saveCurrentSettings(previousSettings);
         setStatus(importSettingsStatus(restoredValues, dictionarySummary, this.settings.interfaceLanguage));
       } catch (error) {

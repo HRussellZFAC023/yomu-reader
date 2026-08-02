@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.70
+// @version 1.8.71
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.31d63ca6a92e.user.js#sha256=MdY8pqku86fB/usOjlkgbeD3sfSZqoSPly43BVq+Mb0=
+// @require https://yomureader.com/greasyfork/yomu-runtime.a70df71dde89.user.js#sha256=pw33Hd6JPX9dFU2WOY42KPuELeEo61+3KR6GKnz2KAM=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -6302,7 +6302,7 @@ function hasTargetLookupSites(targetLanguage) {
 function targetLookupLinks(targetLanguage) {
   return yomuSettingsSurfaceCompanion()?.lookupLinks?.targetLookupLinks(targetLanguage) ?? [];
 }
-const MAX_DICTIONARY_LOOKUP_LINKS = 16;
+const MAX_EXTRA_LOOKUP_LINKS = 16;
 const JPDB_LOOKUP_LINK = {
   id: "jpdb",
   label: "JPDB",
@@ -6578,18 +6578,23 @@ function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguag
   if (!Array.isArray(value)) return builtIns;
   const normalized = [];
   const seen = new Set();
+  const defaults = new Set(builtIns.map((link) => link.id));
+  let extras = 0;
   const add = (link) => {
   const id = link.id.trim();
-  if (!id || seen.has(id) || normalized.length >= MAX_DICTIONARY_LOOKUP_LINKS) return;
+  if (!id || seen.has(id)) return;
+  const known = defaults.has(id);
+  if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
   seen.add(id);
   normalized.push({ ...link, id });
+  if (!known) extras++;
   };
   for (const item of value) {
   const link = normalizeDictionaryLookupLink(item);
   if (link && !isRemovedBuiltInLookupLink(link)) add(link);
   }
   appendMissingBuiltInLookupLinks(builtIns, seen, add);
-  return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS)));
+  return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
 }
 function isRemovedBuiltInLookupLink(link) {
   return isRemovedBuiltInLookupLinkId(link.id);
@@ -33473,8 +33478,8 @@ function collapseWhitespace(value) {
   return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.70"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.70"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.71"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.71"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -33617,7 +33622,7 @@ function hostedReaderCssUrl(href) {
   const url = new URL(href);
   if (!isHostedYomuPage(url)) return null;
   const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-  return `${new URL(path, url.origin).href}?v=${"1.8.70"}`;
+  return `${new URL(path, url.origin).href}?v=${"1.8.71"}`;
   } catch {
   return null;
   }

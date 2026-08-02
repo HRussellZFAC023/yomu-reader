@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.71] - 2026-08-02
+
+### Fixed
+
+- Local Yomitan lookup now queries both the expression and reading indexes even when their kana keys are identical. A Jiten/OCR card for やさしい can therefore hydrate the installed JMdict entries 易しい and 優しい without changing the card's exact pointer range, while duplicate index hits remain collapsed (GitHub #48).
+- Status-colour dropdowns keep Pitch accent and None available and give the three study-state policies distinct, stable names: All study statuses, Primary deck status, and Anki status. An Anki-only setup no longer shows several indistinguishable “Anki status” choices (GitHub #40).
+- Reordering a local frequency dictionary now persists in both lookup-pill order and stored dictionary preferences, survives a delayed dictionary refresh, and cannot discard built-in links when imported frequency rows are added. BCCWJ can remain ahead of Jiten after Settings is reopened (GitHub #43).
+
 ## [1.8.70] - 2026-08-01
 
 ### Added
@@ -9,8 +17,7 @@
 ### Fixed
 
 - Recommended JMdict installation now completes in Firefox 153 with Tampermonkey, survives a full browser restart, and answers from the exact 525,069-entry local store instead of failing at Firefox's userscript/page binary boundary (GitHub #39).
-- Status-colour dropdowns keep Pitch accent and None available and give the three study-state policies distinct, stable names: All study statuses, Primary deck status, and Anki status. An Anki-only setup no longer shows several indistinguishable “Anki status” choices (GitHub #40).
-- A new site now retries dictionary replication that an older Firefox import failure had permanently suppressed. If the first lookup opened before replication finished, that same card re-reads the completed local store instead of caching an empty result for 30 seconds. Reordering a local frequency dictionary now persists in both the lookup-pill order and the stored dictionary preferences, so BCCWJ can remain ahead of Jiten after Settings is reopened (GitHub #43).
+- A new site now retries dictionary replication that an older Firefox import failure had permanently suppressed. If the first lookup opened before replication finished, that same card re-reads the completed local store instead of caching an empty result for 30 seconds (GitHub #43).
 - Pausing annotations no longer disables subtitle hover-pause or text selection. Plain overlay and transcript captions remain selectable, pause the intended video while hovered, and do not turn the transparent player overlay into a click target (GitHub #42).
 - With furigana, highlights, underlines, and text colours all off, automatic scanning leaves the page's native CJK text run intact. Turning those channels off also removes earlier word wrappers and number-counter binders so line breaks return to the site's own layout (GitHub #45).
 - Hover popups stay open when Firefox briefly drops CSS hover during scrolling, keep their opening position while definitions hydrate, and give the cursor-to-popup gap a narrow travel corridor that prevents accidental word switches while crossing it (GitHub #44, #46, #47).
