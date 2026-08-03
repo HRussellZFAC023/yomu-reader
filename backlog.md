@@ -2836,7 +2836,17 @@ Every user-raised item from `wishlist-items.json`, triaged against the shipped i
 
 ### Done but needs UX polish (what shipped vs what a user actually experiences)
 
-- [ ] **P0 — Study front-vs-back furigana.** Shipped: readings on the card **[v1.4.137/145/220]**. Experienced: furigana now appears on the **front**, spoiling recall — tk "now we have furigana on the front… didnt find how to disable it… tuff to study when I already know the answer." Polish: furigana/reading must be on the **back/reveal side only** (Canna: "I want the furigana to appear on the other side"), with a toggle; this is the same defect as the reveal-boundary invariant (Cycle 2). `[wl:study-furigana-front-toggle]` (askCount 2).
+- [x] **P0 — Study front-vs-back furigana. VERIFIED FIXED 2026-08-03, shipped v1.6.269 (2026-07-21).**
+      tk's complaint — "now we have furigana on the front… tuff to study when I already know the
+      answer" — is closed. CHANGELOG 1.6.269: *"Review card fronts no longer spoil the answer: the
+      word you are being tested on stays a plain prompt on the question side, with no furigana and no
+      pitch underline, and is annotated as usual once you reveal the answer."* The front-detection
+      predicate is `isJitenStudyFrontPrompt` wired through `isReviewCardFrontPromptTarget` ->
+      `shouldRejectProfileScanTarget` in `src/reader/app/site-parsers.ts`, and it is pinned by
+      `tests/reader/jiten-study-front-annotation.test.ts`,
+      `tests/reader/jpdb-review-front-targets.test.ts` and
+      `tests/reader/bunpro-review-front-annotation.test.ts` — 9 tests, run green on this commit.
+      The hosted Study page always behaved correctly; the fix brought the native sites in line.
 - [ ] **P1 — Auto-read/auto-audio on hover default.** Shipped: hover audio works and is toggleable. Experienced: it fires on **every** hover and Canna "had to turn off the automatic reading every time I hover smt… I just turned it off bc it was annoying." Polish: make the off-state discoverable (welcome splash + puck quick-toggle), consider default-off or a modifier-gated quiet mode. `[wl:autoread-on-hover-annoying]` (askCount 2).
 - [ ] **P1 — Accountless / local SRS has no visible entry point.** Shipped: local queued grading + `yomu:srs-local` store **[v1.5.0]**. Experienced: there is **no visible UI action** to import or mine into the local deck, and "auto" source only loads JPDB+Anki, not yomu-local. Polish: add a visible mine/import button; make "auto" actually local-first; sync-on-account-creation and hide connect hints once synced. `[thread 019f14cd]` GAP 5, line 2904.
 - [ ] **P1 — Shadowing is playback-only, not scoring.** Shipped: Shadow tab + mic record/playback **[v1.5.5]**. Experienced: no feedback on whether your pronunciation/pitch was right (Arka wanted kotu.io-style scoring; henry "I want to make the first one"). Polish: real pronunciation/pitch-contour scoring (references: `references/PitchDetect`, `references/onsei`, `references/pitchfinder`, `references/kotu.kez.io`) OR hide "scoring" affordances until it exists. `[wl:shadowing-tool]`, `[thread 019f14cd]` GAP 3 (line 13694 P0).
@@ -2888,10 +2898,22 @@ These are empirical walks/audits the squad must actually perform (browser / devi
 
 ### DV-1 — Study tab, all-modes UX walk (P0, USER'S TOP PRIORITY)
 - [ ] **P0 — Walk every study mode end-to-end as a real learner and record what actually happens vs the spec.** Modes: word / recall / kanji / listen / perceive / shadow / speak → the intended single merged card graded once at the end. This is the top priority. Evidence: `[thread 019f14cd]` (101 MB study rework) — the merge was *never truly delivered* (Cycle 2). Specific nuance gaps to verify/close from that thread:
-  - [ ] **P0** — modes are actually merged into ONE flow (default order Kanji→Word→Recall→Listen→Speak→Reveal), not layered mode-tabs; learner never sees legacy mode switching (GAP 1).
-  - [ ] **P0** — single final reveal: no reading/pitch/furigana/correctness leaks before the last step (GAP 2).
-  - [ ] **P0** — a multi-kanji word tests **every** kanji (図鑑 → 図 then 鑑); kana-only words skip the kanji step (line 16941 acceptance; GAP 6).
-  - [ ] **P0** — every study step is genuinely toggleable/off-able (subagent found "word" cannot actually be disabled; `study-session` force-re-adds it) (line 12173; GAP 6).
+  - [x] **P0** — merged into ONE flow. **VERIFIED 2026-08-03:** `type NewTabMode` and `state.mode`
+        branching both have zero matches in src/; the order is kanji-doodle -> word -> type-word ->
+        recall-cloze -> listen-pitch -> speaking -> final-reveal (`study-session.ts:115-127`) (GAP 1).
+  - [x] **P0** — single final reveal. **VERIFIED 2026-08-03**, shipped v1.6.269: review card fronts
+        stay a plain prompt with no furigana and no pitch underline; pinned by
+        jiten-study-front-annotation / jpdb-review-front-targets / bunpro-review-front-annotation,
+        9 tests green (GAP 2).
+  - [x] **P0** — multi-kanji words test every kanji. **VERIFIED 2026-08-03:** pinned by
+        new-tab-study-session.test.ts "creates one kanji drawing step for each kanji in a word", and
+        kana-only cards are covered by "omits listen and speak steps for a kana-only card" (GAP 6).
+  - [x] **P0** — every study step is toggleable. **VERIFIED 2026-08-03 — the earlier finding was a
+        misread.** The unconditional append in `normalizedChallengeStepOrder` builds the step ORDERING
+        (so a saved partial order still positions every kind); the enable/disable filter is
+        `disabled.has(kind)` in `mergedStudyStepsForCard`, which does exclude `word` — and disabling it
+        correctly drops `type-word` with it. Pinned by the test named for this exact complaint,
+        "honors a disabled word step instead of forcing it back into the flow" (GAP 6).
   - [ ] **P1** — make learning as **visual** as possible; staged reveal; show kanji mnemonics/Uchisen/Heisig AFTER a kanji step but NOT word-list/dictionary entries that give the reading away ("keep it clean and minimal, I am super torn," line 1291; lines 1218/1259).
   - [ ] **P1** — Speak is Rosetta-Stone-style automatic pronunciation/pitch-contour grading, and applies to YouTube/video shadowing too (line 13694 P0; GAP 3) — or is hidden until real scoring exists.
   - [ ] **P1** — hosted audio is default-ON as first source for everyone in study, all other audio sources default-off (line 14973; GAP 7).
@@ -2925,11 +2947,41 @@ These are empirical walks/audits the squad must actually perform (browser / devi
   - [ ] **P2** — use the `web-perf` skill (Chrome DevTools MCP: LCP/INP/CLS) on the hosted reader/newtab/pdf/video apps.
 
 ### DV-5 — BookWalker leftover bugs (P0, from `[thread 019f066b]`)
-- [ ] **P0 — Close the EXACT bugs the user listed after saying "release!" — the 1.5.17 fix was pushed but NEVER live-verified (session aborted mid-verification).** From `[thread 019f066b]` remaining work (user verdict arc 39955→52376):
-  - [ ] **P0** — [ALL sites, not just BookWalker] OCR text overlay is always visible even when NOT hovering; it should show only on hover (`41045`).
-  - [ ] **P0** — Y-coordinate of the OCR hitbox is wrong while X is correct, especially vertical ("the x coordinate is fine the y is wrong," `52376`; pinned root cause = vertical hitbox height expansion; 1.5.17 fix unverified).
-  - [ ] **P0** — BookWalker rescans previously-scanned images on every scroll (should not re-OCR the same image) — same as Cycle 1 invariant.
-  - [ ] **P0** — flashes between "Scanning" and "Could not read text" before (sometimes) resolving (`41045`, `52332` "actually a lot worse than earlier versions").
+- [ ] **P0 — Close the EXACT bugs the user listed after saying "release!" — the 1.5.17 fix was pushed but NEVER live-verified (session aborted mid-verification).**
+      **TRIAGED 2026-08-03 — deliberately NOT closed.** Every sub-item below has shipped code, and
+      marking them fixed on that basis would repeat the exact error this ticket exists to record: a
+      fix was pushed and never live-verified. The deliverable here is VERIFICATION, not more code, so
+      each sub-item now names what shipped and when, so the next session verifies instead of
+      re-implementing.
+      What blocks verification is not effort: it needs a signed-in BookWalker session, and the NFBR
+      viewer never paints under an automated browser unless `navigator.webdriver` is masked — without
+      that mask a live harness tests a dead viewer and reports false green. It is therefore owner-gated
+      on account access, like the donations P0. From `[thread 019f066b]` remaining work (user verdict arc 39955→52376):
+  - [x] **P0** — [ALL sites] OCR overlay visible without hover. **VERIFIED FIXED 2026-08-03, shipped
+        v1.5.7 (2026-07-01).** CHANGELOG 1.5.7: *"Kept OCR text overlays hidden until the user hovers
+        or focuses OCR hit targets, including automatic reader-raster OCR, so recognized text no
+        longer remains visibly painted over pages."* The rule is
+        `.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)`
+        (`src/reader/styles/reader-words-ocr.css:1670`), asserted at
+        `tests/reader/styles.test.ts:402` — which also forbids bare `:focus`, so keyboard users get it
+        without a mouse-only regression sneaking back (`41045`).
+  - [ ] **P0** — Y-coordinate of the OCR hitbox is wrong while X is correct, especially vertical.
+        **STILL OPEN, but code has shipped — do not re-implement before verifying.** v1.5.14
+        re-captures ready frames after viewer zoom/reflow "so hover hit targets do not keep a stale
+        vertical coordinate map"; a separate register bug with the same symptom was root-caused and
+        fixed in v1.8.23 (safeBottomInset moving text off its own glyphs). Whether either closes THIS
+        report is unverified. ("the x coordinate is fine the y is wrong," `52376`; pinned root cause = vertical hitbox height expansion; 1.5.17 fix unverified).
+  - [ ] **P0** — BookWalker rescans previously-scanned images on every scroll. **STILL OPEN, but
+        v1.5.16 claims exactly this**: "Keeps manually cropped BookWalker OCR frames aligned during
+        ordinary scroll without rescanning, while re-capturing them when the underlying canvas scale
+        changes." Verify against that before writing anything — same as Cycle 1 invariant.
+  - [ ] **P0** — flashes between "Scanning" and "Could not read text". **STILL OPEN, and THREE
+        separate causes have already been fixed** — v1.5.17 (bitmap cache by canonical asset URL, so a
+        retry stops re-requesting expired signed URLs), v1.6.127 (Firefox rebuilds from BookWalker's
+        own signed images), v1.6.143 (the scan deadline had reused the 6-second audio timeout, killing
+        healthy-but-slow iPad scans and remembering the page as permanently failed; now a 30-second
+        floor plus one retry). If it still flashes, it is a FOURTH cause — measure before assuming
+        (`41045`, `52332` "actually a lot worse than earlier versions").
   - [ ] **P1** — some pages still don't fully OCR (unknown root cause) and there is **no manual "retry OCR for this page" control** — user explicitly asked for one (`40075`).
   - [ ] **P1** — OCR overlay is not aligned when the user **zooms** the page — alignment must survive zoom (`40075`; recapture-after-zoom shipped [v1.5.14/16/17] — reverify).
   - [ ] **P1** — verify homepage layout containment on the BookWalker homepage AND reader modes specifically (`storefront_carousel_containment`).
@@ -2941,7 +2993,8 @@ These are empirical walks/audits the squad must actually perform (browser / devi
 
 Duplicated-but-diverged implementations that cause "works for henry, not for the user" and re-open bugs. Unifying these is the durable fix.
 
-- [ ] **P0 — Study step model vs legacy mode system.** `study-session.ts` (new stepper) layered on `state.ts NewTabMode` (legacy word|recall|kanji|listen) in `controller.ts`; controller renders one legacy mode and maps steps back. Converge to one surface + one `activeStudyStepIndex`. This is Cycle 2. Evidence: `[thread 019f14cd]` GAP 1.
+- [x] **P0 — VERIFIED FIXED 2026-08-03. The Study 2.0 collapse is done; this entry read as open because the ROUTE switcher still uses `mode` naming.** Measured against origin/main: `type NewTabMode` has ZERO matches in src/, `state.mode` branching has ZERO matches, and the only remaining `jpdb-reader-newtab-mode` group (`controller.ts:1259`) is the Study/Library/Stats ROUTE switcher, not the legacy word|recall|kanji|listen step tabs. `state.ts` keeps `legacyStudyIntent` solely as a one-way migration of stored preferences, which must stay. The merged step order is exactly the one this ticket specifies — kanji-doodle -> word -> type-word -> recall-cloze -> listen-pitch -> speaking -> final-reveal (`study-session.ts:115-127`). Pinned by tests/reader/new-tab-study-session.test.ts, 11 tests green, including "migrates legacy modes into route-only persisted state" which asserts `mode` and `listenSubMode` are stripped. Anyone grepping for "mode" will still find the route switcher and conclude otherwise — that is why this survived. ORIGINAL TEXT FOLLOWS:
+      **P0 — Study step model vs legacy mode system.** `study-session.ts` (new stepper) layered on `state.ts NewTabMode` (legacy word|recall|kanji|listen) in `controller.ts`; controller renders one legacy mode and maps steps back. Converge to one surface + one `activeStudyStepIndex`. This is Cycle 2. Evidence: `[thread 019f14cd]` GAP 1.
 - [ ] **P1 — Provider handling scattered across ~8 files** (`srs-providers.ts`, `review-targets.ts`, `grade-queue.ts`, `popover-renderer.ts`, stats, settings) vs the started provider-neutral adapter. Trust bug: queued **bunpro/yomu-local** grades FALL THROUGH to `submitJpdbApiGrade`. Converge onto one adapter; extend `ApiSrsProviderId` beyond `jpdb|jiten`. This is Cycle 9. Evidence: `codex-cycles.json` systemic finding 4, `[thread 019f14cd]` GAP 4. Partial convergence landed [v1.6.14] (lookup module unified).
 - [ ] **P1 — Factory-reset key enumeration exists ≥4 ways** (`GM_listValues`, prefix scan, `KNOWN_MANAGED_STORAGE_KEYS`, `MANAGED_INDEXED_DB_NAMES`). Converge to one registry. This is Cycle 3.
 - [ ] **P1 — Canvas page-identity re-derived ad hoc in the OCR controller** (scroll offset / global epoch / node ref). Converge to one content-hash identity module. This is Cycle 1.
@@ -2959,7 +3012,8 @@ Duplicated-but-diverged implementations that cause "works for henry, not for the
 
 Features that are wired but not done. Each has explicit done-criteria.
 
-- [ ] **P0 — Study 2.0 merged flow.** *Done when:* one Study surface, single `activeStudyStepIndex`, legacy mode buttons/state deleted, session stepper fixed before the card starts, default order Kanji→Word→Recall→Listen→Speak→Reveal, disabled steps omitted, one final-reveal boundary (invariant-tested), multi-kanji tests every kanji. (= Cycle 2 + DV-1.) Evidence: `[thread 019f14cd]` line 16941 acceptance.
+- [x] **P0 — VERIFIED FIXED 2026-08-03. The Study 2.0 collapse is done; this entry read as open because the ROUTE switcher still uses `mode` naming.** Measured against origin/main: `type NewTabMode` has ZERO matches in src/, `state.mode` branching has ZERO matches, and the only remaining `jpdb-reader-newtab-mode` group (`controller.ts:1259`) is the Study/Library/Stats ROUTE switcher, not the legacy word|recall|kanji|listen step tabs. `state.ts` keeps `legacyStudyIntent` solely as a one-way migration of stored preferences, which must stay. The merged step order is exactly the one this ticket specifies — kanji-doodle -> word -> type-word -> recall-cloze -> listen-pitch -> speaking -> final-reveal (`study-session.ts:115-127`). Pinned by tests/reader/new-tab-study-session.test.ts, 11 tests green, including "migrates legacy modes into route-only persisted state" which asserts `mode` and `listenSubMode` are stripped. Anyone grepping for "mode" will still find the route switcher and conclude otherwise — that is why this survived. ORIGINAL TEXT FOLLOWS:
+      **P0 — Study 2.0 merged flow.** *Done when:* one Study surface, single `activeStudyStepIndex`, legacy mode buttons/state deleted, session stepper fixed before the card starts, default order Kanji→Word→Recall→Listen→Speak→Reveal, disabled steps omitted, one final-reveal boundary (invariant-tested), multi-kanji tests every kanji. (= Cycle 2 + DV-1.) Evidence: `[thread 019f14cd]` line 16941 acceptance.
 - [ ] **P1 — Yomu SRS state (provider-neutral).** Currently: `ApiSrsProviderId` stayed `jpdb|jiten`; Bunpro & yomu-local are missing from My Cards / browse pool (jpdb|jiten|anki only); queued bunpro/yomu-local reviews fall through to `submitJpdbApiGrade` (trust bug); "auto" source claims local-first but loads JPDB+Anki only; no visible mine/import UI into `yomu:srs-local`. *Done when:* one SRS adapter serves popup add/review/batch-mining/dictionary-enrichment/settings-validation for {jpdb, jiten, bunpro, anki, yomu-local}; each provider's grades route to that provider (no fall-through); browse pool + filters include all; local no-account SRS has a visible mine/import action and syncs on account creation. Evidence: `[thread 019f14cd]` GAP 4/5, `codex-cycles.json` systemic finding 4.
 - [ ] **P1 — Bunpro as a full SRS provider.** "Full support is required for version 1.5" (line 523) but shipped only new-tab queue/review/stats plumbing + lookup pill + token settings [v1.5.0/1.6.3]. Currently gated behind the default-OFF mining toggle, so a pasted token still doesn't enable Bunpro. *Done when:* popup add/review/batch mining + dictionary enrichment + settings 401/expiry validation all support Bunpro; Bunpro un-gated when a token is present; 4-vs-5 grade mapping correct. Evidence: `[thread 019f14cd]` GAP 4, MEMORY `yomu-bunpro-grading-parity`. Partial: mining-button gating landed [v1.6.14].
 - [ ] **P1 — Bunpro auto-token importer** (copy-cookie helper on bunpro.jp/settings/api, since users don't know how to get `frontend_api_token`). Currently mounts but is (a) hidden behind the settings-modal z-index, (b) only installs once at boot so SPA-nav to /settings/api never retries, (c) may always see "no token" on Firefox/HttpOnly (no `GM_cookie`). *Done when:* mounts into the settings dialog above the modal, retries on SPA nav, and handles Firefox/HttpOnly (GM_cookie or a documented manual path). Evidence: `[thread 019f14cd]` GAP 9, lines 1001/16150.
@@ -2987,7 +3041,36 @@ These shipped and were verified; retained so the squad doesn't re-litigate them.
 ## Added 2026-07-03 (owner asks, session 5d668c75)
 
 - [ ] **P0 — Donations: dynamic goal from real operating forecast (£10/month floor), shown in the user's local currency; add PayPal / Ko-fi / Buy Me a Coffee / Patreon alongside Stripe; homepage status bar aggregates ALL providers.** Engineering shipped in **[v1.8.57]**: the £10.20 checked-in forecast rounds only for display, local currency uses fresh FX plus `Intl.NumberFormat`, all five authenticated provider shapes aggregate, and unready links stay absent. Production activation remains owner-queued: apply support migrations `0005`–`0007`, deploy `yomu-support`, then configure Buy Me a Coffee, PayPal, and Patreon's campaign identifiers in a supervised session. No account or credential work was attempted. Evidence: owner ask 2026-07-03; thread 019f14cd donation-copy asks.
-- [ ] **P0 — Study flow: word meaning always in the draw-kanji prompt (＿み物 is ambiguous), progressive hints when unclear, and clean reintegration of the pitch-accent selection + shadow steps** (existed in older versions per codex logs, badly integrated). kotu.io-style pitch test remains the wishlist-adjacent north star.
+- [ ] **P0 — Study flow: pitch-accent selection + shadow step integration.** THREE OF THE FOUR ASKS
+      HERE SHIPPED — verified 2026-08-03. See the earlier annotation for the ＿み物 cloze, progressive
+      hints, and both steps existing in the session model (all v1.6.21, 23 tests green).
+
+      **LEARNER WALKTHROUGH DONE 2026-08-03 on the live hosted Study page, and it names the
+      integration problem concretely: a learner never reaches either step.**
+      Driving https://yomureader.com/study/ , the step rail renders
+      `1 Kanji 1 → 2 Kanji 2 → 3 Word → 4 Type → 5 Reveal` with "One review, a few quick checks. Grade
+      once at the reveal." That live-confirms two other GAP items — the flow really is merged rather
+      than mode-tabbed, and a two-kanji word really does produce one drawing step per kanji. But
+      **Listen and Speak are absent from the rail entirely**: the words do not appear anywhere in the
+      page, and there is no control, count or hint suggesting steps 6 and 7 exist.
+
+      Root cause, and it is a deliberate gate rather than a bug: `mergedStudyStepsForCard` adds both
+      steps only `if (options.pitchAvailable)`, which the controller derives from
+      `pitchSeedFromCard(card, …) !== null` (`controller.ts:4606`). That returns null unless the card
+      has BOTH a resolvable pronunciation reading AND a pitch number for it
+      (`newtab/pitch-srs.ts:169-174`). The default hosted card has neither — the page's only
+      "pitch"-named element is the `jpdb-reader-word-underline-pitch` display class on `<html>`, not a
+      datum. The comment in study-session.ts is sound ("Listen/Speak drill pitch accent, so they only
+      make sense once pitch has actually resolved"), so DO NOT force them on: without pitch they would
+      render empty.
+
+      What this leaves as the real question, which is a product call rather than a code one: *does
+      pitch ever resolve on the hosted Study surface?* If it needs an installed dictionary or a
+      provider the no-install page does not have, then two of the seven steps are dead for every
+      learner who arrives via the website, and the honest fixes are either a source that supplies
+      pitch there or a visible "needs pitch data" affordance so the steps are discoverable rather than
+      silently missing. Measure which before building either.
+
 - [ ] **P1 — UserScript-Compiler generic UX/DX audit** (github.com/HRussellZFAC023/UserScript-Compiler): stays generic for any userscript; simple, intuitive, customizable; new-user walkthrough of README/CLI/config/templates.
 
 

@@ -145,6 +145,19 @@ function runAllTests() {
         process.env.YOMU_CI_MAX_WORKERS ?? String(Math.max(2, spareParallelism() - 2)),
         'YOMU_CI_MAX_WORKERS',
     );
+    // 60 is a memory budget, and here is the measurement behind it. Sampling fork
+    // RSS every 2s across full passes of the same 486 files, before batching existed:
+    //
+    //   3 forks  ~162 files each  peak 2,626 MB  = 114% of the 2,304 MB cap  -> aborted
+    //   6 forks   ~81 files each  peak 2,086 MB  =  91% of the cap           -> clean
+    //
+    // Those fit a ~1,540 MB fixed baseline per fork — module graph, jsdom, the reader
+    // bundle, none of it reclaimable — plus ~6.7 MB retained per file, because a
+    // reused isolate:false fork never gives it back. So 60 files lands near 1,940 MB,
+    // about 84% of the cap, and the restart between batches is what stops it
+    // compounding. Raising this walks back toward the abort: 80 files is ~91%, and
+    // 162 is where it died. Do not answer a future abort by raising
+    // YOMU_VITEST_FORK_HEAP_MB either — that hides the next casualty, not the cause.
     const reusableFilesPerWorker = readPositiveInt(
         process.env.YOMU_CI_REUSABLE_FILES_PER_WORKER ?? '60',
         'YOMU_CI_REUSABLE_FILES_PER_WORKER',
