@@ -2836,7 +2836,17 @@ Every user-raised item from `wishlist-items.json`, triaged against the shipped i
 
 ### Done but needs UX polish (what shipped vs what a user actually experiences)
 
-- [ ] **P0 — Study front-vs-back furigana.** Shipped: readings on the card **[v1.4.137/145/220]**. Experienced: furigana now appears on the **front**, spoiling recall — tk "now we have furigana on the front… didnt find how to disable it… tuff to study when I already know the answer." Polish: furigana/reading must be on the **back/reveal side only** (Canna: "I want the furigana to appear on the other side"), with a toggle; this is the same defect as the reveal-boundary invariant (Cycle 2). `[wl:study-furigana-front-toggle]` (askCount 2).
+- [x] **P0 — Study front-vs-back furigana. VERIFIED FIXED 2026-08-03, shipped v1.6.269 (2026-07-21).**
+      tk's complaint — "now we have furigana on the front… tuff to study when I already know the
+      answer" — is closed. CHANGELOG 1.6.269: *"Review card fronts no longer spoil the answer: the
+      word you are being tested on stays a plain prompt on the question side, with no furigana and no
+      pitch underline, and is annotated as usual once you reveal the answer."* The front-detection
+      predicate is `isJitenStudyFrontPrompt` wired through `isReviewCardFrontPromptTarget` ->
+      `shouldRejectProfileScanTarget` in `src/reader/app/site-parsers.ts`, and it is pinned by
+      `tests/reader/jiten-study-front-annotation.test.ts`,
+      `tests/reader/jpdb-review-front-targets.test.ts` and
+      `tests/reader/bunpro-review-front-annotation.test.ts` — 9 tests, run green on this commit.
+      The hosted Study page always behaved correctly; the fix brought the native sites in line.
 - [ ] **P1 — Auto-read/auto-audio on hover default.** Shipped: hover audio works and is toggleable. Experienced: it fires on **every** hover and Canna "had to turn off the automatic reading every time I hover smt… I just turned it off bc it was annoying." Polish: make the off-state discoverable (welcome splash + puck quick-toggle), consider default-off or a modifier-gated quiet mode. `[wl:autoread-on-hover-annoying]` (askCount 2).
 - [ ] **P1 — Accountless / local SRS has no visible entry point.** Shipped: local queued grading + `yomu:srs-local` store **[v1.5.0]**. Experienced: there is **no visible UI action** to import or mine into the local deck, and "auto" source only loads JPDB+Anki, not yomu-local. Polish: add a visible mine/import button; make "auto" actually local-first; sync-on-account-creation and hide connect hints once synced. `[thread 019f14cd]` GAP 5, line 2904.
 - [ ] **P1 — Shadowing is playback-only, not scoring.** Shipped: Shadow tab + mic record/playback **[v1.5.5]**. Experienced: no feedback on whether your pronunciation/pitch was right (Arka wanted kotu.io-style scoring; henry "I want to make the first one"). Polish: real pronunciation/pitch-contour scoring (references: `references/PitchDetect`, `references/onsei`, `references/pitchfinder`, `references/kotu.kez.io`) OR hide "scoring" affordances until it exists. `[wl:shadowing-tool]`, `[thread 019f14cd]` GAP 3 (line 13694 P0).
@@ -2926,7 +2936,14 @@ These are empirical walks/audits the squad must actually perform (browser / devi
 
 ### DV-5 — BookWalker leftover bugs (P0, from `[thread 019f066b]`)
 - [ ] **P0 — Close the EXACT bugs the user listed after saying "release!" — the 1.5.17 fix was pushed but NEVER live-verified (session aborted mid-verification).** From `[thread 019f066b]` remaining work (user verdict arc 39955→52376):
-  - [ ] **P0** — [ALL sites, not just BookWalker] OCR text overlay is always visible even when NOT hovering; it should show only on hover (`41045`).
+  - [x] **P0** — [ALL sites] OCR overlay visible without hover. **VERIFIED FIXED 2026-08-03, shipped
+        v1.5.7 (2026-07-01).** CHANGELOG 1.5.7: *"Kept OCR text overlays hidden until the user hovers
+        or focuses OCR hit targets, including automatic reader-raster OCR, so recognized text no
+        longer remains visibly painted over pages."* The rule is
+        `.jpdb-ocr-line:is(:hover, :focus-visible, .jpdb-ocr-line-active)`
+        (`src/reader/styles/reader-words-ocr.css:1670`), asserted at
+        `tests/reader/styles.test.ts:402` — which also forbids bare `:focus`, so keyboard users get it
+        without a mouse-only regression sneaking back (`41045`).
   - [ ] **P0** — Y-coordinate of the OCR hitbox is wrong while X is correct, especially vertical ("the x coordinate is fine the y is wrong," `52376`; pinned root cause = vertical hitbox height expansion; 1.5.17 fix unverified).
   - [ ] **P0** — BookWalker rescans previously-scanned images on every scroll (should not re-OCR the same image) — same as Cycle 1 invariant.
   - [ ] **P0** — flashes between "Scanning" and "Could not read text" before (sometimes) resolving (`41045`, `52332` "actually a lot worse than earlier versions").
@@ -2987,7 +3004,20 @@ These shipped and were verified; retained so the squad doesn't re-litigate them.
 ## Added 2026-07-03 (owner asks, session 5d668c75)
 
 - [ ] **P0 — Donations: dynamic goal from real operating forecast (£10/month floor), shown in the user's local currency; add PayPal / Ko-fi / Buy Me a Coffee / Patreon alongside Stripe; homepage status bar aggregates ALL providers.** Engineering shipped in **[v1.8.57]**: the £10.20 checked-in forecast rounds only for display, local currency uses fresh FX plus `Intl.NumberFormat`, all five authenticated provider shapes aggregate, and unready links stay absent. Production activation remains owner-queued: apply support migrations `0005`–`0007`, deploy `yomu-support`, then configure Buy Me a Coffee, PayPal, and Patreon's campaign identifiers in a supervised session. No account or credential work was attempted. Evidence: owner ask 2026-07-03; thread 019f14cd donation-copy asks.
-- [ ] **P0 — Study flow: word meaning always in the draw-kanji prompt (＿み物 is ambiguous), progressive hints when unclear, and clean reintegration of the pitch-accent selection + shadow steps** (existed in older versions per codex logs, badly integrated). kotu.io-style pitch test remains the wishlist-adjacent north star.
+- [ ] **P0 — Study flow: pitch-accent selection + shadow step integration.** THREE OF THE FOUR ASKS
+      HERE SHIPPED — verified 2026-08-03, all in **v1.6.21 (2026-07-03)**:
+      the ＿み物 ambiguity (*"The kanji drawing step always fronts the word meaning with a blanked
+      cloze… so an ambiguous blank never leaves you guessing which word you are drawing"*);
+      progressive hints (*"kanji drawing and typed recall gain a Hint control that reveals one tier at
+      a time (meaning, then a kana cue) without giving the answer away before the reveal"*); and the
+      steps themselves exist in the session model (`listen-pitch` and `speaking` in
+      `src/reader/newtab/study-session.ts:43,67-68,121`). Pinned by
+      `tests/reader/new-tab-study-hints.test.ts`, `new-tab-study-session.test.ts` and
+      `speaking-score.test.ts` — 23 tests, green on this commit.
+      What is genuinely left is the QUALITY of the integration, which no changelog entry claims: the
+      pitch-accent selection and shadow steps were reported as "badly integrated" per codex logs, and
+      a kotu.io-style pitch test remains the north star. Anyone picking this up should walk those two
+      steps as a learner first rather than assume the whole ticket is open.
 - [ ] **P1 — UserScript-Compiler generic UX/DX audit** (github.com/HRussellZFAC023/UserScript-Compiler): stays generic for any userscript; simple, intuitive, customizable; new-user walkthrough of README/CLI/config/templates.
 
 
