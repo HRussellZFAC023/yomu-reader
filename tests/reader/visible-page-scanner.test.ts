@@ -7,6 +7,7 @@ import { withViewport } from './helpers/browser-fixtures';
 const DEFAULT_SETTINGS = testEnSettings();
 import type { CardState, JPDBToken } from '../../src/reader/app/types';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
+import { documentPortalReaderWordScopeForSource } from '../../src/reader/dom/index';
 
 type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
 
@@ -22,6 +23,11 @@ function createVisiblePageScanner(
         toast: vi.fn(),
         ...overrides,
     });
+}
+
+function documentPortalWordForSource(source: Element | null, selector = '.jpdb-reader-word'): HTMLElement | null {
+    if (!source) return null;
+    return documentPortalReaderWordScopeForSource(source)?.querySelector<HTMLElement>(selector) ?? null;
 }
 
 describe('VisiblePageScanner', () => {
@@ -75,6 +81,7 @@ describe('VisiblePageScanner', () => {
                 allowJpdbTimeoutFallback: true,
                 includeLocalPitch: false,
                 allowSegmentedFallback: true,
+                publicJitenDetailLimit: 0,
             });
             // Apply chunks are 48 targets wide so the first paint covers the
             // whole parsed batch instead of arriving in 16-item waves.
@@ -187,9 +194,11 @@ describe('VisiblePageScanner', () => {
 
         try {
             await scanner.scanVisiblePage({ silent: false });
+            const tailSource = document.querySelector<HTMLElement>('#feed-459')!;
             await vi.waitFor(() => {
-                expect(document.querySelector('#feed-459 .jpdb-reader-text-mirror')).not.toBeNull();
+                expect(documentPortalWordForSource(tailSource)).not.toBeNull();
             }, { timeout: 15_000 });
+            expect(tailSource.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
             expect(parseJapanese.mock.calls.flatMap(call => call[0])).toContain('日本語の文459');
         } finally {
             scanner.destroy();
@@ -257,7 +266,9 @@ describe('VisiblePageScanner', () => {
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled(), { timeout: 15000 });
             // Token application is async after parse resolves — wait for the word
             // to render instead of asserting immediately (CI flake: got null).
-            await vi.waitFor(() => expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull(), { timeout: 15000 });
+            const firstCommentText = document.querySelector<HTMLElement>('yt-attributed-string#content-text')!;
+            await vi.waitFor(() => expect(documentPortalWordForSource(firstCommentText)).not.toBeNull(), { timeout: 15000 });
+            expect(firstCommentText.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
             expect(document.querySelector('ytd-comment-view-model')?.textContent).toContain('日本語コメント0');
         } finally {
             scanner.destroy();
@@ -299,7 +310,9 @@ describe('VisiblePageScanner', () => {
             firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
             await scan;
             expect(parseJapanese.mock.calls.length).toBeGreaterThan(1);
-            await vi.waitFor(() => expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull());
+            const firstCommentText = document.querySelector<HTMLElement>('yt-attributed-string#content-text')!;
+            await vi.waitFor(() => expect(documentPortalWordForSource(firstCommentText)).not.toBeNull());
+            expect(firstCommentText.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
             expect(document.querySelector('yt-attributed-string')?.textContent).toContain('日本語コメント0です');
         } finally {
             scanner.destroy();
@@ -863,7 +876,9 @@ describe('VisiblePageScanner', () => {
         try {
             await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled(), { timeout: 15_000 });
-            expect(document.querySelector('ytm-browse .jpdb-reader-word')).not.toBeNull();
+            const firstCommentText = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text')!;
+            await vi.waitFor(() => expect(documentPortalWordForSource(firstCommentText)).not.toBeNull(), { timeout: 15_000 });
+            expect(firstCommentText.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
             expect(document.querySelector('ytm-comment-renderer')?.textContent).toContain('日本語コメント0です');
         } finally {
             scanner.destroy();
@@ -1196,15 +1211,24 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
+            const transcriptSource = document.querySelector<HTMLElement>('ytd-transcript-segment-renderer .segment-text')!;
+            const sidebarSource = document.querySelector<HTMLElement>('ytd-compact-video-renderer #video-title')!;
+            const feedSource = document.querySelector<HTMLElement>('ytd-rich-item-renderer:not([data-yomu-test-nested-title]) #video-title')!;
+            const nestedSource = document.querySelector<HTMLElement>('[data-yomu-test-nested-title] #video-title')!;
             expect(parseJapanese).toHaveBeenCalled();
             expect(document.querySelector('.jpdb-reader-word')).not.toBeNull();
-            expect(document.querySelector('ytd-transcript-segment-renderer .jpdb-reader-word[data-expression="字幕"]')).not.toBeNull();
-            expect(document.querySelector('ytd-transcript-segment-renderer .jpdb-reader-word[data-expression="行"]')).not.toBeNull();
-            expect(document.querySelector('ytd-compact-video-renderer .jpdb-reader-word[data-expression="講座"]')).not.toBeNull();
-            expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="日本語"]')).not.toBeNull();
-            expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
-            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="東京"] .jpdb-reader-furi')?.textContent).toBe('とうきょう');
-            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="春"] .jpdb-reader-furi')?.textContent).toBe('はる');
+            expect(documentPortalWordForSource(transcriptSource, '.jpdb-reader-word[data-expression="字幕"]')).not.toBeNull();
+            expect(documentPortalWordForSource(transcriptSource, '.jpdb-reader-word[data-expression="行"]')).not.toBeNull();
+            expect(sidebarSource.querySelector('.jpdb-reader-word[data-expression="講座"]')).not.toBeNull();
+            expect(feedSource.querySelector('.jpdb-reader-word[data-expression="日本語"]')).not.toBeNull();
+            expect(feedSource.querySelector('.jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
+            expect(nestedSource.querySelector('.jpdb-reader-word[data-expression="東京"] .jpdb-reader-furi')?.textContent).toBe('とうきょう');
+            expect(nestedSource.querySelector('.jpdb-reader-word[data-expression="春"] .jpdb-reader-furi')?.textContent).toBe('はる');
+            expect(transcriptSource.querySelector('.jpdb-reader-word, .jpdb-reader-text-mirror')).toBeNull();
+            for (const source of [sidebarSource, feedSource, nestedSource]) {
+                expect(documentPortalReaderWordScopeForSource(source)).toBeNull();
+                expect(source.querySelector('.jpdb-reader-text-mirror')).not.toBeNull();
+            }
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -1599,30 +1623,22 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('starts fallback pitch and ruby enrichment before applying visible page tokens', async () => {
+    it('paints fallback words before asynchronous pitch and ruby enrichment settles', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>先生いつもありがとうございます。</p>';
         const fallbackToken = testToken('先生いつもありがとうございます。', '先生', 0, 2);
         const order: string[] = [];
+        const enrichment = deferred<void>();
         const parseJapanese = vi.fn(async () => [[fallbackToken]]);
         const pauseMutationObserver = vi.fn(callback => {
             order.push('apply');
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             return callback();
         });
-        const enrichPitchWords = vi.fn(async (tokens: JPDBToken[]) => {
+        const enrichPitchWords = vi.fn((_tokens: JPDBToken[]) => {
             order.push('pitch');
-            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
-            await new Promise(resolve => setTimeout(resolve, 0));
-            tokens[0]!.card = {
-                ...tokens[0]!.card,
-                source: 'jpdb',
-                reading: 'せんせい',
-                cardState: ['known'],
-                pitchAccent: ['LHHH'],
-            };
-            tokens[0]!.rubies = [{ text: 'せんせい', start: 0, end: 2, length: 2 }];
-            tokens[0]!.pitchClass = 'atamadaka';
+            expect(document.querySelector('.jpdb-reader-word')).not.toBeNull();
+            return enrichment.promise;
         });
         const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
@@ -1635,41 +1651,86 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-            expect(order).toEqual(['pitch', 'apply']);
+            expect(order).toEqual(['apply', 'pitch']);
             expect(enrichPitchWords).toHaveBeenCalledTimes(1);
-            expect(word.classList.contains('jpdb-known')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
-            expect(word.querySelector('rt')?.textContent).toBe('せんせい');
+            expect(word.dataset.expression).toBe('先生');
+            expect(word.querySelector('rt')).toBeNull();
         } finally {
+            enrichment.resolve(undefined);
+            scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }
     });
 
-    it('waits for priority pitch before applying prefetched visible page tokens', async () => {
+    it('does not hold first paint behind reading-less public Jiten detail hydration', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>初心者エンジニアです。</p>';
+        const sparseToken = testToken('初心者エンジニアです。', '初心者', 0, 3);
+        sparseToken.card = {
+            ...sparseToken.card,
+            vid: 1342860,
+            sid: 0,
+            source: 'jiten',
+            jitenWordId: 1342860,
+            jitenReadingIndex: 0,
+        };
+        const order: string[] = [];
+        const enrichment = deferred<void>();
+        const parseJapanese = vi.fn(async () => [[sparseToken]]);
+        const pauseMutationObserver = vi.fn(callback => {
+            order.push('apply');
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            return callback();
+        });
+        const enrichPitchWords = vi.fn((_tokens: JPDBToken[]) => {
+            order.push('reading');
+            expect(document.querySelector('.jpdb-reader-word')).not.toBeNull();
+            return enrichment.promise;
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+            pauseMutationObserver,
+            enrichPitchWords,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            expect(order).toEqual(['apply', 'reading']);
+            expect(enrichPitchWords).toHaveBeenCalledTimes(1);
+            expect(word.dataset.cardSource).toBe('jiten');
+            expect(word.dataset.reading ?? '').toBe('');
+            expect(word.querySelector('rt')).toBeNull();
+            expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({
+                publicJitenDetailLimit: 0,
+            }));
+        } finally {
+            enrichment.resolve(undefined);
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps the 1.2s remote parse fallback independent from post-paint pitch enrichment', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = '<p>先生いつもありがとうございます。</p>';
         const fallbackToken = testToken('先生いつもありがとうございます。', '先生', 0, 2);
         const order: string[] = [];
+        const enrichment = deferred<void>();
         const parseJapanese = vi.fn(async () => [[fallbackToken]]);
         const pauseMutationObserver = vi.fn(callback => {
             order.push('apply');
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             return callback();
         });
-        const enrichPitchWords = vi.fn(async (tokens: JPDBToken[]) => {
+        const enrichPitchWords = vi.fn((_tokens: JPDBToken[]) => {
             order.push('pitch');
-            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
-            await new Promise(resolve => setTimeout(resolve, 0));
-            tokens[0]!.card = {
-                ...tokens[0]!.card,
-                source: 'jpdb',
-                reading: 'せんせい',
-                cardState: ['known'],
-                pitchAccent: ['LHHH'],
-            };
-            tokens[0]!.rubies = [{ text: 'せんせい', start: 0, end: 2, length: 2 }];
-            tokens[0]!.pitchClass = 'atamadaka';
+            expect(document.querySelector('.jpdb-reader-word')).not.toBeNull();
+            return enrichment.promise;
         });
         const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', furiganaMode: 'all' }),
@@ -1683,12 +1744,13 @@ describe('VisiblePageScanner', () => {
 
             const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
             expect(parseJapanese).toHaveBeenCalledWith(expect.any(Array), expect.objectContaining({ jpdbTimeoutMs: 1200 }));
-            expect(order).toEqual(['pitch', 'apply']);
+            expect(order).toEqual(['apply', 'pitch']);
             expect(enrichPitchWords).toHaveBeenCalledTimes(1);
-            expect(word.classList.contains('jpdb-known')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
-            expect(word.querySelector('rt')?.textContent).toBe('せんせい');
+            expect(word.dataset.expression).toBe('先生');
+            expect(word.querySelector('rt')).toBeNull();
         } finally {
+            enrichment.resolve(undefined);
+            scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }

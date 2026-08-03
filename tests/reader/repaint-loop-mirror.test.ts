@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyTokensToScanTarget,
     collectTextTargetsIn,
+    documentPortalProjectionCountsForTest,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     projectAdditiveTextMirrors,
     removeNonDestructiveScanMirrors,
@@ -11,6 +12,7 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from '../../src/reader/dom';
+import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -33,6 +35,11 @@ function paintForcedInline(host: HTMLElement): void {
     applyTokensToScanTarget({ ...target!, forceInlineRender: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 }
 
+const projectionFrame = async (): Promise<void> => {
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+};
+
 afterEach(() => {
     removeNonDestructiveScanMirrors(document);
     document.getElementById('roomy-style')?.remove();
@@ -44,6 +51,97 @@ afterEach(() => {
 // a few rapid reverts the reader must switch that host to the non-destructive
 // mirror (which never mutates the app's node) to break the loop.
 describe('repaint-loop mirror fallback', () => {
+    it('coalesces a batch of late readings into one exact portal projection', async () => {
+        const text = '先生学生';
+        document.body.innerHTML = `<article class="comment-thread"><p id="comment-text">${text}</p></article>`;
+        const host = document.getElementById('comment-text')!;
+        const target = collectTextTargetsIn(host, 40, false).find(item => item.text.trim() === text)!;
+        const unresolved = (surface: string, start: number, vid: number): JPDBToken => ({
+            card: { ...CARD, vid, sid: 1, spelling: surface, reading: '', source: 'jiten' },
+            start,
+            end: start + surface.length,
+            length: surface.length,
+            rubies: [],
+            pitchClass: 'unknown',
+            sentence: text,
+        });
+        applyTokensToScanTarget(
+            { ...target, nonDestructive: true },
+            [unresolved('先生', 0, 11), unresolved('学生', 2, 12)],
+            { ...DEFAULT_SETTINGS, furiganaMode: 'all' },
+        );
+        await projectionFrame();
+
+        const words = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-document-annotation-portal .jpdb-reader-word')];
+        expect(words).toHaveLength(2);
+        const before = documentPortalProjectionCountsForTest().mirrors;
+        applyPublicVocabularyFurigana(words[0], { ...CARD, vid: 11, spelling: '先生', reading: 'せんせい', source: 'jiten' }, {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'all',
+        });
+        applyPublicVocabularyFurigana(words[1], { ...CARD, vid: 12, spelling: '学生', reading: 'がくせい', source: 'jiten' }, {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'all',
+        });
+
+        // Neither word may synchronously Range-project the whole comment.
+        expect(documentPortalProjectionCountsForTest().mirrors).toBe(before);
+        await projectionFrame();
+        expect(documentPortalProjectionCountsForTest().mirrors - before).toBe(1);
+    });
+
+    it('keeps source-preserving prose outside the native host across same-text framework rewrites', async () => {
+        document.body.innerHTML = `<article class="comment-thread"><p id="comment-text">${TEXT}</p></article>`;
+        const host = document.getElementById('comment-text')!;
+        const target = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
+        expect(target).toBeTruthy();
+        const nativeStyle = host.getAttribute('style');
+
+        applyTokensToScanTarget({ ...target!, nonDestructive: true }, [token()], {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'all',
+        });
+
+        const portal = document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(portal).toBeTruthy();
+        expect(host.contains(portal)).toBe(false);
+        expect(portal.parentElement).toBe(document.body);
+        expect(host.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.textContent).toBe(TEXT);
+        expect(host.getAttribute('style')).toBe(nativeStyle);
+
+        let readerWordAdds = 0;
+        let readerWordRemovals = 0;
+        const lifecycle = new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+                readerWordAdds += readerWordsIn(mutation.addedNodes);
+                readerWordRemovals += readerWordsIn(mutation.removedNodes);
+            }
+        });
+        lifecycle.observe(document.body, { childList: true, subtree: true });
+
+        // A React/YouTube-style same-text reconciliation replaces the source
+        // children. The document portal must survive by identity: no reader
+        // word is retired or replay-mounted inside the framework-owned host.
+        host.textContent = TEXT;
+        const replacementTarget = collectTextTargetsIn(host, 40, false).find(t => t.text.trim() === TEXT);
+        expect(replacementTarget).toBeTruthy();
+        applyTokensToScanTarget({ ...replacementTarget!, nonDestructive: true }, [token()], {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'all',
+        });
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(document.querySelector('.jpdb-reader-text-mirror')).toBe(portal);
+        expect(host.contains(portal)).toBe(false);
+        expect(host.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).toBeNull();
+        expect(host.textContent).toBe(TEXT);
+        expect(host.getAttribute('style')).toBe(nativeStyle);
+        expect(readerWordAdds).toBe(0);
+        expect(readerWordRemovals).toBe(0);
+        lifecycle.disconnect();
+    });
+
     it('switches a host that keeps reverting our annotation to the text mirror', () => {
         document.body.innerHTML = `<div id="host">${TEXT}</div>`;
         const host = document.getElementById('host')!;
@@ -440,6 +538,15 @@ describe('repaint-loop mirror fallback', () => {
         expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
     });
 });
+
+function readerWordsIn(nodes: NodeList): number {
+    return Array.from(nodes).reduce((count, node) => {
+        if (!(node instanceof Element)) return count;
+        return count
+            + (node.matches('.jpdb-reader-word') ? 1 : 0)
+            + node.querySelectorAll('.jpdb-reader-word').length;
+    }, 0);
+}
 
 // A long/paginated reading surface (Narou, ttsu) recycles the same host slots
 // as the reader scrolls: each new title paints a mirror, the SPA later swaps

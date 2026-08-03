@@ -95,7 +95,25 @@ function looksLikeNoisyRenderedContext(text: string): boolean {
 }
 
 export function pitchEnrichmentPriority(token: JPDBToken): number {
-    return token.card.source === 'fallback' ? 0 : 1;
+    // Reading-less cards are not merely waiting for optional pitch: without
+    // lexical detail they have no ruby and the unknown-pitch lane is visually
+    // transparent. Complete those bare spans before spending a bounded public
+    // batch on cards that already have a readable annotation. Provider-neutral
+    // ordering keeps the same contract for Jiten, JPDB, and fallback cards.
+    if (!token.card.reading.trim()) return 0;
+    return token.card.source === 'fallback' ? 1 : 2;
+}
+
+export function boundedPublicPitchLookupReservation(
+    candidateCount: number,
+    perCallLimit: number,
+    totalLimit: number | undefined,
+): number {
+    // The page budget is cumulative, but enrichment arrives in many small
+    // visible-scan batches. Reserving a full 24-card mobile allowance for a
+    // three-card batch silently starved every later batch even though 21 slots
+    // were never used. Reserve only work this call can actually submit.
+    return Math.min(candidateCount, Math.max(perCallLimit, Math.floor(totalLimit ?? candidateCount)));
 }
 
 export function pitchEnrichmentTokenForCard(card: JPDBCard): JPDBToken {

@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, collectTextTargetsIn, makeRoomForRubyInCroppedRows, type FragmentTextTarget, type ScanTextTarget } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import {
+    readerTextMirrorForSource,
+    readerWordsForSource,
+    readerWordsWithinSource,
+} from './helpers/text-mirror';
 
 describe('generic reader layout overflow guards', () => {
     afterEach(() => {
@@ -372,7 +377,7 @@ describe('generic reader layout overflow guards', () => {
         expect(para.dataset.yomuRubyRoom).toBeUndefined();
     });
 
-    it('lets non-destructive mirrors inherit host color after late theme changes', () => {
+    it('lets non-destructive mirrors inherit host color after late theme changes', async () => {
         document.body.innerHTML = `
             <div id="message" class="message-content" style="color: rgb(128, 128, 128)">
                 日本語の回答
@@ -390,12 +395,17 @@ describe('generic reader layout overflow guards', () => {
             furiganaMode: 'all',
         });
 
-        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        const mirror = readerTextMirrorForSource(host)!;
         const reading = mirror.querySelector<HTMLElement>('.jpdb-reader-detached-furi')!;
         expect(mirror).toBeTruthy();
         expect(reading).toBeTruthy();
-        expect(mirror.style.color).not.toBe('rgb(128, 128, 128)');
+        expect(host.contains(mirror)).toBe(false);
+        expect(getComputedStyle(mirror).color).toBe('rgb(128, 128, 128)');
         host.style.color = 'rgb(20, 20, 20)';
+        // Host attribute observation re-stamps out-of-tree portal typography
+        // before the next paint; unlike an in-host mirror it cannot inherit
+        // synchronously through the DOM tree.
+        await new Promise(resolve => setTimeout(resolve, 0));
         expect(getComputedStyle(mirror).color).toBe('rgb(20, 20, 20)');
         expect(getComputedStyle(reading).color).toBe('rgb(20, 20, 20)');
     });
@@ -434,9 +444,11 @@ describe('generic reader layout overflow guards', () => {
         });
 
         expect(host.querySelector(':scope > .jpdb-reader-text-mirror')).toBeNull();
-        expect(note.querySelector(':scope > .jpdb-reader-text-mirror')).not.toBeNull();
-        expect(host.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
-        expect(note.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        const noteMirror = readerTextMirrorForSource(note);
+        expect(noteMirror).not.toBeNull();
+        expect(note.contains(noteMirror)).toBe(false);
+        expect(readerWordsWithinSource(host)).toHaveLength(3);
+        expect(readerWordsForSource(note)).toHaveLength(2);
         const plain = host.cloneNode(true) as HTMLElement;
         plain.querySelectorAll('rt,rp,.jpdb-reader-text-mirror').forEach(child => child.remove());
         expect(plain.textContent?.replace(/\s+/g, '')).toContain('送料無料の商品です。※配送不可エリア離島');

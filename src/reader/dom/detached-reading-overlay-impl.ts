@@ -72,7 +72,7 @@ interface DocumentOverlay {
     documentLayer: HTMLElement;
     documentLayerOrigin: { x: number; y: number } | null;
     scrollLayers: Map<HTMLElement, ScrollProjectionLayer>;
-    scrolledClippingContainers: WeakSet<Element>;
+    scrolledContainers: WeakSet<Element>;
     records: Set<ProjectionRecord>;
     anchorRecords: Map<HTMLElement, Set<ProjectionRecord>>;
     anchorRoots: Map<HTMLElement, readonly ShadowRoot[]>;
@@ -263,7 +263,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         documentLayer,
         documentLayerOrigin: null,
         scrollLayers: new Map(),
-        scrolledClippingContainers: new WeakSet(),
+        scrolledContainers: new WeakSet(),
         records: new Set(),
         anchorRecords: new Map(),
         anchorRoots: new Map(),
@@ -282,7 +282,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleScrollRefresh: (event: Event) => {
             if (scrollMovedNoProjectedReading(event, overlay)) return;
-            if (firstClippingContainerScroll(event, overlay)) {
+            if (firstIndependentContainerScroll(event, overlay)) {
                 overlay.scheduleTopologyRefresh();
                 return;
             }
@@ -941,19 +941,22 @@ function transformPreservesCssPixels(transform: string): boolean {
 }
 
 /**
- * Anything that can hold its own scroll offset disqualifies a word from
- * document space, including overflow:hidden boxes — those still scroll when
- * script sets scrollTop, and guessing wrong here detaches the reading, while
- * guessing conservatively only keeps today's follow behaviour.
+ * Anything that currently holds its own scroll range disqualifies a word from
+ * document space, including overflow:hidden boxes once they have actually
+ * scrolled. Merely advertising `overflow:auto` is not enough: YouTube's search
+ * page uses a full-height flex shell with overflow-x:auto even when that shell
+ * has no scroll range. Treating it as a scroller leaves the document out of the
+ * projection context and makes the reading chase page scroll one frame later.
  */
 function elementScrollsIndependently(
     element: Element,
     style: CSSStyleDeclaration,
     overlay: DocumentOverlay,
 ): boolean {
-    // auto/scroll/overlay advertise a scroll offset even before async content
-    // makes them overflow. Classify them up front so the first compositor
-    // scroll cannot outrun a topology refresh.
+    // auto/scroll/overlay become independent only when the corresponding axis
+    // has a real scroll range. A mutation/resize refresh catches the usual
+    // transition into overflow; firstIndependentContainerScroll is the safety
+    // net when a host gains a range without an observable topology signal.
     const advertisesScroll = (overflow: string): boolean => overflow === 'auto'
         || overflow === 'scroll'
         || overflow === 'overlay';
@@ -965,12 +968,24 @@ function elementScrollsIndependently(
     // clipping box only matters once something has actually scrolled it, which
     // only script can do, and that shows up as a non-zero offset.
     const clipsContent = (overflow: string): boolean => overflow === 'hidden' || overflow === 'clip';
-    const scrolled = overlay.scrolledClippingContainers.has(element)
+    const scrolled = overlay.scrolledContainers.has(element)
         || element.scrollTop !== 0
         || element.scrollLeft !== 0;
-    if (advertisesScroll(style.overflowY) || advertisesScroll(style.overflowX)) return true;
-    if (clipsContent(style.overflowY) && scrolled && element.scrollHeight > element.clientHeight + 1) return true;
-    return clipsContent(style.overflowX) && scrolled && element.scrollWidth > element.clientWidth + 1;
+    const verticalRange = element.scrollHeight > element.clientHeight + 1;
+    const horizontalRange = element.scrollWidth > element.clientWidth + 1;
+    if (advertisesScroll(style.overflowY) && verticalRange) return true;
+    if (advertisesScroll(style.overflowX) && horizontalRange) {
+        // Responsive flex shells can retain a couple of rounding pixels on the
+        // cross axis while their contents still move only with the document.
+        // YouTube's ytd-search (`overflow-x:auto; overflow-y:hidden`) is the
+        // common iPad shape. Do not strand its readings in a nominal scroll
+        // layer for that inert range; a real first horizontal offset is still
+        // detected below and immediately reclassifies the container.
+        const horizontalRangePx = element.scrollWidth - element.clientWidth;
+        if (scrolled || horizontalRangePx > 4) return true;
+    }
+    if (clipsContent(style.overflowY) && scrolled && verticalRange) return true;
+    return clipsContent(style.overflowX) && scrolled && horizontalRange;
 }
 
 function scheduleProjectionRefresh(document: Document, overlay: DocumentOverlay): void {
@@ -1438,8 +1453,11 @@ function projectionIsTopmost(
     const footprint = projectedReadingFootprint(record, sourceRect);
     const insetX = Math.min(1, footprint.width / 4);
     const insetY = Math.min(1, footprint.height / 4);
-    const points = [
-        [sourceRect.left + sourceRect.width / 2, sourceRect.top + sourceRect.height / 2],
+    const sourceCentre = [
+        sourceRect.left + sourceRect.width / 2,
+        sourceRect.top + sourceRect.height / 2,
+    ] as const;
+    const footprintPoints = [
         [footprint.left + footprint.width / 2, footprint.top + footprint.height / 2],
         [footprint.left + insetX, footprint.top + insetY],
         [footprint.right - insetX, footprint.top + insetY],
@@ -1452,9 +1470,13 @@ function projectionIsTopmost(
         // Resolved once per record: the control and its size decide the same
         // way at every probe point.
         chrome: ownChromeControl(record.anchor, sourceRect),
+        portalControl: ownPortalControl(record, sourceRect),
         occludingPaint,
     };
-    return points.every(([x, y]) => anchorOwnsTopmostPoint(probe, x, y));
+    // The native source itself must remain topmost. Only the reading footprint
+    // may cross an icon/ripple sibling inside this exact portal-owned control.
+    if (!anchorOwnsTopmostPoint(probe, ...sourceCentre)) return false;
+    return footprintPoints.every(([x, y]) => anchorOwnsTopmostPoint(probe, x, y, true));
 }
 
 function projectionRenderSurface(record: ProjectionRecord): Element {
@@ -1483,6 +1505,8 @@ function projectedReadingFootprint(record: ProjectionRecord, sourceRect: DOMRect
 // nothing.
 const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,'
     + '[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
+const YOUTUBE_CHROME_PORTAL_SELECTOR = '.jpdb-reader-youtube-chrome-portal';
+const PORTAL_CONTROL_SELECTOR = `a[href],${OWN_CHROME_CONTROL_SELECTOR}`;
 // Past this many of the word's own line boxes a control has room to stack
 // content above its label — a media tile, a radio card, a label wrapped around
 // a whole row — and its interior stops being chrome.
@@ -1498,7 +1522,25 @@ interface OcclusionProbe {
     anchor: HTMLElement;
     surface: Element;
     chrome: Element | null;
+    portalControl: Element | null;
     occludingPaint: Map<Element, boolean>;
+}
+
+/** The nearest compact native control represented by a YouTube chrome portal. */
+function ownPortalControl(record: ProjectionRecord, sourceRect: DOMRect): Element | null {
+    if (!record.owner.closest(YOUTUBE_CHROME_PORTAL_SELECTOR)) return null;
+    const visited = new Set<Node>();
+    for (let node: Node | null = record.anchor; node && !visited.has(node); node = composedParentNode(node)) {
+        visited.add(node);
+        if (!(node instanceof Element)) continue;
+        try {
+            if (!node.matches(PORTAL_CONTROL_SELECTOR)) continue;
+        } catch {
+            return null;
+        }
+        return controlIsOwnChromeSized(node, sourceRect) ? node : null;
+    }
+    return null;
 }
 
 /**
@@ -1537,7 +1579,12 @@ function controlIsOwnChromeSized(control: Element, sourceRect: DOMRect): boolean
         <= sourceRect.height * OWN_CHROME_MAX_CONTROL_LINES;
 }
 
-function anchorOwnsTopmostPoint(probe: OcclusionProbe, x: number, y: number): boolean {
+function anchorOwnsTopmostPoint(
+    probe: OcclusionProbe,
+    x: number,
+    y: number,
+    allowPortalControlContent = false,
+): boolean {
     const { anchor, surface } = probe;
     const document = anchor.ownerDocument;
     if (typeof document.elementsFromPoint !== 'function') return true;
@@ -1548,6 +1595,9 @@ function anchorOwnsTopmostPoint(probe: OcclusionProbe, x: number, y: number): bo
         const deepest = deepestOpenShadowHit(hit, x, y);
         if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
         if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+        if (allowPortalControlContent
+            && probe.portalControl
+            && composedContains(probe.portalControl, deepest)) return true;
         for (let element: Element | null = deepest; element; element = composedParentElement(element)) {
             if (composedContains(element, anchor) || composedContains(element, surface)) break;
             if (elementIsOwnControlChrome(element, probe)) continue;
@@ -1699,21 +1749,27 @@ function composedParentElement(element: Element): Element | null {
     return parent;
 }
 
-function firstClippingContainerScroll(event: Event, overlay: DocumentOverlay): boolean {
+function firstIndependentContainerScroll(event: Event, overlay: DocumentOverlay): boolean {
     const target = event.target;
     if (!(target instanceof Element)
-        || overlay.scrolledClippingContainers.has(target)
+        || overlay.scrolledContainers.has(target)
         || (target.scrollTop === 0 && target.scrollLeft === 0)) {
         return false;
     }
     const style = safeComputedStyle(target);
-    const clips = (value: string): boolean => value === 'hidden' || value === 'clip';
-    if (!clips(style.overflowX) && !clips(style.overflowY)) return false;
-    overlay.scrolledClippingContainers.add(target);
-    // An unscrolled overflow:hidden title deliberately starts in document
-    // space so its reading can escape the clip. The first real offset proves
-    // it is a script-driven scroller; reclassify before the browser paints
-    // that scroll rather than waiting a frame with the old document layer.
+    const canScroll = (value: string): boolean => value === 'auto'
+        || value === 'scroll'
+        || value === 'overlay'
+        || value === 'hidden'
+        || value === 'clip';
+    const movedVertically = target.scrollTop !== 0 && canScroll(style.overflowY);
+    const movedHorizontally = target.scrollLeft !== 0 && canScroll(style.overflowX);
+    if (!movedVertically && !movedHorizontally) return false;
+    overlay.scrolledContainers.add(target);
+    // An unscrolled clipping title deliberately starts in document space so
+    // its reading can escape the clip. Likewise, an auto box can start with no
+    // range and gain one later. The first real offset proves either is now an
+    // independent scroller; invalidate the cached layer decision immediately.
     return true;
 }
 

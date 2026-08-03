@@ -100,6 +100,7 @@ function trackedFiles(root) {
 function fixtureValue(value) {
     const normalized = value.trim().toLowerCase();
     if (!normalized || /^(?:\$\{|<|\[?redacted|process\.env\.|import\.meta\.env\.)/.test(normalized)) return true;
+    if (/^__[a-z0-9_-]+__$/.test(normalized)) return true;
     if (/(?:^|[-_.:/])(?:test|mock|fixture|example|fake|dummy|placeholder|redacted|opaque|sample)(?:$|[-_.:/])/.test(normalized)) return true;
     if (/^(?:x|0|1|a){8,}$/.test(normalized) || /^(?:change|replace)[-_ ]?me$/.test(normalized)) return true;
     return false;
@@ -107,11 +108,12 @@ function fixtureValue(value) {
 
 function fixturePath(file) {
     return /(?:^|\/)(?:tests?|__fixtures__|fixtures?)(?:\/|$)/.test(file)
-        || /^scripts\/[^/]*(?:smoke|fixture|profile|qa)[^/]*\.[cm]?[jt]s$/.test(file);
+        || /^scripts\/[^/]*(?:smoke|fixture|profile|proof|qa)[^/]*\.[cm]?[jt]s$/.test(file)
+        || /^docs\/public\/api\/vendor\//.test(file);
 }
 
 function findingSeverity(file, rule) {
-    const publicLensKey = /^(?:src\/(?:gaming\/ocr\.ts|reader\/ocr\/(?:controller|ocr-providers)\.ts)|docs\/public\/(?:study\/app\.js|greasyfork\/yomu-ocr-manga(?:\.[0-9a-f]{12})?\.user\.js))$/.test(file);
+    const publicLensKey = /^(?:src\/(?:gaming\/ocr\.ts|reader\/ocr\/(?:controller|ocr-providers)\.ts)|docs\/public\/(?:study\/app\.js|greasyfork\/yomu-(?:ocr-manga|runtime)(?:\.[0-9a-f]{12})?\.user\.js))$/.test(file);
     if (publicLensKey && (rule === 'google-api-key' || rule === 'credential-assignment')) return 'debt';
     return 'blocker';
 }

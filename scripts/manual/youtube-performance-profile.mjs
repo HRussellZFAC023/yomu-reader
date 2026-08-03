@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -12,6 +13,7 @@ import {
     resolveAnkiAction,
 } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
+import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
@@ -22,7 +24,11 @@ const cssPath = resolve(process.env.YOMU_PROFILE_CSS ?? join(artifactDir, 'dist/
 const companionDir = resolve(process.env.YOMU_PROFILE_COMPANION_DIR ?? join(artifactDir, 'dist/greasyfork'));
 // yomu-ocr-manga carries the OCR controller + raster detectors; without it the
 // profile never executes the code whose heat it is meant to measure.
-const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-ocr-manga.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
+// Tampermonkey loads the runtime through @require before the core userscript.
+// Playwright addInitScript does not interpret metadata, so include that exact
+// full companion explicitly; without it the profile silently exercises core's
+// degraded parser stubs and records zero JPDB/Jiten traffic.
+const companionPaths = ['yomu-runtime.user.js']
     .map(name => join(companionDir, name))
     .filter(existsSync);
 const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));
@@ -31,6 +37,25 @@ const WATCH_URL = 'https://www.youtube.com/watch?v=profile123';
 const MOBILE_WATCH_URL = 'https://m.youtube.com/watch?v=profile123';
 const HOVER_STRESS_DURATION_MS = Number(process.env.YOMU_PROFILE_HOVER_STRESS_MS ?? 15_000);
 const MOBILE_CPU_THROTTLE_RATE = Number(process.env.YOMU_PROFILE_MOBILE_CPU_THROTTLE ?? 4);
+const STRESS_WORD_SELECTOR = [
+    'ytd-watch-metadata .jpdb-reader-word',
+    'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
+    'ytd-comment-view-model .jpdb-reader-word',
+    'ytm-comment-renderer .jpdb-reader-word',
+    '#secondary .jpdb-reader-word',
+    '.jpdb-subtitle-list .jpdb-reader-word',
+    '.jpdb-reader-document-annotation-portal .jpdb-reader-word',
+    '.jpdb-ocr-line .jpdb-reader-word',
+].join(',');
+// Baseline-only escape hatch: released/source candidates keep the strict
+// no-mirror assertion unless the profiler invocation says it is deliberately
+// measuring an already-known bad build. This lets a before/after run retain
+// timing evidence without normalizing the layout regression into the gate.
+const ALLOW_TEXT_MIRRORS = process.env.YOMU_PROFILE_ALLOW_TEXT_MIRRORS === '1';
+const RELEASE_EVIDENCE_ELIGIBLE = !ALLOW_TEXT_MIRRORS;
+if (ALLOW_TEXT_MIRRORS && /(?:candidate|release|ship)/iu.test(artifactLabel)) {
+    throw new Error('YOMU_PROFILE_ALLOW_TEXT_MIRRORS is baseline-only and cannot produce candidate or release evidence.');
+}
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const REQUEST_BRIDGE_NAME = '__yomuYoutubePerfRequest';
 const JPDB_PARSE_URL = 'https://jpdb.io/api/v1/parse';
@@ -154,6 +179,10 @@ function scenarioSettings(scenario) {
     return {
         ...baseSettings,
         apiKey: scenario.apiKey ? 'profile-key' : '',
+        // Keep the two release-evidence lanes explicit: the API scenario must
+        // execute JPDB /parse, while no-api must exercise public Jiten parse +
+        // detail hydration instead of inheriting a saved/default provider.
+        parserProvider: scenario.apiKey ? 'jpdb' : 'jiten',
         ankiEnabled: scenario.anki,
         ankiSectionEnabled: scenario.anki,
         wordTextColorSource: scenario.anki ? 'anki' : 'jpdb',
@@ -213,14 +242,39 @@ const browser = await chromium.launch({ headless: !headed });
 try {
     const profiles = [];
     for (const scenario of scenarioNames.map(profileScenario)) profiles.push(await runScenario(browser, scenario));
-    console.log(JSON.stringify({
+    const report = {
         label: artifactLabel,
         generatedAt: new Date().toISOString(),
-        artifacts: { userscriptPath, cssPath, companionPaths },
+        diagnostics: {
+            allowTextMirrors: ALLOW_TEXT_MIRRORS,
+            releaseEvidenceEligible: RELEASE_EVIDENCE_ELIGIBLE,
+            ineligibleReason: RELEASE_EVIDENCE_ELIGIBLE
+                ? null
+                : 'Known-bad baseline: in-host YouTube comment mirrors were explicitly allowed.',
+        },
+        artifacts: {
+            userscript: profileArtifactDescriptor(userscriptPath),
+            css: profileArtifactDescriptor(cssPath),
+            companions: companionPaths.map(profileArtifactDescriptor),
+        },
         scenarios: profiles,
-    }, null, 2));
+    };
+    const serializedReport = JSON.stringify(report, null, 2);
+    writeFileSync(join(outputRoot, 'profile.json'), serializedReport);
+    console.log(serializedReport);
 } finally {
     await browser.close();
+}
+
+function profileArtifactDescriptor(path) {
+    const contents = readFileSync(path);
+    const text = path.endsWith('.js') ? contents.toString('utf8', 0, Math.min(contents.length, 4096)) : '';
+    return {
+        path,
+        version: text.match(/^\/\/\s*@version\s+([^\s]+)$/mu)?.[1] ?? null,
+        bytes: contents.length,
+        sha256: createHash('sha256').update(contents).digest('hex'),
+    };
 }
 
 async function runScenario(browser, scenario) {
@@ -311,23 +365,36 @@ async function runScenario(browser, scenario) {
             durationMs: HOVER_STRESS_DURATION_MS,
             label: 'desktop',
         });
+        validateStressInteraction(hoverStressInteraction, scenario, 'desktop');
         const hoverStressStep = await finishStep(page, client, hoverStressStart, 'youtubeHoverStress');
         hoverStressStep.interaction = hoverStressInteraction;
         profile.steps.push(hoverStressStep);
 
         profile.mobileStress = await runMobileHoverStress(context, scenario, scenarioArtifactsDir);
-        validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile', { allowRepaintLoopMirrors: true });
+        validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile');
         await waitForYoutubeCommentParse(page, scenario);
         profile.finalState = await readPageState(page);
-        validateYoutubeCommentState(profile.finalState, scenario, 'desktop', { allowRepaintLoopMirrors: true });
+        validateYoutubeCommentState(profile.finalState, scenario, 'desktop');
         profile.parseRequests = parseRequestSummary(0);
         profile.jitenPublicRequests = jitenPublicRequestSummary(0);
         profile.ankiRequests = ankiRequestSummary(0);
+        validateParserTraffic(profile, scenario);
         await page.screenshot({ path: join(scenarioArtifactsDir, 'youtube-performance.png'), fullPage: false }).catch(() => undefined);
         await page.close().catch(() => undefined);
         return profile;
     } finally {
         await context.close().catch(() => undefined);
+    }
+}
+
+function validateParserTraffic(profile, scenario) {
+    if (!RELEASE_EVIDENCE_ELIGIBLE) return;
+    if (scenario.apiKey && profile.parseRequests.count <= 0) {
+        throw new Error(`${scenario.name}: the JPDB API profile did not execute a parse request`);
+    }
+    if (!scenario.apiKey
+        && (profile.jitenPublicRequests.parseCount <= 0 || profile.jitenPublicRequests.infoCount <= 0)) {
+        throw new Error(`${scenario.name}: the public Jiten profile did not execute parse and detail requests`);
     }
 }
 
@@ -348,6 +415,7 @@ async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
         label: 'mobile',
         activation: 'touch',
     });
+    validateStressInteraction(interaction, scenario, 'mobile');
     await waitForYoutubeCommentParse(page, scenario);
     const step = await finishStep(page, client, started, 'mobileYoutubeHoverStress');
     step.interaction = interaction;
@@ -358,6 +426,7 @@ async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
 }
 
 async function installInstrumentation(context) {
+    await context.addInitScript(installYoutubePerformanceStressTargetSelector);
     await context.addInitScript(() => {
         const JapaneseText = /[\u3040-\u30ff\u3400-\u9fff]/u;
         const NativeMutationObserver = window.MutationObserver;
@@ -861,7 +930,14 @@ async function resetPagePerf(page) {
 }
 
 async function ensureSubtitlePanelOpen(page) {
-    await page.waitForSelector('.jpdb-subtitle-rail [data-action="panel"]', { timeout: 12000 });
+    // YouTube may auto-hide the rail between profile steps. The control is
+    // still mounted and its programmatic activation is the behavior under
+    // measurement, so requiring a painted button here makes the profile fail
+    // nondeterministically before it can collect the side-panel sample.
+    await page.waitForSelector('.jpdb-subtitle-rail [data-action="panel"]', {
+        state: 'attached',
+        timeout: 12000,
+    });
     await page.evaluate(() => {
         const panel = document.querySelector('.jpdb-subtitle-list');
         if (!panel || panel.hidden) document.querySelector('.jpdb-subtitle-rail [data-action="panel"]')?.click();
@@ -1030,7 +1106,19 @@ async function exerciseSecondarySubtitleBlur(page) {
 
 async function exerciseOcrOverlay(page) {
     await page.evaluate(() => window.__yomuProfileInstallOcrImage?.());
-    await page.locator('#profile-ocr-image').hover();
+    // Fast OCR builds can paint their text layer in the same turn as fixture
+    // installation. Once present, that intended overlay intercepts the source
+    // image; do not spend the profile timeout trying to hover through it.
+    const paintedWithoutHover = await page.waitForSelector('.jpdb-ocr-line .jpdb-reader-word', {
+        timeout: 1200,
+    }).then(() => true, () => false);
+    if (!paintedWithoutHover) await page.evaluate(() => {
+        const image = document.querySelector('#profile-ocr-image');
+        if (!(image instanceof HTMLElement)) return;
+        for (const type of ['pointerover', 'mouseover', 'pointerenter', 'mouseenter']) {
+            image.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+        }
+    });
     await page.waitForSelector('.jpdb-ocr-line .jpdb-reader-word', { timeout: 12000 });
     const started = Date.now();
     await page.locator('.jpdb-ocr-line .jpdb-reader-word').first().hover();
@@ -1082,6 +1170,10 @@ async function exerciseYoutubeHoverStress(page, options = {}) {
             const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
             window.scrollTo({ top: Math.max(0, top + (index % 5) * 180), behavior: 'instant' });
         }, iteration);
+        // User input can only target a painted frame. Let scroll projection and
+        // fixed overlay geometry settle, then require the resolver below to
+        // prove that the chosen word actually owns its point.
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
         samples.push(await hoverStressSample(page, iteration, label, activation));
         iteration += 1;
         await page.waitForTimeout(90);
@@ -1098,49 +1190,22 @@ async function exerciseYoutubeHoverStress(page, options = {}) {
 
 async function waitForYoutubeCommentParse(page, scenario) {
     await page.waitForFunction(requireRuby => {
-        const words = [...document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word')];
+        const words = [...document.querySelectorAll([
+            'ytd-comment-view-model #content-text .jpdb-reader-word',
+            'ytm-comment-renderer #content-text .jpdb-reader-word',
+            '.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"] .jpdb-reader-word',
+        ].join(','))];
         if (!words.length) return false;
-        return !requireRuby || words.some(word => word.querySelector('rt'));
+        return !requireRuby || words.some(word => word.querySelector('rt,.jpdb-reader-detached-furi'));
     }, Boolean(scenario.apiKey), { timeout: 20_000 }).catch(() => undefined);
 }
 
 async function hoverStressSample(page, index, label, activation = 'hover') {
     await closeStressPopover(page);
     if (activation === 'touch') return await touchStressSample(page, index, label);
-    const target = await page.evaluate(sampleIndex => {
-        const selector = [
-            'ytd-watch-metadata .jpdb-reader-word',
-            'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
-            'ytd-comment-view-model .jpdb-reader-word',
-            'ytm-comment-renderer .jpdb-reader-word',
-            '#secondary .jpdb-reader-word',
-            '.jpdb-subtitle-list .jpdb-reader-word',
-        ].join(',');
-        const words = [...document.querySelectorAll(selector)]
-            .filter(word => {
-                const rect = word.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-                return rect.width > 2
-                    && rect.height > 2
-                    && centerX >= 10
-                    && centerY >= 10
-                    && centerX <= window.innerWidth - 10
-                    && centerY <= window.innerHeight - 10;
-            });
-        const word = words[sampleIndex % Math.max(1, words.length)];
-        if (!(word instanceof HTMLElement)) return null;
-        const rect = word.getBoundingClientRect();
-        const expected = word.dataset.expression || word.dataset.surface || word.textContent?.replace(/\s+/g, '').slice(0, 6) || '';
-        return {
-            x: Math.round(rect.left + rect.width / 2),
-            y: Math.round(rect.top + rect.height / 2),
-            expected,
-            text: word.textContent?.replace(/\s+/g, '').slice(0, 24) ?? '',
-            surface: word.dataset.surface ?? '',
-            expression: word.dataset.expression ?? '',
-        };
-    }, index);
+    const target = await page.evaluate(({ sampleIndex, selector }) => (
+        window.__yomuProfileSelectStressTarget?.(selector, sampleIndex) ?? null
+    ), { sampleIndex: index, selector: STRESS_WORD_SELECTOR });
     if (!target) return { label, skipped: true, reason: 'no-visible-word' };
 
     const started = await page.evaluate(expected => {
@@ -1154,21 +1219,7 @@ async function hoverStressSample(page, index, label, activation = 'hover') {
         return window.__yomuProfileHoverProbe.startedAt;
     }, target.expected);
     await page.mouse.move(target.x, target.y);
-    const seen = await page.waitForFunction(expected => {
-        const probe = window.__yomuProfileHoverProbe;
-        const popover = document.querySelector('.jpdb-reader-popover');
-        const text = popover?.textContent?.replace(/\s+/g, '') ?? '';
-        const hasExpectedText = expected ? text.includes(expected) : Boolean(text);
-        if (popover && probe && probe.seenAt === null) {
-            probe.seenAt = performance.now();
-            probe.text = text.slice(0, 120);
-        }
-        if (popover && hasExpectedText && probe && probe.expectedAt === null) {
-            probe.expectedAt = performance.now();
-            probe.text = text.slice(0, 120);
-        }
-        return expected ? Boolean(probe?.expectedAt) : Boolean(probe?.seenAt);
-    }, target.expected, { timeout: 3200 }).then(() => true).catch(() => false);
+    const seen = await waitForStressPopover(page, target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
     return {
         label,
@@ -1191,37 +1242,19 @@ async function closeStressPopover(page) {
 }
 
 async function touchStressSample(page, index, label) {
-    const result = await page.evaluate(sampleIndex => {
-        const selector = [
-            'ytd-watch-metadata .jpdb-reader-word',
-            'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
-            'ytd-comment-view-model .jpdb-reader-word',
-            'ytm-comment-renderer .jpdb-reader-word',
-            '#secondary .jpdb-reader-word',
-            '.jpdb-subtitle-list .jpdb-reader-word',
-        ].join(',');
-        const words = [...document.querySelectorAll(selector)]
-            .filter(word => {
-                const rect = word.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-                return word instanceof HTMLElement
-                    && rect.width > 2
-                    && rect.height > 2
-                    && centerX >= 10
-                    && centerY >= 10
-                    && centerX <= window.innerWidth - 10
-                    && centerY <= window.innerHeight - 10;
-            });
-        const word = words[sampleIndex % Math.max(1, words.length)];
-        if (!(word instanceof HTMLElement)) return null;
-        const rect = word.getBoundingClientRect();
-        const x = Math.round(rect.left + rect.width / 2);
-        const y = Math.round(rect.top + rect.height / 2);
-        const expected = word.dataset.expression || word.dataset.surface || word.textContent?.replace(/\s+/g, '').slice(0, 6) || '';
+    const result = await page.evaluate(({ sampleIndex, selector }) => {
+        const target = window.__yomuProfileSelectStressTarget?.(selector, sampleIndex) ?? null;
+        if (!target) return null;
+        const { x, y } = target;
+        // Portal paint is pointer-transparent. Dispatch through the element a
+        // real touch would hit at that coordinate so this profiles the source
+        // geometry bridge rather than an impossible event targeted directly at
+        // the out-of-tree annotation word.
+        const eventTarget = document.elementFromPoint(x, y);
+        if (!(eventTarget instanceof Element)) return null;
         window.__yomuProfileHoverProbe = {
             startedAt: performance.now(),
-            expected,
+            expected: target.expected,
             seenAt: null,
             expectedAt: null,
             text: '',
@@ -1242,36 +1275,18 @@ async function touchStressSample(page, index, label) {
             pressure: 0.5,
             button: 0,
         };
-        word.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
-        word.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0, pressure: 0 }));
+        eventTarget.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
+        eventTarget.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0, pressure: 0 }));
         return {
             started: window.__yomuProfileHoverProbe.startedAt,
             target: {
-                x,
-                y,
-                expected,
-                text: word.textContent?.replace(/\s+/g, '').slice(0, 24) ?? '',
-                surface: word.dataset.surface ?? '',
-                expression: word.dataset.expression ?? '',
+                ...target,
+                eventTarget: `${eventTarget.tagName.toLowerCase()}${eventTarget.id ? `#${eventTarget.id}` : ''}`,
             },
         };
-    }, index);
+    }, { sampleIndex: index, selector: STRESS_WORD_SELECTOR });
     if (!result) return { label, skipped: true, reason: 'no-visible-word' };
-    const seen = await page.waitForFunction(expected => {
-        const probe = window.__yomuProfileHoverProbe;
-        const popover = document.querySelector('.jpdb-reader-popover');
-        const text = popover?.textContent?.replace(/\s+/g, '') ?? '';
-        const hasExpectedText = expected ? text.includes(expected) : Boolean(text);
-        if (popover && probe && probe.seenAt === null) {
-            probe.seenAt = performance.now();
-            probe.text = text.slice(0, 120);
-        }
-        if (popover && hasExpectedText && probe && probe.expectedAt === null) {
-            probe.expectedAt = performance.now();
-            probe.text = text.slice(0, 120);
-        }
-        return expected ? Boolean(probe?.expectedAt) : Boolean(probe?.seenAt);
-    }, result.target.expected, { timeout: 3200 }).then(() => true).catch(() => false);
+    const seen = await waitForStressPopover(page, result.target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
     return {
         label,
@@ -1284,6 +1299,49 @@ async function touchStressSample(page, index, label) {
         expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - result.started) * 10) / 10 : null,
         popoverText: probe?.text ?? '',
     };
+}
+
+/**
+ * Measure the interaction deadline in the page clock and on painted frames.
+ * Playwright's wait timeout can race a predicate that becomes true in the same
+ * congested renderer turn: the predicate records the exact popup, then the
+ * driver rejects its already-expired wall timer. A page-owned deadline makes
+ * the verdict deterministic without extending the 3.2 s user-visible budget.
+ */
+async function waitForStressPopover(page, expected, timeoutMs = 3200) {
+    return page.evaluate(({ expectedText, deadlineMs }) => new Promise(resolve => {
+        let settled = false;
+        let timer = 0;
+        const finish = value => {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timer);
+            resolve(value);
+        };
+        const sample = () => {
+            if (settled) return;
+            const probe = window.__yomuProfileHoverProbe;
+            if (!probe) return finish(false);
+            const now = performance.now();
+            const popover = document.querySelector('.jpdb-reader-popover');
+            const text = popover?.textContent?.replace(/\s+/gu, '') ?? '';
+            const hasExpectedText = expectedText ? text.includes(expectedText) : Boolean(text);
+            if (popover && probe.seenAt === null) {
+                probe.seenAt = now;
+                probe.text = text.slice(0, 120);
+            }
+            if (popover && hasExpectedText && probe.expectedAt === null) {
+                probe.expectedAt = now;
+                probe.text = text.slice(0, 120);
+            }
+            const observedAt = expectedText ? probe.expectedAt : probe.seenAt;
+            if (observedAt !== null) return finish(observedAt - probe.startedAt <= deadlineMs);
+            if (now - probe.startedAt >= deadlineMs) return finish(false);
+            requestAnimationFrame(sample);
+        };
+        timer = window.setTimeout(sample, deadlineMs);
+        requestAnimationFrame(sample);
+    }), { expectedText: expected, deadlineMs: timeoutMs }).catch(() => false);
 }
 
 function hoverStressSummary(samples) {
@@ -1303,6 +1361,17 @@ function hoverStressSummary(samples) {
     };
 }
 
+function validateStressInteraction(interaction, scenario, label) {
+    const summary = interaction?.summary;
+    if (!summary || summary.count <= 0) {
+        throw new Error(`${scenario.name} ${label}: no lookup interaction samples were collected`);
+    }
+    if (summary.opened <= 0 && RELEASE_EVIDENCE_ELIGIBLE) {
+        const diagnosticSamples = interaction.samples?.slice(-3) ?? [];
+        throw new Error(`${scenario.name} ${label}: no lookup popup opened during the stress profile; samples=${JSON.stringify(diagnosticSamples)}`);
+    }
+}
+
 function percentile(values, percentileValue) {
     if (!values.length) return null;
     const index = Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * percentileValue) - 1));
@@ -1311,23 +1380,44 @@ function percentile(values, percentileValue) {
 
 async function readPageState(page) {
     return page.evaluate(() => {
+        const normalizeText = value => value.replace(/\s+/gu, ' ').trim();
+        const commentHosts = [...document.querySelectorAll(
+            'ytd-comment-view-model #content-text, ytm-comment-renderer #content-text',
+        )];
+        const commentSourceTexts = new Set(commentHosts
+            .map(host => normalizeText(host.textContent ?? ''))
+            .filter(Boolean));
+        const commentPortals = [...document.querySelectorAll(
+            '.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"]',
+        )].filter(portal => commentSourceTexts.has(normalizeText(portal.dataset.sourceText ?? '')));
+        const inlineCommentWords = [...document.querySelectorAll(
+            'ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word',
+        )];
+        const commentPortalWords = commentPortals.flatMap(portal => [...portal.querySelectorAll('.jpdb-reader-word')]);
+        const commentWords = [...inlineCommentWords, ...commentPortalWords];
+        const hasReading = word => Boolean(word.querySelector('rt,.jpdb-reader-detached-furi'));
         const subtitleWords = [...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word, .jpdb-subtitle-list .jpdb-reader-word')];
-        const pageWords = [...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, #secondary .jpdb-reader-word')];
-        const commentWords = [...document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word')];
+        const pageWords = [
+            ...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, #secondary .jpdb-reader-word'),
+            ...commentPortalWords,
+        ];
         return {
             perf: { ...window.__yomuProfilePerf },
             hostRestores: window.__yomuProfileHostRestores ?? 0,
             readerWords: document.querySelectorAll('.jpdb-reader-word').length,
             descriptionWords: document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word, ytm-expandable-video-description-body-renderer.jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word').length,
             commentWords: commentWords.length,
-            commentRubyWords: commentWords.filter(word => word.querySelector('rt')).length,
+            commentRubyWords: commentWords.filter(hasReading).length,
             commentTextMirrors: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-text-mirror, ytm-comment-renderer #content-text .jpdb-reader-text-mirror').length,
+            commentPortalMirrors: commentPortals.length,
+            commentPortalWords: commentPortalWords.length,
+            commentPortalRubyWords: commentPortalWords.filter(hasReading).length,
             sidebarWords: document.querySelectorAll('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word').length,
             overlayWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
             rowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
             rubySubtitleWords: subtitleWords.filter(word => word.querySelector('rt')).length,
             coloredSubtitleWords: subtitleWords.filter(word => /jpdb-(known|new|not-in-deck|pitch-)/u.test(word.className)).length,
-            rubyPageWords: pageWords.filter(word => word.querySelector('rt')).length,
+            rubyPageWords: pageWords.filter(hasReading).length,
             ankiStateWords: document.querySelectorAll('.jpdb-reader-word[data-anki-state], .jpdb-reader-word[class*="anki-"]').length,
             ocrWords: document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length,
             ocrRubyWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => word.querySelector('.jpdb-ocr-furi, rt')).length,
@@ -1340,14 +1430,14 @@ async function readPageState(page) {
     });
 }
 
-function validateYoutubeCommentState(state, scenario, label, options = {}) {
+function validateYoutubeCommentState(state, scenario, label) {
     if (!state || state.commentWords <= 0) {
         throw new Error(`${scenario.name} ${label}: YouTube comment text was not parsed`);
     }
-    if (state.commentTextMirrors !== 0 && !options.allowRepaintLoopMirrors) {
+    if (state.commentTextMirrors !== 0 && !ALLOW_TEXT_MIRRORS) {
         throw new Error(`${scenario.name} ${label}: YouTube comment bodies used text mirrors (${state.commentTextMirrors}), which can trigger false 詳細 overflow`);
     }
-    if (scenario.apiKey && state.commentRubyWords <= 0) {
+    if (scenario.apiKey && state.commentRubyWords <= 0 && RELEASE_EVIDENCE_ELIGIBLE) {
         throw new Error(`${scenario.name} ${label}: YouTube comments did not receive API furigana`);
     }
 }

@@ -11274,13 +11274,9 @@ function effectiveFuriganaMode(settings) {
 function isExplicitFuriganaMode(value) {
   return EXPLICIT_FURIGANA_MODES.has(value);
 }
-const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
-const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 const EASY_FURIGANA_KANJI = new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
-selectorPairs("control,toggle,player", ["class"]);
 const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
@@ -11303,26 +11299,6 @@ function shouldHideFuriganaForCardState(settings, state2) {
   const mode = effectiveFuriganaMode(settings);
   if (mode === "off") return true;
   return mode === "known-status" && furiganaHiddenStates(settings).has(state2);
-}
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
-function renderTokensToHtml(text, tokens, settings) {
-  let html = "";
-  let offset = 0;
-  const safeTokens = nonOverlappingTokens(tokens, text);
-  const miningInsightKeys = miningInsightTokenKeys(safeTokens);
-  for (const token of safeTokens) {
-  if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
-  html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
-  offset = token.end;
-  }
-  if (offset < text.length) html += escapeHtml(text.slice(offset));
-  return html;
-}
-function plainTextBeforeTokenHtml(gap) {
-  const digits = TRAILING_DIGITS_RE.exec(gap)?.[0];
-  if (!digits) return escapeHtml(gap);
-  const prefix = gap.slice(0, gap.length - digits.length);
-  return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
 }
 function nonOverlappingTokens(tokens, text) {
   const safe = [];
@@ -11382,40 +11358,6 @@ function readerCardId(card) {
 }
 function readerReadingIndex(card) {
   return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
-}
-function renderTokenHtml(surface, token, settings, miningInsightKeys) {
-  const state2 = primaryCardState(token.card.cardState);
-  const hasRuby = shouldRenderRuby(surface, token, settings);
-  const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
-  const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
-  const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
-  const classes = [
-  readerWordClassName(state2, token, settings),
-  hasRuby ? "jpdb-reader-has-furi" : "",
-  hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
-  ].filter(Boolean).join(" ");
-  const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
-  const cardId = ` data-card-id="${readerCardId(token.card)}"`;
-  const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-  const cardState = ` data-card-state="${escapeHtml(state2)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
-  const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
-  const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
-  const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
-  const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : "";
-  const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
-  const pitchAccent = token.card.pitchAccent.join("|");
-  const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
-  const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
-  const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
-  const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
-  const deck = renderDeckMembershipAttributes(token.card);
-  return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
-}
-function renderDeckMembershipAttributes(card) {
-  const membership = cardDeckMembership(card);
-  if (!membership.member) return "";
-  const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(", "))}"` : "";
-  return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
 function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
   if (!allowRuby) return false;
@@ -11695,6 +11637,64 @@ function rubyBaseKanaRuns(base) {
 }
 function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
+}
+const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
+const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
+new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+selectorPairs("control,toggle,player", ["class"]);
+new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+function renderTokensToHtml(text, tokens, settings) {
+  let html = "";
+  let offset = 0;
+  const safeTokens = nonOverlappingTokens(tokens, text);
+  const miningInsightKeys = miningInsightTokenKeys(safeTokens);
+  for (const token of safeTokens) {
+  if (token.start > offset) html += plainTextBeforeTokenHtml(text.slice(offset, token.start));
+  html += renderTokenHtml(text.slice(token.start, token.end), token, settings, miningInsightKeys);
+  offset = token.end;
+  }
+  if (offset < text.length) html += escapeHtml(text.slice(offset));
+  return html;
+}
+function plainTextBeforeTokenHtml(gap) {
+  const digits = TRAILING_DIGITS_RE.exec(gap)?.[0];
+  if (!digits) return escapeHtml(gap);
+  const prefix = gap.slice(0, gap.length - digits.length);
+  return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
+}
+function renderTokenHtml(surface, token, settings, miningInsightKeys) {
+  const state2 = primaryCardState(token.card.cardState);
+  const hasRuby = shouldRenderRuby(surface, token, settings);
+  const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
+  const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
+  const pitchClass = settings.showPitchAccent ? tokenPitchClass(token) : "";
+  const classes = [
+  readerWordClassName(state2, token, settings),
+  hasRuby ? "jpdb-reader-has-furi" : "",
+  hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
+  ].filter(Boolean).join(" ");
+  const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
+  const cardId = ` data-card-id="${readerCardId(token.card)}"`;
+  const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
+  const cardState = ` data-card-state="${escapeHtml(state2)}" data-state-provenance="${cardStateProvenance(token.card)}"`;
+  const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+  const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
+  const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
+  const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : "";
+  const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
+  const pitchAccent = token.card.pitchAccent.join("|");
+  const pitchClassAttr = pitchClass ? ` data-pitch-class="${pitchClass}"` : "";
+  const lookupMetadata = settings.showPitchAccent && pitchAccent && pitchClass !== "particle" ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
+  const pitchComponentGradient = settings.showPitchAccent ? pitchComponentUnderlineGradient(token.card) : "";
+  const pitchComponentMetadata = pitchComponentGradient ? ` data-pitch-components="true" style="--jpdb-reader-inline-pitch-gradient:${escapeHtml(pitchComponentGradient)}"` : "";
+  const deck = renderDeckMembershipAttributes(token.card);
+  return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr}${pitchClassAttr}${pitchComponentMetadata} data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
+}
+function renderDeckMembershipAttributes(card) {
+  const membership = cardDeckMembership(card);
+  if (!membership.member) return "";
+  const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(", "))}"` : "";
+  return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
 function claimOcrScan(owner) {
   const token = Symbol("ocr-scan");

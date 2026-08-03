@@ -102,6 +102,44 @@ describe('detached reading overlay occlusion', () => {
         clearProjectedReadings(target.owner);
     });
 
+    it.each(['button', 'a'] as const)(
+        'keeps a YouTube chrome portal reading over its own %s icon footprint',
+        tagName => {
+            const control = document.createElement(tagName);
+            if (control instanceof HTMLAnchorElement) control.href = '/feed/subscriptions';
+            control.getBoundingClientRect = () => rect(0, 0, 64, 48);
+            const icon = document.createElement('span');
+            icon.style.backgroundColor = 'rgb(255, 255, 255)';
+            const anchor = document.createElement('span');
+            anchor.textContent = '登録';
+            anchor.getBoundingClientRect = () => rect(20, 20, 40, 16);
+            control.append(icon, anchor);
+
+            const owner = document.createElement('span');
+            owner.className = 'jpdb-reader-text-mirror jpdb-reader-youtube-chrome-portal';
+            const source = document.createElement('span');
+            source.textContent = 'とうろく';
+            owner.append(source);
+            document.body.append(control, owner);
+            Object.defineProperty(document, 'elementsFromPoint', {
+                configurable: true,
+                value: vi.fn((_x: number, y: number) => (
+                    y < 20 ? [icon, control] : [anchor, control]
+                )),
+            });
+
+            syncProjectedReadings(owner, [{
+                source,
+                anchor,
+                rect: rect(20, 20, 40, 16),
+                measure: () => rect(20, 20, 40, 16),
+            }]);
+
+            expect(projectedReading('とうろく')?.style.display).toBe('block');
+            clearProjectedReadings(owner);
+        },
+    );
+
     // The exemption is scoped to the control the word lives in: a real menu
     // drawn over that button still hides the reading, or readings would bleed
     // through dropdowns. The menu here is bare and translucent, so only the
@@ -1432,6 +1470,33 @@ describe('detached reading scroll context', () => {
         expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(false);
         expect(target.reading.style.getPropertyValue('position')).toBe('fixed');
         expect(scroller.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
+        clearProjectedReadings(target.owner);
+    });
+
+    // YouTube's search shell advertises horizontal scrolling so its responsive
+    // results can overflow at narrower widths, but on iPad the flex shell often
+    // fits its contents exactly. Its overflow-y:hidden is clipping, not an
+    // independent vertical scroll context. Stopping the ancestry walk here
+    // strands the reading on the viewport layer while the document moves.
+    it('keeps a reading in document space under a non-overflowing flex search shell', () => {
+        const search = document.createElement('ytd-search');
+        search.style.display = 'flex';
+        search.style.overflowX = 'auto';
+        search.style.overflowY = 'hidden';
+        Object.defineProperties(search, {
+            clientWidth: { configurable: true, value: 640 },
+            scrollWidth: { configurable: true, value: 640 },
+            clientHeight: { configurable: true, value: 900 },
+            scrollHeight: { configurable: true, value: 900 },
+        });
+
+        const target = projectTargetInto(search, '検索');
+
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-document')).toBe(true);
+        expect(target.reading.classList.contains('jpdb-reader-projected-furi-scroll')).toBe(false);
+        expect(target.reading.parentElement?.classList.contains('jpdb-reader-detached-reading-document-layer'))
+            .toBe(true);
+        expect(search.querySelector('.jpdb-reader-detached-reading-scroll-layer')).toBeNull();
         clearProjectedReadings(target.owner);
     });
 

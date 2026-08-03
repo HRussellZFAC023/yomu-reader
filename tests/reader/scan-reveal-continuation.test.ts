@@ -269,6 +269,12 @@ function emptyNodeList(): NodeList {
 // queue a continuation for silent scans (mirror-skip makes progress), bounded
 // so it cannot spin forever.
 describe('visible scan continuation after a capped collection (class E)', () => {
+    // These tests exercise the continuation state machine, not the production
+    // 200-target throughput limit (covered by the scanner suite). Keep the
+    // synthetic cap small so renderer/portal cost cannot turn seven bounded
+    // transitions into a machine-speed-dependent timeout under Node/jsdom.
+    const collectionLimit = 8;
+
     afterEach(() => {
         vi.resetModules();
         vi.doUnmock('../../src/reader/app/site-parsers');
@@ -277,10 +283,11 @@ describe('visible scan continuation after a capped collection (class E)', () => 
 
     it('continues a silent scan when collection hit the cap even if every target is single-pass', async () => {
         vi.resetModules();
-        const collectScanTargets = vi.fn(function* (limit: number) { yield; return makeTargets(limit, { singlePassScan: true }); });
+        const collectScanTargets = vi.fn(function* () { yield; return makeTargets(collectionLimit, { singlePassScan: true }); });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
             ...(await importOriginal<Record<string, unknown>>()),
             collectScanTargetsInSteps: collectScanTargets,
+            effectiveSiteScanCollectionLimit: () => collectionLimit,
         }));
         const { VisiblePageScanner } = await import('../../src/reader/app/visible-page-scanner');
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings/index');
@@ -311,17 +318,15 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         // (second collection call) instead of dropping the tail forever.
         await vi.waitFor(() => expect(collectScanTargets.mock.calls.length).toBeGreaterThan(1), { timeout: 12_000 });
         scanner.destroy();
-    // Same contention headroom as the sibling below: a full synthetic target
-    // sweep under four-way CI sharding can outlive Vitest's 5s default even
-    // though the continuation itself fires promptly.
     }, 15_000);
 
     it('bounds consecutive continuations so an always-capped collection cannot spin forever', async () => {
         vi.resetModules();
-        const collectScanTargets = vi.fn(function* (limit: number) { yield; return makeTargets(limit, { singlePassScan: true }); });
+        const collectScanTargets = vi.fn(function* () { yield; return makeTargets(collectionLimit, { singlePassScan: true }); });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
             ...(await importOriginal<Record<string, unknown>>()),
             collectScanTargetsInSteps: collectScanTargets,
+            effectiveSiteScanCollectionLimit: () => collectionLimit,
         }));
         const { VisiblePageScanner } = await import('../../src/reader/app/visible-page-scanner');
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings/index');
@@ -349,26 +354,24 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         expect(calls).toBeGreaterThan(1);
         expect(calls).toBeLessThanOrEqual(12);
         scanner.destroy();
-    // This intentionally paints several thousand synthetic targets. Four-way
-    // CI shard contention can exceed Vitest's 5s default even though the
-    // explicit continuation bound above has already stopped the loop.
     }, 15_000);
 
     it('advances non-silent continuations past the mirrored head', async () => {
         vi.resetModules();
-        const targets = makeTargets(250, { singlePassScan: false });
+        const targets = makeTargets(collectionLimit + 2, { singlePassScan: false });
         const collectScanTargets = vi.fn(function* (
-            limit: number,
+            _limit: number,
             _href: string,
             options: { skipMirroredHosts?: boolean } = {},
         ) {
             yield;
-            const start = options.skipMirroredHosts ? 200 : 0;
-            return targets.slice(start, start + limit);
+            const start = options.skipMirroredHosts ? collectionLimit : 0;
+            return targets.slice(start, start + collectionLimit);
         });
         vi.doMock('../../src/reader/app/site-parsers', async importOriginal => ({
             ...(await importOriginal<Record<string, unknown>>()),
             collectScanTargetsInSteps: collectScanTargets,
+            effectiveSiteScanCollectionLimit: () => collectionLimit,
         }));
         const { VisiblePageScanner } = await import('../../src/reader/app/visible-page-scanner');
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings/index');
@@ -394,7 +397,7 @@ describe('visible scan continuation after a capped collection (class E)', () => 
         expect(collectScanTargets.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ skipMirroredHosts: false }));
         expect(collectScanTargets.mock.calls[1]?.[2]).toEqual(expect.objectContaining({ skipMirroredHosts: true }));
         await vi.waitFor(
-            () => expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(250),
+            () => expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(collectionLimit + 2),
             { timeout: 5_000 },
         );
         scanner.destroy();

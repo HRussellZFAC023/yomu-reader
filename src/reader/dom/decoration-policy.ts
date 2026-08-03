@@ -1056,6 +1056,13 @@ export function classifyDecoration(element: Element): DecorationState {
     // rendering; they are content by definition.
     if (element.closest(READER_ROOT_SELECTOR)) return 'content-ruby';
     if (decorationMustBeSkipped(element)) return 'skip';
+    // Layout-fragile YouTube chrome keeps its authored DOM completely intact,
+    // but still takes the passive annotation contract through the document
+    // portal. Classify this before the generic control cascade: the exact shelf
+    // label is a custom element whose descendants are not all controls.
+    if (element instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element)) {
+        return 'interactive-passive';
+    }
     const control = interactivePassiveControl(element);
     if (control) {
         if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return 'content-ruby';
@@ -1074,20 +1081,7 @@ function decorationMustBeSkipped(element: Element): boolean {
     // A review-card FRONT (question side) is a plain prompt: never decorate it
     // so furigana/pitch cannot spoil the reading the learner must recall.
     if (reviewCardFrontPredicate?.(element)) return true;
-    // YouTube's ellipsis-constrained native labels are layout-fragile. Every
-    // scan pass funnels through this helper, so one 'skip' covers the profile
-    // scan, residual-visible pass, and shadow rounds alike.
-    // YouTube's mini-guide and Shorts action rail deliberately fit their
-    // painted labels into single-line text-overflow boxes. Even an additive,
-    // absolutely-positioned annotation mirror becomes part of WebKit's
-    // scrollable-overflow calculation; on iPad that makes the native label
-    // ellipsize (共有 -> 共…, and even the otherwise-fitting mini-guide labels
-    // acquire …). Keep those authored labels page-owned. Scope this to a
-    // native mini-guide link or Shorts action button on a YouTube app host so
-    // clipped video titles and visible controls on other sites retain their
-    // annotation contract. Establish that structural ownership before the
-    // computed-style walk: ordinary feed text pays no clip-probing cost.
-    return element instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element);
+    return false;
 }
 
 const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
@@ -1099,11 +1093,39 @@ const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
     'ytd-reel-player-overlay-renderer',
     'yt-reel-player-overlay-renderer',
     'ytm-reel-player-overlay-renderer',
-    'ytd-shorts',
-    'ytm-shorts',
+].join(',');
+const YOUTUBE_SHORTS_ROOT_SELECTOR = 'ytd-shorts,ytm-shorts';
+const YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR = [
+    '#actions',
+    '#action-buttons',
+    '#shorts-action-buttons',
+    '[role="toolbar"]',
+    '[class*="shorts-action"]',
+    '[class*="reel-action"]',
 ].join(',');
 const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
 const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+// The live desktop/tablet shelf expander. Keep this deliberately exact: bare
+// #more controls occur across YouTube, including ordinary content disclosures
+// that should continue down the normal annotation lane.
+const YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR = 'ytd-shelf-renderer > ytd-vertical-list-renderer > #more > yt-formatted-string[role="button"]';
+
+/**
+ * YouTube owns the lifecycle of a shelf's compact `+ other N` expander. It
+ * rewrites the control's child spans while recycling search results. Mounting
+ * an additive annotation mirror inside that custom element means each rewrite
+ * retires and replays our projection, so the reading and underline alternate
+ * between partial states even though the native glyphs never move.
+ */
+export function youtubeShelfExpansionChromeMustRemainPageOwned(element: HTMLElement): boolean {
+    if (!isYouTubeAppHostname()) return false;
+    return Boolean(composedClosestMatching(element, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
+}
+
+export function youtubeNativeChromeMustRemainPageOwned(element: HTMLElement): boolean {
+    return youtubeShelfExpansionChromeMustRemainPageOwned(element)
+        || youtubeEllipsisChromeMustRemainPageOwned(element);
+}
 
 export function youtubeEllipsisChromeMustRemainPageOwned(element: HTMLElement): boolean {
     if (!isYouTubeAppHostname()) return false;
@@ -1118,7 +1140,17 @@ function youtubeNativeChromeControl(element: HTMLElement): HTMLElement | null {
     const miniGuide = composedClosestMatching(element, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
     if (miniGuide) return composedControlInside(element, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
     const shorts = composedClosestMatching(element, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
-    return shorts ? composedControlInside(element, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+    if (shorts) return composedControlInside(element, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts);
+    // Mobile/tablet variants can place the action rail beside, rather than
+    // inside, a reel-player-overlay renderer. Re-admit only a button whose
+    // composed branch passes through the explicit compact action rail; other
+    // buttons elsewhere in the large ytd/ytm-shorts subtree remain content/UI
+    // under the ordinary policy.
+    const shortsRoot = composedClosestMatching(element, YOUTUBE_SHORTS_ROOT_SELECTOR);
+    if (!shortsRoot) return null;
+    const actionRail = composedClosestMatching(element, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
+    if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
+    return composedControlInside(element, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
 }
 
 function youtubeEllipsisRow(element: HTMLElement): HTMLElement | null {

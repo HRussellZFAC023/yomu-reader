@@ -199,7 +199,7 @@ function documentOverlay(document2) {
   documentLayer,
   documentLayerOrigin: null,
   scrollLayers: /* @__PURE__ */ new Map(),
-  scrolledClippingContainers: /* @__PURE__ */ new WeakSet(),
+  scrolledContainers: /* @__PURE__ */ new WeakSet(),
   records: /* @__PURE__ */ new Set(),
   anchorRecords: /* @__PURE__ */ new Map(),
   anchorRoots: /* @__PURE__ */ new Map(),
@@ -218,7 +218,7 @@ function documentOverlay(document2) {
   scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
   scheduleScrollRefresh: (event) => {
     if (scrollMovedNoProjectedReading(event, overlay)) return;
-    if (firstClippingContainerScroll(event, overlay)) {
+    if (firstIndependentContainerScroll(event, overlay)) {
       overlay.scheduleTopologyRefresh();
       return;
     }
@@ -658,10 +658,16 @@ function transformPreservesCssPixels(transform) {
 function elementScrollsIndependently(element, style, overlay) {
   const advertisesScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay";
   const clipsContent = (overflow) => overflow === "hidden" || overflow === "clip";
-  const scrolled = overlay.scrolledClippingContainers.has(element) || element.scrollTop !== 0 || element.scrollLeft !== 0;
-  if (advertisesScroll(style.overflowY) || advertisesScroll(style.overflowX)) return true;
-  if (clipsContent(style.overflowY) && scrolled && element.scrollHeight > element.clientHeight + 1) return true;
-  return clipsContent(style.overflowX) && scrolled && element.scrollWidth > element.clientWidth + 1;
+  const scrolled = overlay.scrolledContainers.has(element) || element.scrollTop !== 0 || element.scrollLeft !== 0;
+  const verticalRange = element.scrollHeight > element.clientHeight + 1;
+  const horizontalRange = element.scrollWidth > element.clientWidth + 1;
+  if (advertisesScroll(style.overflowY) && verticalRange) return true;
+  if (advertisesScroll(style.overflowX) && horizontalRange) {
+  const horizontalRangePx = element.scrollWidth - element.clientWidth;
+  if (scrolled || horizontalRangePx > 4) return true;
+  }
+  if (clipsContent(style.overflowY) && scrolled && verticalRange) return true;
+  return clipsContent(style.overflowX) && scrolled && horizontalRange;
 }
 function scheduleProjectionRefresh(document2, overlay) {
   if (!overlay.records.size || overlay.framelessRefreshPending) return;
@@ -1005,8 +1011,11 @@ function projectionIsTopmost(record, sourceRect, occludingPaint = /* @__PURE__ *
   const footprint = projectedReadingFootprint(record, sourceRect);
   const insetX = Math.min(1, footprint.width / 4);
   const insetY = Math.min(1, footprint.height / 4);
-  const points = [
-  [sourceRect.left + sourceRect.width / 2, sourceRect.top + sourceRect.height / 2],
+  const sourceCentre = [
+  sourceRect.left + sourceRect.width / 2,
+  sourceRect.top + sourceRect.height / 2
+  ];
+  const footprintPoints = [
   [footprint.left + footprint.width / 2, footprint.top + footprint.height / 2],
   [footprint.left + insetX, footprint.top + insetY],
   [footprint.right - insetX, footprint.top + insetY],
@@ -1019,9 +1028,11 @@ function projectionIsTopmost(record, sourceRect, occludingPaint = /* @__PURE__ *
   // Resolved once per record: the control and its size decide the same
   // way at every probe point.
   chrome: ownChromeControl(record.anchor, sourceRect),
+  portalControl: ownPortalControl(record, sourceRect),
   occludingPaint
   };
-  return points.every(([x, y]) => anchorOwnsTopmostPoint(probe, x, y));
+  if (!anchorOwnsTopmostPoint(probe, ...sourceCentre)) return false;
+  return footprintPoints.every(([x, y]) => anchorOwnsTopmostPoint(probe, x, y, true));
 }
 function projectionRenderSurface(record) {
   return record.owner.closest(".jpdb-reader-text-mirror") ?? record.owner.parentElement ?? record.anchor;
@@ -1040,9 +1051,26 @@ function projectedReadingFootprint(record, sourceRect) {
   return rectFromEdges(left, top, left + width, sourceRect.top);
 }
 const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
+const YOUTUBE_CHROME_PORTAL_SELECTOR = ".jpdb-reader-youtube-chrome-portal";
+const PORTAL_CONTROL_SELECTOR = `a[href],${OWN_CHROME_CONTROL_SELECTOR}`;
 const OWN_CHROME_MAX_CONTROL_LINES = 4;
 const OPAQUE_SURFACE_ALPHA = 0.9;
 const RENDERED_CONTENT_SELECTOR = "img,svg,video,canvas,picture,iframe,object,embed";
+function ownPortalControl(record, sourceRect) {
+  if (!record.owner.closest(YOUTUBE_CHROME_PORTAL_SELECTOR)) return null;
+  const visited = /* @__PURE__ */ new Set();
+  for (let node = record.anchor; node && !visited.has(node); node = composedParentNode(node)) {
+  visited.add(node);
+  if (!(node instanceof Element)) continue;
+  try {
+    if (!node.matches(PORTAL_CONTROL_SELECTOR)) continue;
+  } catch {
+    return null;
+  }
+  return controlIsOwnChromeSized(node, sourceRect) ? node : null;
+  }
+  return null;
+}
 function ownChromeControl(anchor, sourceRect) {
   let chrome = null;
   const visited = /* @__PURE__ */ new Set();
@@ -1062,7 +1090,7 @@ function ownChromeControl(anchor, sourceRect) {
 function controlIsOwnChromeSized(control, sourceRect) {
   return control.getBoundingClientRect().height <= sourceRect.height * OWN_CHROME_MAX_CONTROL_LINES;
 }
-function anchorOwnsTopmostPoint(probe, x, y) {
+function anchorOwnsTopmostPoint(probe, x, y, allowPortalControlContent = false) {
   const { anchor, surface } = probe;
   const document2 = anchor.ownerDocument;
   if (typeof document2.elementsFromPoint !== "function") return true;
@@ -1071,6 +1099,7 @@ function anchorOwnsTopmostPoint(probe, x, y) {
   const deepest = deepestOpenShadowHit(hit, x, y);
   if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
   if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+  if (allowPortalControlContent && probe.portalControl && composedContains(probe.portalControl, deepest)) return true;
   for (let element = deepest; element; element = composedParentElement(element)) {
     if (composedContains(element, anchor) || composedContains(element, surface)) break;
     if (elementIsOwnControlChrome(element, probe)) continue;
@@ -1163,15 +1192,17 @@ function composedParentElement(element) {
   while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
   return parent;
 }
-function firstClippingContainerScroll(event, overlay) {
+function firstIndependentContainerScroll(event, overlay) {
   const target = event.target;
-  if (!(target instanceof Element) || overlay.scrolledClippingContainers.has(target) || target.scrollTop === 0 && target.scrollLeft === 0) {
+  if (!(target instanceof Element) || overlay.scrolledContainers.has(target) || target.scrollTop === 0 && target.scrollLeft === 0) {
   return false;
   }
   const style = safeComputedStyle(target);
-  const clips = (value) => value === "hidden" || value === "clip";
-  if (!clips(style.overflowX) && !clips(style.overflowY)) return false;
-  overlay.scrolledClippingContainers.add(target);
+  const canScroll = (value) => value === "auto" || value === "scroll" || value === "overlay" || value === "hidden" || value === "clip";
+  const movedVertically = target.scrollTop !== 0 && canScroll(style.overflowY);
+  const movedHorizontally = target.scrollLeft !== 0 && canScroll(style.overflowX);
+  if (!movedVertically && !movedHorizontally) return false;
+  overlay.scrolledContainers.add(target);
   return true;
 }
 function scrollMovedNoProjectedReading(event, overlay) {

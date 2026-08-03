@@ -86,6 +86,7 @@ interface VisibleScanParseOptions {
     includeLocalPitch?: boolean;
     allowSegmentedFallback?: boolean;
     skipApi?: boolean;
+    publicJitenDetailLimit?: number;
 }
 
 interface VisiblePageCoverageSummary {
@@ -658,10 +659,6 @@ export class VisiblePageScanner {
     private async applyParsedBatch(batch: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation: number): Promise<void> {
         const resolved = batch.map((target, index) => applyAuthoredVocabularyOverrides(target, parsed[index] ?? []));
         const tokens = resolved.flat();
-        const pitchStartedBeforeApply = tokens.some(token => token.card.source === 'fallback'
-            && token.card.spelling.trim()
-            && !token.rubies.length);
-        if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
         const applyAnkiColors = this.shouldEnrichAnkiWords()
             ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
             : undefined;
@@ -669,7 +666,6 @@ export class VisiblePageScanner {
         applyAnkiColors?.(changedRoots);
         this.preloadParsed(resolved, changedRoots, {
             skipAnki: Boolean(applyAnkiColors),
-            skipPitch: pitchStartedBeforeApply,
         });
     }
 
@@ -921,6 +917,11 @@ function scanParseOptions(settings: ReaderSettings): VisibleScanParseOptions {
         allowJpdbTimeoutFallback: true,
         includeLocalPitch: false,
         allowSegmentedFallback: true,
+        // Public /parse returns stable exact ids without detail calls. Paint
+        // those sparse spans first, then let ReaderApp's bounded reading lane
+        // repaint them asynchronously; up to twelve /info round-trips must not
+        // sit on the visible scan's first-DOM-apply path.
+        publicJitenDetailLimit: 0,
     };
 }
 

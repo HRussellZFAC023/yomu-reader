@@ -10,6 +10,7 @@ import {
 } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { readerTextMirrorForSource } from './helpers/text-mirror';
 
 // news.web.nhk is a React article page. Framework ownership must promote its
 // text to a source-preserving additive mirror: the page's Text nodes remain the
@@ -85,10 +86,11 @@ describe('NHK framework source-preserving annotation', () => {
 
         paint(host);
 
-        const mirror = host.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror');
+        const mirror = readerTextMirrorForSource(host);
         expect(mirror).toBeTruthy();
         expect(mirror?.getAttribute('aria-hidden')).toBe('true');
         expect(mirror?.querySelector('.jpdb-reader-word')).toBeTruthy();
+        expect(host.contains(mirror)).toBe(false);
         expect(source.isConnected).toBe(true);
         expect(host.firstChild).toBe(source);
         expect(source.data).toBe(TEXT);
@@ -108,7 +110,7 @@ describe('NHK framework source-preserving annotation', () => {
 
             expect(nativeSurfaceText(host)).toBe(TEXT);
             expect(Array.from(host.childNodes).filter(node => node.nodeType === Node.TEXT_NODE)).toHaveLength(1);
-            expect(host.querySelector(':scope > .jpdb-reader-text-mirror.jpdb-reader-additive-text-mirror .jpdb-reader-word')).toBeTruthy();
+            expect(readerTextMirrorForSource(host)?.querySelector('.jpdb-reader-word')).toBeTruthy();
         }
     });
 
@@ -127,7 +129,7 @@ describe('NHK framework source-preserving annotation', () => {
         expect(suffix.isConnected).toBe(true);
         expect(suffix.data).toBe('です');
         expect(nativeSurfaceText(host)).toBe(`${TEXT}晴れです`);
-        expect(host.querySelector('.jpdb-reader-text-mirror .jpdb-reader-word')).toBeTruthy();
+        expect(readerTextMirrorForSource(host)?.querySelector('.jpdb-reader-word')).toBeTruthy();
     });
 
     // Invariant (a) of the 1.6.103 double-image fix: the stored host surface is
@@ -239,6 +241,6 @@ describe('NHK framework source-preserving annotation', () => {
         expect(document.getElementById('outdoor')).toBe(outdoor);
         expect(nativeSurfaceText(host)).toBe(splitText);
         expect((nativeSurfaceText(host).match(/のトラック/g) ?? [])).toHaveLength(1);
-        expect(host.querySelector('.jpdb-reader-text-mirror .jpdb-reader-word')).toBeTruthy();
+        expect(readerTextMirrorForSource(host)?.querySelector('.jpdb-reader-word')).toBeTruthy();
     });
 });

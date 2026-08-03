@@ -48,6 +48,8 @@ import {
     clearProjectedReadingsWithin,
     documentHasJapaneseText,
     documentJapaneseTextProbe,
+    documentPortalReaderWordScopeForSource,
+    documentPortalSourceHostForReaderWord,
     escapeHtml,
     getSelectionText,
     isParticleCard,
@@ -64,6 +66,7 @@ import {
     setReviewCardFrontPredicate,
     unwrapReaderWords,
 } from '../dom/index';
+import { firstComposedEventGeometryMatch } from './pointer-event-geometry';
 import { isReviewCardFrontPromptElement } from './site-parsers';
 import { currentJitenStudyHeadwordText } from '../jiten/jiten-page-targets';
 import {
@@ -79,7 +82,7 @@ import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
-import { JitenPublicVocabularyClient, parsedCardHydrationKey, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
+import { JitenPublicVocabularyClient, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
 import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
@@ -116,6 +119,7 @@ import type { KanjiSourceInfo } from '../kanji/origin';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { KanjiVGInfo } from '../kanji/vg';
 import {
+    boundedPublicPitchLookupReservation,
     canExpandLocalPointerRange,
     isLookupableJapaneseText,
     isLowValuePitchEnrichmentToken,
@@ -407,6 +411,10 @@ import {
     waitForHoverCardInitialPaint,
 } from './main-lookup-helpers';
 import { ReaderCardLookupSession, type CardLookupTargetSnapshot } from './card-lookup-session';
+import {
+    DeferredPublicJitenReadingCoordinator,
+    resolvePublicFallbackPitchTokens as resolvePublicFallbackPitchTokensWithPublicJiten,
+} from './deferred-public-jiten-readings';
 import { KANA_ONLY_RUN_RE as POINTER_TEXT_KANA_SURFACE_RE } from '../lookup/japanese-script';
 import {
     READER_ROOT_GESTURE_EVENTS,
@@ -849,6 +857,7 @@ export class ReaderApp {
         toast: message => this.toast(message),
         onTargetChange: () => {
             this.cardRenderRequest += 1;
+            this.deferredPublicJitenReadings.clear();
             this.cancelPendingHoverLookup();
             if (this.activePopover && !this.activePopover.classList.contains('jpdb-reader-settings')) {
                 this.dismiss({ suppressHoverTarget: false });
@@ -908,6 +917,25 @@ export class ReaderApp {
     private deferredPublicPitchQueuedKeys = new Set<string>();
     private deferredPublicPitchEnqueuedForUrl = 0;
     private deferredPublicPitchDrain?: Promise<void>;
+    private deferredPublicJitenReadings = new DeferredPublicJitenReadingCoordinator({
+        isDestroyed: () => this.isDestroyed,
+        shouldEnrich: () => this.shouldRunPitchOrReadingEnrichment(),
+        captureTarget: () => this.cardLookup.captureTarget(),
+        lookupCards: (cards, scope) => this.cardLookup.publicLookupHydratableJitenCards(cards, scope),
+        applyResolvedCard: (token, fallback, card, pitchClass) =>
+            this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass),
+        queueSubtitleRefresh: sentence => this.queueSubtitleParsedHtmlRefresh(sentence),
+        cacheCards: cards => this.parser.cacheCards?.(cards),
+        scheduleDeferredPitch: tokens => this.scheduleDeferredPublicPitchEnrichment(tokens),
+        showPitchAccent: () => this.settings.showPitchAccent,
+        hasUnresolvedFallback: key => this.hasUnresolvedFallbackVocabulary(key),
+        rememberUnresolvedFallback: key => this.rememberUnresolvedFallbackVocabulary(key),
+        forgetUnresolvedFallback: key => this.unresolvedFallbackVocabularyCache.delete(key),
+        shouldPauseBackground: () => this.shouldPauseBackgroundPublicPitchLookup({}),
+        waitForIdle: timeoutMs => this.waitForIdle(timeoutMs),
+        renderedAnnotationRoots: () => this.renderedAnnotationRoots(),
+        renderedWordToken: word => this.renderedWordTokenForRecolor(word),
+    });
     private backgroundPublicPitchLookupBudgetHref = location.href;
     private backgroundPublicPitchLookupBudgetUsed = 0;
     private pendingSubtitleRebakeTexts = new Set<string>();
@@ -3486,7 +3514,9 @@ export class ReaderApp {
         if (!word || this.isNativeWord(word)) return null;
         if (word.dataset.jpdbReaderPassive === 'true' && !canClickLookupPassiveReaderWordElement(word)) return null;
         if (word.closest('.jpdb-reader-popover') || word.closest(SUBTITLE_SURFACE_SELECTOR)) return null;
-        return nativeClickableAncestor(word) instanceof HTMLAnchorElement ? word : null;
+        return nativeClickableAncestor(documentPortalSourceHostForReaderWord(word) ?? word) instanceof HTMLAnchorElement
+            ? word
+            : null;
     }
 
     private updateLinkPressLookup(event: PointerEvent): void {
@@ -3581,7 +3611,7 @@ export class ReaderApp {
         const r = Boolean(word.closest('.jpdb-reader-popover'));
         const s = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
         if (this.settings.popupActivationMode === 'off' && !r) return null;
-        const l = nativeClickableAncestor(word);
+        const l = nativeClickableAncestor(documentPortalSourceHostForReaderWord(word) ?? word);
         const n = this.isNativeWord(word)
             && !r
             && !s
@@ -4614,7 +4644,8 @@ export class ReaderApp {
             && this.readerWordMatchesPointerGeometry(direct, event.clientX, event.clientY)) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
             ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord))
-            ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
+            ?? firstComposedEventGeometryMatch(event, candidate =>
+                this.readerWordFromRenderedGeometry(candidate, event.clientX, event.clientY, canUseWord));
     }
 
     private readerPointerSurfaceForTarget(target: Element | null): HTMLElement | null {
@@ -4685,6 +4716,8 @@ export class ReaderApp {
 
     private readerWordGeometryScope(target: Element | null): ParentNode | null {
         if (!target) return null;
+        const documentPortalScope = documentPortalReaderWordScopeForSource(target);
+        if (documentPortalScope) return documentPortalScope;
         // Additive mirrors deliberately never receive pointer events: the
         // page-owned source element stays the event target. Discover the
         // nearest mirror-bearing ancestor structurally before falling back to
@@ -8843,12 +8876,28 @@ export class ReaderApp {
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
         if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+        const enrichmentHref = location.href;
+        const enrichmentScope = this.cardLookup.captureTarget();
         // Parsing and visual enrichment are independent channels. A parser can
         // already know a card's reading/pitch while omitting ruby spans for the
         // contextual surface (inflections are the common example). Reconcile
         // that exact evidence onto the connected word before the pitch-complete
         // fast path filters the token out of network work.
         tokens.forEach(token => this.reconcileRenderedTokenFurigana(token));
+        // Public Jiten /parse deliberately returns sparse cards after its small
+        // inline detail budget. Reading-less kanji must not compete with the
+        // optional pitch page budget: hydrate them through their exact ids in a
+        // dedicated, paced lane. Ordinary page enrichment queues this work and
+        // paints immediately; only explicit pre-render/urgent surfaces await one
+        // bounded detail batch. The remaining exact ids stay in the idle lane
+        // instead of depending on a click to recover.
+        this.deferredPublicJitenReadings.resetIfNeeded();
+        const readingGeneration = this.deferredPublicJitenReadings.generation;
+        await this.deferredPublicJitenReadings.hydrate(tokens, enrichmentScope, enrichmentHref, options.urgent === true);
+        if (this.isDestroyed
+            || location.href !== enrichmentHref
+            || readingGeneration !== this.deferredPublicJitenReadings.generation
+            || !enrichmentScope.isCurrent()) return;
         // An installed local pitch dictionary (e.g. Kanjium) is the PRIMARY
         // pitch source: the at-rest pass stays offline. But local-FIRST, not
         // local-ONLY (class F): words the local bank misses are fed into the
@@ -8865,6 +8914,10 @@ export class ReaderApp {
         const seen = new Set<string>();
         const tokensNeedingLookup = tokens.filter(token => !this.applyCachedPublicVocabularyToToken(token));
         const uniqueTokens = tokensNeedingLookup.filter(token => {
+            // A bounded reading batch may leave an exact-id tail in the
+            // dedicated lane. Do not duplicate those /info requests through
+            // the optional pitch path; already-readable peers still continue.
+            if (this.deferredPublicJitenReadings.needsHydration(token)) return false;
             // Classifiability, not mere pattern presence: a card whose stored
             // patterns fit a DIFFERENT reading (dictionary form vs the
             // conjugated/contextual one) renders jpdb-pitch-unknown forever if
@@ -8906,7 +8959,11 @@ export class ReaderApp {
 
         if (typeof options.publicLookupLimit === 'number') {
             const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
-            const requestedPublicTotal = Math.max(publicLookupLimit, Math.floor(options.publicLookupTotalLimit ?? uniqueTokens.length));
+            const requestedPublicTotal = boundedPublicPitchLookupReservation(
+                uniqueTokens.length,
+                publicLookupLimit,
+                options.publicLookupTotalLimit,
+            );
             const publicLookupCandidateLimit = this.reserveBackgroundPublicPitchLookups(requestedPublicTotal, options);
             const publicLookupCandidates = uniqueTokens.slice(0, publicLookupCandidateLimit);
             const localOnlyTokens = uniqueTokens.slice(publicLookupCandidateLimit);
@@ -8963,97 +9020,33 @@ export class ReaderApp {
         this.applyPublicVocabularyToRenderedWords(token.card, token.card, pitchClass);
     }
 
-    private async resolvePublicFallbackPitchTokens(
+    private resolvePublicFallbackPitchTokens(
         tokens: JPDBToken[],
         options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {},
     ): Promise<JPDBToken[]> {
-        const scope = this.cardLookup.captureTarget();
-        const queuedTokens: JPDBToken[] = [];
-        const fallbackGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
-        const jitenGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
-        for (const token of tokens) {
-            if (token.card.source === 'fallback') {
-                const key = cardKey(token.card);
-                if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) continue;
-                const group = fallbackGroups.get(key) ?? { card: token.card, tokens: [] };
-                group.tokens.push(token);
-                fallbackGroups.set(key, group);
-                continue;
-            }
-            if (isHydratablePublicJitenCard(token.card)) {
-                const key = cardKey(token.card);
-                if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) continue;
-                const group = jitenGroups.get(key) ?? { card: token.card, tokens: [] };
-                group.tokens.push(token);
-                jitenGroups.set(key, group);
-                continue;
-            }
-            queuedTokens.push(token);
-            continue;
-        }
-        if (!fallbackGroups.size && !jitenGroups.size) return queuedTokens;
-
-        const resolved = new Map<string, JPDBCard>();
-        const [fallbackCards, jitenCards] = await Promise.all([
-            fallbackGroups.size
-                ? this.publicLookupFallbackCards([...fallbackGroups.values()].map(group => group.card), options, scope)
-                : Promise.resolve(new Map<string, JPDBCard>()),
-            jitenGroups.size
-                ? this.cardLookup.publicLookupHydratableJitenCards([...jitenGroups.values()].map(group => group.card), scope)
-                : Promise.resolve(new Map<string, JPDBCard>()),
-        ]);
-        if (!scope.isCurrent()) return [];
-        fallbackCards.forEach((card, key) => resolved.set(key, card));
-        // hydrateCards keys its results by its own vid:sid hydration key, NOT
-        // by cardKey (vid:sid:spelling:reading) — re-key against each group's
-        // own card so the hydrated readings actually reach their tokens. The
-        // raw forEach silently missed EVERY group (parsed cards carry the
-        // surface as spelling and an empty reading, so the two keys never
-        // match) and left all budget-deferred page words reading-less.
-        for (const [key, group] of jitenGroups) {
-            const card = jitenCards.get(parsedCardHydrationKey(group.card));
-            if (card) resolved.set(key, card);
-        }
-        const cardsToCache: JPDBCard[] = [];
-        const localOnlyTokens: JPDBToken[] = [];
-        for (const [key, group] of [...fallbackGroups, ...jitenGroups]) {
-            const card = resolved.get(key);
-            if (!card || card.source === 'fallback') {
-                this.noteFallbackVocabularyMiss(key, group.tokens);
-                // A vocabulary miss must not suppress pitch hydration. The
-                // urgent click path still reaches the direct JPDB pitch client,
-                // which made these same spans appear only after interaction.
-                // Continue through that bounded lane in the background when it
-                // is allowed; explicit no-public callers remain local-only.
-                if (this.settings.showPitchAccent && options.jpdbPublicLookup !== false) {
-                    queuedTokens.push(...group.tokens);
-                } else {
-                    localOnlyTokens.push(...group.tokens);
-                }
-                continue;
-            }
-            cardsToCache.push(card);
-            for (const token of group.tokens) {
-                const fallback = token.card;
-                const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-                if (fallback.source === 'fallback') this.rememberResolvedFallbackVocabulary(fallback, card);
-                this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
-                // Detail hydration can resolve reading without pitch (浜面); keep it in the
-                // independent pitch lane rather than treating "card found" as "pitch found".
-                if (this.shouldQueueResolvedPublicPitch(card, options.jpdbPublicLookup !== false)) queuedTokens.push(token);
-                this.queueSubtitleParsedHtmlRefresh(token.sentence);
-            }
-        }
-        if (cardsToCache.length) this.parser.cacheCards?.(cardsToCache);
-        if (localOnlyTokens.length) {
-            await runLimited(
-                localOnlyTokens,
+        return resolvePublicFallbackPitchTokensWithPublicJiten(tokens, options, {
+            captureTarget: () => this.cardLookup.captureTarget(),
+            hasUnresolvedFallback: key => this.hasUnresolvedFallbackVocabulary(key),
+            lookupFallbackCards: (cards, lookupOptions, scope) =>
+                this.publicLookupFallbackCards(cards, lookupOptions, scope),
+            lookupJitenCards: (cards, scope) => this.cardLookup.publicLookupHydratableJitenCards(cards, scope),
+            noteFallbackMiss: (key, missedTokens) => this.noteFallbackVocabularyMiss(key, missedTokens),
+            showPitchAccent: () => this.settings.showPitchAccent,
+            rememberResolvedFallback: (fallback, card) => this.rememberResolvedFallbackVocabulary(fallback, card),
+            applyResolvedCard: (token, fallback, card, pitchClass) =>
+                this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass),
+            shouldQueueResolvedPublicPitch: (card, publicLookup) =>
+                this.shouldQueueResolvedPublicPitch(card, publicLookup),
+            queueSubtitleRefresh: sentence => this.queueSubtitleParsedHtmlRefresh(sentence),
+            cacheCards: cards => this.parser.cacheCards?.(cards),
+            enrichLocalPitch: localTokens => runLimited(
+                localTokens,
                 LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
-            );
-        }
-        return queuedTokens;
+            ).then(() => undefined),
+        });
     }
+
     private shouldQueueResolvedPublicPitch(card: JPDBCard, publicLookup: boolean): boolean {
         return this.settings.showPitchAccent
             && !cardHasContextPitch(card)
@@ -9452,6 +9445,7 @@ export class ReaderApp {
         this.pitchEnrichmentQueuedOptions.clear();
         this.deferredPublicPitchQueue = [];
         this.deferredPublicPitchQueuedKeys.clear();
+        this.deferredPublicJitenReadings.clear();
         // Deliberately NOT resetting the per-URL enqueue counter or the page
         // budget here: this clear runs on every settings save / dictionary
         // rescan, and zeroing the counters re-admitted another full public

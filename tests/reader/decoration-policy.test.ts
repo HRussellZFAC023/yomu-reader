@@ -21,6 +21,8 @@ import {
     isClipConstrainedRow,
     noteConstrainedRowLayoutSettled,
     youtubeEllipsisChromeMustRemainPageOwned,
+    youtubeNativeChromeMustRemainPageOwned,
+    youtubeShelfExpansionChromeMustRemainPageOwned,
 } from '../../src/reader/dom/decoration-policy';
 import { setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -204,6 +206,30 @@ describe('classifyDecoration acceptance matrix', () => {
         return first;
     }
 
+    function mountLiveYouTubeShelfExpansion(): void {
+        document.body.innerHTML = `
+            <ytd-shelf-renderer>
+                <ytd-vertical-list-renderer>
+                    <h2><yt-formatted-string id="shelf-title">関連する動画</yt-formatted-string></h2>
+                    <div id="items">
+                        <ytd-video-renderer>
+                            <h3>
+                                <a href="/watch?v=jp">
+                                    <yt-formatted-string id="video-title">富士フィルムのカメラ比較</yt-formatted-string>
+                                </a>
+                            </h3>
+                        </ytd-video-renderer>
+                    </div>
+                    <div id="more">
+                        <yt-formatted-string id="show-more-control" role="button" tabindex="0">
+                            <span id="show-more-plus">+ </span><span id="show-more-label">他 3 件</span>
+                        </yt-formatted-string>
+                    </div>
+                </ytd-vertical-list-renderer>
+            </ytd-shelf-renderer>
+        `;
+    }
+
     it('classifies a YouTube speed-picker chip as interactive-passive', () => {
         stubYouTube();
         document.body.innerHTML = `
@@ -214,7 +240,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#label')).toBe('interactive-passive');
     });
 
-    it('leaves YouTube ellipsis-constrained action and mini-guide labels page-owned', () => {
+    it('routes YouTube ellipsis-constrained action and mini-guide labels through the passive portal lane', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-mini-guide-renderer role="navigation">
@@ -231,8 +257,119 @@ describe('classifyDecoration acceptance matrix', () => {
             </ytd-reel-player-overlay-renderer>
         `;
 
-        expect(classifyText('#home')).toBe('skip');
-        expect(classifyText('#share')).toBe('skip');
+        expect(classifyText('#home')).toBe('interactive-passive');
+        expect(classifyText('#share')).toBe('interactive-passive');
+    });
+
+    it('recognizes only the explicit ytm-shorts action rail outside a reel overlay', () => {
+        stubYouTube();
+        document.body.innerHTML = `
+            <ytm-shorts>
+                <div id="actions" role="toolbar">
+                    <button><span id="share" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span></button>
+                </div>
+                <section id="details">
+                    <button><span id="details-label" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">日本語の説明</span></button>
+                </section>
+            </ytm-shorts>
+        `;
+
+        expect(youtubeNativeChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#share')!)).toBe(true);
+        expect(youtubeNativeChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#details-label')!)).toBe(false);
+    });
+
+    it('leaves the live YouTube shelf expansion label page-owned', () => {
+        stubYouTube();
+        mountLiveYouTubeShelfExpansion();
+
+        const control = document.querySelector<HTMLElement>('#show-more-control')!;
+        const showMore = document.querySelector<HTMLElement>('#show-more-label')!;
+
+        expect(youtubeShelfExpansionChromeMustRemainPageOwned(control)).toBe(true);
+        expect(youtubeShelfExpansionChromeMustRemainPageOwned(showMore)).toBe(true);
+        expect(youtubeNativeChromeMustRemainPageOwned(showMore)).toBe(true);
+        expect(youtubeEllipsisChromeMustRemainPageOwned(showMore)).toBe(false);
+        expect(classifyText('#show-more-label')).toBe('interactive-passive');
+    });
+
+    it('keeps one annotated shelf portal across same-text recycler child swaps', async () => {
+        stubYouTube();
+        mountLiveYouTubeShelfExpansion();
+        document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
+        const label = document.querySelector<HTMLElement>('#show-more-control')!;
+        const nativeChildren = [...label.childNodes];
+        const nativeStyle = label.style.cssText;
+        const nativeAttributes = Array.from(label.attributes).map(attribute => [attribute.name, attribute.value]);
+        mockRect(label, { width: 120, height: 24 });
+        Object.defineProperty(label, 'clientWidth', { configurable: true, value: 120 });
+        Object.defineProperty(label, 'scrollWidth', { configurable: true, value: 120 });
+        vi.stubGlobal('Range', class ProjectionRange {
+            getClientRects(): DOMRectList {
+                return [] as unknown as DOMRectList;
+            }
+        });
+        mockRangeRects(() => [positionedRect(20, 40, 100, 60)]);
+
+        const target = collectTargets(label).find(candidate => candidate.text.includes('他') && candidate.text.includes('件'))!;
+        expect(target).toMatchObject({ decoration: 'interactive-passive', suppressRuby: true });
+        const otherStart = target.text.indexOf('他');
+        const itemStart = target.text.indexOf('件');
+        applyTokensToScanTarget(target, [
+            token('他', otherStart, target.text, 'ほか'),
+            token('件', itemStart, target.text, 'けん'),
+        ], FURIGANA_SETTINGS);
+        projectAdditiveTextMirrors(document);
+
+        const portal = document.body.querySelector<HTMLElement>('.jpdb-reader-youtube-chrome-portal')!;
+        expect(portal).toBeTruthy();
+        expect(portal.parentElement).toBe(document.body);
+        expect(label.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect([...label.childNodes]).toEqual(nativeChildren);
+        expect(label.style.cssText).toBe(nativeStyle);
+        expect(Array.from(label.attributes).map(attribute => [attribute.name, attribute.value])).toEqual(nativeAttributes);
+        expect(label.hasAttribute('data-yomu-decoration')).toBe(false);
+        expect(portal.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
+        expect(portal.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
+        expect(portal.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(2);
+        expect(Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]'))
+            .map(reading => reading.textContent)).toEqual(expect.arrayContaining(['ほか', 'けん']));
+
+        for (let cycle = 0; cycle < 5; cycle += 1) {
+            const plus = document.createElement('span');
+            plus.textContent = '+ ';
+            const other = document.createElement('span');
+            other.textContent = '他 ';
+            const count = document.createElement('span');
+            count.textContent = '3 ';
+            const item = document.createElement('span');
+            item.textContent = '件';
+            label.replaceChildren(plus, other, count, item);
+            await Promise.resolve();
+            projectAdditiveTextMirrors(document);
+            expect(document.body.querySelector('.jpdb-reader-youtube-chrome-portal')).toBe(portal);
+            expect(label.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        }
+
+        document.querySelector('ytd-shelf-renderer')?.remove();
+        projectAdditiveTextMirrors(document);
+        expect(portal.isConnected).toBe(false);
+    });
+
+    it('keeps the live YouTube shelf title and result content annotatable beside its page-owned expander', () => {
+        stubYouTube();
+        mountLiveYouTubeShelfExpansion();
+
+        const shelfTitle = document.querySelector<HTMLElement>('#shelf-title')!;
+        const videoTitle = document.querySelector<HTMLElement>('#video-title')!;
+
+        expect(youtubeShelfExpansionChromeMustRemainPageOwned(shelfTitle)).toBe(false);
+        expect(youtubeShelfExpansionChromeMustRemainPageOwned(videoTitle)).toBe(false);
+        expect(youtubeNativeChromeMustRemainPageOwned(shelfTitle)).toBe(false);
+        expect(youtubeNativeChromeMustRemainPageOwned(videoTitle)).toBe(false);
+        expect(youtubeEllipsisChromeMustRemainPageOwned(shelfTitle)).toBe(false);
+        expect(youtubeEllipsisChromeMustRemainPageOwned(videoTitle)).toBe(false);
+        expect(classifyText('#shelf-title')).toBe('content-ruby');
+        expect(classifyText('#video-title')).toBe('content-ruby');
     });
 
     it('keeps a realistically bounded YouTube video-title link and unclipped controls annotatable', () => {
@@ -263,8 +400,8 @@ describe('classifyDecoration acceptance matrix', () => {
         document.body.append(entry);
 
         const label = shadow.querySelector<HTMLElement>('#shadow-home')!;
-        expect(classifyDecoration(label)).toBe('skip');
-        expect(classifyDecoration(label)).toBe('skip');
+        expect(classifyDecoration(label)).toBe('interactive-passive');
+        expect(classifyDecoration(label)).toBe('interactive-passive');
     });
 
     it('keeps ellipsis-constrained controls on other sites annotatable', () => {
@@ -663,7 +800,7 @@ describe('classifyDecoration acceptance matrix', () => {
 });
 
 describe('late YouTube native-chrome hydration', () => {
-    it('removes an existing Share mirror when an ancestor becomes ellipsis-constrained', () => {
+    it('moves an existing Share mirror into the document portal when ellipsis hydrates', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-reel-player-overlay-renderer>
@@ -691,6 +828,7 @@ describe('late YouTube native-chrome hydration', () => {
         projectAdditiveTextMirrors(document);
 
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(document.body.querySelector('.jpdb-reader-youtube-chrome-portal .jpdb-reader-word')).not.toBeNull();
         expect(baseText(button)).toBe('共有');
         expect(host.style.getPropertyValue('visibility')).toBe('');
         expect(host.style.getPropertyValue('position')).toBe('');

@@ -24,10 +24,6 @@ const CACHE_LIMIT = 800;
 const DETAIL_CONCURRENCY = 4;
 const LOOKUP_DETAIL_LIMIT = 12;
 const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
-// A small parse target is one atomic annotation label. When the ordinary
-// detail cap lands inside it, finish that target so compounds cannot render
-// half-enriched; larger targets still stop at the configured limit.
-const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
@@ -410,11 +406,11 @@ function parsedCardsWithinTargetBoundary(result: readonly JPDBToken[][], limit: 
             targetCards.push(card);
         }
         const remaining = detailLimit - selected.length;
-        const selectedTargetCards = (
-            targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT
-                ? targetCards
-                : targetCards.slice(0, remaining)
-        );
+        // This is a network ceiling, not a layout preference. Never finish a
+        // target by overrunning the caller's detail budget (11 earlier cards +
+        // a 12-card title used to fan out into 23 /info requests). Sparse tail
+        // cards retain exact ids and are completed by the paced reading lane.
+        const selectedTargetCards = targetCards.slice(0, remaining);
         for (const card of selectedTargetCards) {
             selected.push(card);
             seen.add(parsedCardHydrationKey(card));

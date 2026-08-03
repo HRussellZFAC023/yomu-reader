@@ -418,13 +418,14 @@ describe('Greasy Fork split manifest', () => {
         expect(compacted).toBe([
             '(function() {',
             '"use strict";',
+            '// yomu-generated-indent: compact',
             'function example() {',
             ' const value = `',
             '      preserved',
             '    `;',
             ' if (value) {',
             ' if (value) {',
-            '  return value;',
+            ' return value;',
             ' }',
             ' }',
             ' return value;',
@@ -444,7 +445,16 @@ describe('Greasy Fork split manifest', () => {
         )?.[1];
         expect(hostedRuntime, 'the hosted userscript does not pin a hashed runtime').toBeDefined();
         const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'greasyfork', hostedRuntime!), 'utf8');
-        expect(built).toMatch(/^\(function\(\) \{\n"use strict";\nfunction /);
+        expect(built).toMatch(/^\(function\(\) \{\n"use strict";\n\/\/ yomu-generated-indent: compact\nfunction /);
+        expect(built).toContain('\n return ');
+        expect(() => new Function(built)).not.toThrow();
+    });
+
+    it('keeps the injected core readable after compacting generated indentation', () => {
+        const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'yomu.user.js'), 'utf8');
+        expect(built).toMatch(
+            /\n\(function \(\) \{\n'use strict';\n\/\/ yomu-generated-indent: compact\n\n?const /,
+        );
         expect(built).toContain('\n return ');
         expect(() => new Function(built)).not.toThrow();
     });

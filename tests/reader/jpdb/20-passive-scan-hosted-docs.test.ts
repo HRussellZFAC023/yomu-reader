@@ -23,6 +23,8 @@ import {
     mutationMayAffectJpdbPageEnhancements,
     mutationMayContainJapaneseText,
     readerRenderRejectionRescanDelay,
+    readerTextMirrorForSource,
+    readerWordsForSource,
     readerWordSurfaceText,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
@@ -1309,11 +1311,14 @@ describe('reader helpers', () => {
         expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word rt')).toBeNull();
         expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-detached-furi')?.textContent).toBe('もじ');
         expect(document.querySelector('ytm-pivot-bar-renderer .jpdb-reader-word rt, ytm-pivot-bar-renderer .jpdb-reader-detached-furi')?.textContent).toBe('とうろく');
-        const commentWord = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text .jpdb-reader-word')!;
+        const commentHost = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text')!;
+        const commentMirror = readerTextMirrorForSource(commentHost)!;
+        const commentWord = readerWordsForSource(commentHost)[0]!;
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
         expect(commentWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
         expectRenderedPitchWord(commentWord, 'heiban');
-        expect(document.querySelector('ytm-comment-renderer #content-text .jpdb-reader-text-mirror')).not.toBeNull();
+        expect(commentMirror).toBeTruthy();
+        expect(commentHost.contains(commentMirror)).toBe(false);
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
     });
 
@@ -1405,13 +1410,16 @@ describe('reader helpers', () => {
             pitchClass: 'heiban',
             sentence: '英語に翻訳',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
+        const commentHost = document.querySelector<HTMLElement>('#content-text')!;
+        const commentMirror = readerTextMirrorForSource(commentHost)!;
+        const commentWord = readerWordsForSource(commentHost)[0]!;
         expect(readerWordSurfaceText(commentWord)).toBe('配信');
         expect(commentWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('はいしん');
         expectRenderedPitchWord(commentWord, 'heiban');
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
-        expect(document.querySelector('#content-text .jpdb-reader-text-mirror')).not.toBeNull();
+        expect(commentMirror).toBeTruthy();
+        expect(commentHost.contains(commentMirror)).toBe(false);
         const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
         expect(readerWordSurfaceText(moreWord)).toBe('詳細');
         expect(moreWord.dataset.jpdbReaderPassive).toBe('true');
@@ -1504,7 +1512,9 @@ describe('reader helpers', () => {
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const viewerWord = document.querySelector<HTMLElement>('ytd-watch-info-text .jpdb-reader-text-mirror .jpdb-reader-word')!;
-        const engagementWord = document.querySelector<HTMLElement>('yt-live-chat-viewer-engagement-message-renderer .jpdb-reader-text-mirror .jpdb-reader-word')!;
+        const engagementHost = document.querySelector<HTMLElement>('yt-live-chat-viewer-engagement-message-renderer #message')!;
+        const engagementMirror = readerTextMirrorForSource(engagementHost)!;
+        const engagementWord = readerWordsForSource(engagementHost)[0]!;
         expect(document.querySelector('ytd-watch-info-text .jpdb-reader-text-mirror')).not.toBeNull();
         expect(readerWordSurfaceText(viewerWord)).toBe('視聴');
         // The viewer-count chip is a control (role="button"); its reading is
@@ -1515,6 +1525,7 @@ describe('reader helpers', () => {
         // The engagement message is reading content, so it keeps inline ruby.
         expect(readerWordSurfaceText(engagementWord)).toBe('会話');
         expect(engagementWord.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('かいわ');
+        expect(engagementHost.contains(engagementMirror)).toBe(false);
         expect(document.querySelector('yt-live-chat-viewer-engagement-message-renderer button .jpdb-reader-word')).toBeNull();
     });
 
@@ -1575,9 +1586,12 @@ describe('reader helpers', () => {
             sentence: '詳細',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        const noticeWords = Array.from(document.querySelectorAll<HTMLElement>('yt-live-chat-restricted-participation-renderer #message .jpdb-reader-word'));
+        const noticeHost = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #message')!;
+        const noticeMirror = readerTextMirrorForSource(noticeHost)!;
+        const noticeWords = readerWordsForSource(noticeHost);
         expect(noticeWords.map(word => readerWordSurfaceText(word))).toEqual(['登録者', '期間', '表示']);
         expect(noticeWords.map(word => word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent)).toEqual(['とうろくしゃ', 'きかん', 'ひょうじ']);
+        expect(noticeHost.contains(noticeMirror)).toBe(false);
         expect(document.querySelectorAll('yt-live-chat-restricted-participation-renderer > .jpdb-reader-text-mirror')).toHaveLength(0);
         const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
         expect(readerWordSurfaceText(detailWord)).toBe('詳細');

@@ -57,7 +57,9 @@ export const {
     selectorPairs,
     setReviewCardFrontPredicate,
     stampDecorationState,
+    youtubeNativeChromeMustRemainPageOwned,
     youtubeEllipsisChromeMustRemainPageOwned,
+    youtubeShelfExpansionChromeMustRemainPageOwned,
 } = policy;
 
 export type DecorationState = ReturnType<typeof classifyDecoration>;

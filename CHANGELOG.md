@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.74] - 2026-08-02
+
+### Fixed
+
+- On iPad YouTube, furigana now stays locked to its source text during page, nested-panel, and visual-viewport scrolling. Search-result readings no longer chase the page or settle a frame late.
+- Framework-repainted prose and native YouTube labels now keep annotations in a layout-neutral document layer. Long comments, shelf expanders, the mini-guide, and Shorts actions remain annotated without changing their native text, truncation, hit targets, or DOM identity, preventing missing labels and repeated remount churn.
+- Automatic page scanning now fills missing public Jiten readings in bounded batches without spending the optional pitch-accent budget. Long or frequently updated pages can continue furigana enrichment beyond the first few candidates without blocking interaction or requiring a click.
+- Later sparse lookup responses can no longer erase a richer cached reading or pitch accent for the same word. An annotation such as 名古屋城 remains visible after rescans and stays consistent with the click popup.
+
 ## [1.8.73] - 2026-08-02
 
 ### Fixed

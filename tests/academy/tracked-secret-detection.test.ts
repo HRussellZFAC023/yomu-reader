@@ -129,4 +129,34 @@ describe('tracked secret detection', () => {
             }),
         ]));
     });
+
+    it('classifies the full generated runtime Lens key as public debt', () => {
+        const publicKey = ['AIza', 'abcdefghijklmnopqrstuvwxyz123456789'].join('');
+        const root = repository({
+            'docs/public/greasyfork/yomu-runtime.0123456789ab.user.js': `const GOOGLE_LENS_API_KEY = '${publicKey}';\n`,
+        });
+
+        const result = scan(root);
+        const report = JSON.parse(result.stdout);
+        expect(result.status).toBe(0);
+        expect(report.findings).toEqual([
+            expect.objectContaining({
+                file: 'docs/public/greasyfork/yomu-runtime.0123456789ab.user.js',
+                severity: 'debt',
+                rule: 'google-api-key',
+            }),
+        ]);
+    });
+
+    it('accepts generated placeholders and local proof credentials without exempting real key shapes', () => {
+        const root = repository({
+            'scripts/local-runtime-proof.mjs': "const ACADEMY_ADMIN_TOKEN = 'local-proof-admin-token';\n",
+            'scripts/revision.cjs': "const REVISION_TOKEN = '__ACADEMY_REVISION__';\n",
+            'docs/public/api/vendor/client.js': "const accessToken = 'generated-documentation-option';\n",
+        });
+
+        const result = scan(root);
+        expect(result.status).toBe(0);
+        expect(JSON.parse(result.stdout).findings).toEqual([]);
+    });
 });

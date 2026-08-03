@@ -4754,6 +4754,9 @@ function setReviewCardFrontPredicate(predicate) {
 function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
   if (decorationMustBeSkipped(element2)) return "skip";
+  if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
+  return "interactive-passive";
+  }
   const control = interactivePassiveControl(element2);
   if (control) {
   if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
@@ -4767,7 +4770,7 @@ function classifyDecoration(element2) {
 function decorationMustBeSkipped(element2) {
   if (isEditableComposingContext(element2)) return true;
   if (reviewCardFrontPredicate?.(element2)) return true;
-  return element2 instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element2);
+  return false;
 }
 const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
   "ytd-mini-guide-entry-renderer",
@@ -4777,12 +4780,27 @@ const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
 const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
   "ytd-reel-player-overlay-renderer",
   "yt-reel-player-overlay-renderer",
-  "ytm-reel-player-overlay-renderer",
-  "ytd-shorts",
-  "ytm-shorts"
+  "ytm-reel-player-overlay-renderer"
+].join(",");
+const YOUTUBE_SHORTS_ROOT_SELECTOR = "ytd-shorts,ytm-shorts";
+const YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR = [
+  "#actions",
+  "#action-buttons",
+  "#shorts-action-buttons",
+  '[role="toolbar"]',
+  '[class*="shorts-action"]',
+  '[class*="reel-action"]'
 ].join(",");
 const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
 const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+const YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR = 'ytd-shelf-renderer > ytd-vertical-list-renderer > #more > yt-formatted-string[role="button"]';
+function youtubeShelfExpansionChromeMustRemainPageOwned(element2) {
+  if (!isYouTubeAppHostname()) return false;
+  return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
+}
+function youtubeNativeChromeMustRemainPageOwned(element2) {
+  return youtubeShelfExpansionChromeMustRemainPageOwned(element2) || youtubeEllipsisChromeMustRemainPageOwned(element2);
+}
 function youtubeEllipsisChromeMustRemainPageOwned(element2) {
   if (!isYouTubeAppHostname()) return false;
   const chrome = youtubeNativeChromeControl(element2);
@@ -4795,7 +4813,12 @@ function youtubeNativeChromeControl(element2) {
   const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
   if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
   const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
-  return shorts ? composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+  if (shorts) return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts);
+  const shortsRoot = composedClosestMatching(element2, YOUTUBE_SHORTS_ROOT_SELECTOR);
+  if (!shortsRoot) return null;
+  const actionRail = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
+  if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
+  return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
 }
 function youtubeEllipsisRow(element2) {
   const clipRow = closestRubyFragileConstrainedRow(element2);
@@ -4890,7 +4913,9 @@ const decorationPolicy = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.de
   selectorPairs,
   setReviewCardFrontPredicate,
   stampDecorationState,
-  youtubeEllipsisChromeMustRemainPageOwned
+  youtubeEllipsisChromeMustRemainPageOwned,
+  youtubeNativeChromeMustRemainPageOwned,
+  youtubeShelfExpansionChromeMustRemainPageOwned
 }, Symbol.toStringTag, { value: "Module" }));
 const DECORATION_POLICY_RUNTIME_API_SLOT = Symbol.for("yomu.decoration-policy-runtime-api.v1");
 function registerDecorationPolicyRuntimeApi(api) {
@@ -15257,17 +15282,17 @@ function ensureBuiltInAudioSource(sources, source, beforeType) {
   if (insertIndex < 0) sources.push(source);
   else sources.splice(insertIndex, 0, source);
 }
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
+new Set("heiban,atamadaka,nakadaka,odaka".split(","));
+new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
 const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
 const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
 const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
 const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
-new Set("heiban,atamadaka,nakadaka,odaka".split(","));
 const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
 const FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
 const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
@@ -15660,6 +15685,7 @@ function shouldSkipFragmentUiText(element2, text2, options) {
   return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
 }
 function isBlockFragmentElement(element2, options) {
+  if (youtubeNativeChromeMustRemainPageOwned(element2)) return false;
   return !options.mergeBlockFragments && isFragmentParagraphBoundary(element2, options) && !isInlineSentenceListItem(element2);
 }
 function flushFragmentBlockBoundary(isBlock, state) {
@@ -15941,7 +15967,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.73".trim() ? "1.8.73".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.74".trim() ? "1.8.74".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

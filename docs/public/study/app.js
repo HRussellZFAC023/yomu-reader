@@ -199,7 +199,7 @@
       documentLayer,
       documentLayerOrigin: null,
       scrollLayers: /* @__PURE__ */ new Map(),
-      scrolledClippingContainers: /* @__PURE__ */ new WeakSet(),
+      scrolledContainers: /* @__PURE__ */ new WeakSet(),
       records: /* @__PURE__ */ new Set(),
       anchorRecords: /* @__PURE__ */ new Map(),
       anchorRoots: /* @__PURE__ */ new Map(),
@@ -218,7 +218,7 @@
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
       scheduleScrollRefresh: (event) => {
         if (scrollMovedNoProjectedReading(event, overlay)) return;
-        if (firstClippingContainerScroll(event, overlay)) {
+        if (firstIndependentContainerScroll(event, overlay)) {
           overlay.scheduleTopologyRefresh();
           return;
         }
@@ -658,10 +658,16 @@
   function elementScrollsIndependently(element2, style, overlay) {
     const advertisesScroll = (overflow) => overflow === "auto" || overflow === "scroll" || overflow === "overlay";
     const clipsContent = (overflow) => overflow === "hidden" || overflow === "clip";
-    const scrolled = overlay.scrolledClippingContainers.has(element2) || element2.scrollTop !== 0 || element2.scrollLeft !== 0;
-    if (advertisesScroll(style.overflowY) || advertisesScroll(style.overflowX)) return true;
-    if (clipsContent(style.overflowY) && scrolled && element2.scrollHeight > element2.clientHeight + 1) return true;
-    return clipsContent(style.overflowX) && scrolled && element2.scrollWidth > element2.clientWidth + 1;
+    const scrolled = overlay.scrolledContainers.has(element2) || element2.scrollTop !== 0 || element2.scrollLeft !== 0;
+    const verticalRange = element2.scrollHeight > element2.clientHeight + 1;
+    const horizontalRange = element2.scrollWidth > element2.clientWidth + 1;
+    if (advertisesScroll(style.overflowY) && verticalRange) return true;
+    if (advertisesScroll(style.overflowX) && horizontalRange) {
+      const horizontalRangePx = element2.scrollWidth - element2.clientWidth;
+      if (scrolled || horizontalRangePx > 4) return true;
+    }
+    if (clipsContent(style.overflowY) && scrolled && verticalRange) return true;
+    return clipsContent(style.overflowX) && scrolled && horizontalRange;
   }
   function scheduleProjectionRefresh(document2, overlay) {
     if (!overlay.records.size || overlay.framelessRefreshPending) return;
@@ -1005,8 +1011,11 @@
     const footprint = projectedReadingFootprint(record2, sourceRect);
     const insetX = Math.min(1, footprint.width / 4);
     const insetY = Math.min(1, footprint.height / 4);
-    const points = [
-      [sourceRect.left + sourceRect.width / 2, sourceRect.top + sourceRect.height / 2],
+    const sourceCentre = [
+      sourceRect.left + sourceRect.width / 2,
+      sourceRect.top + sourceRect.height / 2
+    ];
+    const footprintPoints = [
       [footprint.left + footprint.width / 2, footprint.top + footprint.height / 2],
       [footprint.left + insetX, footprint.top + insetY],
       [footprint.right - insetX, footprint.top + insetY],
@@ -1019,9 +1028,11 @@
       // Resolved once per record: the control and its size decide the same
       // way at every probe point.
       chrome: ownChromeControl(record2.anchor, sourceRect),
+      portalControl: ownPortalControl(record2, sourceRect),
       occludingPaint
     };
-    return points.every(([x2, y]) => anchorOwnsTopmostPoint(probe, x2, y));
+    if (!anchorOwnsTopmostPoint(probe, ...sourceCentre)) return false;
+    return footprintPoints.every(([x2, y]) => anchorOwnsTopmostPoint(probe, x2, y, true));
   }
   function projectionRenderSurface(record2) {
     return record2.owner.closest(".jpdb-reader-text-mirror") ?? record2.owner.parentElement ?? record2.anchor;
@@ -1040,9 +1051,26 @@
     return rectFromEdges(left, top, left + width, sourceRect.top);
   }
   const OWN_CHROME_CONTROL_SELECTOR = 'button,summary,label,[role="button"],[role="tab"],[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"],[role="option"]';
+  const YOUTUBE_CHROME_PORTAL_SELECTOR = ".jpdb-reader-youtube-chrome-portal";
+  const PORTAL_CONTROL_SELECTOR = `a[href],${OWN_CHROME_CONTROL_SELECTOR}`;
   const OWN_CHROME_MAX_CONTROL_LINES = 4;
   const OPAQUE_SURFACE_ALPHA = 0.9;
   const RENDERED_CONTENT_SELECTOR = "img,svg,video,canvas,picture,iframe,object,embed";
+  function ownPortalControl(record2, sourceRect) {
+    if (!record2.owner.closest(YOUTUBE_CHROME_PORTAL_SELECTOR)) return null;
+    const visited = /* @__PURE__ */ new Set();
+    for (let node = record2.anchor; node && !visited.has(node); node = composedParentNode(node)) {
+      visited.add(node);
+      if (!(node instanceof Element)) continue;
+      try {
+        if (!node.matches(PORTAL_CONTROL_SELECTOR)) continue;
+      } catch {
+        return null;
+      }
+      return controlIsOwnChromeSized(node, sourceRect) ? node : null;
+    }
+    return null;
+  }
   function ownChromeControl(anchor, sourceRect) {
     let chrome = null;
     const visited = /* @__PURE__ */ new Set();
@@ -1062,7 +1090,7 @@
   function controlIsOwnChromeSized(control, sourceRect) {
     return control.getBoundingClientRect().height <= sourceRect.height * OWN_CHROME_MAX_CONTROL_LINES;
   }
-  function anchorOwnsTopmostPoint(probe, x2, y) {
+  function anchorOwnsTopmostPoint(probe, x2, y, allowPortalControlContent = false) {
     const { anchor, surface } = probe;
     const document2 = anchor.ownerDocument;
     if (typeof document2.elementsFromPoint !== "function") return true;
@@ -1071,6 +1099,7 @@
       const deepest = deepestOpenShadowHit(hit, x2, y);
       if (composedContains(anchor, deepest) || composedContains(surface, deepest)) return true;
       if (composedContains(deepest, anchor) || composedContains(deepest, surface)) return true;
+      if (allowPortalControlContent && probe.portalControl && composedContains(probe.portalControl, deepest)) return true;
       for (let element2 = deepest; element2; element2 = composedParentElement$1(element2)) {
         if (composedContains(element2, anchor) || composedContains(element2, surface)) break;
         if (elementIsOwnControlChrome(element2, probe)) continue;
@@ -1163,15 +1192,17 @@
     while (parent && !(parent instanceof Element)) parent = composedParentNode(parent);
     return parent;
   }
-  function firstClippingContainerScroll(event, overlay) {
+  function firstIndependentContainerScroll(event, overlay) {
     const target = event.target;
-    if (!(target instanceof Element) || overlay.scrolledClippingContainers.has(target) || target.scrollTop === 0 && target.scrollLeft === 0) {
+    if (!(target instanceof Element) || overlay.scrolledContainers.has(target) || target.scrollTop === 0 && target.scrollLeft === 0) {
       return false;
     }
     const style = safeComputedStyle$1(target);
-    const clips = (value) => value === "hidden" || value === "clip";
-    if (!clips(style.overflowX) && !clips(style.overflowY)) return false;
-    overlay.scrolledClippingContainers.add(target);
+    const canScroll = (value) => value === "auto" || value === "scroll" || value === "overlay" || value === "hidden" || value === "clip";
+    const movedVertically = target.scrollTop !== 0 && canScroll(style.overflowY);
+    const movedHorizontally = target.scrollLeft !== 0 && canScroll(style.overflowX);
+    if (!movedVertically && !movedHorizontally) return false;
+    overlay.scrolledContainers.add(target);
     return true;
   }
   function scrollMovedNoProjectedReading(event, overlay) {
@@ -14648,6 +14679,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function classifyDecoration(element2) {
     if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
     if (decorationMustBeSkipped(element2)) return "skip";
+    if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
+      return "interactive-passive";
+    }
     const control = interactivePassiveControl(element2);
     if (control) {
       if (control.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
@@ -14661,7 +14695,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function decorationMustBeSkipped(element2) {
     if (isEditableComposingContext(element2)) return true;
     if (reviewCardFrontPredicate?.(element2)) return true;
-    return element2 instanceof HTMLElement && youtubeEllipsisChromeMustRemainPageOwned(element2);
+    return false;
   }
   const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
     "ytd-mini-guide-entry-renderer",
@@ -14671,12 +14705,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
     "ytd-reel-player-overlay-renderer",
     "yt-reel-player-overlay-renderer",
-    "ytm-reel-player-overlay-renderer",
-    "ytd-shorts",
-    "ytm-shorts"
+    "ytm-reel-player-overlay-renderer"
+  ].join(",");
+  const YOUTUBE_SHORTS_ROOT_SELECTOR = "ytd-shorts,ytm-shorts";
+  const YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR = [
+    "#actions",
+    "#action-buttons",
+    "#shorts-action-buttons",
+    '[role="toolbar"]',
+    '[class*="shorts-action"]',
+    '[class*="reel-action"]'
   ].join(",");
   const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
   const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+  const YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR = 'ytd-shelf-renderer > ytd-vertical-list-renderer > #more > yt-formatted-string[role="button"]';
+  function youtubeShelfExpansionChromeMustRemainPageOwned(element2) {
+    if (!isYouTubeAppHostname()) return false;
+    return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
+  }
+  function youtubeNativeChromeMustRemainPageOwned(element2) {
+    return youtubeShelfExpansionChromeMustRemainPageOwned(element2) || youtubeEllipsisChromeMustRemainPageOwned(element2);
+  }
   function youtubeEllipsisChromeMustRemainPageOwned(element2) {
     if (!isYouTubeAppHostname()) return false;
     const chrome = youtubeNativeChromeControl(element2);
@@ -14689,7 +14738,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
     if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
     const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
-    return shorts ? composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts) : null;
+    if (shorts) return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts);
+    const shortsRoot = composedClosestMatching(element2, YOUTUBE_SHORTS_ROOT_SELECTOR);
+    if (!shortsRoot) return null;
+    const actionRail = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
+    if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
+    return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
   }
   function youtubeEllipsisRow(element2) {
     const clipRow = closestRubyFragileConstrainedRow(element2);
@@ -14784,7 +14838,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     selectorPairs,
     setReviewCardFrontPredicate,
     stampDecorationState,
-    youtubeEllipsisChromeMustRemainPageOwned
+    youtubeEllipsisChromeMustRemainPageOwned,
+    youtubeNativeChromeMustRemainPageOwned,
+    youtubeShelfExpansionChromeMustRemainPageOwned
   }, Symbol.toStringTag, { value: "Module" }));
   function rubyFriendlyMirrorLineHeight(style) {
     const fontSize = cssPixels(style.fontSize) || 16;
@@ -14797,6 +14853,508 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const current = cssPixels(style.lineHeight);
     if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
     return current >= minimum ? "" : `${minimum}px`;
+  }
+  const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
+  const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
+  const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = "jpdb-reader-youtube-chrome-portal";
+  const portalWatches = /* @__PURE__ */ new WeakMap();
+  const structurallyStyledPortalMirrors = /* @__PURE__ */ new WeakSet();
+  const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
+  function styleDocumentAnnotationPortalMirror(mirror, host) {
+    const style = safeComputedStyle(host);
+    if (!structurallyStyledPortalMirrors.has(mirror)) {
+      mirror.style.cssText = [
+        "all:initial!important",
+        "position:fixed!important",
+        "inset:auto!important",
+        "top:0!important",
+        "left:0!important",
+        "width:0!important",
+        "height:0!important",
+        "overflow:visible!important",
+        "pointer-events:none!important",
+        "user-select:none!important",
+        "-webkit-user-select:none!important",
+        "z-index:auto!important",
+        "contain:layout style!important"
+      ].join(";");
+      const paint = documentAnnotationPortalPaint(mirror);
+      paint.style.cssText = [
+        "display:block!important",
+        "position:absolute!important",
+        "inset:0 auto auto 0!important",
+        "width:0!important",
+        "height:0!important",
+        "overflow:visible!important",
+        "pointer-events:none!important",
+        "contain:layout style!important",
+        "transform:none!important",
+        "transform-origin:0 0!important"
+      ].join(";");
+      structurallyStyledPortalMirrors.add(mirror);
+    }
+    mirror.style.setProperty("font", style.font, "important");
+    mirror.style.setProperty("font-size", style.fontSize, "important");
+    mirror.style.setProperty("font-weight", style.fontWeight, "important");
+    mirror.style.setProperty("line-height", style.lineHeight, "important");
+    mirror.style.setProperty("letter-spacing", style.letterSpacing, "important");
+    mirror.style.setProperty("direction", style.direction, "important");
+    mirror.style.setProperty("writing-mode", style.writingMode, "important");
+    mirror.style.setProperty("color", style.color, "important");
+    setImportantStyle(mirror, "z-index", documentPortalStackingLevel(host));
+  }
+  function documentAnnotationPortalPaint(mirror) {
+    const existing = Array.from(mirror.children).find(
+      (child) => child instanceof HTMLElement && child.classList.contains(DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS)
+    );
+    if (existing) return existing;
+    const paint = mirror.ownerDocument.createElement("span");
+    paint.className = DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS;
+    mirror.append(paint);
+    return paint;
+  }
+  function registerDocumentAnnotationPortalMirror(host, mirror, scheduleProjection, projectImmediately, retire) {
+    const document2 = host.ownerDocument;
+    let watch = portalWatches.get(document2);
+    if (!watch) {
+      watch = createPortalWatch(document2);
+      portalWatches.set(document2, watch);
+    }
+    const paint = documentAnnotationPortalPaint(mirror);
+    const entry = {
+      source: host,
+      mirror,
+      paint,
+      sourceAnchor: sourceAnchorRange(host),
+      settled: { source: { x: 0, y: 0 }, root: { x: 0, y: 0 } },
+      applied: { x: 0, y: 0 },
+      preparedClip: null,
+      clipChain: [],
+      clipTopologyEpoch: -1,
+      scheduleProjection,
+      projectImmediately,
+      retire
+    };
+    watch.entries.set(mirror, entry);
+    prepareDocumentAnnotationPortalMirrors([mirror]);
+    settleDocumentAnnotationPortalMirrors([mirror]);
+  }
+  function createPortalWatch(document2) {
+    const lifecycle = new AbortController();
+    const entries2 = /* @__PURE__ */ new Map();
+    const watch = {
+      entries: entries2,
+      lifecycle,
+      topologyEpoch: 0,
+      scrollSettleEntries: /* @__PURE__ */ new Set(),
+      scrollSettleTimer: null
+    };
+    const view = document2.defaultView;
+    const visibleEntries = () => {
+      if (document2.hidden) return [];
+      return pruneAndCollectEntries(document2, watch);
+    };
+    const alignForScroll = () => {
+      const live = visibleEntries();
+      if (!live.length) return;
+      const alignments = alignPortalEntries(live);
+      scheduleClippedPortalScrollSettle(document2, watch, alignments);
+    };
+    const alignThenScheduleAll = () => {
+      const live = visibleEntries();
+      if (!live.length) return;
+      cancelClippedPortalScrollSettle(document2, watch);
+      alignPortalEntries(live);
+      live.forEach((entry) => entry.scheduleProjection());
+    };
+    const scheduleVisibleProjection = () => {
+      cancelClippedPortalScrollSettle(document2, watch);
+      const live = visibleEntries();
+      live.forEach((entry) => entry.scheduleProjection());
+    };
+    const projectForTopLayerChange = () => {
+      cancelClippedPortalScrollSettle(document2, watch);
+      const live = visibleEntries();
+      if (!live.length) return;
+      live.forEach((entry) => entry.scheduleProjection());
+    };
+    const projectAffectedTransition = (event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      const affected = visibleEntries().filter((entry) => transitionCanMoveSource(target, entry.source));
+      if (!affected.length) return;
+      affected.forEach((entry) => watch.scrollSettleEntries.delete(entry));
+      if (!watch.scrollSettleEntries.size) cancelClippedPortalScrollSettle(document2, watch);
+      affected.forEach((entry) => {
+        entry.clipTopologyEpoch = -1;
+      });
+      alignPortalEntries(affected);
+      affected.forEach((entry) => entry.projectImmediately());
+    };
+    view?.addEventListener("scroll", alignForScroll, {
+      capture: true,
+      passive: true,
+      signal: lifecycle.signal
+    });
+    view?.addEventListener("resize", () => {
+      watch.topologyEpoch += 1;
+      alignThenScheduleAll();
+    }, {
+      passive: true,
+      signal: lifecycle.signal
+    });
+    view?.visualViewport?.addEventListener("scroll", alignForScroll, {
+      passive: true,
+      signal: lifecycle.signal
+    });
+    view?.visualViewport?.addEventListener("resize", alignThenScheduleAll, {
+      passive: true,
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("visibilitychange", scheduleVisibleProjection, {
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("fullscreenchange", projectForTopLayerChange, {
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("toggle", projectForTopLayerChange, {
+      capture: true,
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("transitionend", projectAffectedTransition, {
+      capture: true,
+      passive: true,
+      signal: lifecycle.signal
+    });
+    return watch;
+  }
+  function scheduleClippedPortalScrollSettle(document2, watch, alignments) {
+    for (const alignment of alignments) {
+      const movedInsideClip = Boolean(alignment.clip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
+      if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
+      else watch.scrollSettleEntries.delete(alignment.entry);
+    }
+    if (!watch.scrollSettleEntries.size) {
+      cancelClippedPortalScrollSettle(document2, watch);
+      return;
+    }
+    if (watch.scrollSettleTimer !== null) document2.defaultView?.clearTimeout(watch.scrollSettleTimer);
+    const view = document2.defaultView;
+    if (!view) {
+      const pending2 = [...watch.scrollSettleEntries];
+      watch.scrollSettleEntries.clear();
+      pending2.forEach((entry) => entry.scheduleProjection());
+      return;
+    }
+    watch.scrollSettleTimer = view.setTimeout(() => {
+      watch.scrollSettleTimer = null;
+      if (portalWatches.get(document2) !== watch) {
+        watch.scrollSettleEntries.clear();
+        return;
+      }
+      const live = new Set(pruneAndCollectEntries(document2, watch));
+      const pending2 = [...watch.scrollSettleEntries];
+      watch.scrollSettleEntries.clear();
+      pending2.filter((entry) => live.has(entry)).forEach((entry) => entry.scheduleProjection());
+    }, CLIPPED_PORTAL_SCROLL_SETTLE_MS);
+  }
+  function cancelClippedPortalScrollSettle(document2, watch) {
+    if (watch.scrollSettleTimer !== null) document2.defaultView?.clearTimeout(watch.scrollSettleTimer);
+    watch.scrollSettleTimer = null;
+    watch.scrollSettleEntries.clear();
+  }
+  function disposePortalWatch(document2, watch) {
+    cancelClippedPortalScrollSettle(document2, watch);
+    watch.lifecycle.abort();
+    if (portalWatches.get(document2) === watch) portalWatches.delete(document2);
+  }
+  function alignPortalEntries(entries2) {
+    const pending2 = readPortalAlignments(entries2);
+    for (const alignment of pending2) writePortalAlignment(alignment);
+    return pending2;
+  }
+  function readPortalAlignments(entries2) {
+    const clips = measurePortalClipBounds(entries2);
+    return entries2.map((entry, index) => {
+      const source = portalSourcePoint(entry);
+      const rootRect = entry.mirror.getBoundingClientRect();
+      const clip = clips[index] ?? null;
+      entry.preparedClip = clip;
+      const root = clip ? { x: clip.left, y: clip.top } : { x: rootRect.left, y: rootRect.top };
+      return {
+        entry,
+        source,
+        root,
+        clip,
+        x: source.x - entry.settled.source.x - (root.x - entry.settled.root.x),
+        y: source.y - entry.settled.source.y - (root.y - entry.settled.root.y)
+      };
+    });
+  }
+  function writePortalAlignment(alignment) {
+    const { entry, clip, x: x2, y } = alignment;
+    applyPortalClipGeometry(entry.mirror, clip);
+    entry.applied = { x: x2, y };
+    if (Math.abs(x2) <= 0.01 && Math.abs(y) <= 0.01) {
+      entry.paint.style.setProperty("transform", "none", "important");
+    } else {
+      entry.paint.style.setProperty("transform", `translate3d(${x2}px, ${y}px, 0)`, "important");
+    }
+  }
+  function prepareDocumentAnnotationPortalMirrors(mirrors) {
+    const entries2 = portalEntriesForMirrors(mirrors);
+    const clips = measurePortalClipBounds(entries2);
+    for (const [index, entry] of entries2.entries()) {
+      const clip = clips[index] ?? null;
+      entry.preparedClip = clip;
+      applyPortalClipGeometry(entry.mirror, clip);
+      entry.paint.style.setProperty("transform", "none", "important");
+      entry.applied = { x: 0, y: 0 };
+    }
+  }
+  function preparedDocumentAnnotationPortalClipBounds(mirror) {
+    return portalWatches.get(mirror.ownerDocument)?.entries.get(mirror)?.preparedClip ?? null;
+  }
+  function invalidateDocumentAnnotationPortalClipTopology(mirror) {
+    const entry = portalWatches.get(mirror.ownerDocument)?.entries.get(mirror);
+    if (entry) entry.clipTopologyEpoch = -1;
+  }
+  function settleDocumentAnnotationPortalMirrors(mirrors) {
+    const entries2 = portalEntriesForMirrors(mirrors);
+    const snapshots = entries2.map((entry) => {
+      entry.sourceAnchor = sourceAnchorRange(entry.source);
+      return {
+        entry,
+        source: portalSourcePoint(entry),
+        rootRect: entry.mirror.getBoundingClientRect()
+      };
+    });
+    for (const { entry, source, rootRect } of snapshots) {
+      entry.settled = {
+        source,
+        root: { x: rootRect.left, y: rootRect.top }
+      };
+      entry.applied = { x: 0, y: 0 };
+    }
+  }
+  function documentAnnotationPortalMirrorsWithin(root = document) {
+    const document2 = root instanceof Document ? root : root.ownerDocument;
+    if (!document2) return [];
+    const watch = portalWatches.get(document2);
+    if (!watch) return [];
+    return pruneAndCollectEntries(document2, watch).filter((entry) => root instanceof Document || rootContains(root, entry.source)).map((entry) => entry.mirror);
+  }
+  function measurePortalClipBounds(entries2) {
+    const styles = /* @__PURE__ */ new Map();
+    const rects = /* @__PURE__ */ new Map();
+    return entries2.map((entry) => {
+      const watch = portalWatches.get(entry.source.ownerDocument);
+      const epoch = watch?.topologyEpoch ?? 0;
+      if (entry.clipTopologyEpoch !== epoch) {
+        entry.clipChain = portalClipChain(entry.source, styles);
+        entry.clipTopologyEpoch = epoch;
+      }
+      return clipBoundsFromChain(entry.source, entry.clipChain, rects);
+    });
+  }
+  function portalClipChain(source, styles) {
+    const chain = [];
+    for (const element2 of composedAncestors(source)) {
+      if (element2 === source.ownerDocument.body || element2 === source.ownerDocument.documentElement) break;
+      let style = styles.get(element2);
+      if (!style) {
+        style = safeComputedStyle(element2);
+        styles.set(element2, style);
+      }
+      const clipsX = overflowClips(style.overflowX) || paintContainmentClips(style);
+      const clipsY = overflowClips(style.overflowY) || paintContainmentClips(style);
+      if (clipsX || clipsY) chain.push({ element: element2, clipsX, clipsY });
+    }
+    return chain;
+  }
+  function clipBoundsFromChain(source, chain, rects) {
+    if (!chain.length) return null;
+    const view = source.ownerDocument.defaultView;
+    let bounds = {
+      left: 0,
+      top: 0,
+      right: view?.innerWidth ?? source.ownerDocument.documentElement.clientWidth,
+      bottom: view?.innerHeight ?? source.ownerDocument.documentElement.clientHeight
+    };
+    for (const { element: element2, clipsX, clipsY } of chain) {
+      let rect = rects.get(element2);
+      if (!rect) {
+        rect = element2.getBoundingClientRect();
+        rects.set(element2, rect);
+      }
+      if (clipsX) {
+        bounds.left = Math.max(bounds.left, rect.left);
+        bounds.right = Math.min(bounds.right, rect.right);
+      }
+      if (clipsY) {
+        bounds.top = Math.max(bounds.top, rect.top);
+        bounds.bottom = Math.min(bounds.bottom, rect.bottom);
+      }
+    }
+    return bounds;
+  }
+  function documentAnnotationPortalHasNonTranslationTransform(source) {
+    for (const element2 of composedAncestors(source)) {
+      const transform = safeComputedStyle(element2).transform;
+      if (transform && transform !== "none" && !transformIsTranslationOnly(transform)) return true;
+      if (element2 === source.ownerDocument.body || element2 === source.ownerDocument.documentElement) break;
+    }
+    return false;
+  }
+  function unregisterDocumentAnnotationPortalMirror(mirror) {
+    const document2 = mirror.ownerDocument;
+    const watch = portalWatches.get(document2);
+    if (!watch) return;
+    const entry = watch.entries.get(mirror);
+    watch.entries.delete(mirror);
+    if (entry) watch.scrollSettleEntries.delete(entry);
+    if (!watch.scrollSettleEntries.size && watch.scrollSettleTimer !== null) {
+      cancelClippedPortalScrollSettle(document2, watch);
+    }
+    if (watch.entries.size) return;
+    disposePortalWatch(document2, watch);
+  }
+  function portalEntriesForMirrors(mirrors) {
+    const entries2 = [];
+    for (const mirror of mirrors) {
+      const entry = portalWatches.get(mirror.ownerDocument)?.entries.get(mirror);
+      if (entry && mirror.isConnected && entry.source.isConnected) entries2.push(entry);
+    }
+    return entries2;
+  }
+  function pruneAndCollectEntries(document2, watch) {
+    const live = [];
+    const retired = [];
+    for (const entry of watch.entries.values()) {
+      if (!entry.mirror.isConnected || !entry.source.isConnected) retired.push(entry);
+      else live.push(entry);
+    }
+    retired.forEach((entry) => watch.entries.delete(entry.mirror));
+    retired.forEach((entry) => watch.scrollSettleEntries.delete(entry));
+    retired.forEach((entry) => entry.retire());
+    if (!watch.scrollSettleEntries.size && watch.scrollSettleTimer !== null) {
+      cancelClippedPortalScrollSettle(document2, watch);
+    }
+    if (!watch.entries.size) {
+      disposePortalWatch(document2, watch);
+    }
+    return live;
+  }
+  function portalSourcePoint(entry) {
+    const rect = validAnchorRect(entry.sourceAnchor) ?? entry.source.getBoundingClientRect();
+    return { x: rect.left, y: rect.top };
+  }
+  function validAnchorRect(range) {
+    if (!range) return null;
+    const container = range.startContainer;
+    if (!container.isConnected) return null;
+    const rect = range.getBoundingClientRect();
+    return Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0 ? rect : null;
+  }
+  function sourceAnchorRange(source) {
+    if (typeof Range !== "function" || typeof Range.prototype.getBoundingClientRect !== "function") return null;
+    const walker = source.ownerDocument.createTreeWalker(source, NodeFilter.SHOW_TEXT, {
+      acceptNode(node2) {
+        const text2 = node2.textContent ?? "";
+        return /\S/u.test(text2) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      }
+    });
+    const node = walker.nextNode();
+    if (!(node instanceof Text)) return null;
+    const first2 = node.data.search(/\S/u);
+    if (first2 < 0) return null;
+    const range = source.ownerDocument.createRange();
+    range.setStart(node, first2);
+    range.setEnd(node, Math.min(node.length, first2 + 1));
+    return range;
+  }
+  function applyPortalClipGeometry(mirror, clip) {
+    if (!clip) {
+      setImportantStyle(mirror, "left", "0px");
+      setImportantStyle(mirror, "top", "0px");
+      setImportantStyle(mirror, "width", "0px");
+      setImportantStyle(mirror, "height", "0px");
+      setImportantStyle(mirror, "overflow", "visible");
+      return;
+    }
+    setImportantStyle(mirror, "left", `${clip.left}px`);
+    setImportantStyle(mirror, "top", `${clip.top}px`);
+    setImportantStyle(mirror, "width", `${Math.max(0, clip.right - clip.left)}px`);
+    setImportantStyle(mirror, "height", `${Math.max(0, clip.bottom - clip.top)}px`);
+    setImportantStyle(mirror, "overflow", "hidden");
+  }
+  function setImportantStyle(element2, property, value) {
+    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
+    element2.style.setProperty(property, value, "important");
+  }
+  function transitionCanMoveSource(target, source) {
+    if (target === source) return true;
+    if (!(target instanceof Element)) return false;
+    return target.contains(source) || source.contains(target);
+  }
+  function rootContains(root, source) {
+    if (root === source) return true;
+    return root instanceof Node && root.contains(source);
+  }
+  function overflowClips(value) {
+    return /^(?:auto|clip|hidden|overlay|scroll)$/u.test(value);
+  }
+  function documentPortalStackingLevel(source) {
+    const ancestors = composedAncestors(source).reverse();
+    for (const element2 of ancestors) {
+      if (element2 === source.ownerDocument.body || element2 === source.ownerDocument.documentElement) continue;
+      const style = safeComputedStyle(element2);
+      if (!elementCreatesStackingContext(element2, style)) continue;
+      return /^-?\d+$/u.test(style.zIndex) ? style.zIndex : "auto";
+    }
+    return "auto";
+  }
+  function elementCreatesStackingContext(element2, style) {
+    if (style.position === "fixed" || style.position === "sticky") return true;
+    if (style.zIndex && style.zIndex !== "auto") {
+      const parentDisplay = element2.parentElement ? safeComputedStyle(element2.parentElement).display : "";
+      if (style.position !== "static" || parentDisplay.includes("flex") || parentDisplay.includes("grid")) return true;
+    }
+    return style.opacity !== "" && Number.parseFloat(style.opacity) < 1 || style.transform !== "" && style.transform !== "none" || style.filter !== "" && style.filter !== "none" || style.backdropFilter !== "" && style.backdropFilter !== "none" || style.perspective !== "" && style.perspective !== "none" || style.isolation === "isolate" || style.mixBlendMode !== "" && style.mixBlendMode !== "normal" || /(?:^|\s)(?:layout|paint|strict|content)(?:\s|$)/u.test(style.contain) || /(?:^|,\s*)(?:transform|opacity|filter|perspective)(?:\s*,|$)/u.test(style.willChange);
+  }
+  function paintContainmentClips(style) {
+    return /(?:^|\s)paint(?:\s|$)/u.test(style.contain) || style.clipPath !== "" && style.clipPath !== "none";
+  }
+  function transformIsTranslationOnly(transform) {
+    if (/^(?:translate(?:X|Y|Z|3d)?\([^)]*\)\s*)+$/iu.test(transform)) return true;
+    const matrix = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (matrix) {
+      const values2 = matrix[1].split(",").map(Number);
+      return values2.length === 6 && values2.every(Number.isFinite) && Math.abs(values2[0] - 1) < 1e-4 && Math.abs(values2[1]) < 1e-4 && Math.abs(values2[2]) < 1e-4 && Math.abs(values2[3] - 1) < 1e-4;
+    }
+    const matrix3d = transform.match(/^matrix3d\(([^)]+)\)$/u);
+    if (!matrix3d) return false;
+    const values = matrix3d[1].split(",").map(Number);
+    if (values.length !== 16 || !values.every(Number.isFinite)) return false;
+    const identityIndexes = /* @__PURE__ */ new Set([0, 5, 10, 15]);
+    const translationIndexes = /* @__PURE__ */ new Set([12, 13, 14]);
+    return values.every((value, index) => translationIndexes.has(index) || (identityIndexes.has(index) ? Math.abs(value - 1) < 1e-4 : Math.abs(value) < 1e-4));
+  }
+  function composedAncestors(source) {
+    const ancestors = [];
+    const visited = /* @__PURE__ */ new Set();
+    let current = source;
+    while (current && !visited.has(current)) {
+      ancestors.push(current);
+      visited.add(current);
+      if (current.assignedSlot) current = current.assignedSlot;
+      else if (current.parentElement) current = current.parentElement;
+      else {
+        const root = current.getRootNode();
+        current = typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+      }
+    }
+    return ancestors;
   }
   const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
   const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
@@ -15356,6 +15914,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const start = Math.max(0, index - Math.max(0, halfWindow));
     const end = Math.min(sentence.length, start + MAX_CONTEXT_SENTENCE_LENGTH);
     return sentence.slice(start, end).trim();
+  }
+  function* uncoveredJapaneseRanges(text2, rangeStart, rangeEnd, isCovered) {
+    let gapStart = -1;
+    for (let index = rangeStart; index < rangeEnd; ) {
+      const codePoint = text2.codePointAt(index);
+      if (codePoint === void 0) break;
+      const character = String.fromCodePoint(codePoint);
+      const codePointEnd = index + character.length;
+      const nextIndex = Math.min(rangeEnd, codePointEnd);
+      const uncoveredJapanese = codePointEnd <= rangeEnd && JAPANESE_CHARACTER_RE.test(character) && !isCovered(index, nextIndex);
+      if (uncoveredJapanese) {
+        if (gapStart < 0) gapStart = index;
+      } else if (gapStart >= 0) {
+        yield { start: gapStart, end: index };
+        gapStart = -1;
+      }
+      index = nextIndex;
+    }
+    if (gapStart >= 0) yield { start: gapStart, end: rangeEnd };
   }
   const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
   function normalizeAnkiFieldMappings(value) {
@@ -19453,37 +20030,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
-  function* uncoveredJapaneseRanges(text2, rangeStart, rangeEnd, isCovered) {
-    let gapStart = -1;
-    for (let index = rangeStart; index < rangeEnd; ) {
-      const codePoint = text2.codePointAt(index);
-      if (codePoint === void 0) break;
-      const character = String.fromCodePoint(codePoint);
-      const codePointEnd = index + character.length;
-      const nextIndex = Math.min(rangeEnd, codePointEnd);
-      const uncoveredJapanese = codePointEnd <= rangeEnd && JAPANESE_CHARACTER_RE.test(character) && !isCovered(index, nextIndex);
-      if (uncoveredJapanese) {
-        if (gapStart < 0) gapStart = index;
-      } else if (gapStart >= 0) {
-        yield { start: gapStart, end: index };
-        gapStart = -1;
-      }
-      index = nextIndex;
-    }
-    if (gapStart >= 0) yield { start: gapStart, end: rangeEnd };
-  }
-  const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
-  const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
-  const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
-  const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
-  const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
-  const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
-  const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
-  const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
   const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
@@ -19507,6 +20056,431 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (mode === "off") return true;
     return mode === "known-status" && furiganaHiddenStates(settings).has(state2);
   }
+  function renderHighlightedTextHtml(text2, targets2, className) {
+    const needles = uniqueNonEmptyStrings(targets2).sort((a, b) => b.length - a.length);
+    if (!text2 || !needles.length) return escapeHtml$2(text2);
+    return renderHighlightChunks(text2, needles, className);
+  }
+  function renderHighlightChunks(text2, needles, className) {
+    let html = "";
+    let offset = 0;
+    while (offset < text2.length) {
+      const match = nextHighlightMatch(text2, needles, offset);
+      if (!match) break;
+      html += renderHighlightChunk(text2, className, offset, match);
+      offset = match.index + match.needle.length;
+    }
+    if (offset < text2.length) html += escapeHtml$2(text2.slice(offset));
+    return html;
+  }
+  function renderHighlightChunk(text2, className, offset, match) {
+    const prefix = match.index > offset ? escapeHtml$2(text2.slice(offset, match.index)) : "";
+    const marked = text2.slice(match.index, match.index + match.needle.length);
+    return `${prefix}<mark class="${escapeHtml$2(className)}">${escapeHtml$2(marked)}</mark>`;
+  }
+  function nextHighlightMatch(text2, needles, offset) {
+    let best = null;
+    for (const needle of needles) {
+      best = betterHighlightMatch(best, highlightMatchForNeedle(text2, needle, offset));
+    }
+    return best;
+  }
+  function highlightMatchForNeedle(text2, needle, offset) {
+    const index = text2.indexOf(needle, offset);
+    return index < 0 ? null : { index, needle };
+  }
+  function betterHighlightMatch(current, candidate) {
+    if (!candidate) return current;
+    if (!current) return candidate;
+    return isBetterHighlightMatch(candidate, current) ? candidate : current;
+  }
+  function isBetterHighlightMatch(candidate, current) {
+    return candidate.index < current.index || candidate.index === current.index && candidate.needle.length > current.needle.length;
+  }
+  function uniqueNonEmptyStrings(values) {
+    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+  }
+  function nonOverlappingTokens(tokens, text2) {
+    const safe = [];
+    let offset = 0;
+    for (const token of tokens) {
+      if (!isSafeTokenSpan(token, offset, text2)) continue;
+      safe.push(token);
+      offset = token.end;
+    }
+    return safe;
+  }
+  function isSafeTokenSpan(token, offset, text2) {
+    if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
+    return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
+  }
+  function miningInsightTokenKeys(tokens) {
+    const sentences = /* @__PURE__ */ new Map();
+    for (const token of tokens) {
+      const sentence = miningInsightSentenceKey(token);
+      if (!sentence || isParticleCard(token.card)) continue;
+      const cardKey2 = readerCardKey(token.card);
+      const sentenceCards = sentences.get(sentence) ?? /* @__PURE__ */ new Map();
+      if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
+      if (!sentenceCards.has(cardKey2)) {
+        sentenceCards.set(cardKey2, { unknown: isMiningUnknownCard(token.card) });
+      }
+    }
+    const keys = /* @__PURE__ */ new Set();
+    sentences.forEach((cards, sentence) => {
+      if (cards.size < MINING_INSIGHT_MIN_CARD_COUNT) return;
+      const unknownCards = [...cards.entries()].filter(([, card]) => card.unknown);
+      if (unknownCards.length !== 1) return;
+      keys.add(miningInsightKey(sentence, unknownCards[0][0]));
+    });
+    return keys;
+  }
+  function isMiningUnknownCard(card) {
+    return MINING_INSIGHT_UNKNOWN_STATES.has(primaryCardState(card.cardState));
+  }
+  function miningInsightTokenKey(token) {
+    return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
+  }
+  function miningInsightKey(sentence, cardKey2) {
+    return `${sentence}\0${cardKey2}`;
+  }
+  function miningInsightSentenceKey(token) {
+    return (token.sentence ?? "").replace(/\s+/g, " ").trim();
+  }
+  function readerCardKey(card) {
+    return `${readerCardSource(card)}:${readerCardId(card)}/${readerReadingIndex(card)}`;
+  }
+  function readerCardSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function readerCardId(card) {
+    return readerCardSource(card) === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
+  }
+  function readerReadingIndex(card) {
+    return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
+  }
+  function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
+    if (!allowRuby) return false;
+    if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
+    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
+  }
+  function furiganaModeAllowsRuby(mode, surface, token, settings) {
+    if (mode === "off") return false;
+    if (mode === "hover") return true;
+    if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
+    return mode !== "difficult-kanji" || hasDifficultKanji(surface);
+  }
+  function hasDifficultKanji(surface) {
+    for (const char of surface) {
+      if (KANJI_RE$1.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+    }
+    return false;
+  }
+  function readerWordClassName(state2, token, settings) {
+    const classes2 = ["jpdb-reader-word"];
+    if (isParticleCard(token.card)) {
+      classes2.push("jpdb-reader-particle");
+    }
+    if (hasKnownCardState(token.card)) {
+      classes2.push(`jpdb-${state2}`);
+      const source = readerCardSource(token.card);
+      if (source !== "jpdb") classes2.push(`${source}-${state2}`);
+    }
+    classes2.push(...cardDeckMembershipClassNames(token.card));
+    if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${tokenPitchClass(token)}`);
+    return classes2.join(" ");
+  }
+  function hasKnownCardState(card) {
+    return Array.isArray(card.cardState) && card.cardState.length > 0;
+  }
+  function isParticleCard(card) {
+    return card.partOfSpeech.includes("prt") || PARTICLE_SURFACE_RE.test(card.spelling.trim());
+  }
+  function safePitchClass(value) {
+    return PITCH_CLASSES.has(value) ? value : "unknown";
+  }
+  function tokenPitchClass(token) {
+    return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
+  }
+  function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+    let html = "";
+    let localOffset = 0;
+    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+      const start = ruby.start - token.start;
+      const end = ruby.end - token.start;
+      html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
+      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
+      localOffset = end;
+    }
+    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
+    return html;
+  }
+  function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+    let html = "";
+    let localOffset = 0;
+    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
+      const start = ruby.start - token.start;
+      const end = ruby.end - token.start;
+      html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
+      html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
+      html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
+      html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
+      html += "</span>";
+      localOffset = end;
+    }
+    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
+    return html;
+  }
+  function inferredInflectedSurfaceRubies(surface, spelling, reading) {
+    const visibleSurface = surface.trim();
+    const baseSpelling = spelling.trim();
+    const baseReading = reading.trim();
+    if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
+    if (!KANJI_RE$1.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
+    for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
+      if (!baseReading.endsWith(spellingSuffix)) continue;
+      const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
+      if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
+      const surfaceSuffix = visibleSurface.slice(spellingStem.length);
+      if (surfaceSuffix && !READING_KANA_ONLY_RE.test(surfaceSuffix)) continue;
+      const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
+      if (rubies.length) return rubies;
+    }
+    if (visibleSurface.startsWith(baseSpelling) && !READING_KANA_CHAR_RE.test(baseSpelling)) {
+      const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
+      if (!surfaceSuffix || READING_KANA_ONLY_RE.test(surfaceSuffix)) {
+        return [{
+          text: baseReading,
+          start: 0,
+          end: baseSpelling.length,
+          length: baseSpelling.length
+        }];
+      }
+    }
+    return [];
+  }
+  function trailingKanaSuffixes(value) {
+    const suffixes = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const suffix = value.slice(index);
+      if (suffix && READING_KANA_ONLY_RE.test(suffix)) suffixes.push(suffix);
+    }
+    return suffixes.sort((first2, second) => second.length - first2.length);
+  }
+  function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
+    const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
+    if (!trimmed.surface || !trimmed.reading) return [];
+    if (!KANJI_RE$1.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
+    return [{
+      text: trimmed.reading,
+      start: trimmed.offset,
+      end: trimmed.offset + trimmed.surface.length,
+      length: trimmed.surface.length
+    }];
+  }
+  function trimSharedKanaAffixes$1(surface, reading) {
+    let trimmedSurface = surface;
+    let trimmedReading = reading;
+    let offset = 0;
+    while (trimmedSurface && trimmedReading && sameKanaCharacter(trimmedSurface[0], trimmedReading[0])) {
+      trimmedSurface = trimmedSurface.slice(1);
+      trimmedReading = trimmedReading.slice(1);
+      offset += 1;
+    }
+    while (trimmedSurface && trimmedReading && sameKanaCharacter(
+      trimmedSurface[trimmedSurface.length - 1],
+      trimmedReading[trimmedReading.length - 1]
+    )) {
+      trimmedSurface = trimmedSurface.slice(0, -1);
+      trimmedReading = trimmedReading.slice(0, -1);
+    }
+    return { surface: trimmedSurface, reading: trimmedReading, offset };
+  }
+  function sameKanaCharacter(first2, second) {
+    return Boolean(first2 && second && first2 === second && READING_KANA_ONLY_RE.test(first2));
+  }
+  function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
+    const sources = sourceTokenRubies(surface, token);
+    if (preserveTokenRubies) {
+      return sources.flatMap((ruby) => {
+        const range = localRubyRange(surface, token, ruby);
+        if (!range) return [];
+        const base = surface.slice(range.start, range.end);
+        if (!KANJI_RE$1.test(base)) return [];
+        if (!READING_KANA_CHAR_RE.test(base)) return [ruby];
+        const parts = kanjiOnlyRubySegments(surface, token, ruby);
+        return parts.length ? parts : [ruby];
+      });
+    }
+    return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
+  }
+  function sourceTokenRubies(surface, token) {
+    if (token.rubies.length) return token.rubies;
+    const reading = token.card.reading.trim();
+    if (!surface || !KANJI_RE$1.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
+    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
+    if (inferred.length) {
+      return inferred.map((ruby) => ({
+        ...ruby,
+        start: token.start + ruby.start,
+        end: token.start + ruby.end
+      }));
+    }
+    if (surface.trim() !== token.card.spelling.trim()) return [];
+    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+  }
+  function kanjiOnlyRubySegments(surface, token, ruby) {
+    const range = localRubyRange(surface, token, ruby);
+    if (!range) return [];
+    return kanjiRubyParts(surface.slice(range.start, range.end), ruby.text.trim()).map((part) => ({
+      text: part.text,
+      start: token.start + range.start + part.start,
+      end: token.start + range.start + part.end,
+      length: part.end - part.start
+    }));
+  }
+  function localRubyRange(surface, token, ruby) {
+    const start = ruby.start - token.start;
+    const end = ruby.end - token.start;
+    if (start < 0 || end > surface.length || end <= start) return null;
+    return { start, end };
+  }
+  function kanjiRubyParts(base, reading) {
+    if (!base || !reading || !KANJI_RE$1.test(base)) return [];
+    if (!READING_KANA_ONLY_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
+    const anchors = alignRubyKanaAnchors(base, reading);
+    if (!anchors) return trimRubyPartToKanji(base, reading);
+    const parts = [];
+    let baseOffset = 0;
+    let readingOffset = 0;
+    for (const anchor of anchors) {
+      appendRubyGap(parts, base, baseOffset, anchor.baseStart, reading.slice(readingOffset, anchor.readingStart));
+      baseOffset = anchor.baseEnd;
+      readingOffset = anchor.readingEnd;
+    }
+    appendRubyGap(parts, base, baseOffset, base.length, reading.slice(readingOffset));
+    return parts.length ? parts : trimRubyPartToKanji(base, reading);
+  }
+  function appendRubyGap(parts, base, start, end, reading) {
+    const part = trimRubyPartToKanji(base.slice(start, end), reading)[0];
+    if (part) parts.push({ text: part.text, start: start + part.start, end: start + part.end });
+  }
+  function trimRubyPartToKanji(base, reading) {
+    const trimmed = trimSharedKanaAffixes$1(base, reading);
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$1.test(trimmed.surface)) return [];
+    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
+    if (kanjiOnly) {
+      return [{
+        text: trimmed.reading,
+        start: trimmed.offset + kanjiOnly.start,
+        end: trimmed.offset + kanjiOnly.end
+      }];
+    }
+    return [{
+      text: trimmed.reading,
+      start: trimmed.offset,
+      end: trimmed.offset + trimmed.surface.length
+    }];
+  }
+  function kanaTrimmedKanjiRange(base, reading) {
+    if (!READING_KANA_ONLY_RE.test(reading) || !READING_KANA_CHAR_RE.test(base)) return null;
+    const chars = Array.from(base);
+    const first2 = chars.findIndex((char) => KANJI_RE$1.test(char));
+    if (first2 < 0) return null;
+    let last = -1;
+    for (let index = chars.length - 1; index >= first2; index -= 1) {
+      if (KANJI_RE$1.test(chars[index])) {
+        last = index;
+        break;
+      }
+    }
+    if (last < first2 || first2 === 0 && last === chars.length - 1) return null;
+    return { start: first2, end: last + 1 };
+  }
+  function alignRubyKanaAnchors(base, reading) {
+    const runs = rubyBaseKanaRuns(base);
+    if (!runs.length) return [];
+    return findRubyKanaAnchorPlan(base, reading, runs, 0, 0, []);
+  }
+  function findRubyKanaAnchorPlan(base, reading, runs, index, readingOffset, anchors) {
+    if (index >= runs.length) return rubyKanaAnchorPlanIsValid(base, reading, anchors) ? anchors : null;
+    const run = runs[index];
+    for (const readingStart of readingRunOccurrences(reading, run.text, readingOffset)) {
+      const nextAnchors = anchors.concat({
+        ...run,
+        readingStart,
+        readingEnd: readingStart + run.text.length
+      });
+      const plan = findRubyKanaAnchorPlan(base, reading, runs, index + 1, readingStart + run.text.length, nextAnchors);
+      if (plan) return plan;
+    }
+    return null;
+  }
+  function readingRunOccurrences(reading, text2, offset) {
+    const occurrences = [];
+    let index = reading.indexOf(text2, offset);
+    while (index >= 0) {
+      occurrences.push(index);
+      index = reading.indexOf(text2, index + 1);
+    }
+    return occurrences;
+  }
+  function rubyKanaAnchorPlanIsValid(base, reading, anchors) {
+    let baseOffset = 0;
+    let readingOffset = 0;
+    for (const anchor of anchors) {
+      if (!rubyGapCanOwnReading(base.slice(baseOffset, anchor.baseStart), reading.slice(readingOffset, anchor.readingStart))) return false;
+      baseOffset = anchor.baseEnd;
+      readingOffset = anchor.readingEnd;
+    }
+    return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
+  }
+  function rubyGapCanOwnReading(base, reading) {
+    return KANJI_RE$1.test(base) ? reading.length > 0 : reading.length === 0;
+  }
+  function rubyBaseKanaRuns(base) {
+    const runs = [];
+    let start = -1;
+    for (let index = 0; index <= base.length; index += 1) {
+      const isKana = index < base.length && READING_KANA_CHAR_RE.test(base[index]);
+      if (isKana && start < 0) start = index;
+      if ((!isKana || index === base.length) && start >= 0) {
+        runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
+        start = -1;
+      }
+    }
+    return runs;
+  }
+  function kanjiNavigationForElement(element2) {
+    const host = element2.closest("[data-jpdb-reader-kanji-nav]");
+    if (!host) return void 0;
+    return {
+      enabled: true,
+      label: host.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
+    };
+  }
+  function renderKanjiNavigationText(value, options) {
+    if (!options?.enabled) return escapeHtml$2(value);
+    return Array.from(value).map(
+      (character) => isKanjiForInlineNavigation(character) ? renderKanjiNavigationCharacter(character, options.label) : escapeHtml$2(character)
+    ).join("");
+  }
+  function renderKanjiNavigationCharacter(character, label) {
+    const safeCharacter = escapeHtml$2(character);
+    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml$2(`${label}: ${character}`)}">${safeCharacter}</button>`;
+  }
+  function isKanjiForInlineNavigation(value) {
+    return isUnifiedIdeograph(value);
+  }
+  const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
+  const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
+  const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+  const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
+  const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
+  const BASE_SKIP_SELECTOR = `script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],${EDITABLE_TEXT_SURFACE_SELECTOR},[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-canvas-text-layer,.jpdb-reader-word,.subsection-pitch-accent .subsection`;
+  const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
+  const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
+  const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs("control,toggle,player", ["class"]);
   const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
   const FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FRAGMENT_SKIP_SELECTOR.replace(",[aria-hidden=true]", "");
   const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
@@ -19912,6 +20886,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
   }
   function isBlockFragmentElement(element2, options) {
+    if (youtubeNativeChromeMustRemainPageOwned(element2)) return false;
     return !options.mergeBlockFragments && isFragmentParagraphBoundary(element2, options) && !isInlineSentenceListItem(element2);
   }
   function flushFragmentBlockBoundary(isBlock, state2) {
@@ -20174,6 +21149,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function stampTargetDecoration(target, host) {
     const decoration = target.decoration;
     if (!decoration) return;
+    const pageOwnedYouTubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
+    if (pageOwnedYouTubeChrome) return;
     stampDecorationState(host, decoration);
     if (decoration !== "interactive-passive") return;
     const control = interactivePassiveControl(target.parent);
@@ -20187,6 +21164,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     if (target.parent instanceof HTMLCanvasElement) {
       applyTokensToCanvasFallbackTarget(target, tokens, settings);
+      return;
+    }
+    if (youtubeNativeChromeMustRemainPageOwned(target.parent)) {
+      const host = nonDestructiveScanHost(target);
+      stampTargetDecoration(target, host);
+      applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
     if (target.insideShadowDOM) {
@@ -20867,19 +21850,69 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = "true";
     return mirror;
   }
+  function textMirrorMount(host, clipRow, target) {
+    const youtubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
+    if (youtubeChrome || sourcePreservingProseNeedsDocumentPortal(host, target)) {
+      return {
+        configure(mirror) {
+          mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
+          if (youtubeChrome) mirror.classList.add(YOUTUBE_CHROME_PORTAL_MIRROR_CLASS);
+          mirror.dataset.yomuDocumentPortal = youtubeChrome ? "youtube-chrome" : "volatile-prose";
+          delete mirror.dataset.yomuReadingLaneCandidate;
+          const state2 = styleDocumentPortalTextMirrorHost(host);
+          styleDocumentAnnotationPortalMirror(mirror, host);
+          return state2;
+        },
+        append(mirror) {
+          (host.ownerDocument.body ?? host.ownerDocument.documentElement).append(mirror);
+        },
+        projectionRoot: host.ownerDocument
+      };
+    }
+    return {
+      configure(mirror) {
+        const state2 = styleTextMirrorHost(host);
+        styleTextMirror(mirror, host, false);
+        styleConstrainedTextMirror(mirror, clipRow);
+        return state2;
+      },
+      append: (mirror) => host.append(mirror),
+      projectionRoot: host.getRootNode()
+    };
+  }
+  const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
+  const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
+  function sourcePreservingProseNeedsDocumentPortal(host, target) {
+    if (target.insideShadowDOM || host.getRootNode() !== host.ownerDocument) return false;
+    if (target.decoration !== "prose-full" && target.decoration !== "content-ruby") return false;
+    if (interactivePassiveControl(host)) return false;
+    if (!target.nonDestructive && !scanHostRequiresSourcePreservingMirror(host)) return false;
+    if (documentAnnotationPortalHasNonTranslationTransform(host)) return false;
+    let current = host;
+    for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
+      if (isLikelyProseElement(current) || safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]')) return true;
+      const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+      if (VOLATILE_CONVERSATION_IDENTITY_RE.test(identity)) return true;
+      if (current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)) return true;
+    }
+    return false;
+  }
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
+    if (target.decoration && youtubeNativeChromeMustRemainPageOwned(host)) {
+      stampDecorationState(mirror, target.decoration);
+    }
+    const mount = textMirrorMount(host, context.clipRow, target);
     const controlMirror = target.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
     if (context.detachedReadings && !controlMirror) {
       mirror.dataset.yomuReadingLaneCandidate = "true";
     }
-    const state2 = styleTextMirrorHost(host);
+    const state2 = mount.configure(mirror);
     try {
-      styleTextMirror(mirror, host, false);
       if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
-      styleConstrainedTextMirror(mirror, context.clipRow);
-      mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
+      const paintRoot = state2.documentPortal ? documentAnnotationPortalPaint(mirror) : mirror;
+      paintRoot.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
         mirrorRender: true,
@@ -20897,15 +21930,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       stampMirrorWordSourceRanges(mirror, context.safeTokens, context.hostText);
       ensureReaderStylesForHost(host);
-      host.append(mirror);
+      mount.append(mirror);
       registerTextMirrorOwner(mirror, host);
       state2.mirror = new WeakRef(mirror);
+      if (state2.documentPortal) {
+        registerDocumentAnnotationPortalMirror(
+          host,
+          mirror,
+          () => scheduleDocumentPortalMirrorProjection(mirror, host),
+          () => projectOneDocumentPortalTextMirror(mirror, host),
+          () => removeTextMirror(host)
+        );
+      }
       styleAdditiveMirrorPaint(mirror);
       if (context.detachedReadings) {
         styleDetachedReadingElements(mirror, host);
         stabilizeDetachedReadings(mirror, context.clipRow, true);
       }
-      scheduleAdditiveMirrorProjection(host.getRootNode());
+      scheduleAdditiveMirrorProjection(mount.projectionRoot);
       syncTextMirrorVisibilityToPage(host, mirror);
       observeTextMirrorHost(host);
       rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -20972,18 +22014,31 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   const SOURCE_FRAGMENT_CLASS = "jpdb-reader-source-fragment";
-  function projectAdditiveTextMirror(mirror, host) {
+  function projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed = false) {
+    const documentPortal = mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
     const context = additiveMirrorProjectionContext(mirror, host);
     if (typeof context === "string") {
       clearProjectedReadings(mirror);
       if (context === "source-changed") clearAdditiveMirrorSourceProjection(mirror);
       return;
     }
-    const readingProjections = [];
+    if (documentPortal) context.topLayerConcealed = topLayerConcealed;
     const words = mirror.querySelectorAll(
       ".jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]"
     );
-    const projected = Array.from(words).map((word) => projectAdditiveMirrorWord(word, context, readingProjections)).some(Boolean);
+    const sourceRects = cachedMirrorSourceRectReader(context);
+    const hasReadings = mirror.querySelector(
+      ".jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end] .jpdb-reader-detached-furi"
+    ) !== null;
+    const readingsConcealed = !hasReadings || !context.host.isConnected || pageConcealsTextMirrorHost(context.host) || Boolean(context.documentPortal && context.topLayerConcealed);
+    const projections = Array.from(words).map((word) => readAdditiveMirrorWordProjection(
+      word,
+      context,
+      sourceRects,
+      readingsConcealed
+    ));
+    const readingProjections = [];
+    const projected = projections.map((projection) => writeAdditiveMirrorWordProjection(projection, context, readingProjections)).some(Boolean);
     syncProjectedReadings(mirror, readingProjections);
     if (projected) mirror.dataset.yomuSourceProjected = "true";
     else delete mirror.dataset.yomuSourceProjected;
@@ -20998,6 +22053,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const source = hostOriginalTextWithNodeOffsets(host);
     if (!host.isConnected) return "unmeasurable";
     if (mirrorSourceHostText(mirror) !== source.hostText) return "source-changed";
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    const readingClipRect = clipRow?.getBoundingClientRect() ?? null;
+    if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+      const origin = documentAnnotationPortalPaint(mirror).getBoundingClientRect();
+      const view = host.ownerDocument.defaultView;
+      const width = view?.innerWidth ?? host.ownerDocument.documentElement.clientWidth;
+      const height = view?.innerHeight ?? host.ownerDocument.documentElement.clientHeight;
+      const mirrorRect2 = clientRect(origin.left, origin.top, width, height);
+      return {
+        host,
+        source,
+        mirrorRect: mirrorRect2,
+        scaleX: 1,
+        scaleY: 1,
+        clipRow,
+        clipRect: combinedProjectionClipBounds(
+          preparedDocumentAnnotationPortalClipBounds(mirror),
+          readingClipRect
+        ),
+        readingClipRect,
+        documentPortal: true
+      };
+    }
     const hostRect = host.getBoundingClientRect();
     mirror.style.setProperty("inset", "0 auto auto 0");
     mirror.style.setProperty("width", `${host.clientWidth || hostRect.width}px`);
@@ -21006,7 +22084,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     mirror.style.setProperty("transform", "none");
     const mirrorRect = mirror.getBoundingClientRect();
     if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
-    const clipRow = closestRubyFragileConstrainedRow(host);
     return {
       host,
       source,
@@ -21014,29 +22091,90 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       scaleX: mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1,
       scaleY: mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1,
       clipRow,
-      clipRect: clipRow?.getBoundingClientRect() ?? null
+      clipRect: readingClipRect,
+      readingClipRect
     };
   }
-  function projectAdditiveMirrorWord(word, context, readings2) {
-    delete word.dataset.yomuSourceProjected;
-    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
+  function cachedMirrorSourceRectReader(context) {
+    const cache2 = /* @__PURE__ */ new Map();
+    const nodeOffsets = liveMirrorSourceOffsets(context);
+    return (start, end) => {
+      const key = `${start}:${end}`;
+      const cached = cache2.get(key);
+      if (cached) return cached;
+      const rects = sourceClientRects(context.host, nodeOffsets, start, end);
+      cache2.set(key, rects);
+      return rects;
+    };
+  }
+  function readAdditiveMirrorWordProjection(word, context, sourceRectsFor, readingsConcealed) {
     const start = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
     const end = Number.parseInt(word.dataset.yomuSourceEnd ?? "", 10);
-    const sourceRects = sourceClientRects(context.host, context.source.nodeOffsets, start, end);
+    const sourceRects = sourceRectsFor(start, end);
     const fragments = sourceFragmentProjections(sourceRects, context);
+    const readings2 = fragments.length ? readProjectedWordReadings(word, context, sourceRectsFor, readingsConcealed) : [];
+    return { word, sourceRects, fragments, readings: readings2 };
+  }
+  function writeAdditiveMirrorWordProjection(projection, context, readings2) {
+    const { word, sourceRects, fragments } = projection;
+    delete word.dataset.yomuSourceProjected;
+    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
     if (!fragments.length) return false;
     styleProjectedSourceWord(word);
     appendSourceFragments(word, fragments, sourceRects, context);
-    collectProjectedWordReadings(word, context, readings2);
+    for (const { ruby, projection: readingProjection } of projection.readings) {
+      positionProjectedElement(ruby, readingProjection.rect, context.mirrorRect, context.scaleX, context.scaleY);
+      readings2.push(readingProjection);
+    }
     return true;
   }
   function sourceFragmentProjections(sourceRects, context) {
     let gradientOffset = 0;
-    return sourceRects.map((rect) => {
-      const projection = { rect, gradientOffset };
+    return sourceRects.flatMap((rect) => {
+      const sourceGradientOffset = gradientOffset;
       gradientOffset += rect.width / context.scaleX;
-      return projection;
-    }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
+      const clipped = context.documentPortal && context.clipRect ? intersectClientRect(rect, context.clipRect) : rect;
+      if (!context.documentPortal && context.clipRect && !rectsIntersect(rect, context.clipRect)) return [];
+      if (!clipped) return [];
+      return [{
+        rect: clipped,
+        // If the authored row clips the left edge, preserve the continuous
+        // pitch gradient's offset instead of restarting it at the clip.
+        gradientOffset: sourceGradientOffset + (clipped.left - rect.left) / context.scaleX
+      }];
+    });
+  }
+  function combinedProjectionClipBounds(first2, second) {
+    if (!first2) return second;
+    if (!second) return first2;
+    return {
+      left: Math.max(first2.left, second.left),
+      top: Math.max(first2.top, second.top),
+      right: Math.min(first2.right, second.right),
+      bottom: Math.min(first2.bottom, second.bottom)
+    };
+  }
+  function clientRect(left, top, width, height) {
+    const right = left + width;
+    const bottom = top + height;
+    return {
+      x: left,
+      y: top,
+      left,
+      top,
+      right,
+      bottom,
+      width,
+      height,
+      toJSON: () => ({})
+    };
+  }
+  function intersectClientRect(rect, clip) {
+    const left = Math.max(rect.left, clip.left);
+    const top = Math.max(rect.top, clip.top);
+    const right = Math.min(rect.right, clip.right);
+    const bottom = Math.min(rect.bottom, clip.bottom);
+    return right > left && bottom > top ? clientRect(left, top, right - left, bottom - top) : null;
   }
   const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
   const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
@@ -21079,14 +22217,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       word.append(fragment2);
     }
   }
-  function collectProjectedWordReadings(word, context, readings2) {
+  function readProjectedWordReadings(word, context, sourceRectsFor, readingsConcealed) {
+    const readings2 = [];
     const rubies = word.querySelectorAll(
       ".jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]"
     );
     for (const ruby of rubies) {
-      const projection = projectedRubyReading(ruby, context);
-      if (projection) readings2.push(projection);
+      const projection = projectedRubyReading(ruby, context, sourceRectsFor, readingsConcealed);
+      if (projection) readings2.push({ ruby, projection });
     }
+    return readings2;
   }
   function liveMirrorSourceOffsets(context) {
     if (context.sourceLost) return NO_SOURCE_OFFSETS;
@@ -21106,19 +22246,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return true;
   }
-  function projectedRubyReading(ruby, context) {
+  function projectedRubyReading(ruby, context, sourceRectsFor, initiallyConcealed) {
     const reading = ruby.querySelector(".jpdb-reader-detached-furi");
     if (!reading) return null;
     const start = Number.parseInt(ruby.dataset.yomuSourceStart ?? "", 10);
     const end = Number.parseInt(ruby.dataset.yomuSourceEnd ?? "", 10);
     const measure = () => {
-      if (!context.host.isConnected || pageConcealsTextMirrorHost(context.host)) return null;
+      if (!context.host.isConnected || pageConcealsTextMirrorHost(context.host) || context.documentPortal && context.topLayerConcealed) return null;
       const clipRect = context.clipRow?.getBoundingClientRect() ?? null;
       return sourceClientRects(context.host, liveMirrorSourceOffsets(context), start, end).find((rect2) => !clipRect || rectsIntersect(rect2, clipRect)) ?? null;
     };
-    const rect = measure();
+    const rect = initiallyConcealed ? null : sourceRectsFor(start, end).find((candidate) => !context.readingClipRect || rectsIntersect(candidate, context.readingClipRect)) ?? null;
     if (!rect) return null;
-    positionProjectedElement(ruby, rect, context.mirrorRect, context.scaleX, context.scaleY);
     return { source: reading, anchor: context.host, rect, measure };
   }
   function sourceClientRects(host, nodeOffsets, start, end) {
@@ -21174,25 +22313,43 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function projectAdditiveTextMirrors(root = document) {
     const entries2 = [];
-    for (const mirror of queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror")) {
+    const mirrors = new Set(queryAllInAnnotationRoots(root, ".jpdb-reader-additive-text-mirror"));
+    documentAnnotationPortalMirrorsWithin(root).forEach((mirror) => mirrors.add(mirror));
+    for (const mirror of mirrors) {
       const host = registeredTextMirrorHostFor(mirror);
-      if (!host?.isConnected) continue;
-      if (youtubeEllipsisChromeMustRemainPageOwned(host)) {
+      if (!host) continue;
+      if (!host.isConnected) {
+        if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) removeTextMirror(host);
+        continue;
+      }
+      if (youtubeNativeChromeMustRemainPageOwned(host) && !mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+        if (replayNonDestructiveRenderFromCache(host)) continue;
         removeTextMirror(host);
         continue;
       }
       entries2.push({ mirror, host });
+    }
+    const portals = entries2.filter(({ mirror }) => mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS));
+    const document2 = root instanceof Document ? root : root.ownerDocument;
+    const topLayerConcealed = portals.length > 0 && document2 ? documentTopLayerConcealsPortal(document2) : false;
+    for (const { mirror, host } of entries2) {
+      if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+        syncTextMirrorVisibilityToPage(host, mirror, topLayerConcealed);
+      }
     }
     if (settleTextMirrorReadingLanes(entries2)) {
       entries2.forEach(({ mirror }) => clearProjectedReadings(mirror));
       scheduleAdditiveMirrorProjection(root);
       return;
     }
+    prepareDocumentAnnotationPortalMirrors(portals.map(({ mirror }) => mirror));
     if (typeof Range === "function" && typeof Range.prototype.getClientRects === "function") {
-      for (const { mirror, host } of entries2) projectAdditiveTextMirror(mirror, host);
+      for (const { mirror, host } of entries2) {
+        projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
+      }
     }
+    settleDocumentAnnotationPortalMirrors(portals.map(({ mirror }) => mirror));
     projectInPlaceDetachedReadings(root);
-    const document2 = root instanceof Document ? root : root.ownerDocument;
     if (document2) pruneProjectedReadings(document2);
   }
   function projectInPlaceDetachedReadings(root) {
@@ -21222,6 +22379,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (mirror.dataset.yomuReadingLaneCandidate !== "true") continue;
       const state2 = textMirrorHosts.get(host);
       if (!state2) continue;
+      if (state2.documentPortal) {
+        if (state2.reservedLineHeight) releaseTextMirrorReadingLane(host, state2, mirror);
+        continue;
+      }
       const inlineLineHeight = host.style.getPropertyValue("line-height");
       const inlineLineHeightPriority = host.style.getPropertyPriority("line-height");
       let baselineChanged = false;
@@ -21274,6 +22435,46 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function scheduleAdditiveMirrorProjection(root = document) {
     pendingAdditiveMirrorProjectionRoots.add(root);
     additiveMirrorProjectionPass.schedule(viewForNode(root));
+  }
+  function scheduleDocumentPortalMirrorProjection(mirror, host) {
+    if (!mirror.isConnected || !host.isConnected || currentDocumentPortalTextMirror(host) !== mirror) return;
+    pendingDocumentPortalProjections.set(mirror, host);
+    documentPortalProjectionPass.schedule(viewForNode(mirror));
+  }
+  const pendingDocumentPortalProjections = /* @__PURE__ */ new Map();
+  const documentPortalProjectionPass = createPostPaintPass(() => {
+    const entries2 = [...pendingDocumentPortalProjections].filter(([mirror, host]) => mirror.isConnected && host.isConnected && currentDocumentPortalTextMirror(host) === mirror);
+    pendingDocumentPortalProjections.clear();
+    if (!entries2.length) return;
+    const byDocument = /* @__PURE__ */ new Map();
+    for (const [mirror, host] of entries2) {
+      const documentEntries = byDocument.get(host.ownerDocument) ?? [];
+      documentEntries.push({ mirror, host });
+      byDocument.set(host.ownerDocument, documentEntries);
+    }
+    for (const [document2, documentEntries] of byDocument) {
+      const mirrors = documentEntries.map(({ mirror }) => mirror);
+      prepareDocumentAnnotationPortalMirrors(mirrors);
+      const topLayerConcealed = documentTopLayerConcealsPortal(document2);
+      for (const { mirror, host } of documentEntries) {
+        syncTextMirrorVisibilityToPage(host, mirror, topLayerConcealed);
+        projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
+      }
+      settleDocumentAnnotationPortalMirrors(mirrors);
+      pruneProjectedReadings(document2);
+    }
+  });
+  function projectOneDocumentPortalTextMirror(mirror, host) {
+    if (!mirror.isConnected || !host.isConnected || currentDocumentPortalTextMirror(host) !== mirror) {
+      if (textMirrorHosts.has(host)) removeTextMirror(host);
+      return;
+    }
+    prepareDocumentAnnotationPortalMirrors([mirror]);
+    const topLayerConcealed = documentTopLayerConcealsPortal(host.ownerDocument);
+    syncTextMirrorVisibilityToPage(host, mirror, topLayerConcealed);
+    projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
+    settleDocumentAnnotationPortalMirrors([mirror]);
+    pruneProjectedReadings(host.ownerDocument);
   }
   function sourceRangeBoundary(nodeOffsets, sourceOffset, side) {
     let boundary = null;
@@ -21359,6 +22560,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       delete word.dataset.yomuDetachedWordHidden;
       word.style.removeProperty("visibility");
     }
+    if (root.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) return;
     const clipRect = clipRow?.getBoundingClientRect();
     if (!clipRect || clipRect.width <= 0 || clipRect.height <= 0) return;
     for (const word of words) {
@@ -21369,11 +22571,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       word.dataset.yomuDetachedWordHidden = "outside-clip";
       word.style.setProperty("visibility", "hidden", "important");
     }
-  }
-  const settledMirrorProjectionGeometry = /* @__PURE__ */ new WeakMap();
-  function mirrorProjectionGeometrySignature(root) {
-    const rect = root.getBoundingClientRect();
-    return `${rect.left}:${rect.top}:${rect.width}:${rect.height}:${root.textContent ?? ""}`;
   }
   function styleConstrainedTextMirror(mirror, clipRow) {
     if (!clipRow) return;
@@ -21482,6 +22679,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Array.from(host.querySelectorAll(READER_TEXT_MIRROR_SELECTOR)).filter((mirror) => textMirrorBelongsToHost(mirror, host));
   }
   function currentTextMirror(host) {
+    return currentDocumentPortalTextMirror(host) ?? currentInHostTextMirror(host);
+  }
+  function currentDocumentPortalTextMirror(host) {
+    const state2 = textMirrorHosts.get(host);
+    const tracked = state2?.documentPortal ? state2.mirror?.deref() : void 0;
+    return tracked?.isConnected && textMirrorBelongsToHost(tracked, host) ? tracked : null;
+  }
+  function currentInHostTextMirror(host) {
     const direct = Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && textMirrorBelongsToHost(child, host));
     if (direct) return direct;
     return ownedTextMirrors(host)[0] ?? null;
@@ -21740,6 +22945,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function nonDestructiveScanHost(target) {
+    const pageOwnedYouTubeControl = interactivePassiveControl(target.parent);
+    if (pageOwnedYouTubeControl && youtubeNativeChromeMustRemainPageOwned(pageOwnedYouTubeControl)) {
+      return pageOwnedYouTubeControl;
+    }
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
     if (parents.length && parents.every((parent) => parent === target.parent)) return target.parent;
@@ -21789,6 +22998,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     textMirrorHosts.set(host, state2);
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     return state2;
+  }
+  function styleDocumentPortalTextMirrorHost(host) {
+    const state2 = {
+      observer: new MutationObserver(() => void 0),
+      sourceText: "",
+      position: host.style.getPropertyValue("position"),
+      positionPriority: host.style.getPropertyPriority("position"),
+      positioned: false,
+      lineHeight: host.style.getPropertyValue("line-height"),
+      lineHeightPriority: host.style.getPropertyPriority("line-height"),
+      reservedLineHeight: "",
+      documentPortal: true
+    };
+    textMirrorHosts.set(host, state2);
+    return state2;
+  }
+  function scheduleCurrentTextMirrorProjection(host) {
+    const mirror = currentTextMirror(host);
+    if (mirror?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+      scheduleDocumentPortalMirrorProjection(mirror, host);
+      return;
+    }
+    scheduleAdditiveMirrorProjection(host.getRootNode());
   }
   function styleTextMirror(mirror, host, hasRuby = false) {
     const style = safeComputedStyle(host);
@@ -21855,13 +23087,23 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       );
       if (hostAttributeMutations.length) {
         noteConstrainedRowLayoutSettled();
-        if (youtubeEllipsisChromeMustRemainPageOwned(liveHost)) return removeTextMirror(liveHost);
+        if (youtubeNativeChromeMustRemainPageOwned(liveHost) && !currentTextMirror(liveHost)?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+          if (replayNonDestructiveRenderFromCache(liveHost)) return;
+          dispatchTextMirrorStale(liveHost);
+          return removeTextMirror(liveHost);
+        }
         if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
           const mirror = currentTextMirror(liveHost);
           if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
         }
         reassertTextMirrorHostStyles(liveHost, liveState);
-        scheduleAdditiveMirrorProjection(liveHost.getRootNode());
+        const liveMirror = currentTextMirror(liveHost);
+        if (liveState.documentPortal && liveMirror) {
+          invalidateDocumentAnnotationPortalClipTopology(liveMirror);
+          scheduleDocumentPortalMirrorProjection(liveMirror, liveHost);
+        } else {
+          scheduleCurrentTextMirrorProjection(liveHost);
+        }
       }
       if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
       const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -21870,7 +23112,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return;
       }
       if (currentText === liveState.sourceText && mutationsRewroteHostContent(mutations)) {
-        scheduleAdditiveMirrorProjection(liveHost.getRootNode());
+        scheduleCurrentTextMirrorProjection(liveHost);
       }
       if (currentText !== liveState.sourceText) {
         dispatchTextMirrorStale(liveHost);
@@ -21924,20 +23166,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!mirror || mirror.style.getPropertyValue("visibility") !== "hidden") return;
     if (pageConcealsTextMirrorHostMemoized(host)) return;
     syncTextMirrorVisibilityToPage(host, mirror);
-  }
-  function refreshConstrainedMirrorProjection(host) {
-    const mirror = currentTextMirror(host);
-    if (!mirror || mirror.dataset.yomuDetachedReadings !== "true") return;
-    const geometry = mirrorProjectionGeometrySignature(mirror);
-    if (settledMirrorProjectionGeometry.get(host) === geometry) return;
-    const clipRow = closestRubyFragileConstrainedRow(host);
-    if (clipRow && !clipRow.dataset.yomuClipConstrained) {
-      const decoration = host.closest("[data-yomu-decoration]")?.getAttribute("data-yomu-decoration");
-      clipRow.dataset.yomuClipConstrained = contentClipRowShowsRestReadings(decoration ?? void 0, clipRow) ? "content" : "true";
-    }
-    if (mirror.dataset.yomuSourceProjected !== "true") filterDetachedWordsToClip(mirror, clipRow);
-    projectAdditiveTextMirror(mirror, host);
-    settledMirrorProjectionGeometry.set(host, mirrorProjectionGeometrySignature(mirror));
   }
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -22045,21 +23273,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (state2) state2.staleRemovalTimer = void 0;
     const owned = ownedTextMirrors(host);
     owned.forEach((mirror) => {
+      unregisterDocumentAnnotationPortalMirror(mirror);
       clearProjectedReadings(mirror);
       mirror.remove();
     });
     const tracked = state2?.mirror?.deref();
-    if (tracked && !owned.includes(tracked)) clearProjectedReadings(tracked);
+    if (tracked && !owned.includes(tracked)) {
+      unregisterDocumentAnnotationPortalMirror(tracked);
+      clearProjectedReadings(tracked);
+    }
     if (tracked?.isConnected) tracked.remove();
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
   }
-  function syncTextMirrorVisibilityToPage(host, mirror) {
-    if (pageConcealsTextMirrorHost(host)) mirror.style.setProperty("visibility", "hidden", "important");
-    else mirror.style.removeProperty("visibility");
+  function syncTextMirrorVisibilityToPage(host, mirror, knownTopLayerConcealsPortal) {
+    const topLayerConcealsPortal = mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS) && (knownTopLayerConcealsPortal ?? documentTopLayerConcealsPortal(host.ownerDocument));
+    if (topLayerConcealsPortal || pageConcealsTextMirrorHost(host)) {
+      mirror.style.setProperty("visibility", "hidden", "important");
+    } else mirror.style.removeProperty("visibility");
+  }
+  function documentTopLayerConcealsPortal(document2) {
+    if (document2.fullscreenElement) return true;
+    try {
+      return Array.from(document2.querySelectorAll(
+        ':modal, :popover-open, [aria-modal="true"]'
+      )).some((element2) => {
+        const style = safeComputedStyle(element2);
+        return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && (style.opacity === "" || Number.parseFloat(style.opacity) !== 0);
+      });
+    } catch {
+      return false;
+    }
   }
   function pageConcealsTextMirrorHost(host) {
-    for (let element2 = host; element2; element2 = element2.parentElement) {
+    for (let element2 = host; element2; element2 = composedAncestorElement(element2)) {
       const style = safeComputedStyle(element2);
       if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return true;
       if (style.opacity !== "" && Number.parseFloat(style.opacity) === 0) return true;
@@ -22081,6 +23328,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const mirror = currentTextMirror(host);
     if (!mirror) {
       removeTextMirror(host);
+      return;
+    }
+    if (state2.documentPortal) {
+      styleDocumentAnnotationPortalMirror(mirror, host);
+      styleAdditiveMirrorPaint(mirror);
+      syncTextMirrorVisibilityToPage(host, mirror);
       return;
     }
     syncTextMirrorVisibilityToPage(host, mirror);
@@ -22597,109 +23850,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const prefix = gap.slice(0, gap.length - digits.length);
     return `${escapeHtml$2(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml$2(digits)}</span>`;
   }
-  function renderHighlightedTextHtml(text2, targets2, className) {
-    const needles = uniqueNonEmptyStrings(targets2).sort((a, b) => b.length - a.length);
-    if (!text2 || !needles.length) return escapeHtml$2(text2);
-    return renderHighlightChunks(text2, needles, className);
-  }
-  function renderHighlightChunks(text2, needles, className) {
-    let html = "";
-    let offset = 0;
-    while (offset < text2.length) {
-      const match = nextHighlightMatch(text2, needles, offset);
-      if (!match) break;
-      html += renderHighlightChunk(text2, className, offset, match);
-      offset = match.index + match.needle.length;
-    }
-    if (offset < text2.length) html += escapeHtml$2(text2.slice(offset));
-    return html;
-  }
-  function renderHighlightChunk(text2, className, offset, match) {
-    const prefix = match.index > offset ? escapeHtml$2(text2.slice(offset, match.index)) : "";
-    const marked = text2.slice(match.index, match.index + match.needle.length);
-    return `${prefix}<mark class="${escapeHtml$2(className)}">${escapeHtml$2(marked)}</mark>`;
-  }
-  function nextHighlightMatch(text2, needles, offset) {
-    let best = null;
-    for (const needle of needles) {
-      best = betterHighlightMatch(best, highlightMatchForNeedle(text2, needle, offset));
-    }
-    return best;
-  }
-  function highlightMatchForNeedle(text2, needle, offset) {
-    const index = text2.indexOf(needle, offset);
-    return index < 0 ? null : { index, needle };
-  }
-  function betterHighlightMatch(current, candidate) {
-    if (!candidate) return current;
-    if (!current) return candidate;
-    return isBetterHighlightMatch(candidate, current) ? candidate : current;
-  }
-  function isBetterHighlightMatch(candidate, current) {
-    return candidate.index < current.index || candidate.index === current.index && candidate.needle.length > current.needle.length;
-  }
-  function uniqueNonEmptyStrings(values) {
-    return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-  }
-  function nonOverlappingTokens(tokens, text2) {
-    const safe = [];
-    let offset = 0;
-    for (const token of tokens) {
-      if (!isSafeTokenSpan(token, offset, text2)) continue;
-      safe.push(token);
-      offset = token.end;
-    }
-    return safe;
-  }
-  function isSafeTokenSpan(token, offset, text2) {
-    if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-    return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
-  }
-  function miningInsightTokenKeys(tokens) {
-    const sentences = /* @__PURE__ */ new Map();
-    for (const token of tokens) {
-      const sentence = miningInsightSentenceKey(token);
-      if (!sentence || isParticleCard(token.card)) continue;
-      const cardKey2 = readerCardKey(token.card);
-      const sentenceCards = sentences.get(sentence) ?? /* @__PURE__ */ new Map();
-      if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
-      if (!sentenceCards.has(cardKey2)) {
-        sentenceCards.set(cardKey2, { unknown: isMiningUnknownCard(token.card) });
-      }
-    }
-    const keys = /* @__PURE__ */ new Set();
-    sentences.forEach((cards, sentence) => {
-      if (cards.size < MINING_INSIGHT_MIN_CARD_COUNT) return;
-      const unknownCards = [...cards.entries()].filter(([, card]) => card.unknown);
-      if (unknownCards.length !== 1) return;
-      keys.add(miningInsightKey(sentence, unknownCards[0][0]));
-    });
-    return keys;
-  }
-  function isMiningUnknownCard(card) {
-    return MINING_INSIGHT_UNKNOWN_STATES.has(primaryCardState(card.cardState));
-  }
-  function miningInsightTokenKey(token) {
-    return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
-  }
-  function miningInsightKey(sentence, cardKey2) {
-    return `${sentence}\0${cardKey2}`;
-  }
-  function miningInsightSentenceKey(token) {
-    return (token.sentence ?? "").replace(/\s+/g, " ").trim();
-  }
-  function readerCardKey(card) {
-    return `${readerCardSource(card)}:${readerCardId(card)}/${readerReadingIndex(card)}`;
-  }
-  function readerCardSource(card) {
-    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-  }
-  function readerCardId(card) {
-    return readerCardSource(card) === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
-  }
-  function readerReadingIndex(card) {
-    return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
-  }
   function renderToken(surface, token, settings, options = {}) {
     const span = createReaderWordSpan(token, { ...options, showPitchAccent: settings.showPitchAccent });
     span.dataset.surface = surface;
@@ -22822,78 +23972,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml$2(membership.names.join(", "))}"` : "";
     return ` data-deck-member="true" data-deck-source="${escapeHtml$2(membership.source)}"${deckNames}`;
   }
-  function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
-    if (!allowRuby) return false;
-    if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
-  }
-  function furiganaModeAllowsRuby(mode, surface, token, settings) {
-    if (mode === "off") return false;
-    if (mode === "hover") return true;
-    if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== "difficult-kanji" || hasDifficultKanji(surface);
-  }
-  function hasDifficultKanji(surface) {
-    for (const char of surface) {
-      if (KANJI_RE$1.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
-    }
-    return false;
-  }
-  function readerWordClassName(state2, token, settings) {
-    const classes2 = ["jpdb-reader-word"];
-    if (isParticleCard(token.card)) {
-      classes2.push("jpdb-reader-particle");
-    }
-    if (hasKnownCardState(token.card)) {
-      classes2.push(`jpdb-${state2}`);
-      const source = readerCardSource(token.card);
-      if (source !== "jpdb") classes2.push(`${source}-${state2}`);
-    }
-    classes2.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes2.push(`jpdb-pitch-${tokenPitchClass(token)}`);
-    return classes2.join(" ");
-  }
-  function hasKnownCardState(card) {
-    return Array.isArray(card.cardState) && card.cardState.length > 0;
-  }
-  function isParticleCard(card) {
-    return card.partOfSpeech.includes("prt") || PARTICLE_SURFACE_RE.test(card.spelling.trim());
-  }
-  function safePitchClass(value) {
-    return PITCH_CLASSES.has(value) ? value : "unknown";
-  }
-  function tokenPitchClass(token) {
-    return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
-  }
-  function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
-    let html = "";
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-      const start = ruby.start - token.start;
-      const end = ruby.end - token.start;
-      html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
-      localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
-  }
-  function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
-    let html = "";
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-      const start = ruby.start - token.start;
-      const end = ruby.end - token.start;
-      html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
-      html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-      html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
-      html += "</span>";
-      localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
-  }
   function replaceRenderedWordFurigana(word, surface, token) {
     const mirror = word.closest(READER_TEXT_MIRROR_SELECTOR);
     const detached = Boolean(mirror) || word.classList.contains("jpdb-reader-detached-reading-word");
@@ -22912,9 +23990,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const sourceStart = Number.parseInt(word.dataset.yomuSourceStart ?? "", 10);
       if (Number.isFinite(sourceStart)) stampProjectedRubySourceRanges(word, surface, token, sourceStart);
     }
-    styleDetachedReadingElements(renderSurface, host);
-    if (mirror) refreshConstrainedMirrorProjection(host);
-    stabilizeDetachedReadings(renderSurface, clipRow, Boolean(mirror));
+    styleDetachedReadingElements(word, host);
+    if (mirror) {
+      scheduleCurrentTextMirrorProjection(host);
+    } else {
+      stabilizeDetachedReadings(renderSurface, clipRow);
+    }
     return true;
   }
   function clearRenderedWordFurigana(word, surface) {
@@ -22932,247 +24013,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     delete mirror.dataset.yomuDetachedReadings;
     clearProjectedReadings(mirror);
     styleConstrainedTextMirror(mirror, clipRow);
-  }
-  function inferredInflectedSurfaceRubies(surface, spelling, reading) {
-    const visibleSurface = surface.trim();
-    const baseSpelling = spelling.trim();
-    const baseReading = reading.trim();
-    if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$1.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
-    for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
-      if (!baseReading.endsWith(spellingSuffix)) continue;
-      const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
-      if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
-      const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-      if (surfaceSuffix && !READING_KANA_ONLY_RE.test(surfaceSuffix)) continue;
-      const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
-      if (rubies.length) return rubies;
-    }
-    if (visibleSurface.startsWith(baseSpelling) && !READING_KANA_CHAR_RE.test(baseSpelling)) {
-      const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-      if (!surfaceSuffix || READING_KANA_ONLY_RE.test(surfaceSuffix)) {
-        return [{
-          text: baseReading,
-          start: 0,
-          end: baseSpelling.length,
-          length: baseSpelling.length
-        }];
-      }
-    }
-    return [];
-  }
-  function trailingKanaSuffixes(value) {
-    const suffixes = [];
-    for (let index = 0; index < value.length; index += 1) {
-      const suffix = value.slice(index);
-      if (suffix && READING_KANA_ONLY_RE.test(suffix)) suffixes.push(suffix);
-    }
-    return suffixes.sort((first2, second) => second.length - first2.length);
-  }
-  function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
-    const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
-    if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$1.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
-    return [{
-      text: trimmed.reading,
-      start: trimmed.offset,
-      end: trimmed.offset + trimmed.surface.length,
-      length: trimmed.surface.length
-    }];
-  }
-  function trimSharedKanaAffixes$1(surface, reading) {
-    let trimmedSurface = surface;
-    let trimmedReading = reading;
-    let offset = 0;
-    while (trimmedSurface && trimmedReading && sameKanaCharacter(trimmedSurface[0], trimmedReading[0])) {
-      trimmedSurface = trimmedSurface.slice(1);
-      trimmedReading = trimmedReading.slice(1);
-      offset += 1;
-    }
-    while (trimmedSurface && trimmedReading && sameKanaCharacter(
-      trimmedSurface[trimmedSurface.length - 1],
-      trimmedReading[trimmedReading.length - 1]
-    )) {
-      trimmedSurface = trimmedSurface.slice(0, -1);
-      trimmedReading = trimmedReading.slice(0, -1);
-    }
-    return { surface: trimmedSurface, reading: trimmedReading, offset };
-  }
-  function sameKanaCharacter(first2, second) {
-    return Boolean(first2 && second && first2 === second && READING_KANA_ONLY_RE.test(first2));
-  }
-  function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
-    const sources = sourceTokenRubies(surface, token);
-    if (preserveTokenRubies) {
-      return sources.flatMap((ruby) => {
-        const range = localRubyRange(surface, token, ruby);
-        if (!range) return [];
-        const base = surface.slice(range.start, range.end);
-        if (!KANJI_RE$1.test(base)) return [];
-        if (!READING_KANA_CHAR_RE.test(base)) return [ruby];
-        const parts = kanjiOnlyRubySegments(surface, token, ruby);
-        return parts.length ? parts : [ruby];
-      });
-    }
-    return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
-  }
-  function sourceTokenRubies(surface, token) {
-    if (token.rubies.length) return token.rubies;
-    const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$1.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
-    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-    if (inferred.length) {
-      return inferred.map((ruby) => ({
-        ...ruby,
-        start: token.start + ruby.start,
-        end: token.start + ruby.end
-      }));
-    }
-    if (surface.trim() !== token.card.spelling.trim()) return [];
-    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
-  }
-  function kanjiOnlyRubySegments(surface, token, ruby) {
-    const range = localRubyRange(surface, token, ruby);
-    if (!range) return [];
-    return kanjiRubyParts(surface.slice(range.start, range.end), ruby.text.trim()).map((part) => ({
-      text: part.text,
-      start: token.start + range.start + part.start,
-      end: token.start + range.start + part.end,
-      length: part.end - part.start
-    }));
-  }
-  function localRubyRange(surface, token, ruby) {
-    const start = ruby.start - token.start;
-    const end = ruby.end - token.start;
-    if (start < 0 || end > surface.length || end <= start) return null;
-    return { start, end };
-  }
-  function kanjiRubyParts(base, reading) {
-    if (!base || !reading || !KANJI_RE$1.test(base)) return [];
-    if (!READING_KANA_ONLY_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
-    const anchors = alignRubyKanaAnchors(base, reading);
-    if (!anchors) return trimRubyPartToKanji(base, reading);
-    const parts = [];
-    let baseOffset = 0;
-    let readingOffset = 0;
-    for (const anchor of anchors) {
-      appendRubyGap(parts, base, baseOffset, anchor.baseStart, reading.slice(readingOffset, anchor.readingStart));
-      baseOffset = anchor.baseEnd;
-      readingOffset = anchor.readingEnd;
-    }
-    appendRubyGap(parts, base, baseOffset, base.length, reading.slice(readingOffset));
-    return parts.length ? parts : trimRubyPartToKanji(base, reading);
-  }
-  function appendRubyGap(parts, base, start, end, reading) {
-    const part = trimRubyPartToKanji(base.slice(start, end), reading)[0];
-    if (part) parts.push({ text: part.text, start: start + part.start, end: start + part.end });
-  }
-  function trimRubyPartToKanji(base, reading) {
-    const trimmed = trimSharedKanaAffixes$1(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$1.test(trimmed.surface)) return [];
-    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
-    if (kanjiOnly) {
-      return [{
-        text: trimmed.reading,
-        start: trimmed.offset + kanjiOnly.start,
-        end: trimmed.offset + kanjiOnly.end
-      }];
-    }
-    return [{
-      text: trimmed.reading,
-      start: trimmed.offset,
-      end: trimmed.offset + trimmed.surface.length
-    }];
-  }
-  function kanaTrimmedKanjiRange(base, reading) {
-    if (!READING_KANA_ONLY_RE.test(reading) || !READING_KANA_CHAR_RE.test(base)) return null;
-    const chars = Array.from(base);
-    const first2 = chars.findIndex((char) => KANJI_RE$1.test(char));
-    if (first2 < 0) return null;
-    let last = -1;
-    for (let index = chars.length - 1; index >= first2; index -= 1) {
-      if (KANJI_RE$1.test(chars[index])) {
-        last = index;
-        break;
-      }
-    }
-    if (last < first2 || first2 === 0 && last === chars.length - 1) return null;
-    return { start: first2, end: last + 1 };
-  }
-  function alignRubyKanaAnchors(base, reading) {
-    const runs = rubyBaseKanaRuns(base);
-    if (!runs.length) return [];
-    return findRubyKanaAnchorPlan(base, reading, runs, 0, 0, []);
-  }
-  function findRubyKanaAnchorPlan(base, reading, runs, index, readingOffset, anchors) {
-    if (index >= runs.length) return rubyKanaAnchorPlanIsValid(base, reading, anchors) ? anchors : null;
-    const run = runs[index];
-    for (const readingStart of readingRunOccurrences(reading, run.text, readingOffset)) {
-      const nextAnchors = anchors.concat({
-        ...run,
-        readingStart,
-        readingEnd: readingStart + run.text.length
-      });
-      const plan = findRubyKanaAnchorPlan(base, reading, runs, index + 1, readingStart + run.text.length, nextAnchors);
-      if (plan) return plan;
-    }
-    return null;
-  }
-  function readingRunOccurrences(reading, text2, offset) {
-    const occurrences = [];
-    let index = reading.indexOf(text2, offset);
-    while (index >= 0) {
-      occurrences.push(index);
-      index = reading.indexOf(text2, index + 1);
-    }
-    return occurrences;
-  }
-  function rubyKanaAnchorPlanIsValid(base, reading, anchors) {
-    let baseOffset = 0;
-    let readingOffset = 0;
-    for (const anchor of anchors) {
-      if (!rubyGapCanOwnReading(base.slice(baseOffset, anchor.baseStart), reading.slice(readingOffset, anchor.readingStart))) return false;
-      baseOffset = anchor.baseEnd;
-      readingOffset = anchor.readingEnd;
-    }
-    return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
-  }
-  function rubyGapCanOwnReading(base, reading) {
-    return KANJI_RE$1.test(base) ? reading.length > 0 : reading.length === 0;
-  }
-  function rubyBaseKanaRuns(base) {
-    const runs = [];
-    let start = -1;
-    for (let index = 0; index <= base.length; index += 1) {
-      const isKana = index < base.length && READING_KANA_CHAR_RE.test(base[index]);
-      if (isKana && start < 0) start = index;
-      if ((!isKana || index === base.length) && start >= 0) {
-        runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
-        start = -1;
-      }
-    }
-    return runs;
-  }
-  function kanjiNavigationForElement(element2) {
-    const host = element2.closest("[data-jpdb-reader-kanji-nav]");
-    if (!host) return void 0;
-    return {
-      enabled: true,
-      label: host.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
-    };
-  }
-  function renderKanjiNavigationText(value, options) {
-    if (!options?.enabled) return escapeHtml$2(value);
-    return Array.from(value).map(
-      (character) => isKanjiForInlineNavigation(character) ? renderKanjiNavigationCharacter(character, options.label) : escapeHtml$2(character)
-    ).join("");
-  }
-  function renderKanjiNavigationCharacter(character, label) {
-    const safeCharacter = escapeHtml$2(character);
-    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml$2(`${label}: ${character}`)}">${safeCharacter}</button>`;
-  }
-  function isKanjiForInlineNavigation(value) {
-    return isUnifiedIdeograph(value);
   }
   function isVisible(element2) {
     const rect = element2.getBoundingClientRect();
@@ -36717,7 +37557,6 @@ ${key}`] = { t: now, v: value };
   const DETAIL_CONCURRENCY = 4;
   const LOOKUP_DETAIL_LIMIT = 12;
   const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
-  const PARSE_COMPLETE_TARGET_TOKEN_LIMIT = 6;
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
@@ -37020,7 +37859,7 @@ ${key}`] = { t: now, v: value };
         targetCards.push(card);
       }
       const remaining = detailLimit - selected.length;
-      const selectedTargetCards = targetCards.length <= remaining || targetCards.length <= PARSE_COMPLETE_TARGET_TOKEN_LIMIT ? targetCards : targetCards.slice(0, remaining);
+      const selectedTargetCards = targetCards.slice(0, remaining);
       for (const card of selectedTargetCards) {
         selected.push(card);
         seen.add(parsedCardHydrationKey(card));
@@ -46255,6 +47094,11 @@ ${normalizedReading}`;
       this.dependencies = dependencies;
     }
     localCardCache = /* @__PURE__ */ new Map();
+    // getCachedCard is intentionally keyed by the legacy DOM identity
+    // (vid, sid). Evidence reuse needs a stricter identity: unrelated
+    // providers and learning languages may legally mint the same numeric
+    // pair, and must never donate reading/pitch/state to each other.
+    localCardEvidenceCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
     localBoundaryEvidenceCache = /* @__PURE__ */ new Map();
@@ -46275,7 +47119,8 @@ ${normalizedReading}`;
       try {
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
         if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
-        const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options, target);
+        const evidenceReconciled = this.withCachedCardEvidence(paragraphs, parsed);
+        const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
         if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
         const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
         if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
@@ -46423,13 +47268,42 @@ ${normalizedReading}`;
     }
     cacheCards(cards) {
       cards.forEach((card) => {
-        if (card.source && card.source !== "jpdb" || card.vid <= 0 || card.sid <= 0) {
-          this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-        }
+        this.rememberLocalCardEvidence(card);
       });
+    }
+    withCachedCardEvidence(paragraphs, parsed) {
+      let reconciled = parsed;
+      parsed.forEach((tokens, paragraphIndex) => {
+        let nextTokens = tokens;
+        tokens.forEach((token, tokenIndex) => {
+          const surface = paragraphs[paragraphIndex]?.slice(token.start, token.end) ?? "";
+          const card = this.rememberLocalCardEvidence(token.card, surface);
+          if (card === token.card) return;
+          if (nextTokens === tokens) nextTokens = [...tokens];
+          nextTokens[tokenIndex] = {
+            ...token,
+            card,
+            pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass
+          };
+        });
+        if (nextTokens === tokens) return;
+        if (reconciled === parsed) reconciled = [...parsed];
+        reconciled[paragraphIndex] = nextTokens;
+      });
+      return reconciled;
+    }
+    rememberLocalCardEvidence(card, surface) {
+      if (!cardUsesReaderLocalCache(card)) return card;
+      const evidenceKey = cardEvidenceCacheKey(card);
+      const cached = this.localCardEvidenceCache.get(evidenceKey);
+      const remembered = cached ? cardWithPreservedCachedEvidence(card, cached, surface) : card;
+      this.localCardEvidenceCache.set(evidenceKey, remembered);
+      this.localCardCache.set(cardCacheKey(card.vid, card.sid), remembered);
+      return remembered;
     }
     clearLocalCache() {
       this.localCardCache.clear();
+      this.localCardEvidenceCache.clear();
       this.localParseCache.clear();
       this.localPitchCache.clear();
       this.localBoundaryEvidenceCache.clear();
@@ -46461,13 +47335,11 @@ ${entry.reading}`);
         wordWithReading: null,
         source: "local"
       };
-      this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-      return card;
+      return this.rememberLocalCardEvidence(card);
     }
     fallbackCardFromText(text2, target = activeLearningTarget()) {
       const card = bareFallbackCardFromText(text2, target.language);
-      this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-      return card;
+      return this.rememberLocalCardEvidence(card);
     }
     canUseLocalDictionaryFallback() {
       return this.dependencies.getSettings().localDictionariesEnabled;
@@ -47056,6 +47928,72 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function compareTokensByOffset(a, b) {
     return a.start - b.start || b.length - a.length;
+  }
+  function cardUsesReaderLocalCache(card) {
+    return Boolean(card.source && card.source !== "jpdb" || card.vid <= 0 || card.sid <= 0);
+  }
+  function cardWithPreservedCachedEvidence(incoming, cached, surface) {
+    if (!cardsShareEvidenceIdentity(incoming, cached)) return incoming;
+    const evidence = preservedCachedLexicalEvidence(incoming, cached, surface);
+    const preserveCachedState = evidence.preserve && incoming.provisionalState === true && cached.provisionalState !== true;
+    if (!evidence.stronger && !preserveCachedState) return incoming;
+    const preserveCachedSpelling = evidence.suppliesReading || evidence.stronger && incoming.spelling.trim() !== cached.spelling.trim();
+    return {
+      ...incoming,
+      // A compatible detail record's canonical spelling belongs with its
+      // reading. The painted DOM surface remains the paragraph slice at the
+      // token's start/end; an unrelated same-id surface never reaches here.
+      spelling: preserveCachedSpelling ? cached.spelling : incoming.spelling,
+      reading: evidence.suppliesReading ? cached.reading : incoming.reading,
+      pitchAccent: evidence.pitchAccent,
+      pitchComponents: evidence.pitchComponents,
+      wordWithReading: evidence.wordWithReading,
+      meanings: incoming.meanings.length || !evidence.preserve ? incoming.meanings : cached.meanings,
+      partOfSpeech: incoming.partOfSpeech.length || !evidence.preserve ? incoming.partOfSpeech : cached.partOfSpeech,
+      frequencyRank: evidence.preserve ? incoming.frequencyRank ?? cached.frequencyRank : incoming.frequencyRank,
+      ...preserveCachedState ? {
+        cardState: cached.cardState,
+        provisionalState: cached.provisionalState,
+        reviewSource: cached.reviewSource,
+        dueAt: cached.dueAt,
+        lastReviewAt: cached.lastReviewAt,
+        deckNames: cached.deckNames,
+        sourceDeckName: cached.sourceDeckName
+      } : {}
+    };
+  }
+  function preservedCachedLexicalEvidence(incoming, cached, surface) {
+    const incomingReading = incoming.reading.trim();
+    const cachedReading = cached.reading.trim();
+    const readingsAreCompatible = !incomingReading || !cachedReading || incomingReading === cachedReading;
+    const surfaceAcceptsCachedLexicalEvidence = cachedEvidenceMatchesSurface(incoming, cached, surface);
+    const suppliesReading = !incomingReading && Boolean(cachedReading) && surfaceAcceptsCachedLexicalEvidence;
+    const preserve = readingsAreCompatible && surfaceAcceptsCachedLexicalEvidence;
+    const pitchAccent = preserve ? [...incoming.pitchAccent, ...cached.pitchAccent.filter((pattern) => !incoming.pitchAccent.includes(pattern))] : incoming.pitchAccent;
+    const pitchComponents = preserve ? incoming.pitchComponents?.length ? incoming.pitchComponents : cached.pitchComponents : incoming.pitchComponents;
+    const wordWithReading = preserve ? incoming.wordWithReading || cached.wordWithReading : incoming.wordWithReading;
+    const stronger = preserve && (suppliesReading || pitchAccent.length !== incoming.pitchAccent.length || Boolean(pitchComponents?.length && !incoming.pitchComponents?.length) || Boolean(wordWithReading && !incoming.wordWithReading) || !incoming.meanings.length && cached.meanings.length > 0 || !incoming.partOfSpeech.length && cached.partOfSpeech.length > 0 || incoming.frequencyRank === null && cached.frequencyRank !== null);
+    return { preserve, suppliesReading, pitchAccent, pitchComponents, wordWithReading, stronger };
+  }
+  function cardsShareEvidenceIdentity(first2, second) {
+    return normalizedCardSource(first2) === normalizedCardSource(second) && normalizedCardLanguage(first2) === normalizedCardLanguage(second) && first2.vid === second.vid && first2.sid === second.sid;
+  }
+  function cachedEvidenceMatchesSurface(incoming, cached, surface) {
+    const visibleSurface = surface?.trim() ?? "";
+    const cachedSpelling = cached.spelling.trim();
+    if (!visibleSurface) return incoming.spelling.trim() === cachedSpelling;
+    if (visibleSurface === cachedSpelling) return true;
+    if (!cached.reading.trim()) return false;
+    return inferredInflectedSurfaceRubies(visibleSurface, cachedSpelling, cached.reading).length > 0;
+  }
+  function normalizedCardSource(card) {
+    return card.source ?? "jpdb";
+  }
+  function normalizedCardLanguage(card) {
+    return card.language ?? "ja";
+  }
+  function cardEvidenceCacheKey(card) {
+    return `${normalizedCardSource(card)}:${normalizedCardLanguage(card)}:${card.vid}:${card.sid}`;
   }
   function cardCacheKey(vid, sid) {
     return `${vid}:${sid}`;
@@ -59198,7 +60136,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.73".trim() ? "1.8.73".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.74".trim() ? "1.8.74".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

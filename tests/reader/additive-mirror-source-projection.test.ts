@@ -161,6 +161,57 @@ describe('additive text-mirror source projection', () => {
         expect(fragments[0].style.left).toBe('40px');
     });
 
+    it('reads every word and ruby range before replacing any projected fragment', () => {
+        const { host, mirror, word } = scene();
+        host.firstChild!.textContent = '投票日本';
+        mirror.dataset.sourceText = '投票日本';
+        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';
+
+        const second = document.createElement('span');
+        second.className = 'jpdb-reader-word jpdb-reader-scan-word';
+        second.dataset.yomuSourceStart = '2';
+        second.dataset.yomuSourceEnd = '4';
+        second.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="2" data-yomu-source-end="4"><span class="jpdb-reader-ruby-base">日本</span><span class="jpdb-reader-detached-furi">にほん</span></span>';
+        mirror.append(second);
+
+        const events: string[] = [];
+        sourceRectsForRange = range => {
+            events.push(`read:${range.startOffset}:${range.endOffset}`);
+            return [rect(130 + range.startOffset * 16, 54, (range.endOffset - range.startOffset) * 16, 16)];
+        };
+
+        for (const projectedWord of [word, second]) {
+            const stale = document.createElement('span');
+            stale.className = 'jpdb-reader-source-fragment';
+            const remove = stale.remove.bind(stale);
+            stale.remove = () => {
+                events.push('write:remove');
+                remove();
+            };
+            projectedWord.append(stale);
+
+            const append = projectedWord.append.bind(projectedWord);
+            projectedWord.append = (...nodes: (Node | string)[]) => {
+                if (nodes.some(node => node instanceof Element && node.classList.contains('jpdb-reader-source-fragment'))) {
+                    events.push('write:append');
+                }
+                append(...nodes);
+            };
+        }
+
+        projectAdditiveTextMirror(mirror, host);
+
+        const firstWrite = events.findIndex(event => event.startsWith('write:'));
+        expect(firstWrite).toBe(3);
+        expect(events.slice(0, firstWrite)).toEqual(['read:0:2', 'read:1:2', 'read:2:4']);
+        expect(events.slice(firstWrite)).not.toContainEqual(expect.stringMatching(/^read:/));
+        // 日本's full-word ruby reuses its word Range instead of forcing a
+        // second layout read for the exact same source geometry.
+        expect(events.filter(event => event.startsWith('read:'))).toHaveLength(3);
+        expect(word.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(1);
+        expect(second.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(1);
+    });
+
     it('anchors a detached reading to its own source characters', () => {
         const { host, mirror, word } = scene();
         word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="1" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">票</span><span class="jpdb-reader-detached-furi">ひょう</span></span>';

@@ -37,8 +37,18 @@ import type {
     YomitanTermEntry,
 } from './fixtures';
 import { ReaderParser } from '../../../src/reader/lookup/parser';
+import type { DeferredPublicJitenReadingCoordinator } from '../../../src/reader/app/deferred-public-jiten-readings';
 import { hasPaintablePitchComponents } from '../../../src/reader/lookup/pitch-components';
 import { noteScannedShadowRoot } from '../../../src/reader/dom/shadow-scan-registry';
+import {
+    DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
+    YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+} from '../../../src/reader/app/main-helpers';
+import {
+    JitenPublicVocabularyClient,
+    publicJitenBackoffRemainingMs,
+    resetJitenPublicVocabularyBackoffForTests,
+} from '../../../src/reader/dictionaries/jiten-public-vocabulary';
 
 registerReaderHelpersCleanup();
 
@@ -388,7 +398,7 @@ describe('reader helpers', () => {
             jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
             jpdbPublicPitch: { lookup: typeof publicPitch };
             parser: { cacheCards(cards: JPDBCard[]): void };
-            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; urgent?: boolean }): Promise<void>;
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -403,7 +413,7 @@ describe('reader helpers', () => {
         internals.parser = { cacheCards: vi.fn() };
 
         try {
-            await internals.enrichPitchWords([token], { publicLookupLimit: 1 });
+            await internals.enrichPitchWords([token], { publicLookupLimit: 1, urgent: true });
 
             expect(hydrateCards).toHaveBeenCalled();
             expect(publicPitch).toHaveBeenCalledWith('浜面', 'はまも');
@@ -445,7 +455,7 @@ describe('reader helpers', () => {
             jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
             jpdbPublicPitch: { lookup: typeof publicPitch };
             parser: { cacheCards(cards: JPDBCard[]): void };
-            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; urgent?: boolean }): Promise<void>;
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -460,7 +470,7 @@ describe('reader helpers', () => {
         internals.parser = { cacheCards: vi.fn() };
 
         try {
-            await internals.enrichPitchWords([token], { publicLookupLimit: 1 });
+            await internals.enrichPitchWords([token], { publicLookupLimit: 1, urgent: true });
 
             expect(hydrateCards).toHaveBeenCalledWith([parsed], expect.any(Object));
             expect(token.card).toBe(hydrated);
@@ -472,6 +482,826 @@ describe('reader helpers', () => {
         } finally {
             word.remove();
             app.destroy();
+        }
+    });
+
+    it.each([
+        { label: 'pitch only', showPitchAccent: true, showFurigana: false, furiganaMode: 'off', hydrates: true, ruby: false },
+        { label: 'pitch with furigana mode off', showPitchAccent: true, showFurigana: true, furiganaMode: 'off', hydrates: true, ruby: false },
+        { label: 'furigana only', showPitchAccent: false, showFurigana: true, furiganaMode: 'all', hydrates: true, ruby: true },
+        { label: 'both disabled', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', hydrates: false, ruby: false },
+    ] as const)('honours the sparse Jiten prerequisite matrix for $label', async settingsCase => {
+        const app = new ReaderApp();
+        const sparse = testPublicCard({
+            vid: 991177,
+            sid: 0,
+            spelling: '初心者',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 991177,
+            jitenReadingIndex: 0,
+        });
+        const hydrated = testPublicCard({
+            ...sparse,
+            reading: 'しょしんしゃ',
+            source: 'jiten',
+            pitchAccent: ['LHHHH'],
+            wordWithReading: '初[しょ]心[しん]者[しゃ]',
+        });
+        const token = testTokenForCard(sparse, '初心者');
+        const word = appendRenderedReaderWord(sparse);
+        const hydrateCards = vi.fn(async () => new Map([['991177:0', hydrated]]));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; urgent?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: settingsCase.showPitchAccent,
+            showFurigana: settingsCase.showFurigana,
+            furiganaMode: settingsCase.furiganaMode,
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookupLimit: 0, urgent: true });
+
+            expect(hydrateCards).toHaveBeenCalledTimes(settingsCase.hydrates ? 1 : 0);
+            expect(token.card).toBe(settingsCase.hydrates ? hydrated : sparse);
+            expect(word.dataset.reading ?? '').toBe(settingsCase.hydrates ? 'しょしんしゃ' : '');
+            expect(word.querySelector('rt')?.textContent ?? '').toBe(settingsCase.ruby ? 'しょしんしゃ' : '');
+            if (settingsCase.showPitchAccent) {
+                expect(word.dataset.pitchClass).toBe('heiban');
+                expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            }
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('bounds visible sparse-word geometry reads and carries the refill cursor across idle slices', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = Array.from({ length: 150 }, (_, index) => [
+            '<span class="jpdb-reader-word"',
+            ' data-card-source="jiten"',
+            ` data-vid="${700000 + index}"`,
+            ' data-sid="0"',
+            index % 2 ? ' data-reading=""' : '',
+            ` data-expression="未踏語${index}">未踏語${index}</span>`,
+        ].join('')).join('');
+        const rect = {
+            x: 0,
+            y: 2_000,
+            top: 2_000,
+            right: 10,
+            bottom: 2_010,
+            left: 0,
+            width: 10,
+            height: 10,
+            toJSON: () => ({}),
+        } as DOMRect;
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(rect);
+        const internals = app as unknown as {
+            deferredPublicJitenReadings: DeferredPublicJitenReadingCoordinator;
+        };
+
+        try {
+            internals.deferredPublicJitenReadings.refillFromVisibleWords();
+            expect(rectSpy).toHaveBeenCalledTimes(64);
+            expect(internals.deferredPublicJitenReadings.visibleRefillPending).toBe(true);
+
+            internals.deferredPublicJitenReadings.refillFromVisibleWords();
+            expect(rectSpy).toHaveBeenCalledTimes(128);
+            expect(internals.deferredPublicJitenReadings.visibleRefillPending).toBe(true);
+
+            internals.deferredPublicJitenReadings.refillFromVisibleWords();
+            expect(rectSpy).toHaveBeenCalledTimes(150);
+            expect(internals.deferredPublicJitenReadings.visibleRefillPending).toBe(false);
+        } finally {
+            rectSpy.mockRestore();
+            document.body.innerHTML = '';
+            app.destroy();
+        }
+    });
+
+    it('returns ordinary page enrichment before Jiten detail settles, then repaints the live word', async () => {
+        const app = new ReaderApp();
+        const sparse = testPublicCard({
+            vid: 881122,
+            sid: 0,
+            spelling: '初心者',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 881122,
+            jitenReadingIndex: 0,
+        });
+        const hydrated = testPublicCard({
+            ...sparse,
+            reading: 'しょしんしゃ',
+            source: 'jiten',
+            pitchAccent: ['LHHHH'],
+            wordWithReading: '初[しょ]心[しん]者[しゃ]',
+        });
+        const response = deferred<Map<string, JPDBCard>>();
+        const hydrateCards = vi.fn(() => response.promise);
+        const token = testTokenForCard(sparse, '初心者');
+        const word = appendRenderedReaderWord(sparse);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.parser = { cacheCards: vi.fn() };
+        internals.waitForIdle = vi.fn(async () => undefined);
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookupLimit: 0 });
+
+            expect(token.card).toBe(sparse);
+            expect(word.querySelector('rt')).toBeNull();
+            await waitForExpect(() => expect(hydrateCards).toHaveBeenCalledTimes(1));
+
+            response.resolve(new Map([['881122:0', hydrated]]));
+            await waitForExpect(() => expect(token.card).toBe(hydrated));
+            expect(word.dataset.reading).toBe('しょしんしゃ');
+            expect(word.querySelector('rt')?.textContent).toBe('しょしんしゃ');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('hydrates a required reading before spending the separate bounded pitch slot', async () => {
+        const app = new ReaderApp();
+        const lookupOrder: string[] = [];
+        const pitchOnly = testPublicCard({
+            vid: 700,
+            sid: 0,
+            spelling: '観光',
+            reading: 'かんこう',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: '観[かん]光[こう]',
+            meanings: [{ glosses: ['sightseeing'], partOfSpeech: ['noun'] }],
+            jitenWordId: 700,
+            jitenReadingIndex: 0,
+        });
+        const sparse = testPublicCard({
+            vid: 1342860,
+            sid: 0,
+            spelling: '初心者',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 1342860,
+            jitenReadingIndex: 0,
+        });
+        const hydrated = testPublicCard({
+            ...sparse,
+            spelling: '初心者',
+            reading: 'しょしんしゃ',
+            source: 'jiten',
+            pitchAccent: ['LHHHH'],
+            wordWithReading: '初[しょ]心[しん]者[しゃ]',
+            meanings: [{ glosses: ['beginner'], partOfSpeech: ['noun'] }],
+        });
+        const sentence = '[Day319] 初心者エンジニア、自作した天気予報アプリの処理を責務の分離したい！';
+        const start = sentence.indexOf('初心者');
+        const sparseToken = testTokenForCard(sparse, sentence, {
+            start,
+            end: start + sparse.spelling.length,
+        });
+        const word = appendRenderedReaderWord(sparse);
+        const hydrateCards = vi.fn(async () => {
+            lookupOrder.push('jiten-detail');
+            return new Map([['1342860:0', hydrated]]);
+        });
+        const publicPitch = vi.fn(async () => {
+            lookupOrder.push('pitch');
+            return ['LHHH'];
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            enrichPitchWords(tokens: JPDBToken[], options?: {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                deferPublicLookup?: boolean;
+                urgent?: boolean;
+            }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: true,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            await internals.enrichPitchWords([
+                testTokenForCard(pitchOnly, '観光'),
+                sparseToken,
+            ], { publicLookupLimit: 1, publicLookupTotalLimit: 1, deferPublicLookup: false, urgent: true });
+
+            expect(hydrateCards).toHaveBeenCalledWith([sparse], expect.any(Object));
+            expect(publicPitch).toHaveBeenCalledWith('観光', 'かんこう');
+            expect(lookupOrder[0]).toBe('jiten-detail');
+            expect(lookupOrder.at(-1)).toBe('pitch');
+            expect(sparseToken.card).toBe(hydrated);
+            expect(word.dataset.reading).toBe('しょしんしゃ');
+            expect([...word.querySelectorAll('rt')].map(reading => reading.textContent).join('')).toBe('しょしんしゃ');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('awaits one 12-card reading batch and eventually hydrates the queued tail', async () => {
+        const app = new ReaderApp();
+        const sparseCards = Array.from({ length: PITCH_ENRICHMENT_LIMIT + 3 }, (_, index) => testPublicCard({
+            vid: 810000 + index,
+            sid: 0,
+            spelling: '初心者',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 810000 + index,
+            jitenReadingIndex: 0,
+        }));
+        const tokens = sparseCards.map(card => testTokenForCard(card, '初心者'));
+        const hydratedCard = (sparse: JPDBCard): JPDBCard => testPublicCard({
+            ...sparse,
+            reading: 'しょしんしゃ',
+            source: 'jiten',
+            pitchAccent: ['LHHHH'],
+            wordWithReading: '初[しょ]心[しん]者[しゃ]',
+            meanings: [{ glosses: ['beginner'], partOfSpeech: ['noun'] }],
+        });
+        const hydrateCards = vi.fn(async (cards: readonly JPDBCard[]) => new Map(
+            cards.map(card => [`${card.vid}:${card.sid}`, hydratedCard(card)]),
+        ));
+        const word = appendRenderedReaderWord(sparseCards.at(-1)!);
+        const cacheCards = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            deferredPublicJitenReadings: DeferredPublicJitenReadingCoordinator;
+            enrichPitchWords(tokens: JPDBToken[], options?: {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                deferPublicLookup?: boolean;
+                urgent?: boolean;
+            }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.parser = { cacheCards };
+        internals.waitForIdle = vi.fn(async () => undefined);
+
+        try {
+            await internals.enrichPitchWords(tokens, {
+                publicLookupLimit: 0,
+                publicLookupTotalLimit: 0,
+                publicLookupPageBudget: 0,
+                deferPublicLookup: false,
+                urgent: true,
+            });
+
+            expect(hydrateCards.mock.calls.map(([cards]) => cards.length)).toEqual([PITCH_ENRICHMENT_LIMIT]);
+            expect(tokens.slice(0, PITCH_ENRICHMENT_LIMIT).every(token => token.card.reading === 'しょしんしゃ')).toBe(true);
+            expect(tokens.slice(PITCH_ENRICHMENT_LIMIT).every(token => token.card.reading === '')).toBe(true);
+
+            await internals.deferredPublicJitenReadings.drain();
+
+            expect(hydrateCards.mock.calls.map(([cards]) => cards.length)).toEqual([PITCH_ENRICHMENT_LIMIT, 3]);
+            expect(tokens.every(token => token.card.reading === 'しょしんしゃ')).toBe(true);
+            expect(cacheCards.mock.calls.flatMap(([cards]) => cards)).toHaveLength(PITCH_ENRICHMENT_LIMIT + 3);
+            expect(word.dataset.reading).toBe('しょしんしゃ');
+            expect([...word.querySelectorAll('rt')].map(reading => reading.textContent).join('')).toBe('しょしんしゃ');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('promotes an urgent sparse reading ahead of queued page prose without duplicating its request', async () => {
+        const app = new ReaderApp();
+        const backgroundCards = Array.from({ length: PITCH_ENRICHMENT_LIMIT + 1 }, (_, index) => testPublicCard({
+            vid: 840000 + index,
+            sid: 0,
+            spelling: `背景語${index}`,
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 840000 + index,
+            jitenReadingIndex: 0,
+        }));
+        const backgroundTokens = backgroundCards.map(card => testTokenForCard(card, card.spelling));
+        const urgentToken = testTokenForCard(backgroundCards.at(-1)!, backgroundCards.at(-1)!.spelling);
+        const hydratedCard = (card: JPDBCard): JPDBCard => testPublicCard({
+            ...card,
+            reading: 'はいけいご',
+            wordWithReading: `${card.spelling}[はいけいご]`,
+        });
+        const hydrateCards = vi.fn(async (cards: readonly JPDBCard[]) => new Map(
+            cards.map(card => [`${card.vid}:${card.sid}`, hydratedCard(card)]),
+        ));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; urgent?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            // The ordinary scan only queues its detail work. Before its timer
+            // runs, a subtitle/OCR-style urgent request targets the FIFO tail.
+            await internals.enrichPitchWords(backgroundTokens, { publicLookupLimit: 0 });
+            await internals.enrichPitchWords([urgentToken], { publicLookupLimit: 0, urgent: true });
+
+            const firstBatch = hydrateCards.mock.calls[0]?.[0] ?? [];
+            expect(firstBatch).toHaveLength(PITCH_ENRICHMENT_LIMIT);
+            expect(firstBatch[0]).toBe(backgroundCards.at(-1));
+            expect(firstBatch.filter(card => card.vid === backgroundCards.at(-1)!.vid)).toHaveLength(1);
+            expect(backgroundTokens.at(-1)!.card.reading).toBe('はいけいご');
+            expect(urgentToken.card.reading).toBe('はいけいご');
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('joins an urgent token to an in-flight exact-id request without requeueing that id', async () => {
+        const app = new ReaderApp();
+        const cards = Array.from({ length: PITCH_ENRICHMENT_LIMIT + 1 }, (_, index) => testPublicCard({
+            vid: 845000 + index,
+            sid: 0,
+            spelling: `進行語${index}`,
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 845000 + index,
+            jitenReadingIndex: 0,
+        }));
+        const tokens = cards.map(card => testTokenForCard(card, card.spelling));
+        const urgentToken = testTokenForCard(cards[0]!, cards[0]!.spelling);
+        const firstResponse = deferred<Map<string, JPDBCard>>();
+        const resolvedBatch = (batch: readonly JPDBCard[]): Map<string, JPDBCard> => new Map(
+            batch.map(card => [`${card.vid}:${card.sid}`, testPublicCard({
+                ...card,
+                reading: 'しんこうご',
+                wordWithReading: `${card.spelling}[しんこうご]`,
+            })]),
+        );
+        let hydrateCall = 0;
+        const hydrateCards = vi.fn((batch: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> => {
+            hydrateCall += 1;
+            return hydrateCall === 1 ? firstResponse.promise : Promise.resolve(resolvedBatch(batch));
+        });
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            deferredPublicJitenReadings: DeferredPublicJitenReadingCoordinator;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            tokens.forEach(token => expect(internals.deferredPublicJitenReadings.queueToken(token)).toBe('queued'));
+            const firstDrain = internals.deferredPublicJitenReadings.run({ foreground: true, maxBatches: 1 });
+            expect(hydrateCards).toHaveBeenCalledTimes(1);
+
+            expect(internals.deferredPublicJitenReadings.queueToken(urgentToken, true)).toBe('retained');
+            internals.deferredPublicJitenReadings.promoteTokens([urgentToken]);
+            expect(internals.deferredPublicJitenReadings.queue).not.toContain(`${cards[0]!.vid}:${cards[0]!.sid}`);
+
+            firstResponse.resolve(resolvedBatch(hydrateCards.mock.calls[0]![0]));
+            await firstDrain;
+            expect(urgentToken.card.reading).toBe('しんこうご');
+
+            await internals.deferredPublicJitenReadings.run({ foreground: true, maxBatches: 1 });
+            expect(hydrateCards).toHaveBeenCalledTimes(2);
+            expect(hydrateCards.mock.calls.flatMap(([batch]) => batch)
+                .filter(card => card.vid === cards[0]!.vid)).toHaveLength(1);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('keeps a cumulative 256-attempt URL ceiling across queue clears and reserves one urgent batch', async () => {
+        const app = new ReaderApp();
+        const backgroundLimit = DEFERRED_PUBLIC_PITCH_PER_URL_CAP - PITCH_ENRICHMENT_LIMIT;
+        const cards = Array.from({ length: DEFERRED_PUBLIC_PITCH_PER_URL_CAP + 20 }, (_, index) => testPublicCard({
+            vid: 850000 + index,
+            sid: 0,
+            spelling: `長文語${index}`,
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 850000 + index,
+            jitenReadingIndex: 0,
+        }));
+        const tokens = cards.map(card => testTokenForCard(card, card.spelling));
+        const hydrateCards = vi.fn(async (batch: readonly JPDBCard[]) => new Map(
+            batch.map(card => [`${card.vid}:${card.sid}`, testPublicCard({
+                ...card,
+                reading: 'ちょうぶんご',
+                wordWithReading: `${card.spelling}[ちょうぶんご]`,
+            })]),
+        ));
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            deferredPublicJitenReadings: DeferredPublicJitenReadingCoordinator;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.parser = { cacheCards: vi.fn() };
+
+        try {
+            expect(tokens.slice(0, backgroundLimit).map(token =>
+                internals.deferredPublicJitenReadings.queueToken(token))).toEqual(
+                Array.from({ length: backgroundLimit }, () => 'queued'),
+            );
+            expect(internals.deferredPublicJitenReadings.queueToken(tokens[backgroundLimit]!)).toBe('url-budget');
+            await internals.deferredPublicJitenReadings.run({
+                foreground: true,
+                maxBatches: Number.POSITIVE_INFINITY,
+            });
+            expect(internals.deferredPublicJitenReadings.backgroundRequestAttempts).toBe(backgroundLimit);
+
+            // A settings/target-style clear must not replenish the same URL's
+            // network allowance. Twelve new urgent ids can still use the slot
+            // deliberately held back from background prose.
+            internals.deferredPublicJitenReadings.clear();
+            const urgentTokens = tokens.slice(backgroundLimit, DEFERRED_PUBLIC_PITCH_PER_URL_CAP);
+            expect(urgentTokens.map(token =>
+                internals.deferredPublicJitenReadings.queueToken(token, true))).toEqual(
+                Array.from({ length: PITCH_ENRICHMENT_LIMIT }, () => 'queued'),
+            );
+            expect(internals.deferredPublicJitenReadings.queueToken(
+                tokens[DEFERRED_PUBLIC_PITCH_PER_URL_CAP]!,
+                true,
+            ))
+                .toBe('url-budget');
+            await internals.deferredPublicJitenReadings.run({
+                foreground: true,
+                maxBatches: Number.POSITIVE_INFINITY,
+            });
+
+            const attemptedCards = hydrateCards.mock.calls.flatMap(([batch]) => batch);
+            expect(attemptedCards).toHaveLength(DEFERRED_PUBLIC_PITCH_PER_URL_CAP);
+            expect(new Set(attemptedCards.map(card => `${card.vid}:${card.sid}`)).size)
+                .toBe(DEFERRED_PUBLIC_PITCH_PER_URL_CAP);
+            expect(internals.deferredPublicJitenReadings.requestAttempts).toBe(DEFERRED_PUBLIC_PITCH_PER_URL_CAP);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('allows only one transient retry for a sparse exact id', async () => {
+        resetJitenPublicVocabularyBackoffForTests();
+        let now = 50_000;
+        const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+        const requestJsonImpl = vi.fn(async () => { throw new Error('Jiten timed out.'); });
+        const failingClient = new JitenPublicVocabularyClient({ requestJsonImpl });
+        const app = new ReaderApp();
+        const sparse = testPublicCard({
+            vid: 860000,
+            sid: 0,
+            spelling: '未踏語',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 860000,
+            jitenReadingIndex: 0,
+        });
+        const token = testTokenForCard(sparse, sparse.spelling);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: JitenPublicVocabularyClient;
+            deferredPublicJitenReadings: DeferredPublicJitenReadingCoordinator;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = failingClient;
+
+        try {
+            expect(internals.deferredPublicJitenReadings.queueToken(token, true)).toBe('queued');
+            await internals.deferredPublicJitenReadings.run({ foreground: true, maxBatches: 1 });
+            expect(requestJsonImpl).toHaveBeenCalledTimes(1);
+            expect(internals.deferredPublicJitenReadings.queue).toHaveLength(1);
+            expect([...internals.deferredPublicJitenReadings.work.values()][0]?.attempts).toBe(1);
+
+            now += 30_001;
+            await internals.deferredPublicJitenReadings.run({ foreground: true, maxBatches: 1 });
+            expect(requestJsonImpl).toHaveBeenCalledTimes(2);
+            expect(internals.deferredPublicJitenReadings.queue).toHaveLength(0);
+            expect(internals.deferredPublicJitenReadings.work.size).toBe(0);
+        } finally {
+            app.destroy();
+            nowSpy.mockRestore();
+            resetJitenPublicVocabularyBackoffForTests();
+        }
+    });
+
+    it('continues optional pitch for a readable peer while a sparse reading tail stays queued', async () => {
+        const app = new ReaderApp();
+        const sparseCards = Array.from({ length: PITCH_ENRICHMENT_LIMIT + 1 }, (_, index) => testPublicCard({
+            vid: 820000 + index,
+            sid: 0,
+            spelling: '初心者',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 820000 + index,
+            jitenReadingIndex: 0,
+        }));
+        const readable = testPublicCard({
+            vid: 830000,
+            sid: 0,
+            spelling: '観光',
+            reading: 'かんこう',
+            source: 'jpdb',
+            pitchAccent: [],
+        });
+        const hydrateCards = vi.fn(async (cards: readonly JPDBCard[]) => new Map(cards.map(card => [
+            `${card.vid}:${card.sid}`,
+            testPublicCard({
+                ...card,
+                reading: 'しょしんしゃ',
+                source: 'jiten',
+                pitchAccent: ['LHHHH'],
+                wordWithReading: '初[しょ]心[しん]者[しゃ]',
+            }),
+        ])));
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const tokens = [
+            ...sparseCards.map(card => testTokenForCard(card, '初心者')),
+            testTokenForCard(readable, '観光'),
+        ];
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            parser: { cacheCards(cards: JPDBCard[]): void };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            deferredPublicJitenReadings: DeferredPublicJitenReadingCoordinator;
+            enrichPitchWords(tokens: JPDBToken[], options?: {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                deferPublicLookup?: boolean;
+                urgent?: boolean;
+            }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: true,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.parser = { cacheCards: vi.fn() };
+        internals.waitForIdle = vi.fn(async () => undefined);
+
+        try {
+            await internals.enrichPitchWords(tokens, {
+                publicLookupLimit: 1,
+                publicLookupTotalLimit: 1,
+                publicLookupPageBudget: 1,
+                deferPublicLookup: false,
+                urgent: true,
+            });
+
+            expect(hydrateCards.mock.calls[0]?.[0]).toHaveLength(PITCH_ENRICHMENT_LIMIT);
+            expect(publicPitch).toHaveBeenCalledWith('観光', 'かんこう');
+            expect(tokens[PITCH_ENRICHMENT_LIMIT]!.card.reading).toBe('');
+
+            await internals.deferredPublicJitenReadings.drain();
+            expect(tokens[PITCH_ENRICHMENT_LIMIT]!.card.reading).toBe('しょしんしゃ');
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it.each(['url-change', 'destroy'] as const)('drops in-flight public Jiten reading hydration after %s', async staleBy => {
+        vi.stubGlobal('location', {
+            href: 'https://example.com/first',
+            origin: 'https://example.com',
+            hostname: 'example.com',
+        });
+        const app = new ReaderApp();
+        const sparse = testPublicCard({
+            vid: 1342860,
+            sid: 0,
+            spelling: '初心者',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 1342860,
+            jitenReadingIndex: 0,
+        });
+        const hydrated = testPublicCard({
+            ...sparse,
+            reading: 'しょしんしゃ',
+            source: 'jiten',
+            pitchAccent: ['LHHHH'],
+            wordWithReading: '初[しょ]心[しん]者[しゃ]',
+        });
+        const token = testTokenForCard(sparse, '初心者');
+        const word = appendRenderedReaderWord(sparse);
+        const response = deferred<Map<string, JPDBCard>>();
+        const hydrateCards = vi.fn(() => response.promise);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; urgent?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.waitForIdle = vi.fn(async () => undefined);
+
+        try {
+            const enrichment = internals.enrichPitchWords([token], { publicLookupLimit: 0, urgent: true });
+            await waitForExpect(() => expect(hydrateCards).toHaveBeenCalledTimes(1));
+            if (staleBy === 'url-change') location.href = 'https://example.com/second';
+            else app.destroy();
+            response.resolve(new Map([['1342860:0', hydrated]]));
+            await enrichment;
+
+            expect(token.card).toBe(sparse);
+            expect(word.dataset.reading).toBeUndefined();
+            expect(word.querySelector('rt')).toBeNull();
+        } finally {
+            word.remove();
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('returns the foreground reading pass promptly while public Jiten is in backoff', async () => {
+        resetJitenPublicVocabularyBackoffForTests();
+        const sparse = testPublicCard({
+            vid: 918273,
+            sid: 0,
+            spelling: '未踏語',
+            reading: '',
+            source: 'jiten',
+            pitchAccent: [],
+            wordWithReading: null,
+            meanings: [],
+            jitenWordId: 918273,
+            jitenReadingIndex: 0,
+        });
+        const failingClient = new JitenPublicVocabularyClient({
+            requestJsonImpl: vi.fn(async () => { throw new Error('Jiten timed out.'); }),
+        });
+        await failingClient.hydrateCards([sparse], { detailLimit: 1 });
+        expect(publicJitenBackoffRemainingMs()).toBeGreaterThan(0);
+
+        const app = new ReaderApp();
+        const hydrateCards = vi.fn(async () => new Map<string, JPDBCard>());
+        const token = testTokenForCard(sparse, '未踏語');
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jitenPublicVocabulary: { hydrateCards: typeof hydrateCards };
+            waitForIdle(timeoutMs?: number): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; urgent?: boolean }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: false,
+            showPitchAccent: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        internals.jitenPublicVocabulary = { hydrateCards };
+        internals.waitForIdle = vi.fn(async () => undefined);
+
+        try {
+            await internals.enrichPitchWords([token], { publicLookupLimit: 0, urgent: true });
+
+            expect(hydrateCards).not.toHaveBeenCalled();
+            expect(token.card).toBe(sparse);
+        } finally {
+            app.destroy();
+            resetJitenPublicVocabularyBackoffForTests();
         }
     });
 
@@ -1345,6 +2175,65 @@ describe('reader helpers', () => {
 
             expect(publicPitch.mock.calls.length).toBeGreaterThan(0);
             expect(publicPitch.mock.calls.length).toBeLessThanOrEqual(YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('reserves only the sparse cards in each mobile batch so later page text keeps its budget', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://example.com/feed',
+            origin: 'https://example.com',
+            hostname: 'example.com',
+        });
+        const app = new ReaderApp();
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const sparseCards = (prefix: string, count: number, startVid: number): JPDBCard[] => Array.from({ length: count }, (_, index) => testPublicCard({
+            vid: startVid + index,
+            spelling: `${prefix}${index}`,
+            reading: 'よみ',
+            source: 'jpdb',
+            pitchAccent: [],
+        }));
+        const firstBatch = sparseCards('案内', 3, 410000);
+        const laterBatch = sparseCards('初心者タイトル', 10, 420000);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                deferPublicLookup?: boolean;
+            }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        const options = {
+            publicLookupLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+            publicLookupTotalLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+            publicLookupPageBudget: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+            publicLookupTermLimit: 3,
+            deferPublicLookup: false,
+        };
+
+        try {
+            await internals.enrichPitchWords(firstBatch.map(card => testTokenForCard(card)), options);
+            expect(publicPitch).toHaveBeenCalledTimes(firstBatch.length);
+
+            await internals.enrichPitchWords(laterBatch.map(card => testTokenForCard(card)), options);
+
+            expect(publicPitch).toHaveBeenCalledTimes(firstBatch.length + laterBatch.length);
+            expect(publicPitch).toHaveBeenCalledWith('初心者タイトル9', 'よみ');
         } finally {
             app.destroy();
             vi.unstubAllGlobals();

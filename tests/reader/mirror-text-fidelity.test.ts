@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyTokensToScanTarget, collectFragmentTextTargetsIn, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import { readerTextMirrorsWithinSource } from './helpers/text-mirror';
 
 function card(spelling: string, reading: string): JPDBCard {
     return {
@@ -30,7 +31,7 @@ function paint(host: HTMLElement, match: string, tokens: (target: { text: string
 }
 
 function mirror(root: ParentNode = document): HTMLElement {
-    const found = root.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+    const found = readerTextMirrorsWithinSource(root)[0] ?? null;
     expect(found, 'rendered text mirror').toBeTruthy();
     return found!;
 }

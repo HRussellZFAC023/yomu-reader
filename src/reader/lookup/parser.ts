@@ -119,6 +119,11 @@ export function jpdbFirstParseOptions(options: ReaderParserParseOptions = {}): R
 
 export class ReaderParser {
     private localCardCache = new Map<string, JPDBCard>();
+    // getCachedCard is intentionally keyed by the legacy DOM identity
+    // (vid, sid). Evidence reuse needs a stricter identity: unrelated
+    // providers and learning languages may legally mint the same numeric
+    // pair, and must never donate reading/pitch/state to each other.
+    private localCardEvidenceCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<LocalPitchResolution>>();
     private localBoundaryEvidenceCache = new Map<string, Promise<YomitanTermMatch | null>>();
@@ -142,7 +147,15 @@ export class ReaderParser {
         try {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
             if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
-            const rubyAligned = await this.reconcileLocalParse(paragraphs, parsed, options, target);
+            // Public/detail enrichment and page scanning can overlap. Once a
+            // card has acquired a real reading or pitch pattern, a later
+            // sparse parse of the same provider id must not replace that
+            // stronger evidence while a recycled surface is repainted. The
+            // click path resolves the same canonical id, so letting an empty
+            // parse record win here produced the visible "pitch disappears,
+            // but returns when pressed" split.
+            const evidenceReconciled = this.withCachedCardEvidence(paragraphs, parsed);
+            const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
             if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
             if (!settings.yomuLocalSrsEnabled || !this.dependencies.yomuLocalSrs) return normalized;
@@ -362,15 +375,47 @@ export class ReaderParser {
     }
 
     cacheCards(cards: JPDBCard[]): void {
-        cards.forEach(card => {
-            if ((card.source && card.source !== 'jpdb') || card.vid <= 0 || card.sid <= 0) {
-                this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-            }
+        cards.forEach(card => { this.rememberLocalCardEvidence(card); });
+    }
+
+    private withCachedCardEvidence(paragraphs: string[], parsed: JPDBToken[][]): JPDBToken[][] {
+        let reconciled = parsed;
+        parsed.forEach((tokens, paragraphIndex) => {
+            let nextTokens = tokens;
+            tokens.forEach((token, tokenIndex) => {
+                const surface = paragraphs[paragraphIndex]?.slice(token.start, token.end) ?? '';
+                const card = this.rememberLocalCardEvidence(token.card, surface);
+                if (card === token.card) return;
+                if (nextTokens === tokens) nextTokens = [...tokens];
+                nextTokens[tokenIndex] = {
+                    ...token,
+                    card,
+                    pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass,
+                };
+            });
+            if (nextTokens === tokens) return;
+            if (reconciled === parsed) reconciled = [...parsed];
+            reconciled[paragraphIndex] = nextTokens;
         });
+        return reconciled;
+    }
+
+    private rememberLocalCardEvidence(card: JPDBCard, surface?: string): JPDBCard {
+        if (!cardUsesReaderLocalCache(card)) return card;
+        const evidenceKey = cardEvidenceCacheKey(card);
+        const cached = this.localCardEvidenceCache.get(evidenceKey);
+        const remembered = cached ? cardWithPreservedCachedEvidence(card, cached, surface) : card;
+        this.localCardEvidenceCache.set(evidenceKey, remembered);
+        // Preserve the public getCachedCard(vid, sid) contract. On a genuine
+        // numeric collision this remains latest-writer-wins, as before, while
+        // the provider/language-scoped evidence records remain isolated.
+        this.localCardCache.set(cardCacheKey(card.vid, card.sid), remembered);
+        return remembered;
     }
 
     clearLocalCache(): void {
         this.localCardCache.clear();
+        this.localCardEvidenceCache.clear();
         this.localParseCache.clear();
         this.localPitchCache.clear();
         this.localBoundaryEvidenceCache.clear();
@@ -400,14 +445,12 @@ export class ReaderParser {
             wordWithReading: null,
             source: 'local',
         };
-        this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-        return card;
+        return this.rememberLocalCardEvidence(card);
     }
 
     fallbackCardFromText(text: string, target = activeLearningTarget()): JPDBCard {
         const card = bareFallbackCardFromText(text, target.language);
-        this.localCardCache.set(cardCacheKey(card.vid, card.sid), card);
-        return card;
+        return this.rememberLocalCardEvidence(card);
     }
 
     private canUseLocalDictionaryFallback(): boolean {
@@ -1237,6 +1280,108 @@ function fallbackTokensCoveringRange(text: string, fallbackTokens: JPDBToken[], 
 
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {
     return a.start - b.start || b.length - a.length;
+}
+
+function cardUsesReaderLocalCache(card: JPDBCard): boolean {
+    return Boolean((card.source && card.source !== 'jpdb') || card.vid <= 0 || card.sid <= 0);
+}
+
+function cardWithPreservedCachedEvidence(incoming: JPDBCard, cached: JPDBCard, surface?: string): JPDBCard {
+    if (!cardsShareEvidenceIdentity(incoming, cached)) return incoming;
+    const evidence = preservedCachedLexicalEvidence(incoming, cached, surface);
+    const preserveCachedState = evidence.preserve
+        && incoming.provisionalState === true
+        && cached.provisionalState !== true;
+    if (!evidence.stronger && !preserveCachedState) return incoming;
+    const preserveCachedSpelling = evidence.suppliesReading
+        || (evidence.stronger && incoming.spelling.trim() !== cached.spelling.trim());
+
+    return {
+        ...incoming,
+        // A compatible detail record's canonical spelling belongs with its
+        // reading. The painted DOM surface remains the paragraph slice at the
+        // token's start/end; an unrelated same-id surface never reaches here.
+        spelling: preserveCachedSpelling ? cached.spelling : incoming.spelling,
+        reading: evidence.suppliesReading ? cached.reading : incoming.reading,
+        pitchAccent: evidence.pitchAccent,
+        pitchComponents: evidence.pitchComponents,
+        wordWithReading: evidence.wordWithReading,
+        meanings: incoming.meanings.length || !evidence.preserve ? incoming.meanings : cached.meanings,
+        partOfSpeech: incoming.partOfSpeech.length || !evidence.preserve
+            ? incoming.partOfSpeech
+            : cached.partOfSpeech,
+        frequencyRank: evidence.preserve
+            ? incoming.frequencyRank ?? cached.frequencyRank
+            : incoming.frequencyRank,
+        ...(preserveCachedState ? {
+            cardState: cached.cardState,
+            provisionalState: cached.provisionalState,
+            reviewSource: cached.reviewSource,
+            dueAt: cached.dueAt,
+            lastReviewAt: cached.lastReviewAt,
+            deckNames: cached.deckNames,
+            sourceDeckName: cached.sourceDeckName,
+        } : {}),
+    };
+}
+
+function preservedCachedLexicalEvidence(incoming: JPDBCard, cached: JPDBCard, surface?: string) {
+    const incomingReading = incoming.reading.trim();
+    const cachedReading = cached.reading.trim();
+    const readingsAreCompatible = !incomingReading || !cachedReading || incomingReading === cachedReading;
+    const surfaceAcceptsCachedLexicalEvidence = cachedEvidenceMatchesSurface(incoming, cached, surface);
+    const suppliesReading = !incomingReading && Boolean(cachedReading) && surfaceAcceptsCachedLexicalEvidence;
+    const preserve = readingsAreCompatible && surfaceAcceptsCachedLexicalEvidence;
+    const pitchAccent = preserve
+        ? [...incoming.pitchAccent, ...cached.pitchAccent.filter(pattern => !incoming.pitchAccent.includes(pattern))]
+        : incoming.pitchAccent;
+    const pitchComponents = preserve
+        ? (incoming.pitchComponents?.length ? incoming.pitchComponents : cached.pitchComponents)
+        : incoming.pitchComponents;
+    const wordWithReading = preserve
+        ? incoming.wordWithReading || cached.wordWithReading
+        : incoming.wordWithReading;
+    const stronger = preserve && (
+        suppliesReading
+        || pitchAccent.length !== incoming.pitchAccent.length
+        || Boolean(pitchComponents?.length && !incoming.pitchComponents?.length)
+        || Boolean(wordWithReading && !incoming.wordWithReading)
+        || (!incoming.meanings.length && cached.meanings.length > 0)
+        || (!incoming.partOfSpeech.length && cached.partOfSpeech.length > 0)
+        || (incoming.frequencyRank === null && cached.frequencyRank !== null)
+    );
+    return { preserve, suppliesReading, pitchAccent, pitchComponents, wordWithReading, stronger };
+}
+
+function cardsShareEvidenceIdentity(first: JPDBCard, second: JPDBCard): boolean {
+    return normalizedCardSource(first) === normalizedCardSource(second)
+        && normalizedCardLanguage(first) === normalizedCardLanguage(second)
+        && first.vid === second.vid
+        && first.sid === second.sid;
+}
+
+function cachedEvidenceMatchesSurface(incoming: JPDBCard, cached: JPDBCard, surface?: string): boolean {
+    const visibleSurface = surface?.trim() ?? '';
+    const cachedSpelling = cached.spelling.trim();
+    if (!visibleSurface) return incoming.spelling.trim() === cachedSpelling;
+    if (visibleSurface === cachedSpelling) return true;
+    if (!cached.reading.trim()) return false;
+    // This is the same conservative alignment used by ruby rendering. It
+    // accepts real kana inflections (話す -> 話した, 接続 -> 接続して), while
+    // rejecting a same-id spelling collision such as 接続先.
+    return inferredInflectedSurfaceRubies(visibleSurface, cachedSpelling, cached.reading).length > 0;
+}
+
+function normalizedCardSource(card: JPDBCard): NonNullable<JPDBCard['source']> {
+    return card.source ?? 'jpdb';
+}
+
+function normalizedCardLanguage(card: JPDBCard): NonNullable<JPDBCard['language']> {
+    return card.language ?? 'ja';
+}
+
+function cardEvidenceCacheKey(card: JPDBCard): string {
+    return `${normalizedCardSource(card)}:${normalizedCardLanguage(card)}:${card.vid}:${card.sid}`;
 }
 
 function cardCacheKey(vid: number, sid: number): string {

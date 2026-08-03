@@ -10,6 +10,11 @@ import {
 } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import {
+    readerTextMirrorForSource,
+    readerTextMirrorsWithinSource,
+    readerWordsForSource,
+} from './helpers/text-mirror';
 
 const TEXT = '日本語';
 const CARD: JPDBCard = {
@@ -63,8 +68,8 @@ describe('framework-managed chat mirror', () => {
             pitchClass: '',
             sentence: initial,
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-        expect(host.querySelectorAll<HTMLElement>('.jpdb-reader-text-mirror')).toHaveLength(2);
-        expect(prefix.querySelector<HTMLElement>('.jpdb-reader-text-mirror')?.textContent).toBe('ス');
+        expect(readerTextMirrorsWithinSource(host)).toHaveLength(2);
+        expect(readerTextMirrorForSource(prefix)?.textContent).toBe('ス');
 
         // Discord/React keeps the existing nested node and appends the rest of
         // the message in a sibling text node. The mirror must expose the suffix
@@ -279,8 +284,10 @@ describe('framework-managed chat mirror', () => {
 
         paint(host);
 
-        expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
-        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+        const mirror = readerTextMirrorForSource(host);
+        expect(readerWordsForSource(host)).not.toHaveLength(0);
+        expect(mirror).toBeTruthy();
+        expect(host.contains(mirror)).toBe(false);
         expect(host.childNodes[0]?.textContent).toBe(TEXT);
     });
 

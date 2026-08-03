@@ -17,6 +17,8 @@ import {
     mockElementBoundingClientRect,
     normalizeOcrResult,
     readerWordSurfaceText,
+    readerTextMirrorForSource,
+    readerWordsForSource,
 } from './fixtures';
 import type {
     JPDBToken,
@@ -172,9 +174,12 @@ describe('reader helpers', () => {
             sentence: '詳細',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        const noticeWords = Array.from(document.querySelectorAll<HTMLElement>('yt-live-chat-restricted-participation-renderer #message .jpdb-reader-word'));
+        const noticeHost = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #message')!;
+        const noticeMirror = readerTextMirrorForSource(noticeHost)!;
+        const noticeWords = readerWordsForSource(noticeHost);
         expect(noticeWords.map(word => readerWordSurfaceText(word))).toEqual(['登録者', '表示']);
         expect(noticeWords.map(word => word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent)).toEqual(['とうろくしゃ', 'ひょうじ']);
+        expect(noticeHost.contains(noticeMirror)).toBe(false);
         expect(document.querySelectorAll('yt-live-chat-renderer #chat-messages > .jpdb-reader-text-mirror')).toHaveLength(0);
         expect(document.querySelectorAll('yt-live-chat-restricted-participation-renderer > .jpdb-reader-text-mirror')).toHaveLength(0);
         const detailWord = document.querySelector<HTMLElement>('yt-live-chat-restricted-participation-renderer #subtext .jpdb-reader-word')!;
@@ -463,10 +468,13 @@ describe('reader helpers', () => {
             sentence: '日本語の字幕を確認します。',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        const word = document.querySelector<HTMLElement>('ytd-transcript-segment-renderer .jpdb-reader-word')!;
+        const transcriptHost = document.querySelector<HTMLElement>('ytd-transcript-segment-renderer .segment-text')!;
+        const transcriptMirror = readerTextMirrorForSource(transcriptHost)!;
+        const word = readerWordsForSource(transcriptHost)[0]!;
         expect(readerWordSurfaceText(word)).toBe('字幕');
         expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('じまく');
         expectRenderedPitchWord(word, 'heiban');
+        expect(transcriptHost.contains(transcriptMirror)).toBe(false);
         expect(document.querySelector('.ytp-caption-segment .jpdb-reader-word')).toBeNull();
     });
 

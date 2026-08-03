@@ -115,6 +115,12 @@ import { mockElementBoundingClientRect, stubInstantIntersectionObserver, testDom
 import { stackedSettingsFixtureDom } from '../helpers/settings-fixture';
 import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } from '../helpers/stacked-lookup-assertions';
 import { waitForExpect } from '../test-utils';
+import {
+    readerTextMirrorForSource,
+    readerTextMirrorsWithinSource,
+    readerWordsForSource,
+    readerWordsWithinSource,
+} from '../helpers/text-mirror';
 import { yomitanZipBlob } from '../zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../../workers/jpdb-public-proxy/src/index';
 import { registerYomuCompanion } from '../../../src/reader/companions/registry';
@@ -3263,7 +3269,11 @@ export {
     readFileSync,
     readFormSettings,
     readerRenderRejectionRescanDelay,
+    readerTextMirrorForSource,
+    readerTextMirrorsWithinSource,
     readerWordAtPointInScope,
+    readerWordsForSource,
+    readerWordsWithinSource,
     readerWordSurfaceText,
     renderAudioSourceEditor,
     renderDefinitionSourcesStack,

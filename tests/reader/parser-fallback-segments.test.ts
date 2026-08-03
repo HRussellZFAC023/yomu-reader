@@ -5,6 +5,7 @@ import {
     fallbackLookupTermsForText,
     ReaderParser,
 } from '../../src/reader/lookup/parser';
+import { renderTokensToHtml } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { deinflectJapaneseTerm } from '../../src/reader/lookup/deinflect';
 import type { JPDBToken } from '../../src/reader/app/types';
@@ -181,6 +182,265 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(findTermMatches).not.toHaveBeenCalled();
         expect(parsed[1]?.find(token => token.card.source === 'jiten')?.card).toMatchObject({ source: 'jiten', jitenWordId: 1259290 });
         expect(parsed[0]?.map(token => token.card.spelling)).toEqual(['本', 'を', '読む']);
+    });
+
+    it('does not let a later sparse parse erase cached reading and pitch evidence', async () => {
+        const text = '名古屋城';
+        const complete = publicProviderToken(text, text, 0, text.length);
+        complete.card.vid = 90360;
+        complete.card.sid = 0;
+        complete.card.jitenWordId = 90360;
+        complete.card.jitenReadingIndex = 0;
+        complete.card.reading = 'なごやじょう';
+        complete.card.frequencyRank = 4200;
+        complete.card.partOfSpeech = ['n'];
+        complete.card.meanings = [{ glosses: ['Nagoya Castle'], partOfSpeech: ['n'] }];
+        complete.card.pitchAccent = ['LHHHLL'];
+        complete.card.wordWithReading = '名[な]古[ご]屋[や]城[じょう]';
+        complete.pitchClass = 'nakadaka';
+        const sparse = publicProviderToken(text, text, 0, text.length);
+        sparse.card.vid = 90360;
+        sparse.card.sid = 0;
+        sparse.card.jitenWordId = 90360;
+        sparse.card.jitenReadingIndex = 0;
+        const publicParse = vi.fn().mockResolvedValueOnce([[sparse]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: { getCard: vi.fn(() => undefined) } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        // The real enrichment/click path publishes the detail card through
+        // cacheCards before a later page scan returns the sparse record.
+        parser.cacheCards([complete.card]);
+        const [recycled] = await parser.parse([text], { allowSegmentedFallback: true });
+
+        expect(recycled?.[0]).toMatchObject({
+            card: {
+                spelling: text,
+                reading: 'なごやじょう',
+                frequencyRank: 4200,
+                partOfSpeech: ['n'],
+                meanings: [{ glosses: ['Nagoya Castle'], partOfSpeech: ['n'] }],
+                pitchAccent: ['LHHHLL'],
+                wordWithReading: '名[な]古[ご]屋[や]城[じょう]',
+            },
+            pitchClass: 'nakadaka',
+        });
+        expect(parser.getCachedCard(90360, 0)).toMatchObject({
+            reading: 'なごやじょう',
+            pitchAccent: ['LHHHLL'],
+        });
+        const recycledHtml = renderTokensToHtml(text, recycled ?? [], DEFAULT_SETTINGS);
+        expect(recycledHtml).toContain('jpdb-pitch-nakadaka');
+        expect(recycledHtml).toContain('data-pitch-accent="LHHHLL"');
+        expect(recycledHtml).toContain('なごやじょう');
+    });
+
+    it('keeps compatible canonical evidence while painting an inflected DOM surface and bounds', async () => {
+        const canonicalText = '話す';
+        const inflectedText = '話した';
+        const complete = publicProviderToken(canonicalText, canonicalText, 0, canonicalText.length);
+        complete.card.vid = 741;
+        complete.card.sid = 0;
+        complete.card.jitenWordId = 741;
+        complete.card.jitenReadingIndex = 0;
+        complete.card.reading = 'はなす';
+        complete.card.pitchAccent = ['LHL'];
+        complete.card.wordWithReading = '話[はな]す';
+        const sparseInflection = publicProviderToken(inflectedText, inflectedText, 0, inflectedText.length);
+        sparseInflection.card.vid = 741;
+        sparseInflection.card.sid = 0;
+        sparseInflection.card.jitenWordId = 741;
+        sparseInflection.card.jitenReadingIndex = 0;
+        // Public parse can retain a reading while omitting the detail pitch.
+        // The cached canonical spelling is still needed to align that reading
+        // against the inflected DOM slice rather than ruby the whole surface.
+        sparseInflection.card.reading = 'はなす';
+        const publicParse = vi.fn()
+            .mockResolvedValueOnce([[complete]])
+            .mockResolvedValueOnce([[sparseInflection]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: { getCard: vi.fn(() => undefined) } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        await parser.parse([canonicalText], { allowSegmentedFallback: true });
+        const [inflected] = await parser.parse([inflectedText], { allowSegmentedFallback: true });
+        const token = inflected?.[0];
+
+        expect(token).toMatchObject({
+            start: 0,
+            end: inflectedText.length,
+            length: inflectedText.length,
+            sentence: inflectedText,
+            pitchClass: 'nakadaka',
+            card: {
+                spelling: canonicalText,
+                reading: 'はなす',
+                pitchAccent: ['LHL'],
+            },
+        });
+        const container = document.createElement('div');
+        container.innerHTML = renderTokensToHtml(inflectedText, inflected ?? [], DEFAULT_SETTINGS);
+        const word = container.querySelector<HTMLElement>('.jpdb-reader-word');
+        expect(word?.dataset).toMatchObject({
+            surface: inflectedText,
+            expression: canonicalText,
+            reading: 'はなす',
+            tokenStart: '0',
+            tokenEnd: String(inflectedText.length),
+            pitchClass: 'nakadaka',
+        });
+        expect(word?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('話');
+        expect(word?.lastChild?.textContent).toBe('した');
+    });
+
+    it('rejects cached lexical evidence when the same provider id has an incompatible reading or surface', async () => {
+        const complete = publicProviderToken('箸', '箸', 0, 1);
+        complete.card.vid = 882;
+        complete.card.sid = 0;
+        complete.card.reading = 'はし';
+        complete.card.pitchAccent = ['LH'];
+        complete.card.meanings = [{ glosses: ['chopsticks'], partOfSpeech: ['n'] }];
+        const incompatibleReading = publicProviderToken('橋', '橋', 0, 1);
+        incompatibleReading.card.vid = 882;
+        incompatibleReading.card.sid = 0;
+        incompatibleReading.card.reading = 'きょう';
+        const publicParse = vi.fn()
+            .mockResolvedValueOnce([[complete]])
+            .mockResolvedValueOnce([[incompatibleReading]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: { getCard: vi.fn(() => undefined) } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        await parser.parse(['箸'], { allowSegmentedFallback: true });
+        const [collision] = await parser.parse(['橋'], { allowSegmentedFallback: true });
+
+        expect(collision?.[0]).toMatchObject({
+            card: {
+                spelling: '橋',
+                reading: 'きょう',
+                pitchAccent: [],
+                meanings: [],
+            },
+            pitchClass: '',
+        });
+    });
+
+    it('does not treat a same-reading kanji suffix as an inflection of cached spelling', async () => {
+        const complete = publicProviderToken('接続', '接続', 0, 2);
+        complete.card.vid = 883;
+        complete.card.sid = 0;
+        complete.card.reading = 'せつぞく';
+        complete.card.pitchAccent = ['LHHH'];
+        const compound = publicProviderToken('接続先', '接続先', 0, 3);
+        compound.card.vid = 883;
+        compound.card.sid = 0;
+        compound.card.reading = 'せつぞく';
+        const publicParse = vi.fn()
+            .mockResolvedValueOnce([[complete]])
+            .mockResolvedValueOnce([[compound]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: { getCard: vi.fn(() => undefined) } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        await parser.parse(['接続'], { allowSegmentedFallback: true });
+        const [collision] = await parser.parse(['接続先'], { allowSegmentedFallback: true });
+
+        expect(collision?.[0]).toMatchObject({
+            card: {
+                spelling: '接続先',
+                reading: 'せつぞく',
+                pitchAccent: [],
+            },
+            pitchClass: '',
+        });
+    });
+
+    it('isolates same-number evidence by provider and language while keeping legacy lookup latest-writer-wins', async () => {
+        const japaneseJiten = publicProviderToken('城', '城', 0, 1);
+        japaneseJiten.card.vid = 991;
+        japaneseJiten.card.sid = 0;
+        japaneseJiten.card.language = 'ja';
+        japaneseJiten.card.reading = 'しろ';
+        japaneseJiten.card.pitchAccent = ['LH'];
+        const fallbackCollision = publicProviderToken('城', '城', 0, 1);
+        fallbackCollision.card.vid = 991;
+        fallbackCollision.card.sid = 0;
+        fallbackCollision.card.language = 'ja';
+        fallbackCollision.card.source = 'fallback';
+        const englishJitenCollision = publicProviderToken('城', '城', 0, 1);
+        englishJitenCollision.card.vid = 991;
+        englishJitenCollision.card.sid = 0;
+        englishJitenCollision.card.language = 'en';
+        const sparseJapaneseJiten = publicProviderToken('城', '城', 0, 1);
+        sparseJapaneseJiten.card.vid = 991;
+        sparseJapaneseJiten.card.sid = 0;
+        sparseJapaneseJiten.card.language = 'ja';
+        const publicParse = vi.fn()
+            .mockResolvedValueOnce([[japaneseJiten]])
+            .mockResolvedValueOnce([[fallbackCollision]])
+            .mockResolvedValueOnce([[englishJitenCollision]])
+            .mockResolvedValueOnce([[sparseJapaneseJiten]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: { getCard: vi.fn(() => undefined) } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: {} as never,
+        });
+
+        await parser.parse(['城'], { allowSegmentedFallback: true });
+        const [fallback] = await parser.parse(['城'], { allowSegmentedFallback: true });
+        expect(fallback?.[0]?.card).toMatchObject({ source: 'fallback', reading: '', pitchAccent: [] });
+        expect(parser.getCachedCard(991, 0)).toBe(fallback?.[0]?.card);
+
+        const [english] = await parser.parse(['城'], { allowSegmentedFallback: true });
+        expect(english?.[0]?.card).toMatchObject({ source: 'jiten', language: 'en', reading: '', pitchAccent: [] });
+        expect(parser.getCachedCard(991, 0)).toBe(english?.[0]?.card);
+
+        const [japaneseAgain] = await parser.parse(['城'], { allowSegmentedFallback: true });
+        expect(japaneseAgain?.[0]?.card).toMatchObject({
+            source: 'jiten',
+            language: 'ja',
+            reading: 'しろ',
+            pitchAccent: ['LH'],
+        });
+        expect(parser.getCachedCard(991, 0)).toBe(japaneseAgain?.[0]?.card);
     });
 
     it('repairs a credentialed remote surname fragment to the whole inflected verb span', async () => {

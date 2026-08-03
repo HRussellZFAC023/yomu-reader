@@ -410,6 +410,108 @@ writeFileSync(entryPath, `
         scrollTo(0, 0);
         return { inFrame, sustained, extentBefore, extentAfter, documentSpaceCount, readingCount };
     };
+
+    // YouTube search wraps its document-scrolled results in a flex ytd-search
+    // shell that advertises overflow-x:auto and clips overflow-y. On iPad that
+    // shell commonly has only a 1-2px responsive-rounding range on the cross
+    // axis and never actually scrolls, so it is not a compositor scroll owner.
+    // Paint after the document is already scrolled, matching the
+    // visible-page scanner discovering a later search row, then move the page
+    // again and inspect the same script turn before any refresh frame can help.
+    window.runYouTubeSearchRootScrollProbe = async (distance = 32) => {
+        const topSpacer = document.createElement('div');
+        topSpacer.style.cssText = 'height:640px;';
+        const search = document.createElement('ytd-search');
+        search.style.cssText = 'display:flex;width:100%;overflow-x:auto;overflow-y:hidden;';
+        const results = document.createElement('ytd-two-column-search-results-renderer');
+        results.style.cssText = 'display:block;flex:0 0 calc(100% + 2px);min-width:0;';
+        const anchors: HTMLElement[] = [];
+        const owners: HTMLElement[] = [];
+        const readingCount = 18;
+        for (let index = 0; index < readingCount; index++) {
+            const row = document.createElement('ytd-video-renderer');
+            row.style.cssText = 'box-sizing:border-box;display:block;height:72px;padding:20px 0;';
+            const title = document.createElement('a');
+            title.id = 'video-title';
+            title.style.cssText = 'display:block;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;';
+            const anchor = document.createElement('span');
+            const { owner } = makeReading(anchor, '検索', 'けんさく');
+            owner.dataset.expression = 'search-r' + index;
+            title.append(anchor, document.createTextNode(' Mini Evo の検索結果'));
+            row.append(title);
+            results.append(row);
+            anchors.push(anchor);
+            owners.push(owner);
+        }
+        search.append(results);
+        const bottomSpacer = document.createElement('div');
+        bottomSpacer.style.cssText = 'height:640px;';
+        document.body.append(topSpacer, search, bottomSpacer);
+
+        scrollTo(0, 360);
+        const initialScrollY = Math.round(scrollY);
+        const extentBefore = {
+            scrollWidth: search.scrollWidth,
+            clientWidth: search.clientWidth,
+            scrollHeight: search.scrollHeight,
+            clientHeight: search.clientHeight,
+        };
+        for (const [index, anchor] of anchors.entries()) {
+            const owner = owners[index];
+            const source = owner.querySelector('.jpdb-reader-detached-furi');
+            if (!(source instanceof HTMLElement)) throw new Error('search reading source missing');
+            const measure = () => anchor.getBoundingClientRect();
+            syncProjectedReadings(owner, [{ source, anchor, rect: measure(), measure }]);
+        }
+        await settleProjection();
+
+        const readingSnapshotFor = (anchor: HTMLElement, expression: string) => {
+            const clone = [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]')]
+                .find(candidate => candidate.dataset.yomuExpression === expression);
+            if (!clone) throw new Error('search projected reading was not painted: ' + expression);
+            const sourceRect = anchor.getBoundingClientRect();
+            const cloneRect = clone.getBoundingClientRect();
+            return {
+                sourceTop: sourceRect.top,
+                cloneBottom: cloneRect.bottom,
+                stampedSourceTop: Number(clone.dataset.yomuSourceTop),
+                alignment: cloneRect.bottom - sourceRect.top,
+                display: getComputedStyle(clone).display,
+                documentSpace: clone.classList.contains('jpdb-reader-projected-furi-document'),
+                scrollSpace: clone.classList.contains('jpdb-reader-projected-furi-scroll'),
+                layerHost: clone.parentElement?.parentElement?.localName || null,
+            };
+        };
+        const before = readingSnapshotFor(anchors[0], 'search-r0');
+        const documentSpaceCount = document
+            .querySelectorAll('.jpdb-reader-projected-furi-document').length;
+        const scrollSpaceCount = document
+            .querySelectorAll('.jpdb-reader-projected-furi-scroll').length;
+        const searchLayerCount = search
+            .querySelectorAll('.jpdb-reader-detached-reading-scroll-layer').length;
+
+        scrollBy(0, distance);
+        const inFrame = readingSnapshotFor(anchors[0], 'search-r0');
+        await nextPaint();
+        const after = readingSnapshotFor(anchors[0], 'search-r0');
+        const result = {
+            ...scrollResult(before, inFrame, after),
+            initialScrollY,
+            appliedScrollDelta: Math.round(scrollY) - initialScrollY,
+            extentBefore,
+            documentSpaceCount,
+            scrollSpaceCount,
+            searchLayerCount,
+            readingCount,
+        };
+
+        owners.forEach(owner => clearProjectedReadings(owner));
+        topSpacer.remove();
+        search.remove();
+        bottomSpacer.remove();
+        scrollTo(0, 0);
+        return result;
+    };
 `);
 
 esbuild.buildSync({
@@ -552,6 +654,34 @@ function verifyRootFling(name, fling) {
     verifyFlingFrames(name, 'in-frame', fling.inFrame);
 }
 
+function verifyYouTubeSearchRootScroll(name, result) {
+    console.log(`${name} YouTube search root scroll: ${JSON.stringify(result)}`);
+    const scenario = `${name} YouTube search root`;
+    failWhen(result.initialScrollY <= 0,
+        scenario, 'probe did not annotate after a nonzero document scroll', result);
+    const horizontalRange = result.extentBefore.scrollWidth - result.extentBefore.clientWidth;
+    failWhen(horizontalRange < 1 || horizontalRange > 4
+        || result.extentBefore.scrollHeight > result.extentBefore.clientHeight,
+    scenario, 'search shell did not exercise the inert small-range conditional-scroller shape', result);
+    failWhen(result.documentSpaceCount !== result.readingCount
+        || result.scrollSpaceCount !== 0
+        || result.searchLayerCount !== 0,
+    scenario, 'non-overflowing search shell claimed projected readings from document space', result);
+    failWhen(Math.abs(result.appliedScrollDelta - 32) > 1,
+        scenario, 'document did not move by the requested search scroll distance', result);
+    failWhen(Math.abs(result.inFrameSourceDelta + 32) > 1,
+        scenario, 'search result source did not move in the document scroll turn', result);
+    failWhen(Math.abs(result.inFrameCloneDelta - result.inFrameSourceDelta) > 1
+        || Math.abs(result.inFrame.alignment) > 1
+        || result.inFrame.display === 'none',
+    scenario, 'search result reading detached during the immediate document scroll frame', result);
+    failWhen(Math.abs(result.sourceDelta + 32) > 1
+        || Math.abs(result.cloneDelta - result.sourceDelta) > 1
+        || Math.abs(result.after.alignment) > 1
+        || result.after.display === 'none',
+    scenario, 'search result reading was not aligned after the document scroll frame', result);
+}
+
 async function verifyEngine(name, browserType) {
     const browser = await browserType.launch({ headless: true });
     try {
@@ -575,6 +705,8 @@ async function verifyEngine(name, browserType) {
         verifyPinnedReading(name, pinned);
         const fling = await page.evaluate(() => window.runRootFlingProbe());
         verifyRootFling(name, fling);
+        const search = await page.evaluate(() => window.runYouTubeSearchRootScrollProbe());
+        verifyYouTubeSearchRootScroll(name, search);
     } finally {
         await browser.close();
     }

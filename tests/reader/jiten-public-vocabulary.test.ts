@@ -323,7 +323,7 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/\d+\/info/u.test(String(url)))).toHaveLength(5);
     });
 
-    it('finishes a compact annotation target when the detail cap lands inside it', async () => {
+    it('keeps a compact annotation target inside the hard detail cap', async () => {
         const prefixTerms = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸', '仮'];
         const targetTerms = ['並べ替え', '基準'];
         const allTerms = [...prefixTerms, ...targetTerms];
@@ -359,9 +359,143 @@ describe('JitenPublicVocabularyClient', () => {
 
         expect(parsed.at(-1)?.map(token => token.card)).toMatchObject([
             { spelling: '並べ替え', reading: 'ならべかえ', pitchAccent: ['LHHHHH'] },
-            { spelling: '基準', reading: 'きじゅん', pitchAccent: ['LHHH'] },
+            { spelling: '基準', reading: '', pitchAccent: [] },
         ]);
-        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(13);
+        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(12);
+    });
+
+    it('does not overrun a caller detail budget smaller than the atomic title cap', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                return [
+                    { wordId: 1, readingIndex: 0, originalText: '並べ替え' },
+                    { wordId: 2, readingIndex: 0, originalText: '基準' },
+                ];
+            }
+            if (url.includes('/vocabulary/1/0/info')) {
+                return {
+                    wordId: 1,
+                    mainReading: { text: '並[なら]べ替[か]え' },
+                    definitions: [{ meanings: ['sorting'] }],
+                    pitchAccents: [0],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const [tokens] = await client.parse(['並べ替え基準'], { detailLimit: 1 });
+
+        expect(tokens?.map(token => token.card.reading)).toEqual(['ならべかえ', '']);
+        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(1);
+    });
+
+    it('leaves a normal title tail sparse instead of overrunning the batch detail cap', async () => {
+        const prefixWords = [
+            { wordId: 11, readingIndex: 0, originalText: '音楽' },
+            { wordId: 12, readingIndex: 0, originalText: 'ゲーム' },
+            { wordId: 13, readingIndex: 0, originalText: 'ライブ' },
+            { wordId: 14, readingIndex: 0, originalText: '観光' },
+        ];
+        const title = '【ひとり旅】猛暑にハプニングありながらも、さいこうすぎたひとり旅in香川';
+        const titleWords = [
+            { wordId: 1602030, readingIndex: 1, originalText: 'ひとり旅' },
+            { wordId: 1534050, readingIndex: 0, originalText: '猛暑' },
+            { wordId: 2028990, readingIndex: 0, originalText: 'に' },
+            { wordId: 1096140, readingIndex: 0, originalText: 'ハプニング' },
+            { wordId: 1296400, readingIndex: 2, originalText: 'ありながら' },
+            { wordId: 2028940, readingIndex: 0, originalText: 'も' },
+            { wordId: 1293850, readingIndex: 1, originalText: 'さいこう' },
+            { wordId: 1195970, readingIndex: 1, originalText: 'すぎた' },
+            { wordId: 1602030, readingIndex: 1, originalText: 'ひとり旅' },
+            { wordId: 2845095, readingIndex: 0, originalText: '香川' },
+        ];
+        const nextTitle = '[Day319] 初心者エンジニア、自作した天気予報アプリの処理を責務の分離したい！';
+        const nextTitleWords = [
+            { wordId: 1342860, readingIndex: 0, originalText: '初心者' },
+            { wordId: 1030910, readingIndex: 0, originalText: 'エンジニア' },
+            { wordId: 1317760, readingIndex: 0, originalText: '自作した' },
+            { wordId: 1438770, readingIndex: 0, originalText: '天気予報' },
+            { wordId: 1018190, readingIndex: 0, originalText: 'アプリ' },
+            { wordId: 1469800, readingIndex: 2, originalText: 'の' },
+            { wordId: 1342510, readingIndex: 0, originalText: '処理' },
+            { wordId: 2029010, readingIndex: 0, originalText: 'を' },
+            { wordId: 1383230, readingIndex: 0, originalText: '責務' },
+            { wordId: 1469800, readingIndex: 2, originalText: 'の' },
+            { wordId: 1504370, readingIndex: 0, originalText: '分離したい' },
+        ];
+        const parsedWords = [...prefixWords, ...titleWords, ...nextTitleWords];
+        const surfaceById = new Map(parsedWords.map(word => [word.wordId, word.originalText]));
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                expect(new URL(url).searchParams.get('text')).toBe(`${prefixWords.map(word => word.originalText).join('\n')}\n${title}\n${nextTitle}`);
+                return parsedWords;
+            }
+            const match = url.match(/\/vocabulary\/(\d+)\/(\d+)\/info/u);
+            if (match) {
+                const wordId = Number(match[1]);
+                const surface = surfaceById.get(wordId);
+                if (!surface) throw new Error(`Unexpected word id: ${wordId}`);
+                return {
+                    wordId,
+                    mainReading: { text: wordId === 2845095 ? '香[か]川[がわ]' : surface },
+                    definitions: [{ meanings: ['definition'] }],
+                    pitchAccents: [0],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const parsed = await client.parse([
+            ...prefixWords.map(word => word.originalText),
+            title,
+            nextTitle,
+        ], { detailLimit: 12 });
+
+        expect(parsed.at(-2)?.at(-1)).toMatchObject({
+            card: { spelling: '香川', reading: '', source: 'jiten' },
+        });
+        expect(parsed.at(-1)?.every(token => token.card.reading === '')).toBe(true);
+        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/\d+\/info/u.test(String(url)))).toHaveLength(12);
+    });
+
+    it('never turns a 12-card detail limit into 23 requests at a target boundary', async () => {
+        const prefix = Array.from({ length: 11 }, (_, index) => ({
+            wordId: index + 1,
+            readingIndex: 0,
+            originalText: `前${index}`,
+        }));
+        const title = Array.from({ length: 12 }, (_, index) => ({
+            wordId: 100 + index,
+            readingIndex: 0,
+            originalText: `語${index}`,
+        }));
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) return [...prefix, ...title];
+            const match = url.match(/\/vocabulary\/(\d+)\/0\/info/u);
+            if (!match) throw new Error(`Unexpected URL: ${url}`);
+            const wordId = Number(match[1]);
+            const word = [...prefix, ...title].find(candidate => candidate.wordId === wordId);
+            if (!word) throw new Error(`Unexpected word id: ${wordId}`);
+            return {
+                wordId,
+                mainReading: { text: word.originalText },
+                definitions: [{ meanings: ['definition'] }],
+                pitchAccents: [0],
+            };
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const parsed = await client.parse([
+            ...prefix.map(word => word.originalText),
+            title.map(word => word.originalText).join(''),
+        ], { detailLimit: 12 });
+
+        const details = requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)));
+        expect(details).toHaveLength(12);
+        expect(parsed.at(-1)?.filter(token => token.card.reading).length).toBe(1);
+        expect(parsed.at(-1)?.filter(token => !token.card.reading).length).toBe(11);
     });
 
     it('backs off after transient upstream failures so cold enrichment can skip Jiten quickly', async () => {

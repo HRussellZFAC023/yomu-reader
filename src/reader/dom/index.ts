@@ -1,6 +1,6 @@
 import { primaryCardState } from '../cards/state';
 import { cardStateProvenance, setRenderedWordCardStatus } from './rendered-word-state';
-import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
+import { cardDeckMembership } from '../cards/deck-membership';
 import { HAS_JAPANESE_LETTER, READER_ROOT_SELECTOR } from './constants';
 import { isTargetLanguageText, segmentTargetLanguageText } from '../lookup/target-text';
 import {
@@ -50,16 +50,25 @@ import {
     safeComputedStyle,
     safeElementMatches,
     selectorPairs,
-    youtubeEllipsisChromeMustRemainPageOwned,
+    youtubeNativeChromeMustRemainPageOwned,
     composedAncestorElement as composedParentElement,
 } from './decoration-policy';
 import { detachedReadingLaneLineHeight, rubyFriendlyMirrorLineHeight } from './text-mirror-line-height';
 import {
-    KANJI_RE,
-    READING_KANA_CHAR_RE as KANA_CHAR_RE,
-    READING_KANA_ONLY_RE as KANA_RE,
-} from '../lookup/japanese-script';
-
+    DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS,
+    type DocumentAnnotationPortalClipBounds,
+    documentAnnotationPortalHasNonTranslationTransform,
+    documentAnnotationPortalMirrorsWithin,
+    documentAnnotationPortalPaint,
+    invalidateDocumentAnnotationPortalClipTopology,
+    prepareDocumentAnnotationPortalMirrors,
+    preparedDocumentAnnotationPortalClipBounds,
+    registerDocumentAnnotationPortalMirror,
+    settleDocumentAnnotationPortalMirrors,
+    styleDocumentAnnotationPortalMirror,
+    unregisterDocumentAnnotationPortalMirror,
+    YOUTUBE_CHROME_PORTAL_MIRROR_CLASS,
+} from './youtube-chrome-annotation-portal';
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
@@ -76,12 +85,42 @@ import { createPostPaintPass, viewForNode } from './post-paint-pass';
 import { ensureReaderStylesForHost } from './shadow-styles';
 import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
-import { effectiveFuriganaMode } from '../settings/index';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { bareFallbackCardFromText } from '../lookup/japanese-segments';
 import { uncoveredJapaneseRanges } from '../lookup/uncovered-japanese-ranges';
-import { isUnifiedIdeograph } from '../languages/han';
-import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import {
+    PITCH_CLASSES,
+    effectiveTokenRubies,
+    isParticleCard,
+    kanjiNavigationForElement,
+    localRubyRange,
+    miningInsightTokenKey,
+    miningInsightTokenKeys,
+    nonOverlappingTokens,
+    readerCardId,
+    readerCardSource,
+    readerReadingIndex,
+    readerWordClassName,
+    renderDetachedReadings,
+    renderKanjiNavigationText,
+    renderRuby,
+    shouldRenderRuby,
+    tokenPitchClass,
+    type TokenRenderOptions,
+} from './token-text-rendering';
+
+export {
+    inferredInflectedSurfaceRubies,
+    isParticleCard,
+    nonOverlappingTokens,
+    readerWordClassName,
+    renderHighlightedTextHtml,
+    renderKanjiNavigationText,
+    renderRuby,
+    shouldHideFuriganaForCardState,
+    shouldRenderRuby,
+} from './token-text-rendering';
 
 export {
     HAS_JAPANESE,
@@ -114,10 +153,6 @@ export {
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = 'jpdb-reader-number-bind';
 const BLOCK_FLOW_TAG_NAMES = new Set('ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL'.split(','));
-const EASY_FURIGANA_KANJI = new Set(
-    '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
-        .split(''),
-);
 // Shared building blocks for the four skip-selector lists below. Each list composes the common
 // BASE entries with whichever extra clusters apply; the joined string must stay set-equal to the
 // hand-written original for each list (entry order does not affect matching).
@@ -138,33 +173,6 @@ const PLAYER_CHROME_SKIP_SELECTOR = selectorPairs('control,toggle,player', ['cla
 
 const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = `${BASE_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
-const PITCH_CLASSES = new Set('heiban,atamadaka,nakadaka,odaka'.split(','));
-const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
-const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
-const MINING_INSIGHT_MIN_CARD_COUNT = 3;
-// UT-47: the per-group state families behind "hide furigana for …" —
-// configurable through settings.furiganaHiddenStateGroups.
-const FURIGANA_GROUP_STATES: Record<ReaderSettings['furiganaHiddenStateGroups'][number], readonly CardState[]> = {
-    new: ['new', 'not-in-deck', 'in-deck'],
-    learning: ['learning', 'young'],
-    known: ['known', 'mature', 'mastered', 'never-forget', 'redundant'],
-    due: ['due'],
-    failed: ['failed'],
-};
-
-function furiganaHiddenStates(settings: ReaderSettings): Set<CardState> {
-    const states = new Set<CardState>();
-    for (const group of settings.furiganaHiddenStateGroups) {
-        for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
-    }
-    return states;
-}
-
-export function shouldHideFuriganaForCardState(settings: ReaderSettings, state: CardState): boolean {
-    const mode = effectiveFuriganaMode(settings);
-    if (mode === 'off') return true;
-    return mode === 'known-status' && furiganaHiddenStates(settings).has(state);
-}
 
 const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
 const FRAGMENT_SKIP_SELECTOR_WITHOUT_ARIA_HIDDEN = FRAGMENT_SKIP_SELECTOR.replace(',[aria-hidden=true]', '');
@@ -272,25 +280,6 @@ export interface FragmentTextTarget {
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
 
-interface KanjiNavigationRenderOptions {
-    enabled: boolean;
-    label: string;
-}
-
-interface RubyKanaAnchor {
-    text: string;
-    baseStart: number;
-    baseEnd: number;
-    readingStart: number;
-    readingEnd: number;
-}
-
-interface RubyBaseKanaRun {
-    text: string;
-    baseStart: number;
-    baseEnd: number;
-}
-
 interface TextTargetCollectionOptions {
     includeReaderRoot?: boolean;
     includeFormChrome?: boolean;
@@ -360,6 +349,9 @@ interface TextMirrorHostState {
     lineHeight: string;
     lineHeightPriority: string;
     reservedLineHeight: string;
+    /** The annotation layer is mounted outside the native host so WebKit never
+     * includes it in the control's overflow or recycler-owned child tree. */
+    documentPortal?: boolean;
     /** The mirror this state's apply created, held weakly: teardown removes
      * it through this ref even after a framework relocates it anywhere in
      * (or across) roots, without any document-wide query. */
@@ -1443,6 +1435,14 @@ function isBlockFragmentElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
+    // YouTube's exact page-owned labels frequently use `display:flex`; their
+    // authored inline spans are therefore blockified flex items. Splitting at
+    // those computed block boundaries produces one target/portal per segment
+    // (`+ 他`, `3`, `件`) and makes recycler updates tear them down in turn.
+    // The page-owned predicate is deliberately narrow (mini-guide, Shorts
+    // action chrome, and the exact shelf expander), so coalesce only inside
+    // that already-approved control scope.
+    if (youtubeNativeChromeMustRemainPageOwned(element)) return false;
     return !options.mergeBlockFragments
         && isFragmentParagraphBoundary(element, options)
         && !isInlineSentenceListItem(element);
@@ -1884,6 +1884,11 @@ function scanHostRequiresSourcePreservingMirror(host: HTMLElement): boolean {
 function stampTargetDecoration(target: ScanTextTarget, host: HTMLElement): void {
     const decoration = target.decoration;
     if (!decoration) return;
+    const pageOwnedYouTubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
+    // YouTube owns these controls down to their attributes. Their sealed
+    // decoration state travels with the portal render instead of adding
+    // data-yomu-* state to a node the framework reconciles/recycles.
+    if (pageOwnedYouTubeChrome) return;
     stampDecorationState(host, decoration);
     if (decoration !== 'interactive-passive') return;
     const control = interactivePassiveControl(target.parent);
@@ -1898,6 +1903,15 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     }
     if (target.parent instanceof HTMLCanvasElement) {
         applyTokensToCanvasFallbackTarget(target, tokens, settings);
+        return;
+    }
+    // Layout-fragile YouTube chrome keeps its native children and inline style
+    // page-owned. Render through the same source-preserving mirror semantics,
+    // but let textMirrorMount place the annotation layer in the document portal.
+    if (youtubeNativeChromeMustRemainPageOwned(target.parent)) {
+        const host = nonDestructiveScanHost(target);
+        stampTargetDecoration(target, host);
+        applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
     // CRITICAL invariant (Phase 1 shadow-DOM scan): a target inside an open
@@ -2932,6 +2946,86 @@ function createNonDestructiveTextMirror(context: NonDestructiveMirrorRenderConte
     return mirror;
 }
 
+interface TextMirrorMount {
+    configure(mirror: HTMLElement): TextMirrorHostState;
+    append(mirror: HTMLElement): void;
+    projectionRoot: ParentNode;
+}
+
+function textMirrorMount(
+    host: HTMLElement,
+    clipRow: HTMLElement | null,
+    target: ScanTextTarget,
+): TextMirrorMount {
+    const youtubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
+    if (youtubeChrome || sourcePreservingProseNeedsDocumentPortal(host, target)) {
+        return {
+            configure(mirror) {
+                mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
+                if (youtubeChrome) mirror.classList.add(YOUTUBE_CHROME_PORTAL_MIRROR_CLASS);
+                mirror.dataset.yomuDocumentPortal = youtubeChrome ? 'youtube-chrome' : 'volatile-prose';
+                // Detached readings are already projected outside page layout;
+                // a document portal must never reserve a taller native line box.
+                delete mirror.dataset.yomuReadingLaneCandidate;
+                const state = styleDocumentPortalTextMirrorHost(host);
+                styleDocumentAnnotationPortalMirror(mirror, host);
+                return state;
+            },
+            append(mirror) {
+                (host.ownerDocument.body ?? host.ownerDocument.documentElement).append(mirror);
+            },
+            projectionRoot: host.ownerDocument,
+        };
+    }
+    return {
+        configure(mirror) {
+            const state = styleTextMirrorHost(host);
+            styleTextMirror(mirror, host, false);
+            styleConstrainedTextMirror(mirror, clipRow);
+            return state;
+        },
+        append: mirror => host.append(mirror),
+        projectionRoot: host.getRootNode() as ParentNode,
+    };
+}
+
+const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
+const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
+
+/**
+ * Framework-owned light-DOM prose is commonly rewritten with `textContent =`
+ * even when its text is identical (YouTube comments are the hot example). An
+ * in-host mirror is deleted by that write and enters a replay/mutation loop.
+ * Promote only explicit/source-derived non-destructive prose or conversation
+ * targets; controls, generic titles, and shadow trees retain their established
+ * lanes.
+ */
+function sourcePreservingProseNeedsDocumentPortal(host: HTMLElement, target: ScanTextTarget): boolean {
+    if (target.insideShadowDOM || host.getRootNode() !== host.ownerDocument) return false;
+    if (target.decoration !== 'prose-full' && target.decoration !== 'content-ruby') return false;
+    if (interactivePassiveControl(host)) return false;
+    if (!target.nonDestructive && !scanHostRequiresSourcePreservingMirror(host)) return false;
+    // A body portal can project exact Range boxes through translations, but a
+    // scale/rotation changes the reading typography as well as the boxes. Keep
+    // broad prose in its established in-host mirror under that containing
+    // block; the narrowly approved YouTube chrome path above remains separate.
+    if (documentAnnotationPortalHasNonTranslationTransform(host)) return false;
+
+    let current: HTMLElement | null = host;
+    for (let depth = 0; current && depth < 8; depth += 1, current = composedParentElement(current)) {
+        // The portal is intentionally cross-site: the report is not limited to
+        // YouTube comments, and framework-owned article/feed prose has the same
+        // source-rewrite failure mode. Nested overflow is now re-clipped by the
+        // portal root; scaled/rotated prose was narrowed above.
+        if (isLikelyProseElement(current)
+            || safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]')) return true;
+        const identity = `${current.tagName} ${current.id} ${String(current.className || '')}`;
+        if (VOLATILE_CONVERSATION_IDENTITY_RE.test(identity)) return true;
+        if (current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)) return true;
+    }
+    return false;
+}
+
 function mountNonDestructiveTextMirror(
     host: HTMLElement,
     target: ScanTextTarget,
@@ -2939,6 +3033,10 @@ function mountNonDestructiveTextMirror(
     context: NonDestructiveMirrorRenderContext,
 ): void {
     const mirror = createNonDestructiveTextMirror(context);
+    if (target.decoration && youtubeNativeChromeMustRemainPageOwned(host)) {
+        stampDecorationState(mirror, target.decoration);
+    }
+    const mount = textMirrorMount(host, context.clipRow, target);
     // A mirrored CONTROL (chip, pill, compact button) must lay out exactly
     // like its host at rest: the ruby-friendly line height pushed the base
     // glyphs out of fixed-height pills on WebKit (iPad 2026-07-11 — chip text
@@ -2958,12 +3056,11 @@ function mountNonDestructiveTextMirror(
     if (context.detachedReadings && !controlMirror) {
         mirror.dataset.yomuReadingLaneCandidate = 'true';
     }
-    const state = styleTextMirrorHost(host);
+    const state = mount.configure(mirror);
     try {
-        styleTextMirror(mirror, host, false);
         if (controlMirror && !context.detachedReadings) stabilizeReadingFreeControlMirror(mirror, host);
-        styleConstrainedTextMirror(mirror, context.clipRow);
-        mirror.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
+        const paintRoot = state.documentPortal ? documentAnnotationPortalPaint(mirror) : mirror;
+        paintRoot.append(renderTokenizedScanText(context.renderPlan.text, context.renderPlan.tokens, context.renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
             mirrorRender: true,
@@ -2983,9 +3080,18 @@ function mountNonDestructiveTextMirror(
         // Commit atomically: a framework host must never be concealed before
         // its replacement is connected and known to contain paintable text.
         ensureReaderStylesForHost(host);
-        host.append(mirror);
+        mount.append(mirror);
         registerTextMirrorOwner(mirror, host);
         state.mirror = new WeakRef(mirror);
+        if (state.documentPortal) {
+            registerDocumentAnnotationPortalMirror(
+                host,
+                mirror,
+                () => scheduleDocumentPortalMirrorProjection(mirror, host),
+                () => projectOneDocumentPortalTextMirror(mirror, host),
+                () => removeTextMirror(host),
+            );
+        }
         // Additive source/annotation paint is required even when the token has
         // no reading overlay (kana whose reading equals its surface is the
         // common case). Keep it independent from detached-reading geometry.
@@ -2996,7 +3102,7 @@ function mountNonDestructiveTextMirror(
         }
         // Source projection needs live client rects. Batch it after paint rather
         // than forcing layout once per mirror during the synchronous boot scan.
-        scheduleAdditiveMirrorProjection(host.getRootNode() as ParentNode);
+        scheduleAdditiveMirrorProjection(mount.projectionRoot);
         syncTextMirrorVisibilityToPage(host, mirror);
         observeTextMirrorHost(host);
         rememberNonDestructiveRenderForReplay(host, target, context.text, context.safeTokens, context.hostText, settings);
@@ -3112,7 +3218,12 @@ interface AdditiveMirrorProjectionContext {
     scaleX: number;
     scaleY: number;
     clipRow: HTMLElement | null;
-    clipRect: DOMRect | null;
+    clipRect: DocumentAnnotationPortalClipBounds | null;
+    /** The authored row clip used by detached readings. Unlike clipRect this
+     * never includes the portal's escaped-overflow clip. */
+    readingClipRect: DocumentAnnotationPortalClipBounds | null;
+    documentPortal?: boolean;
+    topLayerConcealed?: boolean;
     /** Set once this pass's source text stops existing on the host. */
     sourceLost?: boolean;
 }
@@ -3121,6 +3232,23 @@ interface AdditiveMirrorProjectionContext {
  * mirror never tries to reproduce another renderer's CJK wrapping; Range is
  * the source of truth for every line fragment. */
 export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement): void {
+    const documentPortal = mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
+    if (documentPortal) {
+        prepareDocumentAnnotationPortalMirrors([mirror]);
+    }
+    projectPreparedAdditiveTextMirror(mirror, host, documentPortal
+        ? documentTopLayerConcealsPortal(host.ownerDocument)
+        : false);
+    if (documentPortal) settleDocumentAnnotationPortalMirrors([mirror]);
+}
+
+function projectPreparedAdditiveTextMirror(
+    mirror: HTMLElement,
+    host: HTMLElement,
+    topLayerConcealed = false,
+): void {
+    const documentPortal = mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
+    if (documentPortal) documentPortalMirrorProjectionCount += 1;
     const context = additiveMirrorProjectionContext(mirror, host);
     if (typeof context === 'string') {
         clearProjectedReadings(mirror);
@@ -3133,12 +3261,35 @@ export function projectAdditiveTextMirror(mirror: HTMLElement, host: HTMLElement
         if (context === 'source-changed') clearAdditiveMirrorSourceProjection(mirror);
         return;
     }
-    const readingProjections: DetachedReadingProjection[] = [];
+    if (documentPortal) context.topLayerConcealed = topLayerConcealed;
     const words = mirror.querySelectorAll<HTMLElement>(
         '.jpdb-reader-word[data-yomu-source-start][data-yomu-source-end]',
     );
-    const projected = Array.from(words)
-        .map(word => projectAdditiveMirrorWord(word, context, readingProjections))
+    // One source range can back both a word fragment and its full-word ruby.
+    // Resolve it once, and finish EVERY Range/style/clip read for this mirror
+    // before removing a stale fragment or writing replacement geometry. The
+    // old per-word loop alternated writes and Range reads hundreds of times on
+    // long comments, forcing WebKit to lay out the page again for each token.
+    const sourceRects = cachedMirrorSourceRectReader(context);
+    const hasReadings = mirror.querySelector(
+        '.jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end] .jpdb-reader-detached-furi',
+    ) !== null;
+    const readingsConcealed = !hasReadings
+        || !context.host.isConnected
+        || pageConcealsTextMirrorHost(context.host)
+        || Boolean(context.documentPortal && context.topLayerConcealed);
+    const projections = Array.from(words).map(word => readAdditiveMirrorWordProjection(
+        word,
+        context,
+        sourceRects,
+        readingsConcealed,
+    ));
+
+    // Write phase. No source geometry is consulted below; detached-reading
+    // refreshes keep their own live measure closures for later scroll frames.
+    const readingProjections: DetachedReadingProjection[] = [];
+    const projected = projections
+        .map(projection => writeAdditiveMirrorWordProjection(projection, context, readingProjections))
         .some(Boolean);
     syncProjectedReadings(mirror, readingProjections);
     if (projected) mirror.dataset.yomuSourceProjected = 'true';
@@ -3176,6 +3327,34 @@ function additiveMirrorProjectionContext(
     if (!host.isConnected) return 'unmeasurable';
     if (mirrorSourceHostText(mirror) !== source.hostText) return 'source-changed';
 
+    const clipRow = closestRubyFragileConstrainedRow(host);
+    const readingClipRect = clipRow?.getBoundingClientRect() ?? null;
+    if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+        // Range rects and fixed-position descendants share client coordinates.
+        // Read the portal's real fixed origin instead of assuming (0, 0), so
+        // visual-viewport panning/zoom implementations that offset fixed
+        // containing blocks still project into the same coordinate space.
+        const origin = documentAnnotationPortalPaint(mirror).getBoundingClientRect();
+        const view = host.ownerDocument.defaultView;
+        const width = view?.innerWidth ?? host.ownerDocument.documentElement.clientWidth;
+        const height = view?.innerHeight ?? host.ownerDocument.documentElement.clientHeight;
+        const mirrorRect = clientRect(origin.left, origin.top, width, height);
+        return {
+            host,
+            source,
+            mirrorRect,
+            scaleX: 1,
+            scaleY: 1,
+            clipRow,
+            clipRect: combinedProjectionClipBounds(
+                preparedDocumentAnnotationPortalClipBounds(mirror),
+                readingClipRect,
+            ),
+            readingClipRect,
+            documentPortal: true,
+        };
+    }
+
     const hostRect = host.getBoundingClientRect();
     // An absolute child is laid out from the host's padding box. Match that
     // containing block instead of the border box so a bordered control does
@@ -3188,7 +3367,6 @@ function additiveMirrorProjectionContext(
     const mirrorRect = mirror.getBoundingClientRect();
     if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return 'unmeasurable';
 
-    const clipRow = closestRubyFragileConstrainedRow(host);
     return {
         host,
         source,
@@ -3196,27 +3374,72 @@ function additiveMirrorProjectionContext(
         scaleX: mirror.offsetWidth > 0 ? mirrorRect.width / mirror.offsetWidth : 1,
         scaleY: mirror.offsetHeight > 0 ? mirrorRect.height / mirror.offsetHeight : 1,
         clipRow,
-        clipRect: clipRow?.getBoundingClientRect() ?? null,
+        clipRect: readingClipRect,
+        readingClipRect,
     };
 }
 
-function projectAdditiveMirrorWord(
+type MirrorSourceRectReader = (start: number, end: number) => DOMRect[];
+
+interface AdditiveMirrorRubyProjection {
+    ruby: HTMLElement;
+    projection: DetachedReadingProjection;
+}
+
+interface AdditiveMirrorWordProjection {
+    word: HTMLElement;
+    sourceRects: DOMRect[];
+    fragments: Array<{ rect: DOMRect; gradientOffset: number }>;
+    readings: AdditiveMirrorRubyProjection[];
+}
+
+function cachedMirrorSourceRectReader(context: AdditiveMirrorProjectionContext): MirrorSourceRectReader {
+    const cache = new Map<string, DOMRect[]>();
+    const nodeOffsets = liveMirrorSourceOffsets(context);
+    return (start, end) => {
+        const key = `${start}:${end}`;
+        const cached = cache.get(key);
+        if (cached) return cached;
+        const rects = sourceClientRects(context.host, nodeOffsets, start, end);
+        cache.set(key, rects);
+        return rects;
+    };
+}
+
+/** Pure read phase for one word. */
+function readAdditiveMirrorWordProjection(
     word: HTMLElement,
+    context: AdditiveMirrorProjectionContext,
+    sourceRectsFor: MirrorSourceRectReader,
+    readingsConcealed: boolean,
+): AdditiveMirrorWordProjection {
+    const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
+    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
+    const sourceRects = sourceRectsFor(start, end);
+    const fragments = sourceFragmentProjections(sourceRects, context);
+    const readings = fragments.length
+        ? readProjectedWordReadings(word, context, sourceRectsFor, readingsConcealed)
+        : [];
+    return { word, sourceRects, fragments, readings };
+}
+
+/** Pure write phase for one word. */
+function writeAdditiveMirrorWordProjection(
+    projection: AdditiveMirrorWordProjection,
     context: AdditiveMirrorProjectionContext,
     readings: DetachedReadingProjection[],
 ): boolean {
+    const { word, sourceRects, fragments } = projection;
     delete word.dataset.yomuSourceProjected;
     word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
-
-    const start = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
-    const end = Number.parseInt(word.dataset.yomuSourceEnd ?? '', 10);
-    const sourceRects = sourceClientRects(context.host, context.source.nodeOffsets, start, end);
-    const fragments = sourceFragmentProjections(sourceRects, context);
     if (!fragments.length) return false;
 
     styleProjectedSourceWord(word);
     appendSourceFragments(word, fragments, sourceRects, context);
-    collectProjectedWordReadings(word, context, readings);
+    for (const { ruby, projection: readingProjection } of projection.readings) {
+        positionProjectedElement(ruby, readingProjection.rect, context.mirrorRect, context.scaleX, context.scaleY);
+        readings.push(readingProjection);
+    }
     return true;
 }
 
@@ -3225,11 +3448,63 @@ function sourceFragmentProjections(
     context: AdditiveMirrorProjectionContext,
 ): Array<{ rect: DOMRect; gradientOffset: number }> {
     let gradientOffset = 0;
-    return sourceRects.map(rect => {
-        const projection = { rect, gradientOffset };
+    return sourceRects.flatMap(rect => {
+        const sourceGradientOffset = gradientOffset;
         gradientOffset += rect.width / context.scaleX;
-        return projection;
-    }).filter(({ rect }) => !context.clipRect || rectsIntersect(rect, context.clipRect));
+        // Body-mounted portals have escaped the native overflow chain and must
+        // be geometrically clipped back into it. In-host mirrors still live in
+        // the authored clip, so preserve their historical whole-fragment
+        // filtering rather than changing chip/tab underline geometry globally.
+        const clipped = context.documentPortal && context.clipRect
+            ? intersectClientRect(rect, context.clipRect)
+            : rect;
+        if (!context.documentPortal && context.clipRect && !rectsIntersect(rect, context.clipRect)) return [];
+        if (!clipped) return [];
+        return [{
+            rect: clipped,
+            // If the authored row clips the left edge, preserve the continuous
+            // pitch gradient's offset instead of restarting it at the clip.
+            gradientOffset: sourceGradientOffset + (clipped.left - rect.left) / context.scaleX,
+        }];
+    });
+}
+
+function combinedProjectionClipBounds(
+    first: DocumentAnnotationPortalClipBounds | null,
+    second: DocumentAnnotationPortalClipBounds | null,
+): DocumentAnnotationPortalClipBounds | null {
+    if (!first) return second;
+    if (!second) return first;
+    return {
+        left: Math.max(first.left, second.left),
+        top: Math.max(first.top, second.top),
+        right: Math.min(first.right, second.right),
+        bottom: Math.min(first.bottom, second.bottom),
+    };
+}
+
+function clientRect(left: number, top: number, width: number, height: number): DOMRect {
+    const right = left + width;
+    const bottom = top + height;
+    return {
+        x: left,
+        y: top,
+        left,
+        top,
+        right,
+        bottom,
+        width,
+        height,
+        toJSON: () => ({}),
+    } as DOMRect;
+}
+
+function intersectClientRect(rect: DOMRect, clip: DocumentAnnotationPortalClipBounds): DOMRect | null {
+    const left = Math.max(rect.left, clip.left);
+    const top = Math.max(rect.top, clip.top);
+    const right = Math.min(rect.right, clip.right);
+    const bottom = Math.min(rect.bottom, clip.bottom);
+    return right > left && bottom > top ? clientRect(left, top, right - left, bottom - top) : null;
 }
 
 // The exact geometry each projection writer owns. Every writer below is typed
@@ -3318,18 +3593,21 @@ function appendSourceFragments(
     }
 }
 
-function collectProjectedWordReadings(
+function readProjectedWordReadings(
     word: HTMLElement,
     context: AdditiveMirrorProjectionContext,
-    readings: DetachedReadingProjection[],
-): void {
+    sourceRectsFor: MirrorSourceRectReader,
+    readingsConcealed: boolean,
+): AdditiveMirrorRubyProjection[] {
+    const readings: AdditiveMirrorRubyProjection[] = [];
     const rubies = word.querySelectorAll<HTMLElement>(
         '.jpdb-reader-detached-ruby[data-yomu-source-start][data-yomu-source-end]',
     );
     for (const ruby of rubies) {
-        const projection = projectedRubyReading(ruby, context);
-        if (projection) readings.push(projection);
+        const projection = projectedRubyReading(ruby, context, sourceRectsFor, readingsConcealed);
+        if (projection) readings.push({ ruby, projection });
     }
+    return readings;
 }
 
 /**
@@ -3381,22 +3659,26 @@ function mirrorSourceNodesConnected(nodeOffsets: Map<Text, number>): boolean {
 function projectedRubyReading(
     ruby: HTMLElement,
     context: AdditiveMirrorProjectionContext,
+    sourceRectsFor: MirrorSourceRectReader,
+    initiallyConcealed: boolean,
 ): DetachedReadingProjection | null {
     const reading = ruby.querySelector<HTMLElement>('.jpdb-reader-detached-furi');
     if (!reading) return null;
     const start = Number.parseInt(ruby.dataset.yomuSourceStart ?? '', 10);
     const end = Number.parseInt(ruby.dataset.yomuSourceEnd ?? '', 10);
     const measure = (): DOMRect | null => {
-        if (!context.host.isConnected || pageConcealsTextMirrorHost(context.host)) return null;
+        if (!context.host.isConnected
+            || pageConcealsTextMirrorHost(context.host)
+            || (context.documentPortal && context.topLayerConcealed)) return null;
         const clipRect = context.clipRow?.getBoundingClientRect() ?? null;
         return sourceClientRects(context.host, liveMirrorSourceOffsets(context), start, end)
             .find(rect => !clipRect || rectsIntersect(rect, clipRect)) ?? null;
     };
-    const rect = measure();
+    const rect = initiallyConcealed
+        ? null
+        : sourceRectsFor(start, end)
+            .find(candidate => !context.readingClipRect || rectsIntersect(candidate, context.readingClipRect)) ?? null;
     if (!rect) return null;
-    // Keep the invisible base wrapper aligned for lookup geometry, but paint
-    // its reading in the document overlay.
-    positionProjectedElement(ruby, rect, context.mirrorRect, context.scaleX, context.scaleY);
     return { source: reading, anchor: context.host, rect, measure };
 }
 
@@ -3463,7 +3745,7 @@ function positionProjectedElement(
     });
 }
 
-function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
+function rectsIntersect(left: DocumentAnnotationPortalClipBounds, right: DocumentAnnotationPortalClipBounds): boolean {
     return left.right > right.left + 0.5
         && left.left < right.right - 0.5
         && left.bottom > right.top + 0.5
@@ -3475,14 +3757,36 @@ function rectsIntersect(left: DOMRect, right: DOMRect): boolean {
 // fallow-ignore-next-line complexity
 export function projectAdditiveTextMirrors(root: ParentNode = document): void {
     const entries: Array<{ mirror: HTMLElement; host: HTMLElement }> = [];
-    for (const mirror of queryAllInAnnotationRoots(root, '.jpdb-reader-additive-text-mirror')) {
+    const mirrors = new Set(queryAllInAnnotationRoots(root, '.jpdb-reader-additive-text-mirror'));
+    // A scoped source-root projection cannot query its body-mounted portals.
+    // Resolve them through the source-indexed registry instead.
+    documentAnnotationPortalMirrorsWithin(root).forEach(mirror => mirrors.add(mirror));
+    for (const mirror of mirrors) {
         const host = registeredTextMirrorHostFor(mirror);
-        if (!host?.isConnected) continue;
-        if (youtubeEllipsisChromeMustRemainPageOwned(host)) {
+        if (!host) continue;
+        if (!host.isConnected) {
+            if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) removeTextMirror(host);
+            continue;
+        }
+        if (youtubeNativeChromeMustRemainPageOwned(host)
+            && !mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+            if (replayNonDestructiveRenderFromCache(host)) continue;
             removeTextMirror(host);
             continue;
         }
         entries.push({ mirror, host });
+    }
+    const portals = entries.filter(({ mirror }) => mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS));
+    const document = root instanceof Document ? root : root.ownerDocument;
+    // Top-layer discovery is O(document). Resolve it once for the complete
+    // projection pass, never once per portal and again per reading.
+    const topLayerConcealed = portals.length > 0 && document
+        ? documentTopLayerConcealsPortal(document)
+        : false;
+    for (const { mirror, host } of entries) {
+        if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+            syncTextMirrorVisibilityToPage(host, mirror, topLayerConcealed);
+        }
     }
     // Read every prose range before writing any line-height. A changed line
     // rhythm invalidates source rects, so projection continues next frame.
@@ -3491,11 +3795,14 @@ export function projectAdditiveTextMirrors(root: ParentNode = document): void {
         scheduleAdditiveMirrorProjection(root);
         return;
     }
+    prepareDocumentAnnotationPortalMirrors(portals.map(({ mirror }) => mirror));
     if (typeof Range === 'function' && typeof Range.prototype.getClientRects === 'function') {
-        for (const { mirror, host } of entries) projectAdditiveTextMirror(mirror, host);
+        for (const { mirror, host } of entries) {
+            projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
+        }
     }
+    settleDocumentAnnotationPortalMirrors(portals.map(({ mirror }) => mirror));
     projectInPlaceDetachedReadings(root);
-    const document = root instanceof Document ? root : root.ownerDocument;
     if (document) pruneProjectedReadings(document);
 }
 
@@ -3536,6 +3843,12 @@ function settleTextMirrorReadingLanes(entries: Array<{ mirror: HTMLElement; host
         if (mirror.dataset.yomuReadingLaneCandidate !== 'true') continue;
         const state = textMirrorHosts.get(host);
         if (!state) continue;
+        if (state.documentPortal) {
+            // Portal paint is wholly out of tree. Reserving a reading lane on
+            // its native source would violate the zero host-style/layout contract.
+            if (state.reservedLineHeight) releaseTextMirrorReadingLane(host, state, mirror);
+            continue;
+        }
 
         // A framework inline write supersedes Yomu's earlier reservation and
         // becomes the new teardown baseline. Re-measure against that value.
@@ -3621,6 +3934,67 @@ const additiveMirrorProjectionPass = createPostPaintPass(() => {
 function scheduleAdditiveMirrorProjection(root: ParentNode = document): void {
     pendingAdditiveMirrorProjectionRoots.add(root);
     additiveMirrorProjectionPass.schedule(viewForNode(root));
+}
+
+/** Coalesce exact projection by affected portal. A framework replacing one
+ * comment's Text node must not Range-project an unrelated long description. */
+export function scheduleDocumentPortalMirrorProjection(mirror: HTMLElement, host: HTMLElement): void {
+    if (!mirror.isConnected || !host.isConnected || currentDocumentPortalTextMirror(host) !== mirror) return;
+    pendingDocumentPortalProjections.set(mirror, host);
+    documentPortalProjectionPass.schedule(viewForNode(mirror));
+}
+
+const pendingDocumentPortalProjections = new Map<HTMLElement, HTMLElement>();
+let documentPortalProjectionPassCount = 0;
+let documentPortalMirrorProjectionCount = 0;
+
+/** Focused browser-proof counters; callers compare deltas around one probe. */
+export function documentPortalProjectionCountsForTest(): { passes: number; mirrors: number } {
+    return {
+        passes: documentPortalProjectionPassCount,
+        mirrors: documentPortalMirrorProjectionCount,
+    };
+}
+
+const documentPortalProjectionPass = createPostPaintPass(() => {
+    const entries = [...pendingDocumentPortalProjections]
+        .filter(([mirror, host]) => mirror.isConnected
+            && host.isConnected
+            && currentDocumentPortalTextMirror(host) === mirror);
+    pendingDocumentPortalProjections.clear();
+    if (!entries.length) return;
+    documentPortalProjectionPassCount += 1;
+    const byDocument = new Map<Document, Array<{ mirror: HTMLElement; host: HTMLElement }>>();
+    for (const [mirror, host] of entries) {
+        const documentEntries = byDocument.get(host.ownerDocument) ?? [];
+        documentEntries.push({ mirror, host });
+        byDocument.set(host.ownerDocument, documentEntries);
+    }
+    for (const [document, documentEntries] of byDocument) {
+        const mirrors = documentEntries.map(({ mirror }) => mirror);
+        prepareDocumentAnnotationPortalMirrors(mirrors);
+        const topLayerConcealed = documentTopLayerConcealsPortal(document);
+        for (const { mirror, host } of documentEntries) {
+            syncTextMirrorVisibilityToPage(host, mirror, topLayerConcealed);
+            projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
+        }
+        settleDocumentAnnotationPortalMirrors(mirrors);
+        pruneProjectedReadings(document);
+    }
+});
+
+/** Low-frequency delegated transition settle for one affected portal only. */
+function projectOneDocumentPortalTextMirror(mirror: HTMLElement, host: HTMLElement): void {
+    if (!mirror.isConnected || !host.isConnected || currentDocumentPortalTextMirror(host) !== mirror) {
+        if (textMirrorHosts.has(host)) removeTextMirror(host);
+        return;
+    }
+    prepareDocumentAnnotationPortalMirrors([mirror]);
+    const topLayerConcealed = documentTopLayerConcealsPortal(host.ownerDocument);
+    syncTextMirrorVisibilityToPage(host, mirror, topLayerConcealed);
+    projectPreparedAdditiveTextMirror(mirror, host, topLayerConcealed);
+    settleDocumentAnnotationPortalMirrors([mirror]);
+    pruneProjectedReadings(host.ownerDocument);
 }
 
 /** Live page geometry of the text one mirror host owns, measured once per resolve. */
@@ -3895,6 +4269,10 @@ function filterDetachedWordsToClip(root: HTMLElement, clipRow: HTMLElement | nul
         delete word.dataset.yomuDetachedWordHidden;
         word.style.removeProperty('visibility');
     }
+    // The portal is intentionally a zero-sized shell. Its pre-projection bases
+    // have no useful geometry; authoritative source Range fragments are clipped
+    // later against the native row.
+    if (root.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) return;
     const clipRect = clipRow?.getBoundingClientRect();
     if (!clipRect || clipRect.width <= 0 || clipRect.height <= 0) return;
     for (const word of words) {
@@ -4084,6 +4462,42 @@ function ownedTextMirrors(host: HTMLElement): HTMLElement[] {
 }
 
 function currentTextMirror(host: HTMLElement): HTMLElement | null {
+    return currentDocumentPortalTextMirror(host) ?? currentInHostTextMirror(host);
+}
+
+function currentDocumentPortalTextMirror(host: HTMLElement): HTMLElement | null {
+    const state = textMirrorHosts.get(host);
+    const tracked = state?.documentPortal ? state.mirror?.deref() : undefined;
+    return tracked?.isConnected && textMirrorBelongsToHost(tracked, host) ? tracked : null;
+}
+
+/**
+ * Resolve a native source target to its nearest mirror word scope. Checking
+ * both lanes in composed-ancestor order prevents an outer prose portal from
+ * shadowing a separately annotated in-host descendant.
+ */
+export function documentPortalReaderWordScopeForSource(target: Element): HTMLElement | null {
+    let current: HTMLElement | null = target instanceof HTMLElement ? target : target.parentElement;
+    for (let depth = 0; current && depth < 16; depth += 1, current = composedParentElement(current)) {
+        // Stop at a nearer in-host mirror so the caller can take its ordinary
+        // nearest-mirror path. Only an out-of-tree portal is returned here.
+        const inHost = currentInHostTextMirror(current);
+        if (inHost?.querySelector(READER_WORD_SELECTOR)) return null;
+        const portal = currentDocumentPortalTextMirror(current);
+        if (portal?.querySelector(READER_WORD_SELECTOR)) return portal;
+    }
+    return null;
+}
+
+/** Map a portal word back to the page-owned host that supplies its interaction. */
+export function documentPortalSourceHostForReaderWord(word: Element): HTMLElement | null {
+    const mirror = word.closest<HTMLElement>(READER_TEXT_MIRROR_SELECTOR);
+    if (!mirror?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) return null;
+    const host = textMirrorOwners.get(mirror);
+    return host && currentDocumentPortalTextMirror(host) === mirror ? host : null;
+}
+
+function currentInHostTextMirror(host: HTMLElement): HTMLElement | null {
     const direct = Array.from(host.children)
         .find((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)
             && textMirrorBelongsToHost(child, host));
@@ -4537,6 +4951,10 @@ export function setRubyDistortsConstrainedRowsForTest(value: boolean | null): vo
 }
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
+    const pageOwnedYouTubeControl = interactivePassiveControl(target.parent);
+    if (pageOwnedYouTubeControl && youtubeNativeChromeMustRemainPageOwned(pageOwnedYouTubeControl)) {
+        return pageOwnedYouTubeControl;
+    }
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments
         .map(fragment => fragment.node.parentElement)
@@ -4604,6 +5022,31 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
     textMirrorHosts.set(host, state);
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     return state;
+}
+
+function styleDocumentPortalTextMirrorHost(host: HTMLElement): TextMirrorHostState {
+    const state: TextMirrorHostState = {
+        observer: new MutationObserver(() => undefined),
+        sourceText: '',
+        position: host.style.getPropertyValue('position'),
+        positionPriority: host.style.getPropertyPriority('position'),
+        positioned: false,
+        lineHeight: host.style.getPropertyValue('line-height'),
+        lineHeightPriority: host.style.getPropertyPriority('line-height'),
+        reservedLineHeight: '',
+        documentPortal: true,
+    };
+    textMirrorHosts.set(host, state);
+    return state;
+}
+
+function scheduleCurrentTextMirrorProjection(host: HTMLElement): void {
+    const mirror = currentTextMirror(host);
+    if (mirror?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+        scheduleDocumentPortalMirrorProjection(mirror, host);
+        return;
+    }
+    scheduleAdditiveMirrorProjection(host.getRootNode() as ParentNode);
 }
 
 function styleTextMirror(mirror: HTMLElement, host: HTMLElement, hasRuby = false): void {
@@ -4738,7 +5181,15 @@ function observeTextMirrorHost(host: HTMLElement): void {
         );
         if (hostAttributeMutations.length) {
             noteConstrainedRowLayoutSettled();
-            if (youtubeEllipsisChromeMustRemainPageOwned(liveHost)) return removeTextMirror(liveHost);
+            if (youtubeNativeChromeMustRemainPageOwned(liveHost)
+                && !currentTextMirror(liveHost)?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
+                // YouTube sometimes hydrates its ellipsis style after the first
+                // scan. Convert the already-resolved mirror from the replay
+                // cache instead of waiting for an unrelated future scan.
+                if (replayNonDestructiveRenderFromCache(liveHost)) return;
+                dispatchTextMirrorStale(liveHost);
+                return removeTextMirror(liveHost);
+            }
             // A class change may replace the page's authored line-height while
             // our important inline reservation masks it. Release first, then
             // let the batched projection pass assess the new computed style.
@@ -4748,7 +5199,17 @@ function observeTextMirrorHost(host: HTMLElement): void {
                 if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
             }
             reassertTextMirrorHostStyles(liveHost, liveState);
-            scheduleAdditiveMirrorProjection(liveHost.getRootNode() as ParentNode);
+            const liveMirror = currentTextMirror(liveHost);
+            if (liveState.documentPortal && liveMirror) {
+                // A burst of framework class/style writes can touch many hosts
+                // in one checkpoint. Invalidate now, but let the exact portal
+                // lane batch their prepare/project/settle work by document so
+                // stacking, clip and top-layer reads are shared.
+                invalidateDocumentAnnotationPortalClipTopology(liveMirror);
+                scheduleDocumentPortalMirrorProjection(liveMirror, liveHost);
+            } else {
+                scheduleCurrentTextMirrorProjection(liveHost);
+            }
         }
         if (!mutations.some(mutation => mutation.type === 'childList' || mutation.type === 'characterData')) return;
         const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(liveHost));
@@ -4765,7 +5226,7 @@ function observeTextMirrorHost(host: HTMLElement): void {
         // The projection is coalesced into one post-paint frame, so a cadence of
         // re-renders costs one geometry pass each, no scan and no re-parse.
         if (currentText === liveState.sourceText && mutationsRewroteHostContent(mutations)) {
-            scheduleAdditiveMirrorProjection(liveHost.getRootNode() as ParentNode);
+            scheduleCurrentTextMirrorProjection(liveHost);
         }
         if (currentText !== liveState.sourceText) {
             // Keep the stale mirror briefly so a routine title re-render can
@@ -5114,6 +5575,7 @@ function removeTextMirror(host: HTMLElement): void {
     // untouched.
     const owned = ownedTextMirrors(host);
     owned.forEach(mirror => {
+        unregisterDocumentAnnotationPortalMirror(mirror);
         clearProjectedReadings(mirror);
         mirror.remove();
     });
@@ -5123,7 +5585,10 @@ function removeTextMirror(host: HTMLElement): void {
     // created, so teardown removes it wherever it landed — O(1), no document
     // or root-wide queries, and direction-agnostic across root boundaries.
     const tracked = state?.mirror?.deref();
-    if (tracked && !owned.includes(tracked)) clearProjectedReadings(tracked);
+    if (tracked && !owned.includes(tracked)) {
+        unregisterDocumentAnnotationPortalMirror(tracked);
+        clearProjectedReadings(tracked);
+    }
     if (tracked?.isConnected) tracked.remove();
     if (state) restoreTextMirrorHost(host, state);
     textMirrorHosts.delete(host);
@@ -5136,13 +5601,43 @@ function removeTextMirror(host: HTMLElement): void {
 // never force 'visible': that defeats player-control autohide and is the
 // mechanism behind stray floating underlines. Native host visibility is
 // untouched.
-function syncTextMirrorVisibilityToPage(host: HTMLElement, mirror: HTMLElement): void {
-    if (pageConcealsTextMirrorHost(host)) mirror.style.setProperty('visibility', 'hidden', 'important');
+function syncTextMirrorVisibilityToPage(
+    host: HTMLElement,
+    mirror: HTMLElement,
+    knownTopLayerConcealsPortal?: boolean,
+): void {
+    const topLayerConcealsPortal = mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)
+        && (knownTopLayerConcealsPortal ?? documentTopLayerConcealsPortal(host.ownerDocument));
+    if (topLayerConcealsPortal || pageConcealsTextMirrorHost(host)) {
+        mirror.style.setProperty('visibility', 'hidden', 'important');
+    }
     else mirror.style.removeProperty('visibility');
 }
 
+function documentTopLayerConcealsPortal(document: Document): boolean {
+    // A body-mounted portal cannot participate in the browser top layer. Hide
+    // it rather than painting stale high-z-index fragments around fullscreen,
+    // modal-dialog, or popover UI. The native label remains untouched/readable.
+    if (document.fullscreenElement) return true;
+    try {
+        return Array.from(document.querySelectorAll<HTMLElement>(
+            ':modal, :popover-open, [aria-modal="true"]',
+        )).some(element => {
+            const style = safeComputedStyle(element);
+            return style.display !== 'none'
+                && style.visibility !== 'hidden'
+                && style.visibility !== 'collapse'
+                && (style.opacity === '' || Number.parseFloat(style.opacity) !== 0);
+        });
+    } catch {
+        // Engines without one of these selectors still handle fullscreen and
+        // ordinary authored visibility.
+        return false;
+    }
+}
+
 function pageConcealsTextMirrorHost(host: HTMLElement): boolean {
-    for (let element: HTMLElement | null = host; element; element = element.parentElement) {
+    for (let element: HTMLElement | null = host; element; element = composedParentElement(element)) {
         const style = safeComputedStyle(element);
         if (style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') return true;
         // Fade-style concealment does not propagate through the visibility
@@ -5180,6 +5675,18 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
     const mirror = currentTextMirror(host);
     if (!mirror) {
         removeTextMirror(host);
+        return;
+    }
+    if (state.documentPortal) {
+        // Responsive/theme mutations may replace native typography while the
+        // portal survives; refresh the copied paint metrics without touching
+        // any native child or inline style.
+        styleDocumentAnnotationPortalMirror(mirror, host);
+        // Keep source glyphs authoritative across the complete mutation
+        // microtask. This is intentionally before geometry: even a transiently
+        // unmeasurable Range must never expose the portal's bare text runs.
+        styleAdditiveMirrorPaint(mirror);
+        syncTextMirrorVisibilityToPage(host, mirror);
         return;
     }
     syncTextMirrorVisibilityToPage(host, mirror);
@@ -5240,6 +5747,18 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     // and open-only, consistent with the scan-side descent.
     const controlHosts = new Set<HTMLElement>();
     const canvasHosts = new Set<HTMLCanvasElement>();
+    // Body-mounted portals are outside a scoped source root by design. Resolve
+    // them through the registry so clearing a comment panel, route subtree, or
+    // recycled shelf also retires its out-of-tree mirror and observer state.
+    documentAnnotationPortalMirrorsWithin(root).forEach(mirror => {
+        const host = registeredTextMirrorHostFor(mirror);
+        if (host) hosts.add(host);
+        else {
+            unregisterDocumentAnnotationPortalMirror(mirror);
+            clearProjectedReadings(mirror);
+            mirror.remove();
+        }
+    });
     queryAllInAnnotationRoots(root, `${READER_TEXT_MIRROR_SELECTOR},${READER_CONTROL_TEXT_MIRROR_SELECTOR},${READER_CANVAS_TEXT_LAYER_SELECTOR}`).forEach(surface => {
         if (surface.matches(READER_TEXT_MIRROR_SELECTOR)) {
             const host = registeredTextMirrorHostFor(surface) ?? surface.parentElement;
@@ -6192,141 +6711,6 @@ function plainTextBeforeTokenHtml(gap: string): string {
     return `${escapeHtml(prefix)}<span class="${NUMBER_BIND_CLASS}">${escapeHtml(digits)}</span>`;
 }
 
-export function renderHighlightedTextHtml(text: string, targets: string[], className: string): string {
-    const needles = uniqueNonEmptyStrings(targets).sort((a, b) => b.length - a.length);
-    if (!text || !needles.length) return escapeHtml(text);
-    return renderHighlightChunks(text, needles, className);
-}
-
-function renderHighlightChunks(text: string, needles: string[], className: string): string {
-    let html = '';
-    let offset = 0;
-    while (offset < text.length) {
-        const match = nextHighlightMatch(text, needles, offset);
-        if (!match) break;
-        html += renderHighlightChunk(text, className, offset, match);
-        offset = match.index + match.needle.length;
-    }
-    if (offset < text.length) html += escapeHtml(text.slice(offset));
-    return html;
-}
-
-function renderHighlightChunk(text: string, className: string, offset: number, match: { index: number; needle: string }): string {
-    const prefix = match.index > offset ? escapeHtml(text.slice(offset, match.index)) : '';
-    const marked = text.slice(match.index, match.index + match.needle.length);
-    return `${prefix}<mark class="${escapeHtml(className)}">${escapeHtml(marked)}</mark>`;
-}
-
-function nextHighlightMatch(text: string, needles: string[], offset: number): { index: number; needle: string } | null {
-    let best: { index: number; needle: string } | null = null;
-    for (const needle of needles) {
-        best = betterHighlightMatch(best, highlightMatchForNeedle(text, needle, offset));
-    }
-    return best;
-}
-
-function highlightMatchForNeedle(text: string, needle: string, offset: number): { index: number; needle: string } | null {
-    const index = text.indexOf(needle, offset);
-    return index < 0 ? null : { index, needle };
-}
-
-function betterHighlightMatch(
-    current: { index: number; needle: string } | null,
-    candidate: { index: number; needle: string } | null,
-): { index: number; needle: string } | null {
-    if (!candidate) return current;
-    if (!current) return candidate;
-    return isBetterHighlightMatch(candidate, current) ? candidate : current;
-}
-
-function isBetterHighlightMatch(candidate: { index: number; needle: string }, current: { index: number; needle: string }): boolean {
-    return candidate.index < current.index
-        || (candidate.index === current.index && candidate.needle.length > current.needle.length);
-}
-
-function uniqueNonEmptyStrings(values: string[]): string[] {
-    return [...new Set(values.map(value => value.trim()).filter(Boolean))];
-}
-
-export function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBToken[] {
-    const safe: JPDBToken[] = [];
-    let offset = 0;
-    for (const token of tokens) {
-        if (!isSafeTokenSpan(token, offset, text)) continue;
-        safe.push(token);
-        offset = token.end;
-    }
-    return safe;
-}
-
-function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolean {
-    if (!Number.isInteger(token.start)
-        || !Number.isInteger(token.end)
-        || token.start < offset
-        || token.start < 0
-        || token.end <= token.start
-        || token.end > text.length) return false;
-    // API/parser offset drift must never decorate a Latin or punctuation-only
-    // range. This is the final render-boundary invariant: even a structurally
-    // valid token is discarded unless the bytes it would replace are Japanese.
-    return HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end));
-}
-
-function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
-    const sentences = new Map<string, Map<string, { unknown: boolean }>>();
-    for (const token of tokens) {
-        const sentence = miningInsightSentenceKey(token);
-        if (!sentence || isParticleCard(token.card)) continue;
-        const cardKey = readerCardKey(token.card);
-        const sentenceCards = sentences.get(sentence) ?? new Map<string, { unknown: boolean }>();
-        if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
-        if (!sentenceCards.has(cardKey)) {
-            sentenceCards.set(cardKey, { unknown: isMiningUnknownCard(token.card) });
-        }
-    }
-
-    const keys = new Set<string>();
-    sentences.forEach((cards, sentence) => {
-        if (cards.size < MINING_INSIGHT_MIN_CARD_COUNT) return;
-        const unknownCards = [...cards.entries()].filter(([, card]) => card.unknown);
-        if (unknownCards.length !== 1) return;
-        keys.add(miningInsightKey(sentence, unknownCards[0][0]));
-    });
-    return keys;
-}
-
-function isMiningUnknownCard(card: JPDBCard): boolean {
-    return MINING_INSIGHT_UNKNOWN_STATES.has(primaryCardState(card.cardState));
-}
-
-function miningInsightTokenKey(token: JPDBToken): string {
-    return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
-}
-
-function miningInsightKey(sentence: string, cardKey: string): string {
-    return `${sentence}\u0000${cardKey}`;
-}
-
-function miningInsightSentenceKey(token: JPDBToken): string {
-    return (token.sentence ?? '').replace(/\s+/g, ' ').trim();
-}
-
-function readerCardKey(card: JPDBCard): string {
-    return `${readerCardSource(card)}:${readerCardId(card)}/${readerReadingIndex(card)}`;
-}
-
-function readerCardSource(card: JPDBCard): string {
-    return card.source ?? (card.reviewSource === 'jiten-api' ? 'jiten' : 'jpdb');
-}
-
-function readerCardId(card: JPDBCard): number {
-    return readerCardSource(card) === 'jiten' ? card.jitenWordId ?? card.vid : card.vid;
-}
-
-function readerReadingIndex(card: JPDBCard): number {
-    return readerCardSource(card) === 'jiten' ? card.jitenReadingIndex ?? card.sid : card.sid;
-}
-
 function renderToken(
     surface: string,
     token: JPDBToken,
@@ -6365,22 +6749,6 @@ function shouldSuppressLongProseRuby(surface: string, token: JPDBToken, options:
     const rubyLength = effectiveTokenRubies(surface, token, options.preserveTokenRubies)
         .reduce((total, ruby) => total + ruby.text.length, 0);
     return rubyLength > 20 || /[A-Za-z0-9]/.test(surface);
-}
-
-interface TokenRenderOptions {
-    allowRuby?: boolean;
-    // Paint furigana above its base without participating in ruby/line layout.
-    // Used for controls and clipped rows whose authored height must not grow.
-    detachedReadings?: boolean;
-    kanjiNavigation?: KanjiNavigationRenderOptions;
-    scanWord?: boolean;
-    proseWrap?: boolean;
-    passiveInteraction?: boolean;
-    // Scan-word renders keep the JPDB-provided ruby spans intact (e.g. 読む -> よむ) instead of
-    // re-centering furigana onto bare kanji, which is reserved for the popup token renderers.
-    preserveTokenRubies?: boolean;
-    miningInsightKeys?: ReadonlySet<string>;
-    showPitchAccent?: boolean;
 }
 
 function renderTokenShell(token: JPDBToken, options: TokenRenderOptions = {}): HTMLElement {
@@ -6489,98 +6857,6 @@ function renderDeckMembershipAttributes(card: JPDBCard): string {
     return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
 
-export function shouldRenderRuby(surface: string, token: JPDBToken, settings: ReaderSettings, allowRuby = true, preserveTokenRubies = false): boolean {
-    if (!allowRuby) return false;
-    if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-    return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
-}
-
-function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken, settings: ReaderSettings): boolean {
-    if (mode === 'off') return false;
-    // Hover mode renders ruby for every word; visibility is CSS-driven.
-    if (mode === 'hover') return true;
-    if (mode === 'known-status') return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== 'difficult-kanji' || hasDifficultKanji(surface);
-}
-
-function hasDifficultKanji(surface: string): boolean {
-    for (const char of surface) {
-        if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
-    }
-    return false;
-}
-
-export function readerWordClassName(state: string, token: JPDBToken, settings: Pick<ReaderSettings, 'showPitchAccent'>): string {
-    const classes = ['jpdb-reader-word'];
-    if (isParticleCard(token.card)) {
-        classes.push('jpdb-reader-particle');
-    }
-    if (hasKnownCardState(token.card)) {
-        classes.push(`jpdb-${state}`);
-        const source = readerCardSource(token.card);
-        if (source !== 'jpdb') classes.push(`${source}-${state}`);
-    }
-    classes.push(...cardDeckMembershipClassNames(token.card));
-    if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
-    return classes.join(' ');
-}
-
-function hasKnownCardState(card: JPDBToken['card']): boolean {
-    return Array.isArray(card.cardState) && card.cardState.length > 0;
-}
-
-export function isParticleCard(card: JPDBCard): boolean {
-    return card.partOfSpeech.includes('prt') || PARTICLE_SURFACE_RE.test(card.spelling.trim());
-}
-
-function safePitchClass(value: string): string {
-    return PITCH_CLASSES.has(value) ? value : 'unknown';
-}
-
-// Grammatical particles are clitics with no lexical accent of their own — any
-// pattern a dictionary reports for the same kana belongs to a homophone noun
-// (葉/荷/戸), so は・に・と used to wear a spurious underline while を・の had
-// none. Particles get a deliberate accentless class distinct from 'unknown'.
-function tokenPitchClass(token: JPDBToken): string {
-    return isParticleCard(token.card) ? 'particle' : safePitchClass(token.pitchClass);
-}
-
-export function renderRuby(surface: string, token: JPDBToken, kanjiNavigation?: KanjiNavigationRenderOptions, preserveTokenRubies = false): string {
-    let html = '';
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-        const start = ruby.start - token.start;
-        const end = ruby.end - token.start;
-        html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-        html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
-        localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
-}
-
-function renderDetachedReadings(
-    surface: string,
-    token: JPDBToken,
-    kanjiNavigation?: KanjiNavigationRenderOptions,
-    preserveTokenRubies = false,
-): string {
-    let html = '';
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-        const start = ruby.start - token.start;
-        const end = ruby.end - token.start;
-        html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-        html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
-        html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-        html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span>`;
-        html += '</span>';
-        localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
-}
-
 /**
  * Replace a rendered word's reading without changing the layout channel that
  * owns it. Async public-vocabulary enrichment is deliberately routed through
@@ -6612,9 +6888,21 @@ export function replaceRenderedWordFurigana(word: HTMLElement, surface: string, 
         const sourceStart = Number.parseInt(word.dataset.yomuSourceStart ?? '', 10);
         if (Number.isFinite(sourceStart)) stampProjectedRubySourceRanges(word, surface, token, sourceStart);
     }
-    styleDetachedReadingElements(renderSurface, host);
-    if (mirror) refreshConstrainedMirrorProjection(host);
-    stabilizeDetachedReadings(renderSurface, clipRow, Boolean(mirror));
+    // Only this word received new detached nodes; the rest of a long mirror is
+    // already styled. Avoid turning a batch of N late readings into N scans and
+    // style-write walks over every previously hydrated word.
+    styleDetachedReadingElements(word, host);
+    if (mirror) {
+        // Async hydration often resolves many words in one response. Projecting
+        // the complete source mirror synchronously for every word turns that
+        // response into N whole-mirror Range/layout passes. Keep the initial
+        // render's post-paint semantics and coalesce late readings into the
+        // existing projection lane; document portals use their exact-mirror
+        // queue instead of waking every portal in the document.
+        scheduleCurrentTextMirrorProjection(host);
+    } else {
+        stabilizeDetachedReadings(renderSurface, clipRow);
+    }
     return true;
 }
 
@@ -6634,304 +6922,6 @@ export function clearRenderedWordFurigana(word: HTMLElement, surface: string): v
     delete mirror.dataset.yomuDetachedReadings;
     clearProjectedReadings(mirror);
     styleConstrainedTextMirror(mirror, clipRow);
-}
-
-export function inferredInflectedSurfaceRubies(surface: string, spelling: string, reading: string): JPDBToken['rubies'] {
-    const visibleSurface = surface.trim();
-    const baseSpelling = spelling.trim();
-    const baseReading = reading.trim();
-    if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE.test(visibleSurface) || !KANA_RE.test(baseReading) || baseReading === baseSpelling) return [];
-
-    for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
-        if (!baseReading.endsWith(spellingSuffix)) continue;
-        const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
-        if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
-        // An EMPTY surface suffix is legal: parse boundaries can leave a bare
-        // verb stem in the span (見 for 見る, the okurigana tokenized apart) —
-        // the stem still deserves its reading-stem ruby.
-        const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-        if (surfaceSuffix && !KANA_RE.test(surfaceSuffix)) continue;
-        const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
-        if (rubies.length) return rubies;
-    }
-
-    // Kanji-only spelling (接続, 練習, 理想的) has no trailing kana, so the
-    // suffix loop above yields nothing. When the inflected surface simply
-    // appends okurigana/auxiliaries to the whole spelling (接続して, 練習し,
-    // 理想的な), the entire spelling still reads as baseReading — emit one
-    // ruby covering it.
-    if (
-        visibleSurface.startsWith(baseSpelling) &&
-        !KANA_CHAR_RE.test(baseSpelling)
-    ) {
-        const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-        if (!surfaceSuffix || KANA_RE.test(surfaceSuffix)) {
-            return [{
-                text: baseReading,
-                start: 0,
-                end: baseSpelling.length,
-                length: baseSpelling.length,
-            }];
-        }
-    }
-    return [];
-}
-
-function trailingKanaSuffixes(value: string): string[] {
-    const suffixes: string[] = [];
-    for (let index = 0; index < value.length; index += 1) {
-        const suffix = value.slice(index);
-        if (suffix && KANA_RE.test(suffix)) suffixes.push(suffix);
-    }
-    return suffixes.sort((first, second) => second.length - first.length);
-}
-
-function stemRubiesForInflectedSurface(surfaceStem: string, readingStem: string): JPDBToken['rubies'] {
-    const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
-    if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE.test(trimmed.surface) || !KANA_RE.test(trimmed.reading)) return [];
-    return [{
-        text: trimmed.reading,
-        start: trimmed.offset,
-        end: trimmed.offset + trimmed.surface.length,
-        length: trimmed.surface.length,
-    }];
-}
-
-function trimSharedKanaAffixes(surface: string, reading: string): { surface: string; reading: string; offset: number } {
-    let trimmedSurface = surface;
-    let trimmedReading = reading;
-    let offset = 0;
-    while (trimmedSurface && trimmedReading && sameKanaCharacter(trimmedSurface[0], trimmedReading[0])) {
-        trimmedSurface = trimmedSurface.slice(1);
-        trimmedReading = trimmedReading.slice(1);
-        offset += 1;
-    }
-    while (trimmedSurface && trimmedReading && sameKanaCharacter(
-        trimmedSurface[trimmedSurface.length - 1],
-        trimmedReading[trimmedReading.length - 1],
-    )) {
-        trimmedSurface = trimmedSurface.slice(0, -1);
-        trimmedReading = trimmedReading.slice(0, -1);
-    }
-    return { surface: trimmedSurface, reading: trimmedReading, offset };
-}
-
-function sameKanaCharacter(first: string | undefined, second: string | undefined): boolean {
-    return Boolean(first && second && first === second && KANA_RE.test(first));
-}
-
-function effectiveTokenRubies(surface: string, token: JPDBToken, preserveTokenRubies = false): JPDBToken['rubies'] {
-    const sources = sourceTokenRubies(surface, token);
-    if (preserveTokenRubies) {
-        // Preserve explicit rubies over kanji-containing bases; a kana-only
-        // base never needs furigana (the ruby would just repeat the visible
-        // word). When the base mixes kanji and kana (e.g. 話す/はなす), trim
-        // the ruby down to the kanji portion so furigana never covers kana.
-        return sources.flatMap(ruby => {
-            const range = localRubyRange(surface, token, ruby);
-            if (!range) return [];
-            const base = surface.slice(range.start, range.end);
-            if (!KANJI_RE.test(base)) return [];
-            if (!KANA_CHAR_RE.test(base)) return [ruby];
-            const parts = kanjiOnlyRubySegments(surface, token, ruby);
-            return parts.length ? parts : [ruby];
-        });
-    }
-    return sources.flatMap(ruby => kanjiOnlyRubySegments(surface, token, ruby));
-}
-
-function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
-    if (token.rubies.length) return token.rubies;
-
-    const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
-    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-    if (inferred.length) {
-        return inferred.map(ruby => ({
-            ...ruby,
-            start: token.start + ruby.start,
-            end: token.start + ruby.end,
-        }));
-    }
-    // A whole-card reading cannot be centred over only one fragment of a
-    // compound split across framework-owned leaves. Inflections returned
-    // above have an explicit surface alignment; every other spelling mismatch
-    // must wait for the exact-surface recovery lookup.
-    if (surface.trim() !== token.card.spelling.trim()) return [];
-    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
-}
-
-function kanjiOnlyRubySegments(surface: string, token: JPDBToken, ruby: JPDBToken['rubies'][number]): JPDBToken['rubies'] {
-    const range = localRubyRange(surface, token, ruby);
-    if (!range) return [];
-
-    return kanjiRubyParts(surface.slice(range.start, range.end), ruby.text.trim()).map(part => ({
-        text: part.text,
-        start: token.start + range.start + part.start,
-        end: token.start + range.start + part.end,
-        length: part.end - part.start,
-    }));
-}
-
-function localRubyRange(surface: string, token: JPDBToken, ruby: JPDBToken['rubies'][number]): { start: number; end: number } | null {
-    const start = ruby.start - token.start;
-    const end = ruby.end - token.start;
-    if (start < 0 || end > surface.length || end <= start) return null;
-    return { start, end };
-}
-
-function kanjiRubyParts(base: string, reading: string): Array<{ text: string; start: number; end: number }> {
-    if (!base || !reading || !KANJI_RE.test(base)) return [];
-    if (!KANA_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
-
-    const anchors = alignRubyKanaAnchors(base, reading);
-    if (!anchors) return trimRubyPartToKanji(base, reading);
-
-    const parts: Array<{ text: string; start: number; end: number }> = [];
-    let baseOffset = 0;
-    let readingOffset = 0;
-    for (const anchor of anchors) {
-        appendRubyGap(parts, base, baseOffset, anchor.baseStart, reading.slice(readingOffset, anchor.readingStart));
-        baseOffset = anchor.baseEnd;
-        readingOffset = anchor.readingEnd;
-    }
-    appendRubyGap(parts, base, baseOffset, base.length, reading.slice(readingOffset));
-    return parts.length ? parts : trimRubyPartToKanji(base, reading);
-}
-
-function appendRubyGap(parts: Array<{ text: string; start: number; end: number }>, base: string, start: number, end: number, reading: string): void {
-    const part = trimRubyPartToKanji(base.slice(start, end), reading)[0];
-    if (part) parts.push({ text: part.text, start: start + part.start, end: start + part.end });
-}
-
-function trimRubyPartToKanji(base: string, reading: string): Array<{ text: string; start: number; end: number }> {
-    const trimmed = trimSharedKanaAffixes(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE.test(trimmed.surface)) return [];
-    const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
-    if (kanjiOnly) {
-        return [{
-            text: trimmed.reading,
-            start: trimmed.offset + kanjiOnly.start,
-            end: trimmed.offset + kanjiOnly.end,
-        }];
-    }
-    return [{
-        text: trimmed.reading,
-        start: trimmed.offset,
-        end: trimmed.offset + trimmed.surface.length,
-    }];
-}
-
-function kanaTrimmedKanjiRange(base: string, reading: string): { start: number; end: number } | null {
-    if (!KANA_RE.test(reading) || !KANA_CHAR_RE.test(base)) return null;
-    const chars = Array.from(base);
-    const first = chars.findIndex(char => KANJI_RE.test(char));
-    if (first < 0) return null;
-    let last = -1;
-    for (let index = chars.length - 1; index >= first; index -= 1) {
-        if (KANJI_RE.test(chars[index])) {
-            last = index;
-            break;
-        }
-    }
-    if (last < first || (first === 0 && last === chars.length - 1)) return null;
-    return { start: first, end: last + 1 };
-}
-
-function alignRubyKanaAnchors(base: string, reading: string): RubyKanaAnchor[] | null {
-    const runs = rubyBaseKanaRuns(base);
-    if (!runs.length) return [];
-    return findRubyKanaAnchorPlan(base, reading, runs, 0, 0, []);
-}
-
-function findRubyKanaAnchorPlan(
-    base: string,
-    reading: string,
-    runs: RubyBaseKanaRun[],
-    index: number,
-    readingOffset: number,
-    anchors: RubyKanaAnchor[],
-): RubyKanaAnchor[] | null {
-    if (index >= runs.length) return rubyKanaAnchorPlanIsValid(base, reading, anchors) ? anchors : null;
-
-    const run = runs[index];
-    for (const readingStart of readingRunOccurrences(reading, run.text, readingOffset)) {
-        const nextAnchors = anchors.concat({
-            ...run,
-            readingStart,
-            readingEnd: readingStart + run.text.length,
-        });
-        const plan = findRubyKanaAnchorPlan(base, reading, runs, index + 1, readingStart + run.text.length, nextAnchors);
-        if (plan) return plan;
-    }
-    return null;
-}
-
-function readingRunOccurrences(reading: string, text: string, offset: number): number[] {
-    const occurrences: number[] = [];
-    let index = reading.indexOf(text, offset);
-    while (index >= 0) {
-        occurrences.push(index);
-        index = reading.indexOf(text, index + 1);
-    }
-    return occurrences;
-}
-
-function rubyKanaAnchorPlanIsValid(base: string, reading: string, anchors: RubyKanaAnchor[]): boolean {
-    let baseOffset = 0;
-    let readingOffset = 0;
-    for (const anchor of anchors) {
-        if (!rubyGapCanOwnReading(base.slice(baseOffset, anchor.baseStart), reading.slice(readingOffset, anchor.readingStart))) return false;
-        baseOffset = anchor.baseEnd;
-        readingOffset = anchor.readingEnd;
-    }
-    return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
-}
-
-function rubyGapCanOwnReading(base: string, reading: string): boolean {
-    return KANJI_RE.test(base) ? reading.length > 0 : reading.length === 0;
-}
-
-function rubyBaseKanaRuns(base: string): RubyBaseKanaRun[] {
-    const runs: RubyBaseKanaRun[] = [];
-    let start = -1;
-    for (let index = 0; index <= base.length; index += 1) {
-        const isKana = index < base.length && KANA_CHAR_RE.test(base[index]);
-        if (isKana && start < 0) start = index;
-        if ((!isKana || index === base.length) && start >= 0) {
-            runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
-            start = -1;
-        }
-    }
-    return runs;
-}
-
-function kanjiNavigationForElement(element: HTMLElement): KanjiNavigationRenderOptions | undefined {
-    const host = element.closest<HTMLElement>('[data-jpdb-reader-kanji-nav]');
-    if (!host) return undefined;
-    return {
-        enabled: true,
-        label: host.dataset.jpdbReaderKanjiNavLabel || 'Show kanji',
-    };
-}
-
-export function renderKanjiNavigationText(value: string, options?: KanjiNavigationRenderOptions): string {
-    if (!options?.enabled) return escapeHtml(value);
-    return Array.from(value).map(character => isKanjiForInlineNavigation(character)
-        ? renderKanjiNavigationCharacter(character, options.label)
-        : escapeHtml(character),
-    ).join('');
-}
-
-function renderKanjiNavigationCharacter(character: string, label: string): string {
-    const safeCharacter = escapeHtml(character);
-    return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml(`${label}: ${character}`)}">${safeCharacter}</button>`;
-}
-
-function isKanjiForInlineNavigation(value: string): boolean {
-    return isUnifiedIdeograph(value);
 }
 
 function isVisible(element: HTMLElement): boolean {
