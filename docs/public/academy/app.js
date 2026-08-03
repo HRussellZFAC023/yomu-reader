@@ -35791,1444 +35791,6 @@ ${spelling}`);
   const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
     (name) => name !== "--jpdb-reader-word-contrast-shadow"
   );
-  const RENDERED_WORD_CARD_STATES = [
-    "new",
-    "learning",
-    "young",
-    "mature",
-    "known",
-    "mastered",
-    "due",
-    "failed",
-    "locked",
-    "never-forget",
-    "blacklisted",
-    "suspended",
-    "in-deck",
-    "not-in-deck",
-    "redundant",
-    "frequent",
-    "unparsed"
-  ];
-  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
-  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
-  const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
-  function clearRenderedWordAnkiState(word) {
-    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
-    delete word.dataset.ankiState;
-    delete word.dataset.ankiDecks;
-    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
-    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
-  }
-  function setRenderedWordPitchClass(word, pitchClass) {
-    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
-    word.dataset.pitchClass = pitchClass;
-    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
-  }
-  function setRenderedWordPitchAccentPattern(word, card) {
-    const pitchAccent = card.pitchAccent.join("|");
-    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
-  }
-  function setRenderedWordPitchComponents(word, card) {
-    const gradient = pitchComponentUnderlineGradient(card);
-    if (!gradient) {
-      delete word.dataset.pitchComponents;
-      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
-      return;
-    }
-    word.dataset.pitchComponents = "true";
-    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
-  }
-  function cardStateProvenance(card) {
-    return card.provisionalState === true ? "provisional" : "authoritative";
-  }
-  function setRenderedWordCardIdentity(word, card, options = {}) {
-    word.dataset.vid = String(card.vid);
-    word.dataset.sid = String(card.sid);
-    word.dataset.expression = card.spelling;
-    word.dataset.reading = card.reading;
-    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
-    setRenderedWordPitchAccentPattern(word, card);
-    setRenderedWordPitchComponents(word, card);
-    applyRenderedWordCardStatus(word, card, options, true);
-  }
-  function setRenderedWordCardStatus(word, card, options = {}) {
-    applyRenderedWordCardStatus(word, card, options, false);
-  }
-  function applyRenderedWordCardStatus(word, card, options, replaceCardIdentity) {
-    const source2 = renderedWordCardSource(card);
-    const state = primaryCardState(card.cardState);
-    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.srsProvider;
-    clearRenderedWordDeckMembershipClasses(word, ["anki"]);
-    if (replaceCardIdentity) {
-      word.dataset.cardSource = source2;
-      word.dataset.cardId = String(renderedWordCardId(card, source2));
-      word.dataset.readingIndex = String(renderedWordReadingIndex(card, source2));
-    }
-    word.dataset.cardState = state;
-    word.dataset.stateProvenance = cardStateProvenance(card);
-    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    word.classList.add(`jpdb-${state}`);
-    if (source2 !== "jpdb") word.classList.add(`${source2}-${state}`);
-    applyRenderedWordDeckMembership(word, card);
-  }
-  function applyLocalYomuSrsStateToRenderedWord(word, card) {
-    const state = primaryCardState(card.cardState);
-    const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative";
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.bunproPrefillState;
-    delete word.dataset.bunproPrefillProvenance;
-    word.dataset.cardState = state;
-    word.dataset.srsProvider = "yomu-local";
-    word.dataset.stateProvenance = "authoritative";
-    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
-    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    return changed;
-  }
-  function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
-    return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
-  }
-  function clearRenderedWordMiningInsight(word) {
-    word.classList.remove("jpdb-reader-i-plus-one");
-    delete word.dataset.miningInsight;
-  }
-  function clearRenderedWordCardStateClasses(word) {
-    Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
-  }
-  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
-    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
-    if (preserveSources.length) return;
-    delete word.dataset.deckMember;
-    delete word.dataset.deckSource;
-    delete word.dataset.deckNames;
-  }
-  function isRenderedWordCardStateClass(className) {
-    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
-  }
-  function isRenderedWordDeckMembershipClass(className, preserveSources) {
-    if (className === "yomu-deck-member") return false;
-    if (className.startsWith("yomu-deck-")) return true;
-    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
-      if (preserveSources.includes(prefix)) return false;
-      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
-    });
-  }
-  function applyRenderedWordDeckMembership(word, card) {
-    const membership = cardDeckMembership(card);
-    if (!membership.member) {
-      if (!word.classList.contains("anki-deck-member")) {
-        word.classList.remove("yomu-deck-member");
-        delete word.dataset.deckMember;
-        delete word.dataset.deckSource;
-        delete word.dataset.deckNames;
-      }
-      return;
-    }
-    word.classList.add(...cardDeckMembershipClassNames(card));
-    word.dataset.deckMember = "true";
-    word.dataset.deckSource = membership.source;
-    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
-    else delete word.dataset.deckNames;
-  }
-  function renderedWordCardSource(card) {
-    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-  }
-  function renderedWordCardId(card, source2 = renderedWordCardSource(card)) {
-    return source2 === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
-  }
-  function renderedWordReadingIndex(card, source2 = renderedWordCardSource(card)) {
-    return source2 === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
-  }
-  function isTargetLanguageText(text2) {
-    return activeLearningTarget().isLookupableText(text2);
-  }
-  function segmentTargetLanguageText(text2) {
-    return activeLearningTarget().segment(text2);
-  }
-  const CORE_COLOR_TOKENS = {
-    black: "#000000",
-    white: "#ffffff",
-    transparentBlack: "rgba(0, 0, 0, 0)"
-  };
-  const BRAND_COLOR_TOKENS = {
-    accent: "#5ea780",
-    consoleAccent: "#247a58"
-  };
-  const READER_THEME_COLOR_TOKENS = {
-    dark: {
-      bg: "#181b20",
-      surface: "#20242b",
-      surface2: "#282e37",
-      accentText: "#11161d"
-    },
-    light: {
-      bg: "#fbfcfe",
-      surface: "#f4f7fa",
-      surface2: "#e8edf3",
-      text: "#17202a",
-      accentText: CORE_COLOR_TOKENS.white
-    }
-  };
-  const OVERLAY_COLOR_TOKENS = {
-    text: CORE_COLOR_TOKENS.white,
-    outline: CORE_COLOR_TOKENS.black,
-    background: READER_THEME_COLOR_TOKENS.dark.bg
-  };
-  const OCR_OVERLAY_COLOR_TOKENS = {
-    text: READER_THEME_COLOR_TOKENS.light.text,
-    outline: CORE_COLOR_TOKENS.white
-  };
-  const DEFAULT_WORD_COLOR_TOKENS = {
-    new: "#ffffff",
-    learning: "#ffd166",
-    known: "#7bd88f",
-    due: "#5fb3b3",
-    failed: "#ff6b6b",
-    ignored: "#b8a7ff"
-  };
-  const DEFAULT_PITCH_COLOR_TOKENS = {
-    heiban: "#359eff",
-    atamadaka: "#fe4b74",
-    nakadaka: "#fba840",
-    odaka: "#57ccb7",
-    unknown: "#94a3b8"
-  };
-  const LOOKUP_PILL_COLOR_TOKENS = {
-    jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
-    jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
-    bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-    "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
-    jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
-    weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
-    kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-    takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
-    "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
-    "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
-    nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
-    uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
-    anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
-    copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
-  };
-  const DOODLE_COLOR_TOKENS = {
-    ink: "#141820"
-  };
-  const PAGE_WORD_COLOR_TOKENS = {
-    unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
-  };
-  const LOGGER_COLOR_TOKENS = {
-    debug: "#6b7280",
-    warn: "#a15c00",
-    error: "#b91c1c"
-  };
-  const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "music.youtube.com",
-    "studio.youtube.com",
-    "kids.youtube.com",
-    "gaming.youtube.com",
-    "youtu.be"
-  ]);
-  function isYouTubeAppHostname(hostname = location.hostname) {
-    return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
-  }
-  const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
-  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-  function safeElementMatches(element2, selector) {
-    try {
-      return element2.matches(selector);
-    } catch {
-      return false;
-    }
-  }
-  function safeQuerySelector(root, selector) {
-    try {
-      return root.querySelector(selector);
-    } catch {
-      return null;
-    }
-  }
-  function safeComputedStyle(element2) {
-    try {
-      return getComputedStyle(element2);
-    } catch {
-      return element2.style;
-    }
-  }
-  function compactLength(value) {
-    return Array.from(value.replace(/\s+/g, "")).length;
-  }
-  function cssPixels(value) {
-    const parsed = Number.parseFloat(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  function elementClassName(element2) {
-    return String(element2.className || "");
-  }
-  function hasLineClamp(style) {
-    const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
-    return Boolean(clamp2 && clamp2 !== "none" && clamp2 !== "0");
-  }
-  function isEllipsisTextRow(style) {
-    if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
-    if (style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box") return true;
-    return style.minWidth === "0px";
-  }
-  function clipsOverflow(style) {
-    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
-  }
-  function hasDefiniteCssSize(value) {
-    const normalized2 = value.trim().toLowerCase();
-    return Boolean(normalized2 && normalized2 !== "auto" && normalized2 !== "none" && normalized2 !== "normal" && normalized2 !== "initial" && normalized2 !== "inherit" && normalized2 !== "unset");
-  }
-  function hasClippedTextConstraint(style) {
-    if (!clipsOverflow(style)) return false;
-    return hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight) || style.display === "-webkit-box";
-  }
-  function isPositionedTextOverlay(style) {
-    return (style.position === "absolute" || style.position === "fixed") && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
-  }
-  function isVerticalWritingMode(writingMode) {
-    return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
-  }
-  const CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS = 2e3;
-  const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
-  const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
-  const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
-  let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
-  let constrainedRowStyleGeneration = 0;
-  function noteConstrainedRowLayoutSettled() {
-    constrainedRowStyleGeneration += 1;
-  }
-  function constrainedRowStyleFacts(element2) {
-    const now = Date.now();
-    const memo = constrainedRowStyleFactMemo.get(element2);
-    if (memo && memo.gen === constrainedRowStyleGeneration && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
-    const style = safeComputedStyle(element2);
-    const clamped = hasLineClamp(style);
-    const ellipsisRow = isEllipsisTextRow(style);
-    const clips = clipsOverflow(style);
-    const clippedConstraint = hasClippedTextConstraint(style);
-    let clippedShortRow = false;
-    let activelyTruncatedPreview = false;
-    if (clips && !clamped && !ellipsisRow) {
-      const height = element2.getBoundingClientRect().height;
-      clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
-      const clientHeight = element2.clientHeight;
-      activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
-    }
-    const facts = {
-      clamped,
-      ellipsisRow,
-      clippedConstraint,
-      clippedShortRow,
-      activelyTruncatedPreview
-    };
-    constrainedRowStyleFactMemo.set(element2, { at: now, gen: constrainedRowStyleGeneration, facts });
-    return facts;
-  }
-  function closestRubyFragileConstrainedRow(element2) {
-    let current = element2;
-    for (let depth = 0; current && depth < 12; depth += 1) {
-      const facts = constrainedRowStyleFacts(current);
-      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
-      current = composedAncestorElement(current);
-    }
-    return null;
-  }
-  function composedAncestorElement(element2) {
-    if (element2.assignedSlot) return element2.assignedSlot;
-    if (element2.parentElement) return element2.parentElement;
-    const root = element2.getRootNode();
-    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
-  }
-  function contentClipRowShowsRestReadings(decoration, clipRow) {
-    if (decoration !== "prose-full") return false;
-    if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
-    if (!clipRowHasGrowableShape(clipRow)) return false;
-    const facts = constrainedRowStyleFacts(clipRow);
-    if (!facts.clamped && !facts.ellipsisRow) return false;
-    const clampLines = Number.parseInt(safeComputedStyle(clipRow).getPropertyValue("-webkit-line-clamp"), 10);
-    if (Number.isFinite(clampLines) && clampLines > 1) return false;
-    const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
-    return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
-  }
-  const CLAMP_ROW_SHELL_ANCESTOR_LIMIT = 6;
-  function clampRowAllowsInFlowRestRuby(decoration, clipRow) {
-    if (decoration !== "prose-full" && decoration !== "content-ruby") return false;
-    const facts = constrainedRowStyleFacts(clipRow);
-    if (!facts.clamped) return false;
-    if (!clipRowHasGrowableShape(clipRow)) return false;
-    return !clampRowHasFixedClippingShell(clipRow);
-  }
-  function clipRowHasGrowableShape(clipRow) {
-    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
-    const facts = constrainedRowStyleFacts(clipRow);
-    if (facts.clippedShortRow || facts.activelyTruncatedPreview) return false;
-    const style = safeComputedStyle(clipRow);
-    if (hasDefiniteCssSize(style.maxHeight)) return false;
-    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
-  }
-  function clampRowHasFixedClippingShell(clipRow) {
-    let current = composedAncestorElement(clipRow);
-    for (let depth = 0; current && current !== document.body && depth < CLAMP_ROW_SHELL_ANCESTOR_LIMIT; depth += 1) {
-      if (ancestorPinsClampRowGrowth(current)) return true;
-      current = composedAncestorElement(current);
-    }
-    return false;
-  }
-  function ancestorPinsClampRowGrowth(ancestor) {
-    const style = safeComputedStyle(ancestor);
-    const definiteSize = hasDefiniteCssSize(style.maxHeight) || hasDefiniteCssSize(ancestor.style.height) || hasDefiniteCssSize(ancestor.style.maxHeight);
-    const clips = style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
-    if (definiteSize && clips) return true;
-    const display = style.display;
-    const trackParent = display.includes("flex") || display.includes("grid") || display.startsWith("table");
-    return trackParent && (definiteSize || clips);
-  }
-  const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
-  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
-  const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
-  const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
-  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
-  function isLikelyProseElement(element2) {
-    if (PROSE_TAGS$1.includes(`,${element2.tagName},`)) return true;
-    return isLikelyProseClass(element2) || isConversationTextClass(element2);
-  }
-  function isReadableProseContext(element2) {
-    let current = element2;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
-      if (isConversationTextClass(current)) return true;
-      current = current.parentElement;
-    }
-    return false;
-  }
-  function isLikelyProseClass(element2) {
-    return PROSE_CLASS_RE.test(elementClassName(element2));
-  }
-  function isConversationTextClass(element2) {
-    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
-  }
-  function isLikelyProseLink(link, element2) {
-    return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
-  }
-  function isProseFullContext(element2) {
-    let current = element2;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
-      current = current.parentElement;
-    }
-    return false;
-  }
-  function isExplicitControlLink(link) {
-    return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
-  }
-  function linkHasControlMedia(link) {
-    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
-  }
-  function linkHasControlShape(link, text2) {
-    const style = safeComputedStyle(link);
-    const rect = link.getBoundingClientRect();
-    return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
-  }
-  function hasControlLinkStyle(style) {
-    return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
-  }
-  function hasControlLinkDisplay(display) {
-    return display.includes("flex") || display.includes("grid") || display === "inline-block";
-  }
-  function hasVisibleControlLinkBox(style) {
-    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
-  }
-  function hasVisibleBorderSide(style, width) {
-    return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
-  }
-  function hasShortControlLinkText(link, text2) {
-    return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
-  }
-  function hasControlLinkWidth(rect) {
-    return rect.width > 0 && rect.width < 360;
-  }
-  function hasUiBox(style) {
-    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
-  }
-  function hasInlineControlShape(display) {
-    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
-  }
-  const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-  const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-  const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
-  const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
-  function isPassiveInteractionElement(element2) {
-    if (element2.closest(READER_ROOT_SELECTOR)) return false;
-    if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
-    if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
-    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
-    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
-    return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
-  }
-  function isCompactPassiveInteractionElement(element2) {
-    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-    if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
-    return element2.childElementCount <= 4;
-  }
-  function isCompactPassiveChromeElement(element2) {
-    if (isLikelyProseElement(element2)) return false;
-    return isCompactPassiveInteractionElement(element2);
-  }
-  function readableContextPassiveChromeElement(element2) {
-    const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
-    if (interaction) {
-      if (isConversationTextClass(interaction)) return null;
-      if (safeElementMatches(interaction, 'a[href],[role="link"]')) return interaction;
-      if (isCompactPassiveInteractionElement(interaction)) return interaction;
-    }
-    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
-    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
-    return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
-  }
-  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-  const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
-  const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
-  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-  const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
-  const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
-  const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
-  const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
-  const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
-  const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
-  const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
-  const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-  function compactScanRubySuppression(parent) {
-    if (parent.closest(READER_ROOT_SELECTOR)) return { suppress: false, marks: [] };
-    const marks = [];
-    const notice = compactConstrainedNotificationElement(parent);
-    if (notice) marks.push({ element: notice, atomic: true });
-    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent) ?? compactMetadataChromeElement(parent) ?? compactVisualLabelElement(parent);
-    if (chrome) marks.push({ element: chrome, atomic: true });
-    return { suppress: Boolean(chrome || notice), marks };
-  }
-  function compactVisualLabelElement(parent) {
-    const chromeContext = isCompactInteractiveChromeContext(parent);
-    if (isReadableProseContext(parent) && !chromeContext) return null;
-    let current = parent;
-    for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
-      if (!UI_CLASS_RE.test(elementClassName(current))) continue;
-      const text2 = compactInteractiveChromeText(current);
-      if (!isCompactInteractiveChromeText(text2)) continue;
-      if (hasCompactInteractiveChromeGeometry(current)) return current;
-      const rect = current.getBoundingClientRect();
-      if (chromeContext && rect.width === 0 && rect.height === 0) return current;
-    }
-    return null;
-  }
-  const COMPACT_METADATA_CLASS_RE = /author|byline|count|display[-_]?name|handle|meta(?:data)?|nickname|published|screen[-_]?name|statistic|stats|timestamp|user[-_]?name/i;
-  function compactMetadataChromeElement(parent) {
-    let current = parent;
-    for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
-      const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
-      if (!explicit || isConversationTextClass(current)) continue;
-      const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
-      if (!isCompactInteractiveChromeText(text2)) continue;
-      const rect = current.getBoundingClientRect();
-      if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
-    }
-    return null;
-  }
-  function applyPassiveChromeMarks(marks) {
-    for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
-  }
-  function markPassiveChromeElement(element2, atomic = false) {
-    if (element2.dataset.jpdbReaderPassiveChrome !== "true") {
-      element2.dataset.jpdbReaderPassiveChrome = "true";
-    }
-    if (atomic && element2.dataset.jpdbReaderPassiveAtomic !== "true") {
-      element2.dataset.jpdbReaderPassiveAtomic = "true";
-    }
-    if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
-      element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
-    }
-  }
-  function hasExplicitAccessibleName(element2) {
-    return Boolean(
-      element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
-    );
-  }
-  function passiveChromeAccessibleLabel(element2) {
-    return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
-  }
-  function compactInteractiveChromeElement(parent) {
-    const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
-    if (!chrome) return null;
-    const text2 = compactInteractiveChromeText(chrome);
-    if (!isCompactInteractiveChromeText(text2)) return null;
-    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
-      return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
-    }
-    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
-  }
-  function compactInteractiveChromeText(element2) {
-    return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-  }
-  function compactPassiveChromeElement(parent) {
-    if (isReadableProseContext(parent)) return null;
-    if (!isCompactInteractiveChromeContext(parent)) return null;
-    const text2 = compactInteractiveChromeText(parent);
-    if (!isCompactInteractiveChromeText(text2)) return null;
-    return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
-  }
-  function compactPassiveInteractionRubyElement(parent) {
-    if (isReadableProseContext(parent)) return null;
-    const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
-    if (!interaction) return null;
-    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
-    if (isLikelyProseElement(interaction)) return null;
-    if (!isCompactPassiveInteractionElement(interaction)) return null;
-    const style = safeComputedStyle(interaction);
-    if (isVerticalWritingMode(style.writingMode)) return interaction;
-    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
-    if (isCompactInteractiveChromeContext(interaction)) return interaction;
-    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
-  }
-  function isCompactInteractiveChromeText(text2) {
-    const length = compactLength(text2);
-    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text2);
-  }
-  function isCompactInteractiveChromeLink(link, parent, text2) {
-    if (isLikelyProseLink(link, parent)) return false;
-    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
-    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
-  }
-  function isCompactInteractiveChromeControl(control2, parent) {
-    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control2)) return false;
-    if (safeElementMatches(control2, '[role="button"]') && control2.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control2)) return false;
-    if (safeElementMatches(control2, '[role="combobox"]') && !isNonEditableListboxTrigger(control2)) return false;
-    const chromeLike = isCompactInteractiveChromeContext(control2) || hasCompactInteractiveChromeGeometry(control2) || safeElementMatches(control2, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
-    return chromeLike && hasCompactInteractiveChromeRubyRisk(control2);
-  }
-  function isCompactInteractiveChromeContext(element2) {
-    return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
-  }
-  function hasCompactInteractiveChromeGeometry(element2) {
-    const style = safeComputedStyle(element2);
-    const rect = element2.getBoundingClientRect();
-    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
-    if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
-    return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
-  }
-  function hasCompactInteractiveChromeRubyRisk(element2) {
-    const style = safeComputedStyle(element2);
-    if (isVerticalWritingMode(style.writingMode)) return true;
-    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
-    if (isCompactInteractiveChromeContext(element2)) return true;
-    if (safeElementMatches(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
-    if (!hasCompactInteractiveChromeGeometry(element2)) return false;
-    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
-    return clipsOverflow(style) && style.whiteSpace === "nowrap";
-  }
-  function compactConstrainedNotificationElement(parent) {
-    if (parent.closest(READER_ROOT_SELECTOR)) return null;
-    const textLength = compactLength(parent.textContent ?? "");
-    if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
-    let current = parent;
-    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-      if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
-      if (isConstrainedNotificationContainer(current, parent)) return current;
-      current = current.parentElement;
-    }
-    return null;
-  }
-  function isConstrainedNotificationContainer(container, textElement2) {
-    if (!safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR)) return false;
-    if (!hasConstrainedNotificationGeometry(container, textElement2)) return false;
-    return hasNotificationActionPeer(container, textElement2);
-  }
-  function hasConstrainedNotificationGeometry(container, textElement2) {
-    const rect = container.getBoundingClientRect();
-    const textRect = textElement2.getBoundingClientRect();
-    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
-  }
-  function notificationContainerLooksLikePageSection(container) {
-    const rect = container.getBoundingClientRect();
-    if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
-    return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
-  }
-  function hasNotificationActionPeer(container, textElement2) {
-    const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
-    if (Array.from(container.querySelectorAll(selector)).some((action2) => !action2.contains(textElement2))) return true;
-    if (container === textElement2) return false;
-    const row2 = container.parentElement;
-    if (!row2) return false;
-    return Array.from(row2.querySelectorAll(selector)).some((action2) => !container.contains(action2));
-  }
-  function isNavigationChromeContext(element2) {
-    return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
-  }
-  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
-  const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
-  const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-  const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
-  function isEditableComposingContext(element2) {
-    if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
-    const combobox = element2.closest('[role="combobox"]');
-    if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
-    if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
-    if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
-    return isComboboxOwnedPopup(element2);
-  }
-  const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
-  function isNonEditableListboxTrigger(element2) {
-    if (!(element2 instanceof HTMLElement)) return false;
-    if (!safeElementMatches(element2, '[role="combobox"]')) return false;
-    const tag = element2.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
-    const autocomplete = element2.getAttribute("aria-autocomplete");
-    if (autocomplete && autocomplete.toLowerCase() !== "none") return false;
-    if (safeElementMatches(element2, '[contenteditable]:not([contenteditable="false"])')) return false;
-    return !safeQuerySelector(element2, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
-  }
-  const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
-  let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
-  const COMBOBOX_OWNED_ID_TTL_MS = 250;
-  function comboboxOwnedIds(root) {
-    const now = Date.now();
-    const memo = comboboxOwnedIdMemo.get(root);
-    if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
-    const ids2 = /* @__PURE__ */ new Set();
-    if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
-      for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
-        for (const attribute of ["aria-owns", "aria-controls"]) {
-          for (const token of (owner.getAttribute(attribute) ?? "").split(/\s+/)) {
-            if (token) ids2.add(token);
-          }
-        }
-      }
-    }
-    comboboxOwnedIdMemo.set(root, { at: now, ids: ids2 });
-    return ids2;
-  }
-  function isComboboxOwnedPopup(element2) {
-    const ids2 = comboboxOwnedIds(element2.getRootNode());
-    if (!ids2.size) return false;
-    let current = element2;
-    for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (current.id && ids2.has(current.id)) return true;
-    }
-    return false;
-  }
-  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-  const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
-  const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
-  const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
-  const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
-  function interactivePassiveControl(element2) {
-    const temporalMetadata = element2.closest("time,[datetime]");
-    if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
-    const control2 = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
-    if (control2 && !isConversationTextClass(control2) && !isMediaTextContentControl(control2)) return control2;
-    const siblingOwnedControl = siblingOwnedInteractiveControl(element2);
-    if (siblingOwnedControl) return siblingOwnedControl;
-    const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
-    if (!link) return null;
-    if (isCompactLinkedCardMetadata(link, element2)) return link;
-    if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
-    return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
-  }
-  const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
-  function siblingOwnedInteractiveControl(element2) {
-    if (!(element2 instanceof HTMLElement)) return null;
-    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
-    const chromeContext = isCompactInteractiveChromeContext(element2);
-    if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
-    let current = element2.parentElement;
-    for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
-      if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
-      const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate2) => !candidate2.contains(element2) && !element2.contains(candidate2));
-      if (controls.length !== 1) continue;
-      const classFacts = `${element2.className} ${current.className}`;
-      const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
-      if (!uiContext) continue;
-      const rect = current.getBoundingClientRect();
-      const measuredCompact = rect.height > 0 && rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT && (rect.width === 0 || rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH * 1.5);
-      if (measuredCompact || rect.height === 0) return current;
-    }
-    return null;
-  }
-  function isCompactTemporalMetadata(element2) {
-    return isCompactMetadataElement(element2);
-  }
-  const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
-  const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
-  function isCompactLinkedCardMetadata(link, element2) {
-    const textElement2 = element2 instanceof HTMLElement ? element2 : element2.parentElement;
-    return Boolean(textElement2 && isLinkedCardMetadataElement(link, textElement2));
-  }
-  function isLinkedCardMetadataElement(link, textElement2) {
-    if (textElement2.closest("h1,h2,h3,h4,h5,h6")) return false;
-    const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
-    if (!heading) return false;
-    return [
-      !heading.contains(textElement2),
-      !isLikelyProseElement(textElement2),
-      isCompactMetadataElement(textElement2)
-    ].every(Boolean);
-  }
-  function isCompactMetadataElement(element2) {
-    const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
-    const height = element2.getBoundingClientRect().height;
-    return [
-      isTargetLanguageText(text2),
-      compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
-      height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
-    ].every(Boolean);
-  }
-  function isMediaTextContentControl(control2) {
-    if (!safeElementMatches(control2, 'a[href],[role="link"],[role="button"]')) return false;
-    if (control2.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
-    const media = safeQuerySelector(control2, "img,picture,video,canvas");
-    if (!media || !(media instanceof HTMLElement)) return false;
-    return mediaElementIsThumbnailSized(media) && compactLength(control2.textContent ?? "") > 2;
-  }
-  const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
-  function mediaElementIsThumbnailSized(media) {
-    const rect = media.getBoundingClientRect();
-    if (rect.width <= 0 && rect.height <= 0) return true;
-    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
-  }
-  function classifyDecoration(element2) {
-    if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
-    if (decorationMustBeSkipped(element2)) return "skip";
-    if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
-      return "interactive-passive";
-    }
-    const control2 = interactivePassiveControl(element2);
-    if (control2) {
-      if (control2.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
-      return "interactive-passive";
-    }
-    if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
-    if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
-    if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
-    return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
-  }
-  function decorationMustBeSkipped(element2) {
-    if (isEditableComposingContext(element2)) return true;
-    return false;
-  }
-  const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
-    "ytd-mini-guide-entry-renderer",
-    "yt-mini-guide-entry-renderer",
-    "ytm-mini-guide-entry-renderer"
-  ].join(",");
-  const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
-    "ytd-reel-player-overlay-renderer",
-    "yt-reel-player-overlay-renderer",
-    "ytm-reel-player-overlay-renderer"
-  ].join(",");
-  const YOUTUBE_SHORTS_ROOT_SELECTOR = "ytd-shorts,ytm-shorts";
-  const YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR = [
-    "#actions",
-    "#action-buttons",
-    "#shorts-action-buttons",
-    '[role="toolbar"]',
-    '[class*="shorts-action"]',
-    '[class*="reel-action"]'
-  ].join(",");
-  const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
-  const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
-  const YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR = 'ytd-shelf-renderer > ytd-vertical-list-renderer > #more > yt-formatted-string[role="button"]';
-  function youtubeShelfExpansionChromeMustRemainPageOwned(element2) {
-    if (!isYouTubeAppHostname()) return false;
-    return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
-  }
-  function youtubeNativeChromeMustRemainPageOwned(element2) {
-    return youtubeShelfExpansionChromeMustRemainPageOwned(element2) || youtubeEllipsisChromeMustRemainPageOwned(element2);
-  }
-  function youtubeEllipsisChromeMustRemainPageOwned(element2) {
-    if (!isYouTubeAppHostname()) return false;
-    const chrome = youtubeNativeChromeControl(element2);
-    if (!chrome) return false;
-    const clipRow = youtubeEllipsisRow(element2);
-    if (!clipRow) return false;
-    return elementsShareComposedBranch(chrome, clipRow);
-  }
-  function youtubeNativeChromeControl(element2) {
-    const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
-    if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
-    const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
-    if (shorts) return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts);
-    const shortsRoot = composedClosestMatching(element2, YOUTUBE_SHORTS_ROOT_SELECTOR);
-    if (!shortsRoot) return null;
-    const actionRail = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
-    if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
-    return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
-  }
-  function youtubeEllipsisRow(element2) {
-    const clipRow = closestRubyFragileConstrainedRow(element2);
-    if (!clipRow) return null;
-    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
-  }
-  function composedClosestMatching(element2, selector) {
-    let current = element2;
-    for (let depth = 0; current && depth < 16; depth += 1) {
-      if (safeElementMatches(current, selector)) return current;
-      current = composedAncestorElement(current);
-    }
-    return null;
-  }
-  function composedControlInside(element2, selector, boundary) {
-    const control2 = composedClosestMatching(element2, selector);
-    return control2 && isComposedAncestor(boundary, control2) ? control2 : null;
-  }
-  function elementsShareComposedBranch(first2, second) {
-    return isComposedAncestor(first2, second) || isComposedAncestor(second, first2);
-  }
-  function isComposedAncestor(ancestor, descendant) {
-    let current = descendant;
-    for (let depth = 0; current && depth < 16; depth += 1) {
-      if (current === ancestor) return true;
-      current = composedAncestorElement(current);
-    }
-    return false;
-  }
-  function decorationSuppressesRuby(state) {
-    return state === "interactive-passive";
-  }
-  function stampDecorationState(host2, state) {
-    if (host2.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state) {
-      host2.setAttribute(DECORATION_STATE_ATTRIBUTE, state);
-    }
-  }
-  function decorationStateForWord(word) {
-    const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
-    const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
-    return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
-  }
-  function rubyFriendlyMirrorLineHeight(style) {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
-    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
-  }
-  function detachedReadingLaneLineHeight(style, alreadyReserved) {
-    const fontSize = cssPixels(style.fontSize) || 16;
-    const minimum = Math.ceil(fontSize * 2) + 1;
-    const current = cssPixels(style.lineHeight);
-    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
-    return current >= minimum ? "" : `${minimum}px`;
-  }
-  const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
-  const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
-  const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = "jpdb-reader-youtube-chrome-portal";
-  const portalWatches = /* @__PURE__ */ new WeakMap();
-  const structurallyStyledPortalMirrors = /* @__PURE__ */ new WeakSet();
-  const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
-  function styleDocumentAnnotationPortalMirror(mirror, host2) {
-    const style = safeComputedStyle(host2);
-    if (!structurallyStyledPortalMirrors.has(mirror)) {
-      mirror.style.cssText = [
-        "all:initial!important",
-        "position:fixed!important",
-        "inset:auto!important",
-        "top:0!important",
-        "left:0!important",
-        "width:0!important",
-        "height:0!important",
-        "overflow:visible!important",
-        "pointer-events:none!important",
-        "user-select:none!important",
-        "-webkit-user-select:none!important",
-        "z-index:auto!important",
-        "contain:layout style!important"
-      ].join(";");
-      const paint = documentAnnotationPortalPaint(mirror);
-      paint.style.cssText = [
-        "display:block!important",
-        "position:absolute!important",
-        "inset:0 auto auto 0!important",
-        "width:0!important",
-        "height:0!important",
-        "overflow:visible!important",
-        "pointer-events:none!important",
-        "contain:layout style!important",
-        "transform:none!important",
-        "transform-origin:0 0!important"
-      ].join(";");
-      structurallyStyledPortalMirrors.add(mirror);
-    }
-    mirror.style.setProperty("font", style.font, "important");
-    mirror.style.setProperty("font-size", style.fontSize, "important");
-    mirror.style.setProperty("font-weight", style.fontWeight, "important");
-    mirror.style.setProperty("line-height", style.lineHeight, "important");
-    mirror.style.setProperty("letter-spacing", style.letterSpacing, "important");
-    mirror.style.setProperty("direction", style.direction, "important");
-    mirror.style.setProperty("writing-mode", style.writingMode, "important");
-    mirror.style.setProperty("color", style.color, "important");
-    setImportantStyle(mirror, "z-index", documentPortalStackingLevel(host2));
-  }
-  function documentAnnotationPortalPaint(mirror) {
-    const existing = Array.from(mirror.children).find(
-      (child) => child instanceof HTMLElement && child.classList.contains(DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS)
-    );
-    if (existing) return existing;
-    const paint = mirror.ownerDocument.createElement("span");
-    paint.className = DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS;
-    mirror.append(paint);
-    return paint;
-  }
-  function registerDocumentAnnotationPortalMirror(host2, mirror, scheduleProjection, projectImmediately, retire) {
-    const document2 = host2.ownerDocument;
-    let watch = portalWatches.get(document2);
-    if (!watch) {
-      watch = createPortalWatch(document2);
-      portalWatches.set(document2, watch);
-    }
-    const paint = documentAnnotationPortalPaint(mirror);
-    const entry2 = {
-      source: host2,
-      mirror,
-      paint,
-      sourceAnchor: sourceAnchorRange(host2),
-      settled: { source: { x: 0, y: 0 }, root: { x: 0, y: 0 } },
-      applied: { x: 0, y: 0 },
-      preparedClip: null,
-      clipChain: [],
-      clipTopologyEpoch: -1,
-      scheduleProjection,
-      projectImmediately,
-      retire
-    };
-    watch.entries.set(mirror, entry2);
-    prepareDocumentAnnotationPortalMirrors([mirror]);
-    settleDocumentAnnotationPortalMirrors([mirror]);
-  }
-  function createPortalWatch(document2) {
-    const lifecycle = new AbortController();
-    const entries2 = /* @__PURE__ */ new Map();
-    const watch = {
-      entries: entries2,
-      lifecycle,
-      topologyEpoch: 0,
-      scrollSettleEntries: /* @__PURE__ */ new Set(),
-      scrollSettleTimer: null
-    };
-    const view = document2.defaultView;
-    const visibleEntries = () => {
-      if (document2.hidden) return [];
-      return pruneAndCollectEntries(document2, watch);
-    };
-    const alignForScroll = () => {
-      const live = visibleEntries();
-      if (!live.length) return;
-      const alignments = alignPortalEntries(live);
-      scheduleClippedPortalScrollSettle(document2, watch, alignments);
-    };
-    const alignThenScheduleAll = () => {
-      const live = visibleEntries();
-      if (!live.length) return;
-      cancelClippedPortalScrollSettle(document2, watch);
-      alignPortalEntries(live);
-      live.forEach((entry2) => entry2.scheduleProjection());
-    };
-    const scheduleVisibleProjection = () => {
-      cancelClippedPortalScrollSettle(document2, watch);
-      const live = visibleEntries();
-      live.forEach((entry2) => entry2.scheduleProjection());
-    };
-    const projectForTopLayerChange = () => {
-      cancelClippedPortalScrollSettle(document2, watch);
-      const live = visibleEntries();
-      if (!live.length) return;
-      live.forEach((entry2) => entry2.scheduleProjection());
-    };
-    const projectAffectedTransition = (event) => {
-      const target2 = event.target;
-      if (!(target2 instanceof Node)) return;
-      const affected = visibleEntries().filter((entry2) => transitionCanMoveSource(target2, entry2.source));
-      if (!affected.length) return;
-      affected.forEach((entry2) => watch.scrollSettleEntries.delete(entry2));
-      if (!watch.scrollSettleEntries.size) cancelClippedPortalScrollSettle(document2, watch);
-      affected.forEach((entry2) => {
-        entry2.clipTopologyEpoch = -1;
-      });
-      alignPortalEntries(affected);
-      affected.forEach((entry2) => entry2.projectImmediately());
-    };
-    view?.addEventListener("scroll", alignForScroll, {
-      capture: true,
-      passive: true,
-      signal: lifecycle.signal
-    });
-    view?.addEventListener("resize", () => {
-      watch.topologyEpoch += 1;
-      alignThenScheduleAll();
-    }, {
-      passive: true,
-      signal: lifecycle.signal
-    });
-    view?.visualViewport?.addEventListener("scroll", alignForScroll, {
-      passive: true,
-      signal: lifecycle.signal
-    });
-    view?.visualViewport?.addEventListener("resize", alignThenScheduleAll, {
-      passive: true,
-      signal: lifecycle.signal
-    });
-    document2.addEventListener("visibilitychange", scheduleVisibleProjection, {
-      signal: lifecycle.signal
-    });
-    document2.addEventListener("fullscreenchange", projectForTopLayerChange, {
-      signal: lifecycle.signal
-    });
-    document2.addEventListener("toggle", projectForTopLayerChange, {
-      capture: true,
-      signal: lifecycle.signal
-    });
-    document2.addEventListener("transitionend", projectAffectedTransition, {
-      capture: true,
-      passive: true,
-      signal: lifecycle.signal
-    });
-    return watch;
-  }
-  function scheduleClippedPortalScrollSettle(document2, watch, alignments) {
-    for (const alignment of alignments) {
-      const movedInsideClip = Boolean(alignment.clip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
-      if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
-      else watch.scrollSettleEntries.delete(alignment.entry);
-    }
-    if (!watch.scrollSettleEntries.size) {
-      cancelClippedPortalScrollSettle(document2, watch);
-      return;
-    }
-    if (watch.scrollSettleTimer !== null) document2.defaultView?.clearTimeout(watch.scrollSettleTimer);
-    const view = document2.defaultView;
-    if (!view) {
-      const pending2 = [...watch.scrollSettleEntries];
-      watch.scrollSettleEntries.clear();
-      pending2.forEach((entry2) => entry2.scheduleProjection());
-      return;
-    }
-    watch.scrollSettleTimer = view.setTimeout(() => {
-      watch.scrollSettleTimer = null;
-      if (portalWatches.get(document2) !== watch) {
-        watch.scrollSettleEntries.clear();
-        return;
-      }
-      const live = new Set(pruneAndCollectEntries(document2, watch));
-      const pending2 = [...watch.scrollSettleEntries];
-      watch.scrollSettleEntries.clear();
-      pending2.filter((entry2) => live.has(entry2)).forEach((entry2) => entry2.scheduleProjection());
-    }, CLIPPED_PORTAL_SCROLL_SETTLE_MS);
-  }
-  function cancelClippedPortalScrollSettle(document2, watch) {
-    if (watch.scrollSettleTimer !== null) document2.defaultView?.clearTimeout(watch.scrollSettleTimer);
-    watch.scrollSettleTimer = null;
-    watch.scrollSettleEntries.clear();
-  }
-  function disposePortalWatch(document2, watch) {
-    cancelClippedPortalScrollSettle(document2, watch);
-    watch.lifecycle.abort();
-    if (portalWatches.get(document2) === watch) portalWatches.delete(document2);
-  }
-  function alignPortalEntries(entries2) {
-    const pending2 = readPortalAlignments(entries2);
-    for (const alignment of pending2) writePortalAlignment(alignment);
-    return pending2;
-  }
-  function readPortalAlignments(entries2) {
-    const clips = measurePortalClipBounds(entries2);
-    return entries2.map((entry2, index) => {
-      const source2 = portalSourcePoint(entry2);
-      const rootRect = entry2.mirror.getBoundingClientRect();
-      const clip = clips[index] ?? null;
-      entry2.preparedClip = clip;
-      const root = clip ? { x: clip.left, y: clip.top } : { x: rootRect.left, y: rootRect.top };
-      return {
-        entry: entry2,
-        source: source2,
-        root,
-        clip,
-        x: source2.x - entry2.settled.source.x - (root.x - entry2.settled.root.x),
-        y: source2.y - entry2.settled.source.y - (root.y - entry2.settled.root.y)
-      };
-    });
-  }
-  function writePortalAlignment(alignment) {
-    const { entry: entry2, clip, x: x2, y } = alignment;
-    applyPortalClipGeometry(entry2.mirror, clip);
-    entry2.applied = { x: x2, y };
-    if (Math.abs(x2) <= 0.01 && Math.abs(y) <= 0.01) {
-      entry2.paint.style.setProperty("transform", "none", "important");
-    } else {
-      entry2.paint.style.setProperty("transform", `translate3d(${x2}px, ${y}px, 0)`, "important");
-    }
-  }
-  function prepareDocumentAnnotationPortalMirrors(mirrors) {
-    const entries2 = portalEntriesForMirrors(mirrors);
-    const clips = measurePortalClipBounds(entries2);
-    for (const [index, entry2] of entries2.entries()) {
-      const clip = clips[index] ?? null;
-      entry2.preparedClip = clip;
-      applyPortalClipGeometry(entry2.mirror, clip);
-      entry2.paint.style.setProperty("transform", "none", "important");
-      entry2.applied = { x: 0, y: 0 };
-    }
-  }
-  function preparedDocumentAnnotationPortalClipBounds(mirror) {
-    return portalWatches.get(mirror.ownerDocument)?.entries.get(mirror)?.preparedClip ?? null;
-  }
-  function invalidateDocumentAnnotationPortalClipTopology(mirror) {
-    const entry2 = portalWatches.get(mirror.ownerDocument)?.entries.get(mirror);
-    if (entry2) entry2.clipTopologyEpoch = -1;
-  }
-  function settleDocumentAnnotationPortalMirrors(mirrors) {
-    const entries2 = portalEntriesForMirrors(mirrors);
-    const snapshots = entries2.map((entry2) => {
-      entry2.sourceAnchor = sourceAnchorRange(entry2.source);
-      return {
-        entry: entry2,
-        source: portalSourcePoint(entry2),
-        rootRect: entry2.mirror.getBoundingClientRect()
-      };
-    });
-    for (const { entry: entry2, source: source2, rootRect } of snapshots) {
-      entry2.settled = {
-        source: source2,
-        root: { x: rootRect.left, y: rootRect.top }
-      };
-      entry2.applied = { x: 0, y: 0 };
-    }
-  }
-  function documentAnnotationPortalMirrorsWithin(root = document) {
-    const document2 = root instanceof Document ? root : root.ownerDocument;
-    if (!document2) return [];
-    const watch = portalWatches.get(document2);
-    if (!watch) return [];
-    return pruneAndCollectEntries(document2, watch).filter((entry2) => root instanceof Document || rootContains(root, entry2.source)).map((entry2) => entry2.mirror);
-  }
-  function measurePortalClipBounds(entries2) {
-    const styles = /* @__PURE__ */ new Map();
-    const rects = /* @__PURE__ */ new Map();
-    return entries2.map((entry2) => {
-      const watch = portalWatches.get(entry2.source.ownerDocument);
-      const epoch = watch?.topologyEpoch ?? 0;
-      if (entry2.clipTopologyEpoch !== epoch) {
-        entry2.clipChain = portalClipChain(entry2.source, styles);
-        entry2.clipTopologyEpoch = epoch;
-      }
-      return clipBoundsFromChain(entry2.source, entry2.clipChain, rects);
-    });
-  }
-  function portalClipChain(source2, styles) {
-    const chain = [];
-    for (const element2 of composedAncestors(source2)) {
-      if (element2 === source2.ownerDocument.body || element2 === source2.ownerDocument.documentElement) break;
-      let style = styles.get(element2);
-      if (!style) {
-        style = safeComputedStyle(element2);
-        styles.set(element2, style);
-      }
-      const clipsX = overflowClips(style.overflowX) || paintContainmentClips(style);
-      const clipsY = overflowClips(style.overflowY) || paintContainmentClips(style);
-      if (clipsX || clipsY) chain.push({ element: element2, clipsX, clipsY });
-    }
-    return chain;
-  }
-  function clipBoundsFromChain(source2, chain, rects) {
-    if (!chain.length) return null;
-    const view = source2.ownerDocument.defaultView;
-    let bounds = {
-      left: 0,
-      top: 0,
-      right: view?.innerWidth ?? source2.ownerDocument.documentElement.clientWidth,
-      bottom: view?.innerHeight ?? source2.ownerDocument.documentElement.clientHeight
-    };
-    for (const { element: element2, clipsX, clipsY } of chain) {
-      let rect = rects.get(element2);
-      if (!rect) {
-        rect = element2.getBoundingClientRect();
-        rects.set(element2, rect);
-      }
-      if (clipsX) {
-        bounds.left = Math.max(bounds.left, rect.left);
-        bounds.right = Math.min(bounds.right, rect.right);
-      }
-      if (clipsY) {
-        bounds.top = Math.max(bounds.top, rect.top);
-        bounds.bottom = Math.min(bounds.bottom, rect.bottom);
-      }
-    }
-    return bounds;
-  }
-  function documentAnnotationPortalHasNonTranslationTransform(source2) {
-    for (const element2 of composedAncestors(source2)) {
-      const transform = safeComputedStyle(element2).transform;
-      if (transform && transform !== "none" && !transformIsTranslationOnly(transform)) return true;
-      if (element2 === source2.ownerDocument.body || element2 === source2.ownerDocument.documentElement) break;
-    }
-    return false;
-  }
-  function unregisterDocumentAnnotationPortalMirror(mirror) {
-    const document2 = mirror.ownerDocument;
-    const watch = portalWatches.get(document2);
-    if (!watch) return;
-    const entry2 = watch.entries.get(mirror);
-    watch.entries.delete(mirror);
-    if (entry2) watch.scrollSettleEntries.delete(entry2);
-    if (!watch.scrollSettleEntries.size && watch.scrollSettleTimer !== null) {
-      cancelClippedPortalScrollSettle(document2, watch);
-    }
-    if (watch.entries.size) return;
-    disposePortalWatch(document2, watch);
-  }
-  function portalEntriesForMirrors(mirrors) {
-    const entries2 = [];
-    for (const mirror of mirrors) {
-      const entry2 = portalWatches.get(mirror.ownerDocument)?.entries.get(mirror);
-      if (entry2 && mirror.isConnected && entry2.source.isConnected) entries2.push(entry2);
-    }
-    return entries2;
-  }
-  function pruneAndCollectEntries(document2, watch) {
-    const live = [];
-    const retired = [];
-    for (const entry2 of watch.entries.values()) {
-      if (!entry2.mirror.isConnected || !entry2.source.isConnected) retired.push(entry2);
-      else live.push(entry2);
-    }
-    retired.forEach((entry2) => watch.entries.delete(entry2.mirror));
-    retired.forEach((entry2) => watch.scrollSettleEntries.delete(entry2));
-    retired.forEach((entry2) => entry2.retire());
-    if (!watch.scrollSettleEntries.size && watch.scrollSettleTimer !== null) {
-      cancelClippedPortalScrollSettle(document2, watch);
-    }
-    if (!watch.entries.size) {
-      disposePortalWatch(document2, watch);
-    }
-    return live;
-  }
-  function portalSourcePoint(entry2) {
-    const rect = validAnchorRect(entry2.sourceAnchor) ?? entry2.source.getBoundingClientRect();
-    return { x: rect.left, y: rect.top };
-  }
-  function validAnchorRect(range2) {
-    if (!range2) return null;
-    const container = range2.startContainer;
-    if (!container.isConnected) return null;
-    const rect = range2.getBoundingClientRect();
-    return Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0 ? rect : null;
-  }
-  function sourceAnchorRange(source2) {
-    if (typeof Range !== "function" || typeof Range.prototype.getBoundingClientRect !== "function") return null;
-    const walker = source2.ownerDocument.createTreeWalker(source2, NodeFilter.SHOW_TEXT, {
-      acceptNode(node22) {
-        const text2 = node22.textContent ?? "";
-        return /\S/u.test(text2) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
-      }
-    });
-    const node2 = walker.nextNode();
-    if (!(node2 instanceof Text)) return null;
-    const first2 = node2.data.search(/\S/u);
-    if (first2 < 0) return null;
-    const range2 = source2.ownerDocument.createRange();
-    range2.setStart(node2, first2);
-    range2.setEnd(node2, Math.min(node2.length, first2 + 1));
-    return range2;
-  }
-  function applyPortalClipGeometry(mirror, clip) {
-    if (!clip) {
-      setImportantStyle(mirror, "left", "0px");
-      setImportantStyle(mirror, "top", "0px");
-      setImportantStyle(mirror, "width", "0px");
-      setImportantStyle(mirror, "height", "0px");
-      setImportantStyle(mirror, "overflow", "visible");
-      return;
-    }
-    setImportantStyle(mirror, "left", `${clip.left}px`);
-    setImportantStyle(mirror, "top", `${clip.top}px`);
-    setImportantStyle(mirror, "width", `${Math.max(0, clip.right - clip.left)}px`);
-    setImportantStyle(mirror, "height", `${Math.max(0, clip.bottom - clip.top)}px`);
-    setImportantStyle(mirror, "overflow", "hidden");
-  }
-  function setImportantStyle(element2, property, value) {
-    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
-    element2.style.setProperty(property, value, "important");
-  }
-  function transitionCanMoveSource(target2, source2) {
-    if (target2 === source2) return true;
-    if (!(target2 instanceof Element)) return false;
-    return target2.contains(source2) || source2.contains(target2);
-  }
-  function rootContains(root, source2) {
-    if (root === source2) return true;
-    return root instanceof Node && root.contains(source2);
-  }
-  function overflowClips(value) {
-    return /^(?:auto|clip|hidden|overlay|scroll)$/u.test(value);
-  }
-  function documentPortalStackingLevel(source2) {
-    const ancestors = composedAncestors(source2).reverse();
-    for (const element2 of ancestors) {
-      if (element2 === source2.ownerDocument.body || element2 === source2.ownerDocument.documentElement) continue;
-      const style = safeComputedStyle(element2);
-      if (!elementCreatesStackingContext(element2, style)) continue;
-      return /^-?\d+$/u.test(style.zIndex) ? style.zIndex : "auto";
-    }
-    return "auto";
-  }
-  function elementCreatesStackingContext(element2, style) {
-    if (style.position === "fixed" || style.position === "sticky") return true;
-    if (style.zIndex && style.zIndex !== "auto") {
-      const parentDisplay = element2.parentElement ? safeComputedStyle(element2.parentElement).display : "";
-      if (style.position !== "static" || parentDisplay.includes("flex") || parentDisplay.includes("grid")) return true;
-    }
-    return style.opacity !== "" && Number.parseFloat(style.opacity) < 1 || style.transform !== "" && style.transform !== "none" || style.filter !== "" && style.filter !== "none" || style.backdropFilter !== "" && style.backdropFilter !== "none" || style.perspective !== "" && style.perspective !== "none" || style.isolation === "isolate" || style.mixBlendMode !== "" && style.mixBlendMode !== "normal" || /(?:^|\s)(?:layout|paint|strict|content)(?:\s|$)/u.test(style.contain) || /(?:^|,\s*)(?:transform|opacity|filter|perspective)(?:\s*,|$)/u.test(style.willChange);
-  }
-  function paintContainmentClips(style) {
-    return /(?:^|\s)paint(?:\s|$)/u.test(style.contain) || style.clipPath !== "" && style.clipPath !== "none";
-  }
-  function transformIsTranslationOnly(transform) {
-    if (/^(?:translate(?:X|Y|Z|3d)?\([^)]*\)\s*)+$/iu.test(transform)) return true;
-    const matrix = transform.match(/^matrix\(([^)]+)\)$/u);
-    if (matrix) {
-      const values2 = matrix[1].split(",").map(Number);
-      return values2.length === 6 && values2.every(Number.isFinite) && Math.abs(values2[0] - 1) < 1e-4 && Math.abs(values2[1]) < 1e-4 && Math.abs(values2[2]) < 1e-4 && Math.abs(values2[3] - 1) < 1e-4;
-    }
-    const matrix3d = transform.match(/^matrix3d\(([^)]+)\)$/u);
-    if (!matrix3d) return false;
-    const values = matrix3d[1].split(",").map(Number);
-    if (values.length !== 16 || !values.every(Number.isFinite)) return false;
-    const identityIndexes = /* @__PURE__ */ new Set([0, 5, 10, 15]);
-    const translationIndexes = /* @__PURE__ */ new Set([12, 13, 14]);
-    return values.every((value, index) => translationIndexes.has(index) || (identityIndexes.has(index) ? Math.abs(value - 1) < 1e-4 : Math.abs(value) < 1e-4));
-  }
-  function composedAncestors(source2) {
-    const ancestors = [];
-    const visited = /* @__PURE__ */ new Set();
-    let current = source2;
-    while (current && !visited.has(current)) {
-      ancestors.push(current);
-      visited.add(current);
-      if (current.assignedSlot) current = current.assignedSlot;
-      else if (current.parentElement) current = current.parentElement;
-      else {
-        const root = current.getRootNode();
-        current = typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
-      }
-    }
-    return ancestors;
-  }
   const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
   const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
   const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
@@ -37452,361 +36014,81 @@ ${spelling}`);
       return null;
     }
   }
-  function syncProjectedReadings(owner, projections) {
-    yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
-  }
-  function clearProjectedReadings(owner) {
-    yomuAnnotationsCompanion()?.clearProjectedReadings(owner);
-  }
-  function clearProjectedReadingsWithin(root) {
-    return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
-  }
-  function pruneProjectedReadings(document2) {
-    yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
-  }
-  function createPostPaintPass(run) {
-    let pendingScheduler = null;
-    const flush = () => {
-      pendingScheduler = null;
-      run();
-    };
-    return {
-      schedule(view) {
-        const request2 = view?.requestAnimationFrame;
-        if (typeof request2 !== "function") {
-          flush();
-          return;
-        }
-        if (pendingScheduler === request2) return;
-        const previous = pendingScheduler;
-        pendingScheduler = request2;
-        try {
-          request2.call(view, flush);
-        } catch (error) {
-          if (pendingScheduler === request2) pendingScheduler = previous;
-          throw error;
-        }
-      }
-    };
-  }
-  function viewForNode(node2) {
-    if (!node2) return null;
-    const document2 = node2.nodeType === Node.DOCUMENT_NODE ? node2 : node2.ownerDocument;
-    return document2?.defaultView ?? null;
-  }
-  const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
-  let shadowReaderCssText = "";
-  let sharedShadowSheet;
-  const adoptedShadowRoots = /* @__PURE__ */ new WeakSet();
-  const clonedShadowStyleNodes = /* @__PURE__ */ new Set();
-  function supportsConstructableSheets(root) {
-    if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in root)) return false;
-    if (sharedShadowSheet !== void 0) return sharedShadowSheet !== null;
-    try {
-      sharedShadowSheet = new CSSStyleSheet();
-      sharedShadowSheet.replaceSync(shadowReaderCssText);
-    } catch {
-      sharedShadowSheet = null;
+  const CORE_COLOR_TOKENS = {
+    black: "#000000",
+    white: "#ffffff",
+    transparentBlack: "rgba(0, 0, 0, 0)"
+  };
+  const BRAND_COLOR_TOKENS = {
+    accent: "#5ea780",
+    consoleAccent: "#247a58"
+  };
+  const READER_THEME_COLOR_TOKENS = {
+    dark: {
+      bg: "#181b20",
+      surface: "#20242b",
+      surface2: "#282e37",
+      accentText: "#11161d"
+    },
+    light: {
+      bg: "#fbfcfe",
+      surface: "#f4f7fa",
+      surface2: "#e8edf3",
+      text: "#17202a",
+      accentText: CORE_COLOR_TOKENS.white
     }
-    return sharedShadowSheet !== null;
-  }
-  function ensureReaderStylesForHost(host2) {
-    const root = host2.getRootNode();
-    if (typeof ShadowRoot === "undefined" || !(root instanceof ShadowRoot)) return;
-    ensureReaderStylesInShadowRoot(root);
-  }
-  function ensureReaderStylesInShadowRoot(root) {
-    if (adoptedShadowRoots.has(root)) return;
-    adoptedShadowRoots.add(root);
-    if (supportsConstructableSheets(root) && sharedShadowSheet) {
-      try {
-        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sharedShadowSheet];
-        return;
-      } catch {
-      }
-    }
-    if (root.querySelector(`style[${SHADOW_STYLE_MARKER}]`)) return;
-    const style = root.ownerDocument.createElement("style");
-    style.setAttribute(SHADOW_STYLE_MARKER, "true");
-    style.textContent = shadowReaderCssText;
-    root.append(style);
-    clonedShadowStyleNodes.add(new WeakRef(style));
-  }
-  const scannedShadowRootRefs = /* @__PURE__ */ new Set();
-  const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
-  const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
-  const MAX_POTENTIAL_SHADOW_HOSTS = 160;
-  const MAX_PENDING_UPGRADE_NAMES = 64;
-  const potentialShadowHosts = /* @__PURE__ */ new Set();
-  let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
-  const subscribedUpgradeNames = /* @__PURE__ */ new Set();
-  function noteShadowRoot(root, cause) {
-    const active = scannedShadowRootState.get(root);
-    if (active) return;
-    scannedShadowRootState.set(root, true);
-    if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
-  }
-  function watchPotentialOpenShadowRootHost(host2) {
-    const root = host2.shadowRoot;
-    if (root) {
-      noteShadowRoot(root);
-      return root;
-    }
-    const tagName = host2.localName.toLowerCase();
-    const isCustomElement = tagName.includes("-");
-    if (!isCustomElement) return null;
-    if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
-      subscribeToCustomElementUpgrade(tagName);
-      return null;
-    }
-    if (seenPotentialShadowHosts.has(host2) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
-    seenPotentialShadowHosts.add(host2);
-    potentialShadowHosts.add({
-      ref: new WeakRef(host2),
-      remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
-    });
-    return null;
-  }
-  function forEachScannedShadowRoot(callback2, includeDetached = false) {
-    for (const ref of scannedShadowRootRefs) {
-      const root = ref.deref();
-      if (!root) {
-        scannedShadowRootRefs.delete(ref);
-        continue;
-      }
-      if (!root.host?.isConnected) {
-        scannedShadowRootState.set(root, false);
-        if (!includeDetached) continue;
-      }
-      callback2(root);
-    }
-  }
-  function subscribeToCustomElementUpgrade(tagName) {
-    if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
-    subscribedUpgradeNames.add(tagName);
-    void customElements.whenDefined(tagName).then(() => {
-      subscribedUpgradeNames.delete(tagName);
-    }, () => {
-      subscribedUpgradeNames.delete(tagName);
-    });
-  }
-  function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
-    return right > rect.left && bottom > rect.top;
-  }
-  function coordinateInRange(value, start, end, slack) {
-    return value >= start - slack && value <= end + slack;
-  }
-  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
-  const MAX_CONTEXT_SENTENCE_LENGTH = 180;
-  function unwrapReaderWords(root = document, options = {}) {
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
-    const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
-    const parents = /* @__PURE__ */ new Set();
-    words.forEach(clearProjectedReadingsWithin);
-    for (const word of words) {
-      const parent = word.parentNode;
-      if (!parent) continue;
-      parents.add(parent);
-      word.replaceWith(document.createTextNode(readerWordSurfaceText$1(word)));
-    }
-    for (const bind of numberBinds) {
-      if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
-      const parent = bind.parentNode;
-      if (!parent) continue;
-      parents.add(parent);
-      bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
-    }
-    parents.forEach((parent) => parent.normalize());
-    return words.length;
-  }
-  function readerWordSurfaceText$1(element2) {
-    const surface = readerWordChildSurfaceText(element2);
-    return surface || element2.getAttribute("data-surface") || "";
-  }
-  function readerWordChildSurfaceText(element2) {
-    let text2 = "";
-    element2.childNodes.forEach((node2) => {
-      if (node2.nodeType === Node.TEXT_NODE) {
-        text2 += node2.textContent ?? "";
-        return;
-      }
-      if (node2.nodeType !== Node.ELEMENT_NODE) return;
-      const child = node2;
-      if (isSurfaceIgnoredElement$1(child)) return;
-      text2 += readerWordChildSurfaceText(child);
-    });
-    return text2;
-  }
-  function sentenceAroundSurface(value, surface = "", fallback = "") {
-    const text2 = cleanReadableSentence(value);
-    if (!isJapaneseSentenceContext(text2)) return "";
-    const search = sentenceSearchText(text2, surface, fallback);
-    const index = sentenceSearchIndex(text2, search);
-    if (index < 0) return clampContextText(text2);
-    const hardBounded = hardBoundedSentence(text2, index, search.length);
-    const hardClean = trimSoftSentenceBoundary(hardBounded, search);
-    if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
-    return clampLongSentence(hardClean, search);
-  }
-  function sentenceAroundRange(value, start, end, fallback = "") {
-    if (!isJapaneseSentenceContext(cleanReadableSentence(value))) return "";
-    const range2 = normalizedSentenceRange(value.length, start, end);
-    if (!range2) return sentenceAroundSurface(value, fallback, fallback);
-    const hardBounded = hardBoundedSentenceRange(value, range2.start, range2.end);
-    const localStart = range2.start - hardBounded.start;
-    const localEnd = range2.end - hardBounded.start;
-    const hardText = cleanReadableSentence(hardBounded.text);
-    const surface = cleanReadableSentence(hardBounded.text.slice(localStart, localEnd)) || fallback;
-    const cleanStart = cleanReadableSentence(hardBounded.text.slice(0, localStart)).length;
-    const cleanEnd = cleanStart + surface.length;
-    const hardClean = trimSoftSentenceBoundaryAroundRange(hardText, cleanStart, cleanEnd);
-    if (!hardClean) return sentenceAroundSurface(value, fallback, fallback);
-    if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
-    return clampLongSentence(hardClean, surface);
-  }
-  function normalizedSentenceRange(length, start, end) {
-    if (!Number.isFinite(start) || !Number.isFinite(end) || length <= 0) return null;
-    const safeStart = Math.max(0, Math.min(length - 1, Math.floor(start)));
-    const safeEnd = Math.max(safeStart + 1, Math.min(length, Math.ceil(end)));
-    return { start: safeStart, end: safeEnd };
-  }
-  function sentenceSearchIndex(text2, search) {
-    if (!search) return 0;
-    return text2.indexOf(search);
-  }
-  function isJapaneseSentenceContext(text2) {
-    return Boolean(text2 && isTargetLanguageText(text2));
-  }
-  function sentenceSearchText(text2, surface, fallback) {
-    const cleanSurface = cleanReadableSentence(surface);
-    const cleanFallback = cleanReadableSentence(fallback);
-    if (textIncludesSearch(text2, cleanSurface)) return cleanSurface;
-    if (textIncludesSearch(text2, cleanFallback)) return cleanFallback;
-    return "";
-  }
-  function textIncludesSearch(text2, search) {
-    if (!search) return false;
-    return text2.includes(search);
-  }
-  function clampContextText(text2) {
-    return text2.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text2 : text2.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
-  }
-  function isSurfaceIgnoredElement$1(element2) {
-    return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
-  }
-  const SPACE_BEFORE_JAPANESE_PUNCTUATION_RE = new RegExp(
-    `([${KANA}${KANJI_LIKE_WITH_COUNTERS}])\\s+([${JAPANESE_SENTENCE_PUNCTUATION}])`,
-    "gu"
-  );
-  const SPACE_AFTER_JAPANESE_PUNCTUATION_RE = new RegExp(
-    `([${JAPANESE_SENTENCE_PUNCTUATION}])\\s+([${KANA}${KANJI_LIKE_WITH_COUNTERS}])`,
-    "gu"
-  );
-  function cleanReadableSentence(value) {
-    return value.replace(/\s+/g, " ").replace(SPACE_BEFORE_JAPANESE_PUNCTUATION_RE, "$1$2").replace(SPACE_AFTER_JAPANESE_PUNCTUATION_RE, "$1$2").trim();
-  }
-  function hardBoundedSentence(text2, index, length) {
-    const start = sentenceStartIndex(text2, index);
-    const end = sentenceEndIndex(text2, index + length);
-    return text2.slice(start, end).trim();
-  }
-  function hardBoundedSentenceRange(text2, start, end) {
-    const sentenceStart = sentenceStartIndex(text2, start);
-    const sentenceEnd = sentenceEndIndex(text2, end);
-    return {
-      text: text2.slice(sentenceStart, sentenceEnd),
-      start: sentenceStart
-    };
-  }
-  function sentenceStartIndex(text2, index) {
-    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
-    for (let i2 = index - 1; i2 >= 0; i2--) {
-      if (terminators.has(text2[i2] ?? "")) return i2 + 1;
-    }
-    return 0;
-  }
-  function sentenceEndIndex(text2, index) {
-    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
-    for (let i2 = index; i2 < text2.length; i2++) {
-      if (terminators.has(text2[i2] ?? "")) return i2 + 1;
-    }
-    return text2.length;
-  }
-  function trimSoftSentenceBoundary(sentence, surface) {
-    const clean = sentence.trim();
-    if (!surface) return clean;
-    const index = clean.indexOf(surface);
-    if (index < 0) return clean;
-    const start = softBoundaryStart(clean, index);
-    const end = softBoundaryEnd(clean, index + surface.length);
-    const trimmed = clean.slice(start, end).trim();
-    const omitted = `${clean.slice(0, start)}${clean.slice(end)}`;
-    return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
-  }
-  function trimSoftSentenceBoundaryAroundRange(sentence, start, end) {
-    const leadingTrim = sentence.length - sentence.trimStart().length;
-    const clean = sentence.trim();
-    if (!clean) return clean;
-    const cleanStart = Math.max(0, Math.min(clean.length, start - leadingTrim));
-    const cleanEnd = Math.max(cleanStart, Math.min(clean.length, end - leadingTrim));
-    const trimStart = softBoundaryStart(clean, cleanStart);
-    const trimEnd = softBoundaryEnd(clean, cleanEnd);
-    const trimmed = clean.slice(trimStart, trimEnd).trim();
-    const omitted = `${clean.slice(0, trimStart)}${clean.slice(trimEnd)}`;
-    return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
-  }
-  function shouldUseSoftSentenceTrim(clean, trimmed, omitted) {
-    if (!trimmed || trimmed === clean) return false;
-    return clean.length > 48 || activeLearningTarget().sentenceBoundaries.terminators.some((mark) => omitted.includes(mark));
-  }
-  function softBoundaryStart(text2, index) {
-    for (let i2 = index - 1; i2 >= 0; i2--) {
-      if (isStrongWhitespaceBoundary(text2, i2)) return i2 + 1;
-    }
-    return 0;
-  }
-  function softBoundaryEnd(text2, index) {
-    for (let i2 = index; i2 < text2.length; i2++) {
-      if (isStrongWhitespaceBoundary(text2, i2)) return i2;
-    }
-    return text2.length;
-  }
-  function isStrongWhitespaceBoundary(text2, index) {
-    if (!activeLearningTarget().sentenceBoundaries.whitespaceIsBoundary) return false;
-    const char = text2[index] ?? "";
-    if (!/\s/u.test(char)) return false;
-    const before = text2.slice(Math.max(0, index - 24), index);
-    const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
-    return isTargetLanguageText(before) && isTargetLanguageText(after);
-  }
-  function clampLongSentence(sentence, surface) {
-    if (sentence.length <= MAX_CONTEXT_SENTENCE_LENGTH) return sentence;
-    const index = surface ? sentence.indexOf(surface) : -1;
-    if (index < 0) return sentence.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
-    const halfWindow = Math.floor((MAX_CONTEXT_SENTENCE_LENGTH - surface.length) / 2);
-    const start = Math.max(0, index - Math.max(0, halfWindow));
-    const end = Math.min(sentence.length, start + MAX_CONTEXT_SENTENCE_LENGTH);
-    return sentence.slice(start, end).trim();
-  }
-  function* uncoveredJapaneseRanges(text2, rangeStart, rangeEnd, isCovered) {
-    let gapStart = -1;
-    for (let index = rangeStart; index < rangeEnd; ) {
-      const codePoint = text2.codePointAt(index);
-      if (codePoint === void 0) break;
-      const character = String.fromCodePoint(codePoint);
-      const codePointEnd = index + character.length;
-      const nextIndex = Math.min(rangeEnd, codePointEnd);
-      const uncoveredJapanese = codePointEnd <= rangeEnd && JAPANESE_CHARACTER_RE.test(character) && !isCovered(index, nextIndex);
-      if (uncoveredJapanese) {
-        if (gapStart < 0) gapStart = index;
-      } else if (gapStart >= 0) {
-        yield { start: gapStart, end: index };
-        gapStart = -1;
-      }
-      index = nextIndex;
-    }
-    if (gapStart >= 0) yield { start: gapStart, end: rangeEnd };
-  }
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white,
+    outline: CORE_COLOR_TOKENS.black,
+    background: READER_THEME_COLOR_TOKENS.dark.bg
+  };
+  const OCR_OVERLAY_COLOR_TOKENS = {
+    text: READER_THEME_COLOR_TOKENS.light.text,
+    outline: CORE_COLOR_TOKENS.white
+  };
+  const DEFAULT_WORD_COLOR_TOKENS = {
+    new: "#ffffff",
+    learning: "#ffd166",
+    known: "#7bd88f",
+    due: "#5fb3b3",
+    failed: "#ff6b6b",
+    ignored: "#b8a7ff"
+  };
+  const DEFAULT_PITCH_COLOR_TOKENS = {
+    heiban: "#359eff",
+    atamadaka: "#fe4b74",
+    nakadaka: "#fba840",
+    odaka: "#57ccb7",
+    unknown: "#94a3b8"
+  };
+  const LOOKUP_PILL_COLOR_TOKENS = {
+    jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
+    jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+    bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+    "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
+    jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
+    weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
+    kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+    takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
+    "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
+    "immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+    nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
+    uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
+    anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
+    copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
+  };
+  const DOODLE_COLOR_TOKENS = {
+    ink: "#141820"
+  };
+  const PAGE_WORD_COLOR_TOKENS = {
+    unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
+  };
+  const LOGGER_COLOR_TOKENS = {
+    debug: "#6b7280",
+    warn: "#a15c00",
+    error: "#b91c1c"
+  };
   const JITEN_API_KEY_PREFIX = "ak_";
   function combinedApiCredentialLabel(settings) {
     const jpdb = Boolean(effectiveJpdbApiKey(settings));
@@ -46218,6 +44500,1745 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isKanjiForInlineNavigation(value) {
     return isUnifiedIdeograph(value);
   }
+  const RENDERED_WORD_CARD_STATES = [
+    "new",
+    "learning",
+    "young",
+    "mature",
+    "known",
+    "mastered",
+    "due",
+    "failed",
+    "locked",
+    "never-forget",
+    "blacklisted",
+    "suspended",
+    "in-deck",
+    "not-in-deck",
+    "redundant",
+    "frequent",
+    "unparsed"
+  ];
+  const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "bunpro", "yomu-local"];
+  const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
+  const RENDERED_WORD_MINING_INSIGHT_STATES = /* @__PURE__ */ new Set(["new", "not-in-deck", "in-deck"]);
+  function clearRenderedWordAnkiState(word) {
+    Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
+    delete word.dataset.ankiState;
+    delete word.dataset.ankiDecks;
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+    if (word.title.startsWith("Anki:")) word.removeAttribute("title");
+  }
+  function setRenderedWordPitchClass(word, pitchClass) {
+    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
+    word.dataset.pitchClass = pitchClass;
+    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+  }
+  function setRenderedWordPitchAccentPattern(word, card) {
+    const pitchAccent = card.pitchAccent.join("|");
+    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+  }
+  function setRenderedWordPitchComponents(word, card) {
+    const gradient = pitchComponentUnderlineGradient(card);
+    if (!gradient) {
+      delete word.dataset.pitchComponents;
+      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+      return;
+    }
+    word.dataset.pitchComponents = "true";
+    word.style.setProperty("--jpdb-reader-inline-pitch-gradient", gradient);
+  }
+  function cardStateProvenance(card) {
+    return card.provisionalState === true ? "provisional" : "authoritative";
+  }
+  function setRenderedWordCardIdentity(word, card, options = {}) {
+    word.dataset.vid = String(card.vid);
+    word.dataset.sid = String(card.sid);
+    word.dataset.expression = card.spelling;
+    word.dataset.reading = card.reading;
+    const particle = isParticleCard(card);
+    word.classList.toggle("jpdb-reader-particle", particle);
+    if (options.pitchPolicy === "clear") {
+      setRenderedWordPitchClass(word, "");
+      delete word.dataset.pitchAccent;
+      delete word.dataset.pitchComponents;
+      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+      if (particle) clearRenderedWordMiningInsight(word);
+    } else if (particle) {
+      setRenderedWordPitchClass(word, "particle");
+      delete word.dataset.pitchAccent;
+      delete word.dataset.pitchComponents;
+      word.style.removeProperty("--jpdb-reader-inline-pitch-gradient");
+      clearRenderedWordMiningInsight(word);
+    } else {
+      if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+      setRenderedWordPitchAccentPattern(word, card);
+      setRenderedWordPitchComponents(word, card);
+    }
+    applyRenderedWordCardStatus(word, card, options, true);
+  }
+  function setRenderedWordCardStatus(word, card, options = {}) {
+    applyRenderedWordCardStatus(word, card, options, false);
+  }
+  function applyRenderedWordCardStatus(word, card, options, replaceCardIdentity) {
+    const source2 = renderedWordCardSource(card);
+    const state = primaryCardState(card.cardState);
+    if (replaceCardIdentity) {
+      word.dataset.cardSource = source2;
+      word.dataset.cardId = String(renderedWordCardId(card, source2));
+      word.dataset.readingIndex = String(renderedWordReadingIndex(card, source2));
+    }
+    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.srsProvider;
+    clearRenderedWordDeckMembershipClasses(word, ["anki"]);
+    word.dataset.cardState = state;
+    word.dataset.stateProvenance = cardStateProvenance(card);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    word.classList.add(`jpdb-${state}`);
+    if (source2 !== "jpdb") word.classList.add(`${source2}-${state}`);
+    applyRenderedWordDeckMembership(word, card);
+  }
+  function applyLocalYomuSrsStateToRenderedWord(word, card) {
+    const state = primaryCardState(card.cardState);
+    const expectedStateClasses = /* @__PURE__ */ new Set([`jpdb-${state}`, `yomu-local-${state}`]);
+    const changed = word.dataset.cardState !== state || word.dataset.srsProvider !== "yomu-local" || word.dataset.stateProvenance !== "authoritative" || word.dataset.bunproState !== void 0 || word.dataset.bunproPrefillState !== void 0 || word.dataset.bunproPrefillProvenance !== void 0 || [...expectedStateClasses].some((className) => !word.classList.contains(className)) || Array.from(word.classList).some((className) => isRenderedWordCardStateClass(className) && !expectedStateClasses.has(className)) || !RENDERED_WORD_MINING_INSIGHT_STATES.has(state) && (word.classList.contains("jpdb-reader-i-plus-one") || word.dataset.miningInsight !== void 0);
+    if (!changed) return false;
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.bunproPrefillState;
+    delete word.dataset.bunproPrefillProvenance;
+    word.dataset.cardState = state;
+    word.dataset.srsProvider = "yomu-local";
+    word.dataset.stateProvenance = "authoritative";
+    word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
+    return true;
+  }
+  function shouldPreserveAuthoritativeState(word, card, incomingState, options) {
+    return options.statePolicy !== "replace" && cardStateProvenance(card) === "provisional" && incomingState === "not-in-deck" && word.dataset.stateProvenance === "authoritative" && Boolean(word.dataset.cardState);
+  }
+  function clearRenderedWordMiningInsight(word) {
+    word.classList.remove("jpdb-reader-i-plus-one");
+    delete word.dataset.miningInsight;
+  }
+  function clearRenderedWordCardStateClasses(word) {
+    Array.from(word.classList).filter(isRenderedWordCardStateClass).forEach((className) => word.classList.remove(className));
+  }
+  function clearRenderedWordDeckMembershipClasses(word, preserveSources = []) {
+    Array.from(word.classList).filter((className) => isRenderedWordDeckMembershipClass(className, preserveSources)).forEach((className) => word.classList.remove(className));
+    if (preserveSources.length) return;
+    delete word.dataset.deckMember;
+    delete word.dataset.deckSource;
+    delete word.dataset.deckNames;
+  }
+  function isRenderedWordCardStateClass(className) {
+    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
+  }
+  function isRenderedWordDeckMembershipClass(className, preserveSources) {
+    if (className === "yomu-deck-member") return false;
+    if (className.startsWith("yomu-deck-")) return true;
+    return RENDERED_WORD_DECK_SOURCE_PREFIXES.some((prefix) => {
+      if (preserveSources.includes(prefix)) return false;
+      return className === `${prefix}-deck-member` || className.startsWith(`${prefix}-deck-`);
+    });
+  }
+  function applyRenderedWordDeckMembership(word, card) {
+    const membership = cardDeckMembership(card);
+    if (!membership.member) {
+      if (!word.classList.contains("anki-deck-member")) {
+        word.classList.remove("yomu-deck-member");
+        delete word.dataset.deckMember;
+        delete word.dataset.deckSource;
+        delete word.dataset.deckNames;
+      }
+      return;
+    }
+    word.classList.add(...cardDeckMembershipClassNames(card));
+    word.dataset.deckMember = "true";
+    word.dataset.deckSource = membership.source;
+    if (membership.names.length) word.dataset.deckNames = membership.names.join(", ");
+    else delete word.dataset.deckNames;
+  }
+  function renderedWordCardSource(card) {
+    return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
+  }
+  function renderedWordCardId(card, source2 = renderedWordCardSource(card)) {
+    return source2 === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
+  }
+  function renderedWordReadingIndex(card, source2 = renderedWordCardSource(card)) {
+    return source2 === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
+  }
+  function isTargetLanguageText(text2) {
+    return activeLearningTarget().isLookupableText(text2);
+  }
+  function segmentTargetLanguageText(text2) {
+    return activeLearningTarget().segment(text2);
+  }
+  const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
+    "youtube.com",
+    "www.youtube.com",
+    "m.youtube.com",
+    "music.youtube.com",
+    "studio.youtube.com",
+    "kids.youtube.com",
+    "gaming.youtube.com",
+    "youtu.be"
+  ]);
+  function isYouTubeAppHostname(hostname = location.hostname) {
+    return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+  }
+  const DECORATION_STATE_ATTRIBUTE = "data-yomu-decoration";
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  function safeElementMatches(element2, selector) {
+    try {
+      return element2.matches(selector);
+    } catch {
+      return false;
+    }
+  }
+  function safeQuerySelector(root, selector) {
+    try {
+      return root.querySelector(selector);
+    } catch {
+      return null;
+    }
+  }
+  function safeComputedStyle(element2) {
+    try {
+      return getComputedStyle(element2);
+    } catch {
+      return element2.style;
+    }
+  }
+  function compactLength(value) {
+    return Array.from(value.replace(/\s+/g, "")).length;
+  }
+  function cssPixels(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  function elementClassName(element2) {
+    return String(element2.className || "");
+  }
+  function hasLineClamp(style) {
+    const clamp2 = style.getPropertyValue("-webkit-line-clamp").trim();
+    return Boolean(clamp2 && clamp2 !== "none" && clamp2 !== "0");
+  }
+  function isEllipsisTextRow(style) {
+    if (!clipsOverflow(style) || !style.textOverflow.includes("ellipsis")) return false;
+    if (style.whiteSpace === "nowrap" || style.whiteSpace === "pre" || style.display === "-webkit-box") return true;
+    return style.minWidth === "0px";
+  }
+  function clipsOverflow(style) {
+    return style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip" || style.overflowX === "hidden" || style.overflowX === "clip";
+  }
+  function hasDefiniteCssSize(value) {
+    const normalized2 = value.trim().toLowerCase();
+    return Boolean(normalized2 && normalized2 !== "auto" && normalized2 !== "none" && normalized2 !== "normal" && normalized2 !== "initial" && normalized2 !== "inherit" && normalized2 !== "unset");
+  }
+  function hasClippedTextConstraint(style) {
+    if (!clipsOverflow(style)) return false;
+    return hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight) || style.display === "-webkit-box";
+  }
+  function isPositionedTextOverlay(style) {
+    return (style.position === "absolute" || style.position === "fixed") && (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) && (hasDefiniteCssSize(style.width) || hasDefiniteCssSize(style.maxWidth));
+  }
+  function isVerticalWritingMode(writingMode) {
+    return writingMode.startsWith("vertical-") || writingMode.startsWith("sideways-");
+  }
+  const CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS = 2e3;
+  const CONSTRAINED_ROW_MAX_HEIGHT_PX = 96;
+  const ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX = 192;
+  const ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX = 1;
+  let constrainedRowStyleFactMemo = /* @__PURE__ */ new WeakMap();
+  let constrainedRowStyleGeneration = 0;
+  function noteConstrainedRowLayoutSettled() {
+    constrainedRowStyleGeneration += 1;
+  }
+  function constrainedRowStyleFacts(element2) {
+    const now = Date.now();
+    const memo = constrainedRowStyleFactMemo.get(element2);
+    if (memo && memo.gen === constrainedRowStyleGeneration && now - memo.at < CONSTRAINED_ROW_STYLE_MEMO_MAX_AGE_MS) return memo.facts;
+    const style = safeComputedStyle(element2);
+    const clamped = hasLineClamp(style);
+    const ellipsisRow = isEllipsisTextRow(style);
+    const clips = clipsOverflow(style);
+    const clippedConstraint = hasClippedTextConstraint(style);
+    let clippedShortRow = false;
+    let activelyTruncatedPreview = false;
+    if (clips && !clamped && !ellipsisRow) {
+      const height = element2.getBoundingClientRect().height;
+      clippedShortRow = height > 0 && height <= CONSTRAINED_ROW_MAX_HEIGHT_PX;
+      const clientHeight = element2.clientHeight;
+      activelyTruncatedPreview = clippedConstraint && height > CONSTRAINED_ROW_MAX_HEIGHT_PX && height <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && clientHeight > CONSTRAINED_ROW_MAX_HEIGHT_PX && clientHeight <= ACTIVELY_TRUNCATED_PREVIEW_MAX_HEIGHT_PX && element2.scrollHeight > clientHeight + ACTIVELY_TRUNCATED_PREVIEW_OVERFLOW_EPSILON_PX;
+    }
+    const facts = {
+      clamped,
+      ellipsisRow,
+      clippedConstraint,
+      clippedShortRow,
+      activelyTruncatedPreview
+    };
+    constrainedRowStyleFactMemo.set(element2, { at: now, gen: constrainedRowStyleGeneration, facts });
+    return facts;
+  }
+  function closestRubyFragileConstrainedRow(element2) {
+    let current = element2;
+    for (let depth = 0; current && depth < 12; depth += 1) {
+      const facts = constrainedRowStyleFacts(current);
+      if (facts.clamped || facts.ellipsisRow || facts.clippedShortRow || facts.activelyTruncatedPreview) return current;
+      current = composedAncestorElement(current);
+    }
+    return null;
+  }
+  function composedAncestorElement(element2) {
+    if (element2.assignedSlot) return element2.assignedSlot;
+    if (element2.parentElement) return element2.parentElement;
+    const root = element2.getRootNode();
+    return typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+  }
+  function contentClipRowShowsRestReadings(decoration, clipRow) {
+    if (decoration !== "prose-full") return false;
+    if (!isLikelyProseElement(clipRow) || !isReadableProseContext(clipRow)) return false;
+    if (!clipRowHasGrowableShape(clipRow)) return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (!facts.clamped && !facts.ellipsisRow) return false;
+    const clampLines = Number.parseInt(safeComputedStyle(clipRow).getPropertyValue("-webkit-line-clamp"), 10);
+    if (Number.isFinite(clampLines) && clampLines > 1) return false;
+    const parentDisplay = clipRow.parentElement ? safeComputedStyle(clipRow.parentElement).display : "";
+    return !parentDisplay.includes("flex") && !parentDisplay.includes("grid") && !parentDisplay.startsWith("table");
+  }
+  const CLAMP_ROW_SHELL_ANCESTOR_LIMIT = 6;
+  function clampRowAllowsInFlowRestRuby(decoration, clipRow) {
+    if (decoration !== "prose-full" && decoration !== "content-ruby") return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (!facts.clamped) return false;
+    if (!clipRowHasGrowableShape(clipRow)) return false;
+    return !clampRowHasFixedClippingShell(clipRow);
+  }
+  function clipRowHasGrowableShape(clipRow) {
+    if (clipRow.closest('a[href],button,[role="button"],[role="link"]')) return false;
+    const facts = constrainedRowStyleFacts(clipRow);
+    if (facts.clippedShortRow || facts.activelyTruncatedPreview) return false;
+    const style = safeComputedStyle(clipRow);
+    if (hasDefiniteCssSize(style.maxHeight)) return false;
+    return !hasDefiniteCssSize(clipRow.style.height) && !hasDefiniteCssSize(clipRow.style.maxHeight);
+  }
+  function clampRowHasFixedClippingShell(clipRow) {
+    let current = composedAncestorElement(clipRow);
+    for (let depth = 0; current && current !== document.body && depth < CLAMP_ROW_SHELL_ANCESTOR_LIMIT; depth += 1) {
+      if (ancestorPinsClampRowGrowth(current)) return true;
+      current = composedAncestorElement(current);
+    }
+    return false;
+  }
+  function ancestorPinsClampRowGrowth(ancestor) {
+    const style = safeComputedStyle(ancestor);
+    const definiteSize = hasDefiniteCssSize(style.maxHeight) || hasDefiniteCssSize(ancestor.style.height) || hasDefiniteCssSize(ancestor.style.maxHeight);
+    const clips = style.overflow === "hidden" || style.overflow === "clip" || style.overflowY === "hidden" || style.overflowY === "clip";
+    if (definiteSize && clips) return true;
+    const display = style.display;
+    const trackParent = display.includes("flex") || display.includes("grid") || display.startsWith("table");
+    return trackParent && (definiteSize || clips);
+  }
+  const PROSE_TAGS$1 = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
+  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+  const CONVERSATION_TEXT_CLASS_RE = /(^|\s)(chat|comment|message|post|reply)(?:[-_\s]*(body|bubble|content|copy|message|text|txt))?(?:_[a-z0-9]+)?(?=$|\s)/i;
+  const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
+  const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+  function isLikelyProseElement(element2) {
+    if (PROSE_TAGS$1.includes(`,${element2.tagName},`)) return true;
+    return isLikelyProseClass(element2) || isConversationTextClass(element2);
+  }
+  function isReadableProseContext(element2) {
+    let current = element2;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      if (isConversationTextClass(current)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function isLikelyProseClass(element2) {
+    return PROSE_CLASS_RE.test(elementClassName(element2));
+  }
+  function isConversationTextClass(element2) {
+    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
+  }
+  function isLikelyProseLink(link, element2) {
+    return Boolean(link.closest('article, main, [role="main"]') && isLikelyProseElement(element2));
+  }
+  function isProseFullContext(element2) {
+    let current = element2;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function isExplicitControlLink(link) {
+    return UI_CLASS_RE.test(link.className || "") || link.hasAttribute("onclick") || link.hasAttribute("data-audio");
+  }
+  function linkHasControlMedia(link) {
+    return Boolean(safeQuerySelector(link, 'svg, use, img, [class*="icon" i], [class*="audio" i], [class*="sound" i], [class*="speaker" i], [class*="play" i]'));
+  }
+  function linkHasControlShape(link, text2) {
+    const style = safeComputedStyle(link);
+    const rect = link.getBoundingClientRect();
+    return hasControlLinkStyle(style) && hasShortControlLinkText(link, text2) && hasControlLinkWidth(rect);
+  }
+  function hasControlLinkStyle(style) {
+    return hasControlLinkDisplay(style.display) || Number.parseFloat(style.borderRadius) > 0 || hasVisibleControlLinkBox(style);
+  }
+  function hasControlLinkDisplay(display) {
+    return display.includes("flex") || display.includes("grid") || display === "inline-block";
+  }
+  function hasVisibleControlLinkBox(style) {
+    return Boolean(style.backgroundColor && style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack) || hasVisibleBorderSide(style.borderTopStyle, style.borderTopWidth) || hasVisibleBorderSide(style.borderBottomStyle, style.borderBottomWidth);
+  }
+  function hasVisibleBorderSide(style, width) {
+    return Boolean(style && style !== "none" && style !== "hidden" && cssPixels(width) > 0);
+  }
+  function hasShortControlLinkText(link, text2) {
+    return compactLength(text2) <= 16 && compactLength(link.textContent ?? "") <= 40;
+  }
+  function hasControlLinkWidth(rect) {
+    return rect.width > 0 && rect.width < 360;
+  }
+  function hasUiBox(style) {
+    return hasVisibleControlLinkBox(style) || Number.parseFloat(style.borderRadius) > 0;
+  }
+  function hasInlineControlShape(display) {
+    return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
+  }
+  const PASSIVE_INTERACTION_SELECTOR = `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  const COMPACT_PASSIVE_INTERACTION_SELECTOR = `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  const COMPACT_PASSIVE_CHROME_SELECTOR = `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_CHROME_SELECTOR}`;
+  const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+  function isPassiveInteractionElement(element2) {
+    if (element2.closest(READER_ROOT_SELECTOR)) return false;
+    if (element2 instanceof HTMLElement && isReadableProseContext(element2) && !readableContextPassiveChromeElement(element2)) return false;
+    if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
+    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (compactInteraction && isCompactPassiveInteractionElement(compactInteraction)) return true;
+    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+    return Boolean(compactChrome && isCompactPassiveChromeElement(compactChrome));
+  }
+  function isCompactPassiveInteractionElement(element2) {
+    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+    if (!text2 || text2.length > COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT) return false;
+    return element2.childElementCount <= 4;
+  }
+  function isCompactPassiveChromeElement(element2) {
+    if (isLikelyProseElement(element2)) return false;
+    return isCompactPassiveInteractionElement(element2);
+  }
+  function readableContextPassiveChromeElement(element2) {
+    const interaction = element2.closest(PASSIVE_INTERACTION_SELECTOR);
+    if (interaction) {
+      if (isConversationTextClass(interaction)) return null;
+      if (safeElementMatches(interaction, 'a[href],[role="link"]')) return interaction;
+      if (isCompactPassiveInteractionElement(interaction)) return interaction;
+    }
+    const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (compactInteraction && !isConversationTextClass(compactInteraction) && isCompactPassiveInteractionElement(compactInteraction)) return compactInteraction;
+    const compactChrome = element2.closest(COMPACT_PASSIVE_CHROME_SELECTOR);
+    return compactChrome && isCompactPassiveChromeElement(compactChrome) ? compactChrome : null;
+  }
+  const COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR = `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+  const COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR = 'a[href], [role="link"]';
+  const COMPACT_INTERACTIVE_CHROME_SELECTOR = `${COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR}, ${COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR}`;
+  const COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR = `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+  const COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT = 60;
+  const COMPACT_INTERACTIVE_CHROME_MAX_WIDTH = 320;
+  const COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT = 96;
+  const COMPACT_VERTICAL_CHROME_MAX_WIDTH = 96;
+  const COMPACT_VERTICAL_CHROME_MAX_HEIGHT = 360;
+  const CONSTRAINED_NOTIFICATION_TEXT_LIMIT = 180;
+  const CONSTRAINED_NOTIFICATION_MAX_HEIGHT = 150;
+  const CONSTRAINED_NOTIFICATION_SELECTOR = `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  function compactScanRubySuppression(parent) {
+    if (parent.closest(READER_ROOT_SELECTOR)) return { suppress: false, marks: [] };
+    const marks = [];
+    const notice = compactConstrainedNotificationElement(parent);
+    if (notice) marks.push({ element: notice, atomic: true });
+    const chrome = compactInteractiveChromeElement(parent) ?? compactPassiveInteractionRubyElement(parent) ?? compactPassiveChromeElement(parent) ?? compactMetadataChromeElement(parent) ?? compactVisualLabelElement(parent);
+    if (chrome) marks.push({ element: chrome, atomic: true });
+    return { suppress: Boolean(chrome || notice), marks };
+  }
+  function compactVisualLabelElement(parent) {
+    const chromeContext = isCompactInteractiveChromeContext(parent);
+    if (isReadableProseContext(parent) && !chromeContext) return null;
+    let current = parent;
+    for (let depth = 0; current && depth < 3; depth += 1, current = current.parentElement) {
+      if (!UI_CLASS_RE.test(elementClassName(current))) continue;
+      const text2 = compactInteractiveChromeText(current);
+      if (!isCompactInteractiveChromeText(text2)) continue;
+      if (hasCompactInteractiveChromeGeometry(current)) return current;
+      const rect = current.getBoundingClientRect();
+      if (chromeContext && rect.width === 0 && rect.height === 0) return current;
+    }
+    return null;
+  }
+  const COMPACT_METADATA_CLASS_RE = /author|byline|count|display[-_]?name|handle|meta(?:data)?|nickname|published|screen[-_]?name|statistic|stats|timestamp|user[-_]?name/i;
+  function compactMetadataChromeElement(parent) {
+    let current = parent;
+    for (let depth = 0; current && depth < 4; depth += 1, current = current.parentElement) {
+      const explicit = current.tagName === "TIME" || current.hasAttribute("datetime") || COMPACT_METADATA_CLASS_RE.test(`${current.id} ${elementClassName(current)}`);
+      if (!explicit || isConversationTextClass(current)) continue;
+      const text2 = current.textContent?.replace(/\s+/g, "").trim() ?? "";
+      if (!isCompactInteractiveChromeText(text2)) continue;
+      const rect = current.getBoundingClientRect();
+      if (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT) return current;
+    }
+    return null;
+  }
+  function applyPassiveChromeMarks(marks) {
+    for (const mark of marks) markPassiveChromeElement(mark.element, mark.atomic);
+  }
+  function markPassiveChromeElement(element2, atomic = false) {
+    if (element2.dataset.jpdbReaderPassiveChrome !== "true") {
+      element2.dataset.jpdbReaderPassiveChrome = "true";
+    }
+    if (atomic && element2.dataset.jpdbReaderPassiveAtomic !== "true") {
+      element2.dataset.jpdbReaderPassiveAtomic = "true";
+    }
+    if (element2.getAttribute("role") === "button" && !hasExplicitAccessibleName(element2)) {
+      element2.setAttribute("aria-label", passiveChromeAccessibleLabel(element2));
+    }
+  }
+  function hasExplicitAccessibleName(element2) {
+    return Boolean(
+      element2.getAttribute("aria-label")?.trim() || element2.getAttribute("aria-labelledby")?.trim() || element2.getAttribute("title")?.trim()
+    );
+  }
+  function passiveChromeAccessibleLabel(element2) {
+    return element2.textContent?.replace(/\s+/g, " ").trim() || "Open item";
+  }
+  function compactInteractiveChromeElement(parent) {
+    const chrome = parent.closest(COMPACT_INTERACTIVE_CHROME_SELECTOR);
+    if (!chrome) return null;
+    const text2 = compactInteractiveChromeText(chrome);
+    if (!isCompactInteractiveChromeText(text2)) return null;
+    if (safeElementMatches(chrome, COMPACT_INTERACTIVE_CHROME_LINK_SELECTOR)) {
+      return isCompactInteractiveChromeLink(chrome, parent, text2) ? chrome : null;
+    }
+    return isCompactInteractiveChromeControl(chrome, parent) ? chrome : null;
+  }
+  function compactInteractiveChromeText(element2) {
+    return element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+  }
+  function compactPassiveChromeElement(parent) {
+    if (isReadableProseContext(parent)) return null;
+    if (!isCompactInteractiveChromeContext(parent)) return null;
+    const text2 = compactInteractiveChromeText(parent);
+    if (!isCompactInteractiveChromeText(text2)) return null;
+    return hasCompactInteractiveChromeRubyRisk(parent) ? parent : null;
+  }
+  function compactPassiveInteractionRubyElement(parent) {
+    if (isReadableProseContext(parent)) return null;
+    const interaction = parent.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
+    if (!interaction) return null;
+    if (safeElementMatches(interaction, COMPACT_INTERACTIVE_CHROME_SELECTOR)) return null;
+    if (isLikelyProseElement(interaction)) return null;
+    if (!isCompactPassiveInteractionElement(interaction)) return null;
+    const style = safeComputedStyle(interaction);
+    if (isVerticalWritingMode(style.writingMode)) return interaction;
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return interaction;
+    if (isCompactInteractiveChromeContext(interaction)) return interaction;
+    return hasCompactInteractiveChromeGeometry(interaction) && hasUiBox(style) ? interaction : null;
+  }
+  function isCompactInteractiveChromeText(text2) {
+    const length = compactLength(text2);
+    return length >= 2 && length <= COMPACT_INTERACTIVE_CHROME_TEXT_LIMIT && isTargetLanguageText(text2);
+  }
+  function isCompactInteractiveChromeLink(link, parent, text2) {
+    if (isLikelyProseLink(link, parent)) return false;
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(link)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(link) || isExplicitControlLink(link) || linkHasControlShape(link, text2);
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(link);
+  }
+  function isCompactInteractiveChromeControl(control2, parent) {
+    if (isReadableProseContext(parent) && !isCompactInteractiveChromeContext(control2)) return false;
+    if (safeElementMatches(control2, '[role="button"]') && control2.tagName !== "BUTTON" && !isCompactInteractiveChromeContext(control2)) return false;
+    if (safeElementMatches(control2, '[role="combobox"]') && !isNonEditableListboxTrigger(control2)) return false;
+    const chromeLike = isCompactInteractiveChromeContext(control2) || hasCompactInteractiveChromeGeometry(control2) || safeElementMatches(control2, '[role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="combobox"]');
+    return chromeLike && hasCompactInteractiveChromeRubyRisk(control2);
+  }
+  function isCompactInteractiveChromeContext(element2) {
+    return Boolean(element2.closest(COMPACT_INTERACTIVE_CHROME_CONTEXT_SELECTOR));
+  }
+  function hasCompactInteractiveChromeGeometry(element2) {
+    const style = safeComputedStyle(element2);
+    const rect = element2.getBoundingClientRect();
+    if (rect.width > 0 && rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT)) return true;
+    if (isVerticalWritingMode(style.writingMode) && rect.width > 0 && rect.width <= COMPACT_VERTICAL_CHROME_MAX_WIDTH && (rect.height === 0 || rect.height <= COMPACT_VERTICAL_CHROME_MAX_HEIGHT)) return true;
+    return hasInlineControlShape(style.display) && style.whiteSpace === "nowrap";
+  }
+  function hasCompactInteractiveChromeRubyRisk(element2) {
+    const style = safeComputedStyle(element2);
+    if (isVerticalWritingMode(style.writingMode)) return true;
+    if (isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+    if (isCompactInteractiveChromeContext(element2)) return true;
+    if (safeElementMatches(element2, COMPACT_INTERACTIVE_CHROME_CONTROL_SELECTOR) && hasCompactInteractiveChromeGeometry(element2)) return true;
+    if (!hasCompactInteractiveChromeGeometry(element2)) return false;
+    if (hasDefiniteCssSize(style.height) || hasDefiniteCssSize(style.maxHeight)) return true;
+    return clipsOverflow(style) && style.whiteSpace === "nowrap";
+  }
+  function compactConstrainedNotificationElement(parent) {
+    if (parent.closest(READER_ROOT_SELECTOR)) return null;
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > CONSTRAINED_NOTIFICATION_TEXT_LIMIT) return null;
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+      if (isReadableProseContext(current) && !current.closest(CONSTRAINED_NOTIFICATION_SELECTOR)) return null;
+      if (isConstrainedNotificationContainer(current, parent)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function isConstrainedNotificationContainer(container, textElement2) {
+    if (!safeElementMatches(container, CONSTRAINED_NOTIFICATION_SELECTOR)) return false;
+    if (!hasConstrainedNotificationGeometry(container, textElement2)) return false;
+    return hasNotificationActionPeer(container, textElement2);
+  }
+  function hasConstrainedNotificationGeometry(container, textElement2) {
+    const rect = container.getBoundingClientRect();
+    const textRect = textElement2.getBoundingClientRect();
+    return (rect.height === 0 || rect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && (textRect.height === 0 || textRect.height <= CONSTRAINED_NOTIFICATION_MAX_HEIGHT) && !notificationContainerLooksLikePageSection(container);
+  }
+  function notificationContainerLooksLikePageSection(container) {
+    const rect = container.getBoundingClientRect();
+    if (rect.height > CONSTRAINED_NOTIFICATION_MAX_HEIGHT) return true;
+    return Boolean(container.closest('article, main, [role="main"]') && isLikelyProseElement(container));
+  }
+  function hasNotificationActionPeer(container, textElement2) {
+    const selector = 'a[href],button,[role="button"],[role="link"],[data-action]';
+    if (Array.from(container.querySelectorAll(selector)).some((action2) => !action2.contains(textElement2))) return true;
+    if (container === textElement2) return false;
+    const row2 = container.parentElement;
+    if (!row2) return false;
+    return Array.from(row2.querySelectorAll(selector)).some((action2) => !container.contains(action2));
+  }
+  function isNavigationChromeContext(element2) {
+    return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
+  }
+  const EDITABLE_SURFACE_SKIP_SELECTOR = 'input,textarea,select,option,optgroup,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"],[role="combobox"][aria-autocomplete="list"],[role="combobox"][aria-autocomplete="inline"],[role="combobox"][aria-autocomplete="both"],[role="spinbutton"],[disabled],[aria-disabled="true"]';
+  const EDITABLE_OWNER_SKIP_SELECTOR = '[role="listbox"]';
+  const PASSIVE_CHOICE_SELECTOR = roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+  const COMBOBOX_POPUP_ANCESTOR_LIMIT = 15;
+  function isEditableComposingContext(element2) {
+    if (element2.closest(EDITABLE_SURFACE_SKIP_SELECTOR)) return true;
+    const combobox = element2.closest('[role="combobox"]');
+    if (combobox && !isNonEditableListboxTrigger(combobox)) return true;
+    if (element2.closest(PASSIVE_CHOICE_SELECTOR)) return false;
+    if (element2.closest(EDITABLE_OWNER_SKIP_SELECTOR)) return true;
+    return isComboboxOwnedPopup(element2);
+  }
+  const COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR = 'input,textarea,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="searchbox"]';
+  function isNonEditableListboxTrigger(element2) {
+    if (!(element2 instanceof HTMLElement)) return false;
+    if (!safeElementMatches(element2, '[role="combobox"]')) return false;
+    const tag = element2.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return false;
+    const autocomplete = element2.getAttribute("aria-autocomplete");
+    if (autocomplete && autocomplete.toLowerCase() !== "none") return false;
+    if (safeElementMatches(element2, '[contenteditable]:not([contenteditable="false"])')) return false;
+    return !safeQuerySelector(element2, COMBOBOX_TEXT_ENTRY_DESCENDANT_SELECTOR);
+  }
+  const COMBOBOX_OWNER_SELECTOR = '[role="combobox"][aria-owns],[role="combobox"][aria-controls],[role="searchbox"][aria-owns],[role="searchbox"][aria-controls],input[aria-autocomplete][aria-owns],input[aria-autocomplete][aria-controls]';
+  let comboboxOwnedIdMemo = /* @__PURE__ */ new WeakMap();
+  const COMBOBOX_OWNED_ID_TTL_MS = 250;
+  function comboboxOwnedIds(root) {
+    const now = Date.now();
+    const memo = comboboxOwnedIdMemo.get(root);
+    if (memo && now - memo.at < COMBOBOX_OWNED_ID_TTL_MS) return memo.ids;
+    const ids2 = /* @__PURE__ */ new Set();
+    if (root instanceof Document || root instanceof ShadowRoot || root instanceof Element) {
+      for (const owner of Array.from(root.querySelectorAll(COMBOBOX_OWNER_SELECTOR))) {
+        for (const attribute of ["aria-owns", "aria-controls"]) {
+          for (const token of (owner.getAttribute(attribute) ?? "").split(/\s+/)) {
+            if (token) ids2.add(token);
+          }
+        }
+      }
+    }
+    comboboxOwnedIdMemo.set(root, { at: now, ids: ids2 });
+    return ids2;
+  }
+  function isComboboxOwnedPopup(element2) {
+    const ids2 = comboboxOwnedIds(element2.getRootNode());
+    if (!ids2.size) return false;
+    let current = element2;
+    for (let depth = 0; current && depth < COMBOBOX_POPUP_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+      if (current.id && ids2.has(current.id)) return true;
+    }
+    return false;
+  }
+  const INTERACTIVE_CONTROL_SELECTOR = `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+  const INTERACTIVE_LINK_SELECTOR = 'a[href],[role="link"]';
+  const INTERACTIVE_LINK_CONTEXT_SELECTOR = roleSelectors("menu,menubar,toolbar,tablist");
+  const CONTENT_CHIP_ROOT_SELECTOR = ".yomu-hosted-overflow-group";
+  const NAMED_CONTENT_ROOT_SELECTOR = `${CONTENT_CHIP_ROOT_SELECTOR},.viewer-title-bar,.bookTitleText,#bookDescription`;
+  function interactivePassiveControl(element2) {
+    const temporalMetadata = element2.closest("time,[datetime]");
+    if (temporalMetadata && isCompactTemporalMetadata(temporalMetadata)) return temporalMetadata;
+    const control2 = element2.closest(INTERACTIVE_CONTROL_SELECTOR);
+    if (control2 && !isConversationTextClass(control2) && !isMediaTextContentControl(control2)) return control2;
+    const siblingOwnedControl = siblingOwnedInteractiveControl(element2);
+    if (siblingOwnedControl) return siblingOwnedControl;
+    const link = element2.closest(INTERACTIVE_LINK_SELECTOR);
+    if (!link) return null;
+    if (isCompactLinkedCardMetadata(link, element2)) return link;
+    if (element2 instanceof HTMLElement && isLikelyProseLink(link, element2)) return null;
+    return link.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR) ? link : null;
+  }
+  const SIBLING_CONTROL_ANCESTOR_LIMIT = 3;
+  function siblingOwnedInteractiveControl(element2) {
+    if (!(element2 instanceof HTMLElement)) return null;
+    const text2 = element2.textContent?.replace(/\s+/g, "").trim() ?? "";
+    const chromeContext = isCompactInteractiveChromeContext(element2);
+    if (!isCompactInteractiveChromeText(text2) || isReadableProseContext(element2) && !chromeContext) return null;
+    let current = element2.parentElement;
+    for (let depth = 0; current && depth < SIBLING_CONTROL_ANCESTOR_LIMIT; depth += 1, current = current.parentElement) {
+      if (isLikelyProseElement(current) || current.childElementCount > 6) continue;
+      const controls = Array.from(current.querySelectorAll(INTERACTIVE_CONTROL_SELECTOR)).filter((candidate2) => !candidate2.contains(element2) && !element2.contains(candidate2));
+      if (controls.length !== 1) continue;
+      const classFacts = `${element2.className} ${current.className}`;
+      const uiContext = isCompactInteractiveChromeContext(current) || UI_CLASS_RE.test(classFacts);
+      if (!uiContext) continue;
+      const rect = current.getBoundingClientRect();
+      const measuredCompact = rect.height > 0 && rect.height <= COMPACT_INTERACTIVE_CHROME_MAX_HEIGHT && (rect.width === 0 || rect.width <= COMPACT_INTERACTIVE_CHROME_MAX_WIDTH * 1.5);
+      if (measuredCompact || rect.height === 0) return current;
+    }
+    return null;
+  }
+  function isCompactTemporalMetadata(element2) {
+    return isCompactMetadataElement(element2);
+  }
+  const COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT = 80;
+  const COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX = 48;
+  function isCompactLinkedCardMetadata(link, element2) {
+    const textElement2 = element2 instanceof HTMLElement ? element2 : element2.parentElement;
+    return Boolean(textElement2 && isLinkedCardMetadataElement(link, textElement2));
+  }
+  function isLinkedCardMetadataElement(link, textElement2) {
+    if (textElement2.closest("h1,h2,h3,h4,h5,h6")) return false;
+    const heading = safeQuerySelector(link, "h1,h2,h3,h4,h5,h6");
+    if (!heading) return false;
+    return [
+      !heading.contains(textElement2),
+      !isLikelyProseElement(textElement2),
+      isCompactMetadataElement(textElement2)
+    ].every(Boolean);
+  }
+  function isCompactMetadataElement(element2) {
+    const text2 = element2.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    const height = element2.getBoundingClientRect().height;
+    return [
+      isTargetLanguageText(text2),
+      compactLength(text2) <= COMPACT_LINKED_CARD_METADATA_TEXT_LIMIT,
+      height === 0 || height <= COMPACT_LINKED_CARD_METADATA_MAX_HEIGHT_PX
+    ].every(Boolean);
+  }
+  function isMediaTextContentControl(control2) {
+    if (!safeElementMatches(control2, 'a[href],[role="link"],[role="button"]')) return false;
+    if (control2.closest(INTERACTIVE_LINK_CONTEXT_SELECTOR)) return false;
+    const media = safeQuerySelector(control2, "img,picture,video,canvas");
+    if (!media || !(media instanceof HTMLElement)) return false;
+    return mediaElementIsThumbnailSized(media) && compactLength(control2.textContent ?? "") > 2;
+  }
+  const MEDIA_CONTENT_MIN_LONGEST_EDGE_PX = 32;
+  function mediaElementIsThumbnailSized(media) {
+    const rect = media.getBoundingClientRect();
+    if (rect.width <= 0 && rect.height <= 0) return true;
+    return Math.max(rect.width, rect.height) >= MEDIA_CONTENT_MIN_LONGEST_EDGE_PX;
+  }
+  function classifyDecoration(element2) {
+    if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
+    if (decorationMustBeSkipped(element2)) return "skip";
+    if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
+      return "interactive-passive";
+    }
+    const control2 = interactivePassiveControl(element2);
+    if (control2) {
+      if (control2.closest(CONTENT_CHIP_ROOT_SELECTOR)) return "content-ruby";
+      return "interactive-passive";
+    }
+    if (element2 instanceof HTMLElement && compactMetadataChromeElement(element2)) return "interactive-passive";
+    if (element2.closest(NAMED_CONTENT_ROOT_SELECTOR)) return "content-ruby";
+    if (element2 instanceof HTMLElement && compactScanRubySuppression(element2).suppress) return "interactive-passive";
+    return element2 instanceof HTMLElement && isProseFullContext(element2) ? "prose-full" : "content-ruby";
+  }
+  function decorationMustBeSkipped(element2) {
+    if (isEditableComposingContext(element2)) return true;
+    return false;
+  }
+  const YOUTUBE_MINI_GUIDE_CHROME_SELECTOR = [
+    "ytd-mini-guide-entry-renderer",
+    "yt-mini-guide-entry-renderer",
+    "ytm-mini-guide-entry-renderer"
+  ].join(",");
+  const YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR = [
+    "ytd-reel-player-overlay-renderer",
+    "yt-reel-player-overlay-renderer",
+    "ytm-reel-player-overlay-renderer"
+  ].join(",");
+  const YOUTUBE_SHORTS_ROOT_SELECTOR = "ytd-shorts,ytm-shorts";
+  const YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR = [
+    "#actions",
+    "#action-buttons",
+    "#shorts-action-buttons",
+    '[role="toolbar"]',
+    '[class*="shorts-action"]',
+    '[class*="reel-action"]'
+  ].join(",");
+  const YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR = 'a[href],[role="link"],button,[role="button"]';
+  const YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR = 'button,[role="button"]';
+  const YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR = 'ytd-shelf-renderer > ytd-vertical-list-renderer > #more > yt-formatted-string[role="button"]';
+  function youtubeShelfExpansionChromeMustRemainPageOwned(element2) {
+    if (!isYouTubeAppHostname()) return false;
+    return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
+  }
+  function youtubeNativeChromeMustRemainPageOwned(element2) {
+    return youtubeShelfExpansionChromeMustRemainPageOwned(element2) || youtubeEllipsisChromeMustRemainPageOwned(element2);
+  }
+  function youtubeEllipsisChromeMustRemainPageOwned(element2) {
+    if (!isYouTubeAppHostname()) return false;
+    const chrome = youtubeNativeChromeControl(element2);
+    if (!chrome) return false;
+    const clipRow = youtubeEllipsisRow(element2);
+    if (!clipRow) return false;
+    return elementsShareComposedBranch(chrome, clipRow);
+  }
+  function youtubeNativeChromeControl(element2) {
+    const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
+    if (miniGuide) return composedControlInside(element2, YOUTUBE_MINI_GUIDE_CONTROL_SELECTOR, miniGuide);
+    const shorts = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CHROME_SELECTOR);
+    if (shorts) return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts);
+    const shortsRoot = composedClosestMatching(element2, YOUTUBE_SHORTS_ROOT_SELECTOR);
+    if (!shortsRoot) return null;
+    const actionRail = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
+    if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
+    return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
+  }
+  function youtubeEllipsisRow(element2) {
+    const clipRow = closestRubyFragileConstrainedRow(element2);
+    if (!clipRow) return null;
+    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+  }
+  function composedClosestMatching(element2, selector) {
+    let current = element2;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+      if (safeElementMatches(current, selector)) return current;
+      current = composedAncestorElement(current);
+    }
+    return null;
+  }
+  function composedControlInside(element2, selector, boundary) {
+    const control2 = composedClosestMatching(element2, selector);
+    return control2 && isComposedAncestor(boundary, control2) ? control2 : null;
+  }
+  function elementsShareComposedBranch(first2, second) {
+    return isComposedAncestor(first2, second) || isComposedAncestor(second, first2);
+  }
+  function isComposedAncestor(ancestor, descendant) {
+    let current = descendant;
+    for (let depth = 0; current && depth < 16; depth += 1) {
+      if (current === ancestor) return true;
+      current = composedAncestorElement(current);
+    }
+    return false;
+  }
+  function decorationSuppressesRuby(state) {
+    return state === "interactive-passive";
+  }
+  function stampDecorationState(host2, state) {
+    if (host2.getAttribute(DECORATION_STATE_ATTRIBUTE) !== state) {
+      host2.setAttribute(DECORATION_STATE_ATTRIBUTE, state);
+    }
+  }
+  function decorationStateForWord(word) {
+    const stamped = word.closest(`[${DECORATION_STATE_ATTRIBUTE}]`);
+    const value = stamped?.getAttribute(DECORATION_STATE_ATTRIBUTE);
+    return value === "prose-full" || value === "content-ruby" || value === "interactive-passive" || value === "skip" ? value : null;
+  }
+  function rubyFriendlyMirrorLineHeight(style) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
+    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.78))}px`;
+  }
+  function detachedReadingLaneLineHeight(style, alreadyReserved) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const minimum = Math.ceil(fontSize * 2) + 1;
+    const current = cssPixels(style.lineHeight);
+    if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
+    return current >= minimum ? "" : `${minimum}px`;
+  }
+  const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
+  const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
+  const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = "jpdb-reader-youtube-chrome-portal";
+  const portalWatches = /* @__PURE__ */ new WeakMap();
+  const structurallyStyledPortalMirrors = /* @__PURE__ */ new WeakSet();
+  const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
+  function styleDocumentAnnotationPortalMirror(mirror, host2) {
+    const style = safeComputedStyle(host2);
+    if (!structurallyStyledPortalMirrors.has(mirror)) {
+      mirror.style.cssText = [
+        "all:initial!important",
+        "position:fixed!important",
+        "inset:auto!important",
+        "top:0!important",
+        "left:0!important",
+        "width:0!important",
+        "height:0!important",
+        "overflow:visible!important",
+        "pointer-events:none!important",
+        "user-select:none!important",
+        "-webkit-user-select:none!important",
+        "z-index:auto!important",
+        "contain:layout style!important"
+      ].join(";");
+      const paint = documentAnnotationPortalPaint(mirror);
+      paint.style.cssText = [
+        "display:block!important",
+        "position:absolute!important",
+        "inset:0 auto auto 0!important",
+        "width:0!important",
+        "height:0!important",
+        "overflow:visible!important",
+        "pointer-events:none!important",
+        "contain:layout style!important",
+        "transform:none!important",
+        "transform-origin:0 0!important"
+      ].join(";");
+      structurallyStyledPortalMirrors.add(mirror);
+    }
+    mirror.style.setProperty("font", style.font, "important");
+    mirror.style.setProperty("font-size", style.fontSize, "important");
+    mirror.style.setProperty("font-weight", style.fontWeight, "important");
+    mirror.style.setProperty("line-height", style.lineHeight, "important");
+    mirror.style.setProperty("letter-spacing", style.letterSpacing, "important");
+    mirror.style.setProperty("direction", style.direction, "important");
+    mirror.style.setProperty("writing-mode", style.writingMode, "important");
+    mirror.style.setProperty("color", style.color, "important");
+    setImportantStyle(mirror, "z-index", documentPortalStackingLevel(host2));
+  }
+  function documentAnnotationPortalPaint(mirror) {
+    const existing = Array.from(mirror.children).find(
+      (child) => child instanceof HTMLElement && child.classList.contains(DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS)
+    );
+    if (existing) return existing;
+    const paint = mirror.ownerDocument.createElement("span");
+    paint.className = DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS;
+    mirror.append(paint);
+    return paint;
+  }
+  function registerDocumentAnnotationPortalMirror(host2, mirror, scheduleProjection, projectImmediately, retire) {
+    const document2 = host2.ownerDocument;
+    let watch = portalWatches.get(document2);
+    if (!watch) {
+      watch = createPortalWatch(document2);
+      portalWatches.set(document2, watch);
+    }
+    const paint = documentAnnotationPortalPaint(mirror);
+    const entry2 = {
+      source: host2,
+      mirror,
+      paint,
+      sourceAnchor: sourceAnchorRange(host2),
+      settled: { source: { x: 0, y: 0 }, root: { x: 0, y: 0 } },
+      applied: { x: 0, y: 0 },
+      preparedClip: null,
+      clipChain: [],
+      clipTopologyEpoch: -1,
+      scheduleProjection,
+      projectImmediately,
+      retire
+    };
+    watch.entries.set(mirror, entry2);
+    prepareDocumentAnnotationPortalMirrors([mirror]);
+    settleDocumentAnnotationPortalMirrors([mirror]);
+  }
+  function createPortalWatch(document2) {
+    const lifecycle = new AbortController();
+    const entries2 = /* @__PURE__ */ new Map();
+    const watch = {
+      entries: entries2,
+      lifecycle,
+      topologyEpoch: 0,
+      scrollSettleEntries: /* @__PURE__ */ new Set(),
+      scrollSettleTimer: null
+    };
+    const view = document2.defaultView;
+    const visibleEntries = () => {
+      if (document2.hidden) return [];
+      return pruneAndCollectEntries(document2, watch);
+    };
+    const alignForScroll = () => {
+      const live = visibleEntries();
+      if (!live.length) return;
+      const alignments = alignPortalEntries(live);
+      scheduleClippedPortalScrollSettle(document2, watch, alignments);
+    };
+    const alignThenScheduleAll = () => {
+      const live = visibleEntries();
+      if (!live.length) return;
+      cancelClippedPortalScrollSettle(document2, watch);
+      alignPortalEntries(live);
+      live.forEach((entry2) => entry2.scheduleProjection());
+    };
+    const scheduleVisibleProjection = () => {
+      cancelClippedPortalScrollSettle(document2, watch);
+      const live = visibleEntries();
+      live.forEach((entry2) => entry2.scheduleProjection());
+    };
+    const projectForTopLayerChange = () => {
+      cancelClippedPortalScrollSettle(document2, watch);
+      const live = visibleEntries();
+      if (!live.length) return;
+      live.forEach((entry2) => entry2.scheduleProjection());
+    };
+    const projectAffectedTransition = (event) => {
+      const target2 = event.target;
+      if (!(target2 instanceof Node)) return;
+      const affected = visibleEntries().filter((entry2) => transitionCanMoveSource(target2, entry2.source));
+      if (!affected.length) return;
+      affected.forEach((entry2) => watch.scrollSettleEntries.delete(entry2));
+      if (!watch.scrollSettleEntries.size) cancelClippedPortalScrollSettle(document2, watch);
+      affected.forEach((entry2) => {
+        entry2.clipTopologyEpoch = -1;
+      });
+      alignPortalEntries(affected);
+      affected.forEach((entry2) => entry2.projectImmediately());
+    };
+    view?.addEventListener("scroll", alignForScroll, {
+      capture: true,
+      passive: true,
+      signal: lifecycle.signal
+    });
+    view?.addEventListener("resize", () => {
+      watch.topologyEpoch += 1;
+      alignThenScheduleAll();
+    }, {
+      passive: true,
+      signal: lifecycle.signal
+    });
+    view?.visualViewport?.addEventListener("scroll", alignForScroll, {
+      passive: true,
+      signal: lifecycle.signal
+    });
+    view?.visualViewport?.addEventListener("resize", alignThenScheduleAll, {
+      passive: true,
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("visibilitychange", scheduleVisibleProjection, {
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("fullscreenchange", projectForTopLayerChange, {
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("toggle", projectForTopLayerChange, {
+      capture: true,
+      signal: lifecycle.signal
+    });
+    document2.addEventListener("transitionend", projectAffectedTransition, {
+      capture: true,
+      passive: true,
+      signal: lifecycle.signal
+    });
+    return watch;
+  }
+  function scheduleClippedPortalScrollSettle(document2, watch, alignments) {
+    for (const alignment of alignments) {
+      const movedInsideClip = Boolean(alignment.clip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
+      if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
+      else watch.scrollSettleEntries.delete(alignment.entry);
+    }
+    if (!watch.scrollSettleEntries.size) {
+      cancelClippedPortalScrollSettle(document2, watch);
+      return;
+    }
+    if (watch.scrollSettleTimer !== null) document2.defaultView?.clearTimeout(watch.scrollSettleTimer);
+    const view = document2.defaultView;
+    if (!view) {
+      const pending2 = [...watch.scrollSettleEntries];
+      watch.scrollSettleEntries.clear();
+      pending2.forEach((entry2) => entry2.scheduleProjection());
+      return;
+    }
+    watch.scrollSettleTimer = view.setTimeout(() => {
+      watch.scrollSettleTimer = null;
+      if (portalWatches.get(document2) !== watch) {
+        watch.scrollSettleEntries.clear();
+        return;
+      }
+      const live = new Set(pruneAndCollectEntries(document2, watch));
+      const pending2 = [...watch.scrollSettleEntries];
+      watch.scrollSettleEntries.clear();
+      pending2.filter((entry2) => live.has(entry2)).forEach((entry2) => entry2.scheduleProjection());
+    }, CLIPPED_PORTAL_SCROLL_SETTLE_MS);
+  }
+  function cancelClippedPortalScrollSettle(document2, watch) {
+    if (watch.scrollSettleTimer !== null) document2.defaultView?.clearTimeout(watch.scrollSettleTimer);
+    watch.scrollSettleTimer = null;
+    watch.scrollSettleEntries.clear();
+  }
+  function disposePortalWatch(document2, watch) {
+    cancelClippedPortalScrollSettle(document2, watch);
+    watch.lifecycle.abort();
+    if (portalWatches.get(document2) === watch) portalWatches.delete(document2);
+  }
+  function alignPortalEntries(entries2) {
+    const pending2 = readPortalAlignments(entries2);
+    for (const alignment of pending2) writePortalAlignment(alignment);
+    return pending2;
+  }
+  function readPortalAlignments(entries2) {
+    const clips = measurePortalClipBounds(entries2);
+    return entries2.map((entry2, index) => {
+      const source2 = portalSourcePoint(entry2);
+      const rootRect = entry2.mirror.getBoundingClientRect();
+      const clip = clips[index] ?? null;
+      entry2.preparedClip = clip;
+      const root = clip ? { x: clip.left, y: clip.top } : { x: rootRect.left, y: rootRect.top };
+      return {
+        entry: entry2,
+        source: source2,
+        root,
+        clip,
+        x: source2.x - entry2.settled.source.x - (root.x - entry2.settled.root.x),
+        y: source2.y - entry2.settled.source.y - (root.y - entry2.settled.root.y)
+      };
+    });
+  }
+  function writePortalAlignment(alignment) {
+    const { entry: entry2, clip, x: x2, y } = alignment;
+    applyPortalClipGeometry(entry2.mirror, clip);
+    entry2.applied = { x: x2, y };
+    if (Math.abs(x2) <= 0.01 && Math.abs(y) <= 0.01) {
+      entry2.paint.style.setProperty("transform", "none", "important");
+    } else {
+      entry2.paint.style.setProperty("transform", `translate3d(${x2}px, ${y}px, 0)`, "important");
+    }
+  }
+  function prepareDocumentAnnotationPortalMirrors(mirrors) {
+    const entries2 = portalEntriesForMirrors(mirrors);
+    const clips = measurePortalClipBounds(entries2);
+    for (const [index, entry2] of entries2.entries()) {
+      const clip = clips[index] ?? null;
+      entry2.preparedClip = clip;
+      applyPortalClipGeometry(entry2.mirror, clip);
+      entry2.paint.style.setProperty("transform", "none", "important");
+      entry2.applied = { x: 0, y: 0 };
+    }
+  }
+  function preparedDocumentAnnotationPortalClipBounds(mirror) {
+    return portalWatches.get(mirror.ownerDocument)?.entries.get(mirror)?.preparedClip ?? null;
+  }
+  function invalidateDocumentAnnotationPortalClipTopology(mirror) {
+    const entry2 = portalWatches.get(mirror.ownerDocument)?.entries.get(mirror);
+    if (entry2) entry2.clipTopologyEpoch = -1;
+  }
+  function settleDocumentAnnotationPortalMirrors(mirrors) {
+    const entries2 = portalEntriesForMirrors(mirrors);
+    const snapshots = entries2.map((entry2) => {
+      entry2.sourceAnchor = sourceAnchorRange(entry2.source);
+      return {
+        entry: entry2,
+        source: portalSourcePoint(entry2),
+        rootRect: entry2.mirror.getBoundingClientRect()
+      };
+    });
+    for (const { entry: entry2, source: source2, rootRect } of snapshots) {
+      entry2.settled = {
+        source: source2,
+        root: { x: rootRect.left, y: rootRect.top }
+      };
+      entry2.applied = { x: 0, y: 0 };
+    }
+  }
+  function documentAnnotationPortalMirrorsWithin(root = document) {
+    const document2 = root instanceof Document ? root : root.ownerDocument;
+    if (!document2) return [];
+    const watch = portalWatches.get(document2);
+    if (!watch) return [];
+    return pruneAndCollectEntries(document2, watch).filter((entry2) => root instanceof Document || rootContains(root, entry2.source)).map((entry2) => entry2.mirror);
+  }
+  function measurePortalClipBounds(entries2) {
+    const styles = /* @__PURE__ */ new Map();
+    const rects = /* @__PURE__ */ new Map();
+    return entries2.map((entry2) => {
+      const watch = portalWatches.get(entry2.source.ownerDocument);
+      const epoch = watch?.topologyEpoch ?? 0;
+      if (entry2.clipTopologyEpoch !== epoch) {
+        entry2.clipChain = portalClipChain(entry2.source, styles);
+        entry2.clipTopologyEpoch = epoch;
+      }
+      return clipBoundsFromChain(entry2.source, entry2.clipChain, rects);
+    });
+  }
+  function portalClipChain(source2, styles) {
+    const chain = [];
+    for (const element2 of composedAncestors(source2)) {
+      if (element2 === source2.ownerDocument.body || element2 === source2.ownerDocument.documentElement) break;
+      let style = styles.get(element2);
+      if (!style) {
+        style = safeComputedStyle(element2);
+        styles.set(element2, style);
+      }
+      const clipsX = overflowClips(style.overflowX) || paintContainmentClips(style);
+      const clipsY = overflowClips(style.overflowY) || paintContainmentClips(style);
+      if (clipsX || clipsY) chain.push({ element: element2, clipsX, clipsY });
+    }
+    return chain;
+  }
+  function clipBoundsFromChain(source2, chain, rects) {
+    if (!chain.length) return null;
+    const view = source2.ownerDocument.defaultView;
+    let bounds = {
+      left: 0,
+      top: 0,
+      right: view?.innerWidth ?? source2.ownerDocument.documentElement.clientWidth,
+      bottom: view?.innerHeight ?? source2.ownerDocument.documentElement.clientHeight
+    };
+    for (const { element: element2, clipsX, clipsY } of chain) {
+      let rect = rects.get(element2);
+      if (!rect) {
+        rect = element2.getBoundingClientRect();
+        rects.set(element2, rect);
+      }
+      if (clipsX) {
+        bounds.left = Math.max(bounds.left, rect.left);
+        bounds.right = Math.min(bounds.right, rect.right);
+      }
+      if (clipsY) {
+        bounds.top = Math.max(bounds.top, rect.top);
+        bounds.bottom = Math.min(bounds.bottom, rect.bottom);
+      }
+    }
+    return bounds;
+  }
+  function documentAnnotationPortalHasNonTranslationTransform(source2) {
+    for (const element2 of composedAncestors(source2)) {
+      const transform = safeComputedStyle(element2).transform;
+      if (transform && transform !== "none" && !transformIsTranslationOnly(transform)) return true;
+      if (element2 === source2.ownerDocument.body || element2 === source2.ownerDocument.documentElement) break;
+    }
+    return false;
+  }
+  function unregisterDocumentAnnotationPortalMirror(mirror) {
+    const document2 = mirror.ownerDocument;
+    const watch = portalWatches.get(document2);
+    if (!watch) return;
+    const entry2 = watch.entries.get(mirror);
+    watch.entries.delete(mirror);
+    if (entry2) watch.scrollSettleEntries.delete(entry2);
+    if (!watch.scrollSettleEntries.size && watch.scrollSettleTimer !== null) {
+      cancelClippedPortalScrollSettle(document2, watch);
+    }
+    if (watch.entries.size) return;
+    disposePortalWatch(document2, watch);
+  }
+  function portalEntriesForMirrors(mirrors) {
+    const entries2 = [];
+    for (const mirror of mirrors) {
+      const entry2 = portalWatches.get(mirror.ownerDocument)?.entries.get(mirror);
+      if (entry2 && mirror.isConnected && entry2.source.isConnected) entries2.push(entry2);
+    }
+    return entries2;
+  }
+  function pruneAndCollectEntries(document2, watch) {
+    const live = [];
+    const retired = [];
+    for (const entry2 of watch.entries.values()) {
+      if (!entry2.mirror.isConnected || !entry2.source.isConnected) retired.push(entry2);
+      else live.push(entry2);
+    }
+    retired.forEach((entry2) => watch.entries.delete(entry2.mirror));
+    retired.forEach((entry2) => watch.scrollSettleEntries.delete(entry2));
+    retired.forEach((entry2) => entry2.retire());
+    if (!watch.scrollSettleEntries.size && watch.scrollSettleTimer !== null) {
+      cancelClippedPortalScrollSettle(document2, watch);
+    }
+    if (!watch.entries.size) {
+      disposePortalWatch(document2, watch);
+    }
+    return live;
+  }
+  function portalSourcePoint(entry2) {
+    const rect = validAnchorRect(entry2.sourceAnchor) ?? entry2.source.getBoundingClientRect();
+    return { x: rect.left, y: rect.top };
+  }
+  function validAnchorRect(range2) {
+    if (!range2) return null;
+    const container = range2.startContainer;
+    if (!container.isConnected) return null;
+    const rect = range2.getBoundingClientRect();
+    return Number.isFinite(rect.left) && Number.isFinite(rect.top) && rect.width > 0 && rect.height > 0 ? rect : null;
+  }
+  function sourceAnchorRange(source2) {
+    if (typeof Range !== "function" || typeof Range.prototype.getBoundingClientRect !== "function") return null;
+    const walker = source2.ownerDocument.createTreeWalker(source2, NodeFilter.SHOW_TEXT, {
+      acceptNode(node22) {
+        const text2 = node22.textContent ?? "";
+        return /\S/u.test(text2) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+      }
+    });
+    const node2 = walker.nextNode();
+    if (!(node2 instanceof Text)) return null;
+    const first2 = node2.data.search(/\S/u);
+    if (first2 < 0) return null;
+    const range2 = source2.ownerDocument.createRange();
+    range2.setStart(node2, first2);
+    range2.setEnd(node2, Math.min(node2.length, first2 + 1));
+    return range2;
+  }
+  function applyPortalClipGeometry(mirror, clip) {
+    if (!clip) {
+      setImportantStyle(mirror, "left", "0px");
+      setImportantStyle(mirror, "top", "0px");
+      setImportantStyle(mirror, "width", "0px");
+      setImportantStyle(mirror, "height", "0px");
+      setImportantStyle(mirror, "overflow", "visible");
+      return;
+    }
+    setImportantStyle(mirror, "left", `${clip.left}px`);
+    setImportantStyle(mirror, "top", `${clip.top}px`);
+    setImportantStyle(mirror, "width", `${Math.max(0, clip.right - clip.left)}px`);
+    setImportantStyle(mirror, "height", `${Math.max(0, clip.bottom - clip.top)}px`);
+    setImportantStyle(mirror, "overflow", "hidden");
+  }
+  function setImportantStyle(element2, property, value) {
+    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
+    element2.style.setProperty(property, value, "important");
+  }
+  function transitionCanMoveSource(target2, source2) {
+    if (target2 === source2) return true;
+    if (!(target2 instanceof Element)) return false;
+    return target2.contains(source2) || source2.contains(target2);
+  }
+  function rootContains(root, source2) {
+    if (root === source2) return true;
+    return root instanceof Node && root.contains(source2);
+  }
+  function overflowClips(value) {
+    return /^(?:auto|clip|hidden|overlay|scroll)$/u.test(value);
+  }
+  function documentPortalStackingLevel(source2) {
+    const ancestors = composedAncestors(source2).reverse();
+    for (const element2 of ancestors) {
+      if (element2 === source2.ownerDocument.body || element2 === source2.ownerDocument.documentElement) continue;
+      const style = safeComputedStyle(element2);
+      if (!elementCreatesStackingContext(element2, style)) continue;
+      return /^-?\d+$/u.test(style.zIndex) ? style.zIndex : "auto";
+    }
+    return "auto";
+  }
+  function elementCreatesStackingContext(element2, style) {
+    if (style.position === "fixed" || style.position === "sticky") return true;
+    if (style.zIndex && style.zIndex !== "auto") {
+      const parentDisplay = element2.parentElement ? safeComputedStyle(element2.parentElement).display : "";
+      if (style.position !== "static" || parentDisplay.includes("flex") || parentDisplay.includes("grid")) return true;
+    }
+    return style.opacity !== "" && Number.parseFloat(style.opacity) < 1 || style.transform !== "" && style.transform !== "none" || style.filter !== "" && style.filter !== "none" || style.backdropFilter !== "" && style.backdropFilter !== "none" || style.perspective !== "" && style.perspective !== "none" || style.isolation === "isolate" || style.mixBlendMode !== "" && style.mixBlendMode !== "normal" || /(?:^|\s)(?:layout|paint|strict|content)(?:\s|$)/u.test(style.contain) || /(?:^|,\s*)(?:transform|opacity|filter|perspective)(?:\s*,|$)/u.test(style.willChange);
+  }
+  function paintContainmentClips(style) {
+    return /(?:^|\s)paint(?:\s|$)/u.test(style.contain) || style.clipPath !== "" && style.clipPath !== "none";
+  }
+  function transformIsTranslationOnly(transform) {
+    if (/^(?:translate(?:X|Y|Z|3d)?\([^)]*\)\s*)+$/iu.test(transform)) return true;
+    const matrix = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (matrix) {
+      const values2 = matrix[1].split(",").map(Number);
+      return values2.length === 6 && values2.every(Number.isFinite) && Math.abs(values2[0] - 1) < 1e-4 && Math.abs(values2[1]) < 1e-4 && Math.abs(values2[2]) < 1e-4 && Math.abs(values2[3] - 1) < 1e-4;
+    }
+    const matrix3d = transform.match(/^matrix3d\(([^)]+)\)$/u);
+    if (!matrix3d) return false;
+    const values = matrix3d[1].split(",").map(Number);
+    if (values.length !== 16 || !values.every(Number.isFinite)) return false;
+    const identityIndexes = /* @__PURE__ */ new Set([0, 5, 10, 15]);
+    const translationIndexes = /* @__PURE__ */ new Set([12, 13, 14]);
+    return values.every((value, index) => translationIndexes.has(index) || (identityIndexes.has(index) ? Math.abs(value - 1) < 1e-4 : Math.abs(value) < 1e-4));
+  }
+  function composedAncestors(source2) {
+    const ancestors = [];
+    const visited = /* @__PURE__ */ new Set();
+    let current = source2;
+    while (current && !visited.has(current)) {
+      ancestors.push(current);
+      visited.add(current);
+      if (current.assignedSlot) current = current.assignedSlot;
+      else if (current.parentElement) current = current.parentElement;
+      else {
+        const root = current.getRootNode();
+        current = typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && root.host instanceof HTMLElement ? root.host : null;
+      }
+    }
+    return ancestors;
+  }
+  function syncProjectedReadings(owner, projections) {
+    yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
+  }
+  function clearProjectedReadings(owner) {
+    yomuAnnotationsCompanion()?.clearProjectedReadings(owner);
+  }
+  function clearProjectedReadingsWithin(root) {
+    return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+  }
+  function pruneProjectedReadings(document2) {
+    yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+  }
+  function createPostPaintPass(run) {
+    let pendingScheduler = null;
+    const flush = () => {
+      pendingScheduler = null;
+      run();
+    };
+    return {
+      schedule(view) {
+        const request2 = view?.requestAnimationFrame;
+        if (typeof request2 !== "function") {
+          flush();
+          return;
+        }
+        if (pendingScheduler === request2) return;
+        const previous = pendingScheduler;
+        pendingScheduler = request2;
+        try {
+          request2.call(view, flush);
+        } catch (error) {
+          if (pendingScheduler === request2) pendingScheduler = previous;
+          throw error;
+        }
+      }
+    };
+  }
+  function viewForNode(node2) {
+    if (!node2) return null;
+    const document2 = node2.nodeType === Node.DOCUMENT_NODE ? node2 : node2.ownerDocument;
+    return document2?.defaultView ?? null;
+  }
+  const SHADOW_STYLE_MARKER = "data-yomu-shadow-reader-style";
+  let shadowReaderCssText = "";
+  let sharedShadowSheet;
+  const adoptedShadowRoots = /* @__PURE__ */ new WeakSet();
+  const clonedShadowStyleNodes = /* @__PURE__ */ new Set();
+  function supportsConstructableSheets(root) {
+    if (typeof CSSStyleSheet !== "function" || !("adoptedStyleSheets" in root)) return false;
+    if (sharedShadowSheet !== void 0) return sharedShadowSheet !== null;
+    try {
+      sharedShadowSheet = new CSSStyleSheet();
+      sharedShadowSheet.replaceSync(shadowReaderCssText);
+    } catch {
+      sharedShadowSheet = null;
+    }
+    return sharedShadowSheet !== null;
+  }
+  function ensureReaderStylesForHost(host2) {
+    const root = host2.getRootNode();
+    if (typeof ShadowRoot === "undefined" || !(root instanceof ShadowRoot)) return;
+    ensureReaderStylesInShadowRoot(root);
+  }
+  function ensureReaderStylesInShadowRoot(root) {
+    if (adoptedShadowRoots.has(root)) return;
+    adoptedShadowRoots.add(root);
+    if (supportsConstructableSheets(root) && sharedShadowSheet) {
+      try {
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, sharedShadowSheet];
+        return;
+      } catch {
+      }
+    }
+    if (root.querySelector(`style[${SHADOW_STYLE_MARKER}]`)) return;
+    const style = root.ownerDocument.createElement("style");
+    style.setAttribute(SHADOW_STYLE_MARKER, "true");
+    style.textContent = shadowReaderCssText;
+    root.append(style);
+    clonedShadowStyleNodes.add(new WeakRef(style));
+  }
+  const scannedShadowRootRefs = /* @__PURE__ */ new Set();
+  const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
+  const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+  const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+  const MAX_PENDING_UPGRADE_NAMES = 64;
+  const potentialShadowHosts = /* @__PURE__ */ new Set();
+  let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
+  const subscribedUpgradeNames = /* @__PURE__ */ new Set();
+  function noteShadowRoot(root, cause) {
+    const active = scannedShadowRootState.get(root);
+    if (active) return;
+    scannedShadowRootState.set(root, true);
+    if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+  }
+  function watchPotentialOpenShadowRootHost(host2) {
+    const root = host2.shadowRoot;
+    if (root) {
+      noteShadowRoot(root);
+      return root;
+    }
+    const tagName = host2.localName.toLowerCase();
+    const isCustomElement = tagName.includes("-");
+    if (!isCustomElement) return null;
+    if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
+      subscribeToCustomElementUpgrade(tagName);
+      return null;
+    }
+    if (seenPotentialShadowHosts.has(host2) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
+    seenPotentialShadowHosts.add(host2);
+    potentialShadowHosts.add({
+      ref: new WeakRef(host2),
+      remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
+    });
+    return null;
+  }
+  function forEachScannedShadowRoot(callback2, includeDetached = false) {
+    for (const ref of scannedShadowRootRefs) {
+      const root = ref.deref();
+      if (!root) {
+        scannedShadowRootRefs.delete(ref);
+        continue;
+      }
+      if (!root.host?.isConnected) {
+        scannedShadowRootState.set(root, false);
+        if (!includeDetached) continue;
+      }
+      callback2(root);
+    }
+  }
+  function subscribeToCustomElementUpgrade(tagName) {
+    if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+    subscribedUpgradeNames.add(tagName);
+    void customElements.whenDefined(tagName).then(() => {
+      subscribedUpgradeNames.delete(tagName);
+    }, () => {
+      subscribedUpgradeNames.delete(tagName);
+    });
+  }
+  function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
+    return right > rect.left && bottom > rect.top;
+  }
+  function coordinateInRange(value, start, end, slack) {
+    return value >= start - slack && value <= end + slack;
+  }
+  const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
+  const MAX_CONTEXT_SENTENCE_LENGTH = 180;
+  function unwrapReaderWords(root = document, options = {}) {
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+    const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
+    const parents = /* @__PURE__ */ new Set();
+    words.forEach(clearProjectedReadingsWithin);
+    for (const word of words) {
+      const parent = word.parentNode;
+      if (!parent) continue;
+      parents.add(parent);
+      word.replaceWith(document.createTextNode(readerWordSurfaceText$1(word)));
+    }
+    for (const bind of numberBinds) {
+      if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+      const parent = bind.parentNode;
+      if (!parent) continue;
+      parents.add(parent);
+      bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
+    }
+    parents.forEach((parent) => parent.normalize());
+    return words.length;
+  }
+  function readerWordSurfaceText$1(element2) {
+    const surface = readerWordChildSurfaceText(element2);
+    return surface || element2.getAttribute("data-surface") || "";
+  }
+  function readerWordChildSurfaceText(element2) {
+    let text2 = "";
+    element2.childNodes.forEach((node2) => {
+      if (node2.nodeType === Node.TEXT_NODE) {
+        text2 += node2.textContent ?? "";
+        return;
+      }
+      if (node2.nodeType !== Node.ELEMENT_NODE) return;
+      const child = node2;
+      if (isSurfaceIgnoredElement$1(child)) return;
+      text2 += readerWordChildSurfaceText(child);
+    });
+    return text2;
+  }
+  function sentenceAroundSurface(value, surface = "", fallback = "") {
+    const text2 = cleanReadableSentence(value);
+    if (!isJapaneseSentenceContext(text2)) return "";
+    const search = sentenceSearchText(text2, surface, fallback);
+    const index = sentenceSearchIndex(text2, search);
+    if (index < 0) return clampContextText(text2);
+    const hardBounded = hardBoundedSentence(text2, index, search.length);
+    const hardClean = trimSoftSentenceBoundary(hardBounded, search);
+    if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
+    return clampLongSentence(hardClean, search);
+  }
+  function sentenceAroundRange(value, start, end, fallback = "") {
+    if (!isJapaneseSentenceContext(cleanReadableSentence(value))) return "";
+    const range2 = normalizedSentenceRange(value.length, start, end);
+    if (!range2) return sentenceAroundSurface(value, fallback, fallback);
+    const hardBounded = hardBoundedSentenceRange(value, range2.start, range2.end);
+    const localStart = range2.start - hardBounded.start;
+    const localEnd = range2.end - hardBounded.start;
+    const hardText = cleanReadableSentence(hardBounded.text);
+    const surface = cleanReadableSentence(hardBounded.text.slice(localStart, localEnd)) || fallback;
+    const cleanStart = cleanReadableSentence(hardBounded.text.slice(0, localStart)).length;
+    const cleanEnd = cleanStart + surface.length;
+    const hardClean = trimSoftSentenceBoundaryAroundRange(hardText, cleanStart, cleanEnd);
+    if (!hardClean) return sentenceAroundSurface(value, fallback, fallback);
+    if (hardClean.length <= MAX_CONTEXT_SENTENCE_LENGTH) return hardClean;
+    return clampLongSentence(hardClean, surface);
+  }
+  function normalizedSentenceRange(length, start, end) {
+    if (!Number.isFinite(start) || !Number.isFinite(end) || length <= 0) return null;
+    const safeStart = Math.max(0, Math.min(length - 1, Math.floor(start)));
+    const safeEnd = Math.max(safeStart + 1, Math.min(length, Math.ceil(end)));
+    return { start: safeStart, end: safeEnd };
+  }
+  function sentenceSearchIndex(text2, search) {
+    if (!search) return 0;
+    return text2.indexOf(search);
+  }
+  function isJapaneseSentenceContext(text2) {
+    return Boolean(text2 && isTargetLanguageText(text2));
+  }
+  function sentenceSearchText(text2, surface, fallback) {
+    const cleanSurface = cleanReadableSentence(surface);
+    const cleanFallback = cleanReadableSentence(fallback);
+    if (textIncludesSearch(text2, cleanSurface)) return cleanSurface;
+    if (textIncludesSearch(text2, cleanFallback)) return cleanFallback;
+    return "";
+  }
+  function textIncludesSearch(text2, search) {
+    if (!search) return false;
+    return text2.includes(search);
+  }
+  function clampContextText(text2) {
+    return text2.length <= MAX_CONTEXT_SENTENCE_LENGTH ? text2 : text2.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+  }
+  function isSurfaceIgnoredElement$1(element2) {
+    return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
+  }
+  const SPACE_BEFORE_JAPANESE_PUNCTUATION_RE = new RegExp(
+    `([${KANA}${KANJI_LIKE_WITH_COUNTERS}])\\s+([${JAPANESE_SENTENCE_PUNCTUATION}])`,
+    "gu"
+  );
+  const SPACE_AFTER_JAPANESE_PUNCTUATION_RE = new RegExp(
+    `([${JAPANESE_SENTENCE_PUNCTUATION}])\\s+([${KANA}${KANJI_LIKE_WITH_COUNTERS}])`,
+    "gu"
+  );
+  function cleanReadableSentence(value) {
+    return value.replace(/\s+/g, " ").replace(SPACE_BEFORE_JAPANESE_PUNCTUATION_RE, "$1$2").replace(SPACE_AFTER_JAPANESE_PUNCTUATION_RE, "$1$2").trim();
+  }
+  function hardBoundedSentence(text2, index, length) {
+    const start = sentenceStartIndex(text2, index);
+    const end = sentenceEndIndex(text2, index + length);
+    return text2.slice(start, end).trim();
+  }
+  function hardBoundedSentenceRange(text2, start, end) {
+    const sentenceStart = sentenceStartIndex(text2, start);
+    const sentenceEnd = sentenceEndIndex(text2, end);
+    return {
+      text: text2.slice(sentenceStart, sentenceEnd),
+      start: sentenceStart
+    };
+  }
+  function sentenceStartIndex(text2, index) {
+    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
+    for (let i2 = index - 1; i2 >= 0; i2--) {
+      if (terminators.has(text2[i2] ?? "")) return i2 + 1;
+    }
+    return 0;
+  }
+  function sentenceEndIndex(text2, index) {
+    const terminators = new Set(activeLearningTarget().sentenceBoundaries.terminators);
+    for (let i2 = index; i2 < text2.length; i2++) {
+      if (terminators.has(text2[i2] ?? "")) return i2 + 1;
+    }
+    return text2.length;
+  }
+  function trimSoftSentenceBoundary(sentence, surface) {
+    const clean = sentence.trim();
+    if (!surface) return clean;
+    const index = clean.indexOf(surface);
+    if (index < 0) return clean;
+    const start = softBoundaryStart(clean, index);
+    const end = softBoundaryEnd(clean, index + surface.length);
+    const trimmed = clean.slice(start, end).trim();
+    const omitted = `${clean.slice(0, start)}${clean.slice(end)}`;
+    return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
+  }
+  function trimSoftSentenceBoundaryAroundRange(sentence, start, end) {
+    const leadingTrim = sentence.length - sentence.trimStart().length;
+    const clean = sentence.trim();
+    if (!clean) return clean;
+    const cleanStart = Math.max(0, Math.min(clean.length, start - leadingTrim));
+    const cleanEnd = Math.max(cleanStart, Math.min(clean.length, end - leadingTrim));
+    const trimStart = softBoundaryStart(clean, cleanStart);
+    const trimEnd = softBoundaryEnd(clean, cleanEnd);
+    const trimmed = clean.slice(trimStart, trimEnd).trim();
+    const omitted = `${clean.slice(0, trimStart)}${clean.slice(trimEnd)}`;
+    return shouldUseSoftSentenceTrim(clean, trimmed, omitted) ? trimmed : clean;
+  }
+  function shouldUseSoftSentenceTrim(clean, trimmed, omitted) {
+    if (!trimmed || trimmed === clean) return false;
+    return clean.length > 48 || activeLearningTarget().sentenceBoundaries.terminators.some((mark) => omitted.includes(mark));
+  }
+  function softBoundaryStart(text2, index) {
+    for (let i2 = index - 1; i2 >= 0; i2--) {
+      if (isStrongWhitespaceBoundary(text2, i2)) return i2 + 1;
+    }
+    return 0;
+  }
+  function softBoundaryEnd(text2, index) {
+    for (let i2 = index; i2 < text2.length; i2++) {
+      if (isStrongWhitespaceBoundary(text2, i2)) return i2;
+    }
+    return text2.length;
+  }
+  function isStrongWhitespaceBoundary(text2, index) {
+    if (!activeLearningTarget().sentenceBoundaries.whitespaceIsBoundary) return false;
+    const char = text2[index] ?? "";
+    if (!/\s/u.test(char)) return false;
+    const before = text2.slice(Math.max(0, index - 24), index);
+    const after = text2.slice(index + 1, Math.min(text2.length, index + 25));
+    return isTargetLanguageText(before) && isTargetLanguageText(after);
+  }
+  function clampLongSentence(sentence, surface) {
+    if (sentence.length <= MAX_CONTEXT_SENTENCE_LENGTH) return sentence;
+    const index = surface ? sentence.indexOf(surface) : -1;
+    if (index < 0) return sentence.slice(0, MAX_CONTEXT_SENTENCE_LENGTH).trim();
+    const halfWindow = Math.floor((MAX_CONTEXT_SENTENCE_LENGTH - surface.length) / 2);
+    const start = Math.max(0, index - Math.max(0, halfWindow));
+    const end = Math.min(sentence.length, start + MAX_CONTEXT_SENTENCE_LENGTH);
+    return sentence.slice(start, end).trim();
+  }
+  function* uncoveredJapaneseRanges(text2, rangeStart, rangeEnd, isCovered) {
+    let gapStart = -1;
+    for (let index = rangeStart; index < rangeEnd; ) {
+      const codePoint = text2.codePointAt(index);
+      if (codePoint === void 0) break;
+      const character = String.fromCodePoint(codePoint);
+      const codePointEnd = index + character.length;
+      const nextIndex = Math.min(rangeEnd, codePointEnd);
+      const uncoveredJapanese = codePointEnd <= rangeEnd && JAPANESE_CHARACTER_RE.test(character) && !isCovered(index, nextIndex);
+      if (uncoveredJapanese) {
+        if (gapStart < 0) gapStart = index;
+      } else if (gapStart >= 0) {
+        yield { start: gapStart, end: index };
+        gapStart = -1;
+      }
+      index = nextIndex;
+    }
+    if (gapStart >= 0) yield { start: gapStart, end: rangeEnd };
+  }
+  new Set(
+    "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+  );
   const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
   const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
   const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -290562,9 +290583,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return parsed;
   }
   function repaintYomuLocalSrsRenderedWords(card, roots = typeof document === "undefined" ? [] : [document]) {
-    if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") return 0;
-    const target2 = localIdentity(card.spelling, card.reading, card.language);
-    if (!target2) return 0;
+    const changed = repaintYomuLocalSrsRenderedCards([card], roots);
+    refreshContrastForChangedWords(changed);
+    return changed.length;
+  }
+  function repaintYomuLocalSrsRenderedCards(cards, roots = typeof document === "undefined" ? [] : [document]) {
+    const byIdentity = /* @__PURE__ */ new Map();
+    for (const card of cards) {
+      if (card.reviewSource !== "yomu-local" && card.source !== "yomu-local") continue;
+      const identity2 = localIdentity(card.spelling, card.reading, card.language);
+      if (identity2) byIdentity.set(identity2.key, card);
+    }
+    if (!byIdentity.size) return [];
     const words = /* @__PURE__ */ new Set();
     for (const root of roots) {
       if (root instanceof HTMLElement && root.matches(".jpdb-reader-word[data-expression]")) words.add(root);
@@ -290577,11 +290607,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         word.dataset.reading ?? "",
         word.dataset.language
       );
-      if (!identity2 || identity2.key !== target2.key) continue;
+      const card = identity2 ? byIdentity.get(identity2.key) : void 0;
+      if (!card) continue;
       if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
     }
-    refreshContrastForChangedWords(changed);
-    return changed.length;
+    return changed;
   }
   function localIdentity(expression, reading, language2) {
     try {
@@ -304133,18 +304163,17 @@ ${component.reading}`;
     );
   }
   function applyPublicVocabularyFurigana(word, card, settings) {
-    if (word.closest("ruby")) return;
+    if (word.closest("ruby")) return false;
     const ocrLine = word.closest(".jpdb-ocr-line");
     const surface = readerWordSurfaceText$1(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
-    if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-      clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
-      return;
+    if (shouldHideFuriganaForCardState(renderSettings, publicVocabularyFuriganaCardState(word, card))) {
+      return clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
     }
     if (rendersWholeCardReading(word, card)) {
       if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
       if (ocrLine) ocrLine.dataset.hasFuri = "true";
-      return;
+      return false;
     }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
@@ -304156,10 +304185,17 @@ ${component.reading}`;
       pitchClass: word.dataset.pitchClass ?? "",
       sentence: word.dataset.sentence
     };
-    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
-    if (!replaceRenderedWordFurigana(word, surface, token)) return;
+    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return false;
+    if (!replaceRenderedWordFurigana(word, surface, token)) return false;
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
+    return true;
+  }
+  function publicVocabularyFuriganaCardState(word, card) {
+    if (card.provisionalState === true && word.dataset.stateProvenance === "authoritative" && word.dataset.cardState) {
+      return primaryCardState([word.dataset.cardState]);
+    }
+    return primaryCardState(card.cardState);
   }
   function rendersWholeCardReading(word, card) {
     const rendered = Array.from(word.querySelectorAll("rt")).map((rt) => rt.textContent ?? "").join("");
@@ -304170,11 +304206,12 @@ ${component.reading}`;
     return value.replace(/\s+/g, "").replace(/[ァ-ヶ]/g, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
   }
   function clearPublicVocabularyFurigana(word, surface, ocrLine, isolatePageScanners) {
-    if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
+    if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return false;
     clearRenderedWordFurigana(word, surface);
-    if (!ocrLine) return;
+    if (!ocrLine) return true;
     yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
     if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
+    return true;
   }
   function publicVocabularyFuriganaSettings(word, settings) {
     if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
