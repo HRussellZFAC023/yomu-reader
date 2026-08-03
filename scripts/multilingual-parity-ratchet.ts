@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto';
+import { parityDictionaryId } from './lib/multilingual-parity-dictionary';
 
 import { File as NodeFile } from 'node:buffer';
 import { createHash } from 'node:crypto';
@@ -135,9 +136,7 @@ function sameTargetSet(actual: readonly string[], expected: readonly string[]): 
     return JSON.stringify([...actual].sort()) === JSON.stringify([...expected].sort());
 }
 
-function expectedDictionaryId(language: string): string {
-    return language === 'ja' ? 'jmdict-en' : `wty-${language}-en`;
-}
+
 
 function expectedDictionaryEvidence(entry: PublishedCatalogEntry): DictionaryEvidence {
     return {
@@ -279,7 +278,7 @@ export function validateMultilingualParityInputs(
 
         failures.push(...parityLookupContractFailures(language, baselineTarget, evidenceTarget));
 
-        const dictionaryId = expectedDictionaryId(language);
+        const dictionaryId = parityDictionaryId(language);
         const catalogEntry = catalog.entries.find(entry => entry.id === dictionaryId);
         if (!catalogEntry) {
             failures.push(`${language}: frozen published catalog has no ${dictionaryId}`);

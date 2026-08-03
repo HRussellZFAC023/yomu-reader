@@ -2,12 +2,12 @@
   "schemaVersion": 3,
   "measurementMode": "production-yomitan-inline-find-term-matches",
   "measurementAlgorithmVersion": "exact-gold-spans-v3-full-archive-filter",
-  "generatedAt": "2026-08-03T09:49:49.435Z",
+  "generatedAt": "2026-08-03T09:47:47.381Z",
   "corpusSha256": "df1e88feaa359a9253df2a21cc2e173d7db382c54351c72e0272cab4acd2fca2",
   "targets": [
     {
       "language": "th",
-      "lookupContractSha256": "1553697d95f1d84ea14e1819d11d54fe3078923104e88a2404f7a23b178408d8",
+      "lookupContractSha256": "e70437978fb46edf6189069a8a38a454e9a61908491d1b97c086f18b94c2c789",
       "dictionary": {
         "id": "wty-th-en",
         "title": "[TH-EN] Wiktionary (terms)",
@@ -995,7 +995,7 @@
     },
     {
       "language": "ru",
-      "lookupContractSha256": "3b28468ba5bfe0a1a14c29cd5fde014f4300aa9461e38ec9dda31b67b715e4ae",
+      "lookupContractSha256": "8f47a69e7bfbb7ed28739a31a95826017209f075b8b5884bc7cb2f8aebfb4bc4",
       "dictionary": {
         "id": "wty-ru-en",
         "title": "[RU-EN] Wiktionary (terms)",
@@ -1853,7 +1853,7 @@
     },
     {
       "language": "ar",
-      "lookupContractSha256": "6832e3d3ae6e0e6da6072539890f3fc33719a8470f5dad3b01b17f6b49634901",
+      "lookupContractSha256": "aea774ebe482525afdd4f799592e8d496444e99cb7b066e320d83a09bab566ac",
       "dictionary": {
         "id": "wty-ar-en",
         "title": "[AR-EN] Wiktionary (terms)",
@@ -2594,7 +2594,7 @@
     },
     {
       "language": "ko",
-      "lookupContractSha256": "fcec75893df06dbf936acf9614df91498cb915a7652813a6d262dcc1f27ccaef",
+      "lookupContractSha256": "2c311fa3f45efffcbfebddb6c00ce83b93580ee85b2ae1045ccfddb5e369c4e3",
       "dictionary": {
         "id": "wty-ko-en",
         "title": "[KO-EN] Wiktionary (terms)",
@@ -3387,7 +3387,7 @@
     },
     {
       "language": "de",
-      "lookupContractSha256": "ee4c60ac96ea96d77e39081a6d688f2291f505347117e323ee518b3f3329d1ba",
+      "lookupContractSha256": "789808b84d4a6e69c4a68a040a7547ee6aca380d19403a42bc0c21d8ea98767a",
       "dictionary": {
         "id": "wty-de-en",
         "title": "[DE-EN] Wiktionary (terms)",
@@ -4375,7 +4375,7 @@
     },
     {
       "language": "es",
-      "lookupContractSha256": "de704e35c34e717bb4eb5b413af28c66590b04068c2e8da0f0fed5373cbab5fb",
+      "lookupContractSha256": "5e7f68e454532c28ed05e2f5f2d60999892fe2af29e23a45199b67561fa2cf7a",
       "dictionary": {
         "id": "wty-es-en",
         "title": "[ES-EN] Wiktionary (terms)",
@@ -5259,7 +5259,7 @@
     },
     {
       "language": "sq",
-      "lookupContractSha256": "b9998d874ea1e8d835761e0622e292cbb37c6373c14c4d585035cb0bbde79478",
+      "lookupContractSha256": "933659a9a38917d2f039483359c2611f1c418fd5ebfd3d657fadde06361ad64c",
       "dictionary": {
         "id": "wty-sq-en",
         "title": "[SQ-EN] Wiktionary (terms)",
@@ -6104,7 +6104,7 @@
     },
     {
       "language": "grc",
-      "lookupContractSha256": "b78dc9690ee0e5dc3c6165c370ba3f459b679b2e6099ddfbe7cf7bc7c08ba704",
+      "lookupContractSha256": "3f5812f2b4e4abac48252fc0f1381b231815b718c5d6c88d9524c86188977df1",
       "dictionary": {
         "id": "wty-grc-en",
         "title": "[GRC-EN] Wiktionary (terms)",
@@ -6585,32 +6585,1046 @@
     },
     {
       "language": "yue",
-      "lookupContractSha256": "a4d2dc4ea74c4f0825da77791d57d4012817ee3f956adf2b1a748463f7728a6d",
+      "lookupContractSha256": "ba40c552094af84ffb2bf2ab3413a296a1e7af808259753aac41e701fd3fe46f",
       "dictionary": {
-        "id": "wty-yue-en",
-        "title": "[YUE-EN] Wiktionary (terms)",
-        "version": "95a9151c1beb",
+        "id": "drive-cantonese-yue-en-yue-words-hk-2026-07-22-hietpkiipw",
+        "title": "[YUE-EN & YUE] Words.hk.2026-07-22",
+        "version": "2026-07-22",
         "catalogRevision": "2026-07-23.574961e8.wty-95a9151c1beb",
-        "sha256": "d0dc3d6a5de7d4384de620084a44741fec6e0dd7ec82c1e14a2c4c780f8a0281",
-        "bytes": 28109,
-        "url": "https://dictionaries.yomureader.com/objects/sha256/d0dc3d6a5de7d4384de620084a44741fec6e0dd7ec82c1e14a2c4c780f8a0281.zip",
+        "sha256": "65667cc0fcbc39b39c0c0362bb21fc0159a747adf1a533a70c4b1a01783ba437",
+        "bytes": 13578603,
+        "url": "https://dictionaries.yomureader.com/objects/sha256/65667cc0fcbc39b39c0c0362bb21fc0159a747adf1a533a70c4b1a01783ba437.zip",
         "license": {
-          "spdx": "CC-BY-SA-4.0",
-          "attribution": "Wiktionary contributors, via Kaikki and wiktionary-to-yomitan (wty)",
-          "sourceUrl": "https://huggingface.co/datasets/daxida/wty-release/resolve/95a9151c1beb6af694fab9405604297d43bf757d/latest/dict/yue/en/wty-yue-en.zip",
-          "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+          "spdx": null,
+          "attribution": "Frozen MarvNC Yomitan dictionary collection item: [YUE-EN & YUE] Words.hk.2026-07-22",
+          "sourceUrl": "https://drive.usercontent.google.com/download?id=1sVgzVpJ1CufnVSJIQnRi2rHiETPkiIpW&export=download&confirm=t",
           "redistribution": "allowed",
-          "reviewNote": "Redistribution approved by the project owner; the archive is frozen to the recorded WTY dataset commit and LFS SHA-256."
+          "reviewNote": "Redistribution rights confirmed for the frozen Slice 1 dictionary collection."
         }
       },
       "archiveScan": {
         "mode": "full-production-import"
       },
-      "terms": []
+      "terms": [
+        {
+          "expression": "星期一",
+          "reading": "sing1 kei4 jat1",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "朝早",
+          "reading": "ziu1 zou2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "瑪",
+          "reading": "maa5",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "利",
+          "reading": "lei6",
+          "definitionTags": "名詞 專名",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "亞",
+          "reading": "aa3",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "一早",
+          "reading": "jat1 zou2",
+          "definitionTags": "副詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "去",
+          "reading": "heoi3",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "咗",
+          "reading": "zo2",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "街市",
+          "reading": "gaai1 si5",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "佢",
+          "reading": "keoi5",
+          "definitionTags": "代詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "買",
+          "reading": "maai5",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "新鮮",
+          "reading": "san1 sin1",
+          "definitionTags": "形容詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "包",
+          "reading": "baau1",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "兩",
+          "reading": "loeng2",
+          "definitionTags": "量詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "個",
+          "reading": "go3",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "蘋果",
+          "reading": "ping4 gwo2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "同一",
+          "reading": "tung4 jat1",
+          "definitionTags": "區別詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "樽",
+          "reading": "zeon1",
+          "definitionTags": "量詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "水",
+          "reading": "seoi2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "檔",
+          "reading": "dong2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "主",
+          "reading": "zyu2",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "同",
+          "reading": "tung4",
+          "definitionTags": "形容詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "打招呼",
+          "reading": "daa2 ziu1 fu1",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "又",
+          "reading": "jau6",
+          "definitionTags": "副詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "問",
+          "reading": "man6",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "起",
+          "reading": "hei2",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "屋企人",
+          "reading": "uk1 kei2 jan4",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "話",
+          "reading": "waa6",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "啲",
+          "reading": "di1",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "細路",
+          "reading": "sai3 lou6",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "喺",
+          "reading": "hai2",
+          "definitionTags": "介詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "屋企",
+          "reading": "uk1 kei2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "讀",
+          "reading": "duk6",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "緊",
+          "reading": "gan2",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "書",
+          "reading": "syu1",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "完",
+          "reading": "jyun4",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "嘢",
+          "reading": "je5",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "之後",
+          "reading": "zi1 hau6",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "行",
+          "reading": "hong2",
+          "definitionTags": "形容詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "過",
+          "reading": "gwo3",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "公園",
+          "reading": "gung1 jyun2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "一",
+          "reading": "jat1",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "隻",
+          "reading": "zek3",
+          "definitionTags": "量詞 俚語 術語",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "小",
+          "reading": "siu2",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "狗",
+          "reading": "gau2",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "湖",
+          "reading": "wu4",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "邊",
+          "reading": "bin1",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "玩",
+          "reading": "wun6",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "坐",
+          "reading": "co5",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "樹",
+          "reading": "syu6",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "下",
+          "reading": "haa5",
+          "definitionTags": "量詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "睇",
+          "reading": "tai2",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "一本",
+          "reading": "jat1 bun2",
+          "definitionTags": "名詞 外來語",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "新",
+          "reading": "san1",
+          "definitionTags": "形容詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "開始",
+          "reading": "hoi1 ci2",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "落雨",
+          "reading": "lok6 jyu5",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "嗰陣",
+          "reading": "go2 zan6",
+          "definitionTags": "代詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "擔",
+          "reading": "daam1",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "把",
+          "reading": "baa2",
+          "definitionTags": "量詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "藍色",
+          "reading": "laam4 sik1",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "雨遮",
+          "reading": "jyu5 ze1",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "食",
+          "reading": "sik6",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "晚飯",
+          "reading": "maan5 faan6",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "之前",
+          "reading": "zi1 cin4",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "搭",
+          "reading": "daap6",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "巴士",
+          "reading": "baa1 si2",
+          "definitionTags": "名詞 外來語",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "返屋企",
+          "reading": "faan1 uk1 kei2",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "夜晚",
+          "reading": "je6 maan5",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "全家",
+          "reading": "cyun4 gaa1",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "人",
+          "reading": "jan4",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "一齊",
+          "reading": "jat1 cai4",
+          "definitionTags": "副詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "食飯",
+          "reading": "sik6 faan6",
+          "definitionTags": "語句",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "傾",
+          "reading": "king1",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "返",
+          "reading": "faan1",
+          "definitionTags": "詞綴",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "今日",
+          "reading": "gam1 jat6",
+          "definitionTags": "名詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "發生",
+          "reading": "faat3 sang1",
+          "definitionTags": "動詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "嘅",
+          "reading": "ge3",
+          "definitionTags": "助詞",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        },
+        {
+          "expression": "事",
+          "reading": "si6",
+          "definitionTags": "語素",
+          "rules": "",
+          "score": 0,
+          "glossary": [
+            "Published dictionary match (compact parity evidence)."
+          ],
+          "sequence": 0,
+          "termTags": "",
+          "dictionary": "Words.hk 粵典 [2026-07-22]"
+        }
+      ]
     },
     {
       "language": "zh",
-      "lookupContractSha256": "04c2955ac5b42a114eec211d74e35472b4f71f0bdcb0fef852af5f324cf5448f",
+      "lookupContractSha256": "19c089ab2c91dab5ece11fe568d7d9c713c47ccb664209e4b710ce20a101b72e",
       "dictionary": {
         "id": "wty-zh-en",
         "title": "[ZH-EN] Wiktionary (terms)",
@@ -7442,7 +8456,7 @@
     },
     {
       "language": "da",
-      "lookupContractSha256": "972ff75bde336e44a9159c6f7661423f0735014a0c9f8ff5c1d85b76697a7b76",
+      "lookupContractSha256": "b8c280a8d61bc3f5ff2f0d9e0c57b6c227b4f744332ac6624679cce86ad0492a",
       "dictionary": {
         "id": "wty-da-en",
         "title": "[DA-EN] Wiktionary (terms)",
@@ -8352,7 +9366,7 @@
     },
     {
       "language": "nl",
-      "lookupContractSha256": "3913e004178abe76065c61408c46015752590093c9a6b0da7cd2153e7248686c",
+      "lookupContractSha256": "0da9656df8ff9af459d42ba29494771352d2ee1ebde26cc72d301fdb4bb16ed0",
       "dictionary": {
         "id": "wty-nl-en",
         "title": "[NL-EN] Wiktionary (terms)",
@@ -9249,7 +10263,7 @@
     },
     {
       "language": "en",
-      "lookupContractSha256": "4932d9c7f0c74e6f598d04a2ca31b3c8f2f3e7d3618456d2b4e7ceb3a28eaa1d",
+      "lookupContractSha256": "4280335743214fbf7a6f128b2f88bc22b0e86b80c70a72a90d591d7d7fe568c6",
       "dictionary": {
         "id": "wty-en-en",
         "title": "[EN-EN] Wiktionary (terms)",
@@ -10185,7 +11199,7 @@
     },
     {
       "language": "fi",
-      "lookupContractSha256": "15bffa73ded2424c7a4506f74245917a1321fd6b68bdde274f5e06415345779e",
+      "lookupContractSha256": "09eaebcc29c855f74cabe135aa3be912c0406d9931a2102fca03562e3e3fe107",
       "dictionary": {
         "id": "wty-fi-en",
         "title": "[FI-EN] Wiktionary (terms)",
@@ -10942,7 +11956,7 @@
     },
     {
       "language": "fr",
-      "lookupContractSha256": "56f3a98a657cae3c3fef133e5ee5ec478735c436e39710340a55ac3717626503",
+      "lookupContractSha256": "91dd999dac35ccb48aa2cf854eff2d7da04ad41847c0895e5c9cb04ef7740300",
       "dictionary": {
         "id": "wty-fr-en",
         "title": "[FR-EN] Wiktionary (terms)",
@@ -11904,7 +12918,7 @@
     },
     {
       "language": "el",
-      "lookupContractSha256": "6f5b6bba089a2aed05d48bad470b94cd364ceb64183b356fd5b7a149945c19a8",
+      "lookupContractSha256": "c00d7c1b781320669140a2d093c02c548fabbbc24d4d156be9b327326b748b4c",
       "dictionary": {
         "id": "wty-el-en",
         "title": "[EL-EN] Wiktionary (terms)",
@@ -12814,7 +13828,7 @@
     },
     {
       "language": "hu",
-      "lookupContractSha256": "71265d9485dce1e587b141b4b72b427639f062d9a56fa31aaa22ccabe85fd8ac",
+      "lookupContractSha256": "4ad8ad510c5bf226f530ecd5a7edb421ebeac9bdb32fcf95c949aa50a9e52e7c",
       "dictionary": {
         "id": "wty-hu-en",
         "title": "[HU-EN] Wiktionary (terms)",
@@ -13503,7 +14517,7 @@
     },
     {
       "language": "id",
-      "lookupContractSha256": "9df5224553cd9d0238dde0a8b75fafd3c3f56dfec0d3c0a47dbc850fd2c1e175",
+      "lookupContractSha256": "58f167a1ba551496bf51ea7a6046c88563688287a12369d76221e02e0281cca2",
       "dictionary": {
         "id": "wty-id-en",
         "title": "[ID-EN] Wiktionary (terms)",
@@ -14322,7 +15336,7 @@
     },
     {
       "language": "it",
-      "lookupContractSha256": "ef0942b7d58ab06aed9002079754bd3da90e6b388451a6d3c765e49b82cdbdc7",
+      "lookupContractSha256": "b1caba253f8a5ce77600212d1aa74a2420ba5d9cd801bac640d76b77ccaeb23a",
       "dictionary": {
         "id": "wty-it-en",
         "title": "[IT-EN] Wiktionary (terms)",
@@ -15193,7 +16207,7 @@
     },
     {
       "language": "km",
-      "lookupContractSha256": "7696c7513e272d146c720c250293f22347303a88867483dfd796eba24e066278",
+      "lookupContractSha256": "3b04ec94f3d9e3b370f4008405a2fb0faebedf9d28e240f9eb7a29499cb8199f",
       "dictionary": {
         "id": "wty-km-en",
         "title": "[KM-EN] Wiktionary (terms)",
@@ -16012,7 +17026,7 @@
     },
     {
       "language": "lo",
-      "lookupContractSha256": "19f235534311c3d836f2e64cbefb348f538548b943a6e75aafd4819e58352c88",
+      "lookupContractSha256": "c95f1499bf6f76ba597793a68a6b2f52d3cc5cc283f9be5a375a91505cd09276",
       "dictionary": {
         "id": "wty-lo-en",
         "title": "[LO-EN] Wiktionary (terms)",
@@ -16714,7 +17728,7 @@
     },
     {
       "language": "la",
-      "lookupContractSha256": "f935222abe0920df1e17a0d8f192cfa44ac7d0f5ec772db258b849c1c041fc7c",
+      "lookupContractSha256": "f68fbcda498b04b320a703da2e1c430fb6f4f572c04908e77b2fb173bcb1fb7e",
       "dictionary": {
         "id": "wty-la-en",
         "title": "[LA-EN] Wiktionary (terms)",
@@ -17559,7 +18573,7 @@
     },
     {
       "language": "mn",
-      "lookupContractSha256": "ddaba0132e982af8a907dff02a7d9f05a6555a869eded5dedce00b69e1213b8b",
+      "lookupContractSha256": "255c28b63dcf10888c4bb90eaa03f888d5c83bf78e2d716a6a9dda3781015222",
       "dictionary": {
         "id": "wty-mn-en",
         "title": "[MN-EN] Wiktionary (terms)",
@@ -18079,7 +19093,7 @@
     },
     {
       "language": "fa",
-      "lookupContractSha256": "b05bee01aa27451883b4e7a2e2cfdc2daa9cf2290e16d8ff9509a5e88a5bbeae",
+      "lookupContractSha256": "2ef702e722fa600806f93fbd06883c8cffb08619875fdedd80f4b048d7c93024",
       "dictionary": {
         "id": "wty-fa-en",
         "title": "[FA-EN] Wiktionary (terms)",
@@ -18911,7 +19925,7 @@
     },
     {
       "language": "pl",
-      "lookupContractSha256": "1038c0d4fb0cb77f4dca30fe7ca0585073a110ea1a1807f7b41f2e60499a530c",
+      "lookupContractSha256": "4a0f80015f5006ef2cbe4d609d7ebb9fc045d8bc378db7927651de3b40c447cb",
       "dictionary": {
         "id": "wty-pl-en",
         "title": "[PL-EN] Wiktionary (terms)",
@@ -19795,7 +20809,7 @@
     },
     {
       "language": "pt",
-      "lookupContractSha256": "5a9eebffda6b2e6636433c031d564992cd3f2ae09a612466af23cefd8c416198",
+      "lookupContractSha256": "d33d778d1a6f02e455d571b3a9324ba6c0512f8bb22d8140022941ad54434f99",
       "dictionary": {
         "id": "wty-pt-en",
         "title": "[PT-EN] Wiktionary (terms)",
@@ -20796,7 +21810,7 @@
     },
     {
       "language": "ro",
-      "lookupContractSha256": "a26d324e290a9d82861ac1a2da68134f8835a62722fcdd42fad62d92d134b045",
+      "lookupContractSha256": "91fc9d289ef40a100203fef729ab5d81d06a317d343772961d73aa71016dc2e2",
       "dictionary": {
         "id": "wty-ro-en",
         "title": "[RO-EN] Wiktionary (terms)",
@@ -21719,7 +22733,7 @@
     },
     {
       "language": "sh",
-      "lookupContractSha256": "4ba4f0da62e1131709f303f106eb222da6694369c36c9fbf632bf712b6ad0eba",
+      "lookupContractSha256": "e471aec0141a42adb20ea09b8155024c19bc735eb39ec5bef5851174ad412f56",
       "dictionary": {
         "id": "wty-sh-en",
         "title": "[SH-EN] Wiktionary (terms)",
@@ -22525,7 +23539,7 @@
     },
     {
       "language": "sv",
-      "lookupContractSha256": "26ec6ff4f814f7a2687c24214a702f6cca531361f3bafcc3ab089ec7c6f8ed9c",
+      "lookupContractSha256": "305653fda458874f8dc48b6c2163ef56182ddd94eddd6d175fb0e1b4be89dcdb",
       "dictionary": {
         "id": "wty-sv-en",
         "title": "[SV-EN] Wiktionary (terms)",
@@ -23448,7 +24462,7 @@
     },
     {
       "language": "tl",
-      "lookupContractSha256": "59189b55679e3b2b8540cd634d834a94ca106073a80132b22c2ce26a32956086",
+      "lookupContractSha256": "0c187c5ac2139d3c10e616a0bbe5fc1cd622f6aa448fc50513f5aea24537412e",
       "dictionary": {
         "id": "wty-tl-en",
         "title": "[TL-EN] Wiktionary (terms)",
@@ -24189,7 +25203,7 @@
     },
     {
       "language": "tr",
-      "lookupContractSha256": "6aca3be6d7211387ddf96801e380cf3e89dfab80c0156c7d9c14273fb28ee57d",
+      "lookupContractSha256": "d76043ab436d0bd9da35e55742a9e32d6c6825c6ae71901b2b2cc9d3a3d2c302",
       "dictionary": {
         "id": "wty-tr-en",
         "title": "[TR-EN] Wiktionary (terms)",
@@ -24930,7 +25944,7 @@
     },
     {
       "language": "vi",
-      "lookupContractSha256": "c10adc1a195b534b0af692947e71b7a05a141930796270cea8f910f61407eb4c",
+      "lookupContractSha256": "66ceba96229c1a262ed3d60782f89ca40eca4cc39954e70d217d0c05597db627",
       "dictionary": {
         "id": "wty-vi-en",
         "title": "[VI-EN] Wiktionary (terms)",
@@ -26035,7 +27049,7 @@
     },
     {
       "language": "ja",
-      "lookupContractSha256": "bfdffbf3d56e548459882cd84be0614913603c9a3de3557acff5e7fa0c4fe333",
+      "lookupContractSha256": "27c1bc1eb4c69fca8533f7ca0a75d88439e3a6172d4a9dd0bdf07e35816d1abe",
       "dictionary": {
         "id": "jmdict-en",
         "title": "JMdict (en)",
