@@ -908,6 +908,7 @@ export class ReaderApp {
         resetRenderedWordRepaintCycle: () => this.renderedWords.resetRepaintCycle(),
         pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
         applyVocabulary: (word, card, pitchClass) => this.applyPublicVocabularyToRenderedWord(word, card, pitchClass),
+        reconcileInteractiveVocabulary: (word, card, pitchClass) => this.ocr.reconcileRenderedWordVocabulary(word, card, pitchClass),
         annotationRoot: word => this.lateAnnotationRootForRenderedWord(word),
         scheduleAnnotationRefresh: (roots, geometryRoots) => this.pageScanner.scheduleLateAnnotationRefresh(roots, geometryRoots),
         registerRenderedRoot: root => this.registerRenderedWordsInRoot(root),

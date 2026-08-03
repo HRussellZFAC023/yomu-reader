@@ -6,6 +6,8 @@ import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/t
 import { ReaderApp } from '../../src/reader/app/main';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
+import type { ImageOcrController } from '../../src/reader/ocr/controller';
+import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { YomuSrsAdapter, YomuSrsLookupItem, YomuSrsReviewable } from '../../src/reader/srs/types';
 import { deferred, registerReaderHelpersCleanup } from './jpdb/fixtures';
@@ -33,11 +35,13 @@ type AppInternals = {
     beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void;
     enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[]): Promise<void>;
     enrichOcrRenderedTokens(tokens: JPDBToken[], root: ParentNode): Promise<void>;
+    queueResolvedWordEffects(tokens: JPDBToken[], roots: ParentNode[]): void;
     applyAnkiLookupsToRenderedWords(tokens: JPDBToken[], lookups: AnkiLookupResult[], roots: ParentNode[]): void;
     queueAnkiWordEnrichment(tokens: JPDBToken[], roots: ParentNode[]): void;
     preloadTermAudioForTokens(tokens: JPDBToken[]): void;
     registerRenderedWordsInRoot(root: ParentNode): void;
     renderedWordIndex: Map<string, Set<HTMLElement>>;
+    ocr: ImageOcrController;
 };
 
 function lookupCard(id: number, spelling: string, overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -272,6 +276,94 @@ describe('late canonical card reconciliation', () => {
 
             expect(word.dataset.cardState).toBe('known');
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('keeps a separately hydrated local-SRS state through OCR reactivation', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const internals = app as unknown as AppInternals;
+        internals.settings = settings({
+            showFurigana: true,
+            furiganaMode: 'known-status',
+            yomuLocalSrsEnabled: true,
+        });
+        const localLookup = deferred<YomuSrsReviewable[]>();
+        const lookupCards = vi.fn<[readonly YomuSrsLookupItem[]], Promise<YomuSrsReviewable[]>>(() => localLookup.promise);
+        internals.yomuLocalSrs = { lookupCards };
+        const retainedOcrCard = lookupCard(31, '名古屋城', {
+            reading: 'なごやじょう',
+            provisionalState: true,
+            cardState: ['not-in-deck'],
+        });
+        const retainedOcrToken = tokenFor(retainedOcrCard, '名古屋城');
+        const separatelyQueuedCard = lookupCard(32, '名古屋城', {
+            reading: 'なごやじょう',
+            provisionalState: true,
+            cardState: ['not-in-deck'],
+        });
+        const separatelyQueuedToken = tokenFor(separatelyQueuedCard, '名古屋城');
+        const result: OcrResult = {
+            width: 300,
+            height: 100,
+            lines: [{ text: '名古屋城', box: { left: 0, top: 0, width: 120, height: 40 }, vertical: false }],
+        };
+        const overlay = document.createElement('div');
+        const image = document.createElement('img');
+        const line = (internals.ocr as unknown as {
+            renderOcrLineElement(
+                state: { image: HTMLImageElement; overlay: HTMLElement },
+                result: OcrResult,
+                line: OcrResult['lines'][number],
+                tokens: JPDBToken[],
+                sentence: string,
+                showText: boolean,
+                settings: ReaderSettings,
+            ): HTMLElement;
+        }).renderOcrLineElement(
+            { image, overlay },
+            result,
+            result.lines[0]!,
+            [retainedOcrToken],
+            '名古屋城',
+            true,
+            internals.settings,
+        );
+        overlay.append(line);
+        document.body.append(overlay);
+        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+
+        try {
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            internals.queueResolvedWordEffects([separatelyQueuedToken], [document]);
+
+            await vi.advanceTimersByTimeAsync(0);
+            expect(lookupCards).toHaveBeenCalledTimes(1);
+            localLookup.resolve([{
+                providerId: 'yomu-local',
+                providerCardId: '名古屋城\u0000なごやじょう',
+                kind: 'vocabulary',
+                expression: '名古屋城',
+                reading: 'なごやじょう',
+                meanings: [],
+                state: ['known'],
+            }]);
+            await vi.waitFor(() => expect(word.dataset.srsProvider).toBe('yomu-local'));
+
+            expect(word.dataset.cardState).toBe('known');
+            expect(word.dataset.srsProvider).toBe('yomu-local');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+            expect(word.querySelector('rt,.jpdb-ocr-furi')).toBeNull();
+
+            line.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+            expect(word.dataset.cardState).toBe('known');
+            expect(word.dataset.srsProvider).toBe('yomu-local');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+            expect(word.querySelector('rt,.jpdb-ocr-furi')).toBeNull();
+            expect(line.dataset.hasFuri).toBe('false');
         } finally {
             app.destroy();
         }

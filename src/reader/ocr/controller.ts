@@ -826,14 +826,17 @@ export class ImageOcrController {
         if (!staleLine) return undefined;
         const line = this.currentOcrLine(staleLine);
         const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
-        if (!state) return undefined;
         const lease: OcrLookupLineLease = { line };
         const leases = this.lookupLineLeases.get(line) ?? new Set<OcrLookupLineLease>();
         leases.add(lease);
         this.lookupLineLeases.set(line, leases);
-        this.activateOcrLineMarkup(state, line);
+        // Gaming and other native shells can host the shared OCR markup
+        // without an ImageState. They still need the same transient active
+        // lease while a lookup covers the source line; only controller-owned
+        // lines need markup activation and geometry scheduling.
+        if (state) this.activateOcrLineMarkup(state, line);
         this.syncOcrLineActiveState(line);
-        this.schedulePosition();
+        if (state) this.schedulePosition();
         let released = false;
         return () => {
             if (released) return;
@@ -845,7 +848,7 @@ export class ImageOcrController {
             if (!current?.delete(lease)) return;
             if (current.size === 0) this.lookupLineLeases.delete(currentLine);
             this.syncOcrLineActiveState(currentLine);
-            this.schedulePosition();
+            if (state) this.schedulePosition();
         };
     }
 
@@ -1617,6 +1620,7 @@ export class ImageOcrController {
             const leases = this.lookupLineLeases.get(line);
             leases?.forEach(lease => { lease.line = undefined; });
             this.lookupLineLeases.delete(line);
+            this.syncOcrLineActiveState(line);
         }
     }
 

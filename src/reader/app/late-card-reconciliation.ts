@@ -38,6 +38,7 @@ interface LateCardReconciliationDependencies {
     resetRenderedWordRepaintCycle(): void;
     pauseMutationObserver(callback: () => void): void;
     applyVocabulary(word: HTMLElement, card: JPDBCard, pitchClass: string): boolean;
+    reconcileInteractiveVocabulary(word: HTMLElement, card: JPDBCard, pitchClass: string): void;
     annotationRoot(word: HTMLElement): ParentNode;
     scheduleAnnotationRefresh(roots: Iterable<ParentNode>, geometryRoots?: Iterable<ParentNode>): void;
     registerRenderedRoot(root: ParentNode): void;
@@ -136,6 +137,11 @@ export class LateCardReconciliation {
                     if (!card) continue;
                     const root = this.dependencies.annotationRoot(word);
                     if (applyPublicVocabularyFurigana(word, card, settings)) geometryRoots.add(root);
+                    // OCR activation retains its own token object. A semantic
+                    // local-SRS match can hydrate a separate card instance, so
+                    // keep that interaction state in lockstep with the DOM
+                    // without restamping (and losing) yomu-local provenance.
+                    this.dependencies.reconcileInteractiveVocabulary(word, card, word.dataset.pitchClass ?? '');
                 }
             });
             if (!changedWords.length) return;

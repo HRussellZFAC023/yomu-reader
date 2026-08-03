@@ -233,7 +233,7 @@ describe('OCR transform controller wiring', () => {
             start: 0,
             end: 3,
             length: 3,
-            rubies: [],
+            rubies: [{ text: 'にっぽんご', start: 0, end: 3, length: 3 }],
             pitchClass: 'unknown',
             sentence: '日本語',
         };
@@ -292,6 +292,31 @@ describe('OCR transform controller wiring', () => {
             expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')]
                 .map(element => element.dataset.yomuOcrVisualText ?? '').join('')).toBe('にほんご');
         }
+    });
+
+    it('holds externally hosted OCR markup active for the lifetime of a lookup lease', () => {
+        const controller = bareController();
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line jpdb-ocr-line-visible';
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.textContent = '冒険';
+        line.append(word);
+        document.body.append(line);
+
+        const release = controller.retainLineForLookup(word);
+
+        expect(release).toBeTypeOf('function');
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+        expect(line.dataset.pinned).toBeUndefined();
+        release?.();
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+
+        const releaseDuringDestroy = controller.retainLineForLookup(word);
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
+        controller.destroy();
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
+        releaseDuringDestroy?.();
     });
 
     it('keeps the Window receiver on the coalesced position frame in Firefox sandboxes', () => {

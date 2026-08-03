@@ -28,6 +28,7 @@ export class OcrWordRenderStateRegistry {
     reconcile(word: HTMLElement, card: JPDBCard, pitchClass: string): void {
         const state = this.states.get(word);
         if (!state) return;
+        const previousReading = state.token.card.reading;
         const renderedState = word.dataset.cardState?.trim() as CardState | undefined;
         // A provisional public card can enrich reading/POS while the DOM keeps
         // an authoritative Academy/JPDB state. Activation must follow the
@@ -35,6 +36,10 @@ export class OcrWordRenderStateRegistry {
         state.token.card = renderedState && !card.cardState.includes(renderedState)
             ? { ...card, cardState: [renderedState] }
             : card;
+        // Ruby ranges describe the old reading. Retaining them after a
+        // canonical reading correction makes activation repaint stale kana;
+        // an empty list lets token rendering derive fresh ruby from the card.
+        if (previousReading !== state.token.card.reading) state.token.rubies = [];
         state.token.pitchClass = pitchClass;
     }
 }
