@@ -10,10 +10,13 @@ interface BackfillInternals {
     settings: ReaderSettings;
     jiten: { parse: (surfaces: string[]) => Promise<JPDBToken[][]> };
     knownStateBackfillTimer?: number;
+    destroy(): void;
     runReaderKnownStateBackfill(): Promise<void>;
     scheduleReaderKnownStateBackfill(): void;
     handleAutoScanVisibilityChange(): void;
 }
+
+const activeApps = new Set<BackfillInternals>();
 
 // A provisional word as the LOCAL parser fallback renders it: a negative hash id
 // and data-state-provenance="provisional". Only an authenticated surface parse
@@ -54,6 +57,7 @@ function jitenCard(wordId: number, surface: string, state: CardState): JPDBCard 
 
 function makeApp(stateBySurface: Record<string, { wordId: number; state: CardState }>) {
     const app = new ReaderApp() as unknown as BackfillInternals;
+    activeApps.add(app);
     app.settings = { ...DEFAULT_SETTINGS, jitenApiKey: 'ak_test_key' };
     const parse = vi.fn(async (surfaces: string[]): Promise<JPDBToken[][]> => surfaces.map(surface => {
         const hit = stateBySurface[surface];
@@ -77,6 +81,8 @@ function setHidden(hidden: boolean): void {
 }
 
 afterEach(() => {
+    activeApps.forEach(app => app.destroy());
+    activeApps.clear();
     document.body.innerHTML = '';
     setHidden(false);
     vi.restoreAllMocks();
@@ -179,5 +185,22 @@ describe('known-state backfill (Cluster I1)', () => {
 
         await app.runReaderKnownStateBackfill();
         expect(parse).not.toHaveBeenCalled();
+    });
+
+    it('cancels the queued late-annotation refresh when the reader is destroyed', async () => {
+        vi.useFakeTimers();
+        try {
+            const { app } = makeApp({ 読む: { wordId: 1006, state: 'known' } });
+            document.body.appendChild(provisionalLocalWord(-77, '読む'));
+
+            await app.runReaderKnownStateBackfill();
+            expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+            app.destroy();
+            activeApps.delete(app);
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });
