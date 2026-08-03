@@ -2052,11 +2052,22 @@ memory records as FIXED — check the reporter's version before assuming a regre
       experience across website, Android and iOS, fully offline, *"just nice to use"*. Feeds the Study +
       mobile plan; note the plan's finding that the Study page is ALREADY an installable PWA (A16), which
       may satisfy much of this without a native build.
-- [ ] **A21.16 — Positioning evidence, keep it.** coffeentacos: *"the amount of things this lets you do
-      that you'd need multiple other things has been really nice"* and *"Reduced friction makes it so
-      much easier to focus on learning"*; noteliana: *"it's all about reducing friction"*. Friction
-      reduction and one-tool-instead-of-five are the claims users make unprompted — the homepage should
-      make them, and A14's product clarity should be built on them.
+- [x] **A21.16 — Positioning evidence. SATISFIED 2026-08-03; keep the quotes for A14.**
+      coffeentacos: *"the amount of things this lets you do that you'd need multiple other things has
+      been really nice"* and *"Reduced friction makes it so much easier to focus on learning"*;
+      noteliana: *"it's all about reducing friction"*.
+
+      The homepage already makes both claims, and in the owner's own voice rather than as bolted-on
+      marketing. The letter reads *"The tools were scattered and each one wanted a different setup, so
+      I built the one I wanted instead: read, watch, press a word, keep it, come back to it. Nothing to
+      wire together."* — that is one-tool-instead-of-five in the first clause and friction reduction in
+      the last four words. The h1 *"A complete system for learning 日本語."* carries the same claim.
+
+      Deliberately NOT adding more copy for this. The owner's instructions run the other way — *"please
+      remove this text completely — you dont need to explain everything"* and A9's "less is more" — so
+      restating a claim the page already makes would be a regression, not a win. The quotes stay
+      recorded because A14 (product clarity) should still be BUILT on them; that is a different ask
+      from putting them on the homepage.
 
 ### A22 — Academy takeover handoff (session `5dc579a6`) — what it changes for THIS thread
 
