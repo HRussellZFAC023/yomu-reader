@@ -2947,7 +2947,16 @@ These are empirical walks/audits the squad must actually perform (browser / devi
   - [ ] **P2** — use the `web-perf` skill (Chrome DevTools MCP: LCP/INP/CLS) on the hosted reader/newtab/pdf/video apps.
 
 ### DV-5 — BookWalker leftover bugs (P0, from `[thread 019f066b]`)
-- [ ] **P0 — Close the EXACT bugs the user listed after saying "release!" — the 1.5.17 fix was pushed but NEVER live-verified (session aborted mid-verification).** From `[thread 019f066b]` remaining work (user verdict arc 39955→52376):
+- [ ] **P0 — Close the EXACT bugs the user listed after saying "release!" — the 1.5.17 fix was pushed but NEVER live-verified (session aborted mid-verification).**
+      **TRIAGED 2026-08-03 — deliberately NOT closed.** Every sub-item below has shipped code, and
+      marking them fixed on that basis would repeat the exact error this ticket exists to record: a
+      fix was pushed and never live-verified. The deliverable here is VERIFICATION, not more code, so
+      each sub-item now names what shipped and when, so the next session verifies instead of
+      re-implementing.
+      What blocks verification is not effort: it needs a signed-in BookWalker session, and the NFBR
+      viewer never paints under an automated browser unless `navigator.webdriver` is masked — without
+      that mask a live harness tests a dead viewer and reports false green. It is therefore owner-gated
+      on account access, like the donations P0. From `[thread 019f066b]` remaining work (user verdict arc 39955→52376):
   - [x] **P0** — [ALL sites] OCR overlay visible without hover. **VERIFIED FIXED 2026-08-03, shipped
         v1.5.7 (2026-07-01).** CHANGELOG 1.5.7: *"Kept OCR text overlays hidden until the user hovers
         or focuses OCR hit targets, including automatic reader-raster OCR, so recognized text no
@@ -2956,9 +2965,23 @@ These are empirical walks/audits the squad must actually perform (browser / devi
         (`src/reader/styles/reader-words-ocr.css:1670`), asserted at
         `tests/reader/styles.test.ts:402` — which also forbids bare `:focus`, so keyboard users get it
         without a mouse-only regression sneaking back (`41045`).
-  - [ ] **P0** — Y-coordinate of the OCR hitbox is wrong while X is correct, especially vertical ("the x coordinate is fine the y is wrong," `52376`; pinned root cause = vertical hitbox height expansion; 1.5.17 fix unverified).
-  - [ ] **P0** — BookWalker rescans previously-scanned images on every scroll (should not re-OCR the same image) — same as Cycle 1 invariant.
-  - [ ] **P0** — flashes between "Scanning" and "Could not read text" before (sometimes) resolving (`41045`, `52332` "actually a lot worse than earlier versions").
+  - [ ] **P0** — Y-coordinate of the OCR hitbox is wrong while X is correct, especially vertical.
+        **STILL OPEN, but code has shipped — do not re-implement before verifying.** v1.5.14
+        re-captures ready frames after viewer zoom/reflow "so hover hit targets do not keep a stale
+        vertical coordinate map"; a separate register bug with the same symptom was root-caused and
+        fixed in v1.8.23 (safeBottomInset moving text off its own glyphs). Whether either closes THIS
+        report is unverified. ("the x coordinate is fine the y is wrong," `52376`; pinned root cause = vertical hitbox height expansion; 1.5.17 fix unverified).
+  - [ ] **P0** — BookWalker rescans previously-scanned images on every scroll. **STILL OPEN, but
+        v1.5.16 claims exactly this**: "Keeps manually cropped BookWalker OCR frames aligned during
+        ordinary scroll without rescanning, while re-capturing them when the underlying canvas scale
+        changes." Verify against that before writing anything — same as Cycle 1 invariant.
+  - [ ] **P0** — flashes between "Scanning" and "Could not read text". **STILL OPEN, and THREE
+        separate causes have already been fixed** — v1.5.17 (bitmap cache by canonical asset URL, so a
+        retry stops re-requesting expired signed URLs), v1.6.127 (Firefox rebuilds from BookWalker's
+        own signed images), v1.6.143 (the scan deadline had reused the 6-second audio timeout, killing
+        healthy-but-slow iPad scans and remembering the page as permanently failed; now a 30-second
+        floor plus one retry). If it still flashes, it is a FOURTH cause — measure before assuming
+        (`41045`, `52332` "actually a lot worse than earlier versions").
   - [ ] **P1** — some pages still don't fully OCR (unknown root cause) and there is **no manual "retry OCR for this page" control** — user explicitly asked for one (`40075`).
   - [ ] **P1** — OCR overlay is not aligned when the user **zooms** the page — alignment must survive zoom (`40075`; recapture-after-zoom shipped [v1.5.14/16/17] — reverify).
   - [ ] **P1** — verify homepage layout containment on the BookWalker homepage AND reader modes specifically (`storefront_carousel_containment`).
