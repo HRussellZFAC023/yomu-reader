@@ -1,5 +1,5 @@
 import type { JPDBCard, ReaderSettings } from '../app/types';
-import { targetSupportsCharacterLookup } from '../languages/character-lookup';
+import { usesJapaneseCharacterStudy } from '../languages/character-lookup';
 import { cardKey, kanjiCharacters } from './index';
 import { normalizeNewTabCard, selectNewTabStudyPool } from './study-queue';
 import { isStandaloneKanjiCard, stableNegativeNewTabId } from './kanji-helpers';
@@ -50,7 +50,7 @@ export class NewTabStudyPool {
     // study directly as words. Progression is unaffected either way: card
     // states live at the provider, the toggle only changes queue composition.
     private applyKanjiUnlockQueue(pool: JPDBCard[]): JPDBCard[] {
-        if (!targetSupportsCharacterLookup() || !this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
+        if (!usesJapaneseCharacterStudy() || !this.deps.getSettings().newTabKanjiUnlockEnabled) return pool;
         const out: JPDBCard[] = [];
         const seenKanji = new Set<string>();
         for (const card of pool) {

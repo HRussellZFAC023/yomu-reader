@@ -20,7 +20,7 @@ function thinTarget(language: string) {
     return createLearningTargetModule({
         id: `thin-${language}`,
         language,
-        capabilities: { segmentation: true },
+        capabilities: {},
         featureSemantics: {
             characterSystem: 'unspecified',
             phoneticScripts: [],

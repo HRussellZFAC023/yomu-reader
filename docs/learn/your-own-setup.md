@@ -15,7 +15,7 @@ Install a dictionary from the catalogue or import any compatible Yomitan ZIP. Th
 
 Yomu ships definitions in 32 languages.
 
-Choose the language you are reading separately from the language used for definitions. Japanese is labelled **Full Yomu support**. The other 32 targets are labelled **Reading and lookup**, matching the features ready for them today. Japanese remains the deepest path for study and mining.
+Choose the language you are reading separately from the language used for definitions. Japanese is labelled **Full Yomu support**. The other 32 are labelled **Read, mine and review** — the whole loop works in every one of them. Japanese is the deepest rather than the only one: it adds pitch accent, kanji cards and far more grammar.
 
 ## Bring your audio
 

@@ -35,15 +35,40 @@ describe('character lookup capability', () => {
         expect(isUnifiedIdeograph('々')).toBe(false);
     });
 
-    it('keeps Japanese character cards enabled and disables them for Chinese targets', () => {
+    it('gives Han targets character lookup without giving them Japanese providers', () => {
+        // The two questions were deliberately separated when this module was
+        // written: "does this target have trustworthy per-character data" and "may
+        // Japanese-only providers run". Chinese answered no to both because the
+        // catalogue shipped no Chinese character data — and the file's own comment
+        // anticipated the day it would: "A future Chinese target may gain
+        // trustworthy per-character data without thereby becoming eligible for
+        // JPDB, Jiten, Japanese pitch, or the Japanese parser."
+        //
+        // MEASURED 2026-08-02: that day has arrived. The published catalogue ships
+        // CC-CEDICT.Hanzi, EDHCC, Wiktionary Hanzi and 康熙字典 for zh, and Words.hk
+        // Honzi for yue — real per-character Yomitan kanji banks. So character
+        // lookup is now correct for Han targets, and the invariant this test exists
+        // to protect is the OTHER half: Japanese providers stay Japanese.
         expect(targetSupportsCharacterLookup()).toBe(true);
         expect(targetCanLookupCharacter('𠮟')).toBe(true);
         expect(usesJapaneseProviders()).toBe(true);
 
         for (const target of ['zh', 'yue'] as const) {
             expect(setActiveLearningTargetLanguage(target)).not.toBeNull();
+            expect(targetSupportsCharacterLookup()).toBe(true);
+            expect(targetCanLookupCharacter('𡃁')).toBe(true);
+            // The load-bearing assertion: never a Japanese provider for Chinese.
+            expect(usesJapaneseProviders()).toBe(false);
+        }
+    });
+
+    it('still refuses character lookup for a target with no per-character script', () => {
+        // The capability must not become "true everywhere" by accident: Spanish has
+        // no characters to look up, and the gate has to keep saying so.
+        for (const target of ['es', 'ru', 'th'] as const) {
+            expect(setActiveLearningTargetLanguage(target)).not.toBeNull();
             expect(targetSupportsCharacterLookup()).toBe(false);
-            expect(targetCanLookupCharacter('𡃁')).toBe(false);
+            expect(targetCanLookupCharacter('漢')).toBe(false);
             expect(usesJapaneseProviders()).toBe(false);
         }
     });
@@ -75,16 +100,31 @@ describe('character lookup capability', () => {
         expect(japanese).toContain('data-jpdb-reader-kanji-nav');
         expect(japanese).toContain('data-action="kanji" data-kanji="𠮟"');
 
+        // Han targets now own character data (see above), so the navigation is
+        // correct for them too — a Cantonese reader can open 𡃁 the same way.
         for (const target of ['zh', 'yue'] as const) {
             setActiveLearningTargetLanguage(target);
-            const chinese = renderModalCard(testCardPopoverRenderer(), {
+            const han = renderModalCard(testCardPopoverRenderer(), {
                 ...card,
                 spelling: '𡃁好',
                 reading: 'ngam4 hou2',
             }, '我𡃁好。');
-            expect(chinese).not.toContain('data-jpdb-reader-kanji-nav');
-            expect(chinese).not.toContain('data-action="kanji"');
-            expect(chinese).toContain('𡃁好');
+            expect(han).toContain('data-jpdb-reader-kanji-nav');
+            // Each Han character becomes its own opener, exactly as 𠮟 does above —
+            // the literal spelling no longer appears as one run because the
+            // navigation wraps every character, which is the point of it.
+            expect(han).toContain('data-action="kanji" data-kanji="𡃁"');
+            expect(han).toContain('data-action="kanji" data-kanji="好"');
         }
+
+        // A target with no per-character script must render none of it.
+        setActiveLearningTargetLanguage('es');
+        const spanish = renderModalCard(testCardPopoverRenderer(), {
+            ...card,
+            spelling: 'hablamos',
+            reading: 'aˈβlamos',
+        }, 'Hablamos español.');
+        expect(spanish).not.toContain('data-jpdb-reader-kanji-nav');
+        expect(spanish).not.toContain('data-action="kanji"');
     });
 });

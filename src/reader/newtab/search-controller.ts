@@ -9,7 +9,7 @@ import { newTabText, type NewTabCopyKey } from './i18n';
 import { isKanjiCharacter } from '../popup/pitch';
 import {
     targetCanLookupCharacter,
-    targetSupportsCharacterLookup,
+    usesJapaneseCharacterStudy,
     usesJapaneseProviders,
 } from '../languages/character-lookup';
 import {
@@ -248,7 +248,7 @@ export class NewTabSearchController {
                 return true;
             case 'search-handwriting-toggle':
                 event.preventDefault();
-                if (targetSupportsCharacterLookup()) this.toggleSearchHandwriting(root);
+                if (usesJapaneseCharacterStudy()) this.toggleSearchHandwriting(root);
                 return true;
             case 'handwriting-candidate':
                 event.preventDefault();
@@ -526,7 +526,7 @@ export class NewTabSearchController {
     }
 
     private installSearchHandwriting(root: HTMLElement): void {
-        if (!targetSupportsCharacterLookup()) {
+        if (!usesJapaneseCharacterStudy()) {
             root.querySelector<HTMLElement>('[data-newtab-handwriting]')?.remove();
             this.syncSearchHandwritingToggle(root);
             return;
@@ -555,7 +555,7 @@ export class NewTabSearchController {
     }
 
     private ensureSearchHandwritingPanel(root: HTMLElement): HTMLElement | null {
-        if (!targetSupportsCharacterLookup()) return null;
+        if (!usesJapaneseCharacterStudy()) return null;
         const existing = root.querySelector<HTMLElement>('[data-newtab-handwriting]');
         if (existing) return existing;
         const results = this.searchResultsMount(root);
@@ -566,7 +566,7 @@ export class NewTabSearchController {
     }
 
     private toggleSearchHandwriting(root: HTMLElement, open?: boolean): void {
-        if (!targetSupportsCharacterLookup()) return;
+        if (!usesJapaneseCharacterStudy()) return;
         const panel = this.ensureSearchHandwritingPanel(root) as HTMLDetailsElement | null;
         if (!panel) return;
         panel.open = open ?? !panel.open;
@@ -587,14 +587,14 @@ export class NewTabSearchController {
         const panel = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]');
         const toggle = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-handwriting-toggle"]');
         if (!toggle) return;
-        const enabled = targetSupportsCharacterLookup();
+        const enabled = usesJapaneseCharacterStudy();
         toggle.hidden = !enabled;
         toggle.disabled = !enabled;
         toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel?.open)));
     }
 
     private scheduleSearchHandwritingRecognition(root: HTMLElement): void {
-        if (!targetSupportsCharacterLookup()) {
+        if (!usesJapaneseCharacterStudy()) {
             this.clearSearchHandwriting(root);
             return;
         }
@@ -613,7 +613,7 @@ export class NewTabSearchController {
     }
 
     private async recognizeSearchHandwriting(root: HTMLElement, strokes: DoodleStroke[], generation: number): Promise<void> {
-        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return;
+        if (!usesJapaneseCharacterStudy()) return;
         const recognizedCandidates = await recognizeGoogleJapaneseHandwriting(strokes).catch(error => {
             log.warn('Search handwriting failed', error);
             return [];
@@ -622,7 +622,7 @@ export class NewTabSearchController {
             log.warn('Search handwriting geometry failed', error);
             return [];
         });
-        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders() || !root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
+        if (!usesJapaneseCharacterStudy() || !root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
         const candidates = uniqueStrings([...recognizedCandidates, ...geometryCandidates])
             .filter(targetCanLookupCharacter)
             .slice(0, 8);
@@ -631,7 +631,7 @@ export class NewTabSearchController {
     }
 
     private async recognizeSearchHandwritingByGeometry(strokes: DoodleStroke[]): Promise<string[]> {
-        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return [];
+        if (!usesJapaneseCharacterStudy()) return [];
         const characters = await this.searchHandwritingGeometryCharacters();
         if (!characters.length) return [];
         const candidates = (await Promise.all(characters.map(character => this.searchHandwritingShapeCandidate(character))))
@@ -640,7 +640,7 @@ export class NewTabSearchController {
     }
 
     private async searchHandwritingGeometryCharacters(): Promise<string[]> {
-        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return [];
+        if (!usesJapaneseCharacterStudy()) return [];
         const settings = this.deps.getDependencies().getSettings();
         const commonCharacters = uniqueStrings(Array.from(NEW_TAB_HANDWRITING_COMMON_KANJI)).slice(0, 200);
         const deckCharacters = uniqueStrings([
@@ -673,7 +673,7 @@ export class NewTabSearchController {
     private renderSearchHandwritingCandidates(root: HTMLElement, candidates: string[], message: string): void {
         const mount = root.querySelector<HTMLElement>('[data-newtab-handwriting-candidates]');
         if (!mount) return;
-        if (!targetSupportsCharacterLookup()) {
+        if (!usesJapaneseCharacterStudy()) {
             mount.hidden = true;
             mount.replaceChildren();
             return;
@@ -879,7 +879,7 @@ export class NewTabSearchController {
         wordCards: JPDBCard[] = [],
         targetSnapshot = this.captureTargetSnapshot(),
     ): Promise<NewTabSearchKanjiResult[]> {
-        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !usesJapaneseCharacterStudy()) return [];
         const characters = uniqueStrings([
             ...kanjiCharacters(query),
             ...wordCards.flatMap(card => kanjiCharacters(card.spelling)),
@@ -897,7 +897,7 @@ export class NewTabSearchController {
             wordCards,
             targetSnapshot,
         )));
-        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !usesJapaneseCharacterStudy()) return [];
         return results.filter((result): result is NewTabSearchKanjiResult => Boolean(result));
     }
 
@@ -1152,7 +1152,7 @@ export class NewTabSearchController {
     }
 
     private shouldLoadSearchWordKanjiDetails(card: JPDBCard): boolean {
-        if (!targetSupportsCharacterLookup() || !this.searchWordKanjiCharacters(card).length) return false;
+        if (!usesJapaneseCharacterStudy() || !this.searchWordKanjiCharacters(card).length) return false;
         return orderedKanjiSourceIds(this.deps.getDependencies().getSettings()).some(sourceId => sourceId !== KANJI_STROKE_SOURCE_ID);
     }
 
@@ -1164,7 +1164,7 @@ export class NewTabSearchController {
         card: JPDBCard,
         targetSnapshot = this.captureTargetSnapshot(),
     ): Promise<NewTabSearchWordKanjiDetail[]> {
-        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return [];
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !usesJapaneseCharacterStudy()) return [];
         const details = await Promise.all(this.searchWordKanjiCharacters(card).map(async kanji => {
             const details = await this.deps.loadKanjiDetails(kanji);
             if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetCanLookupCharacter(kanji)) return null;
@@ -1235,7 +1235,7 @@ export class NewTabSearchController {
         detail: NewTabSearchWordDetail,
         targetSnapshot = this.captureTargetSnapshot(),
     ): HTMLElement | null {
-        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !targetSupportsCharacterLookup()) return null;
+        if (!this.targetSnapshotIsCurrent(targetSnapshot) || !usesJapaneseCharacterStudy()) return null;
         if (!this.shouldLoadSearchWordKanjiDetails(card)) {
             return searchLocalKanjiDefinitions(detail, this.searchDetailViewContext());
         }
@@ -1378,7 +1378,7 @@ export class NewTabSearchController {
     private renderSearchResults(root: HTMLElement, results: NewTabSearchResults): void {
         const mount = this.searchResultsMount(root);
         if (!mount) return;
-        const kanjiResults = targetSupportsCharacterLookup() ? results.kanji : [];
+        const kanjiResults = usesJapaneseCharacterStudy() ? results.kanji : [];
         mount.dataset.searchQuery = results.query;
         mount.dataset.searchTarget = this.targetSnapshotSignature(this.captureTargetSnapshot());
         this.searchWordCardCache = new Map(results.words.map(card => [cardKey(card), card]));
@@ -1449,7 +1449,7 @@ export class NewTabSearchController {
             language: this.deps.language(),
             settings: this.deps.getDependencies().getSettings(),
             text: key => this.deps.text(key),
-            showKanjiFallbackReadings: targetSupportsCharacterLookup(),
+            showKanjiFallbackReadings: usesJapaneseCharacterStudy(),
         };
     }
 

@@ -34,8 +34,14 @@ export interface LearningTargetSpec {
     featureSemantics: LearningTargetFeatureSemantics;
     /** Defaults to the current contract revision. */
     interfaceVersion?: LearningTargetModuleInterfaceVersion;
-    /** Defaults to every capability off; declare only what the module has. */
-    capabilities?: Partial<Omit<LearningTargetCapabilities, 'grammar'>>;
+    /**
+     * Defaults to every capability off; declare only what the module has.
+     *
+     * `grammar` and the CORE_DELIVERED_CAPABILITIES are absent from this type on
+     * purpose — they are facts about shared machinery, not per-target claims, so
+     * declaring them is a compile error rather than a comment nobody reads.
+     */
+    capabilities?: Partial<Record<DeclarableCapability, boolean>>;
     /** Target-owned grammar Adapter; capability is derived from its checked rules. */
     grammar?: LearningTargetGrammar;
     direction?: TextDirection;
@@ -76,11 +82,58 @@ const NO_CAPABILITIES: LearningTargetCapabilities = Object.freeze(
     Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map(id => [id, false])),
 ) as LearningTargetCapabilities;
 
+/**
+ * Capabilities that core delivers for EVERY target, so no module may under-claim
+ * them.
+ *
+ * These are not language facts, they are properties of shared machinery that has
+ * no language branch in it. Measured 2026-08-02, before this list existed: 32 of
+ * the 33 targets declared `srs: false`, `grading: false` and `mining: false`,
+ * which said a learner of Spanish could look a word up but never keep it. That
+ * was untrue in all three cases —
+ *   - the local deck stamps `language` on every card, filters by it
+ *     (srs/local-yomu.ts:150) and elides it only as the legacy Japanese default
+ *     (srs/local-yomu-deck.ts:146), so same-spelling es and fr cards coexist and
+ *     tombstones are language-scoped (multilingual-card-identity.test.ts);
+ *   - grading is SM-2 over that card and reads nothing language-shaped;
+ *   - mining takes its sentence terminators and Anki field roles from the target
+ *     (mining-language-regression.test.ts, es-en / ru-en / ja-en fixtures).
+ * The flags were simply never revisited after the machinery became multilingual.
+ *
+ * Declaring them per module invited exactly that drift, so they are no longer
+ * declarable: the type below removes them from the accepted spec. A capability
+ * that every target has is a fact about core, and belongs in one place.
+ */
+const CORE_DELIVERED_CAPABILITIES = Object.freeze({
+    'term-lookup': true,
+    segmentation: true,
+    pronunciation: true,
+    'text-to-speech': true,
+    subtitles: true,
+    typing: true,
+    mining: true,
+    srs: true,
+    grading: true,
+});
+
+type DeclarableCapability = Exclude<
+    keyof LearningTargetCapabilities,
+    'grammar' | keyof typeof CORE_DELIVERED_CAPABILITIES
+>;
+
 function learningTargetCapabilities(
-    declared: Partial<Omit<LearningTargetCapabilities, 'grammar'>> = {},
+    declared: Partial<Record<DeclarableCapability, boolean>> = {},
     hasGrammarRules = false,
 ): LearningTargetCapabilities {
-    return Object.freeze({ ...NO_CAPABILITIES, ...declared, grammar: hasGrammarRules });
+    return Object.freeze({
+        ...NO_CAPABILITIES,
+        ...declared,
+        ...CORE_DELIVERED_CAPABILITIES,
+        // Derived, never declared: a target has grammar support exactly when it
+        // ships grammar rules. Same principle as the block above — the capability
+        // reports the machinery instead of promising alongside it.
+        grammar: hasGrammarRules,
+    });
 }
 
 /**

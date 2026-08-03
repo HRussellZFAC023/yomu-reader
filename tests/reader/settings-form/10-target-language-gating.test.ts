@@ -27,8 +27,8 @@ describe('target-language settings', () => {
         const spanish = picker.querySelector<HTMLOptionElement>('option[value="es"]')!;
         expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
         expect(spanish.textContent).toContain('Español');
-        expect(spanish.textContent).toContain('Reading and lookup');
-        expect(spanish.title).toBe('Reading and lookup are ready.');
+        expect(spanish.textContent).toContain('Read, mine and review');
+        expect(spanish.title).toBe('Reading, lookup, mining and review are ready.');
     });
 
     it('keeps a planned target visible, named, and unavailable with a reason', () => {

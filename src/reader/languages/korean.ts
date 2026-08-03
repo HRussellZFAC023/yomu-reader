@@ -23,14 +23,14 @@ export const KOREAN_LEARNING_TARGET: LearningTargetModule = createLearningTarget
     id: 'korean-thin-v1',
     language: 'ko',
     capabilities: {
-        'term-lookup': true,
-        segmentation: true,
         'reading-annotation': true,
-        pronunciation: true,
-        'text-to-speech': true,
         ocr: true,
-        subtitles: true,
-        typing: true,
+        // Korean is a hand-written module rather than a generic roster entry, so it
+        // misses anything the roster loop derives. Tatoeba mounts for ko with text
+        // availability 'available' exactly as it does for the other 31 — caught by the
+        // registry-agreement assertion in learning-target-contract.test.ts, which is
+        // the whole reason that test exists.
+        examples: true,
     },
     featureSemantics: {
         characterSystem: 'hangul',

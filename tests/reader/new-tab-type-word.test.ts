@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
+import { targetSupportsCharacterLookup, targetSupportsHandwriting } from '../../src/reader/languages/character-lookup';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { suggestedStudyGrade } from '../../src/reader/newtab/study-outcomes';
 import { pitchPatternFromPosition } from '../../src/reader/lookup/pitch-accent';
@@ -602,6 +603,31 @@ describe('type-word typed answers', () => {
             expect(root.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
             expect(root.querySelector<HTMLButtonElement>('[data-type-word-mode="handwriting"]')?.disabled).toBe(true);
             expect(loadKanjiDetails).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // REGRESSION 2026-08-02: the Write step gated on character LOOKUP (per-character
+    // dictionary entries) when what it needs is stroke data. Those coincided while
+    // Japanese was the only target with either, so the wrong question returned the
+    // right answer. The moment Chinese gained per-character dictionaries, a Chinese
+    // learner who had once chosen handwriting was handed the Japanese KanjiVG grader
+    // and no keyboard at all. These pin the two capabilities apart.
+    it('keeps the keyboard for a Han target that has character data but no stroke data', () => {
+        adoptLearningTargetLanguage('zh');
+        const card = typeCard({ language: 'zh', spelling: '学习', reading: 'xuéxí', sentence: '我学习中文。', pitchAccent: [] });
+        const { controller, internals } = typeWordController([card], { newTabTypeWordInputMode: 'handwriting' });
+        const root = studyRoot();
+        try {
+            renderTypeWordStep(internals, root, card);
+            // Chinese HAS character lookup now — that is the whole point of the case.
+            expect(targetSupportsCharacterLookup()).toBe(true);
+            // It has no KanjiVG stroke data, so Write stays unavailable and the
+            // learner keeps a usable input instead of an empty canvas.
+            expect(targetSupportsHandwriting()).toBe(false);
+            expect(root.querySelector('[data-newtab-type-input]')).not.toBeNull();
+            expect(root.querySelector('.jpdb-reader-doodle-canvas')).toBeNull();
         } finally {
             controller.destroy();
         }
