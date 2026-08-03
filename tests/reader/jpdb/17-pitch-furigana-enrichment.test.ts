@@ -486,10 +486,14 @@ describe('reader helpers', () => {
     });
 
     it.each([
-        { label: 'pitch only', showPitchAccent: true, showFurigana: false, furiganaMode: 'off', hydrates: true, ruby: false },
-        { label: 'pitch with furigana mode off', showPitchAccent: true, showFurigana: true, furiganaMode: 'off', hydrates: true, ruby: false },
-        { label: 'furigana only', showPitchAccent: false, showFurigana: true, furiganaMode: 'all', hydrates: true, ruby: true },
-        { label: 'both disabled', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', hydrates: false, ruby: false },
+        { label: 'pitch only', showPitchAccent: true, showFurigana: false, furiganaMode: 'off', yomuLocalSrsEnabled: false, ankiEnabled: false, bunpro: false, audioEnabled: false, hydrates: true, ruby: false },
+        { label: 'pitch with furigana mode off', showPitchAccent: true, showFurigana: true, furiganaMode: 'off', yomuLocalSrsEnabled: false, ankiEnabled: false, bunpro: false, audioEnabled: false, hydrates: true, ruby: false },
+        { label: 'furigana only', showPitchAccent: false, showFurigana: true, furiganaMode: 'all', yomuLocalSrsEnabled: false, ankiEnabled: false, bunpro: false, audioEnabled: false, hydrates: true, ruby: true },
+        { label: 'both disabled with no canonical consumer', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', yomuLocalSrsEnabled: false, ankiEnabled: false, bunpro: false, audioEnabled: false, hydrates: false, ruby: false },
+        { label: 'both disabled with Academy SRS', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', yomuLocalSrsEnabled: true, ankiEnabled: false, bunpro: false, audioEnabled: false, hydrates: true, ruby: false },
+        { label: 'both disabled with Anki', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', yomuLocalSrsEnabled: false, ankiEnabled: true, bunpro: false, audioEnabled: false, hydrates: true, ruby: false },
+        { label: 'both disabled with Bunpro', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', yomuLocalSrsEnabled: false, ankiEnabled: false, bunpro: true, audioEnabled: false, hydrates: true, ruby: false },
+        { label: 'both disabled with guarded audio', showPitchAccent: false, showFurigana: false, furiganaMode: 'off', yomuLocalSrsEnabled: false, ankiEnabled: false, bunpro: false, audioEnabled: true, hydrates: true, ruby: false },
     ] as const)('honours the sparse Jiten prerequisite matrix for $label', async settingsCase => {
         const app = new ReaderApp();
         const sparse = testPublicCard({
@@ -529,6 +533,12 @@ describe('reader helpers', () => {
             showPitchAccent: settingsCase.showPitchAccent,
             showFurigana: settingsCase.showFurigana,
             furiganaMode: settingsCase.furiganaMode,
+            yomuLocalSrsEnabled: settingsCase.yomuLocalSrsEnabled,
+            ankiEnabled: settingsCase.ankiEnabled,
+            bunproFrontendApiToken: settingsCase.bunpro ? 'bunpro-test-token' : '',
+            bunproFrontendApiTokenExpiresAt: '',
+            audioEnabled: settingsCase.audioEnabled,
+            autoPlayAudio: settingsCase.audioEnabled,
         };
         internals.jitenPublicVocabulary = { hydrateCards };
         internals.parser = { cacheCards: vi.fn() };
@@ -543,6 +553,11 @@ describe('reader helpers', () => {
             if (settingsCase.showPitchAccent) {
                 expect(word.dataset.pitchClass).toBe('heiban');
                 expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            } else if (settingsCase.hydrates) {
+                expect([...word.classList].some(className => className.startsWith('jpdb-pitch-'))).toBe(false);
+                expect(word.dataset.pitchAccent).toBeUndefined();
+                expect(word.dataset.pitchComponents).toBeUndefined();
+                expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toBe('');
             }
         } finally {
             word.remove();

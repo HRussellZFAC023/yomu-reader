@@ -539,10 +539,11 @@ async function assertInlineOcrResult(overlay, label) {
     const termPaint = await annotatedTerm.evaluate(node => {
         const style = getComputedStyle(node);
         const rect = node.getBoundingClientRect();
+        const lineText = node.closest('.jpdb-ocr-line-text');
         const visualText = [...node.querySelectorAll('[data-yomu-ocr-visual-text]')]
             .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
             .join('');
-        const textWalker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+        const textWalker = document.createTreeWalker(lineText || node, NodeFilter.SHOW_TEXT);
         let textNodeCount = 0;
         while (textWalker.nextNode()) textNodeCount += 1;
         const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
@@ -551,7 +552,7 @@ async function assertInlineOcrResult(overlay, label) {
             surface: node.getAttribute('data-surface') || '',
             visualText,
             textNodeCount,
-            scannerIsolated: node.classList.contains('jpdb-ocr-page-scanner-isolated'),
+            scannerIsolated: Boolean(lineText?.classList.contains('jpdb-ocr-page-scanner-isolated')),
             hitTargetsWord: Boolean(hit && (hit === node || node.contains(hit))),
             color: style.color,
             textFill: style.getPropertyValue('-webkit-text-fill-color'),
@@ -580,6 +581,36 @@ async function assertInlineOcrResult(overlay, label) {
     if (!termPaint.hitTargetsWord) {
         throw new Error(`Yomu Gaming ${label} inline OCR word is not tappable at its painted center: ${JSON.stringify(termPaint)}`);
     }
+    console.log(`[gaming-smoke] ${label} OCR word paint: ${JSON.stringify(termPaint)}`);
+    // Scanner isolation is a first-paint invariant, while public Jiten detail
+    // hydration is intentionally deferred. Keep an explicit packaged check for
+    // the later reading repaint so moving isolation earlier cannot hide a
+    // stalled or lost furigana round-trip.
+    await annotatedTerm.locator('.jpdb-ocr-furi [data-yomu-ocr-visual-text]').first()
+        .waitFor({ state: 'attached', timeout: 15_000 });
+    await overlay.locator(
+        '[data-ocr-line] .jpdb-reader-word[data-expression="冒険"][data-surface="冒険"]'
+        + '[data-pitch-class]:not([data-pitch-class="unknown"])',
+    ).first().waitFor({ state: 'attached', timeout: 15_000 });
+    const readingPaint = await annotatedTerm.evaluate(node => ({
+        hasFuriganaClass: node.classList.contains('jpdb-reader-has-furi'),
+        reading: [...node.querySelectorAll('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')]
+            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
+            .join(''),
+        lineHasFurigana: node.closest('.jpdb-ocr-line')?.getAttribute('data-has-furi') || '',
+        pitchClass: node.getAttribute('data-pitch-class') || '',
+        pitchAccent: node.getAttribute('data-pitch-accent') || '',
+    }));
+    if (
+        !readingPaint.hasFuriganaClass
+        || !readingPaint.reading.trim()
+        || readingPaint.lineHasFurigana !== 'true'
+        || !readingPaint.pitchClass
+        || readingPaint.pitchClass === 'unknown'
+    ) {
+        throw new Error(`Yomu Gaming ${label} did not retain its deferred OCR reading/pitch: ${JSON.stringify(readingPaint)}`);
+    }
+    console.log(`[gaming-smoke] ${label} OCR reading paint: ${JSON.stringify(readingPaint)}`);
     await annotatedTerm.click({ force: true });
     let popoverOpened = false;
     try {

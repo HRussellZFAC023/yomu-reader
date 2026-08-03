@@ -2985,7 +2985,9 @@ export class ImageOcrController {
                 continue;
             }
             const rect = canvas.getBoundingClientRect();
-            if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
+            // A modal lookup marks the visibly painted host aria-hidden for assistive tech.
+            // That must not look like a page turn and tear down the OCR anchor mid-lookup.
+            if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas, false)) {
                 this.releaseCanvasFrame(canvas);
                 continue;
             }
@@ -4131,9 +4133,11 @@ function isImageVisibleForOcr(image: HTMLImageElement, rect: DOMRect): boolean {
         && !isImageOccludedByVideo(image, rect);
 }
 
-function isInsideHiddenAncestor(element: Element): boolean {
+function isInsideHiddenAncestor(element: Element, includeAriaHidden = true): boolean {
     for (let current: Element | null = element.parentElement; current && current !== document.body; current = current.parentElement) {
-        if (isHiddenByCss(current) || isHiddenByAttribute(current)) return true;
+        if (isHiddenByCss(current)
+            || current.hasAttribute('hidden')
+            || (includeAriaHidden && current.getAttribute('aria-hidden') === 'true')) return true;
     }
     return false;
 }
@@ -4143,10 +4147,6 @@ function isHiddenByCss(element: Element): boolean {
     return style.visibility === 'hidden'
         || style.display === 'none'
         || Number(style.opacity || '1') <= 0;
-}
-
-function isHiddenByAttribute(element: Element): boolean {
-    return element.getAttribute('aria-hidden') === 'true' || element.hasAttribute('hidden');
 }
 
 function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {

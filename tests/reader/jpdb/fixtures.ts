@@ -117,9 +117,7 @@ import { expectSettingsDialogStillMounted, expectStackedLookupOverSettings } fro
 import { waitForExpect } from '../test-utils';
 import {
     readerTextMirrorForSource,
-    readerTextMirrorsWithinSource,
     readerWordsForSource,
-    readerWordsWithinSource,
 } from '../helpers/text-mirror';
 import { yomitanZipBlob } from '../zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../../workers/jpdb-public-proxy/src/index';
@@ -3270,10 +3268,8 @@ export {
     readFormSettings,
     readerRenderRejectionRescanDelay,
     readerTextMirrorForSource,
-    readerTextMirrorsWithinSource,
     readerWordAtPointInScope,
     readerWordsForSource,
-    readerWordsWithinSource,
     readerWordSurfaceText,
     renderAudioSourceEditor,
     renderDefinitionSourcesStack,

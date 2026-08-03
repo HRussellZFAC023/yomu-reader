@@ -6260,96 +6260,6 @@ function createTrustedHtmlPolicyWithOptions(factory, options) {
   return null;
   }
 }
-function clearProjectedReadingsWithin(root) {
-  return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
-}
-const scannedShadowRootRefs = /* @__PURE__ */ new Set();
-const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
-const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
-const MAX_POTENTIAL_SHADOW_HOSTS = 160;
-const MAX_PENDING_UPGRADE_NAMES = 64;
-const potentialShadowHosts = /* @__PURE__ */ new Set();
-let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
-const subscribedUpgradeNames = /* @__PURE__ */ new Set();
-function noteShadowRoot(root, cause) {
-  const active = scannedShadowRootState.get(root);
-  if (active) return;
-  scannedShadowRootState.set(root, true);
-  if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
-}
-function watchPotentialOpenShadowRootHost(host) {
-  const root = host.shadowRoot;
-  if (root) {
-  noteShadowRoot(root);
-  return root;
-  }
-  const tagName = host.localName.toLowerCase();
-  const isCustomElement = tagName.includes("-");
-  if (!isCustomElement) return null;
-  if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
-  subscribeToCustomElementUpgrade(tagName);
-  return null;
-  }
-  if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
-  seenPotentialShadowHosts.add(host);
-  potentialShadowHosts.add({
-  ref: new WeakRef(host),
-  remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
-  });
-  return null;
-}
-function subscribeToCustomElementUpgrade(tagName) {
-  if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
-  subscribedUpgradeNames.add(tagName);
-  void customElements.whenDefined(tagName).then(() => {
-  subscribedUpgradeNames.delete(tagName);
-  }, () => {
-  subscribedUpgradeNames.delete(tagName);
-  });
-}
-const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
-function unwrapReaderWords(root = document, options = {}) {
-  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
-  const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
-  const parents = /* @__PURE__ */ new Set();
-  words.forEach(clearProjectedReadingsWithin);
-  for (const word of words) {
-  const parent = word.parentNode;
-  if (!parent) continue;
-  parents.add(parent);
-  word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
-  }
-  for (const bind of numberBinds) {
-  if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
-  const parent = bind.parentNode;
-  if (!parent) continue;
-  parents.add(parent);
-  bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
-  }
-  parents.forEach((parent) => parent.normalize());
-  return words.length;
-}
-function readerWordSurfaceText(element2) {
-  const surface = readerWordChildSurfaceText(element2);
-  return surface || element2.getAttribute("data-surface") || "";
-}
-function readerWordChildSurfaceText(element2) {
-  let text2 = "";
-  element2.childNodes.forEach((node) => {
-  if (node.nodeType === Node.TEXT_NODE) {
-    text2 += node.textContent ?? "";
-    return;
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return;
-  const child = node;
-  if (isSurfaceIgnoredElement$1(child)) return;
-  text2 += readerWordChildSurfaceText(child);
-  });
-  return text2;
-}
-function isSurfaceIgnoredElement$1(element2) {
-  return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
-}
 const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
   showFurigana: true,
   furiganaMode: "all",
@@ -15286,6 +15196,99 @@ new Set(
   "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
 );
 new Set("heiban,atamadaka,nakadaka,odaka".split(","));
+function clearProjectedReadingsWithin(root) {
+  return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
+}
+const scannedShadowRootRefs = /* @__PURE__ */ new Set();
+const scannedShadowRootState = /* @__PURE__ */ new WeakMap();
+const POTENTIAL_SHADOW_HOST_POLL_LIMIT = 40;
+const MAX_POTENTIAL_SHADOW_HOSTS = 160;
+const MAX_PENDING_UPGRADE_NAMES = 64;
+const potentialShadowHosts = /* @__PURE__ */ new Set();
+let seenPotentialShadowHosts = /* @__PURE__ */ new WeakSet();
+const subscribedUpgradeNames = /* @__PURE__ */ new Set();
+function noteShadowRoot(root, cause) {
+  const active = scannedShadowRootState.get(root);
+  if (active) return;
+  scannedShadowRootState.set(root, true);
+  if (active === void 0) scannedShadowRootRefs.add(new WeakRef(root));
+}
+function watchPotentialOpenShadowRootHost(host) {
+  const root = host.shadowRoot;
+  if (root) {
+  noteShadowRoot(root);
+  return root;
+  }
+  const tagName = host.localName.toLowerCase();
+  const isCustomElement = tagName.includes("-");
+  if (!isCustomElement) return null;
+  if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
+  subscribeToCustomElementUpgrade(tagName);
+  return null;
+  }
+  if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
+  seenPotentialShadowHosts.add(host);
+  potentialShadowHosts.add({
+  ref: new WeakRef(host),
+  remainingPolls: POTENTIAL_SHADOW_HOST_POLL_LIMIT
+  });
+  return null;
+}
+function subscribeToCustomElementUpgrade(tagName) {
+  if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
+  subscribedUpgradeNames.add(tagName);
+  void customElements.whenDefined(tagName).then(() => {
+  subscribedUpgradeNames.delete(tagName);
+  }, () => {
+  subscribedUpgradeNames.delete(tagName);
+  });
+}
+const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
+function unwrapReaderWords(root = document, options = {}) {
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const numberBinds = Array.from(root.querySelectorAll(".jpdb-reader-number-bind")).filter((bind) => options.includeReaderRoot || !bind.closest(READER_ROOT_SELECTOR)).filter((bind) => !bind.closest("[data-jpdb-reader-surface-ignore]"));
+  const parents = /* @__PURE__ */ new Set();
+  words.forEach(clearProjectedReadingsWithin);
+  for (const word of words) {
+  const parent = word.parentNode;
+  if (!parent) continue;
+  parents.add(parent);
+  word.replaceWith(document.createTextNode(readerWordSurfaceText(word)));
+  }
+  for (const bind of numberBinds) {
+  if (bind.nextElementSibling?.classList.contains("jpdb-reader-word")) continue;
+  const parent = bind.parentNode;
+  if (!parent) continue;
+  parents.add(parent);
+  bind.replaceWith(document.createTextNode(bind.textContent ?? ""));
+  }
+  parents.forEach((parent) => parent.normalize());
+  return words.length;
+}
+function readerWordSurfaceText(element2) {
+  const surface = readerWordChildSurfaceText(element2);
+  return surface || element2.getAttribute("data-surface") || "";
+}
+function readerWordChildSurfaceText(element2) {
+  let text2 = "";
+  element2.childNodes.forEach((node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    text2 += node.textContent ?? "";
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const child = node;
+  if (isSurfaceIgnoredElement$1(child)) return;
+  text2 += readerWordChildSurfaceText(child);
+  });
+  return text2;
+}
+function isSurfaceIgnoredElement$1(element2) {
+  return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
+}
+new Set(
+  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+);
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 const EDITABLE_FRAGMENT_ROOT_SELECTOR = '[contenteditable="true"],textarea,input,[role="textbox"]';
 const EDITABLE_TEXT_SURFACE_SELECTOR = `[contenteditable],[role=textbox],[role=searchbox],[role=combobox][aria-autocomplete="list"],[role=combobox][aria-autocomplete="inline"],[role=combobox][aria-autocomplete="both"],[aria-multiline],[aria-placeholder],[data-placeholder],[data-slate-editor],[data-lexical-editor],[class*="placeholder" i],[class*="ProseMirror" i]`;
@@ -15967,7 +15970,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.74".trim() ? "1.8.74".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.75".trim() ? "1.8.75".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

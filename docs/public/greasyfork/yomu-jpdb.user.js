@@ -3362,6 +3362,63 @@ function icuWordSegments(text, locale) {
   }
   return segments;
 }
+let trustedHtmlPolicy;
+function parseHtmlDocument(html) {
+  const parsed = parseHtmlWithDomParser(html);
+  if (parsed) return parsed;
+  const fallback = document.implementation.createHTMLDocument("");
+  fallback.body.textContent = html;
+  return fallback;
+}
+function parseHtmlWithDomParser(html) {
+  try {
+  return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+  } catch {
+  return null;
+  }
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function trustedHtml(value) {
+  try {
+  const factory = trustedTypesFactory();
+  if (!factory) return value;
+  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+  return trustedHtmlPolicy?.createHTML(value) ?? value;
+  } catch {
+  trustedHtmlPolicy = null;
+  return value;
+  }
+}
+function trustedTypesFactory() {
+  const root = globalThis;
+  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+  (factory) => Boolean(factory)
+  );
+}
+function createTrustedHtmlPolicy(factory) {
+  const existing = factory.getPolicy?.("yomu-reader");
+  if (existing?.createHTML) return existing;
+  const options = { createHTML: (html) => html };
+  return createTrustedHtmlPolicyWithOptions(
+  factory,
+  pageCompartmentValue(options, {
+    cloneFunctions: true,
+    wrapReflectors: true
+  })
+  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+}
+function createTrustedHtmlPolicyWithOptions(factory, options) {
+  try {
+  return factory.createPolicy?.("yomu-reader", options) ?? null;
+  } catch {
+  return null;
+  }
+}
+function unique(items) {
+  return [...new Set(items)];
+}
 const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
   "Adlm",
   "Arab",
@@ -7126,96 +7183,6 @@ function registerBuiltInLearningTargetModule(module) {
 registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
 registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
 GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-roleSelectors("menu,menubar,toolbar,tablist");
-let trustedHtmlPolicy;
-function parseHtmlDocument(html) {
-  const parsed = parseHtmlWithDomParser(html);
-  if (parsed) return parsed;
-  const fallback = document.implementation.createHTMLDocument("");
-  fallback.body.textContent = html;
-  return fallback;
-}
-function parseHtmlWithDomParser(html) {
-  try {
-  return new DOMParser().parseFromString(trustedHtml(html), "text/html");
-  } catch {
-  return null;
-  }
-}
-function escapeHtml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function trustedHtml(value) {
-  try {
-  const factory = trustedTypesFactory();
-  if (!factory) return value;
-  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-  return trustedHtmlPolicy?.createHTML(value) ?? value;
-  } catch {
-  trustedHtmlPolicy = null;
-  return value;
-  }
-}
-function trustedTypesFactory() {
-  const root = globalThis;
-  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-  (factory) => Boolean(factory)
-  );
-}
-function createTrustedHtmlPolicy(factory) {
-  const existing = factory.getPolicy?.("yomu-reader");
-  if (existing?.createHTML) return existing;
-  const options = { createHTML: (html) => html };
-  return createTrustedHtmlPolicyWithOptions(
-  factory,
-  pageCompartmentValue(options, {
-    cloneFunctions: true,
-    wrapReflectors: true
-  })
-  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-}
-function createTrustedHtmlPolicyWithOptions(factory, options) {
-  try {
-  return factory.createPolicy?.("yomu-reader", options) ?? null;
-  } catch {
-  return null;
-  }
-}
-const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
-function readerWordSurfaceText(element) {
-  const surface = readerWordChildSurfaceText(element);
-  return surface || element.getAttribute("data-surface") || "";
-}
-function readerWordChildSurfaceText(element) {
-  let text = "";
-  element.childNodes.forEach((node) => {
-  if (node.nodeType === Node.TEXT_NODE) {
-    text += node.textContent ?? "";
-    return;
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return;
-  const child = node;
-  if (isSurfaceIgnoredElement(child)) return;
-  text += readerWordChildSurfaceText(child);
-  });
-  return text;
-}
-function isSurfaceIgnoredElement(element) {
-  return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
-}
-function unique(items) {
-  return [...new Set(items)];
-}
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   id: "ja",
@@ -10294,10 +10261,10 @@ function uiText(language, key) {
 }
 function speakerIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-  </svg>`;
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
@@ -11648,6 +11615,42 @@ function isBetterHighlightMatch(candidate, current) {
 function uniqueNonEmptyStrings(values) {
   return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 }
+const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+roleSelectors("menu,menubar,toolbar,tablist");
+const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
+function readerWordSurfaceText(element) {
+  const surface = readerWordChildSurfaceText(element);
+  return surface || element.getAttribute("data-surface") || "";
+}
+function readerWordChildSurfaceText(element) {
+  let text = "";
+  element.childNodes.forEach((node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    text += node.textContent ?? "";
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const child = node;
+  if (isSurfaceIgnoredElement(child)) return;
+  text += readerWordChildSurfaceText(child);
+  });
+  return text;
+}
+function isSurfaceIgnoredElement(element) {
+  return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
+}
+new Set(
+  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+);
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 selectorPairs("control,toggle,player", ["class"]);
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));

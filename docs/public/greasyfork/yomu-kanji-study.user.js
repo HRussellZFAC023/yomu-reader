@@ -3517,8 +3517,206 @@ function compact(value) {
 function formatPercent(value) {
   return `${Number(value.toFixed(3))}%`;
 }
-function cardStateProvenance(card) {
-  return card.provisionalState === true ? "provisional" : "authoritative";
+const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
+const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
+const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
+const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
+const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+let trustedHtmlPolicy;
+function setInnerHtml(element, html) {
+  if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+}
+function parseHtmlDocument(html) {
+  const parsed = parseHtmlWithDomParser(html);
+  if (parsed) return parsed;
+  const fallback = document.implementation.createHTMLDocument("");
+  fallback.body.textContent = html;
+  return fallback;
+}
+function replaceWithHtmlFragment(element, html) {
+  try {
+  const ownerDocument = element.ownerDocument || document;
+  const { source, rootSelector } = contextualSanitizerSource(element, html);
+  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+  if (!parsedRoot) return false;
+  sanitizeChildren(parsedRoot, parsed);
+  const fragment = ownerDocument.createDocumentFragment();
+  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+  sanitizeChildren(fragment, ownerDocument);
+  const target = element.localName === "template" && "content" in element ? element.content : element;
+  target.replaceChildren(fragment);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function contextualSanitizerSource(element, html) {
+  if (element.namespaceURI === SVG_NAMESPACE) {
+  return {
+    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
+    rootSelector: "[data-yomu-sanitize-root]"
+  };
+  }
+  switch (element.localName.toLowerCase()) {
+  case "table":
+    return {
+      source: `<table data-yomu-sanitize-root>${html}</table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "thead":
+  case "tbody":
+  case "tfoot":
+    return {
+      source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "tr":
+    return {
+      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "colgroup":
+    return {
+      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "select":
+    return {
+      source: `<select data-yomu-sanitize-root>${html}</select>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "optgroup":
+    return {
+      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  default:
+    return { source: html, rootSelector: "" };
+  }
+}
+function parseXmlDocument(source, mimeType = "text/xml") {
+  try {
+  return new DOMParser().parseFromString(trustedHtml(source), mimeType);
+  } catch {
+  return document.implementation.createDocument(null, "");
+  }
+}
+function parseHtmlWithDomParser(html) {
+  try {
+  return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+  } catch {
+  return null;
+  }
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function sanitizeChildren(parent, ownerDocument) {
+  for (const node of Array.from(parent.childNodes)) {
+  if (node.nodeType !== 1) continue;
+  const element = node;
+  const localName = element.localName.toLowerCase();
+  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
+    element.remove();
+    continue;
+  }
+  if (localName.includes("-")) {
+    sanitizeChildren(element, ownerDocument);
+    element.replaceWith(...Array.from(element.childNodes));
+    continue;
+  }
+  sanitizeElement(element, ownerDocument);
+  const childRoot = localName === "template" && "content" in element ? element.content : element;
+  sanitizeChildren(childRoot, ownerDocument);
+  }
+}
+function sanitizeElement(element, ownerDocument) {
+  for (const attribute of Array.from(element.attributes)) {
+  const name = attribute.name.toLowerCase();
+  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
+    element.removeAttribute(attribute.name);
+    continue;
+  }
+  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
+    element.removeAttribute(attribute.name);
+    continue;
+  }
+  if (name === "style") {
+    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
+    if (style) element.setAttribute(attribute.name, style);
+    else element.removeAttribute(attribute.name);
+  }
+  }
+  if (element.getAttribute("target")?.toLowerCase() === "_blank") {
+  const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+  rel.add("noopener");
+  rel.add("noreferrer");
+  element.setAttribute("rel", [...rel].join(" "));
+  }
+}
+function sanitizedInlineStyle(value, ownerDocument) {
+  const declaration = ownerDocument.createElement("span").style;
+  declaration.cssText = value;
+  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
+  let removedProperty = false;
+  for (const property of Array.from(declaration)) {
+  const propertyValue = declaration.getPropertyValue(property);
+  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
+    declaration.removeProperty(property);
+    removedProperty = true;
+  }
+  }
+  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
+}
+function isSafeHtmlUrl(value) {
+  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+  if (!candidate) return true;
+  if (candidate.startsWith("#")) return true;
+  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
+  try {
+  const parsed = new URL(candidate, "https://yomureader.invalid/");
+  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
+  } catch {
+  return false;
+  }
+}
+function trustedHtml(value) {
+  try {
+  const factory = trustedTypesFactory();
+  if (!factory) return value;
+  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+  return trustedHtmlPolicy?.createHTML(value) ?? value;
+  } catch {
+  trustedHtmlPolicy = null;
+  return value;
+  }
+}
+function trustedTypesFactory() {
+  const root = globalThis;
+  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+  (factory) => Boolean(factory)
+  );
+}
+function createTrustedHtmlPolicy(factory) {
+  const existing = factory.getPolicy?.("yomu-reader");
+  if (existing?.createHTML) return existing;
+  const options = { createHTML: (html) => html };
+  return createTrustedHtmlPolicyWithOptions(
+  factory,
+  pageCompartmentValue(options, {
+    cloneFunctions: true,
+    wrapReflectors: true
+  })
+  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+}
+function createTrustedHtmlPolicyWithOptions(factory, options) {
+  try {
+  return factory.createPolicy?.("yomu-reader", options) ?? null;
+  } catch {
+  return null;
+  }
 }
 const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
   "Adlm",
@@ -5287,26 +5485,26 @@ const FRENCH_GRAMMAR = createLearningTargetGrammar({
     name: "Present progressive (être en train de)",
     displayNames: { en: "Present progressive (être en train de)", ja: "être en train de ＋ 不定詞" },
     patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+suis|[Tt]u\s+es|[Ii]l\s+est|[Ee]lle\s+est|[Nn]ous\s+sommes|[Vv]ous\s+êtes|[Ii]ls\s+sont|[Ee]lles\s+sont)\s+en\s+train\s+d(?:e\s+|['’])${A1_PROGRESSIVE_INFINITIVE}(?!\p{L})`,
-        priority: 10,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-near-future",
-        level: "A1",
-        name: "Near future (aller + infinitive)",
-        displayNames: { en: "Near future (aller + infinitive)", ja: "aller ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+vais|[Tt]u\s+vas|[Ii]l\s+va|[Ee]lle\s+va|[Nn]ous\s+allons|[Vv]ous\s+allez|[Ii]ls\s+vont|[Ee]lles\s+vont)\s+${A1_NEAR_FUTURE_INFINITIVE}(?!\p{L})`,
-        priority: 12,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-recent-past",
-        level: "A1",
-        name: "Recent past (venir de + infinitive)",
-        displayNames: { en: "Recent past (venir de + infinitive)", ja: "venir de ＋ 不定詞" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+viens|[Tt]u\s+viens|[Ii]l\s+vient|[Ee]lle\s+vient|[Nn]ous\s+venons|[Vv]ous\s+venez|[Ii]ls\s+viennent|[Ee]lles\s+viennent)\s+d(?:e\s+|['’])${A1_RECENT_PAST_INFINITIVE}(?!\p{L})`,
+    priority: 10,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-near-future",
+    level: "A1",
+    name: "Near future (aller + infinitive)",
+    displayNames: { en: "Near future (aller + infinitive)", ja: "aller ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+vais|[Tt]u\s+vas|[Ii]l\s+va|[Ee]lle\s+va|[Nn]ous\s+allons|[Vv]ous\s+allez|[Ii]ls\s+vont|[Ee]lles\s+vont)\s+${A1_NEAR_FUTURE_INFINITIVE}(?!\p{L})`,
+    priority: 12,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-recent-past",
+    level: "A1",
+    name: "Recent past (venir de + infinitive)",
+    displayNames: { en: "Recent past (venir de + infinitive)", ja: "venir de ＋ 不定詞" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e\s+viens|[Tt]u\s+viens|[Ii]l\s+vient|[Ee]lle\s+vient|[Nn]ous\s+venons|[Vv]ous\s+venez|[Ii]ls\s+viennent|[Ee]lles\s+viennent)\s+d(?:e\s+|['’])${A1_RECENT_PAST_INFINITIVE}(?!\p{L})`,
     priority: 14,
     confidence: "high",
     url: EAQUALS_A1_EXAMPLES
@@ -5317,16 +5515,16 @@ const FRENCH_GRAMMAR = createLearningTargetGrammar({
     name: "Question with est-ce que",
     displayNames: { en: "Question with est-ce que", ja: "est-ce que 疑問文" },
     patternSource: String.raw`(?<!\p{L})[Ee]st-ce\s+qu(?:e(?!\p{L})|['’])`,
-        priority: 16,
-        confidence: "high",
-        url: EAQUALS_A1_EXAMPLES
-      },
-      {
-        ruleId: "fr-ne-pas-negation",
-        level: "A1",
-        name: "Negation with ne … pas/jamais",
-        displayNames: { en: "Negation with ne … pas/jamais", ja: "ne … pas / jamais の否定" },
-        patternSource: String.raw`(?<!\p{L})(?:[Jj]e|[Tt]u|[Ii]l|[Ee]lle|[Nn]ous|[Vv]ous|[Ii]ls|[Ee]lles)\s+n(?:e\s+|['’])\p{L}+(?:\s+\p{L}+){0,2}\s+(?:pas|jamais)(?!\p{L})`,
+    priority: 16,
+    confidence: "high",
+    url: EAQUALS_A1_EXAMPLES
+  },
+  {
+    ruleId: "fr-ne-pas-negation",
+    level: "A1",
+    name: "Negation with ne … pas/jamais",
+    displayNames: { en: "Negation with ne … pas/jamais", ja: "ne … pas / jamais の否定" },
+    patternSource: String.raw`(?<!\p{L})(?:[Jj]e|[Tt]u|[Ii]l|[Ee]lle|[Nn]ous|[Vv]ous|[Ii]ls|[Ee]lles)\s+n(?:e\s+|['’])\p{L}+(?:\s+\p{L}+){0,2}\s+(?:pas|jamais)(?!\p{L})`,
     priority: 18,
     confidence: "high",
     url: EAQUALS_A1_EXAMPLES
@@ -7325,243 +7523,6 @@ function activeLearningTarget() {
   cachedForLanguage = requestedTargetLanguage;
   cachedForRegistryRevision = revision;
   return cachedTarget;
-}
-function isTargetLanguageText(text2) {
-  return activeLearningTarget().isLookupableText(text2);
-}
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-roleSelectors("menu,menubar,toolbar,tablist");
-const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
-const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
-const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
-const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
-const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-let trustedHtmlPolicy;
-function setInnerHtml(element, html) {
-  if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
-}
-function parseHtmlDocument(html) {
-  const parsed = parseHtmlWithDomParser(html);
-  if (parsed) return parsed;
-  const fallback = document.implementation.createHTMLDocument("");
-  fallback.body.textContent = html;
-  return fallback;
-}
-function replaceWithHtmlFragment(element, html) {
-  try {
-  const ownerDocument = element.ownerDocument || document;
-  const { source, rootSelector } = contextualSanitizerSource(element, html);
-  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
-  if (!parsedRoot) return false;
-  sanitizeChildren(parsedRoot, parsed);
-  const fragment = ownerDocument.createDocumentFragment();
-  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-  sanitizeChildren(fragment, ownerDocument);
-  const target = element.localName === "template" && "content" in element ? element.content : element;
-  target.replaceChildren(fragment);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function contextualSanitizerSource(element, html) {
-  if (element.namespaceURI === SVG_NAMESPACE) {
-  return {
-    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
-    rootSelector: "[data-yomu-sanitize-root]"
-  };
-  }
-  switch (element.localName.toLowerCase()) {
-  case "table":
-    return {
-      source: `<table data-yomu-sanitize-root>${html}</table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "thead":
-  case "tbody":
-  case "tfoot":
-    return {
-      source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "tr":
-    return {
-      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "colgroup":
-    return {
-      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "select":
-    return {
-      source: `<select data-yomu-sanitize-root>${html}</select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "optgroup":
-    return {
-      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  default:
-    return { source: html, rootSelector: "" };
-  }
-}
-function parseXmlDocument(source, mimeType = "text/xml") {
-  try {
-  return new DOMParser().parseFromString(trustedHtml(source), mimeType);
-  } catch {
-  return document.implementation.createDocument(null, "");
-  }
-}
-function parseHtmlWithDomParser(html) {
-  try {
-  return new DOMParser().parseFromString(trustedHtml(html), "text/html");
-  } catch {
-  return null;
-  }
-}
-function escapeHtml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function sanitizeChildren(parent, ownerDocument) {
-  for (const node of Array.from(parent.childNodes)) {
-  if (node.nodeType !== 1) continue;
-  const element = node;
-  const localName = element.localName.toLowerCase();
-  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
-    element.remove();
-    continue;
-  }
-  if (localName.includes("-")) {
-    sanitizeChildren(element, ownerDocument);
-    element.replaceWith(...Array.from(element.childNodes));
-    continue;
-  }
-  sanitizeElement(element, ownerDocument);
-  const childRoot = localName === "template" && "content" in element ? element.content : element;
-  sanitizeChildren(childRoot, ownerDocument);
-  }
-}
-function sanitizeElement(element, ownerDocument) {
-  for (const attribute of Array.from(element.attributes)) {
-  const name = attribute.name.toLowerCase();
-  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
-    element.removeAttribute(attribute.name);
-    continue;
-  }
-  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
-    element.removeAttribute(attribute.name);
-    continue;
-  }
-  if (name === "style") {
-    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
-    if (style) element.setAttribute(attribute.name, style);
-    else element.removeAttribute(attribute.name);
-  }
-  }
-  if (element.getAttribute("target")?.toLowerCase() === "_blank") {
-  const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
-  rel.add("noopener");
-  rel.add("noreferrer");
-  element.setAttribute("rel", [...rel].join(" "));
-  }
-}
-function sanitizedInlineStyle(value, ownerDocument) {
-  const declaration = ownerDocument.createElement("span").style;
-  declaration.cssText = value;
-  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
-  let removedProperty = false;
-  for (const property of Array.from(declaration)) {
-  const propertyValue = declaration.getPropertyValue(property);
-  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
-    declaration.removeProperty(property);
-    removedProperty = true;
-  }
-  }
-  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
-}
-function isSafeHtmlUrl(value) {
-  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
-  if (!candidate) return true;
-  if (candidate.startsWith("#")) return true;
-  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
-  try {
-  const parsed = new URL(candidate, "https://yomureader.invalid/");
-  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
-  } catch {
-  return false;
-  }
-}
-function trustedHtml(value) {
-  try {
-  const factory = trustedTypesFactory();
-  if (!factory) return value;
-  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-  return trustedHtmlPolicy?.createHTML(value) ?? value;
-  } catch {
-  trustedHtmlPolicy = null;
-  return value;
-  }
-}
-function trustedTypesFactory() {
-  const root = globalThis;
-  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-  (factory) => Boolean(factory)
-  );
-}
-function createTrustedHtmlPolicy(factory) {
-  const existing = factory.getPolicy?.("yomu-reader");
-  if (existing?.createHTML) return existing;
-  const options = { createHTML: (html) => html };
-  return createTrustedHtmlPolicyWithOptions(
-  factory,
-  pageCompartmentValue(options, {
-    cloneFunctions: true,
-    wrapReflectors: true
-  })
-  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-}
-function createTrustedHtmlPolicyWithOptions(factory, options) {
-  try {
-  return factory.createPolicy?.("yomu-reader", options) ?? null;
-  } catch {
-  return null;
-  }
-}
-const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
-function readerWordSurfaceText(element) {
-  const surface = readerWordChildSurfaceText(element);
-  return surface || element.getAttribute("data-surface") || "";
-}
-function readerWordChildSurfaceText(element) {
-  let text2 = "";
-  element.childNodes.forEach((node) => {
-  if (node.nodeType === Node.TEXT_NODE) {
-    text2 += node.textContent ?? "";
-    return;
-  }
-  if (node.nodeType !== Node.ELEMENT_NODE) return;
-  const child = node;
-  if (isSurfaceIgnoredElement(child)) return;
-  text2 += readerWordChildSurfaceText(child);
-  });
-  return text2;
-}
-function isSurfaceIgnoredElement(element) {
-  return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
 }
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
@@ -10561,16 +10522,16 @@ function isGrammarRuleCopyRecord(value) {
 }
 function externalLinkIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M7 17 17 7"></path>
-    <path d="M9 7h8v8"></path>
-  </svg>`;
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
 }
 function speakerIcon() {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-    <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-    <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-    <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-  </svg>`;
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
 }
 const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
@@ -10582,10 +10543,10 @@ function renderImmersionSearchLinksHtml(query, language) {
   const links = externalExampleSearchLinks(query);
   if (!links.length) return "";
   return `
-    <div class="jpdb-reader-immersion-search-links" aria-label="${escapeHtml(uiText(language, "exampleSearchLinks"))}">
-        ${links.map((link) => renderExternalExampleSearchLink(link, language)).join("")}
-    </div>
-  `;
+        <div class="jpdb-reader-immersion-search-links" aria-label="${escapeHtml(uiText(language, "exampleSearchLinks"))}">
+            ${links.map((link) => renderExternalExampleSearchLink(link, language)).join("")}
+        </div>
+    `;
 }
 function externalExampleSearchLinks(query) {
   const normalizedQuery = query.trim();
@@ -12319,6 +12280,48 @@ function rubyBaseKanaRuns(base) {
 function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
 }
+function cardStateProvenance(card) {
+  return card.provisionalState === true ? "provisional" : "authoritative";
+}
+function isTargetLanguageText(text2) {
+  return activeLearningTarget().isLookupableText(text2);
+}
+const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+roleSelectors("menu,menubar,toolbar,tablist");
+const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
+function readerWordSurfaceText(element) {
+  const surface = readerWordChildSurfaceText(element);
+  return surface || element.getAttribute("data-surface") || "";
+}
+function readerWordChildSurfaceText(element) {
+  let text2 = "";
+  element.childNodes.forEach((node) => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    text2 += node.textContent ?? "";
+    return;
+  }
+  if (node.nodeType !== Node.ELEMENT_NODE) return;
+  const child = node;
+  if (isSurfaceIgnoredElement(child)) return;
+  text2 += readerWordChildSurfaceText(child);
+  });
+  return text2;
+}
+function isSurfaceIgnoredElement(element) {
+  return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
+}
+new Set(
+  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+);
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -12515,26 +12518,26 @@ function renderRtkInfo(info, components2, language, initiallyExpanded = true, so
   const elementSection = renderRtkElementSection(elementChips, language);
   const stories = renderRtkStories(info, language);
   return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title">RTK</summary>
-            <div class="jpdb-reader-local-entry">
-                <div class="jpdb-reader-rtk-head">
-                    <strong>${escapeHtml(info.keyword)}</strong>
-                    ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ""}
-                </div>
-                ${readings2}
-                ${elementSection}
-                ${stories}
+    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+        <summary class="jpdb-reader-local-title">RTK</summary>
+        <div class="jpdb-reader-local-entry">
+            <div class="jpdb-reader-rtk-head">
+                <strong>${escapeHtml(info.keyword)}</strong>
+                ${info.frameNumber ? `<span>${escapeHtml(info.frameNumber)}</span>` : ""}
             </div>
-        </details>
-    `;
+            ${readings2}
+            ${elementSection}
+            ${stories}
+        </div>
+    </details>
+  `;
 }
 function renderRtkReadings(info, language) {
   if (!info.onYomi && !info.kunYomi) return "";
   return `<div class="jpdb-reader-kanji-readings">
-        ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml(info.onYomi)}</span>` : ""}
-        ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml(info.kunYomi)}</span>` : ""}
-    </div>`;
+    ${info.onYomi ? `<span>${uiText(language, "onReading")} ${escapeHtml(info.onYomi)}</span>` : ""}
+    ${info.kunYomi ? `<span>${uiText(language, "kunReading")} ${escapeHtml(info.kunYomi)}</span>` : ""}
+  </div>`;
 }
 function renderRtkElementSection(elementChips, language) {
   return elementChips.length ? `<div class="jpdb-reader-rtk-elements" aria-label="${uiText(language, "rtkComponentKeywords")}">${elementChips.map((chip) => renderRtkElementChip(chip, language)).join("")}</div>` : "";
@@ -13085,46 +13088,46 @@ function uchisenCarouselRenderModel(kanji, index, images, inputs) {
 }
 function uchisenSummaryHtml(options, index, total) {
   return options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
-        <span class="yomu-jpdb-uchisen-summary-main">
-            <span>Uchisen</span>
-            <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
-        </span>
-    `;
+    <span class="yomu-jpdb-uchisen-summary-main">
+        <span>Uchisen</span>
+        <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
+    </span>
+  `;
 }
 function uchisenBodyMetaHtml(options, index, total) {
   return options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : "";
 }
 function renderUchisenCarouselHtml(model) {
   return `
-        <details class="${model.detailsClass}" ${model.sourceAttributes}>
-            <summary class="${model.summaryClass}">
-                ${model.summaryHtml}
-            </summary>
-            <div class="${model.bodyClass}">
-                ${renderUchisenToolbar(model)}
-                ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ""}
-                ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
-                ${renderUchisenImageOrEmpty(model)}
-            </div>
-        </details>
-    `;
+    <details class="${model.detailsClass}" ${model.sourceAttributes}>
+        <summary class="${model.summaryClass}">
+            ${model.summaryHtml}
+        </summary>
+        <div class="${model.bodyClass}">
+            ${renderUchisenToolbar(model)}
+            ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ""}
+            ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
+            ${renderUchisenImageOrEmpty(model)}
+        </div>
+    </details>
+  `;
 }
 function renderUchisenToolbar(model) {
   return `
-        <div class="yomu-jpdb-uchisen-toolbar">
-            ${model.bodyMeta}
-            ${renderUchisenLinkRow(model)}
-            ${renderUchisenNavigationControls(model)}
-        </div>
-    `;
+    <div class="yomu-jpdb-uchisen-toolbar">
+        ${model.bodyMeta}
+        ${renderUchisenLinkRow(model)}
+        ${renderUchisenNavigationControls(model)}
+    </div>
+  `;
 }
 function renderUchisenLinkRow(model) {
   return `
-        <span class="yomu-jpdb-uchisen-link-row">
-            <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
-            ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
-        </span>
-    `;
+    <span class="yomu-jpdb-uchisen-link-row">
+        <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
+        ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
+    </span>
+  `;
 }
 function renderUchisenGenerateToggle(model) {
   return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml(uiText(model.language, "generateUchisenImage"))}">${escapeHtml(uiText(model.language, "generateUchisenImageToggle"))}</button>`;
@@ -13134,16 +13137,16 @@ function renderUchisenNavigationControls(model) {
   const previousLabel = uiText(model.language, "previousExample");
   const nextLabel = uiText(model.language, "nextExample");
   return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(model.language, "uchisenMnemonicImages"))}">
-        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
-        <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
-    </span>`;
+    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
+    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
+  </span>`;
 }
 function renderUchisenImageOrEmpty(model) {
   if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml(uiText(model.language, "noUchisenImagesYet"))}</div>`;
   const story = model.item.story && model.item.story !== "No story available" ? model.item.story : uiText(model.language, "noStoryAvailable");
   const alt = formatUchisenTemplate(uiText(model.language, "uchisenMnemonicFor"), { kanji: model.kanji });
   return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(alt)}" data-uchisen-image src="${escapeHtml(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
-        <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
+    <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
 }
 function attachRenderedUchisenImage(container, item, index, currentImages, proxyUrl, cleanup, setCurrentImageUrl) {
   const image = container.querySelector("[data-uchisen-image]");
@@ -13252,21 +13255,21 @@ function fitUchisenImagePrompt(prompt) {
 function renderUchisenGeneratePanel(fields, status, busy, language) {
   const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml(status.tone)}">${escapeHtml(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, "uchisenGenerateHint"))}</div>`;
   return `
-        <div class="yomu-jpdb-uchisen-generator">
-            <label class="yomu-jpdb-uchisen-field">
-                <span>${escapeHtml(uiText(language, "uchisenMnemonicStory"))}</span>
-                <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml(fields.mnemonic)}</textarea>
-            </label>
-            <label class="yomu-jpdb-uchisen-field">
-                <span>${escapeHtml(uiText(language, "uchisenImagePrompt"))}</span>
-                <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml(fields.imagePrompt)}</textarea>
-            </label>
-            <div class="yomu-jpdb-uchisen-generator-footer">
-                ${statusHtml}
-                <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml(uiText(language, "generateUchisenImage"))}</button>
-            </div>
+    <div class="yomu-jpdb-uchisen-generator">
+        <label class="yomu-jpdb-uchisen-field">
+            <span>${escapeHtml(uiText(language, "uchisenMnemonicStory"))}</span>
+            <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml(fields.mnemonic)}</textarea>
+        </label>
+        <label class="yomu-jpdb-uchisen-field">
+            <span>${escapeHtml(uiText(language, "uchisenImagePrompt"))}</span>
+            <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml(fields.imagePrompt)}</textarea>
+        </label>
+        <div class="yomu-jpdb-uchisen-generator-footer">
+            ${statusHtml}
+            <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml(uiText(language, "generateUchisenImage"))}</button>
         </div>
-    `;
+    </div>
+  `;
 }
 function defaultUchisenGenerateFields(kanji, keyword, groups) {
   const keywordText = keyword?.keyword || kanji;
@@ -13276,288 +13279,288 @@ function defaultUchisenGenerateFields(kanji, keyword, groups) {
   return {
   mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
   imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`)
-  };
-}
-function uniqueUchisenComponents(groups) {
-  const seen = /* @__PURE__ */ new Set();
-  const components2 = [];
-  for (const group of groups) {
-  for (const component of group.components) {
-    const key = component.name || component.symbol;
-    if (!key || seen.has(key)) continue;
-    seen.add(key);
-    components2.push(component);
+    };
   }
+  function uniqueUchisenComponents(groups) {
+    const seen = /* @__PURE__ */ new Set();
+    const components2 = [];
+    for (const group of groups) {
+      for (const component of group.components) {
+        const key = component.name || component.symbol;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        components2.push(component);
+      }
+    }
+    return components2;
   }
-  return components2;
-}
-function findUchisenImageIndex(images, imageUrl) {
-  const canonical = canonicalUchisenUrl(imageUrl);
-  return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
-}
-function parseUchisenGenerationResponse(text2) {
-  const json = parseJsonObjectFromText(text2);
-  if (!json || isUchisenGenerationFailure(json)) {
-  throw new Error(uchisenGenerationErrorMessage(json, text2));
+  function findUchisenImageIndex(images, imageUrl) {
+    const canonical = canonicalUchisenUrl(imageUrl);
+    return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
   }
-  const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
-  const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
-  const imageFilename = normalizeUchisenImageFilename(rawFilename);
-  if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
-  return {
-  imageFilename,
-  imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
-  };
-}
-function uchisenPromptFieldValue(value) {
-  return escapeHtml(value).replace(/'/g, "&#039;");
-}
-function safeUchisenImagePrompt(value) {
-  let prompt = value;
-  for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
-  prompt = prompt.replace(pattern, replacement);
+  function parseUchisenGenerationResponse(text2) {
+    const json = parseJsonObjectFromText(text2);
+    if (!json || isUchisenGenerationFailure(json)) {
+      throw new Error(uchisenGenerationErrorMessage(json, text2));
+    }
+    const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
+    const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
+    const imageFilename = normalizeUchisenImageFilename(rawFilename);
+    if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
+    return {
+      imageFilename,
+      imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
+    };
   }
-  prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
-  if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
-  return prompt;
-}
-const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, "gi"), replacement]);
-function parseJsonObjectFromText(text2) {
-  try {
-  return JSON.parse(text2);
-  } catch {
-  const match = /\{[\s\S]*\}/.exec(text2);
-  if (!match) return null;
-  try {
-    return JSON.parse(match[0]);
-  } catch {
-    return null;
+  function uchisenPromptFieldValue(value) {
+    return escapeHtml(value).replace(/'/g, "&#039;");
   }
+  function safeUchisenImagePrompt(value) {
+    let prompt = value;
+    for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
+      prompt = prompt.replace(pattern, replacement);
+    }
+    prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
+    if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
+    return prompt;
   }
-}
-function isUchisenGenerationFailure(json) {
-  if (json.success === false || json.success === 0 || json.success === "0") return true;
-  if (typeof json.error_message === "string" && json.error_message.trim()) return true;
-  if (typeof json.error === "string" && json.error.trim()) return true;
-  return false;
-}
-function uchisenGenerationErrorMessage(json, text2) {
-  const message = firstString(json?.error_message, json?.error);
-  if (/must be logged|not logged|login required/i.test(message)) return message;
-  if (message) return `Uchisen image backend rejected generation: ${message}`;
-  return `Uchisen image backend rejected generation: ${snippet(text2)}`;
-}
-function firstString(...values) {
-  for (const value of values) {
-  if (typeof value === "string" && value.trim()) return value.trim();
+  const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, "gi"), replacement]);
+  function parseJsonObjectFromText(text2) {
+    try {
+      return JSON.parse(text2);
+    } catch {
+      const match = /\{[\s\S]*\}/.exec(text2);
+      if (!match) return null;
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return null;
+      }
+    }
   }
-  return "";
-}
-function normalizeUchisenImageFilename(value) {
-  if (!value) return "";
-  try {
-  const url = new URL(value);
-  return url.pathname.split("/").filter(Boolean).pop() ?? value;
-  } catch {
-  return value.split("/").filter(Boolean).pop() ?? value;
+  function isUchisenGenerationFailure(json) {
+    if (json.success === false || json.success === 0 || json.success === "0") return true;
+    if (typeof json.error_message === "string" && json.error_message.trim()) return true;
+    if (typeof json.error === "string" && json.error.trim()) return true;
+    return false;
   }
-}
-function snippet(text2) {
-  return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
-}
-function formatUchisenMnemonicHtml(value) {
-  return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
-}
-function plainUchisenMnemonic(value) {
-  return cleanText$1(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
-}
-function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
-  const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
-  const visibleGroups = [
-  ...keywordGroup ? [keywordGroup] : [],
-  ...groups.filter((group) => group.components.length)
-  ];
-  if (!visibleGroups.length) return "";
-  return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml(uiText(language, "readingsComponents"))}">
+  function uchisenGenerationErrorMessage(json, text2) {
+    const message = firstString(json?.error_message, json?.error);
+    if (/must be logged|not logged|login required/i.test(message)) return message;
+    if (message) return `Uchisen image backend rejected generation: ${message}`;
+    return `Uchisen image backend rejected generation: ${snippet(text2)}`;
+  }
+  function firstString(...values) {
+    for (const value of values) {
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return "";
+  }
+  function normalizeUchisenImageFilename(value) {
+    if (!value) return "";
+    try {
+      const url = new URL(value);
+      return url.pathname.split("/").filter(Boolean).pop() ?? value;
+    } catch {
+      return value.split("/").filter(Boolean).pop() ?? value;
+    }
+  }
+  function snippet(text2) {
+    return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
+  }
+  function formatUchisenMnemonicHtml(value) {
+    return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
+  }
+  function plainUchisenMnemonic(value) {
+    return cleanText$1(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
+  }
+  function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
+    const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
+    const visibleGroups = [
+      ...keywordGroup ? [keywordGroup] : [],
+      ...groups.filter((group) => group.components.length)
+    ];
+    if (!visibleGroups.length) return "";
+    return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml(uiText(language, "readingsComponents"))}">
     ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
-        <span class="yomu-jpdb-component-group-label">${escapeHtml(localizedUchisenComponentGroupTitle(group.title, language))}</span>
-        <div class="yomu-jpdb-component-list">
-            ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
-        </div>
-    </div>`).join("")}
+            <span class="yomu-jpdb-component-group-label">${escapeHtml(localizedUchisenComponentGroupTitle(group.title, language))}</span>
+            <div class="yomu-jpdb-component-list">
+                ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
+            </div>
+        </div>`).join("")}
   </div>`;
-}
-function uchisenKanjiKeywordGroup(keyword) {
-  if (!keyword || !keyword.kanji && !keyword.keyword) return null;
-  return {
-  title: "Kanji Keyword",
-  components: [{
-    name: keyword.keyword,
-    symbol: keyword.kanji,
-    url: keyword.url
-  }]
-  };
-}
-function localizedUchisenComponentGroupTitle(title, language) {
-  if (resolveUiLanguage(language) !== "ja") return title;
-  if (title === "Kanji Keyword") return "漢字キーワード";
-  if (title === "Kanji Primes") return "漢字パーツ";
-  if (title === "Compound Kanji") return "複合漢字";
-  if (title === "Components") return "部品";
-  return title;
-}
-function uchisenExternalLinkLabel(language) {
-  return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
-}
-function formatUchisenTemplate(template, values) {
-  return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
-}
-function renderUchisenComponentChip(component) {
-  const label = [component.name, component.symbol].filter(Boolean).join(": ");
-  const content = `
+  }
+  function uchisenKanjiKeywordGroup(keyword) {
+    if (!keyword || !keyword.kanji && !keyword.keyword) return null;
+    return {
+      title: "Kanji Keyword",
+      components: [{
+        name: keyword.keyword,
+        symbol: keyword.kanji,
+        url: keyword.url
+      }]
+    };
+  }
+  function localizedUchisenComponentGroupTitle(title, language) {
+    if (resolveUiLanguage(language) !== "ja") return title;
+    if (title === "Kanji Keyword") return "漢字キーワード";
+    if (title === "Kanji Primes") return "漢字パーツ";
+    if (title === "Compound Kanji") return "複合漢字";
+    if (title === "Components") return "部品";
+    return title;
+  }
+  function uchisenExternalLinkLabel(language) {
+    return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
+  }
+  function formatUchisenTemplate(template, values) {
+    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
+  }
+  function renderUchisenComponentChip(component) {
+    const label = [component.name, component.symbol].filter(Boolean).join(": ");
+    const content = `
     ${component.symbol ? `<strong>${escapeHtml(component.symbol)}</strong>` : ""}
     ${component.name ? `<span>${escapeHtml(component.name)}</span>` : ""}
   `;
-  return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml(component.url)}" target="_blank" rel="noopener" title="${escapeHtml(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml(label)}">${content}</span>`;
-}
-function preferredUchisenIndex(storedIndex, images) {
-  if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
-  const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
-  return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
-}
-function isValidUchisenIndex(index, images) {
-  return Number.isInteger(index) && index >= 0 && index < images.length;
-}
-function isUchisenPaywallItem(item) {
-  return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
-}
-function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
-  return requestText$5(url, {
-  method: "POST",
-  data: encodedForm(fields),
-  headers: {
-    "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-    "X-Requested-With": "XMLHttpRequest",
-    Accept: "text/html, */*; q=0.01",
-    Origin: "https://uchisen.com",
-    Referer: referrer
-  },
-  proxyUrl,
-  timeoutMs: timeout,
-  failureLabel,
-  timeoutLabel: `${failureLabel} timed out.`,
-  credentials: "include",
-  anonymous: false,
-  withCredentials: true,
-  allowPublicProxies: false,
-  allowConfiguredProxy: false,
-  allowDirectCrossOrigin: true
-  }).then((text2) => {
-  const json = parseJsonObjectFromText(text2);
-  const message = firstString(json?.error_message, json?.error);
-  if (message && !/generateimage$/i.test(url)) throw new Error(message);
-  if (isUchisenAuthFailure(text2)) {
-    throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
+    return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml(component.url)}" target="_blank" rel="noopener" title="${escapeHtml(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml(label)}">${content}</span>`;
   }
-  return text2;
-  });
-}
-function isUchisenAuthFailure(text2) {
-  return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
-}
-function encodedForm(fields) {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(fields)) params.set(key, value);
-  return params.toString();
-}
-function requestBlobUrl(url, timeout, proxyUrl) {
-  return requestBlob$1(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
-}
-function requestBlob$1(url, timeout, proxyUrl) {
-  return requestBlob$2(url, {
-  proxyUrl,
-  timeoutMs: timeout,
-  failureLabel: "Uchisen image request",
-  timeoutLabel: "Uchisen image request timed out."
-  });
-}
-function parseUchisenData(html) {
-  if (!html.trim()) return emptyUchisenData();
-  const doc = parseHtmlDocument(html);
-  const kanjiId = parseUchisenKanjiIdFromDocument(doc);
-  return {
-  images: parseUchisenImagesFromDocument(doc),
-  componentGroups: parseUchisenComponentGroupsFromDocument(doc),
-  kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
-  kanjiId,
-  canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
-  };
-}
-function emptyUchisenData() {
-  return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
-}
-function parseUchisenImagesFromDocument(doc) {
-  const images = [];
-  const mainImage = mainUchisenImageUrl(doc);
-  const mainStory = cleanText$1(doc.querySelector("#mnemonic_story")?.textContent ?? "");
-  if (mainImage) {
-  const url = canonicalUchisenUrl(mainImage);
-  images.push({
-    url,
-    story: mainStory || "No story available",
-    paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
-  });
+  function preferredUchisenIndex(storedIndex, images) {
+    if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
+    const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
+    return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
   }
-  doc.querySelectorAll(".mnemonic_card").forEach((card) => {
-  const image = uchisenCardImage(card, mainStory);
-  if (image) images.push(image);
-  });
-  return orderedUchisenImages(images);
-}
-function parseUchisenComponentGroupsFromDocument(doc) {
-  const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
-  if (!root) return [];
-  return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
-}
-function parseUchisenKanjiKeywordFromDocument(doc) {
-  const candidates = [
-  doc.querySelector("#kanji_keyword_container > span")?.textContent,
-  doc.querySelector("#kanji_keyword_container")?.textContent,
-  doc.querySelector(".kanji_name > span")?.textContent,
-  doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
-  ];
-  for (const candidate of candidates) {
-  const keyword = uchisenKanjiKeyword(candidate ?? "");
-  if (keyword) return keyword;
+  function isValidUchisenIndex(index, images) {
+    return Number.isInteger(index) && index >= 0 && index < images.length;
   }
-  return null;
-}
-function parseUchisenKanjiIdFromDocument(doc) {
-  const candidates = [
-  doc.querySelector("input#kanji_id")?.value,
-  doc.querySelector("input#showing_kanji_id")?.value,
-  doc.querySelector('input[name="kanji_id"]')?.value
-  ];
-  return cleanText$1(candidates.find(Boolean) ?? "");
-}
-function parseUchisenCanGenerateFromDocument(doc) {
-  const userId = cleanText$1(doc.querySelector("input#user_id")?.value ?? "");
-  const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
-  const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
-  const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
-  const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
-  return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
-}
-function uchisenKanjiKeyword(value) {
-  const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$1(value));
-  if (!match) return null;
-  const kanji = cleanText$1(match[1].replace(/[「」]/g, ""));
-  const keyword = cleanText$1(match[2]);
-  if (!kanji || !keyword) return null;
-  return {
-  kanji,
-  keyword,
-  url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
+  function isUchisenPaywallItem(item) {
+    return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
+  }
+  function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
+    return requestText$5(url, {
+      method: "POST",
+      data: encodedForm(fields),
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "text/html, */*; q=0.01",
+        Origin: "https://uchisen.com",
+        Referer: referrer
+      },
+      proxyUrl,
+      timeoutMs: timeout,
+      failureLabel,
+      timeoutLabel: `${failureLabel} timed out.`,
+      credentials: "include",
+      anonymous: false,
+      withCredentials: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      allowDirectCrossOrigin: true
+    }).then((text2) => {
+      const json = parseJsonObjectFromText(text2);
+      const message = firstString(json?.error_message, json?.error);
+      if (message && !/generateimage$/i.test(url)) throw new Error(message);
+      if (isUchisenAuthFailure(text2)) {
+        throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
+      }
+      return text2;
+    });
+  }
+  function isUchisenAuthFailure(text2) {
+    return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
+  }
+  function encodedForm(fields) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(fields)) params.set(key, value);
+    return params.toString();
+  }
+  function requestBlobUrl(url, timeout, proxyUrl) {
+    return requestBlob$1(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
+  }
+  function requestBlob$1(url, timeout, proxyUrl) {
+    return requestBlob$2(url, {
+      proxyUrl,
+      timeoutMs: timeout,
+      failureLabel: "Uchisen image request",
+      timeoutLabel: "Uchisen image request timed out."
+    });
+  }
+  function parseUchisenData(html) {
+    if (!html.trim()) return emptyUchisenData();
+    const doc = parseHtmlDocument(html);
+    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
+    return {
+      images: parseUchisenImagesFromDocument(doc),
+      componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+      kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
+      kanjiId,
+      canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
+    };
+  }
+  function emptyUchisenData() {
+    return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
+  }
+  function parseUchisenImagesFromDocument(doc) {
+    const images = [];
+    const mainImage = mainUchisenImageUrl(doc);
+    const mainStory = cleanText$1(doc.querySelector("#mnemonic_story")?.textContent ?? "");
+    if (mainImage) {
+      const url = canonicalUchisenUrl(mainImage);
+      images.push({
+        url,
+        story: mainStory || "No story available",
+        paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
+      });
+    }
+    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
+      const image = uchisenCardImage(card, mainStory);
+      if (image) images.push(image);
+    });
+    return orderedUchisenImages(images);
+  }
+  function parseUchisenComponentGroupsFromDocument(doc) {
+    const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
+    if (!root) return [];
+    return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
+  }
+  function parseUchisenKanjiKeywordFromDocument(doc) {
+    const candidates = [
+      doc.querySelector("#kanji_keyword_container > span")?.textContent,
+      doc.querySelector("#kanji_keyword_container")?.textContent,
+      doc.querySelector(".kanji_name > span")?.textContent,
+      doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
+    ];
+    for (const candidate of candidates) {
+      const keyword = uchisenKanjiKeyword(candidate ?? "");
+      if (keyword) return keyword;
+    }
+    return null;
+  }
+  function parseUchisenKanjiIdFromDocument(doc) {
+    const candidates = [
+      doc.querySelector("input#kanji_id")?.value,
+      doc.querySelector("input#showing_kanji_id")?.value,
+      doc.querySelector('input[name="kanji_id"]')?.value
+    ];
+    return cleanText$1(candidates.find(Boolean) ?? "");
+  }
+  function parseUchisenCanGenerateFromDocument(doc) {
+    const userId = cleanText$1(doc.querySelector("input#user_id")?.value ?? "");
+    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
+    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
+    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
+    const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
+    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
+  }
+  function uchisenKanjiKeyword(value) {
+    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$1(value));
+    if (!match) return null;
+    const kanji = cleanText$1(match[1].replace(/[「」]/g, ""));
+    const keyword = cleanText$1(match[2]);
+    if (!kanji || !keyword) return null;
+    return {
+      kanji,
+      keyword,
+      url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
   };
 }
 function uchisenComponentGroup(group) {
@@ -14571,9 +14574,9 @@ function parseKanjiVGSvg(svgText, kanji) {
   const strokeShapes = parsedPaths.map((path) => path.shape);
   const numbers = readKanjiVGStrokeNumbers(sourceSvg);
   const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml(kanji)}">
-    <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
-    <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
-  </svg>`;
+        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
+        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
+    </svg>`;
   return {
   kanji,
   svg,
@@ -15794,12 +15797,12 @@ function renderImmersionExampleActionsHtml(hasAudio, language) {
   const next = uiText(language, "nextExample");
   const audio = uiText(language, "playExampleAudio");
   return `
-    <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
-        ${renderImmersionActionButtonHtml("previous", previous, "‹")}
-        ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
-        ${renderImmersionActionButtonHtml("next", next, "›")}
-    </div>
-  `;
+        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
+            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
+            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
+            ${renderImmersionActionButtonHtml("next", next, "›")}
+        </div>
+    `;
 }
 function renderImmersionActionButtonHtml(action, label, content) {
   return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;

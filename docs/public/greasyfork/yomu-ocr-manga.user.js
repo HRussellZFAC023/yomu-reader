@@ -2705,8 +2705,360 @@ function compact(value) {
 function formatPercent(value) {
   return `${Number(value.toFixed(3))}%`;
 }
-function cardStateProvenance(card) {
-  return card.provisionalState === true ? "provisional" : "authoritative";
+const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
+const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
+const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
+const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
+const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+let trustedHtmlPolicy;
+function setInnerHtml(element, html) {
+  if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+}
+function replaceWithHtmlFragment(element, html) {
+  try {
+  const ownerDocument = element.ownerDocument || document;
+  const { source, rootSelector } = contextualSanitizerSource(element, html);
+  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+  if (!parsedRoot) return false;
+  sanitizeChildren(parsedRoot, parsed);
+  const fragment = ownerDocument.createDocumentFragment();
+  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+  sanitizeChildren(fragment, ownerDocument);
+  const target = element.localName === "template" && "content" in element ? element.content : element;
+  target.replaceChildren(fragment);
+  return true;
+  } catch {
+  return false;
+  }
+}
+function contextualSanitizerSource(element, html) {
+  if (element.namespaceURI === SVG_NAMESPACE) {
+  return {
+    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
+    rootSelector: "[data-yomu-sanitize-root]"
+  };
+  }
+  switch (element.localName.toLowerCase()) {
+  case "table":
+    return {
+      source: `<table data-yomu-sanitize-root>${html}</table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "thead":
+  case "tbody":
+  case "tfoot":
+    return {
+      source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "tr":
+    return {
+      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "colgroup":
+    return {
+      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "select":
+    return {
+      source: `<select data-yomu-sanitize-root>${html}</select>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  case "optgroup":
+    return {
+      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
+      rootSelector: "[data-yomu-sanitize-root]"
+    };
+  default:
+    return { source: html, rootSelector: "" };
+  }
+}
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function sanitizeChildren(parent, ownerDocument) {
+  for (const node of Array.from(parent.childNodes)) {
+  if (node.nodeType !== 1) continue;
+  const element = node;
+  const localName = element.localName.toLowerCase();
+  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
+    element.remove();
+    continue;
+  }
+  if (localName.includes("-")) {
+    sanitizeChildren(element, ownerDocument);
+    element.replaceWith(...Array.from(element.childNodes));
+    continue;
+  }
+  sanitizeElement(element, ownerDocument);
+  const childRoot = localName === "template" && "content" in element ? element.content : element;
+  sanitizeChildren(childRoot, ownerDocument);
+  }
+}
+function sanitizeElement(element, ownerDocument) {
+  for (const attribute of Array.from(element.attributes)) {
+  const name = attribute.name.toLowerCase();
+  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
+    element.removeAttribute(attribute.name);
+    continue;
+  }
+  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
+    element.removeAttribute(attribute.name);
+    continue;
+  }
+  if (name === "style") {
+    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
+    if (style) element.setAttribute(attribute.name, style);
+    else element.removeAttribute(attribute.name);
+  }
+  }
+  if (element.getAttribute("target")?.toLowerCase() === "_blank") {
+  const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+  rel.add("noopener");
+  rel.add("noreferrer");
+  element.setAttribute("rel", [...rel].join(" "));
+  }
+}
+function sanitizedInlineStyle(value, ownerDocument) {
+  const declaration = ownerDocument.createElement("span").style;
+  declaration.cssText = value;
+  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
+  let removedProperty = false;
+  for (const property of Array.from(declaration)) {
+  const propertyValue = declaration.getPropertyValue(property);
+  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
+    declaration.removeProperty(property);
+    removedProperty = true;
+  }
+  }
+  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
+}
+function isSafeHtmlUrl(value) {
+  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+  if (!candidate) return true;
+  if (candidate.startsWith("#")) return true;
+  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
+  try {
+  const parsed = new URL(candidate, "https://yomureader.invalid/");
+  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
+  } catch {
+  return false;
+  }
+}
+function trustedHtml(value) {
+  try {
+  const factory = trustedTypesFactory();
+  if (!factory) return value;
+  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+  return trustedHtmlPolicy?.createHTML(value) ?? value;
+  } catch {
+  trustedHtmlPolicy = null;
+  return value;
+  }
+}
+function trustedTypesFactory() {
+  const root = globalThis;
+  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+  (factory) => Boolean(factory)
+  );
+}
+function createTrustedHtmlPolicy(factory) {
+  const existing = factory.getPolicy?.("yomu-reader");
+  if (existing?.createHTML) return existing;
+  const options = { createHTML: (html) => html };
+  return createTrustedHtmlPolicyWithOptions(
+  factory,
+  pageCompartmentValue(options, {
+    cloneFunctions: true,
+    wrapReflectors: true
+  })
+  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+}
+function createTrustedHtmlPolicyWithOptions(factory, options) {
+  try {
+  return factory.createPolicy?.("yomu-reader", options) ?? null;
+  } catch {
+  return null;
+  }
+}
+const CORE_COLOR_TOKENS = {
+  white: "#ffffff"
+};
+const BRAND_COLOR_TOKENS = {
+  accent: "#5ea780",
+  consoleAccent: "#247a58"
+};
+const OVERLAY_COLOR_TOKENS = {
+  text: CORE_COLOR_TOKENS.white
+};
+const LOGGER_COLOR_TOKENS = {
+  debug: "#6b7280",
+  warn: "#a15c00",
+  error: "#b91c1c"
+};
+const __vite_import_meta_env__ = { "DEV": false };
+const LOG_PREFIX = "[Yomu]";
+const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+const RUNTIME_LOG_KEY = "yomu:enable-logs";
+const REDACTED = "[redacted]";
+const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
+const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+const env = __vite_import_meta_env__;
+const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+class ScopedLogger {
+  constructor(parent, scopeName) {
+  this.parent = parent;
+  this.scopeName = scopeName;
+  }
+  debug(message, ...args) {
+  this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+  }
+  info(message, ...args) {
+  this.parent.write(this.scopeName, message, args, console.info, "");
+  }
+  warn(message, ...args) {
+  const optional = args.some(isOptionalCorsBridgeError);
+  this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
+  }
+  error(message, ...args) {
+  this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+  }
+  warnOnce(key, message, ...args) {
+  this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
+  }
+  time(label, ...args) {
+  if (!this.parent.isEnabled()) return () => void 0;
+  const start = nowMs();
+  this.debug(`${label} started`, ...args);
+  return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+  }
+}
+class LoggerImpl {
+  settingsProvider;
+  forceEnabled = false;
+  onceKeys = /* @__PURE__ */ new Set();
+  configure(options) {
+  this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+  this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+  }
+  scope(scopeName) {
+  return new ScopedLogger(this, scopeName);
+  }
+  isEnabled() {
+  if (BUILD_LOGGING_ENABLED) return true;
+  if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+  try {
+    return this.settingsProvider?.().enableLogging === true;
+  } catch {
+    return false;
+  }
+  }
+  isDevMode() {
+  return isDevMode();
+  }
+  enable(persist = false) {
+  this.forceEnabled = true;
+  if (persist) setRuntimeLoggingOverride(true);
+  this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+  }
+  disable(persist = false) {
+  this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+  this.forceEnabled = false;
+  if (persist) setRuntimeLoggingOverride(false);
+  }
+  reset() {
+  this.onceKeys.clear();
+  }
+  warnOnce(key, scope, message, args) {
+  if (this.onceKeys.has(key)) return;
+  this.onceKeys.add(key);
+  this.write(scope, message, args, console.warn, WARN_STYLE);
+  }
+  write(scope, message, args, writer, levelStyle) {
+  if (!this.isEnabled()) return;
+  writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+  }
+}
+const Logger = new LoggerImpl();
+function isDevMode() {
+  return BUILD_IS_DEV_MODE;
+}
+function writeDebugToConsole(...args) {
+  if (isDevMode()) console.log(...args);
+  else console.debug(...args);
+}
+function isOptionalCorsBridgeError(value) {
+  return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
+}
+function getRuntimeLoggingOverride() {
+  try {
+  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+  } catch {
+  return false;
+  }
+}
+function setRuntimeLoggingOverride(enabled) {
+  try {
+  if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+  else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+  } catch {
+  }
+}
+function nowMs() {
+  return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+}
+function sanitizeForConsole(value) {
+  if (typeof value === "string") return redactString(value);
+  if (value === null || value === void 0 || typeof value !== "object") return value;
+  const sanitized = sanitizeSpecialConsoleValue(value);
+  if (sanitized.handled) return sanitized.value;
+  if (Array.isArray(value)) return value.map(sanitizeForConsole);
+  return sanitizeRecordForConsole(value);
+}
+function sanitizeSpecialConsoleValue(value) {
+  for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+  const sanitized = sanitizer(value);
+  if (sanitized.handled) return sanitized;
+  }
+  return { handled: false };
+}
+const CONSOLE_VALUE_SANITIZERS = [
+  (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+  (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+  (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+  (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+];
+function sanitizeRecordForConsole(record) {
+  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+  key,
+  shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
+  ]));
+}
+function sanitizeFlatValue(value) {
+  if (typeof value === "string") return redactString(value);
+  if (value instanceof Error) return { name: value.name, message: value.message };
+  return value;
+}
+function shouldRedactEntry(key, value) {
+  if (!SECRET_KEY_PATTERN.test(key)) return false;
+  if (typeof value === "number" && /tokens?/i.test(key)) return false;
+  return true;
+}
+function redactString(value) {
+  return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+}
+if (typeof window !== "undefined") {
+  window.__YOMU_LOGGER__ = Logger;
+  window.YomuLogger = Logger;
 }
 const RTL_SCRIPTS$1 = /* @__PURE__ */ new Set([
   "Adlm",
@@ -6493,388 +6845,6 @@ function activeLearningTargetLanguage() {
 }
 function activeLearningTargetGeneration() {
   return targetSelectionGeneration;
-}
-function isTargetLanguageText(text) {
-  return activeLearningTarget().isLookupableText(text);
-}
-const CORE_COLOR_TOKENS = {
-  white: "#ffffff"
-};
-const BRAND_COLOR_TOKENS = {
-  accent: "#5ea780",
-  consoleAccent: "#247a58"
-};
-const OVERLAY_COLOR_TOKENS = {
-  text: CORE_COLOR_TOKENS.white
-};
-const LOGGER_COLOR_TOKENS = {
-  debug: "#6b7280",
-  warn: "#a15c00",
-  error: "#b91c1c"
-};
-const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
-  "youtube.com",
-  "www.youtube.com",
-  "m.youtube.com",
-  "music.youtube.com",
-  "studio.youtube.com",
-  "kids.youtube.com",
-  "gaming.youtube.com",
-  "youtu.be"
-]);
-function isYouTubeAppHostname(hostname = location.hostname) {
-  return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
-}
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-roleSelectors("menu,menubar,toolbar,tablist");
-const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
-const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
-const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
-const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
-const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-let trustedHtmlPolicy;
-function setInnerHtml(element, html) {
-  if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
-}
-function replaceWithHtmlFragment(element, html) {
-  try {
-  const ownerDocument = element.ownerDocument || document;
-  const { source, rootSelector } = contextualSanitizerSource(element, html);
-  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
-  if (!parsedRoot) return false;
-  sanitizeChildren(parsedRoot, parsed);
-  const fragment = ownerDocument.createDocumentFragment();
-  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-  sanitizeChildren(fragment, ownerDocument);
-  const target = element.localName === "template" && "content" in element ? element.content : element;
-  target.replaceChildren(fragment);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function contextualSanitizerSource(element, html) {
-  if (element.namespaceURI === SVG_NAMESPACE) {
-  return {
-    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
-    rootSelector: "[data-yomu-sanitize-root]"
-  };
-  }
-  switch (element.localName.toLowerCase()) {
-  case "table":
-    return {
-      source: `<table data-yomu-sanitize-root>${html}</table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "thead":
-  case "tbody":
-  case "tfoot":
-    return {
-      source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "tr":
-    return {
-      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "colgroup":
-    return {
-      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "select":
-    return {
-      source: `<select data-yomu-sanitize-root>${html}</select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "optgroup":
-    return {
-      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  default:
-    return { source: html, rootSelector: "" };
-  }
-}
-function escapeHtml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function sanitizeChildren(parent, ownerDocument) {
-  for (const node of Array.from(parent.childNodes)) {
-  if (node.nodeType !== 1) continue;
-  const element = node;
-  const localName = element.localName.toLowerCase();
-  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
-    element.remove();
-    continue;
-  }
-  if (localName.includes("-")) {
-    sanitizeChildren(element, ownerDocument);
-    element.replaceWith(...Array.from(element.childNodes));
-    continue;
-  }
-  sanitizeElement(element, ownerDocument);
-  const childRoot = localName === "template" && "content" in element ? element.content : element;
-  sanitizeChildren(childRoot, ownerDocument);
-  }
-}
-function sanitizeElement(element, ownerDocument) {
-  for (const attribute of Array.from(element.attributes)) {
-  const name = attribute.name.toLowerCase();
-  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
-    element.removeAttribute(attribute.name);
-    continue;
-  }
-  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
-    element.removeAttribute(attribute.name);
-    continue;
-  }
-  if (name === "style") {
-    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
-    if (style) element.setAttribute(attribute.name, style);
-    else element.removeAttribute(attribute.name);
-  }
-  }
-  if (element.getAttribute("target")?.toLowerCase() === "_blank") {
-  const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
-  rel.add("noopener");
-  rel.add("noreferrer");
-  element.setAttribute("rel", [...rel].join(" "));
-  }
-}
-function sanitizedInlineStyle(value, ownerDocument) {
-  const declaration = ownerDocument.createElement("span").style;
-  declaration.cssText = value;
-  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
-  let removedProperty = false;
-  for (const property of Array.from(declaration)) {
-  const propertyValue = declaration.getPropertyValue(property);
-  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
-    declaration.removeProperty(property);
-    removedProperty = true;
-  }
-  }
-  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
-}
-function isSafeHtmlUrl(value) {
-  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
-  if (!candidate) return true;
-  if (candidate.startsWith("#")) return true;
-  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
-  try {
-  const parsed = new URL(candidate, "https://yomureader.invalid/");
-  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
-  } catch {
-  return false;
-  }
-}
-function trustedHtml(value) {
-  try {
-  const factory = trustedTypesFactory();
-  if (!factory) return value;
-  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-  return trustedHtmlPolicy?.createHTML(value) ?? value;
-  } catch {
-  trustedHtmlPolicy = null;
-  return value;
-  }
-}
-function trustedTypesFactory() {
-  const root = globalThis;
-  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-  (factory) => Boolean(factory)
-  );
-}
-function createTrustedHtmlPolicy(factory) {
-  const existing = factory.getPolicy?.("yomu-reader");
-  if (existing?.createHTML) return existing;
-  const options = { createHTML: (html) => html };
-  return createTrustedHtmlPolicyWithOptions(
-  factory,
-  pageCompartmentValue(options, {
-    cloneFunctions: true,
-    wrapReflectors: true
-  })
-  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-}
-function createTrustedHtmlPolicyWithOptions(factory, options) {
-  try {
-  return factory.createPolicy?.("yomu-reader", options) ?? null;
-  } catch {
-  return null;
-  }
-}
-const __vite_import_meta_env__ = { "DEV": false };
-const LOG_PREFIX = "[Yomu]";
-const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-const RUNTIME_LOG_KEY = "yomu:enable-logs";
-const REDACTED = "[redacted]";
-const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
-const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-const env = __vite_import_meta_env__;
-const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-class ScopedLogger {
-  constructor(parent, scopeName) {
-  this.parent = parent;
-  this.scopeName = scopeName;
-  }
-  debug(message, ...args) {
-  this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-  }
-  info(message, ...args) {
-  this.parent.write(this.scopeName, message, args, console.info, "");
-  }
-  warn(message, ...args) {
-  const optional = args.some(isOptionalCorsBridgeError);
-  this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
-  }
-  error(message, ...args) {
-  this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-  }
-  warnOnce(key, message, ...args) {
-  this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
-  }
-  time(label, ...args) {
-  if (!this.parent.isEnabled()) return () => void 0;
-  const start = nowMs();
-  this.debug(`${label} started`, ...args);
-  return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-  }
-}
-class LoggerImpl {
-  settingsProvider;
-  forceEnabled = false;
-  onceKeys = /* @__PURE__ */ new Set();
-  configure(options) {
-  this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-  this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-  }
-  scope(scopeName) {
-  return new ScopedLogger(this, scopeName);
-  }
-  isEnabled() {
-  if (BUILD_LOGGING_ENABLED) return true;
-  if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-  try {
-    return this.settingsProvider?.().enableLogging === true;
-  } catch {
-    return false;
-  }
-  }
-  isDevMode() {
-  return isDevMode();
-  }
-  enable(persist = false) {
-  this.forceEnabled = true;
-  if (persist) setRuntimeLoggingOverride(true);
-  this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-  }
-  disable(persist = false) {
-  this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-  this.forceEnabled = false;
-  if (persist) setRuntimeLoggingOverride(false);
-  }
-  reset() {
-  this.onceKeys.clear();
-  }
-  warnOnce(key, scope, message, args) {
-  if (this.onceKeys.has(key)) return;
-  this.onceKeys.add(key);
-  this.write(scope, message, args, console.warn, WARN_STYLE);
-  }
-  write(scope, message, args, writer, levelStyle) {
-  if (!this.isEnabled()) return;
-  writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-  }
-}
-const Logger = new LoggerImpl();
-function isDevMode() {
-  return BUILD_IS_DEV_MODE;
-}
-function writeDebugToConsole(...args) {
-  if (isDevMode()) console.log(...args);
-  else console.debug(...args);
-}
-function isOptionalCorsBridgeError(value) {
-  return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
-}
-function getRuntimeLoggingOverride() {
-  try {
-  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-  } catch {
-  return false;
-  }
-}
-function setRuntimeLoggingOverride(enabled) {
-  try {
-  if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-  else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-  } catch {
-  }
-}
-function nowMs() {
-  return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-}
-function sanitizeForConsole(value) {
-  if (typeof value === "string") return redactString(value);
-  if (value === null || value === void 0 || typeof value !== "object") return value;
-  const sanitized = sanitizeSpecialConsoleValue(value);
-  if (sanitized.handled) return sanitized.value;
-  if (Array.isArray(value)) return value.map(sanitizeForConsole);
-  return sanitizeRecordForConsole(value);
-}
-function sanitizeSpecialConsoleValue(value) {
-  for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-  const sanitized = sanitizer(value);
-  if (sanitized.handled) return sanitized;
-  }
-  return { handled: false };
-}
-const CONSOLE_VALUE_SANITIZERS = [
-  (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-  (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-  (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-  (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
-  key,
-  shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
-  ]));
-}
-function sanitizeFlatValue(value) {
-  if (typeof value === "string") return redactString(value);
-  if (value instanceof Error) return { name: value.name, message: value.message };
-  return value;
-}
-function shouldRedactEntry(key, value) {
-  if (!SECRET_KEY_PATTERN.test(key)) return false;
-  if (typeof value === "number" && /tokens?/i.test(key)) return false;
-  return true;
-}
-function redactString(value) {
-  return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-}
-if (typeof window !== "undefined") {
-  window.__YOMU_LOGGER__ = Logger;
-  window.YomuLogger = Logger;
 }
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
@@ -11638,6 +11608,39 @@ function rubyBaseKanaRuns(base) {
 function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
 }
+function cardStateProvenance(card) {
+  return card.provisionalState === true ? "provisional" : "authoritative";
+}
+function isTargetLanguageText(text) {
+  return activeLearningTarget().isLookupableText(text);
+}
+const YOUTUBE_APP_HOSTS = /* @__PURE__ */ new Set([
+  "youtube.com",
+  "www.youtube.com",
+  "m.youtube.com",
+  "music.youtube.com",
+  "studio.youtube.com",
+  "kids.youtube.com",
+  "gaming.youtube.com",
+  "youtu.be"
+]);
+function isYouTubeAppHostname(hostname = location.hostname) {
+  return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+}
+const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+roleSelectors("menu,menubar,toolbar,tablist");
+new Set(
+  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+);
 const TRAILING_DIGITS_RE = /[0-9０-９]+$/u;
 const NUMBER_BIND_CLASS = "jpdb-reader-number-bind";
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
@@ -17054,7 +17057,7 @@ class ImageOcrController {
       continue;
     }
     const rect = canvas.getBoundingClientRect();
-    if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas)) {
+    if (!rect.width || !rect.height || isHiddenByCss(canvas) || isInsideHiddenAncestor(canvas, false)) {
       this.releaseCanvasFrame(canvas);
       continue;
     }
@@ -17980,18 +17983,15 @@ function isVisibleOcrImage(image) {
 function isImageVisibleForOcr(image, rect) {
   return rect.width > 0 && rect.height > 0 && rect.bottom >= 0 && rect.top <= window.innerHeight && !isImageOccludedByVideo(image, rect);
 }
-function isInsideHiddenAncestor(element) {
+function isInsideHiddenAncestor(element, includeAriaHidden = true) {
   for (let current = element.parentElement; current && current !== document.body; current = current.parentElement) {
-  if (isHiddenByCss(current) || isHiddenByAttribute(current)) return true;
+  if (isHiddenByCss(current) || current.hasAttribute("hidden") || includeAriaHidden && current.getAttribute("aria-hidden") === "true") return true;
   }
   return false;
 }
 function isHiddenByCss(element) {
   const style = getComputedStyle(element);
   return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
-}
-function isHiddenByAttribute(element) {
-  return element.getAttribute("aria-hidden") === "true" || element.hasAttribute("hidden");
 }
 function mutationTouchesRenderableMedia(mutation) {
   if (mutation.type === "childList") {

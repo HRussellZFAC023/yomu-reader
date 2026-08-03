@@ -1,7 +1,7 @@
 import { safeComputedStyle } from './decoration-policy';
 
 export const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = 'jpdb-reader-document-annotation-portal';
-export const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = 'jpdb-reader-document-annotation-paint';
+const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = 'jpdb-reader-document-annotation-paint';
 export const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = 'jpdb-reader-youtube-chrome-portal';
 
 export interface DocumentAnnotationPortalClipBounds {
@@ -66,6 +66,8 @@ let portalClipTopologyStyleReadCount = 0;
 let portalClipRectReadCount = 0;
 
 /** Focused real-browser counters for the clip topology/geometry budget. */
+// Loaded by source-preserving-prose-portal-smoke.mjs through a generated data URL.
+// fallow-ignore-next-line unused-export
 export function documentPortalClipMeasurementCountsForTest(): { styles: number; rects: number } {
     return { styles: portalClipTopologyStyleReadCount, rects: portalClipRectReadCount };
 }
@@ -425,10 +427,6 @@ export function settleDocumentAnnotationPortalMirrors(mirrors: readonly HTMLElem
     }
 }
 
-export function hasDocumentAnnotationPortalMirrors(root: ParentNode = document): boolean {
-    return documentAnnotationPortalMirrorsWithin(root).length > 0;
-}
-
 /** Live registered portals whose page-owned source belongs to root. */
 export function documentAnnotationPortalMirrorsWithin(root: ParentNode = document): HTMLElement[] {
     const document = root instanceof Document ? root : (root as Node).ownerDocument;
@@ -438,15 +436,6 @@ export function documentAnnotationPortalMirrorsWithin(root: ParentNode = documen
     return pruneAndCollectEntries(document, watch)
         .filter(entry => root instanceof Document || rootContains(root, entry.source))
         .map(entry => entry.mirror);
-}
-
-/**
- * Clip escaped body paint to the intersection of native overflow/paint clips.
- * No clip returns null so ordinary page chrome keeps the historical zero-size,
- * overflow-visible shell.
- */
-export function documentAnnotationPortalClipBounds(source: HTMLElement): DocumentAnnotationPortalClipBounds | null {
-    return clipBoundsFromChain(source, portalClipChain(source, new Map()), new Map());
 }
 
 /**

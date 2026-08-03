@@ -420,15 +420,15 @@ describe('Greasy Fork split manifest', () => {
             '"use strict";',
             '// yomu-generated-indent: compact',
             'function example() {',
-            ' const value = `',
+            'const value = `',
             '      preserved',
             '    `;',
-            ' if (value) {',
-            ' if (value) {',
-            ' return value;',
-            ' }',
-            ' }',
-            ' return value;',
+            'if (value) {',
+            'if (value) {',
+            'return value;',
+            '}',
+            '}',
+            'return value;',
             '}',
             '})();',
         ].join('\n'));
@@ -436,7 +436,7 @@ describe('Greasy Fork split manifest', () => {
         expect(trimCommonWrapperIndent(compacted, true)).toBe(compacted);
     });
 
-    it('keeps the injected runtime readable after compacting generated indentation', () => {
+    it('keeps the injected runtime executable after removing generated indentation', () => {
         const runtime = GREASY_FORK_LIBRARIES.find(candidate => candidate.id === 'runtime');
         expect(runtime).toBeDefined();
         const hostedHeader = readFileSync(path.join(repoRoot, 'docs', 'public', 'yomu.user.js'), 'utf8');
@@ -446,16 +446,16 @@ describe('Greasy Fork split manifest', () => {
         expect(hostedRuntime, 'the hosted userscript does not pin a hashed runtime').toBeDefined();
         const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'greasyfork', hostedRuntime!), 'utf8');
         expect(built).toMatch(/^\(function\(\) \{\n"use strict";\n\/\/ yomu-generated-indent: compact\nfunction /);
-        expect(built).toContain('\n return ');
+        expect(built).toContain('\nreturn ');
         expect(() => new Function(built)).not.toThrow();
     });
 
-    it('keeps the injected core readable after compacting generated indentation', () => {
+    it('keeps the injected core executable after removing generated indentation', () => {
         const built = readFileSync(path.join(repoRoot, 'docs', 'public', 'yomu.user.js'), 'utf8');
         expect(built).toMatch(
             /\n\(function \(\) \{\n'use strict';\n\/\/ yomu-generated-indent: compact\n\n?const /,
         );
-        expect(built).toContain('\n return ');
+        expect(built).toContain('\nreturn ');
         expect(() => new Function(built)).not.toThrow();
     });
 

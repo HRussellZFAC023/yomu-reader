@@ -195,19 +195,37 @@ export function updateRenderedPitch(
     );
 }
 
-export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {
-    if (word.closest('ruby')) return;
+// OCR lookup ownership is an apply-time invariant, not an enrichment side
+// effect. Public Jiten may return a sparse card first and hydrate its reading
+// later; waiting for that later furigana repaint leaves the initial word's Text
+// node exposed to page scanners (and a miss leaves it exposed permanently).
+// Normalize every freshly-painted OCR line before the visible-scan turn ends.
+// The line root also owns punctuation and unparsed gaps, so normalizing only
+// the word that later gained furigana would still expose sibling Text nodes.
+export function normalizeOcrScannerLinesInRoot(root: ParentNode, settings: ReaderSettings): void {
+    // Visible-scan changed roots are the target parents. A single ancestor walk
+    // keeps the ordinary-page path cheap; an OCR target is already inside its
+    // line, so this never searches a changed root's descendants.
+    if (!(root instanceof HTMLElement)) return;
+    const lineText = root.closest<HTMLElement>('.jpdb-ocr-line-text');
+    if (!lineText?.closest('.jpdb-ocr-line')) return;
+    const normalize = yomuNormalizeOcrRenderedText();
+    if (!normalize) return;
+    normalize(lineText, isPopupLookupEnabled(settings));
+}
+
+export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): boolean {
+    if (word.closest('ruby')) return false;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
-    if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
-        clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
-        return;
+    if (shouldHideFuriganaForCardState(renderSettings, publicVocabularyFuriganaCardState(word, card))) {
+        return clearPublicVocabularyFurigana(word, surface, ocrLine, isPopupLookupEnabled(settings));
     }
     if (rendersWholeCardReading(word, card)) {
         if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
         if (ocrLine) ocrLine.dataset.hasFuri = 'true';
-        return;
+        return false;
     }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token: JPDBToken = {
@@ -219,10 +237,25 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
         pitchClass: word.dataset.pitchClass ?? '',
         sentence: word.dataset.sentence,
     };
-    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
-    if (!replaceRenderedWordFurigana(word, surface, token)) return;
+    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return false;
+    if (!replaceRenderedWordFurigana(word, surface, token)) return false;
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word, isPopupLookupEnabled(settings));
     if (ocrLine) ocrLine.dataset.hasFuri = 'true';
+    return true;
+}
+
+function publicVocabularyFuriganaCardState(word: HTMLElement, card: JPDBCard): ReturnType<typeof primaryCardState> {
+    // setRenderedWordCardIdentity deliberately preserves an authenticated
+    // JPDB/Bunpro/Academy status when provisional public detail supplies only
+    // reading/POS. Furigana policy must follow that painted authoritative
+    // status too; otherwise a known word can gain ruby from the provisional
+    // card even though its color/state correctly stayed known.
+    if (card.provisionalState === true
+        && word.dataset.stateProvenance === 'authoritative'
+        && word.dataset.cardState) {
+        return primaryCardState([word.dataset.cardState]);
+    }
+    return primaryCardState(card.cardState);
 }
 
 // A provider row can arrive with the reading already split per kanji, e.g.
@@ -250,12 +283,13 @@ function clearPublicVocabularyFurigana(
     surface: string,
     ocrLine: HTMLElement | null,
     isolatePageScanners: boolean,
-): void {
-    if (!word.classList.contains('jpdb-reader-has-furi') && !word.querySelector('.jpdb-reader-furi, rt')) return;
+): boolean {
+    if (!word.classList.contains('jpdb-reader-has-furi') && !word.querySelector('.jpdb-reader-furi, rt')) return false;
     clearRenderedWordFurigana(word, surface);
-    if (!ocrLine) return;
+    if (!ocrLine) return true;
     yomuNormalizeOcrRenderedText()?.(word, isolatePageScanners);
     if (!ocrLine.querySelector('.jpdb-reader-word.jpdb-reader-has-furi')) delete ocrLine.dataset.hasFuri;
+    return true;
 }
 
 function publicVocabularyFuriganaSettings(word: HTMLElement, settings: ReaderSettings): ReaderSettings {

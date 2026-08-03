@@ -92,7 +92,8 @@ interface HoverLookupInternals {
         requestId: number,
         isCurrentHoverCard: () => boolean,
     ): Promise<void>;
-    applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass?: string): void;
+    applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass?: string): ParentNode[];
+    queueResolvedWordEffects(tokens: JPDBToken[], roots: ParentNode[]): void;
     clearRenderedAnkiWordStates(root?: ParentNode): void;
     maybeAutoPlayInitialCard(card: JPDBCard, context: {
         trigger: 'modal' | 'hover';
@@ -1217,7 +1218,8 @@ describe('hover lookup', () => {
             jitenReadingIndex: 1,
         };
         const resolveLookupCard = vi.fn(async () => resolvedCard);
-        const applyPublicVocabularyToRenderedWords = vi.fn();
+        const applyPublicVocabularyToRenderedWords = vi.fn(() => [word] as ParentNode[]);
+        const queueResolvedWordEffects = vi.fn();
         const showCard = vi.fn(async () => undefined);
 
         internals.activePopover = popover;
@@ -1228,6 +1230,7 @@ describe('hover lookup', () => {
         };
         internals.resolveLookupCard = resolveLookupCard;
         internals.applyPublicVocabularyToRenderedWords = applyPublicVocabularyToRenderedWords;
+        internals.queueResolvedWordEffects = queueResolvedWordEffects;
         internals.showCard = showCard;
 
         try {
@@ -1251,6 +1254,10 @@ describe('hover lookup', () => {
                 isCurrent: expect.any(Function),
             }));
             expect(applyPublicVocabularyToRenderedWords).toHaveBeenCalledWith(fallbackCard, resolvedCard);
+            expect(queueResolvedWordEffects).toHaveBeenCalledWith(
+                [expect.objectContaining({ card: resolvedCard })],
+                [word],
+            );
             expect(showCard).toHaveBeenCalledWith(
                 resolvedCard,
                 'よむ',

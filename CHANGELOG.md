@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.75] - 2026-08-02
+
+### Fixed
+
+- Yomu Gaming and other OCR overlays now isolate recognized lines from competing page scanners on the first annotated paint, before delayed reading or pitch lookup finishes. Kanji, kana particles, punctuation, and unresolved gaps stay visible, tappable, and owned by Yomu instead of flickering between scanner states.
+- Late dictionary and study-state responses now reconcile the whole rendered sentence through one shared path. Furigana, pitch patterns, compound pitch, particle classification, known-status display, and i+1 guidance stay consistent after sparse cards become canonical, so annotations such as 名古屋城 no longer disappear while remaining tappable.
+- Follow-up annotation work is coalesced by connected text root and detached virtualized rows are skipped. Dynamic feeds, long prose, subtitles, OCR, comments, native labels, Anki, Bunpro, and Academy state updates avoid repeated document walks and mutation-observer feedback while retaining newly rendered duplicates.
+
 ## [1.8.74] - 2026-08-02
 
 ### Fixed

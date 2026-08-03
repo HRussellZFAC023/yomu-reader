@@ -225,6 +225,36 @@ describe('OCR transform controller wiring', () => {
         cancel.mockRestore();
     });
 
+    it('keeps a tracked reader frame behind modal aria-hidden but releases a visually hidden canvas', () => {
+        stubReadableCanvas();
+        const controller = bareController();
+        const host = document.createElement('main');
+        const canvas = pageCanvas(20, 40);
+        const frame = document.createElement('img');
+        frame.className = 'jpdb-ocr-canvas-frame';
+        host.append(canvas);
+        document.body.append(host, frame);
+        const internals = controller as unknown as {
+            canvasFrames: Map<HTMLCanvasElement, HTMLImageElement>;
+            positionCanvasFrames(): void;
+        };
+        internals.canvasFrames.set(canvas, frame);
+
+        try {
+            host.setAttribute('aria-hidden', 'true');
+            internals.positionCanvasFrames();
+            expect(internals.canvasFrames.get(canvas)).toBe(frame);
+            expect(frame.isConnected).toBe(true);
+
+            host.style.display = 'none';
+            internals.positionCanvasFrames();
+            expect(internals.canvasFrames.has(canvas)).toBe(false);
+            expect(frame.isConnected).toBe(false);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('uses the real positionState path with a top-left transform origin and one-space placed rect', () => {
         const controller = bareController();
         const image = document.createElement('img');

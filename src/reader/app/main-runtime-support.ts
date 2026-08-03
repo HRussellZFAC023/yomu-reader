@@ -293,7 +293,7 @@ export function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => 
  * Deliberately does NOT list .jpdb-ocr-line: a line box is where the words are
  * drawn, and a press that actually hit a word never reaches the dismissal chain.
  */
-export const OCR_OVERLAY_INTERACTIVE_SELECTOR = [
+const OCR_OVERLAY_INTERACTIVE_SELECTOR = [
     'button',
     'a[href]',
     'input',
@@ -325,14 +325,14 @@ function isPointerOnInertOcrOverlay(element: Element | null | undefined): boolea
     return !(control && overlay.contains(control));
 }
 
-export const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
+const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
     '.jpdb-ocr-layer',
     '.jpdb-subtitle-player',
     '.jpdb-subtitle-list',
     '.jpdb-reader-toast',
 ].join(',');
-export const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
+const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '.review-reveal',
     '.answer-box',
     '.review-hidden',

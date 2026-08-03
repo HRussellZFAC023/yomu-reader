@@ -1286,7 +1286,7 @@ function cardUsesReaderLocalCache(card: JPDBCard): boolean {
     return Boolean((card.source && card.source !== 'jpdb') || card.vid <= 0 || card.sid <= 0);
 }
 
-function cardWithPreservedCachedEvidence(incoming: JPDBCard, cached: JPDBCard, surface?: string): JPDBCard {
+export function cardWithPreservedCachedEvidence(incoming: JPDBCard, cached: JPDBCard, surface?: string): JPDBCard {
     if (!cardsShareEvidenceIdentity(incoming, cached)) return incoming;
     const evidence = preservedCachedLexicalEvidence(incoming, cached, surface);
     const preserveCachedState = evidence.preserve

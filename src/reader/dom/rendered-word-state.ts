@@ -3,6 +3,7 @@ import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-
 import { primaryCardState } from '../cards/state';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { RENDERED_WORD_CONTRAST_VARS } from './rendered-word-contrast-vars';
+import { isParticleCard } from './token-text-rendering';
 
 const RENDERED_WORD_CARD_STATES = [
     'new',
@@ -163,6 +164,10 @@ export interface RenderedWordCardIdentityOptions {
     //     authenticated refreshes (refreshCardStates, review updates, the
     //     known-state backfill) that legitimately move a word up OR down.
     statePolicy?: 'auto' | 'replace';
+    // Canonical identity is also needed by nonvisual consumers (Anki,
+    // Academy SRS, Bunpro and guarded audio). Those paths must not leak pitch
+    // metadata/classes into the page when pitch display is disabled.
+    pitchPolicy?: 'replace' | 'clear';
 }
 
 export function cardStateProvenance(card: JPDBCard): RenderedWordStateProvenance {
@@ -180,9 +185,29 @@ export function setRenderedWordCardIdentity(
     word.dataset.sid = String(card.sid);
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
-    if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
-    setRenderedWordPitchAccentPattern(word, card);
-    setRenderedWordPitchComponents(word, card);
+    const particle = isParticleCard(card);
+    word.classList.toggle('jpdb-reader-particle', particle);
+    if (options.pitchPolicy === 'clear') {
+        setRenderedWordPitchClass(word, '');
+        delete word.dataset.pitchAccent;
+        delete word.dataset.pitchComponents;
+        word.style.removeProperty('--jpdb-reader-inline-pitch-gradient');
+        if (particle) clearRenderedWordMiningInsight(word);
+    } else if (particle) {
+        // Public Jiten parse cards arrive without POS. A multi-character
+        // particle can therefore paint as an ordinary content word first; its
+        // later detail repaint must repair every derived particle invariant,
+        // not retain a lexical pitch/i+1 state from the sparse card.
+        setRenderedWordPitchClass(word, 'particle');
+        delete word.dataset.pitchAccent;
+        delete word.dataset.pitchComponents;
+        word.style.removeProperty('--jpdb-reader-inline-pitch-gradient');
+        clearRenderedWordMiningInsight(word);
+    } else {
+        if (!card.pitchAccent.length) delete word.dataset.pitchAccent;
+        setRenderedWordPitchAccentPattern(word, card);
+        setRenderedWordPitchComponents(word, card);
+    }
     applyRenderedWordCardStatus(word, card, options, true);
 }
 
@@ -207,16 +232,20 @@ function applyRenderedWordCardStatus(
 ): void {
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);
-    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
-    clearRenderedWordCardStateClasses(word);
-    delete word.dataset.bunproState;
-    delete word.dataset.srsProvider;
-    clearRenderedWordDeckMembershipClasses(word, ['anki']);
+    // These fields belong to dictionary identity, not to the SRS-status
+    // channel. Even when a provisional public card is prevented from
+    // downgrading an authoritative state, its canonical provider identity must
+    // replace the sparse/fallback identity alongside vid/sid/reading above.
     if (replaceCardIdentity) {
         word.dataset.cardSource = source;
         word.dataset.cardId = String(renderedWordCardId(card, source));
         word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
     }
+    if (shouldPreserveAuthoritativeState(word, card, state, options)) return;
+    clearRenderedWordCardStateClasses(word);
+    delete word.dataset.bunproState;
+    delete word.dataset.srsProvider;
+    clearRenderedWordDeckMembershipClasses(word, ['anki']);
     word.dataset.cardState = state;
     word.dataset.stateProvenance = cardStateProvenance(card);
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
@@ -225,12 +254,91 @@ function applyRenderedWordCardStatus(
     applyRenderedWordDeckMembership(word, card);
 }
 
+/**
+ * Rebuilds sentence-level i+1 markers from the state Yomu actually painted.
+ *
+ * Late public-detail hydration can change provider identity, POS (especially
+ * multi-character particles), and state after the parser's original token
+ * batch is gone. The rendered metadata is therefore the authoritative input
+ * for this repaint; consulting parser caches here both misses fallback-to-
+ * canonical transitions and turns a small DOM repair into repeated cache
+ * reconstruction for every resolved card.
+ */
+export function refreshRenderedMiningInsights(root: ParentNode): HTMLElement[] {
+    const words = renderedWordsInRoot(root);
+    const sentenceCards = new Map<string, Map<string, { unknown: boolean }>>();
+    for (const word of words) {
+        const sentence = renderedMiningSentence(word);
+        const identity = renderedMiningCardIdentity(word);
+        if (!sentence || !identity || word.classList.contains('jpdb-reader-particle')) continue;
+        const cards = sentenceCards.get(sentence) ?? new Map<string, { unknown: boolean }>();
+        if (!sentenceCards.has(sentence)) sentenceCards.set(sentence, cards);
+        if (!cards.has(identity)) {
+            cards.set(identity, { unknown: RENDERED_WORD_MINING_INSIGHT_STATES.has(word.dataset.cardState ?? '') });
+        }
+    }
+
+    const insightKeys = new Set<string>();
+    sentenceCards.forEach((cards, sentence) => {
+        if (cards.size < 3) return;
+        const unknown = [...cards.entries()].filter(([, state]) => state.unknown);
+        if (unknown.length === 1) insightKeys.add(`${sentence}\u0000${unknown[0]?.[0] ?? ''}`);
+    });
+
+    const changed: HTMLElement[] = [];
+    for (const word of words) {
+        const sentence = renderedMiningSentence(word);
+        const identity = renderedMiningCardIdentity(word);
+        const insight = Boolean(
+            sentence
+            && identity
+            && !word.classList.contains('jpdb-reader-particle')
+            && insightKeys.has(`${sentence}\u0000${identity}`),
+        );
+        const hasClass = word.classList.contains('jpdb-reader-i-plus-one');
+        const hasDataset = word.dataset.miningInsight === 'i-plus-one';
+        if (hasClass === insight && hasDataset === insight) continue;
+        word.classList.toggle('jpdb-reader-i-plus-one', insight);
+        if (insight) word.dataset.miningInsight = 'i-plus-one';
+        else delete word.dataset.miningInsight;
+        changed.push(word);
+    }
+    return changed;
+}
+
+function renderedMiningSentence(word: HTMLElement): string {
+    return (word.dataset.sentence ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function renderedMiningCardIdentity(word: HTMLElement): string {
+    const source = word.dataset.cardSource?.trim();
+    const cardId = word.dataset.cardId?.trim();
+    const readingIndex = word.dataset.readingIndex?.trim();
+    if (source && cardId && readingIndex) return `${source}:${cardId}/${readingIndex}`;
+    const vid = word.dataset.vid?.trim();
+    const sid = word.dataset.sid?.trim();
+    return vid && sid ? `${vid}:${sid}` : '';
+}
+
 /** Repaints only the SRS status channel, preserving the dictionary card identity. */
 export function applyLocalYomuSrsStateToRenderedWord(word: HTMLElement, card: JPDBCard): boolean {
     const state = primaryCardState(card.cardState);
+    const expectedStateClasses = new Set([`jpdb-${state}`, `yomu-local-${state}`]);
     const changed = word.dataset.cardState !== state
         || word.dataset.srsProvider !== 'yomu-local'
-        || word.dataset.stateProvenance !== 'authoritative';
+        || word.dataset.stateProvenance !== 'authoritative'
+        || word.dataset.bunproState !== undefined
+        || word.dataset.bunproPrefillState !== undefined
+        || word.dataset.bunproPrefillProvenance !== undefined
+        || [...expectedStateClasses].some(className => !word.classList.contains(className))
+        || Array.from(word.classList).some(className => (
+            isRenderedWordCardStateClass(className) && !expectedStateClasses.has(className)
+        ))
+        || (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state) && (
+            word.classList.contains('jpdb-reader-i-plus-one')
+            || word.dataset.miningInsight !== undefined
+        ));
+    if (!changed) return false;
     clearRenderedWordCardStateClasses(word);
     delete word.dataset.bunproState;
     delete word.dataset.bunproPrefillState;
@@ -240,7 +348,7 @@ export function applyLocalYomuSrsStateToRenderedWord(word: HTMLElement, card: JP
     word.dataset.stateProvenance = 'authoritative';
     word.classList.add(`jpdb-${state}`, `yomu-local-${state}`);
     if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
-    return changed;
+    return true;
 }
 
 // The preserve guard fires only for the exact downgrade the public/pitch lane

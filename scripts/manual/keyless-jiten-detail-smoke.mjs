@@ -22,7 +22,7 @@ const {
     cssPath: CSS_PATH,
 } = createSmokePaths(import.meta.dirname);
 
-const WATCH_URL = 'https://www.youtube.com/watch?v=keyless-jiten-detail';
+const WATCH_URL = 'https://www.youtube.com/watch?v=keyless-jiten-detail&hl=ja&gl=JP';
 const EXPECT_MODE = process.env.YOMU_KEYLESS_JITEN_EXPECT === 'broken' ? 'broken' : 'fixed';
 const REPORT_NAME = EXPECT_MODE === 'broken'
     ? 'keyless-jiten-detail-repro-before.json'
@@ -41,6 +41,11 @@ const TARGETS = [
 const TARGET_BY_WORD_ID = new Map(TARGETS.map(target => [target.wordId, target]));
 const TITLE = '日本語の動画を見る練習';
 const DESCRIPTION = '英会話も日本語で練習します。';
+const READER_WORD_SELECTOR = [
+    'ytd-watch-metadata .jpdb-reader-word',
+    `.jpdb-reader-document-annotation-portal.jpdb-reader-text-mirror[data-source-text="${TITLE}"] .jpdb-reader-word`,
+    `.jpdb-reader-document-annotation-portal.jpdb-reader-text-mirror[data-source-text="${DESCRIPTION}"] .jpdb-reader-word`,
+].join(',');
 
 const SETTINGS = {
     onboardingSeen: true,
@@ -101,18 +106,18 @@ try {
     await installUserscriptCssResource(page, CSS_PATH);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
 
-    await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word').length >= 3, null, { timeout: 20_000 });
+    await page.waitForFunction(selector => document.querySelectorAll(selector).length >= 3, READER_WORD_SELECTOR, { timeout: 20_000 });
     if (EXPECT_MODE === 'fixed') {
-        await page.waitForFunction(() => {
-            const words = [...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word')];
+        await page.waitForFunction(selector => {
+            const words = [...document.querySelectorAll(selector)];
             return words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length >= 3
                 && words.filter(word => word instanceof HTMLElement && word.dataset.pitchClass && word.dataset.pitchClass !== 'unknown').length >= 3;
-        }, null, { timeout: 20_000 });
+        }, READER_WORD_SELECTOR, { timeout: 20_000 });
     } else {
         await page.waitForTimeout(1200);
     }
 
-    const state = await readState(page);
+    const state = await readState(page, READER_WORD_SELECTOR);
     const report = {
         ok: EXPECT_MODE === 'broken' ? state.missingDetail : state.hydrated,
         expect: EXPECT_MODE,
@@ -214,9 +219,9 @@ function jitenDetail(target) {
     };
 }
 
-async function readState(page) {
-    return await page.evaluate(() => {
-        const words = [...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word')]
+async function readState(page, selector) {
+    return await page.evaluate(readerWordSelector => {
+        const words = [...document.querySelectorAll(readerWordSelector)]
             .filter(word => word instanceof HTMLElement)
             .map(word => ({
                 text: word.textContent?.trim() ?? '',
@@ -241,7 +246,7 @@ async function readState(page) {
             parseRequests,
             detailRequests: 0,
         };
-    }).then(state => ({
+    }, selector).then(state => ({
         ...state,
         parseRequests: requests.filter(request => request.kind === 'jiten-parse').length,
         detailRequests: requests.filter(request => request.kind === 'jiten-detail').length,

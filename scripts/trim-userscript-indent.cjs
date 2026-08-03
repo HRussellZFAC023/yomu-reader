@@ -102,12 +102,11 @@ function trimmedGeneratedLine(line, inTemplate, compactInjectedIndent) {
   let trimmed = line.startsWith('  ') ? line.slice(2) : line;
   if (trimmed.startsWith('    ')) trimmed = trimmed.slice(2);
   // The core and aggregate runtime are the two scripts injected on every
-  // page. Compact generated indentation without touching template-literal
-  // content, while retaining at least one leading space on every nested line.
-  // This keeps the readable line structure and avoids bytes every page parses.
+  // page. Remove generated indentation completely without touching
+  // template-literal content so learners do not parse formatting bytes on
+  // every page.
   if (compactInjectedIndent && trimmed.startsWith(' ')) {
-    const removable = trimmed.startsWith('    ') ? 3 : (trimmed.startsWith('   ') ? 2 : 1);
-    trimmed = trimmed.slice(removable);
+    trimmed = trimmed.replace(/^ +/, '');
   }
   return trimmed;
 }

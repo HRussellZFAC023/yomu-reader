@@ -19,6 +19,8 @@ import {
     type TextTarget,
 } from '../dom/index';
 import { formatUiText } from '../app/i18n';
+import { normalizeOcrScannerLinesInRoot } from './dom-helpers';
+import { refreshRenderedMiningInsights } from '../dom/rendered-word-state';
 import { activeTargetLanguageDisplayName } from './target-language-name';
 import { userFacingErrorText } from './user-facing-errors';
 import { Logger } from './logger';
@@ -65,6 +67,10 @@ const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
 // document-wide read-then-write pass. Long enough to ride out a run of resize
 // callbacks, short enough that a webfont swap heals well within a frame budget.
 const VISIBLE_SCAN_SETTLE_REFRESH_DEBOUNCE_MS = 200;
+// Detail hydration can finish after the ordinary 1.5s post-scan sweep. Batch
+// its changed roots into one targeted pass so late ruby/pitch never waits for
+// a future resize or rescan, without reviving document-wide feed churn.
+const LATE_ANNOTATION_REFRESH_WINDOW_MS = 50;
 const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
 const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
@@ -119,6 +125,13 @@ export interface VisiblePageScannerDependencies {
     // cue so the first rendered state already has ruby and colors together.
     prepareAnkiWordEnrichmentBeforeRender?: (tokens: JPDBToken[]) => Promise<(roots: ParentNode[]) => void> | ((roots: ParentNode[]) => void);
     prepareSubtitleTokensBeforeRender?: (tokens: JPDBToken[]) => Promise<void> | void;
+    // Priority subtitle enrichment can resolve canonical cards before their
+    // offscreen cue nodes are rewritten. Reattach those tokens to the concrete
+    // rendered roots so late local-SRS/Anki/Bunpro effects cannot be lost.
+    reconcileResolvedWordEffects?: (tokens: JPDBToken[], roots: ParentNode[]) => void;
+    // Keep the app's semantic word index complete as each small scan root is
+    // painted. Late detail can then target 12 cards without 12 document walks.
+    noteRenderedRoots?: (roots: ParentNode[]) => void;
     refreshWordContrast?: (root: ParentNode) => void;
     // Injectable so tests spy on the ruby-room sweep via a dep instead of
     // mocking dom/index — fork reuse defeats a per-file vi.mock once an earlier
@@ -156,10 +169,24 @@ export class VisiblePageScanner {
     private settleResizeObserver?: ParkableObserver<Element, ResizeObserverOptions>;
     private settleSignalAbort?: AbortController;
     private lastSettleWidth = -1;
+    private lateAnnotationStateRoots = new Set<ParentNode>();
+    private lateAnnotationGeometryRoots = new Set<ParentNode>();
+    private lateAnnotationRefreshTimer: number | undefined;
     constructor(private readonly dependencies: VisiblePageScannerDependencies) {}
 
     private makeRoomForRuby(root?: ParentNode): number {
         return (this.dependencies.makeRoomForRubyInCroppedRows ?? makeRoomForRubyInCroppedRows)(root);
+    }
+
+    private clearPendingGeometryRefreshes(): void {
+        window.clearTimeout(this.clampSweepTimer);
+        this.clampSweepTimer = undefined;
+        window.clearTimeout(this.settleRefreshTimer);
+        this.settleRefreshTimer = undefined;
+        window.clearTimeout(this.lateAnnotationRefreshTimer);
+        this.lateAnnotationRefreshTimer = undefined;
+        this.lateAnnotationStateRoots.clear();
+        this.lateAnnotationGeometryRoots.clear();
     }
 
     destroy(): void {
@@ -167,10 +194,7 @@ export class VisiblePageScanner {
         this.scanPending = false;
         window.clearTimeout(this.asbDrainTimer);
         this.asbDrainTimer = undefined;
-        window.clearTimeout(this.clampSweepTimer);
-        this.clampSweepTimer = undefined;
-        window.clearTimeout(this.settleRefreshTimer);
-        this.settleRefreshTimer = undefined;
+        this.clearPendingGeometryRefreshes();
         this.settleResizeObserver?.dispose();
         this.settleResizeObserver = undefined;
         this.settleSignalAbort?.abort();
@@ -193,10 +217,7 @@ export class VisiblePageScanner {
     // ResizeObserver parks itself on the shared dormancy signal instead, since
     // a swallowed background delivery would otherwise lose its reflow outright.
     pauseGeometrySweeps(): void {
-        window.clearTimeout(this.clampSweepTimer);
-        this.clampSweepTimer = undefined;
-        window.clearTimeout(this.settleRefreshTimer);
-        this.settleRefreshTimer = undefined;
+        this.clearPendingGeometryRefreshes();
         window.clearTimeout(this.asbDrainTimer);
         this.asbDrainTimer = undefined;
     }
@@ -213,6 +234,51 @@ export class VisiblePageScanner {
         observer.disconnect();
         this.lastSettleWidth = -1;
         observer.observe(document.body);
+    }
+
+    scheduleLateAnnotationRefresh(
+        roots: Iterable<ParentNode>,
+        geometryRoots: Iterable<ParentNode> = roots,
+    ): void {
+        if (this.destroyed || typeof window === 'undefined') return;
+        for (const root of roots) {
+            if (root instanceof Node && root.isConnected) this.lateAnnotationStateRoots.add(root);
+        }
+        for (const root of geometryRoots) {
+            if (root instanceof Node && root.isConnected) this.lateAnnotationGeometryRoots.add(root);
+        }
+        if (!this.lateAnnotationStateRoots.size && !this.lateAnnotationGeometryRoots.size) return;
+        // Leading coalescer: a continuous detail queue must not keep pushing
+        // reconciliation into the future. The first resolved card guarantees a
+        // flush; cards joining during the fixed 50ms window only add roots.
+        if (this.lateAnnotationRefreshTimer !== undefined) return;
+        this.lateAnnotationRefreshTimer = window.setTimeout(() => {
+            this.lateAnnotationRefreshTimer = undefined;
+            this.flushLateAnnotationRefresh();
+        }, LATE_ANNOTATION_REFRESH_WINDOW_MS);
+    }
+
+    private flushLateAnnotationRefresh(): void {
+        const stateRoots = compactConnectedRoots(this.lateAnnotationStateRoots);
+        const geometryRoots = compactConnectedRoots(this.lateAnnotationGeometryRoots);
+        this.lateAnnotationStateRoots.clear();
+        this.lateAnnotationGeometryRoots.clear();
+        if (this.destroyed) return;
+        this.dependencies.pauseMutationObserver(() => {
+            stateRoots.forEach(root => {
+                refreshRenderedMiningInsights(root);
+                this.dependencies.refreshWordContrast?.(root);
+            });
+            if (!geometryRoots.length || (typeof document !== 'undefined' && document.hidden)) return;
+            noteConstrainedRowLayoutSettled();
+            geometryRoots.forEach(root => this.makeRoomForRuby(root));
+            geometryRoots.forEach(root => healUngrowableInFlowClampRows(root));
+            geometryRoots.forEach(root => refreshWrappedScanWordUnderlines(root));
+            // Furigana replacement already enters the mirror projection's own
+            // root/portal batch scheduler. Calling projectAdditiveTextMirrors
+            // once per hydrated root here would repeat its document-wide
+            // portal pruning for every sibling card in a feed.
+        });
     }
 
     async scanVisiblePage(options: { silent?: boolean } = {}): Promise<void> {
@@ -408,6 +474,7 @@ export class VisiblePageScanner {
                 : undefined;
             if (this.destroyed) return false;
             const changedRoots = await this.applyTokens(targets, parsed, this.dependencies.getSettings());
+            this.dependencies.reconcileResolvedWordEffects?.(tokens, changedRoots);
             applyAnkiColors?.(changedRoots);
             if (this.dependencies.prepareSubtitleTokensBeforeRender) {
                 if (!applyAnkiColors && this.shouldEnrichAnkiWords()) await this.dependencies.enrichAnkiWords(tokens, changedRoots);
@@ -680,6 +747,7 @@ export class VisiblePageScanner {
             if (this.shouldStopApplyingTokens(generation)) return [...allChangedRoots];
             const start = index;
             const batch = targets.slice(start, start + applyBatchSize);
+            const changedRoots = new Set<ParentNode>();
             this.dependencies.pauseMutationObserver(() => withMirrorTokenApply(() => {
                 // pauseMutationObserver only pauses the app-level auto-scan
                 // observer; the PER-HOST text-mirror observers stay live and
@@ -689,7 +757,6 @@ export class VisiblePageScanner {
                 // for the duration of our own apply — real external re-renders
                 // (outside this block) still trigger legitimate rescans.
                 if (this.shouldStopApplyingTokens(generation)) return;
-                const changedRoots = new Set<ParentNode>();
                 batch.forEach((target, offset) => {
                     if (this.shouldStopApplyingTokens(generation)) return;
                     if (!isCurrentScanTarget(target)) return;
@@ -697,10 +764,12 @@ export class VisiblePageScanner {
                     changedRoots.add(target.parent);
                 });
                 changedRoots.forEach(root => {
+                    normalizeOcrScannerLinesInRoot(root, this.dependencies.getSettings());
                     allChangedRoots.add(root);
                     this.dependencies.refreshWordContrast?.(root);
                 });
             }));
+            if (changedRoots.size) this.dependencies.noteRenderedRoots?.([...changedRoots]);
             if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
         }
         // Reserve ruby room for this parse batch's newly-changed rows once the
@@ -1083,6 +1152,16 @@ function countVisiblePageCoverageMiningInsight(summary: VisiblePageCoverageAccum
 
 function visiblePageCoverageInsightSurface(word: HTMLElement, key: string): string {
     return key || word.dataset.expression || word.textContent || '';
+}
+
+function compactConnectedRoots(roots: Iterable<ParentNode>): ParentNode[] {
+    const connected = [...new Set(roots)].filter((root): root is ParentNode & Node => (
+        root instanceof Node && root.isConnected
+    ));
+    // If a feed/card ancestor and one of its sentence descendants both joined
+    // the window, scanning the ancestor already covers the child. Keeping only
+    // the broadest connected roots avoids duplicate semantic and layout passes.
+    return connected.filter(root => !connected.some(other => other !== root && other.contains(root)));
 }
 
 // Builds the next parse batch: caps by item count AND text volume, and drops

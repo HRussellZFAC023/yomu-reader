@@ -58,6 +58,7 @@ import {
     readerRenderRejectionRescanDelay,
     readerWordAtPointInScope,
     readerWordAtSourcePointInScope,
+    renderedWordSentenceScope,
     readerWordSourcePointScore,
     readerWordSurfaceText,
     releaseRubyRoomGrowth,
@@ -163,7 +164,6 @@ import {
 } from '../runtime/popover-body-stabilizer';
 import {
     ANKI_RECOLOR_SCAN_CHUNK_SIZE,
-    ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
     BUNPRO_FSRS_REVIEW_SHORTCUTS,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
@@ -314,19 +314,16 @@ import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReader
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
-import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
+import { ReaderParser, cardWithPreservedCachedEvidence, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import { normalizeFallbackTerm } from '../lookup/japanese-segments';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
-    isValidRenderedWordKey,
     renderedFallbackVocabularyCacheKey,
     renderedWordCardKey,
     renderedWordElementKey,
     renderedWordsInRoot,
     renderedWordsInRootChunked,
-    renderedWordSelectorForKey,
-    rootContainsRenderedWord,
     setRenderedWordCardIdentity,
     setRenderedWordPitchAccentPattern,
     setRenderedWordPitchComponents,
@@ -387,6 +384,8 @@ import {
 } from '../dom/shadow-scan-registry';
 import { StudySourceController } from '../study/sources';
 import type { InterfaceLanguage, JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
+import { currentAnkiLookupBatch, LateCardReconciliation } from './late-card-reconciliation';
+import { RenderedWordIndex } from './rendered-word-index';
 import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
@@ -470,6 +469,7 @@ import {
 } from './main-runtime-support';
 
 const log = Logger.scope('ReaderApp');
+
 export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
@@ -723,6 +723,8 @@ export class ReaderApp {
         beginAnkiWordEnrichment: tokens => this.beginAnkiWordEnrichment(tokens),
         prepareAnkiWordEnrichmentBeforeRender: tokens => this.prepareAnkiWordEnrichmentBeforeRender(tokens),
         prepareSubtitleTokensBeforeRender: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
+        reconcileResolvedWordEffects: (tokens, roots) => this.queueResolvedWordEffects(tokens, roots),
+        noteRenderedRoots: roots => roots.forEach(root => this.registerRenderedWordsInRoot(root)),
         refreshWordContrast: root => refreshReaderWordContrast(root),
         toast: message => this.toast(message),
     });
@@ -893,8 +895,25 @@ export class ReaderApp {
     private misalignedPublicFuriganaRecoveries = new Set<string>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
-    private renderedWordIndex = new Map<string, Set<HTMLElement>>();
-    private renderedWordIndexFullyScanned = false;
+    private renderedWords = new RenderedWordIndex({
+        isDestroyed: () => this.isDestroyed,
+        annotationRoots: roots => this.renderedAnnotationRoots(roots),
+    });
+    private renderedWordIndex = this.renderedWords.entries;
+    private lateCardReconciliation = new LateCardReconciliation({
+        isDestroyed: () => this.isDestroyed,
+        getSettings: () => this.settings,
+        getLocalSrs: () => this.yomuLocalSrs,
+        renderedWordsForCardStateRepaint: card => this.renderedWords.wordsForCardStateRepaint(card),
+        resetRenderedWordRepaintCycle: () => this.renderedWords.resetRepaintCycle(),
+        pauseMutationObserver: callback => this.pauseAutoScanObserver(callback),
+        applyVocabulary: (word, card, pitchClass) => this.applyPublicVocabularyToRenderedWord(word, card, pitchClass),
+        annotationRoot: word => this.lateAnnotationRootForRenderedWord(word),
+        scheduleAnnotationRefresh: (roots, geometryRoots) => this.pageScanner.scheduleLateAnnotationRefresh(roots, geometryRoots),
+        registerRenderedRoot: root => this.registerRenderedWordsInRoot(root),
+        preloadAudio: tokens => this.preloadTermAudioForTokens(tokens),
+        queueAnki: (tokens, roots) => this.queueAnkiWordEnrichment(tokens, roots),
+    });
     // Known-state backfill (Cluster I1) scheduling + dedupe state. Deduped by
     // surface (not vid/sid): the words that need this most were parsed by the
     // LOCAL/segmented fallback and carry negative hash ids, so only a fresh
@@ -919,7 +938,7 @@ export class ReaderApp {
     private deferredPublicPitchDrain?: Promise<void>;
     private deferredPublicJitenReadings = new DeferredPublicJitenReadingCoordinator({
         isDestroyed: () => this.isDestroyed,
-        shouldEnrich: () => this.shouldRunPitchOrReadingEnrichment(),
+        shouldEnrich: () => this.shouldRunCanonicalCardEnrichment(),
         captureTarget: () => this.cardLookup.captureTarget(),
         lookupCards: (cards, scope) => this.cardLookup.publicLookupHydratableJitenCards(cards, scope),
         applyResolvedCard: (token, fallback, card, pitchClass) =>
@@ -1398,8 +1417,8 @@ export class ReaderApp {
         const states = await this.bunproWordStates.load();
         if (!states?.size || !this.shouldRunBunproWordStateWork()) return;
         const now = Date.now();
+        const changedWords: HTMLElement[] = [];
         this.pauseAutoScanObserver(() => {
-            const changedWords: HTMLElement[] = [];
             uniqueParentNodes(roots).forEach(root => {
                 renderedWordsInRoot(root).forEach(word => {
                     const entry = word.dataset.expression ? states.get(word.dataset.expression) : undefined;
@@ -1407,11 +1426,13 @@ export class ReaderApp {
                     if (applyBunproStateToRenderedWord(word, state)) changedWords.push(word);
                 });
             });
-            // Contrast measurement forces style/layout per word, and this pass
-            // re-runs on every subtitle cue over every transcript row — refresh
-            // only lines that actually changed or playback scroll turns to jank.
-            refreshContrastForChangedWords(changedWords);
         });
+        if (!changedWords.length) return;
+        // A late authenticated state can change which content word is the sole
+        // unknown in a sentence. Route only changed sentence scopes through the
+        // shared fixed-window semantic/contrast pass; Bunpro changes no ruby.
+        const changedRoots = uniqueParentNodes(changedWords.map(word => this.lateAnnotationRootForRenderedWord(word)));
+        this.pageScanner.scheduleLateAnnotationRefresh(changedRoots, []);
     }
 
     private scheduleRenderedAnkiStatusRefresh(card: JPDBCard): void {
@@ -1591,6 +1612,7 @@ export class ReaderApp {
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
+        this.lateCardReconciliation.resetPending();
         window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
         this.cachedPublicVocabularyHydrationTimer = undefined;
         this.pressedKeys.clear();
@@ -2694,6 +2716,7 @@ export class ReaderApp {
         this.misalignedPublicFuriganaRecoveries.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
+        this.lateCardReconciliation.resetPending();
         window.clearTimeout(this.subtitleRebakeTimer);
         this.subtitleRebakeTimer = undefined;
         window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
@@ -6910,7 +6933,8 @@ export class ReaderApp {
             || !usesJapaneseProviders()
             || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
         if (!this.isResolvedCardRefresh(card, resolved)) return;
-        this.applyPublicVocabularyToRenderedWords(card, resolved);
+        const changedRoots = this.applyPublicVocabularyToRenderedWords(card, resolved);
+        this.queueResolvedWordEffects([this.resolvedWordEffectsToken(resolved)], changedRoots);
         await this.showCard(resolved, sentence, anchor, {
             ...options,
             autoPlay: false,
@@ -8571,12 +8595,9 @@ export class ReaderApp {
     }
 
     private afterSubtitleJapaneseParsed(tokens: JPDBToken[], roots: ParentNode[] = []): void {
-        this.preloadTermAudioForTokens(tokens);
         void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
         const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
-        this.queueBunproWordStateEnrichment(targetRoots.length ? targetRoots : [document]);
-        if (!this.shouldRunAnkiBackgroundWork()) return;
-        void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
+        this.queueResolvedWordEffects(tokens, targetRoots.length ? targetRoots : [document]);
     }
 
     // Pitch/vocabulary enrichment lands after cue html is cached; pushing the
@@ -8715,9 +8736,7 @@ export class ReaderApp {
 
     private async enrichOcrRenderedTokens(tokens: JPDBToken[], root: ParentNode): Promise<void> {
         if (!tokens.length) return;
-        this.queueBunproWordStateEnrichment([root]);
-        if (!this.shouldRunAnkiBackgroundWork()) return;
-        await this.enrichAnkiWords(tokens, [root]);
+        this.queueResolvedWordEffects(tokens, [root]);
     }
 
     private subtitleAnkiEnrichmentRoots(): ParentNode[] {
@@ -8751,16 +8770,33 @@ export class ReaderApp {
             });
     }
 
+    private startAnkiLookupBatch(tokens: JPDBToken[]): {
+        tokens: JPDBToken[];
+        lookupKeys: string[];
+        lookups: Promise<AnkiLookupResult[]>;
+    } {
+        const uniqueTokens = uniqueTokensByCard(tokens);
+        return {
+            tokens: uniqueTokens,
+            lookupKeys: uniqueTokens.map(token => cardKey(token.card)),
+            lookups: this.ankiCachedStatusLookups(uniqueTokens),
+        };
+    }
+
     private beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void {
         if (!tokens.length) return () => undefined;
         if (!this.shouldRunAnkiBackgroundWork()) return roots => this.queueBunproWordStateEnrichment(roots);
-        const uniqueTokens = uniqueTokensByCard(tokens);
-        const lookups = this.ankiCachedStatusLookups(uniqueTokens);
+        const batch = this.startAnkiLookupBatch(tokens);
         return roots => {
             this.queueBunproWordStateEnrichment(roots);
-            void lookups.then(resolved => {
+            void batch.lookups.then(resolved => {
                 if (!this.shouldRunAnkiBackgroundWork()) return;
-                this.applyAnkiLookupsToRenderedWords(uniqueTokens, resolved, roots);
+                const current = currentAnkiLookupBatch(batch.tokens, batch.lookupKeys, resolved);
+                if (current.tokens.length) this.applyAnkiLookupsToRenderedWords(current.tokens, current.lookups, roots);
+                // A sparse/fallback lookup must never land after canonical
+                // detail and erase its more precise result. The canonical
+                // mutation path already queued one batched retry, so stale
+                // callbacks only drop their obsolete result here.
             });
         };
     }
@@ -8768,27 +8804,37 @@ export class ReaderApp {
     private async prepareAnkiWordEnrichmentBeforeRender(tokens: JPDBToken[]): Promise<(roots: ParentNode[]) => void> {
         if (!tokens.length) return () => undefined;
         if (!this.shouldRunAnkiBackgroundWork()) return roots => this.queueBunproWordStateEnrichment(roots);
-        const uniqueTokens = uniqueTokensByCard(tokens);
-        const lookups = await this.ankiCachedStatusLookups(uniqueTokens);
+        const batch = this.startAnkiLookupBatch(tokens);
+        const lookups = await batch.lookups;
         return roots => {
             this.queueBunproWordStateEnrichment(roots);
             if (!this.shouldRunAnkiBackgroundWork()) return;
-            this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
+            const current = currentAnkiLookupBatch(batch.tokens, batch.lookupKeys, lookups);
+            if (current.tokens.length) this.applyAnkiLookupsToRenderedWords(current.tokens, current.lookups, roots);
         };
     }
 
     private async enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[] = [document]): Promise<void> {
         if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
-        const uniqueTokens = uniqueTokensByCard(tokens);
-        const lookups = await this.ankiCachedStatusLookups(uniqueTokens);
+        const batch = this.startAnkiLookupBatch(tokens);
+        const lookups = await batch.lookups;
         if (!this.shouldRunAnkiBackgroundWork()) return;
-        this.applyAnkiLookupsToRenderedWords(uniqueTokens, lookups, roots);
+        const current = currentAnkiLookupBatch(batch.tokens, batch.lookupKeys, lookups);
+        if (current.tokens.length) this.applyAnkiLookupsToRenderedWords(current.tokens, current.lookups, roots);
+    }
+
+    private queueResolvedWordEffects(tokens: JPDBToken[], roots: ParentNode[]): void {
+        this.lateCardReconciliation.queue(tokens, roots);
+    }
+
+    private resolvedWordEffectsToken(card: JPDBCard, pitchClass?: string): JPDBToken {
+        return this.lateCardReconciliation.token(card, pitchClass);
     }
 
     private async recolorRenderedAnkiWordsFromCache(root: ParentNode = document): Promise<void> {
         if (!this.shouldRunAnkiBackgroundWork()) return;
         const indexedTokens = this.renderedWordIndex.size
-            ? this.renderedWordTokensForRecolorFromIndex(root)
+            ? this.renderedWords.tokensForRecolor(root, word => this.renderedWordTokenForRecolor(word))
             : [];
         if (indexedTokens.length || (root === document && this.renderedWordIndex.size)) {
             if (indexedTokens.length) await this.enrichAnkiWords(indexedTokens, [root]);
@@ -8811,52 +8857,8 @@ export class ReaderApp {
             seen.add(key);
             tokens.push(token);
         }
-        if (root === document) this.renderedWordIndexFullyScanned = true;
+        if (root === document) this.renderedWords.markFullyScanned();
         return tokens;
-    }
-
-    private renderedWordTokensForRecolorFromIndex(root: ParentNode): JPDBToken[] {
-        const seen = new Set<string>();
-        const tokens: JPDBToken[] = [];
-        for (const [wordKey, words] of this.renderedWordIndex) {
-            this.collectRenderedWordTokensForRecolor(words, wordKey, root, seen, tokens);
-            if (!words.size) this.renderedWordIndex.delete(wordKey);
-        }
-        return tokens;
-    }
-
-    private collectRenderedWordTokensForRecolor(
-        words: Set<HTMLElement>,
-        wordKey: string,
-        root: ParentNode,
-        seen: Set<string>,
-        tokens: JPDBToken[],
-    ): void {
-        for (const word of words) {
-            const token = this.renderedWordTokenForRecolorFromIndexEntry(word, words, wordKey, root);
-            if (!token) continue;
-            this.appendUniqueRenderedWordToken(token, seen, tokens);
-        }
-    }
-
-    private renderedWordTokenForRecolorFromIndexEntry(
-        word: HTMLElement,
-        words: Set<HTMLElement>,
-        wordKey: string,
-        root: ParentNode,
-    ): JPDBToken | null {
-        if (!word.isConnected || renderedWordElementKey(word) !== wordKey) {
-            words.delete(word);
-            return null;
-        }
-        return rootContainsRenderedWord(root, word) ? this.renderedWordTokenForRecolor(word) : null;
-    }
-
-    private appendUniqueRenderedWordToken(token: JPDBToken, seen: Set<string>, tokens: JPDBToken[]): void {
-        const key = cardKey(token.card);
-        if (seen.has(key)) return;
-        seen.add(key);
-        tokens.push(token);
     }
 
     private renderedWordTokenForRecolor(word: HTMLElement): JPDBToken | null {
@@ -8875,7 +8877,7 @@ export class ReaderApp {
     }
 
     private async enrichPitchWords(tokens: JPDBToken[], options: PitchEnrichmentOptions = {}): Promise<void> {
-        if (this.isDestroyed || !this.shouldRunPitchOrReadingEnrichment()) return;
+        if (this.isDestroyed || !this.shouldRunCanonicalCardEnrichment()) return;
         const enrichmentHref = location.href;
         const enrichmentScope = this.cardLookup.captureTarget();
         // Parsing and visual enrichment are independent channels. A parser can
@@ -8898,6 +8900,10 @@ export class ReaderApp {
             || location.href !== enrichmentHref
             || readingGeneration !== this.deferredPublicJitenReadings.generation
             || !enrichmentScope.isCurrent()) return;
+        // Canonical reading/POS/state is also required by Anki, Academy SRS and
+        // guarded audio preloads. When both visual channels are disabled, stop
+        // after the exact-id detail lane instead of waking any pitch work.
+        if (!this.shouldRunPitchOrReadingEnrichment()) return;
         // An installed local pitch dictionary (e.g. Kanjium) is the PRIMARY
         // pitch source: the at-rest pass stays offline. But local-FIRST, not
         // local-ONLY (class F): words the local bank misses are fed into the
@@ -9008,6 +9014,16 @@ export class ReaderApp {
     private shouldRunPitchOrReadingEnrichment(): boolean {
         return usesJapaneseProviders()
             && (this.settings.showPitchAccent || (this.settings.showFurigana && this.settings.furiganaMode !== 'off'));
+    }
+
+    private shouldRunCanonicalCardEnrichment(): boolean {
+        return usesJapaneseProviders() && (
+            this.shouldRunPitchOrReadingEnrichment()
+            || shouldLookupAnkiStatus(this.settings)
+            || shouldLookupBunproWordStates(this.settings)
+            || this.settings.yomuLocalSrsEnabled
+            || this.canPreloadBackgroundReaderAudio()
+        );
     }
 
     private reconcileRenderedTokenFurigana(token: JPDBToken): void {
@@ -9163,12 +9179,14 @@ export class ReaderApp {
 
     private applyCachedPublicVocabularyToToken(token: JPDBToken): boolean {
         if (token.card.source !== 'fallback') return false;
-        const card = this.resolvedFallbackVocabularyCache.get(cardKey(token.card));
+        const fallback = token.card;
+        const card = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
         if (!card) return false;
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-        this.applyPublicVocabularyToRenderedWords(token.card, card, pitchClass);
         token.card = card;
-        token.pitchClass = pitchClass;
+        token.pitchClass = isParticleCard(card) ? 'particle' : pitchClass;
+        const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass);
+        this.queueResolvedWordEffects([token], changedRoots);
         this.queueSubtitleParsedHtmlRefresh(token.sentence);
         return true;
     }
@@ -9396,9 +9414,26 @@ export class ReaderApp {
     }
 
     private async applyResolvedPitchCardToToken(token: JPDBToken, fallback: JPDBCard, card: JPDBCard, pitchClass: string): Promise<void> {
-        this.applyPublicVocabularyToRenderedWords(fallback, card, pitchClass || 'unknown');
+        const surface = (token.sentence?.slice(token.start, token.end) || fallback.spelling).trim();
+        const preserved = cardWithPreservedCachedEvidence(card, fallback, surface);
+        // The coordinator caches its original object after this callback. Merge
+        // onto that object so the DOM, live token, and later popup/cache all keep
+        // the same conservative same-identity evidence.
+        if (preserved !== card) Object.assign(card, preserved);
+        // Particles are deliberately accentless throughout Yomu. If a sparse
+        // same-id card carried stale pitch evidence before canonical POS
+        // arrived, do not let the popup/cache retain what the page correctly
+        // clears when the word becomes a particle.
+        if (isParticleCard(card)) {
+            card.pitchAccent = [];
+            card.pitchComponents = undefined;
+        }
         token.card = card;
-        token.pitchClass = pitchClass;
+        token.pitchClass = isParticleCard(card)
+            ? 'particle'
+            : getPitchClass(card.pitchAccent, card.reading || card.spelling) || pitchClass;
+        const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass || 'unknown');
+        this.queueResolvedWordEffects([token], changedRoots);
         await this.invalidateActivePopoverPitch(card, fallback);
     }
 
@@ -9711,10 +9746,10 @@ export class ReaderApp {
                 this.clearRenderedAnkiLookupStateForKeys(lookupByWordKey, targetRoots);
                 return;
             }
-            this.prepareRenderedWordIndexForLookups(lookupByWordKey, targetRoots);
+            this.renderedWords.prepareForLookups(lookupByWordKey, targetRoots);
             const touchedWords: HTMLElement[] = [];
             lookupByWordKey.forEach((lookup, key) => {
-                this.renderedWordsForLookupKey(key, targetRoots).forEach(word => {
+                this.renderedWords.wordsForLookupKey(key, targetRoots).forEach(word => {
                     applyAnkiLookupToRenderedWord(word, lookup, this.settings.interfaceLanguage, options);
                     touchedWords.push(word);
                 });
@@ -9729,7 +9764,7 @@ export class ReaderApp {
     private clearRenderedAnkiLookupStateForKeys(lookupByWordKey: Map<string, AnkiLookupResult>, roots: ParentNode[]): void {
         const touchedWords: HTMLElement[] = [];
         lookupByWordKey.forEach((_lookup, key) => {
-            this.renderedWordsForLookupKey(key, roots).forEach(word => {
+            this.renderedWords.wordsForLookupKey(key, roots).forEach(word => {
                 clearRenderedWordAnkiState(word);
                 touchedWords.push(word);
             });
@@ -9746,80 +9781,12 @@ export class ReaderApp {
         });
     }
 
-    private prepareRenderedWordIndexForLookups(lookupByWordKey: Map<string, AnkiLookupResult>, roots: ParentNode[]): void {
-        const targetRoots = roots.length ? roots : [document];
-        // A document selector never crosses into shadow DOM. Always seed the
-        // index from explicitly expanded roots before applying the document
-        // fast-path heuristics, or a key already found in light DOM can mask
-        // the same card rendered inside a component.
-        targetRoots.filter(root => root instanceof ShadowRoot)
-            .forEach(root => this.registerRenderedWordsInRoot(root));
-        const includesDocument = targetRoots.includes(document);
-        if (this.shouldSkipRenderedWordIndexPreparation(lookupByWordKey, includesDocument)) return;
-        targetRoots.forEach(root => this.registerRenderedWordsInRoot(root));
-        if (includesDocument) this.renderedWordIndexFullyScanned = true;
-    }
-
-    private shouldSkipRenderedWordIndexPreparation(lookupByWordKey: Map<string, AnkiLookupResult>, includesDocument: boolean): boolean {
-        if (!includesDocument) return false;
-        if (this.renderedWordIndexFullyScanned) return true;
-        if (this.renderedWordIndexHasLookupKeys(lookupByWordKey)) return true;
-        if (this.renderedWordIndex.size) return true;
-        return lookupByWordKey.size <= ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD;
-    }
-
-    private renderedWordIndexHasLookupKeys(lookupByWordKey: Map<string, AnkiLookupResult>): boolean {
-        for (const key of lookupByWordKey.keys()) {
-            if (!this.renderedWordIndex.has(key)) return false;
-        }
-        return true;
-    }
-
-    private renderedWordsForLookupKey(key: string, roots: ParentNode[]): HTMLElement[] {
-        const targetRoots = roots.length ? roots : [document];
-        const indexed = this.indexedRenderedWordsForLookupKey(key, targetRoots);
-        if (indexed.length || this.renderedWordIndex.has(key)) return indexed;
-        const queried = this.queryRenderedWordsForLookupKey(key, targetRoots);
-        queried.forEach(word => this.registerRenderedWord(word));
-        return queried;
-    }
-
-    private indexedRenderedWordsForLookupKey(key: string, roots: ParentNode[]): HTMLElement[] {
-        const words = this.renderedWordIndex.get(key);
-        if (!words) return [];
-        const matches: HTMLElement[] = [];
-        for (const word of words) {
-            if (!word.isConnected || renderedWordElementKey(word) !== key) {
-                words.delete(word);
-                continue;
-            }
-            if (roots.some(root => rootContainsRenderedWord(root, word))) matches.push(word);
-        }
-        if (!words.size) this.renderedWordIndex.delete(key);
-        return matches;
-    }
-
-    private queryRenderedWordsForLookupKey(key: string, roots: ParentNode[]): HTMLElement[] {
-        const selector = renderedWordSelectorForKey(key);
-        if (!selector) return [];
-        const words = new Set<HTMLElement>();
-        roots.forEach(root => {
-            if (root instanceof HTMLElement && root.matches(selector)) words.add(root);
-            root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
-        });
-        return [...words];
-    }
-
     private registerRenderedWordsInRoot(root: ParentNode): void {
-        renderedWordsInRoot(root).forEach(word => this.registerRenderedWord(word));
+        this.renderedWords.registerRoot(root);
     }
 
     private registerRenderedWord(word: HTMLElement): void {
-        const key = renderedWordElementKey(word);
-        if (!isValidRenderedWordKey(key)) return;
-        const words = this.renderedWordIndex.get(key) ?? new Set<HTMLElement>();
-        words.add(word);
-        this.renderedWordIndex.set(key, words);
+        this.renderedWords.register(word);
     }
 
     private renderedAnnotationRoots(roots: ParentNode[] = [document]): ParentNode[] {
@@ -9831,8 +9798,7 @@ export class ReaderApp {
     }
 
     private clearRenderedWordIndex(): void {
-        this.renderedWordIndex.clear();
-        this.renderedWordIndexFullyScanned = false;
+        this.renderedWords.clear();
     }
 
     private applyPitchAccentToRenderedWords(
@@ -9865,42 +9831,16 @@ export class ReaderApp {
         });
     }
 
-    private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown'): void {
-        this.pauseAutoScanObserver(() => {
-            const changedRoots = new Set<ParentNode>();
-            // Snapshot the targets before mutating: applyPublicVocabularyToRenderedWord
-            // re-keys the word in renderedWordIndex, so iterating a live index Set
-            // would be unsafe. Union the scanned-root querySelectorAll (light DOM +
-            // scanned shadow roots) with the index registration so a state repaint
-            // ALSO reaches mirror words inside recycled/unscanned shadow roots — the
-            // Anki path already relies on the index for exactly that reach.
-            this.renderedWordsForCardStateRepaint(fallback).forEach(word => {
-                this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                changedRoots.add(word.parentElement ?? word);
-            });
-            changedRoots.forEach(root => refreshReaderWordContrast(root));
-        });
+    private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown'): ParentNode[] {
+        return this.lateCardReconciliation.repaint(fallback, card, pitchClass);
     }
 
-    private renderedWordsForCardStateRepaint(fallback: JPDBCard): HTMLElement[] {
-        const selector = `.jpdb-reader-word[data-vid="${fallback.vid}"][data-sid="${fallback.sid}"]`;
-        const words = new Set<HTMLElement>();
-        this.renderedAnnotationRoots().forEach(root => {
-            root.querySelectorAll<HTMLElement>(selector).forEach(word => words.add(word));
-        });
-        const key = renderedWordCardKey(fallback.vid, fallback.sid);
-        const indexed = this.renderedWordIndex.get(key);
-        if (indexed) {
-            for (const word of indexed) {
-                if (!word.isConnected || renderedWordElementKey(word) !== key) {
-                    indexed.delete(word);
-                    continue;
-                }
-                words.add(word);
-            }
-            if (!indexed.size) this.renderedWordIndex.delete(key);
-        }
-        return [...words];
+    private lateAnnotationRootForRenderedWord(word: HTMLElement): ParentNode {
+        // The hydrated word may sit inside an inline wrapper while the other
+        // cards from its sentence live in sibling wrappers. Reconcile at the
+        // nearest established reading/geometry scope so inverse i+1 changes
+        // reach those siblings without escalating to a document-wide pass.
+        return renderedWordSentenceScope(word);
     }
 
     // Cluster I1: SRS status may never arrive for a word that fell back to a
@@ -9945,19 +9885,25 @@ export class ReaderApp {
         // Re-apply already-resolved cards to freshly re-rendered provisional words
         // (recyclers) with no network; parse only surfaces not yet attempted.
         const toParse: string[] = [];
+        const recycledChangedRoots = new Set<ParentNode>();
+        const recycledGeometryRoots = new Set<ParentNode>();
+        const recycledEffectTokens = new Map<string, JPDBToken>();
         this.pauseAutoScanObserver(() => {
-            const changedRoots = new Set<ParentNode>();
             for (const [surface, words] of wordsBySurface) {
                 const cached = this.knownStateBackfillResolvedCards.get(surface);
                 if (cached) {
-                    this.applyKnownStateBackfillCardToWords(cached, words, changedRoots);
+                    this.applyKnownStateBackfillCardToWords(cached, words, recycledChangedRoots, recycledGeometryRoots);
+                    recycledEffectTokens.set(cardKey(cached), this.resolvedWordEffectsToken(cached));
                     continue;
                 }
                 if (this.knownStateBackfillRequestedSurfaces.has(surface)) continue;
                 if (toParse.length < KNOWN_STATE_BACKFILL_BATCH_LIMIT) toParse.push(surface);
             }
-            changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
+        this.pageScanner.scheduleLateAnnotationRefresh(recycledChangedRoots, recycledGeometryRoots);
+        if (recycledChangedRoots.size) {
+            this.queueResolvedWordEffects([...recycledEffectTokens.values()], [...recycledChangedRoots]);
+        }
         if (!toParse.length) return;
         // Reserve optimistically so a concurrent re-arm cannot double-request the
         // same surfaces; released only if the authenticated parse throws (a
@@ -9985,8 +9931,10 @@ export class ReaderApp {
         parsed: JPDBToken[][],
         wordsBySurface: Map<string, HTMLElement[]>,
     ): void {
+        const changedRoots = new Set<ParentNode>();
+        const geometryRoots = new Set<ParentNode>();
+        const effectTokens = new Map<string, JPDBToken>();
         this.pauseAutoScanObserver(() => {
-            const changedRoots = new Set<ParentNode>();
             surfaces.forEach((surface, index) => {
                 const card = knownStateBackfillCardForSurface(surface, parsed[index] ?? []);
                 if (!card) return;
@@ -9995,18 +9943,26 @@ export class ReaderApp {
                 // never re-tag as provisional. The word's identity is upgraded to
                 // the real Jiten ids too, so grading/refresh reach it afterwards.
                 this.knownStateBackfillResolvedCards.set(surface, card);
-                this.applyKnownStateBackfillCardToWords(card, wordsBySurface.get(surface) ?? [], changedRoots);
+                this.applyKnownStateBackfillCardToWords(card, wordsBySurface.get(surface) ?? [], changedRoots, geometryRoots);
+                effectTokens.set(cardKey(card), this.resolvedWordEffectsToken(card));
             });
-            changedRoots.forEach(root => refreshReaderWordContrast(root));
         });
+        this.pageScanner.scheduleLateAnnotationRefresh(changedRoots, geometryRoots);
+        if (changedRoots.size) this.queueResolvedWordEffects([...effectTokens.values()], [...changedRoots]);
     }
 
-    private applyKnownStateBackfillCardToWords(card: JPDBCard, words: HTMLElement[], changedRoots: Set<ParentNode>): void {
+    private applyKnownStateBackfillCardToWords(
+        card: JPDBCard,
+        words: HTMLElement[],
+        changedRoots: Set<ParentNode>,
+        geometryRoots: Set<ParentNode>,
+    ): void {
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
         words.forEach(word => {
             if (!word.isConnected) return;
-            this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-            changedRoots.add(word.parentElement ?? word);
+            const changedRoot = this.lateAnnotationRootForRenderedWord(word);
+            if (this.applyPublicVocabularyToRenderedWord(word, card, pitchClass)) geometryRoots.add(changedRoot);
+            changedRoots.add(changedRoot);
         });
     }
 
@@ -10064,20 +10020,25 @@ export class ReaderApp {
 
     private applyCachedPublicVocabularyToRenderedFallbackWords(root: ParentNode): void {
         if (!this.resolvedFallbackVocabularyCache.size) return;
+        const changedRoots = new Set<ParentNode>();
+        const geometryRoots = new Set<ParentNode>();
+        const effectTokens = new Map<string, JPDBToken>();
         this.pauseAutoScanObserver(() => {
-            const changedRoots = new Set<ParentNode>();
             this.renderedAnnotationRoots([root]).forEach(targetRoot => {
                 targetRoot.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid][data-expression]').forEach(word => {
                     const key = renderedFallbackVocabularyCacheKey(word);
                     const card = key ? this.resolvedFallbackVocabularyCache.get(key) : undefined;
                     if (!card) return;
                     const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-                    this.applyPublicVocabularyToRenderedWord(word, card, pitchClass);
-                    changedRoots.add(word.parentElement ?? word);
+                    const changedRoot = this.lateAnnotationRootForRenderedWord(word);
+                    if (this.applyPublicVocabularyToRenderedWord(word, card, pitchClass)) geometryRoots.add(changedRoot);
+                    changedRoots.add(changedRoot);
+                    effectTokens.set(cardKey(card), this.resolvedWordEffectsToken(card, pitchClass));
                 });
             });
-            changedRoots.forEach(r => refreshReaderWordContrast(r));
         });
+        this.pageScanner.scheduleLateAnnotationRefresh(changedRoots, geometryRoots);
+        if (changedRoots.size) this.queueResolvedWordEffects([...effectTokens.values()], [...changedRoots]);
     }
 
     private scheduleCachedPublicVocabularyHydration(root: ParentNode, resolved?: { fallback: JPDBCard; card: JPDBCard }): void {
@@ -10089,7 +10050,10 @@ export class ReaderApp {
             // task. The selector is vid/sid-scoped, so this is
             // O(occurrences-of-this-card); the cascade below still backfills
             // words that render after their card resolved.
-            this.applyPublicVocabularyToRenderedWords(resolved.fallback, resolved.card);
+            const changedRoots = this.applyPublicVocabularyToRenderedWords(resolved.fallback, resolved.card);
+            if (changedRoots.length) {
+                this.queueResolvedWordEffects([this.resolvedWordEffectsToken(resolved.card)], changedRoots);
+            }
         } else {
             this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
         }
@@ -10114,13 +10078,18 @@ export class ReaderApp {
         scheduleNext();
     }
 
-    private applyPublicVocabularyToRenderedWord(word: HTMLElement, card: JPDBCard, pitchClass: string): void {
-        this.renderedWordIndex.get(renderedWordElementKey(word))?.delete(word);
-        this.applyPitchClassToRenderedSurface(word, pitchClass);
-        setRenderedWordCardIdentity(word, card);
+    private applyPublicVocabularyToRenderedWord(word: HTMLElement, card: JPDBCard, pitchClass: string): boolean {
+        const previousKey = renderedWordElementKey(word);
+        const previousWords = this.renderedWordIndex.get(previousKey);
+        previousWords?.delete(word);
+        if (previousWords && !previousWords.size) this.renderedWordIndex.delete(previousKey);
+        const showPitch = this.settings.showPitchAccent;
+        this.applyPitchClassToRenderedSurface(word, showPitch ? pitchClass : '');
+        setRenderedWordCardIdentity(word, card, { pitchPolicy: showPitch ? 'replace' : 'clear' });
         this.registerRenderedWord(word);
-        applyPublicVocabularyFurigana(word, card, this.settings);
+        const furiganaChanged = applyPublicVocabularyFurigana(word, card, this.settings);
         this.recoverMisalignedPublicVocabularyWord(word, card);
+        return furiganaChanged;
     }
 
     // Chunk-context tokenization can hand a span a DIFFERENT word than its own
@@ -10141,7 +10110,8 @@ export class ReaderApp {
         void this.jitenPublicVocabulary.lookup(surface).then(better => {
             if (!better || this.isDestroyed) return;
             if (better.spelling.trim() === card.spelling.trim() && better.reading.trim() === card.reading.trim()) return;
-            this.applyPublicVocabularyToRenderedWords(card, better);
+            const changedRoots = this.applyPublicVocabularyToRenderedWords(card, better);
+            this.queueResolvedWordEffects([this.resolvedWordEffectsToken(better)], changedRoots);
         }).catch(() => undefined);
     }
 

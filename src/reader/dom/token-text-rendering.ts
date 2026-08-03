@@ -188,7 +188,7 @@ function miningInsightSentenceKey(token: JPDBToken): string {
     return (token.sentence ?? '').replace(/\s+/g, ' ').trim();
 }
 
-export function readerCardKey(card: JPDBCard): string {
+function readerCardKey(card: JPDBCard): string {
     return `${readerCardSource(card)}:${readerCardId(card)}/${readerReadingIndex(card)}`;
 }
 

@@ -3938,7 +3938,7 @@ function scheduleAdditiveMirrorProjection(root: ParentNode = document): void {
 
 /** Coalesce exact projection by affected portal. A framework replacing one
  * comment's Text node must not Range-project an unrelated long description. */
-export function scheduleDocumentPortalMirrorProjection(mirror: HTMLElement, host: HTMLElement): void {
+function scheduleDocumentPortalMirrorProjection(mirror: HTMLElement, host: HTMLElement): void {
     if (!mirror.isConnected || !host.isConnected || currentDocumentPortalTextMirror(host) !== mirror) return;
     pendingDocumentPortalProjections.set(mirror, host);
     documentPortalProjectionPass.schedule(viewForNode(mirror));
@@ -6953,6 +6953,8 @@ function isParagraphBoundary(element: HTMLElement): boolean {
     if (BLOCK_TAGS.has(element.tagName)) return true;
     return isBlockLikeDisplay(display);
 }
+
+export { renderedWordSentenceScope } from './rendered-word-sentence-scope';
 
 function isInlineDisplay(display: string): boolean {
     return INLINE_DISPLAY_VALUES.has(display);

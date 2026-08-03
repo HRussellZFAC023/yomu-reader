@@ -6945,6 +6945,184 @@ function icuWordSegments(text, locale) {
   }
   return segments;
 }
+function escapeHtml(value) {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+const CORE_COLOR_TOKENS = {
+  white: "#ffffff"
+};
+const BRAND_COLOR_TOKENS = {
+  accent: "#5ea780",
+  consoleAccent: "#247a58"
+};
+const OVERLAY_COLOR_TOKENS = {
+  text: CORE_COLOR_TOKENS.white
+};
+const LOGGER_COLOR_TOKENS = {
+  debug: "#6b7280",
+  warn: "#a15c00",
+  error: "#b91c1c"
+};
+const __vite_import_meta_env__ = { "DEV": false };
+const LOG_PREFIX = "[Yomu]";
+const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+const RUNTIME_LOG_KEY = "yomu:enable-logs";
+const REDACTED = "[redacted]";
+const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
+const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+const env = __vite_import_meta_env__;
+const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+class ScopedLogger {
+  constructor(parent, scopeName) {
+  this.parent = parent;
+  this.scopeName = scopeName;
+  }
+  debug(message, ...args) {
+  this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+  }
+  info(message, ...args) {
+  this.parent.write(this.scopeName, message, args, console.info, "");
+  }
+  warn(message, ...args) {
+  const optional = args.some(isOptionalCorsBridgeError);
+  this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
+  }
+  error(message, ...args) {
+  this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+  }
+  warnOnce(key, message, ...args) {
+  this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
+  }
+  time(label, ...args) {
+  if (!this.parent.isEnabled()) return () => void 0;
+  const start = nowMs();
+  this.debug(`${label} started`, ...args);
+  return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+  }
+}
+class LoggerImpl {
+  settingsProvider;
+  forceEnabled = false;
+  onceKeys = /* @__PURE__ */ new Set();
+  configure(options) {
+  this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+  this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+  }
+  scope(scopeName) {
+  return new ScopedLogger(this, scopeName);
+  }
+  isEnabled() {
+  if (BUILD_LOGGING_ENABLED) return true;
+  if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+  try {
+    return this.settingsProvider?.().enableLogging === true;
+  } catch {
+    return false;
+  }
+  }
+  isDevMode() {
+  return isDevMode();
+  }
+  enable(persist = false) {
+  this.forceEnabled = true;
+  if (persist) setRuntimeLoggingOverride(true);
+  this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+  }
+  disable(persist = false) {
+  this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+  this.forceEnabled = false;
+  if (persist) setRuntimeLoggingOverride(false);
+  }
+  reset() {
+  this.onceKeys.clear();
+  }
+  warnOnce(key, scope, message, args) {
+  if (this.onceKeys.has(key)) return;
+  this.onceKeys.add(key);
+  this.write(scope, message, args, console.warn, WARN_STYLE);
+  }
+  write(scope, message, args, writer, levelStyle) {
+  if (!this.isEnabled()) return;
+  writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+  }
+}
+const Logger = new LoggerImpl();
+function isDevMode() {
+  return BUILD_IS_DEV_MODE;
+}
+function writeDebugToConsole(...args) {
+  if (isDevMode()) console.log(...args);
+  else console.debug(...args);
+}
+function isOptionalCorsBridgeError(value) {
+  return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
+}
+function getRuntimeLoggingOverride() {
+  try {
+  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+  } catch {
+  return false;
+  }
+}
+function setRuntimeLoggingOverride(enabled) {
+  try {
+  if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+  else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+  } catch {
+  }
+}
+function nowMs() {
+  return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+}
+function sanitizeForConsole(value) {
+  if (typeof value === "string") return redactString(value);
+  if (value === null || value === void 0 || typeof value !== "object") return value;
+  const sanitized = sanitizeSpecialConsoleValue(value);
+  if (sanitized.handled) return sanitized.value;
+  if (Array.isArray(value)) return value.map(sanitizeForConsole);
+  return sanitizeRecordForConsole(value);
+}
+function sanitizeSpecialConsoleValue(value) {
+  for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+  const sanitized = sanitizer(value);
+  if (sanitized.handled) return sanitized;
+  }
+  return { handled: false };
+}
+const CONSOLE_VALUE_SANITIZERS = [
+  (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+  (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+  (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+  (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+];
+function sanitizeRecordForConsole(record) {
+  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+  key,
+  shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
+  ]));
+}
+function sanitizeFlatValue(value) {
+  if (typeof value === "string") return redactString(value);
+  if (value instanceof Error) return { name: value.name, message: value.message };
+  return value;
+}
+function shouldRedactEntry(key, value) {
+  if (!SECRET_KEY_PATTERN.test(key)) return false;
+  if (typeof value === "number" && /tokens?/i.test(key)) return false;
+  return true;
+}
+function redactString(value) {
+  return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+}
+if (typeof window !== "undefined") {
+  window.__YOMU_LOGGER__ = Logger;
+  window.YomuLogger = Logger;
+}
 const RTL_SCRIPTS = /* @__PURE__ */ new Set([
   "Adlm",
   "Arab",
@@ -9762,195 +9940,6 @@ function registerBuiltInLearningTargetModule(module) {
 registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
 registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
 GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-const CORE_COLOR_TOKENS = {
-  white: "#ffffff"
-};
-const BRAND_COLOR_TOKENS = {
-  accent: "#5ea780",
-  consoleAccent: "#247a58"
-};
-const OVERLAY_COLOR_TOKENS = {
-  text: CORE_COLOR_TOKENS.white
-};
-const LOGGER_COLOR_TOKENS = {
-  debug: "#6b7280",
-  warn: "#a15c00",
-  error: "#b91c1c"
-};
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-roleSelectors("menu,menubar,toolbar,tablist");
-function escapeHtml(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-const __vite_import_meta_env__ = { "DEV": false };
-const LOG_PREFIX = "[Yomu]";
-const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-const RUNTIME_LOG_KEY = "yomu:enable-logs";
-const REDACTED = "[redacted]";
-const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
-const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-const env = __vite_import_meta_env__;
-const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-class ScopedLogger {
-  constructor(parent, scopeName) {
-  this.parent = parent;
-  this.scopeName = scopeName;
-  }
-  debug(message, ...args) {
-  this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-  }
-  info(message, ...args) {
-  this.parent.write(this.scopeName, message, args, console.info, "");
-  }
-  warn(message, ...args) {
-  const optional = args.some(isOptionalCorsBridgeError);
-  this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
-  }
-  error(message, ...args) {
-  this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-  }
-  warnOnce(key, message, ...args) {
-  this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
-  }
-  time(label, ...args) {
-  if (!this.parent.isEnabled()) return () => void 0;
-  const start = nowMs();
-  this.debug(`${label} started`, ...args);
-  return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-  }
-}
-class LoggerImpl {
-  settingsProvider;
-  forceEnabled = false;
-  onceKeys = /* @__PURE__ */ new Set();
-  configure(options) {
-  this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-  this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-  }
-  scope(scopeName) {
-  return new ScopedLogger(this, scopeName);
-  }
-  isEnabled() {
-  if (BUILD_LOGGING_ENABLED) return true;
-  if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-  try {
-    return this.settingsProvider?.().enableLogging === true;
-  } catch {
-    return false;
-  }
-  }
-  isDevMode() {
-  return isDevMode();
-  }
-  enable(persist = false) {
-  this.forceEnabled = true;
-  if (persist) setRuntimeLoggingOverride(true);
-  this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-  }
-  disable(persist = false) {
-  this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-  this.forceEnabled = false;
-  if (persist) setRuntimeLoggingOverride(false);
-  }
-  reset() {
-  this.onceKeys.clear();
-  }
-  warnOnce(key, scope, message, args) {
-  if (this.onceKeys.has(key)) return;
-  this.onceKeys.add(key);
-  this.write(scope, message, args, console.warn, WARN_STYLE);
-  }
-  write(scope, message, args, writer, levelStyle) {
-  if (!this.isEnabled()) return;
-  writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-  }
-}
-const Logger = new LoggerImpl();
-function isDevMode() {
-  return BUILD_IS_DEV_MODE;
-}
-function writeDebugToConsole(...args) {
-  if (isDevMode()) console.log(...args);
-  else console.debug(...args);
-}
-function isOptionalCorsBridgeError(value) {
-  return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
-}
-function getRuntimeLoggingOverride() {
-  try {
-  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-  } catch {
-  return false;
-  }
-}
-function setRuntimeLoggingOverride(enabled) {
-  try {
-  if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-  else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-  } catch {
-  }
-}
-function nowMs() {
-  return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-}
-function sanitizeForConsole(value) {
-  if (typeof value === "string") return redactString(value);
-  if (value === null || value === void 0 || typeof value !== "object") return value;
-  const sanitized = sanitizeSpecialConsoleValue(value);
-  if (sanitized.handled) return sanitized.value;
-  if (Array.isArray(value)) return value.map(sanitizeForConsole);
-  return sanitizeRecordForConsole(value);
-}
-function sanitizeSpecialConsoleValue(value) {
-  for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-  const sanitized = sanitizer(value);
-  if (sanitized.handled) return sanitized;
-  }
-  return { handled: false };
-}
-const CONSOLE_VALUE_SANITIZERS = [
-  (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-  (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-  (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-  (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
-  key,
-  shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
-  ]));
-}
-function sanitizeFlatValue(value) {
-  if (typeof value === "string") return redactString(value);
-  if (value instanceof Error) return { name: value.name, message: value.message };
-  return value;
-}
-function shouldRedactEntry(key, value) {
-  if (!SECRET_KEY_PATTERN.test(key)) return false;
-  if (typeof value === "number" && /tokens?/i.test(key)) return false;
-  return true;
-}
-function redactString(value) {
-  return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-}
-if (typeof window !== "undefined") {
-  window.__YOMU_LOGGER__ = Logger;
-  window.YomuLogger = Logger;
-}
 const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
 const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
   id: "ja",
@@ -11698,6 +11687,20 @@ function rubyBaseKanaRuns(base) {
 function renderKanjiNavigationText(value, options) {
   return escapeHtml(value);
 }
+const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+roleSelectors("menu,menubar,toolbar,tablist");
+new Set(
+  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+);
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
 selectorPairs("control,toggle,player", ["class"]);
 new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));

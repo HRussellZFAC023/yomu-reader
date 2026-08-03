@@ -3,7 +3,11 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import { kanaRunRenderedWordsForSurface } from '../../src/reader/main/rendered-word-lookup';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { renderTokensToHtml } from '../../src/reader/dom/index';
-import { setRenderedWordCardIdentity } from '../../src/reader/dom/rendered-word-state';
+import {
+    applyLocalYomuSrsStateToRenderedWord,
+    refreshRenderedMiningInsights,
+    setRenderedWordCardIdentity,
+} from '../../src/reader/dom/rendered-word-state';
 
 describe('rendered word card identity', () => {
     it('replaces stale fallback metadata when a word resolves to a Jiten card', () => {
@@ -71,6 +75,72 @@ describe('rendered word card identity', () => {
         expect(word.dataset.pitchAccent).toBeUndefined();
     });
 
+    it('repairs particle, pitch, and mining semantics when sparse detail resolves late', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-heiban jpdb-reader-i-plus-one';
+        word.dataset.pitchClass = 'heiban';
+        word.dataset.pitchAccent = 'LHH';
+        word.dataset.pitchComponents = 'true';
+        word.dataset.miningInsight = 'i-plus-one';
+        word.style.setProperty('--jpdb-reader-inline-pitch-gradient', 'linear-gradient(red, red)');
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            spelling: 'まで',
+            reading: 'まで',
+            partOfSpeech: ['prt'],
+            pitchAccent: ['LHH'],
+        }));
+
+        expect(word.classList.contains('jpdb-reader-particle')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-particle')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(false);
+        expect(word.dataset.pitchClass).toBe('particle');
+        expect(word.dataset.pitchAccent).toBeUndefined();
+        expect(word.dataset.pitchComponents).toBeUndefined();
+        expect(word.style.getPropertyValue('--jpdb-reader-inline-pitch-gradient')).toBe('');
+        expect(word.classList.contains('jpdb-reader-i-plus-one')).toBe(false);
+        expect(word.dataset.miningInsight).toBeUndefined();
+    });
+
+    it('moves i+1 to the real unknown when a sparse multi-character particle resolves', () => {
+        const root = document.createElement('p');
+        const sentence = '冒険を始めるまで旅する。';
+        const append = (lookupCard: JPDBCard): HTMLElement => {
+            const wrapper = document.createElement('span');
+            const word = document.createElement('span');
+            word.className = 'jpdb-reader-word';
+            word.dataset.sentence = sentence;
+            word.textContent = lookupCard.spelling;
+            setRenderedWordCardIdentity(word, lookupCard);
+            wrapper.append(word);
+            root.append(wrapper);
+            return word;
+        };
+        const adventure = append(renderedWordCard({ vid: 1, sid: 0, spelling: '冒険', cardState: ['not-in-deck'] }));
+        append(renderedWordCard({ vid: 2, sid: 0, spelling: '始める', cardState: ['known'] }));
+        append(renderedWordCard({ vid: 3, sid: 0, spelling: '旅', cardState: ['known'] }));
+        const until = append(renderedWordCard({ vid: 4, sid: 0, spelling: 'まで', reading: '', partOfSpeech: [], cardState: ['not-in-deck'] }));
+        document.body.append(root);
+
+        expect(refreshRenderedMiningInsights(root)).toEqual([]);
+        expect(adventure.classList.contains('jpdb-reader-i-plus-one')).toBe(false);
+
+        setRenderedWordCardIdentity(until, renderedWordCard({
+            vid: 4,
+            sid: 0,
+            spelling: 'まで',
+            reading: 'まで',
+            partOfSpeech: ['prt'],
+            cardState: ['not-in-deck'],
+        }));
+        expect(refreshRenderedMiningInsights(root)).toEqual([adventure]);
+        expect(until.classList.contains('jpdb-reader-particle')).toBe(true);
+        expect(adventure.classList.contains('jpdb-reader-i-plus-one')).toBe(true);
+        expect(adventure.dataset.miningInsight).toBe('i-plus-one');
+        // An already-consistent root must emit no redundant class/data writes.
+        expect(refreshRenderedMiningInsights(root)).toEqual([]);
+    });
+
     it('clears Bunpro fill state when the word resolves to a real card', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-learning bunpro-learning';
@@ -117,7 +187,9 @@ describe('rendered word card identity', () => {
         expect(word.classList.contains('jpdb-known')).toBe(true);
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(false);
         expect(word.classList.contains('jiten-not-in-deck')).toBe(false);
-        expect(word.dataset.cardSource).toBe('jpdb');
+        expect(word.dataset.cardSource).toBe('jiten');
+        expect(word.dataset.cardId).toBe('1456360');
+        expect(word.dataset.readingIndex).toBe('3');
         expect(word.dataset.stateProvenance).toBe('authoritative');
         // ...but the late pitch/reading identity still lands.
         expect(word.dataset.pitchAccent).toBe('LH');
@@ -265,6 +337,22 @@ describe('rendered word deck styling parity', () => {
         expect(word.dataset.deckMember).toBeUndefined();
         expect(word.dataset.deckSource).toBeUndefined();
         expect(word.dataset.deckNames).toBeUndefined();
+    });
+
+    it('does not mutate an already exact local-SRS repaint', async () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        const card = renderedWordCard({ cardState: ['known'], reviewSource: 'yomu-local' });
+        expect(applyLocalYomuSrsStateToRenderedWord(word, card)).toBe(true);
+        const mutations: MutationRecord[] = [];
+        const observer = new MutationObserver(records => mutations.push(...records));
+        observer.observe(word, { attributes: true });
+
+        expect(applyLocalYomuSrsStateToRenderedWord(word, card)).toBe(false);
+        await Promise.resolve();
+        observer.disconnect();
+
+        expect(mutations).toEqual([]);
     });
 });
 

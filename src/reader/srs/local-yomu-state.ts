@@ -49,9 +49,23 @@ export function repaintYomuLocalSrsRenderedWords(
     card: JPDBCard,
     roots: readonly ParentNode[] = typeof document === 'undefined' ? [] : [document],
 ): number {
-    if (card.reviewSource !== 'yomu-local' && card.source !== 'yomu-local') return 0;
-    const target = localIdentity(card.spelling, card.reading, card.language);
-    if (!target) return 0;
+    const changed = repaintYomuLocalSrsRenderedCards([card], roots);
+    refreshContrastForChangedWords(changed);
+    return changed.length;
+}
+
+/** Repaints one canonical hydration batch with one traversal per root. */
+export function repaintYomuLocalSrsRenderedCards(
+    cards: readonly JPDBCard[],
+    roots: readonly ParentNode[] = typeof document === 'undefined' ? [] : [document],
+): HTMLElement[] {
+    const byIdentity = new Map<string, JPDBCard>();
+    for (const card of cards) {
+        if (card.reviewSource !== 'yomu-local' && card.source !== 'yomu-local') continue;
+        const identity = localIdentity(card.spelling, card.reading, card.language);
+        if (identity) byIdentity.set(identity.key, card);
+    }
+    if (!byIdentity.size) return [];
     const words = new Set<HTMLElement>();
     for (const root of roots) {
         if (root instanceof HTMLElement && root.matches('.jpdb-reader-word[data-expression]')) words.add(root);
@@ -64,11 +78,11 @@ export function repaintYomuLocalSrsRenderedWords(
             word.dataset.reading ?? '',
             word.dataset.language,
         );
-        if (!identity || identity.key !== target.key) continue;
+        const card = identity ? byIdentity.get(identity.key) : undefined;
+        if (!card) continue;
         if (applyLocalYomuSrsStateToRenderedWord(word, card)) changed.push(word);
     }
-    refreshContrastForChangedWords(changed);
-    return changed.length;
+    return changed;
 }
 
 function localIdentity(

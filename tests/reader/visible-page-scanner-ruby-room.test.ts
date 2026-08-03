@@ -56,8 +56,52 @@ describe('VisiblePageScanner ruby-room sweep cadence', () => {
         window.history.pushState({}, '', '/reading/');
     });
     afterEach(() => {
+        vi.useRealTimers();
         document.body.innerHTML = '';
         window.history.pushState({}, '', '/');
+    });
+
+    it('uses a fixed leading window for late hydration and skips detached roots', async () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = '<p id="first">日本語</p><p id="second">冒険</p>';
+        const first = document.querySelector<HTMLElement>('#first')!;
+        const second = document.querySelector<HTMLElement>('#second')!;
+        const detached = document.createElement('p');
+        const scanner = makeScanner({ parseJapanese: vi.fn(async () => []) }, []);
+
+        try {
+            scanner.scheduleLateAnnotationRefresh([first]);
+            await vi.advanceTimersByTimeAsync(25);
+            scanner.scheduleLateAnnotationRefresh([second, detached]);
+            await vi.advanceTimersByTimeAsync(24);
+            expect(rubyRoomSpy).not.toHaveBeenCalled();
+
+            await vi.advanceTimersByTimeAsync(1);
+
+            expect(rubyRoomSpy.mock.calls.filter(call => call[0] === first)).toHaveLength(1);
+            expect(rubyRoomSpy.mock.calls.filter(call => call[0] === second)).toHaveLength(1);
+            expect(rubyRoomSpy.mock.calls.filter(call => call[0] === detached)).toHaveLength(0);
+            expect(rubyRoomSpy).toHaveBeenCalledTimes(2);
+        } finally {
+            scanner.destroy();
+        }
+    });
+
+    it('still refreshes a hydrated root after the ordinary 1.5s post-scan window', async () => {
+        vi.useFakeTimers();
+        document.body.innerHTML = '<p id="late">名古屋城</p>';
+        const late = document.querySelector<HTMLElement>('#late')!;
+        const scanner = makeScanner({ parseJapanese: vi.fn(async () => []) }, []);
+
+        try {
+            await vi.advanceTimersByTimeAsync(1_500);
+            scanner.scheduleLateAnnotationRefresh([late]);
+            await vi.advanceTimersByTimeAsync(50);
+            expect(rubyRoomSpy).toHaveBeenCalledTimes(1);
+            expect(rubyRoomSpy).toHaveBeenCalledWith(late);
+        } finally {
+            scanner.destroy();
+        }
     });
 
     it('reserves ruby room once per parse batch (after its apply chunks), never per apply chunk', async () => {

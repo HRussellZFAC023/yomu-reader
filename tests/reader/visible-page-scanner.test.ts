@@ -6,6 +6,7 @@ import { withViewport } from './helpers/browser-fixtures';
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS = testEnSettings();
 import type { CardState, JPDBToken } from '../../src/reader/app/types';
+import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 import { documentPortalReaderWordScopeForSource } from '../../src/reader/dom/index';
 
@@ -39,6 +40,137 @@ describe('VisiblePageScanner', () => {
     // tests below re-declare their own URL in-body and override this default.
     beforeEach(() => {
         window.history.pushState({}, '', '/reading/');
+    });
+
+    it('scanner-isolates OCR words on the initial sparse-card paint', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <section class="jpdb-ocr-layer">
+                <div class="jpdb-ocr-line" data-ocr-line data-ocr-text="冒険を始めよう。">
+                    <span class="jpdb-ocr-line-text">冒険を始めよう。</span>
+                </div>
+            </section>
+        `;
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+            popupActivationMode: 'click' as const,
+            lookupOnClick: true,
+            lookupOnHover: false,
+            lookupOnMiddleMouse: false,
+        };
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
+            testToken(text, '冒険', 0, 2),
+            testToken(text, 'を', 2, 3),
+        ]));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => settings,
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const lineText = document.querySelector<HTMLElement>('.jpdb-ocr-line-text')!;
+            const words = [...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')];
+            const adventure = words.find(word => word.dataset.surface === '冒険')!;
+            const particle = words.find(word => word.dataset.surface === 'を')!;
+            expect(lineText.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(true);
+            expect(document.createTreeWalker(lineText, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+            expect(adventure).toBeTruthy();
+            expect(particle).toBeTruthy();
+            words.forEach(word => {
+                expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+            });
+            expect([...adventure.querySelectorAll<HTMLElement>('[data-yomu-ocr-visual-text]')]
+                .map(element => element.dataset.yomuOcrVisualText)
+                .join('')).toBe('冒険');
+
+            // The exact-id reading arrives later. Its furigana repaint must keep
+            // both the enriched kanji word and the never-enriched particle in
+            // the scanner-isolated representation.
+            applyPublicVocabularyFurigana(adventure, {
+                ...testToken('冒険', '冒険', 0, 2).card,
+                spelling: '冒険',
+                reading: 'ぼうけん',
+                source: 'jiten',
+            }, settings);
+            expect(lineText.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(true);
+            expect(document.createTreeWalker(lineText, NodeFilter.SHOW_TEXT).nextNode()).toBeNull();
+            expect(adventure.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect([...adventure.querySelectorAll<HTMLElement>('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')]
+                .map(element => element.dataset.yomuOcrVisualText)
+                .join('')).toBe('ぼうけん');
+            expect(lineText.closest<HTMLElement>('.jpdb-ocr-line')?.dataset.hasFuri).toBe('true');
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('keeps OCR text available to other lookup tools when Yomu lookup is disabled', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <section class="jpdb-ocr-layer">
+                <div class="jpdb-ocr-line" data-ocr-line data-ocr-text="冒険を始めよう。">
+                    <span class="jpdb-ocr-line-text">冒険を始めよう。</span>
+                </div>
+            </section>
+        `;
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            popupActivationMode: 'off' as const,
+            lookupOnClick: false,
+            lookupOnHover: false,
+            lookupOnMiddleMouse: false,
+        };
+        const scanner = createVisiblePageScanner({
+            getSettings: () => settings,
+            parseJapanese: vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
+                testToken(text, '冒険', 0, 2),
+                testToken(text, 'を', 2, 3),
+            ])),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const lineText = document.querySelector<HTMLElement>('.jpdb-ocr-line-text')!;
+            expect(lineText.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(false);
+            expect(lineText.querySelector('[data-yomu-ocr-visual-text]')).toBeNull();
+            expect(document.createTreeWalker(lineText, NodeFilter.SHOW_TEXT).nextNode()).not.toBeNull();
+            expect(lineText.textContent).toBe('冒険を始めよう。');
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('does not scanner-isolate ordinary page prose', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = '<p>冒険を始めよう。</p>';
+        const scanner = createVisiblePageScanner({
+            parseJapanese: vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [
+                testToken(text, '冒険', 0, 2),
+            ])),
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word[data-surface="冒険"]')!;
+            expect(word).toBeTruthy();
+            expect(word.classList.contains('jpdb-ocr-page-scanner-isolated')).toBe(false);
+            expect(word.querySelector('[data-yomu-ocr-visual-text]')).toBeNull();
+            expect(document.createTreeWalker(word, NodeFilter.SHOW_TEXT).nextNode()).not.toBeNull();
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
     });
 
     it('shows a Japanese toast instead of an English diagnostic when a scan fails', () => {
@@ -2452,6 +2584,12 @@ describe('VisiblePageScanner', () => {
                 });
             });
         });
+        const reconcileResolvedWordEffects = vi.fn((tokens: JPDBToken[], roots: ParentNode[]) => {
+            order.push('reconcile');
+            expect(tokens[0]?.card.reading).toBe('にほんご');
+            expect(roots).toHaveLength(1);
+            expect(roots[0]?.querySelector('.jpdb-reader-word')).not.toBeNull();
+        });
         const scanner = createVisiblePageScanner({
             getSettings: () => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, furiganaMode: 'all' }),
             parseJapanese,
@@ -2459,13 +2597,15 @@ describe('VisiblePageScanner', () => {
             beginAnkiWordEnrichment,
             prepareAnkiWordEnrichmentBeforeRender,
             enrichAnkiWords,
+            reconcileResolvedWordEffects,
         });
 
         try {
             await scanner.scanAsbPlayerSubtitles();
 
             const word = document.querySelector<HTMLElement>('.asbplayer-subtitles-container-bottom .jpdb-reader-word')!;
-            expect(order).toEqual(['prepare', 'prepare-anki', 'apply-anki']);
+            expect(order).toEqual(['prepare', 'prepare-anki', 'reconcile', 'apply-anki']);
+            expect(reconcileResolvedWordEffects).toHaveBeenCalledTimes(1);
             expect(beginAnkiWordEnrichment).not.toHaveBeenCalled();
             expect(enrichAnkiWords).not.toHaveBeenCalled();
             expect(word.classList.contains('jpdb-known')).toBe(true);
