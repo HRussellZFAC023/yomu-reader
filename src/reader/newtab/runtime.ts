@@ -696,7 +696,6 @@ export class NewTabRuntime {
         repaintYomuLocalSrsRenderedWords(card);
         this.newTab?.refreshBrowseAfterCardMutation(card);
     }
-
     destroy(): void {
         if (this.isDestroyed) return;
         this.isDestroyed = true;
@@ -709,7 +708,7 @@ export class NewTabRuntime {
         this.factoryReset.destroy();
         this.newTab?.destroy();
         this.anki.destroy?.();
-        this.audio.destroy();
+        this.audio.destroy?.();
         this.jpdbReviewBridge.close();
         this.dictionaryStyles.remove();
         this.parseContentCache.clear();
