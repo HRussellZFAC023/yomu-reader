@@ -304,8 +304,26 @@ async function verifyReleaseArtifacts() {
         'newtab/icons/icon128.png',
     ];
     await verifyZipArtifact(path.join(out, 'release', 'chrome', 'yomureader.com-chrome.zip'), requiredFiles);
-    await verifyZipArtifact(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), requiredFiles);
+    await verifyZipArtifact(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), [
+        ...requiredFiles,
+        'gm-runtime.js',
+    ]);
     verifyDirectoryArtifact(path.join(out, 'release', 'safari', 'yomureader.com-safari-web-extension'), requiredFiles);
+    await verifyFirefoxPackageArchiveParity();
+}
+
+async function verifyFirefoxPackageArchiveParity() {
+    const packageDirectory = path.join(out, 'packages', 'extension', 'firefox');
+    const archive = path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi');
+    const archiveEntries = unzipSync(new Uint8Array(await readFile(archive)));
+    for (const file of ['gm-runtime.js', 'content.js']) {
+        const packaged = new Uint8Array(await readFile(path.join(packageDirectory, file)));
+        const archived = archiveEntries[file];
+        if (!archived || packaged.byteLength !== archived.byteLength
+            || packaged.some((byte, index) => byte !== archived[index])) {
+            throw new Error(`Firefox ${file} differs between the unpacked review project and release XPI.`);
+        }
+    }
 }
 
 async function verifyStoreReadiness() {

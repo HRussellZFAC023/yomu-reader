@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.76] - 2026-08-02
+
+### Fixed
+
+- Firefox extension packaging now removes parser-irrelevant whitespace and non-legal comments from the generated content-script body after all runtime hardening, with identifier and syntax minification disabled. The exact reviewer source and license notices remain bundled, and the shipped file stays below addons.mozilla.org's 5 MiB parser limit without affecting the readable userscript, Chrome, or Safari builds.
+
 ## [1.8.75] - 2026-08-02
 
 ### Fixed

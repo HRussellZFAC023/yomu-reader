@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error The packaging hardener is a Node ESM script exercised directly by the build.
 import { assertAmoJavaScriptFiles, deterministicExtensionTimestamp, hardenExtensionBackgroundSource, hardenExtensionContentSource, hardenExtensionManifest, hardenExtensionPopupSource, hardenExtensionSubmissionGuide, reconcilePackageValidationAudit, splitFirefoxContentScript, unindentContentScriptBody } from '../../scripts/lib/extension-runtime-hardening.mjs';
@@ -165,6 +168,54 @@ describe('extension runtime hardening', () => {
     it('refuses to rewrite a content script whose wrapper the compiler changed', () => {
         expect(() => unindentContentScriptBody('(() => {})();\nconsole.log("no wrapper");\n'))
             .toThrow(/expected userscript body wrapper/);
+    });
+
+    it('compacts the Firefox body without identifier or syntax minification', () => {
+        const source = `
+          (() => {
+            const retainedIdentifierName = 3;
+            const retainedTemplateText = \`line one
+line two\`;
+            globalThis.__yomuFirefoxCompactionProbe = {
+              retainedIdentifierName,
+              retainedTemplateText,
+            };
+          })();
+        `;
+        const hardenerUrl = pathToFileURL(path.join(
+            process.cwd(),
+            'scripts',
+            'lib',
+            'extension-runtime-hardening.mjs',
+        )).href;
+        const program = `
+          import { compactFirefoxContentScript } from ${JSON.stringify(hardenerUrl)};
+          const source = ${JSON.stringify(source)};
+          const compacted = await compactFirefoxContentScript(source);
+          const duplicate = await compactFirefoxContentScript(source);
+          new Function(compacted)();
+          process.stdout.write(JSON.stringify({
+            sourceBytes: Buffer.byteLength(source, 'utf8'),
+            compactedBytes: Buffer.byteLength(compacted, 'utf8'),
+            deterministic: compacted === duplicate,
+            retainedDeclaration: compacted.includes('const retainedIdentifierName=3'),
+            retainedTemplateDeclaration: compacted.includes('const retainedTemplateText=\`line one\\nline two\`'),
+            probe: globalThis.__yomuFirefoxCompactionProbe,
+          }));
+        `;
+        const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '--eval', program], {
+            encoding: 'utf8',
+            timeout: 15_000,
+        }));
+
+        expect(result.compactedBytes).toBeLessThan(result.sourceBytes);
+        expect(result.deterministic).toBe(true);
+        expect(result.retainedDeclaration).toBe(true);
+        expect(result.retainedTemplateDeclaration).toBe(true);
+        expect(result.probe).toEqual({
+            retainedIdentifierName: 3,
+            retainedTemplateText: 'line one\nline two',
+        });
     });
 
     it('rejects every oversized JavaScript file in a Firefox package', () => {

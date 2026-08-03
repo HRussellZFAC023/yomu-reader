@@ -409,10 +409,11 @@ async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimest
                 if (target === 'firefox') {
                     content = unindentContentScriptBody(content);
                     const split = splitFirefoxContentScript(content);
+                    const compactedContent = await compactFirefoxContentScript(split.content);
                     assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
-                    assertFirefoxContentScriptFitsAmo(split.content, file);
+                    assertFirefoxContentScriptFitsAmo(compactedContent, CONTENT_FILE);
                     entries[CONTENT_RUNTIME_FILE] = strToU8(split.runtime);
-                    content = split.content;
+                    content = compactedContent;
                 }
                 entries[name] = strToU8(content);
             } else if (name === MANIFEST_FILE) {
@@ -452,19 +453,20 @@ async function hardenGeneratedExtensionContentScripts(root) {
         if (extensionTargetFromPath(file, root) === 'firefox') {
             hardened = unindentContentScriptBody(hardened);
             const split = splitFirefoxContentScript(hardened);
+            const compactedContent = await compactFirefoxContentScript(split.content);
             assertFirefoxContentScriptFitsAmo(split.runtime, CONTENT_RUNTIME_FILE);
-            assertFirefoxContentScriptFitsAmo(split.content, file);
+            assertFirefoxContentScriptFitsAmo(compactedContent, file);
             await writeFile(path.join(path.dirname(file), CONTENT_RUNTIME_FILE), split.runtime);
-            hardened = split.content;
+            hardened = compactedContent;
         }
         if (hardened !== source) await writeFile(file, hardened);
     }
 }
 
-// Undoes the compiler's blanket four-space body indent. Semantically this is a
-// no-op for code, and for the multi-line template literals in the bundle it
-// restores the exact strings the userscript build produced, so the packaged
-// Firefox script matches dist/yomu.user.js rather than a padded copy of it.
+// Undoes the compiler's blanket four-space body indent before the parser-based
+// compaction. This is an exact inverse for code and, critically, restores the
+// original contents of multi-line template literals before esbuild reads them;
+// skipping it would preserve the compiler's padding as observable string data.
 export function unindentContentScriptBody(source) {
     const start = source.indexOf(CONTENT_BODY_PREFIX);
     const end = source.lastIndexOf(CONTENT_BODY_SUFFIX);
@@ -493,6 +495,26 @@ export function splitFirefoxContentScript(source) {
         runtime: source.slice(0, bodyStart),
         content: source.slice(bodyStart),
     };
+}
+
+// AMO parses each JavaScript file independently and rejects files above 5 MiB.
+// Keep identifier and syntax minification disabled, but let esbuild remove
+// parser-irrelevant whitespace and non-legal comments from the Firefox-only
+// generated body. The load-bearing hardening markers stay in gm-runtime.js on
+// the uncompacted side of the split. Chrome and
+// Safari retain the compiler's readable output, while the AMO source archive
+// still contains the exact ungenerated project used to reproduce this package.
+export async function compactFirefoxContentScript(source) {
+    const { transform } = await import('esbuild');
+    const result = await transform(source, {
+        loader: 'js',
+        target: 'es2022',
+        legalComments: 'inline',
+        minifyWhitespace: true,
+        minifyIdentifiers: false,
+        minifySyntax: false,
+    });
+    return result.code;
 }
 
 function assertFirefoxContentScriptFitsAmo(source, file) {

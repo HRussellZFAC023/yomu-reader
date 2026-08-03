@@ -35,6 +35,6 @@ The generated extension sources are also available without an archive wrapper at
 dist/extension/packages/extension/firefox/
 ```
 
-`npm ci` uses the two included lockfiles. The build runs Vite in self-contained mode, then the pinned UserScript Compiler converts that readable userscript bundle into the Manifest V3 extension project. Yomu's final packaging step adds the local stylesheet and store-specific manifest safeguards before it verifies every release archive.
+`npm ci` uses the two included lockfiles. The build runs Vite in self-contained mode, then the pinned UserScript Compiler converts that readable userscript bundle into the Manifest V3 extension project. Yomu's final packaging step adds the local stylesheet and store-specific manifest safeguards before it verifies every release archive. For Firefox only, that final step deterministically compacts parser-irrelevant whitespace and non-legal comments in the generated `content.js` body with esbuild while leaving identifier and syntax minification disabled; this keeps each submitted JavaScript file below AMO's 5 MiB parser limit. License notices remain in the packaged `THIRD_PARTY_NOTICES.txt`. Chrome, Safari, and the source userscript remain unmodified by that compaction.
 
 Archive timestamps are packaging metadata. If an outer ZIP differs byte-for-byte, compare the unpacked files in `dist/extension/packages/extension/firefox/`; those are the reviewable extension sources produced by the commands above.
