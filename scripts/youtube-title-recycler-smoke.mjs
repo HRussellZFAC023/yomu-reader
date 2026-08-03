@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 // Feed titles must never render blank when YouTube's grid recycler swaps a
 // card's title in place (owner iPad report: "text disappears"). The
-// non-destructive mirror hides the host text while it paints; if a recycler
-// swap strips or rewrites the text after mirroring, the scanner must re-mirror
-// or un-hide — a hidden host with no visible mirror IS the blank-title bug.
+// source-preserving mirror now keeps native glyphs authoritative and may mount
+// in a body-level document portal. If a recycler swap strips or rewrites the
+// text after mirroring, the native title must stay readable immediately and
+// the in-host or portal annotation must converge to the replacement text.
 // Runs the real dist userscript on a synthetic feed served AS www.youtube.com
 // via route interception (no live server: system Chrome's HSTS preload
 // force-upgrades www.youtube.com to https, so a plain-HTTP loopback can never
@@ -83,12 +84,31 @@ for (const rel of ['greasyfork/yomu-settings-surface.user.js', 'greasyfork/yomu-
 const titleState = () => page.evaluate(() => {
     const host = document.getElementById('video-title');
     if (!host) return { missing: true };
-    const mirror = host.querySelector('.jpdb-reader-text-mirror');
+    const normalize = text => text.replace(/\s+/g, ' ').trim();
+    const nativeClone = host.cloneNode(true);
+    nativeClone.querySelectorAll('.jpdb-reader-text-mirror').forEach(node => node.remove());
+    const nativeText = normalize(nativeClone.textContent ?? '');
+    const inHostMirror = host.querySelector('.jpdb-reader-text-mirror');
+    const portalMirrors = Array.from(document.querySelectorAll(
+        '.jpdb-reader-document-annotation-portal.jpdb-reader-text-mirror',
+    ));
+    const mirror = inHostMirror
+        ?? portalMirrors.find(node => normalize(node.getAttribute('data-source-text') ?? '') === nativeText)
+        ?? (portalMirrors.length === 1 ? portalMirrors[0] : null);
     const style = getComputedStyle(host);
     const mirrorVisible = mirror ? getComputedStyle(mirror).visibility !== 'hidden' : false;
     const hostHidden = style.visibility === 'hidden';
-    const visibleText = mirrorVisible ? (mirror.textContent ?? '') : hostHidden ? '' : (host.childNodes[0]?.nodeValue ?? host.textContent ?? '');
-    return { hostHidden, hasMirror: Boolean(mirror), mirrorVisible, visibleText: visibleText.trim().slice(0, 24) };
+    const mirrorSourceText = normalize(mirror?.getAttribute('data-source-text') ?? '');
+    const visibleText = hostHidden ? (mirrorVisible ? normalize(mirror?.textContent ?? '') : '') : nativeText;
+    return {
+        hostHidden,
+        hasMirror: Boolean(mirror),
+        mirrorVisible,
+        mirrorLane: inHostMirror ? 'in-host' : mirror ? 'document-portal' : 'none',
+        mirrorSourceText: mirrorSourceText.slice(0, 24),
+        annotationCurrent: Boolean(mirror) && mirrorSourceText === nativeText,
+        visibleText: visibleText.slice(0, 24),
+    };
 });
 
 const failures = [];
@@ -97,7 +117,10 @@ async function assertReadable(label, expected) {
     for (let tick = 0; tick < 25; tick += 1) {
         await page.waitForTimeout(400);
         last = await titleState();
-        if (last.visibleText && last.visibleText.includes(expected.slice(0, 4))) return last;
+        if (last.visibleText
+            && last.visibleText.includes(expected.slice(0, 4))
+            && last.hasMirror
+            && last.annotationCurrent) return last;
     }
     failures.push(`${label}: title unreadable after 10s → ${JSON.stringify(last)}`);
     return last;
@@ -105,13 +128,22 @@ async function assertReadable(label, expected) {
 
 try {
     await page.goto('https://www.youtube.com/', { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await page.waitForSelector('#video-title .jpdb-reader-text-mirror', { timeout: 25_000 }).catch(() => {});
+    await page.waitForFunction(() => Boolean(
+        document.querySelector('#video-title .jpdb-reader-text-mirror')
+        || document.querySelector('.jpdb-reader-document-annotation-portal.jpdb-reader-text-mirror'),
+    ), { timeout: 25_000 }).catch(() => {});
     const initial = await titleState();
     console.log('T0', JSON.stringify(initial));
     if (!initial.hasMirror) failures.push('title never mirrored — smoke preconditions failed');
+    if (initial.hostHidden) failures.push('initial title host was hidden by its additive annotation lane');
+    if (!initial.annotationCurrent) failures.push(`initial annotation was stale → ${JSON.stringify(initial)}`);
 
     // Recycler pattern 1: textContent replacement (wipes children incl. mirror).
     await page.evaluate(({ next }) => { document.getElementById('video-title').textContent = next; }, { next: TITLE_B });
+    const swapImmediate = await titleState();
+    if (swapImmediate.hostHidden || !swapImmediate.visibleText.includes(TITLE_B.slice(0, 4))) {
+        failures.push(`textContent swap blanked native title → ${JSON.stringify(swapImmediate)}`);
+    }
     const afterSwap = await assertReadable('textContent swap', TITLE_B);
     console.log('T1_SWAP', JSON.stringify(afterSwap));
 
@@ -121,6 +153,10 @@ try {
         const textNode = Array.from(host.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
         if (textNode) textNode.nodeValue = next; else host.prepend(document.createTextNode(next));
     }, { next: TITLE_A });
+    const nodeSwapImmediate = await titleState();
+    if (nodeSwapImmediate.hostHidden || !nodeSwapImmediate.visibleText.includes(TITLE_A.slice(0, 4))) {
+        failures.push(`text-node swap blanked native title → ${JSON.stringify(nodeSwapImmediate)}`);
+    }
     const afterNodeSwap = await assertReadable('text-node swap', TITLE_A);
     console.log('T2_NODESWAP', JSON.stringify(afterNodeSwap));
 
