@@ -93,6 +93,13 @@ const ISOLATED_PASS_FILES = [
     // unable to advance real timers, so isolate the producer rather than
     // whichever unrelated async consumer happens to follow it.
     join(ROOT, 'tests/reader/late-card-reconciliation.test.ts'),
+    // MEASURED 2026-08-03: all 99 hover cases pass, but their cumulative
+    // ReaderApp/mock lifecycle leaves a reused fork's next RAF-owning suite in
+    // a stale state. `hover-lookup -> projection-sibling-realign` reproduces
+    // deterministically: projection case 1 passes, then cases 2-6 time out.
+    // Either half of the hover file followed by projection passes, so isolate
+    // this measured producer instead of quarantining the projection consumer.
+    join(ROOT, 'tests/reader/hover-lookup.test.ts'),
 ];
 
 const args = parseArgs(process.argv.slice(2));
