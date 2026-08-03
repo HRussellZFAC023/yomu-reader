@@ -14831,10 +14831,11 @@ class OcrWordRenderStateRegistry {
   reconcile(word, card, pitchClass) {
   const state2 = this.states.get(word);
   if (!state2) return;
+  const previousSpelling = state2.token.card.spelling;
   const previousReading = state2.token.card.reading;
   const renderedState = word.dataset.cardState?.trim();
   state2.token.card = renderedState && !card.cardState.includes(renderedState) ? { ...card, cardState: [renderedState] } : card;
-  if (previousReading !== state2.token.card.reading) state2.token.rubies = [];
+  if (previousSpelling !== state2.token.card.spelling || previousReading !== state2.token.card.reading) state2.token.rubies = [];
   state2.token.pitchClass = pitchClass;
   }
 }

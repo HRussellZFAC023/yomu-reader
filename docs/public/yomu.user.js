@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.85930c13df0b.user.js#sha256=hZMME98LnDcNDGKbcDkIC0RcBnA9FwsphVIEOkHq8/U=
+// @require https://yomureader.com/greasyfork/yomu-runtime.cf7026ce6695.user.js#sha256=z3AmzmaVSh+ejoosBz5GvjqDHBFRwWgslVuKN60mS6A=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -17456,6 +17456,9 @@ return canonicalStudyCardIdentity(expression, reading, { language });
 return null;
 }
 }
+function yomuLocalSrsCardIdentityKey(expression, reading, language) {
+return localIdentity(expression, reading, language)?.key ?? null;
+}
 function apiGradingProviderPreference(settings) {
 if (settings.apiGradingProvider === "bunpro") return "bunpro";
 return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
@@ -34647,12 +34650,21 @@ if (this.dependencies.isDestroyed() || !settings.yomuLocalSrsEnabled || !roots.l
 const connectedRoots = roots.filter((root) => root instanceof Node && root.isConnected);
 if (!connectedRoots.length) return;
 const cards = tokens.map((token) => token.card);
+const cardsByIdentity = new Map(cards.flatMap((card) => {
+const key = yomuLocalSrsCardIdentityKey(card.spelling, card.reading, card.language);
+return key ? [[key, card]] : [];
+}));
 let changedWords = [];
 const geometryRoots = new Set();
 this.dependencies.pauseMutationObserver(() => {
 changedWords = repaintYomuLocalSrsRenderedCards(cards, connectedRoots);
 for (const word of changedWords) {
-const card = cards.find((candidate) => candidate.spelling === word.dataset.expression && candidate.reading === word.dataset.reading);
+const key = yomuLocalSrsCardIdentityKey(
+word.dataset.expression ?? "",
+word.dataset.reading ?? "",
+word.dataset.language
+);
+const card = key ? cardsByIdentity.get(key) : void 0;
 if (!card) continue;
 const root = this.dependencies.annotationRoot(word);
 if (applyPublicVocabularyFurigana(word, card, settings)) geometryRoots.add(root);
