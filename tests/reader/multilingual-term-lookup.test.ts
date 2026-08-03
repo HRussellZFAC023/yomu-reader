@@ -49,7 +49,7 @@ function spanishTarget() {
     return createLearningTargetModule({
         id: 'spanish-lookup-test-target',
         language: 'es',
-        capabilities: { segmentation: true, morphology: true, 'term-lookup': true },
+        capabilities: { morphology: true, },
         featureSemantics: {
             characterSystem: 'latin',
             phoneticScripts: ['latin'],
@@ -331,7 +331,7 @@ describe('a non-Japanese target resolves dictionary entries through the normal l
         registerLearningTargetModule(createLearningTargetModule({
             id: 'spanish-strict-rules-test-target',
             language: 'es',
-            capabilities: { segmentation: true, morphology: true, 'term-lookup': true },
+            capabilities: { morphology: true, },
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],

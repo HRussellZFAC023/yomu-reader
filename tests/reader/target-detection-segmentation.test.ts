@@ -42,7 +42,7 @@ function activateLatinTarget() {
     const target = registerLearningTargetModule(createLearningTargetModule({
         id: 'sv-detection-test-target',
         language: AD_HOC_LANGUAGE,
-        capabilities: { segmentation: true },
+        capabilities: {},
         featureSemantics: {
             characterSystem: 'latin',
             phoneticScripts: ['latin'],

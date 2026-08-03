@@ -48,7 +48,7 @@ function germanTarget() {
     return createLearningTargetModule({
         id: 'german-morphology-test-target',
         language: 'de',
-        capabilities: { segmentation: true, morphology: true, 'term-lookup': true },
+        capabilities: { morphology: true, },
         featureSemantics: {
             characterSystem: 'latin',
             phoneticScripts: ['latin'],

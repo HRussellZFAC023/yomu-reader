@@ -96,7 +96,7 @@ import {
 } from '../popup/render';
 import { cardUsesPitchAccentPronunciation } from '../popup/pronunciation';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
-import { targetCanLookupCharacter, targetSupportsCharacterLookup, usesJapaneseProviders } from '../languages/character-lookup';
+import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProviders } from '../languages/character-lookup';
 import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
@@ -1393,7 +1393,7 @@ export class NewTabRuntime {
     }
 
     private jitenKanjiWordsActionContext(): JitenKanjiWordsActionContext | null {
-        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders() || !this.isJitenApiActive()) return null;
+        if (!usesJapaneseCharacterStudy() || !this.isJitenApiActive()) return null;
         return {
             lookupKanjiWords: (character, options) => this.jiten.lookupKanjiWords(character, options),
             language: () => this.settings.interfaceLanguage,

@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.7e7e0745e3d8.user.js#sha256=fn4HRePYzDK/i7jITVC8PgjP9PFnwvrSq2qygj1qXVA=
+// @require https://yomureader.com/greasyfork/yomu-runtime.848177859e09.user.js#sha256=hIF3hZ4JJqmQyO1uLMp6l4BXCNi1ceoEtHg0TEsl7FI=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -17894,6 +17894,9 @@ return activeLearningTarget().capabilities["character-lookup"];
 }
 function usesJapaneseProviders() {
 return activeLearningTarget().language === "ja";
+}
+function usesJapaneseCharacterStudy() {
+return targetSupportsCharacterLookup() && usesJapaneseProviders();
 }
 function targetCanLookupCharacter(value) {
 return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
@@ -42302,7 +42305,7 @@ this.lastAutoAudioHoverGeneration = trigger === "hover" ? hoverLookupGeneration 
 return true;
 }
 async showKanjiCard(card, kanji, sentence, anchor, options = {}) {
-if (!targetCanLookupCharacter(kanji)) return;
+if (!usesJapaneseCharacterStudy() || !targetCanLookupCharacter(kanji)) return;
 const navigation = options.navigation ?? "reset";
 this.navigation.updateKanji(card, kanji, sentence, navigation);
 const popover = this.createPopover();
@@ -42446,7 +42449,7 @@ void this.renderKanjiVGInto(popover, detailsPromises.kanjiVGInfo, kanji, languag
 }
 }
 async performJpdbKanjiAction(actionId, card, kanji, sentence, anchor) {
-if (!actionId || !this.jpdbKanji || !targetCanLookupCharacter(kanji)) return;
+if (!actionId || !this.jpdbKanji || !usesJapaneseCharacterStudy()) return;
 try {
 await this.jpdbKanji?.performAction(actionId);
 this.toast(uiText(this.settings.interfaceLanguage, "jpdbKanjiUpdated"));

@@ -4128,8 +4128,27 @@ const LEARNING_TARGET_CAPABILITY_IDS = [
 const NO_CAPABILITIES = Object.freeze(
   Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
 );
+const CORE_DELIVERED_CAPABILITIES = Object.freeze({
+  "term-lookup": true,
+  segmentation: true,
+  pronunciation: true,
+  "text-to-speech": true,
+  subtitles: true,
+  typing: true,
+  mining: true,
+  srs: true,
+  grading: true
+});
 function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
-  return Object.freeze({ ...NO_CAPABILITIES, ...declared, grammar: hasGrammarRules });
+  return Object.freeze({
+  ...NO_CAPABILITIES,
+  ...declared,
+  ...CORE_DELIVERED_CAPABILITIES,
+  // Derived, never declared: a target has grammar support exactly when it
+  // ships grammar rules. Same principle as the block above — the capability
+  // reports the machinery instead of promising alongside it.
+  grammar: hasGrammarRules
+  });
 }
 function createLearningTargetModule(spec) {
   const language = canonicalLanguageTag(spec.language) ?? spec.language;
@@ -4708,22 +4727,13 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   direction: "ltr",
   collationLocale: "ja",
   capabilities: {
-  "term-lookup": true,
   "character-lookup": true,
-  segmentation: true,
   morphology: true,
   "reading-annotation": true,
-  pronunciation: true,
   frequency: true,
   examples: true,
   audio: true,
-  "text-to-speech": true,
   ocr: true,
-  subtitles: true,
-  mining: true,
-  srs: true,
-  grading: true,
-  typing: true,
   handwriting: true
   },
   featureSemantics: {
@@ -5304,14 +5314,14 @@ const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   id: "korean-thin-v1",
   language: "ko",
   capabilities: {
-  "term-lookup": true,
-  segmentation: true,
   "reading-annotation": true,
-  pronunciation: true,
-  "text-to-speech": true,
   ocr: true,
-  subtitles: true,
-  typing: true
+  // Korean is a hand-written module rather than a generic roster entry, so it
+  // misses anything the roster loop derives. Tatoeba mounts for ko with text
+  // availability 'available' exactly as it does for the other 31 — caught by the
+  // registry-agreement assertion in learning-target-contract.test.ts, which is
+  // the whole reason that test exists.
+  examples: true
   },
   featureSemantics: {
   characterSystem: "hangul",
@@ -6739,14 +6749,31 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     language: language.runtimeLocale,
     direction: language.direction,
     capabilities: {
-      "term-lookup": true,
       morphology: lookupRewrites.length > 0,
-      segmentation: true,
       "reading-annotation": readingAnnotation,
-      pronunciation: true,
-      "text-to-speech": true,
-      subtitles: true,
-      typing: true
+      // MEASURED against config/dictionaries/published/v1/catalog.json
+      // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
+      // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
+      // so two capabilities the shipped catalogue already supplies were
+      // switched off for the languages that can use them. The Han branch
+      // is where the data is, and character-lookup already gates on
+      // isUnifiedIdeograph as well, so this reaches only real Han runs —
+      // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
+      // pitch out, exactly as character-lookup.ts anticipated.
+      "character-lookup": usesHanScript,
+      frequency: usesHanScript,
+      // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
+      // is a registered, mounted, licence-checked example source for
+      // every non-Japanese target and reports text availability
+      // 'available' for all of them (Japanese uses Immersion Kit
+      // instead, which is why it is declared separately). The flag said
+      // Japanese-only, so 32 languages that already had example
+      // sentences were reporting none. Audio is deliberately NOT implied
+      // here — Tatoeba answers 'per-item' for audio and outright 'none'
+      // for the smaller corpora, so a boolean would overclaim it.
+      // tests/reader/languages/learning-target-contract.test.ts asserts
+      // this against the live registry so it cannot go stale again.
+      examples: true
     },
     featureSemantics: {
       characterSystem: language.defaultScript,
@@ -7471,10 +7498,12 @@ const COPY = {
   onboardingImmersionOptions: "Immersion defaults",
   onboardingInstallOfflineDictionaries: "Download starter dictionaries for this language",
   studyTargetReadinessFull: "Full Yomu support",
-  studyTargetReadinessReadingOnly: "Reading and lookup",
+  // All 33 targets have the whole loop; Japanese differs by DEPTH, not by
+  // whether it can be studied. See learning-target-contract.test.ts.
+  studyTargetReadinessReadingOnly: "Read, mine and review",
   studyTargetReadinessPlanned: "Planned",
-  studyTargetReadinessFullReason: "Reading, lookup, study, and mining are ready.",
-  studyTargetReadinessReadingOnlyReason: "Reading and lookup are ready.",
+  studyTargetReadinessFullReason: "Everything, including pitch accent, kanji and grammar.",
+  studyTargetReadinessReadingOnlyReason: "Reading, lookup, mining and review are ready.",
   studyTargetReadinessPlannedReason: "Support is planned.",
   onboardingHoverShortcut: "Lookup hover modifier",
   manualPageScanShortcut: "Manual page scan shortcut",
@@ -8705,10 +8734,10 @@ customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
 onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
 studyTargetReadinessFull	よむの全機能
-studyTargetReadinessReadingOnly	読解と検索
+studyTargetReadinessReadingOnly	読んで、集めて、復習
 studyTargetReadinessPlanned	準備中
-studyTargetReadinessFullReason	読解、検索、学習、マイニングが使えます。
-studyTargetReadinessReadingOnlyReason	読解と検索が使えます。
+studyTargetReadinessFullReason	ピッチアクセント、漢字、文法まですべて使えます。
+studyTargetReadinessReadingOnlyReason	読解、検索、マイニング、復習が使えます。
 studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。

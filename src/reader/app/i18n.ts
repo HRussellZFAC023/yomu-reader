@@ -22,10 +22,12 @@ const COPY = {
         onboardingImmersionOptions: 'Immersion defaults',
         onboardingInstallOfflineDictionaries: 'Download starter dictionaries for this language',
         studyTargetReadinessFull: 'Full Yomu support',
-        studyTargetReadinessReadingOnly: 'Reading and lookup',
+        // All 33 targets have the whole loop; Japanese differs by DEPTH, not by
+        // whether it can be studied. See learning-target-contract.test.ts.
+        studyTargetReadinessReadingOnly: 'Read, mine and review',
         studyTargetReadinessPlanned: 'Planned',
-        studyTargetReadinessFullReason: 'Reading, lookup, study, and mining are ready.',
-        studyTargetReadinessReadingOnlyReason: 'Reading and lookup are ready.',
+        studyTargetReadinessFullReason: 'Everything, including pitch accent, kanji and grammar.',
+        studyTargetReadinessReadingOnlyReason: 'Reading, lookup, mining and review are ready.',
         studyTargetReadinessPlannedReason: 'Support is planned.',
         onboardingHoverShortcut: 'Lookup hover modifier',
         manualPageScanShortcut: 'Manual page scan shortcut',
@@ -1280,10 +1282,10 @@ customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
 onboardingInstallOfflineDictionaries	この言語のスターター辞書をダウンロード
 studyTargetReadinessFull	よむの全機能
-studyTargetReadinessReadingOnly	読解と検索
+studyTargetReadinessReadingOnly	読んで、集めて、復習
 studyTargetReadinessPlanned	準備中
-studyTargetReadinessFullReason	読解、検索、学習、マイニングが使えます。
-studyTargetReadinessReadingOnlyReason	読解と検索が使えます。
+studyTargetReadinessFullReason	ピッチアクセント、漢字、文法まですべて使えます。
+studyTargetReadinessReadingOnlyReason	読解、検索、マイニング、復習が使えます。
 studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
 offlineDictionarySetupFailed	オフライン辞書のセットアップに失敗しました。設定→ソースから再試行してください。

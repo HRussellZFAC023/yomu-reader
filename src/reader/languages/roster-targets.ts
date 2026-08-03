@@ -38,14 +38,31 @@ export const GENERIC_ROSTER_LEARNING_TARGETS: readonly LearningTargetModule[] = 
                 language: language.runtimeLocale,
                 direction: language.direction,
                 capabilities: {
-                    'term-lookup': true,
                     morphology: lookupRewrites.length > 0,
-                    segmentation: true,
                     'reading-annotation': readingAnnotation,
-                    pronunciation: true,
-                    'text-to-speech': true,
-                    subtitles: true,
-                    typing: true,
+                    // MEASURED against config/dictionaries/published/v1/catalog.json
+                    // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
+                    // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
+                    // so two capabilities the shipped catalogue already supplies were
+                    // switched off for the languages that can use them. The Han branch
+                    // is where the data is, and character-lookup already gates on
+                    // isUnifiedIdeograph as well, so this reaches only real Han runs —
+                    // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
+                    // pitch out, exactly as character-lookup.ts anticipated.
+                    'character-lookup': usesHanScript,
+                    frequency: usesHanScript,
+                    // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
+                    // is a registered, mounted, licence-checked example source for
+                    // every non-Japanese target and reports text availability
+                    // 'available' for all of them (Japanese uses Immersion Kit
+                    // instead, which is why it is declared separately). The flag said
+                    // Japanese-only, so 32 languages that already had example
+                    // sentences were reporting none. Audio is deliberately NOT implied
+                    // here — Tatoeba answers 'per-item' for audio and outright 'none'
+                    // for the smaller corpora, so a boolean would overclaim it.
+                    // tests/reader/languages/learning-target-contract.test.ts asserts
+                    // this against the live registry so it cannot go stale again.
+                    examples: true,
                 },
                 featureSemantics: {
                     characterSystem: language.defaultScript,

@@ -258,11 +258,33 @@ function targetTermsRecommendation(
                 entry.definitionLanguages.includes(language),
             ) ?? entry.definitionLanguages[0] ?? 'en';
             const definitionRank = preferredDefinitions.indexOf(definitionLanguage);
-            const canonicalId = `wty-${targetLanguage}-${definitionLanguage}`;
-            const shapeRank = entry.id === canonicalId ? 0 : entry.id.includes('-gloss') ? 2 : 1;
-            return { entry, definitionLanguage, rank: (definitionRank < 0 ? 3 : definitionRank) * 10 + shapeRank };
+            // Preferring the canonical `wty-<target>-<definitions>` id used to outrank
+            // everything else, which silently assumed WTY always has the content. For
+            // Cantonese it does not: MEASURED 2026-08-03, `wty-yue-en` is 28,109 bytes
+            // — 483x smaller than the published, licence-reviewed Words.hk Cantonese-
+            // English dictionary at 13,578,603 — so a Cantonese learner installed the
+            // recommendation and could look almost nothing up. That is the whole of
+            // yue's 0/47 in the parity baseline while every other target averages 84%.
+            //
+            // Content decides instead, which is not a Cantonese special case: simulated
+            // across all 32 non-Japanese targets, ordering by size changes exactly ONE
+            // recommendation, because WTY already IS the largest everywhere else. The
+            // canonical-shape preference was only ever a proxy for "the good one", and
+            // it is the proxy that broke, not the goal. `-gloss` archives stay
+            // deprioritised — they are a different kind of entry, not a smaller one.
+            const shapeRank = entry.id.includes('-gloss') ? 2 : 0;
+            return {
+                entry,
+                definitionLanguage,
+                rank: (definitionRank < 0 ? 3 : definitionRank) * 10 + shapeRank,
+                // Narrowed explicitly: only a published distribution carries an object,
+                // and the filter above already excludes the others.
+                bytes: entry.distribution.state === 'published' ? entry.distribution.object.bytes : 0,
+            };
         })
-        .sort((left, right) => left.rank - right.rank || left.entry.id.localeCompare(right.entry.id, 'en'))[0];
+        .sort((left, right) => left.rank - right.rank
+            || right.bytes - left.bytes
+            || left.entry.id.localeCompare(right.entry.id, 'en'))[0];
     if (!candidates) return undefined;
     const { entry, definitionLanguage } = candidates;
     return {

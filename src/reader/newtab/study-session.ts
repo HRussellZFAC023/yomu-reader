@@ -1,6 +1,6 @@
 import type { JPDBCard } from '../app/types';
 import type { NewTabStudyChallengeStep } from '../app/types';
-import { targetSupportsCharacterLookup } from '../languages/character-lookup';
+import { usesJapaneseCharacterStudy } from '../languages/character-lookup';
 import { isJapaneseKanjiCharacter } from '../lookup/japanese-script';
 
 export type NewTabStudyStepKind =
@@ -56,7 +56,7 @@ export function createNewTabStudySession(card: JPDBCard, options: NewTabStudySes
 function mergedStudyStepsForCard(card: JPDBCard, options: NewTabStudySessionOptions): NewTabStudyStep[] {
     const available = new Set<NewTabStudyChallengeStep>();
     const disabled = new Set(options.disabledSteps ?? []);
-    const characterStudyEnabled = targetSupportsCharacterLookup();
+    const characterStudyEnabled = usesJapaneseCharacterStudy();
     if (characterStudyEnabled && (options.renderAsKanji || containsKanji(card.spelling))) available.add('kanji-doodle');
     available.add('word');
     if (options.hasRecallCloze) available.add('recall-cloze');

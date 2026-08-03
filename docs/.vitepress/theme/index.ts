@@ -805,6 +805,17 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     "Dictionary recommendations now follow both the reading language and the definition language. An English-speaking learner reading Spanish gets Spanish-headword terms with English definitions plus Spanish IPA, and IPA dictionaries appear as pronunciation sources in lookups.": "おすすめ辞書が、読む言語と語義の言語の両方に合わせて変わるようになりました。英語を使う学習者がスペイン語を読む場合は、スペイン語の見出し語、英語の語義、スペイン語のIPAが入り、IPA辞書は検索結果で発音情報として表示されます。",
     "Offline dictionary lookup now preserves Thai and Lao SARA AM, and matches sentence-initial Latin and Cyrillic words. Spanish, German, Russian, Arabic, and Korean also try a bounded list of language-specific affix forms. Korean removes only listed particles; Chinese keeps whole-segment lookup.": "オフライン辞書検索で、タイ語とラオ語のSARA AMを保持し、文頭のラテン文字・キリル文字の単語にも一致するようになりました。スペイン語、ドイツ語、ロシア語、アラビア語、韓国語では、言語ごとの限定された接辞候補も試します。韓国語では一覧にある助詞だけを外し、中国語ではセグメント全体の検索を保ちます。",
     'Choose the language you are reading separately from the language used for definitions. Japanese is labelled': '読む言語と、定義に使う言語は別々に選べます。日本語の表示は',
+    // The readiness labels and the two docs sentences they appear in. Rewritten
+    // 2026-08-02 when the capability matrix was measured: every one of the 33
+    // targets has the full read-mine-review loop, so "Reading and lookup" was
+    // telling 32 languages they could not be studied.
+    'Read, mine and review': '読んで、集めて、復習',
+    '. The other 32 are labelled': '。ほかの32言語は',
+    '— the whole loop works in every one of them. Japanese is the deepest rather than the only one: it adds pitch accent, kanji cards and far more grammar.': '——どの言語でも一連の流れがそのまま使えます。日本語は「唯一使える言語」ではなく「もっとも深い言語」で、ピッチアクセント、漢字カード、そして圧倒的に多くの文法項目が加わります。',
+    'No — all 33 targets can be read, mined and reviewed. You look a word up, keep it with the sentence you found it in, and review it on a schedule, in any of them. First-run setup and Settings label the other 32': 'いいえ——33の学習言語すべてで、読む・集める・復習するができます。単語を調べ、見つけた文と一緒に保存し、スケジュールに沿って復習する。どの言語でも同じです。初回セットアップと設定では、ほかの32言語を',
+    ', and the dictionary catalogue carries headwords across all of them.': 'と表示し、辞書カタログはその全言語の見出し語を収録しています。',
+    'Japanese is labelled': '日本語は',
+    'because it is the deepest, not because it is the only one that works: it adds pitch accent, kanji cards, and 307 grammar points where Spanish, French and Russian currently have eight. Your recommended starter follows the selected target and definition language; for English plus Spanish, that means Spanish terms with English definitions and Spanish IPA in the pronunciation row where Japanese shows pitch accent. The interface itself speaks English and 日本語.': 'と表示されますが、これは「唯一使える言語」という意味ではなく「もっとも深い」という意味です。ピッチアクセント、漢字カード、そして307の文法項目があり、スペイン語・フランス語・ロシア語は現在8項目です。おすすめの初期辞書は、選んだ対象言語と語義の言語に合わせて変わります。英語とスペイン語なら、スペイン語の単語、英語の語義、そして日本語のピッチアクセントと同じ発音欄にスペイン語のIPAが表示されます。インターフェースは英語と日本語に対応しています。',
     'Full Yomu support': 'よむの全機能',
     '. The other 32 targets are labelled': 'です。ほかの32言語は',
     'Reading and lookup': '読解と検索',
@@ -820,8 +831,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Read Japanese web pages, subtitles, manga and PDFs, save the words you meet, and review them with their original context. Free on computers, phones and tablets.': '日本語のウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。パソコン、スマートフォン、タブレットで無料で使えます。',
     // The demoted multilingual line. Split into three keys because the count
     // between them is rendered by a component and is deliberately not translated.
-    'It reads': '対応言語は日本語のほかに',
-    'other languages too, from Spanish to Korean.': '言語。スペイン語から韓国語まで。',
+    'The same loop works in': '同じ流れが使えるのは、日本語のほかに',
+    'other languages, from Spanish to Korean.': '言語。スペイン語から韓国語まで。',
     'Which ones': '対応言語を見る',
     // The whole sentence, because Japanese reorders it: 日本語 leads. The old
     // fragment key existed only because a rotator split the headline in two.

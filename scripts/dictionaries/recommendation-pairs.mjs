@@ -185,6 +185,13 @@ function selectCandidate(entries, learnerLanguage, targetLanguage, rankTermsVari
       );
       if (variantDifference) return variantDifference;
     }
+    // Content decides among equally-ranked candidates. The runtime selector in
+    // src/reader/dictionaries/recommended.ts makes the same choice and a test
+    // asserts the two agree, so this must stay in step with it. Cantonese is why:
+    // wty-yue-en is 28,109 bytes against Words.hk's 13,578,603, and preferring the
+    // canonical WTY id alone recommended the empty one.
+    const bytesDifference = publishedBytes(right.entry) - publishedBytes(left.entry);
+    if (bytesDifference) return bytesDifference;
     return left.entry.id.localeCompare(right.entry.id);
   });
   return candidates[0] ?? null;
@@ -204,10 +211,16 @@ function definitionLanguageRank(language, learnerLanguage, targetLanguage) {
 }
 
 function termsVariantRank(id, targetLanguage, definitionLanguage) {
-  const exact = `wty-${targetLanguage}-${definitionLanguage}`;
-  if (id === exact) return 0;
-  if (id === `${exact}-gloss`) return 1;
-  return 2;
+  // `-gloss` archives are a different KIND of entry, so they stay behind ordinary
+  // terms. The canonical `wty-<target>-<defs>` id is no longer ranked ahead of
+  // everything else — that assumed WTY always carries the content, which is false
+  // for Cantonese. Size breaks the remaining tie; see the comparator above.
+  return id === `wty-${targetLanguage}-${definitionLanguage}-gloss` ? 1 : 0;
+}
+
+function publishedBytes(entry) {
+  const distribution = entry?.distribution;
+  return distribution?.state === 'published' ? distribution.object?.bytes ?? 0 : 0;
 }
 
 function translationMode(learnerLanguage, definitionLanguage) {

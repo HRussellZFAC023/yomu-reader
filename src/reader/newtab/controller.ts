@@ -25,6 +25,7 @@ import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_
 import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
+import { appendComposedOfLine as renderComposedOfLine } from './composed-of';
 import { pointInElementClientRects } from '../dom/pointer-geometry';
 import { renderedWordCardForLookup } from '../main/rendered-word-lookup';
 import { cardPronunciationReading, isKanjiCharacter, renderPitch } from '../popup/pitch';
@@ -83,7 +84,9 @@ import {
 import { languageDisplayName } from '../languages/locale';
 import {
     targetCanLookupCharacter,
-    targetSupportsCharacterLookup,
+    targetCanHandwriteCharacter,
+    targetSupportsHandwriting,
+    usesJapaneseCharacterStudy,
     usesJapaneseProviders,
 } from '../languages/character-lookup';
 import { isolate } from '../locales/direction';
@@ -907,7 +910,7 @@ export class NewTabController {
             canUseBunproSource: () => this.canUseBunproSource(),
             canUseWanikaniSource: () => this.canUseWanikaniSource(),
             canUseYomuLocalSource: () => this.canUseYomuLocalSource(),
-            text: key => this.text(key),
+            text: (key: 'composedOf' | 'showKanji') => this.text(key),
             formatText: (key, values) => this.formatNewTabText(key, values),
             resolvedLanguage: () => this.resolvedLanguage(),
             syncMode: root => this.syncMode(root),
@@ -1333,8 +1336,8 @@ export class NewTabController {
                                 lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
                                 'aria-controls': 'jpdb-reader-newtab-handwriting',
                                 'aria-expanded': 'false',
-                                hidden: !targetSupportsCharacterLookup(),
-                                disabled: !targetSupportsCharacterLookup(),
+                                hidden: !usesJapaneseCharacterStudy(),
+                                disabled: !usesJapaneseCharacterStudy(),
                             }, newTabText(language, 'draw')),
                             el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'search-clear' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en', 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
                         ),
@@ -2466,7 +2469,8 @@ export class NewTabController {
         const kanji = actionTarget.dataset.kanji ?? '';
         if (!kanji) return false;
         consumeNestedLookupEvent(event);
-        if (!targetCanLookupCharacter(kanji)) return true;
+        // Swallowed, not ignored: a chip outlives a target switch in the DOM.
+        if (!usesJapaneseCharacterStudy()) return true;
         if (this.state.route === 'search') {
             this.searchController.selectSearchSuggestion(root, kanji);
             return true;
@@ -2514,7 +2518,7 @@ export class NewTabController {
     }
 
     private jitenKanjiWordsActionContext(): JitenKanjiWordsActionContext | null {
-        if (!targetSupportsCharacterLookup() || !usesJapaneseProviders()) return null;
+        if (!usesJapaneseCharacterStudy()) return null;
         const jiten = this.dependencies.jiten;
         const lookupKanjiWords = jiten?.lookupKanjiWords;
         if (typeof lookupKanjiWords !== 'function') return null;
@@ -4583,7 +4587,7 @@ export class NewTabController {
             return;
         }
         if (intent.kind === 'kanji') {
-            if (targetSupportsCharacterLookup()) this.initialStudyStepIdPending = 'kanji-doodle:0';
+            if (usesJapaneseCharacterStudy()) this.initialStudyStepIdPending = 'kanji-doodle:0';
             return;
         }
         this.listenInteractionMode = intent.interaction === 'recall' ? 'recall' : 'perceive';
@@ -5156,7 +5160,7 @@ export class NewTabController {
     }
 
     private shouldRenderCardAsKanji(card: JPDBCard): boolean {
-        return targetSupportsCharacterLookup()
+        return usesJapaneseCharacterStudy()
             && (this.isLiveJpdbKanjiReviewCard(card)
                 || isKanjiUnlockStudyCard(card));
     }
@@ -6573,7 +6577,7 @@ export class NewTabController {
     }
 
     private installTypeWordDoodle(answer: HTMLElement, card: JPDBCard): void {
-        if (!targetSupportsCharacterLookup()) return;
+        if (!usesJapaneseCharacterStudy()) return;
         const chars = Array.from(this.typeWordTarget(card));
         const progress = this.typeWordHandwritingProgress(card, chars);
         if (progress >= chars.length) return;
@@ -6626,8 +6630,7 @@ export class NewTabController {
     }
 
     private typeWordSupportsHandwriting(card: JPDBCard): boolean {
-        return targetSupportsCharacterLookup()
-            && Array.from(this.typeWordTarget(card)).some(targetCanLookupCharacter);
+        return Array.from(this.typeWordTarget(card)).some(targetCanHandwriteCharacter);
     }
 
     private typeWordHandwritingProgress(card: JPDBCard, chars = Array.from(this.typeWordTarget(card))): number {
@@ -6663,7 +6666,7 @@ export class NewTabController {
 
     private handleTypeWordModeClick(root: HTMLElement, target: HTMLElement): void {
         const mode = target.closest<HTMLElement>('[data-type-word-mode]')?.dataset.typeWordMode;
-        if (mode === 'keyboard' || mode === 'handwriting' && targetSupportsCharacterLookup()) {
+        if (mode === 'keyboard' || mode === 'handwriting' && targetSupportsHandwriting()) {
             this.setTypeWordInputMode(root, mode);
         }
     }
@@ -6807,48 +6810,12 @@ export class NewTabController {
         return deck ? this.formatNewTabText('partOfDeck', { deck }) : '';
     }
 
-    // SH-4 fidelity: jpdb.io's review back lists the word's component kanji
-    // with their keywords ("Composed of"). Chips reuse the existing kanji
-    // popover action for drilldown; keywords hydrate from RTK/JPDB lazily.
-    private async composedOfKeywordLookup(client: { lookup?: (kanji: string) => Promise<{ keyword?: string } | null> } | undefined, character: string): Promise<string> {
-        if (!usesJapaneseProviders() || !targetCanLookupCharacter(character) || typeof client?.lookup !== 'function') return '';
-        const result = await client.lookup(character).catch(() => null);
-        return usesJapaneseProviders() && targetCanLookupCharacter(character) ? result?.keyword ?? '' : '';
-    }
-
     private appendComposedOfLine(meaning: HTMLElement, card: JPDBCard): void {
-        if (!targetSupportsCharacterLookup()) return;
-        const kanjiCharacters = [...new Set(Array.from(card.spelling).filter(targetCanLookupCharacter))];
-        if (kanjiCharacters.length === 0) return;
-        const row = el('div', { class: 'jpdb-reader-newtab-composed-of', dataset: { newtabComposedOf: true } },
-            el('span', { class: 'jpdb-reader-newtab-composed-of-label' }, this.text('composedOf')),
-            ...kanjiCharacters.map(character => el('button', {
-                type: 'button',
-                class: 'jpdb-reader-newtab-composed-of-kanji',
-                dataset: { action: 'kanji', kanji: character },
-                title: `${this.text('showKanji')}: ${character}`,
-            },
-            el('span', { lang: 'ja' }, character),
-            el('small', {}, this.keywordCache.get(character) ?? ''))),
-        );
-        meaning.append(row);
-        void this.hydrateComposedOfKeywords(row, kanjiCharacters);
-    }
-
-    private async hydrateComposedOfKeywords(row: HTMLElement, kanjiCharacters: string[]): Promise<void> {
-        if (!targetSupportsCharacterLookup()) return;
-        await Promise.all(kanjiCharacters.map(async character => {
-            if (!targetCanLookupCharacter(character)) return;
-            if (this.keywordCache.has(character)) return;
-            const keyword = (await this.composedOfKeywordLookup(this.dependencies.rtk, character))
-                || (await this.composedOfKeywordLookup(this.dependencies.jpdbKanji, character));
-            if (keyword && targetCanLookupCharacter(character)) this.keywordCache.set(character, keyword);
-        }));
-        if (!targetSupportsCharacterLookup() || !row.isConnected) return;
-        row.querySelectorAll<HTMLElement>('[data-kanji]').forEach(chip => {
-            const small = chip.querySelector('small');
-            const keyword = this.keywordCache.get(chip.dataset.kanji ?? '');
-            if (small && keyword) small.textContent = keyword;
+        renderComposedOfLine(meaning, card, {
+            keywordCache: this.keywordCache,
+            rtk: this.dependencies.rtk,
+            jpdbKanji: this.dependencies.jpdbKanji,
+            text: key => this.text(key),
         });
     }
 
@@ -8002,7 +7969,7 @@ export class NewTabController {
 
     private canApplyKanjiEnrichment(slots: NewTabStudySlots, card: JPDBCard, kanji?: string): boolean {
         if (kanji && !targetCanLookupCharacter(kanji)) return false;
-        if (!targetSupportsCharacterLookup()) return false;
+        if (!usesJapaneseCharacterStudy()) return false;
         const current = this.visibleWords[this.index];
         if (!current || cardKey(current) !== cardKey(card)) return false;
         const session = this.studySessionForCard(current, this.shouldRenderCardAsKanji(current));
@@ -8128,7 +8095,7 @@ export class NewTabController {
     }
 
     private renderNewTabKanjiImmersionPlaceholder(settings: ReaderSettings): HTMLElement | null {
-        if (!targetSupportsCharacterLookup() || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return null;
+        if (!usesJapaneseCharacterStudy() || !settings.immersionKitEnabled || !settings.kanjiImmersionKitEnabled) return null;
         const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
         const isOpen = this.isSourceOpen(sourceStateKey, false);
         return el('div', { dataset: { newtabKanjiImmersionMount: true } },
@@ -8363,7 +8330,7 @@ export class NewTabController {
     }
 
     private renderNewTabUchisenPlaceholder(settings: ReaderSettings): HTMLElement | null {
-        if (!targetSupportsCharacterLookup() || !settings.uchisenEnabled) return null;
+        if (!usesJapaneseCharacterStudy() || !settings.uchisenEnabled) return null;
         const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
         const isOpen = this.isSourceOpen(sourceStateKey);
         return el('div', { dataset: { newtabUchisenMount: true } },

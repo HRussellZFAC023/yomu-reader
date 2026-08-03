@@ -174,7 +174,7 @@ describe('core behaviour follows the stored profile', () => {
         registerLearningTargetModule(createLearningTargetModule({
             id: 'swahili-selection-test-target',
             language: 'sw',
-            capabilities: { segmentation: true },
+            capabilities: {},
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],

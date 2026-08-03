@@ -44,7 +44,7 @@ function adHocTarget(language: string, overrides: Parameters<typeof createLearni
     return createLearningTargetModule({
         id: `${language}-call-site-test-target`,
         language,
-        capabilities: { segmentation: true },
+        capabilities: {},
         featureSemantics: {
             characterSystem: 'latin',
             phoneticScripts: ['latin'],

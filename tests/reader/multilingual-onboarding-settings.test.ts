@@ -43,7 +43,7 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')).toMatchObject({
             disabled: false,
             textContent: expect.stringContaining('Español'),
-            title: 'Reading and lookup are ready.',
+            title: 'Reading, lookup, mining and review are ready.',
         });
         expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')?.dataset.studyTargetReadiness)
             .toBe('reading-only');
@@ -78,8 +78,8 @@ describe('Slice 1 multilingual onboarding and settings', () => {
             .toBe('full');
         const spanish = targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')!;
         expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
-        expect(spanish.textContent).toContain('Reading and lookup');
-        expect(spanish.title).toBe('Reading and lookup are ready.');
+        expect(spanish.textContent).toContain('Read, mine and review');
+        expect(spanish.title).toBe('Reading, lookup, mining and review are ready.');
     });
 
     it('creates an independent profile when the learner language changes', () => {

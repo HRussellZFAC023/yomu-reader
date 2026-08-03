@@ -276,7 +276,7 @@ import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
 import { activeLearningTarget } from '../languages/target-runtime';
 import { adoptLearningTargetFromSettings } from '../languages/target-selection';
-import { targetCanLookupCharacter, usesJapaneseProviders } from '../languages/character-lookup';
+import { targetCanLookupCharacter, usesJapaneseCharacterStudy, usesJapaneseProviders } from '../languages/character-lookup';
 import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { immersionKitCapabilitiesFor } from '../sources/examples/immersion-kit';
 import { abortPendingTargetExampleSources, installTargetExampleSources } from '../sources/examples/mount';
@@ -7747,7 +7747,8 @@ export class ReaderApp {
     }
 
     private async showKanjiCard(card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement, options: { navigation?: CardNavigationMode; preservePosition?: boolean } = {}): Promise<void> {
-        if (!targetCanLookupCharacter(kanji)) return;
+        // Builds the Japanese card (jpdb link, RTK, KanjiVG) — see usesJapaneseCharacterStudy.
+        if (!usesJapaneseCharacterStudy() || !targetCanLookupCharacter(kanji)) return;
         const navigation = options.navigation ?? 'reset';
         this.navigation.updateKanji(card, kanji, sentence, navigation);
         const popover = this.createPopover();
@@ -7913,7 +7914,8 @@ export class ReaderApp {
     }
 
     private async performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {
-        if (!actionId || !this.jpdbKanji || !targetCanLookupCharacter(kanji)) return;
+        // JPDB is Japanese-only — see usesJapaneseCharacterStudy.
+        if (!actionId || !this.jpdbKanji || !usesJapaneseCharacterStudy()) return;
         try {
             await this.jpdbKanji?.performAction(actionId);
             this.toast(uiText(this.settings.interfaceLanguage, 'jpdbKanjiUpdated'));

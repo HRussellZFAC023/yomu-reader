@@ -16,9 +16,12 @@ import {
     supportedLearningTargetLanguages,
     unregisterLearningTargetModule,
 } from '../../../src/reader/languages/registry';
+import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages/roster';
+import { declaredExampleCapabilities } from '../../../src/reader/sources/examples/registry';
 import {
     isSupportedLearningTargetModuleInterfaceVersion,
     LEARNING_TARGET_MODULE_INTERFACE_VERSION,
+    type LearningTargetCapability,
     type LearningTargetModule,
 } from '../../../src/reader/languages/types';
 
@@ -290,7 +293,7 @@ describe('a second target needs registration and nothing else', () => {
         const swahili = createLearningTargetModule({
             id: 'swahili-test-target',
             language: 'sw',
-            capabilities: { segmentation: true, 'text-to-speech': true },
+            capabilities: {},
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],
@@ -340,7 +343,7 @@ describe('a second target needs registration and nothing else', () => {
         const override = createLearningTargetModule({
             id: 'swedish-temporary-override',
             language: 'sv',
-            capabilities: { segmentation: true },
+            capabilities: {},
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],
@@ -363,5 +366,110 @@ describe('a second target needs registration and nothing else', () => {
 
         resetActiveLearningTargetLanguage();
         expect(activeLearningTarget()).toBe(JAPANESE_LEARNING_TARGET);
+    });
+});
+
+// The owner's standing goal is that every language is a first-class STUDY target,
+// not a dictionary with a language picker. These are the capabilities that make a
+// target studiable, and they are delivered by core machinery with no language
+// branch in it — so a target either has all of them or Yomu is broken for it.
+//
+// Before this was pinned (measured 2026-08-02) 32 of the 33 targets declared
+// srs, grading and mining FALSE, which read as "you can look a Spanish word up but
+// never keep it". None of it was true: the local deck stamps and filters by
+// language, grading is SM-2 over that card, and mining takes its sentence
+// terminators and Anki field roles from the target. The flags had simply never been
+// revisited after the machinery became multilingual, and nothing read them, so
+// nothing caught it.
+describe('every target is a study target', () => {
+    const STUDY_LOOP: readonly LearningTargetCapability[] = [
+        'term-lookup', 'segmentation', 'pronunciation', 'text-to-speech',
+        'subtitles', 'typing', 'mining', 'srs', 'grading',
+    ];
+
+    it('gives all 33 targets the complete read-mine-review loop', () => {
+        const short: string[] = [];
+        for (const target of LEARNING_TARGET_ROSTER) {
+            const module = learningTargetModuleFor(target.runtimeLocale);
+            expect(module, `${target.id} has no module`).not.toBeNull();
+            const missing = STUDY_LOOP.filter(capability => !module!.capabilities[capability]);
+            if (missing.length) short.push(`${target.id}: ${missing.join(', ')}`);
+        }
+        expect(short, 'targets missing part of the study loop').toEqual([]);
+        expect(LEARNING_TARGET_ROSTER.length).toBeGreaterThanOrEqual(33);
+    });
+
+    it('reports script-specific capabilities only where the script has them', () => {
+        // The counterweight: "every target is a study target" must not decay into
+        // "every capability is true everywhere". Spanish has no characters to look
+        // up and no reading to annotate, and saying otherwise would be a worse lie
+        // than the one this file fixed.
+        const spanish = learningTargetModuleFor('es')!;
+        expect(spanish.capabilities['character-lookup']).toBe(false);
+        expect(spanish.capabilities['reading-annotation']).toBe(false);
+
+        // Han targets do have per-character data now — the published catalogue ships
+        // CC-CEDICT.Hanzi, EDHCC, Wiktionary Hanzi and 康熙字典 for zh, Words.hk
+        // Honzi for yue — so they must report it.
+        for (const han of ['zh', 'yue'] as const) {
+            const module = learningTargetModuleFor(han)!;
+            expect(module.capabilities['character-lookup'], `${han} character lookup`).toBe(true);
+            expect(module.capabilities['reading-annotation'], `${han} reading annotation`).toBe(true);
+        }
+    });
+
+    it('keeps the hand-maintained readiness list agreeing with measured depth', () => {
+        // `studyTargetReadiness` is a hand-maintained string list in roster.ts, chosen
+        // deliberately as "a product decision, not a capability inference". That is a
+        // reasonable stance and this does not overturn it — it stops the decision
+        // drifting away from what the code delivers, which is exactly what happened to
+        // the capability flags themselves.
+        //
+        // What now separates the two states is DEPTH, not whether a language can be
+        // studied at all: every target has the read-mine-review loop (asserted above),
+        // and Japanese additionally ships grammar rules, per-character data, reading
+        // annotation, frequency and stroke practice. A target that gains all of those
+        // should be promoted rather than left behind, and a target that has not should
+        // never be claimed as full.
+        const DEPTH: readonly LearningTargetCapability[] = [
+            'grammar', 'character-lookup', 'reading-annotation', 'frequency', 'handwriting',
+        ];
+        for (const target of LEARNING_TARGET_ROSTER) {
+            const module = learningTargetModuleFor(target.runtimeLocale)!;
+            const hasFullDepth = DEPTH.every(capability => module.capabilities[capability]);
+            expect(
+                target.studyTargetReadiness === 'full',
+                `${target.id} is declared ${target.studyTargetReadiness} but ${hasFullDepth ? 'has' : 'lacks'} the full depth set`
+                    + ` (${DEPTH.filter(capability => !module.capabilities[capability]).join(', ') || 'none missing'})`,
+            ).toBe(hasFullDepth);
+        }
+    });
+
+    it('keeps the examples flag equal to what the example registry actually mounts', () => {
+        // The staleness loop closed from the test side rather than the type side: the
+        // language modules cannot import the example registry without a cycle, so the
+        // agreement is asserted here instead. Measured 2026-08-02 — Tatoeba mounts for
+        // all 32 non-Japanese targets with text availability 'available', Immersion Kit
+        // for Japanese — and `examples: false` had told 32 languages they had none.
+        for (const target of LEARNING_TARGET_ROSTER) {
+            const module = learningTargetModuleFor(target.runtimeLocale)!;
+            const hasMountedText = declaredExampleCapabilities(target.runtimeLocale)
+                .some(source => source.capabilities.supported
+                    && source.capabilities.text.availability === 'available');
+            expect(module.capabilities.examples, `${target.id} examples`).toBe(hasMountedText);
+        }
+    });
+
+    it('derives grammar from shipped rules, so it can never be merely claimed', () => {
+        // grammar is absent from the declarable spec type: createLearningTargetModule
+        // forces it from grammar.rules.length. Japanese ships 307 rules; Spanish,
+        // French and Russian 8 each; German 7; the other 28 targets none. That gap is
+        // authored CONTENT, not code — the machinery already serves whatever a target
+        // ships — and this asserts the capability keeps telling the truth about it.
+        for (const target of LEARNING_TARGET_ROSTER) {
+            const module = learningTargetModuleFor(target.runtimeLocale)!;
+            expect(module.capabilities.grammar, `${target.id} grammar`)
+                .toBe(module.grammar.rules.length > 0);
+        }
     });
 });

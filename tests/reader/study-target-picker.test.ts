@@ -13,19 +13,27 @@ describe('shared study-target picker', () => {
         const spanish = options.find(option => option.id === 'es');
 
         expect(options).toHaveLength(33);
+        // The two labels now differ by DEPTH, not by whether a language can be
+        // studied at all. Measured 2026-08-02: every target has the whole
+        // read-mine-review loop, so telling a Spanish learner "Reading and lookup"
+        // described a product that was already better than that.
         expect(japanese).toMatchObject({
             readiness: 'full',
             disabled: false,
-            reason: 'Reading, lookup, study, and mining are ready.',
+            reason: 'Everything, including pitch accent, kanji and grammar.',
         });
         expect(japanese?.label).toContain('Full Yomu support');
         expect(spanish).toMatchObject({
             readiness: 'reading-only',
             disabled: false,
-            reason: 'Reading and lookup are ready.',
+            reason: 'Reading, lookup, mining and review are ready.',
         });
         expect(spanish?.label).toContain('Español');
-        expect(spanish?.label).toContain('Reading and lookup');
+        expect(spanish?.label).toContain('Read, mine and review');
+        // Neither label may claim a language cannot be mined or reviewed.
+        for (const option of options) {
+            expect(option.reason, `${option.id} reason`).toMatch(/mining|kanji/u);
+        }
     });
 
     it('keeps planned targets named, reasoned, and disabled', () => {

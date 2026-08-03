@@ -42,7 +42,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
          every screenshot and social unfurl inherited whichever word was showing.
          The count is still asserted against the same target roster the reader
          ships, so demoting the claim did not weaken its verification. -->
-    <p class="yomu-fold-also">It reads <YomuStudyTargetCount /> other languages too, from Spanish to Korean. <a href="/faq#is-it-only-for-japanese">Which ones</a></p>
+    <p class="yomu-fold-also">The same loop works in <YomuStudyTargetCount /> other languages, from Spanish to Korean. <a href="/faq#is-it-only-for-japanese">Which ones</a></p>
   </div>
   <figure class="yomu-fold-card" data-yomu-ocr="ignore">
     <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />
