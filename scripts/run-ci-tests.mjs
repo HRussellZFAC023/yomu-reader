@@ -88,6 +88,11 @@ const ISOLATED_PASS_FILES = [
     // one fork; an intermittently red release costs a release nobody can
     // schedule, and a minor tag is what reaches the frozen stores.
     join(ROOT, 'tests/reader/gaming-first-run.test.ts'),
+    // Exercises ReaderApp reconciliation under fake timers and the shared
+    // reader fixture. It deterministically leaves the next reused-fork file
+    // unable to advance real timers, so isolate the producer rather than
+    // whichever unrelated async consumer happens to follow it.
+    join(ROOT, 'tests/reader/late-card-reconciliation.test.ts'),
 ];
 
 const args = parseArgs(process.argv.slice(2));

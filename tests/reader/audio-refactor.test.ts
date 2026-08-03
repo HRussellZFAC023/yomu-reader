@@ -517,6 +517,28 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('releases a pending gesture reservation when its runtime is destroyed', () => {
+        vi.useFakeTimers();
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+        const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const player = new AudioPlayer(() => ({ ...DEFAULT_SETTINGS, audioEnabled: true }));
+
+        try {
+            expect(player.primeUserGesture()).toBe(true);
+            expect(vi.getTimerCount()).toBe(1);
+
+            player.destroy();
+
+            expect(vi.getTimerCount()).toBe(0);
+            expect(pause).toHaveBeenCalledTimes(1);
+        } finally {
+            player.destroy();
+            play.mockRestore();
+            pause.mockRestore();
+            vi.useRealTimers();
+        }
+    });
+
     it('reuses the Safari-authorized media element after hover closes and opens again', async () => {
         let authorizedAudio: HTMLMediaElement | undefined;
         const playedElements: HTMLMediaElement[] = [];

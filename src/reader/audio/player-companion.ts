@@ -29,6 +29,8 @@ class DisabledAudioPlayer {
 
     stop(): void {}
 
+    destroy(): void {}
+
     playJapaneseText(): Promise<void> {
         return Promise.resolve();
     }

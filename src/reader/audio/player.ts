@@ -485,6 +485,14 @@ export class AudioPlayer {
         this.stopCurrent();
     }
 
+    destroy(): void {
+        this.playRequestId++;
+        this.releaseGestureReservation();
+        this.stopCurrent();
+        this.reusableGestureAudio = undefined;
+        this.clearCaches();
+    }
+
     async playJapaneseText(text: string, voiceName = ''): Promise<void> {
         const settings = this.getSettings();
         const requestId = ++this.playRequestId;

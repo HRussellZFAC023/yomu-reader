@@ -2696,6 +2696,7 @@ export class ReaderApp {
         this.subtitles.destroy();
         this.youtube.destroy();
         this.anki.destroy?.();
+        this.audio.destroy?.();
         window.clearTimeout(this.autoScanTimer);
         this.autoScanForced = false;
         window.clearTimeout(this.asbScanTimer);
