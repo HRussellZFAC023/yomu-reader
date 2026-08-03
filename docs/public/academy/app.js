@@ -375421,7 +375421,7 @@ ${rank2.detail}` : baseTitle;
       this.factoryReset.destroy();
       this.newTab?.destroy();
       this.anki.destroy?.();
-      this.audio.destroy();
+      this.audio.destroy?.();
       this.jpdbReviewBridge.close();
       this.dictionaryStyles.remove();
       this.parseContentCache.clear();
