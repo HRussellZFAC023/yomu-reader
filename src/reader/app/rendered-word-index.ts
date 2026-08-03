@@ -179,7 +179,9 @@ export class RenderedWordIndex {
                 }
                 if (!words.size) this.entries.delete(key);
             }
-            if (this.entries.size) this.schedulePrune();
+            // Future registrations schedule the next sweep. Connected words
+            // alone must not keep a perpetual 30-second wake-up alive on every
+            // quiet page where Yomu has annotated anything.
         }, RENDERED_WORD_INDEX_PRUNE_DELAY_MS);
     }
 }

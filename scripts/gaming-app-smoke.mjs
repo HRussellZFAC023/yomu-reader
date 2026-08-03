@@ -592,24 +592,8 @@ async function assertInlineOcrResult(overlay, label) {
         '[data-ocr-line] .jpdb-reader-word[data-expression="冒険"][data-surface="冒険"]'
         + '[data-pitch-class]:not([data-pitch-class="unknown"])',
     ).first().waitFor({ state: 'attached', timeout: 15_000 });
-    const readingPaint = await annotatedTerm.evaluate(node => ({
-        hasFuriganaClass: node.classList.contains('jpdb-reader-has-furi'),
-        reading: [...node.querySelectorAll('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')]
-            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
-            .join(''),
-        lineHasFurigana: node.closest('.jpdb-ocr-line')?.getAttribute('data-has-furi') || '',
-        pitchClass: node.getAttribute('data-pitch-class') || '',
-        pitchAccent: node.getAttribute('data-pitch-accent') || '',
-    }));
-    if (
-        !readingPaint.hasFuriganaClass
-        || !readingPaint.reading.trim()
-        || readingPaint.lineHasFurigana !== 'true'
-        || !readingPaint.pitchClass
-        || readingPaint.pitchClass === 'unknown'
-    ) {
-        throw new Error(`Yomu Gaming ${label} did not retain its deferred OCR reading/pitch: ${JSON.stringify(readingPaint)}`);
-    }
+    const readingPaint = await readOcrReadingPaint(annotatedTerm);
+    assertOcrReadingPaint(readingPaint, label, 'before activation');
     console.log(`[gaming-smoke] ${label} OCR reading paint: ${JSON.stringify(readingPaint)}`);
     await annotatedTerm.click({ force: true });
     let popoverOpened = false;
@@ -623,6 +607,15 @@ async function assertInlineOcrResult(overlay, label) {
     }
     if (!popoverOpened) {
         throw new Error(`Yomu Gaming ${label} did not open the real Yomu popover from inline OCR text.`);
+    }
+    const activatedReadingPaint = await readOcrReadingPaint(annotatedTerm);
+    assertOcrReadingPaint(activatedReadingPaint, label, 'after click activation');
+    if (activatedReadingPaint.reading !== readingPaint.reading
+        || activatedReadingPaint.pitchClass !== readingPaint.pitchClass) {
+        throw new Error(`Yomu Gaming ${label} changed OCR reading/pitch during click activation: ${JSON.stringify({
+            before: readingPaint,
+            after: activatedReadingPaint,
+        })}`);
     }
     // Vertical line renders as an upright vertical column (writing-mode), not a clipped pill.
     const verticalLine = overlay.locator('[data-ocr-line][data-vertical="true"]').first();
@@ -642,6 +635,29 @@ async function assertInlineOcrResult(overlay, label) {
         throw new Error(`Yomu Gaming ${label} inline OCR geometry was not visible: ${JSON.stringify(lineBox)}`);
     }
     await assertOcrLineRegister(overlay, label);
+}
+
+async function readOcrReadingPaint(annotatedTerm) {
+    return await annotatedTerm.evaluate(node => ({
+        hasFuriganaClass: node.classList.contains('jpdb-reader-has-furi'),
+        reading: [...node.querySelectorAll('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')]
+            .map(element => element.getAttribute('data-yomu-ocr-visual-text') || '')
+            .join(''),
+        lineHasFurigana: node.closest('.jpdb-ocr-line')?.getAttribute('data-has-furi') || '',
+        pitchClass: node.getAttribute('data-pitch-class') || '',
+        pitchAccent: node.getAttribute('data-pitch-accent') || '',
+    }));
+}
+
+function assertOcrReadingPaint(readingPaint, label, phase) {
+    if (
+        readingPaint.hasFuriganaClass
+        && readingPaint.reading.trim()
+        && readingPaint.lineHasFurigana === 'true'
+        && readingPaint.pitchClass
+        && readingPaint.pitchClass !== 'unknown'
+    ) return;
+    throw new Error(`Yomu Gaming ${label} did not retain its deferred OCR reading/pitch ${phase}: ${JSON.stringify(readingPaint)}`);
 }
 
 // The point of the whole exercise: the recognized line has to sit ON the text it was read

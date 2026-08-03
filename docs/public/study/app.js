@@ -56277,6 +56277,36 @@ ${spelling}`);
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
+  class OcrWordRenderStateRegistry {
+    states = /* @__PURE__ */ new WeakMap();
+    rememberLine(line, tokens) {
+      const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
+      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
+        const token = tokensByKey.get(ocrRenderedWordKey(word));
+        if (!token) return;
+        this.states.set(word, {
+          surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || "",
+          token
+        });
+      });
+    }
+    get(word) {
+      return this.states.get(word);
+    }
+    reconcile(word, card, pitchClass) {
+      const state2 = this.states.get(word);
+      if (!state2) return;
+      const renderedState = word.dataset.cardState?.trim();
+      state2.token.card = renderedState && !card.cardState.includes(renderedState) ? { ...card, cardState: [renderedState] } : card;
+      state2.token.pitchClass = pitchClass;
+    }
+  }
+  function ocrTokenRenderKey(token) {
+    return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
+  }
+  function ocrRenderedWordKey(word) {
+    return `${word.dataset.tokenStart ?? ""}:${word.dataset.tokenEnd ?? ""}:${word.dataset.vid ?? ""}:${word.dataset.sid ?? ""}`;
+  }
   function isTerminalOcrStatus(status) {
     return status === "empty" || status === "failed";
   }
@@ -56474,7 +56504,7 @@ ${spelling}`);
     readerRasterProviderRetryTimers = /* @__PURE__ */ new Map();
     // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
     canvasTapRecapture = /* @__PURE__ */ new Map();
-    ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
+    ocrWordRenderStates = new OcrWordRenderStateRegistry();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     replacementOcrLines = /* @__PURE__ */ new WeakMap();
     lookupLineLeases = /* @__PURE__ */ new Map();
@@ -58887,15 +58917,10 @@ ${spelling}`);
       }
     }
     rememberOcrWordRenderStates(line, tokens) {
-      const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
-      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-        const token = tokensByKey.get(ocrRenderedWordKey(word));
-        if (!token) return;
-        this.ocrWordRenderStates.set(word, {
-          surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || "",
-          token
-        });
-      });
+      this.ocrWordRenderStates.rememberLine(line, tokens);
+    }
+    reconcileRenderedWordVocabulary(word, card, pitchClass) {
+      this.ocrWordRenderStates.reconcile(word, card, pitchClass);
     }
     activateOcrLineMarkup(state2, line) {
       if (this.activateOcrMarkup(line)) this.positionState(state2.image);
@@ -59210,12 +59235,6 @@ ${reading}`);
     setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml$2(line.text));
     normalizeOcrRenderedText(textElement, isPopupLookupEnabled(settings));
     return textElement;
-  }
-  function ocrTokenRenderKey(token) {
-    return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
-  }
-  function ocrRenderedWordKey(word) {
-    return `${word.dataset.tokenStart ?? ""}:${word.dataset.tokenEnd ?? ""}:${word.dataset.vid ?? ""}:${word.dataset.sid ?? ""}`;
   }
   function ocrSafePitchClass(pitchClass) {
     const normalized = pitchClass?.trim() ?? "";

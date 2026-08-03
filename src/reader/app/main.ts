@@ -10088,6 +10088,7 @@ export class ReaderApp {
         setRenderedWordCardIdentity(word, card, { pitchPolicy: showPitch ? 'replace' : 'clear' });
         this.registerRenderedWord(word);
         const furiganaChanged = applyPublicVocabularyFurigana(word, card, this.settings);
+        this.ocr.reconcileRenderedWordVocabulary(word, card, word.dataset.pitchClass ?? '');
         this.recoverMisalignedPublicVocabularyWord(word, card);
         return furiganaChanged;
     }

@@ -107,6 +107,7 @@ import { fallbackJapaneseSegments } from '../lookup/parser';
 import type { ReaderParserParseOptions } from '../lookup/parser';
 import { stableHashBase36, stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import { OcrWordRenderStateRegistry } from './word-render-state';
 
 type OcrVideoFrameStatus = 'loading' | 'ready' | 'empty' | 'failed';
 
@@ -169,11 +170,6 @@ interface OcrControllerOptions {
     captureCanvasMirror?: typeof captureCanvasMirror;
     /** Test seam: lowers the 30-second OCR attempt floor so timeout paths run fast. */
     ocrAttemptTimeoutFloorMs?: number;
-}
-
-interface OcrWordRenderState {
-    surface: string;
-    token: JPDBToken;
 }
 
 interface OcrLookupLineLease {
@@ -433,7 +429,7 @@ export class ImageOcrController {
     private readonly readerRasterProviderRetryTimers = new Map<string, number>();
     // Bounded tap-mode retries survive late repaint/signature churn without enabling auto-OCR.
     private readonly canvasTapRecapture = new Map<HTMLCanvasElement, number>();
-    private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
+    private readonly ocrWordRenderStates = new OcrWordRenderStateRegistry();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private readonly replacementOcrLines = new WeakMap<HTMLElement, HTMLElement>();
     private readonly lookupLineLeases = new Map<HTMLElement, Set<OcrLookupLineLease>>();
@@ -3426,15 +3422,11 @@ export class ImageOcrController {
     }
 
     private rememberOcrWordRenderStates(line: HTMLElement, tokens: JPDBToken[]): void {
-        const tokensByKey = new Map(tokens.map(token => [ocrTokenRenderKey(token), token]));
-        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
-            const token = tokensByKey.get(ocrRenderedWordKey(word));
-            if (!token) return;
-            this.ocrWordRenderStates.set(word, {
-                surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || '',
-                token,
-            });
-        });
+        this.ocrWordRenderStates.rememberLine(line, tokens);
+    }
+
+    reconcileRenderedWordVocabulary(word: HTMLElement, card: JPDBCard, pitchClass: string): void {
+        this.ocrWordRenderStates.reconcile(word, card, pitchClass);
     }
 
     private activateOcrLineMarkup(state: ImageState, line: HTMLElement): void {
@@ -3826,14 +3818,6 @@ function createOcrLineText(line: OcrLine, tokens: JPDBToken[], settings: ReaderS
     setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
     normalizeOcrRenderedText(textElement, isPopupLookupEnabled(settings));
     return textElement;
-}
-
-function ocrTokenRenderKey(token: JPDBToken): string {
-    return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
-}
-
-function ocrRenderedWordKey(word: HTMLElement): string {
-    return `${word.dataset.tokenStart ?? ''}:${word.dataset.tokenEnd ?? ''}:${word.dataset.vid ?? ''}:${word.dataset.sid ?? ''}`;
 }
 
 function ocrSafePitchClass(pitchClass: string | undefined): string {

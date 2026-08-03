@@ -1,11 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
+import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
 import { captureCanvasMirror as captureRealCanvasMirror, mirrorContentTokenForRecords } from '../../src/reader/ocr/canvas-mirror';
 import type { MirrorGlobalState, MirrorRecord } from '../../src/reader/ocr/canvas-mirror';
 import { testEnSettings } from './helpers/settings-fixture';
-import type { ReaderSettings } from '../../src/reader/app/types';
+import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import { setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../../src/reader/dom/rendered-word-state';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
 import { ocrTargetCacheKey } from '../../src/reader/ocr/target-context';
 import { waitForExpect } from './test-utils';
@@ -198,6 +200,99 @@ describe('OCR transform controller wiring', () => {
             onToast: vi.fn(),
         });
     }
+
+    it('keeps late canonical furigana and pitch through OCR interaction reactivation', () => {
+        const settings: ReaderSettings = {
+            ...testEnSettings(),
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+        };
+        const controller = new ImageOcrController({
+            getSettings: () => settings,
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+        });
+        const sparseCard: JPDBCard = {
+            vid: -1,
+            sid: -1,
+            rid: 0,
+            spelling: '日本語',
+            reading: '',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'fallback',
+            provisionalState: true,
+        };
+        const token: JPDBToken = {
+            card: sparseCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: 'unknown',
+            sentence: '日本語',
+        };
+        const result: OcrResult = {
+            width: 300,
+            height: 100,
+            lines: [{ text: '日本語', box: { left: 0, top: 0, width: 120, height: 40 }, vertical: false }],
+        };
+        const overlay = document.createElement('div');
+        const image = document.createElement('img');
+        const line = (controller as unknown as {
+            renderOcrLineElement(
+                state: { image: HTMLImageElement; overlay: HTMLElement },
+                result: OcrResult,
+                line: OcrResult['lines'][number],
+                tokens: JPDBToken[],
+                sentence: string,
+                showText: boolean,
+                settings: ReaderSettings,
+            ): HTMLElement;
+        }).renderOcrLineElement({ image, overlay }, result, result.lines[0]!, [token], '日本語', true, settings);
+        overlay.append(line);
+        document.body.append(overlay);
+        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const canonicalCard: JPDBCard = {
+            ...sparseCard,
+            vid: 501,
+            sid: 0,
+            jitenWordId: 501,
+            jitenReadingIndex: 0,
+            source: 'jiten',
+            spelling: '日本語',
+            reading: 'にほんご',
+            cardState: ['learning'],
+            pitchAccent: ['LHHH'],
+            provisionalState: false,
+        };
+
+        setRenderedWordPitchClass(word, 'heiban');
+        setRenderedWordCardIdentity(word, canonicalCard);
+        expect(applyPublicVocabularyFurigana(word, canonicalCard, settings)).toBe(true);
+        controller.reconcileRenderedWordVocabulary(word, canonicalCard, word.dataset.pitchClass ?? '');
+
+        for (const event of [
+            new Event('pointerenter'),
+            new FocusEvent('focusin', { bubbles: true }),
+            new MouseEvent('click', { bubbles: true }),
+        ]) {
+            line.dispatchEvent(event);
+            expect(word.dataset.vid).toBe('501');
+            expect(word.dataset.reading).toBe('にほんご');
+            expect(word.dataset.pitchClass).toBe('heiban');
+            expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(line.dataset.hasFuri).toBe('true');
+            expect([...word.querySelectorAll<HTMLElement>('.jpdb-ocr-furi [data-yomu-ocr-visual-text]')]
+                .map(element => element.dataset.yomuOcrVisualText ?? '').join('')).toBe('にほんご');
+        }
+    });
 
     it('keeps the Window receiver on the coalesced position frame in Firefox sandboxes', () => {
         const controller = bareController();

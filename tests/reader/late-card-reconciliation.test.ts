@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { AnkiLookupResult } from '../../src/reader/anki/index';
+import { RenderedWordIndex } from '../../src/reader/app/rendered-word-index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { ReaderApp } from '../../src/reader/app/main';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
@@ -389,6 +390,34 @@ describe('late canonical card reconciliation', () => {
             expect(internals.renderedWordIndex.size).toBe(0);
         } finally {
             app.destroy();
+        }
+    });
+
+    it('schedules index pruning from registrations without a perpetual heartbeat', async () => {
+        vi.useFakeTimers();
+        const index = new RenderedWordIndex({
+            isDestroyed: () => false,
+            annotationRoots: () => [document],
+        });
+        const root = document.createElement('p');
+        document.body.append(root);
+        const word = appendWord(lookupCard(1_500, '静か'), root, '静かなページ。');
+        const timeout = vi.spyOn(window, 'setTimeout');
+
+        try {
+            index.registerRoot(root);
+            expect(timeout.mock.calls.filter(([, delay]) => delay === 30_000)).toHaveLength(1);
+
+            await vi.advanceTimersByTimeAsync(30_000);
+
+            expect(index.entries.size).toBe(1);
+            expect(timeout.mock.calls.filter(([, delay]) => delay === 30_000)).toHaveLength(1);
+
+            index.register(word);
+            expect(timeout.mock.calls.filter(([, delay]) => delay === 30_000)).toHaveLength(2);
+        } finally {
+            index.clear();
+            timeout.mockRestore();
         }
     });
 

@@ -272,6 +272,7 @@ export function createNoopImageOcrController(): ImageOcrController {
         unpinLineForElement: noop,
         retainLineForLookup: () => undefined,
         captureSourceImageForElement: () => undefined,
+        reconcileRenderedWordVocabulary: noop,
     } as unknown as ImageOcrController;
 }
 

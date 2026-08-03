@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.3f58f702cf8a.user.js#sha256=P1j3As+KV+8phIgW5B6eN03YAo9OKSab3XpH+P6W5q4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.e922d9472e4f.user.js#sha256=6SLZRy5PuTEChsQvAVk6KGVu3npyfEwzp3oZ5c9kof8=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -34801,7 +34801,6 @@ if (!word.isConnected || renderedWordElementKey(word) !== key) words.delete(word
 }
 if (!words.size) this.entries.delete(key);
 }
-if (this.entries.size) this.schedulePrune();
 }, RENDERED_WORD_INDEX_PRUNE_DELAY_MS);
 }
 }
@@ -36734,7 +36733,8 @@ refreshForModeChange: noop2,
 pinLineForElement: noop2,
 unpinLineForElement: noop2,
 retainLineForLookup: () => void 0,
-captureSourceImageForElement: () => void 0
+captureSourceImageForElement: () => void 0,
+reconcileRenderedWordVocabulary: noop2
 };
 }
 function ocrModeToastKey(mode) {
@@ -44119,6 +44119,7 @@ this.applyPitchClassToRenderedSurface(word, showPitch ? pitchClass : "");
 setRenderedWordCardIdentity(word, card, { pitchPolicy: showPitch ? "replace" : "clear" });
 this.registerRenderedWord(word);
 const furiganaChanged = applyPublicVocabularyFurigana(word, card, this.settings);
+this.ocr.reconcileRenderedWordVocabulary(word, card, word.dataset.pitchClass ?? "");
 this.recoverMisalignedPublicVocabularyWord(word, card);
 return furiganaChanged;
 }
