@@ -288146,6 +288146,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       this.playRequestId++;
       this.stopCurrent();
     }
+    destroy() {
+      this.playRequestId++;
+      this.releaseGestureReservation();
+      this.stopCurrent();
+      this.reusableGestureAudio = void 0;
+      this.clearCaches();
+    }
     async playJapaneseText(text2, voiceName = "") {
       const settings = this.getSettings();
       const requestId = ++this.playRequestId;
@@ -375414,6 +375421,7 @@ ${rank2.detail}` : baseTitle;
       this.factoryReset.destroy();
       this.newTab?.destroy();
       this.anki.destroy?.();
+      this.audio.destroy();
       this.jpdbReviewBridge.close();
       this.dictionaryStyles.remove();
       this.parseContentCache.clear();

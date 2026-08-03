@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.cf7026ce6695.user.js#sha256=z3AmzmaVSh+ejoosBz5GvjqDHBFRwWgslVuKN60mS6A=
+// @require https://yomureader.com/greasyfork/yomu-runtime.516742644369.user.js#sha256=UWdCZENpGcNI8c5BmANzNSy0BBfUr2p5n8AJgvKvutA=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -14695,6 +14695,8 @@ preload() {
 return false;
 }
 stop() {
+}
+destroy() {
 }
 playJapaneseText() {
 return Promise.resolve();
@@ -38638,6 +38640,7 @@ this.ocr.destroy();
 this.subtitles.destroy();
 this.youtube.destroy();
 this.anki.destroy?.();
+this.audio.destroy?.();
 window.clearTimeout(this.autoScanTimer);
 this.autoScanForced = false;
 window.clearTimeout(this.asbScanTimer);

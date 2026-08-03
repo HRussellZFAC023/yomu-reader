@@ -10453,6 +10453,13 @@ class AudioPlayer {
   this.playRequestId++;
   this.stopCurrent();
   }
+  destroy() {
+  this.playRequestId++;
+  this.releaseGestureReservation();
+  this.stopCurrent();
+  this.reusableGestureAudio = void 0;
+  this.clearCaches();
+  }
   async playJapaneseText(text, voiceName = "") {
   const settings = this.getSettings();
   const requestId = ++this.playRequestId;

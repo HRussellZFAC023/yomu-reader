@@ -33133,6 +33133,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.playRequestId++;
       this.stopCurrent();
     }
+    destroy() {
+      this.playRequestId++;
+      this.releaseGestureReservation();
+      this.stopCurrent();
+      this.reusableGestureAudio = void 0;
+      this.clearCaches();
+    }
     async playJapaneseText(text2, voiceName = "") {
       const settings = this.getSettings();
       const requestId = ++this.playRequestId;
@@ -148154,6 +148161,7 @@ ${rank.detail}` : baseTitle;
       this.factoryReset.destroy();
       this.newTab?.destroy();
       this.anki.destroy?.();
+      this.audio.destroy();
       this.jpdbReviewBridge.close();
       this.dictionaryStyles.remove();
       this.parseContentCache.clear();
