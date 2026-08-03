@@ -502,8 +502,9 @@ function youtubeShell(body) {
     .playlist-row { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 14px; padding: 10px 28px; max-width: 560px; }
     .queue-panel { display: block; padding: 10px; border: 1px solid #333; border-radius: 10px; margin-top: 16px; }
     .queue-row { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
+    .queue-row .mini-thumb { width: 100px; min-height: 56px; }
     .queue-title { display: block; font-size: 14px; line-height: 1.35; overflow: hidden; height: 40px; max-height: 40px; color: #f1f1f1; text-decoration: none; }
-    .proof-status { position: sticky; top: 0; z-index: 10; padding: 12px 18px; background: #123d24; border-bottom: 2px solid #65d184; font-size: 14px; font-weight: 700; }
+    .proof-status { position: sticky; top: 0; z-index: 10; box-sizing: border-box; height: 44px; overflow: hidden; white-space: nowrap; padding: 12px 18px; background: #123d24; border-bottom: 2px solid #65d184; font-size: 14px; font-weight: 700; }
     .topbar { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 24px; background: #0f0f0f; }
     .chips { display: block; padding: 12px 26px 0; }
     #chips { display: flex; gap: 10px; }
@@ -563,7 +564,7 @@ async function routeProofPages(page) {
 }
 
 async function runProofAcrossScroll(page) {
-    let result = null;
+    const snapshots = [];
     const viewport = page.viewportSize() ?? { width: 1280, height: 900 };
     const scrollHeight = await page.evaluate(() => Math.max(
         document.body.scrollHeight,
@@ -577,10 +578,49 @@ async function runProofAcrossScroll(page) {
     for (const y of [...stops].sort((a, b) => a - b)) {
         await page.evaluate(scrollY => window.scrollTo(0, scrollY), y);
         await page.waitForTimeout(80);
-        result = await page.evaluate(options => window.__yomuRubyCoverageProof(options), { vocabulary });
+        const result = await page.evaluate(options => window.__yomuRubyCoverageProof(options), { vocabulary });
+        snapshots.push({ y, phase: 'outbound', result });
     }
     await page.evaluate(() => window.scrollTo(0, 0));
-    return result;
+    await page.waitForTimeout(80);
+    const returned = await page.evaluate(options => window.__yomuRubyCoverageProof(options), { vocabulary });
+    snapshots.push({ y: 0, phase: 'return', result: returned });
+    return mergeScrollProofSnapshots(snapshots);
+}
+
+function mergeScrollProofSnapshots(snapshots) {
+    const final = snapshots.at(-1)?.result ?? { failures: [], proofTargets: [] };
+    const targets = new Map();
+    const failures = [];
+    let targetTotal = 0;
+    for (const snapshot of snapshots) {
+        targetTotal = Math.max(targetTotal, snapshot.result.targetTotal ?? 0);
+        snapshot.result.failures.forEach(message => failures.push(`[${snapshot.phase} y=${snapshot.y}] ${message}`));
+        for (const target of snapshot.result.proofTargets) {
+            const previous = targets.get(target.targetId);
+            targets.set(target.targetId, {
+                ...target,
+                observations: (previous?.observations ?? 0) + 1,
+                observedScrollStops: [...(previous?.observedScrollStops ?? []), `${snapshot.phase}:${snapshot.y}`],
+            });
+        }
+    }
+    if (targets.size !== targetTotal) {
+        failures.push(`scroll proof observed ${targets.size} of ${targetTotal} fixture targets`);
+    }
+    return {
+        ...final,
+        pass: failures.length === 0,
+        failures,
+        proofTargets: [...targets.values()].sort((left, right) => Number(left.targetId) - Number(right.targetId)),
+        scrollSnapshots: snapshots.map(snapshot => ({
+            y: snapshot.y,
+            phase: snapshot.phase,
+            pass: snapshot.result.pass,
+            targetCount: snapshot.result.proofTargets.length,
+            failureCount: snapshot.result.failures.length,
+        })),
+    };
 }
 
 async function auditClipHoverMirrors(page) {
@@ -714,52 +754,84 @@ function proofCss() {
 
 function browserRunnerSource() {
     return `
+import './src/reader/companions/annotations.ts';
 import { collectScanTargets } from './src/reader/app/site-parsers.ts';
-import { applyTokensToScanTarget, makeRoomForRubyInCroppedRows, readerWordSurfaceText } from './src/reader/dom/index.ts';
+import {
+    applyTokensToScanTarget,
+    documentPortalReaderWordScopeForSource,
+    makeRoomForRubyInCroppedRows,
+    readerWordSurfaceText,
+} from './src/reader/dom/index.ts';
 import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
 
 const HAS_JAPANESE = /[\\u3040-\\u30ff\\u3400-\\u9fff]/u;
 const HAN_RE = /\\p{Script=Han}/u;
 const CONCRETE_PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka']);
+let proofInitialized = false;
+let proofTargetSnapshots = [];
+let proofRubyRoomAdjustments = 0;
+const proofAppliedScanParents = new WeakSet();
 
-window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
+window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     const vocabulary = [...options.vocabulary].sort((a, b) => b.surface.length - a.surface.length);
     document.documentElement.classList.add('jpdb-reader-word-underline-pitch', 'jpdb-reader-word-text-jpdb');
-    const targets = collectScanTargets(800, location.href).filter(target => HAS_JAPANESE.test(target.text));
-    const targetSnapshots = targets.map(target => {
-        markProofTargetScanFlags(target);
-        return {
-            text: target.text,
-            tokenSurfaces: tokensForText(target.text, vocabulary).map(token => token.card.spelling),
-            suppressRuby: target.suppressRuby === true,
-            passiveInteraction: target.passiveInteraction === true,
-            layoutSensitive: target.layoutSensitive === true,
-        };
+    const allProofTargets = Array.from(document.querySelectorAll('[data-proof-target]'));
+    allProofTargets.forEach((element, index) => {
+        element.dataset.proofTargetId = String(index);
     });
-
-    for (const target of targets) {
-        const tokens = tokensForText(target.text, vocabulary);
-        if (tokens.length) applyTokensToScanTarget(target, tokens, {
-            ...DEFAULT_SETTINGS,
-            furiganaMode: 'all',
-            wordTextColorSource: 'jpdb',
-            wordUnderlineColorSource: 'pitch',
-            wordHighlightColorSource: 'off',
+    // Mirror the visible-page scanner's scroll continuation without ever
+    // re-applying an already-rendered static fixture target. Newly revealed
+    // nodes may mount once; existing portals then have to survive and align
+    // through the production scroll scheduler on their own.
+    const targets = collectScanTargets(800, location.href, { skipMirroredHosts: proofInitialized })
+        .filter(target => HAS_JAPANESE.test(target.text))
+        .filter(target => !proofAppliedScanParents.has(target.parent));
+    if (targets.length) {
+        const snapshots = targets.map(target => {
+            markProofTargetScanFlags(target);
+            return {
+                text: target.text,
+                tokenSurfaces: tokensForText(target.text, vocabulary).map(token => token.card.spelling),
+                suppressRuby: target.suppressRuby === true,
+                passiveInteraction: target.passiveInteraction === true,
+                layoutSensitive: target.layoutSensitive === true,
+            };
         });
-    }
+        proofTargetSnapshots.push(...snapshots);
 
-    const rubyRoomAdjustments = makeRoomForRubyInCroppedRows(document);
+        for (const target of targets) {
+            const tokens = tokensForText(target.text, vocabulary);
+            if (tokens.length) applyTokensToScanTarget(target, tokens, {
+                ...DEFAULT_SETTINGS,
+                furiganaMode: 'all',
+                wordTextColorSource: 'jpdb',
+                wordUnderlineColorSource: 'pitch',
+                wordHighlightColorSource: 'off',
+            });
+            proofAppliedScanParents.add(target.parent);
+        }
+
+        proofRubyRoomAdjustments += makeRoomForRubyInCroppedRows(document);
+        // The production mount path owns its coalesced post-paint projection.
+        // A lane reservation can deliberately defer exact projection by one
+        // frame and the overlay owns a following coalesced paint. Let those
+        // production callbacks settle; do not invoke either writer directly.
+        await settleProductionProjection();
+    }
+    proofInitialized = true;
     const proofTargets = visibleProofTargets().map(element => auditProofTarget(element, vocabulary));
-    const hiddenFeedback = auditHiddenFeedback(targetSnapshots);
-    const nativeCaptions = auditNativeCaptionOverlays(targetSnapshots);
+    const hiddenFeedback = auditHiddenFeedback(proofTargetSnapshots);
+    const nativeCaptions = auditNativeCaptionOverlays(proofTargetSnapshots);
+    const projectedReadingInventory = auditProjectedReadingInventory();
     const renderedWords = renderedWordDetails(document.body);
     const failures = [
         ...proofTargets.flatMap(target => target.failures.map(message => target.label + ': ' + message)),
         ...hiddenFeedback.failures,
         ...nativeCaptions.failures,
+        ...projectedReadingInventory.failures,
     ];
     if (!proofTargets.length) failures.push('no visible proof targets found');
-    if (targetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
+    if (proofTargetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
         failures.push('a visible Japanese scan target had no JPDB-shaped token match');
     }
     if (renderedWords.some(word => (word.requiresRuby && !word.hasRuby && !word.rubySuppressed) || word.source !== 'jpdb' || !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) {
@@ -781,14 +853,24 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
     return {
         pass,
         failures,
-        rubyRoomAdjustments,
-        scanTargets: targetSnapshots,
+        rubyRoomAdjustments: proofRubyRoomAdjustments,
+        targetTotal: allProofTargets.length,
+        scanTargets: proofTargetSnapshots,
         proofTargets,
         hiddenFeedback,
         nativeCaptions,
+        projectedReadingInventory,
         renderedWords,
     };
 };
+
+function nextPaint() {
+    return new Promise(resolve => requestAnimationFrame(() => resolve()));
+}
+
+async function settleProductionProjection() {
+    for (let frame = 0; frame < 4; frame += 1) await nextPaint();
+}
 
 function markProofTargetScanFlags(target) {
     const root = target.parent?.closest?.('[data-proof-target]');
@@ -852,17 +934,24 @@ function visibleProofTargets() {
 function auditProofTarget(element, vocabulary) {
     const label = element.getAttribute('data-proof-text') || compactText(element.textContent || '');
     const expectedSurfaces = tokensForText(label, vocabulary).map(token => token.card.spelling);
+    // Source-preserving prose and page-owned chrome deliberately mount their
+    // reader words in a body portal, outside the framework-owned source DOM.
+    // Audit the registered source scope instead of mistaking that ownership
+    // boundary for missing annotation coverage.
+    const wordScope = documentPortalReaderWordScopeForSource(element) ?? element;
+    const portalScopeMatchesTarget = wordScope === element
+        || compactText(wordScope.dataset.sourceText || '') === compactText(element.textContent || '');
     // Audit every word inside an admitted visible target. Words on a later
     // native-clamped line can have no painted box yet still need complete
     // metadata for a later reveal or reflow.
-    const words = renderedWordDetails(element, true);
+    const words = renderedWordDetails(wordScope, true);
     const failures = [];
     const missingSurfaces = missingExpectedSurfaces(expectedSurfaces, words.map(word => word.surface));
     const clipped = isBoxClipped(element);
     const rubyOutOfBounds = outOfBoundsRubyCount(element);
     const uncoveredKanji = uncoveredKanjiForText(label, words.map(word => word.surface));
     const expectedClipInvariant = element.getAttribute('data-proof-expect-clip-invariant') === 'true';
-    const clipMirror = clipHoverMirror(element);
+    const clipMirror = clipHoverMirror(wordScope);
     const clipConstrained = Boolean(
         clipMirror
         || element.matches('[data-yomu-clip-constrained="true"]')
@@ -875,15 +964,34 @@ function auditProofTarget(element, vocabulary) {
     const rubyRoomHeight = Number(element.dataset.yomuRubyRoomHeight || 0);
     const initialHeight = Number(element.dataset.proofInitialHeight || 0);
     const currentHeight = element.getBoundingClientRect().height;
-    const detachedReadings = Array.from(element.querySelectorAll('.jpdb-reader-detached-furi'));
+    const detachedReadings = Array.from(wordScope.querySelectorAll('.jpdb-reader-detached-furi'));
     const detachedReadingCount = detachedReadings.length;
-    const detachedReadingClipped = detachedReadings.some(isReadingClipped);
+    const expectedProjectedReadingSources = detachedReadings.filter(detachedReadingNeedsProjection);
+    const projectedReadingAssociations = associateProjectedReadings(expectedProjectedReadingSources, element);
+    const associatedSources = new Set(projectedReadingAssociations.map(association => association.source));
+    const missingProjectedReadings = expectedProjectedReadingSources.filter(source => !associatedSources.has(source));
+    const missingProjectedReadingCount = missingProjectedReadings.length;
+    const projectedReadingMisaligned = projectedReadingAssociations.some(association => (
+        // The crowding solver may nudge an edge reading a few pixels so two
+        // adjacent kana labels remain legible; the source stamp and baseline
+        // still have to stay exact.
+        Math.abs(association.centerDelta) > 3
+        || Math.abs(association.baselineDelta) > 1
+        || !association.sourceStampMatchesBase
+        || !association.sourceStampIntersectsTarget
+    ));
+    const detachedReadingClipped = projectedReadingAssociations.some(association => association.clipped);
+    const projectedReadingsComplete = expectedProjectedReadingSources.length > 0
+        && missingProjectedReadingCount === 0
+        && !projectedReadingMisaligned
+        && !detachedReadingClipped;
     // A native line clamp intentionally clips paint outside its authored box.
-    // The detached-reading contract for that surface is structural: preserve
-    // every reading for reveal/reflow and keep it out of line layout. Compact
-    // controls with genuine spare leading are covered separately by the chip
-    // fidelity proof, which requires their readings to be painted unclipped.
+    // A layout-neutral portal only satisfies that contract when its visible
+    // source ranges have live, aligned, unclipped projected readings. Merely
+    // retaining hidden source spans would let disappeared-but-clickable
+    // furigana pass this release proof.
     const layoutNeutralDetached = detachedReadingCount > 0
+        && projectedReadingsComplete
         && (initialHeight <= 0 || currentHeight <= initialHeight + 1);
     const clipMirrorHiddenAtRest = !clipMirror || getComputedStyle(clipMirror).visibility === 'hidden';
     const nativeHostVisibleAtRest = !clipMirror || Boolean(clipMirror.parentElement && isVisibleElement(clipMirror.parentElement));
@@ -898,12 +1006,16 @@ function auditProofTarget(element, vocabulary) {
     const rubySuppressed = scanSuppressRuby || renderedSuppressRuby;
 
     if (!expectedSurfaces.length) failures.push('no expected JPDB token surfaces for proof text');
+    if (!portalScopeMatchesTarget) failures.push('resolved portal scope belongs to a broader native source');
     if (!words.length) failures.push('no rendered reader words');
     if (missingSurfaces.length) failures.push('missing rendered surfaces: ' + missingSurfaces.join(', '));
     if (!rubySuppressed && words.some(word => word.requiresRuby && !word.hasRuby)) failures.push('kanji-bearing rendered word without furigana');
     if (words.some(word => word.source !== 'jpdb')) failures.push('rendered word without JPDB source metadata');
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
+    if (missingProjectedReadingCount) failures.push(missingProjectedReadingCount + ' visible detached readings have no painted projection');
+    if (projectedReadingMisaligned) failures.push('a projected reading is misaligned with its native source range');
+    if (detachedReadingClipped) failures.push('a projected reading is clipped by its paint layer');
     if (clipped && !rubySuppressed && !clipConstrained && !layoutNeutralDetached) {
         // Environment-sensitive (font metrics decide wrap); carry the numbers
         // so a CI-only failure is diagnosable from the log alone.
@@ -937,15 +1049,20 @@ function auditProofTarget(element, vocabulary) {
             + JSON.stringify({ currentHeight, clipMirrorMaxHeight }));
     }
     if (element.getAttribute('data-proof-expect-at-rest-decoration') === 'true') {
-        const wordElements = Array.from(element.querySelectorAll('.jpdb-reader-word')).filter(isVisibleElement);
+        const wordElements = Array.from(wordScope.querySelectorAll('.jpdb-reader-word')).filter(wordElement => (
+            isVisibleElement(wordElement)
+            || Array.from(wordElement.querySelectorAll('.jpdb-reader-source-fragment')).some(isVisibleElement)
+        ));
         const bare = wordElements.filter(wordElement => !hasAtRestDecoration(wordElement));
         if (!wordElements.length || bare.length) failures.push('chrome word missing at-rest underline decoration (carve-out regressed)');
     }
 
     return {
+        targetId: element.dataset.proofTargetId || '',
         label,
         text: compactText(element.textContent || ''),
         expectedSurfaces,
+        portalScopeMatchesTarget,
         wordCount: words.length,
         rubyWordCount: words.filter(word => word.hasRuby).length,
         jpdbWordCount: words.filter(word => word.source === 'jpdb').length,
@@ -962,8 +1079,36 @@ function auditProofTarget(element, vocabulary) {
         clipMirrorMaxHeight,
         initialHeight,
         currentHeight,
+        targetRect: rectSnapshot(element.getBoundingClientRect()),
         detachedReadingCount,
+        expectedProjectedReadingCount: expectedProjectedReadingSources.length,
+        projectedReadingCount: projectedReadingAssociations.length,
+        missingProjectedReadingCount,
+        missingProjectedReadings: missingProjectedReadings.map(source => {
+            const word = source.closest('.jpdb-reader-word');
+            const base = source.closest('.jpdb-reader-detached-ruby') || word;
+            return {
+                reading: source.textContent || '',
+                surface: word?.dataset.expression || word?.dataset.surface || '',
+                baseRect: base ? rectSnapshot(base.getBoundingClientRect()) : null,
+                sourceFragments: word
+                    ? Array.from(word.querySelectorAll('.jpdb-reader-source-fragment'))
+                        .map(fragment => rectSnapshot(fragment.getBoundingClientRect()))
+                    : [],
+                candidates: projectedReadingCandidates(source).map(projectedReadingCandidateDetails),
+            };
+        }),
+        projectedReadingMisaligned,
         detachedReadingClipped,
+        projectedReadings: projectedReadingAssociations.map(association => ({
+            reading: association.reading,
+            surface: association.surface,
+            centerDelta: association.centerDelta,
+            baselineDelta: association.baselineDelta,
+            sourceStampMatchesBase: association.sourceStampMatchesBase,
+            sourceStampIntersectsTarget: association.sourceStampIntersectsTarget,
+            clipped: association.clipped,
+        })),
         layoutNeutralDetached,
         scanSuppressRuby,
         renderedSuppressRuby,
@@ -981,18 +1126,211 @@ function isVisibleProofTarget(element) {
         || Boolean(Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(isViewportVisibleElement));
 }
 
+function detachedReadingNeedsProjection(reading) {
+    const word = reading.closest('.jpdb-reader-word');
+    if (!word) return false;
+    const fragments = Array.from(word.querySelectorAll('.jpdb-reader-source-fragment'));
+    if (fragments.length) return fragments.some(isViewportVisibleElement);
+    return isViewportVisibleElement(word);
+}
+
+function associateProjectedReadings(sources, target) {
+    const targetRect = target.getBoundingClientRect();
+    const available = new Set(
+        Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
+            .filter(isPaintedProjectedReading),
+    );
+    const associations = [];
+    for (const source of sources) {
+        const base = source.closest('.jpdb-reader-detached-ruby')
+            || source.closest('.jpdb-reader-word');
+        const word = source.closest('.jpdb-reader-word');
+        if (!base || !word) continue;
+        const surface = word.dataset.expression || word.dataset.surface || '';
+        const baseRect = base.getBoundingClientRect();
+        const candidates = Array.from(available)
+            .filter(clone => clone.textContent === source.textContent)
+            .filter(clone => !surface || clone.dataset.yomuExpression === surface)
+            .map(clone => {
+                const rect = clone.getBoundingClientRect();
+                return {
+                    clone,
+                    score: Math.abs((rect.left + rect.right - baseRect.left - baseRect.right) / 2)
+                        + Math.abs(rect.bottom - baseRect.top),
+                };
+            })
+            .sort((left, right) => left.score - right.score);
+        const clone = candidates[0]?.clone;
+        if (!clone) continue;
+        available.delete(clone);
+        const cloneRect = clone.getBoundingClientRect();
+        const sourceStamp = {
+            left: Number(clone.dataset.yomuSourceLeft),
+            top: Number(clone.dataset.yomuSourceTop),
+            width: Number(clone.dataset.yomuSourceWidth),
+            height: Number(clone.dataset.yomuSourceHeight),
+        };
+        const sourceStampIntersectsTarget = Object.values(sourceStamp).every(Number.isFinite)
+            && sourceStamp.width > 0
+            && sourceStamp.height > 0
+            && sourceStamp.left < targetRect.right + 0.5
+            && sourceStamp.left + sourceStamp.width > targetRect.left - 0.5
+            && sourceStamp.top < targetRect.bottom + 0.5
+            && sourceStamp.top + sourceStamp.height > targetRect.top - 0.5;
+        const sourceStampMatchesBase = Object.values(sourceStamp).every(Number.isFinite)
+            && Math.abs(sourceStamp.left + sourceStamp.width / 2 - (baseRect.left + baseRect.right) / 2) <= 1
+            && Math.abs(sourceStamp.top - baseRect.top) <= 1
+            && Math.abs(sourceStamp.width - baseRect.width) <= 1
+            && Math.abs(sourceStamp.height - baseRect.height) <= 1;
+        associations.push({
+            source,
+            clone,
+            reading: source.textContent || '',
+            surface,
+            centerDelta: (cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2,
+            baselineDelta: cloneRect.bottom - baseRect.top,
+            sourceStampMatchesBase,
+            sourceStampIntersectsTarget,
+            clipped: isReadingClipped(clone),
+        });
+    }
+    return associations;
+}
+
+function auditProjectedReadingInventory() {
+    const clones = Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
+        .filter(isPaintedProjectedReading);
+    const availableSources = new Set(document.querySelectorAll('.jpdb-reader-detached-furi'));
+    const orphaned = [];
+    const mispainted = [];
+    for (const clone of clones) {
+        const source = Array.from(availableSources)
+            .find(candidate => projectedReadingCloneMatchesSource(clone, candidate));
+        if (!source) {
+            orphaned.push(clone);
+            continue;
+        }
+        // Projection is a one-source/one-clone contract. Consuming the source
+        // means a duplicate stale clone cannot borrow the same live source and
+        // disappear from this inventory.
+        availableSources.delete(source);
+        if (!projectedReadingClonePaintMatchesSource(clone, source)) mispainted.push(clone);
+    }
+    const failures = [];
+    if (orphaned.length) failures.push(orphaned.length + ' painted projected readings have no live source');
+    if (mispainted.length) failures.push(mispainted.length + ' projected readings paint away from their live source');
+    return {
+        painted: clones.length,
+        orphaned: orphaned.map(projectedReadingCandidateDetails),
+        mispainted: mispainted.map(projectedReadingCandidateDetails),
+        failures,
+    };
+}
+
+function projectedReadingCandidates(source) {
+    const word = source.closest('.jpdb-reader-word');
+    const surface = word?.dataset.expression || word?.dataset.surface || '';
+    return Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
+        .filter(clone => clone.textContent === source.textContent)
+        .filter(clone => !surface || clone.dataset.yomuExpression === surface);
+}
+
+function projectedReadingCloneMatchesSource(clone, source) {
+    const word = source.closest('.jpdb-reader-word');
+    const surface = word?.dataset.expression || word?.dataset.surface || '';
+    if (clone.textContent !== source.textContent) return false;
+    if (surface && clone.dataset.yomuExpression !== surface) return false;
+    const base = source.closest('.jpdb-reader-detached-ruby')
+        || source.closest('.jpdb-reader-word');
+    if (!base) return false;
+    const baseRect = base.getBoundingClientRect();
+    const left = Number(clone.dataset.yomuSourceLeft);
+    const top = Number(clone.dataset.yomuSourceTop);
+    const width = Number(clone.dataset.yomuSourceWidth);
+    const height = Number(clone.dataset.yomuSourceHeight);
+    return [left, top, width, height].every(Number.isFinite)
+        && width > 0
+        && height > 0
+        && Math.abs(left + width / 2 - (baseRect.left + baseRect.right) / 2) <= 1
+        && Math.abs(top - baseRect.top) <= 1
+        && Math.abs(width - baseRect.width) <= 1
+        && Math.abs(height - baseRect.height) <= 1;
+}
+
+function projectedReadingClonePaintMatchesSource(clone, source) {
+    const base = source.closest('.jpdb-reader-detached-ruby')
+        || source.closest('.jpdb-reader-word');
+    if (!base) return false;
+    const baseRect = base.getBoundingClientRect();
+    const cloneRect = clone.getBoundingClientRect();
+    return Math.abs((cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2) <= 3
+        && Math.abs(cloneRect.bottom - baseRect.top) <= 1
+        && !isReadingClipped(clone);
+}
+
+function projectedReadingCandidateDetails(clone) {
+    const style = getComputedStyle(clone);
+    return {
+        reading: clone.textContent || '',
+        surface: clone.dataset.yomuExpression || '',
+        rect: rectSnapshot(clone.getBoundingClientRect()),
+        sourceStamp: {
+            left: Number(clone.dataset.yomuSourceLeft),
+            top: Number(clone.dataset.yomuSourceTop),
+            width: Number(clone.dataset.yomuSourceWidth),
+            height: Number(clone.dataset.yomuSourceHeight),
+        },
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+        color: style.color,
+        textFillColor: style.webkitTextFillColor,
+        painted: isPaintedProjectedReading(clone),
+    };
+}
+
+function isPaintedProjectedReading(element) {
+    if (!isViewportVisibleElement(element)) return false;
+    const style = getComputedStyle(element);
+    return !isTransparentColor(style.color)
+        && !isTransparentColor(style.webkitTextFillColor);
+}
+
 // Bare-until-hover suppression forces every decoration channel transparent, so
 // a carved-out chrome word must keep at least one visible at rest.
 function hasAtRestDecoration(wordElement) {
     const style = getComputedStyle(wordElement);
     const afterStyle = getComputedStyle(wordElement, '::after');
-    return !isTransparentColor(style.textDecorationColor)
-        || !isTransparentColor(afterStyle.borderBlockEndColor)
-        || !isTransparentColor(style.backgroundColor);
+    return (style.textDecorationLine.includes('underline') && !isTransparentColor(style.textDecorationColor))
+        || paintedPseudoUnderline(afterStyle)
+        || Array.from(wordElement.querySelectorAll('.jpdb-reader-source-fragment'))
+            .some(fragment => {
+                if (!isVisibleElement(fragment)) return false;
+                const fragmentAfterStyle = getComputedStyle(fragment, '::after');
+                return paintedPseudoUnderline(fragmentAfterStyle);
+            });
+}
+
+function paintedPseudoUnderline(style) {
+    if (style.content === 'none'
+        || style.visibility === 'hidden'
+        || Number(style.opacity || 1) <= 0.01) return false;
+    const borderPainted = Number.parseFloat(style.borderBlockEndWidth || '0') > 0
+        && style.borderBlockEndStyle !== 'none'
+        && !isTransparentColor(style.borderBlockEndColor);
+    const imageSize = Number.parseFloat((style.backgroundSize || '').split(/\\s+/u)[0] || '0');
+    const imagePainted = style.backgroundImage !== 'none'
+        && Number.isFinite(imageSize)
+        && imageSize > 0;
+    return borderPainted || imagePainted;
 }
 
 function isTransparentColor(value) {
-    return !value || value === 'transparent' || value === 'rgba(0, 0, 0, 0)';
+    const compact = String(value || '').replace(/\\s+/gu, '').toLowerCase();
+    return !compact
+        || compact === 'transparent'
+        || /^rgba\\([^)]*,0(?:\\.0+)?\\)$/u.test(compact)
+        || /^#[0-9a-f]{6}00$/u.test(compact);
 }
 
 function visibleTextMirror(element) {
@@ -1167,6 +1505,10 @@ function outOfBoundsRubyCount(element) {
             || rubyRect.right > rect.right + 4
             || rubyRect.bottom > rect.bottom + 4;
     }).length;
+}
+
+function rectSnapshot(rect) {
+    return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height };
 }
 
 function isPotentialCropBox(element) {
