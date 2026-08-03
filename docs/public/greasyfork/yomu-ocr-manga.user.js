@@ -14831,8 +14831,10 @@ class OcrWordRenderStateRegistry {
   reconcile(word, card, pitchClass) {
   const state2 = this.states.get(word);
   if (!state2) return;
+  const previousReading = state2.token.card.reading;
   const renderedState = word.dataset.cardState?.trim();
   state2.token.card = renderedState && !card.cardState.includes(renderedState) ? { ...card, cardState: [renderedState] } : card;
+  if (previousReading !== state2.token.card.reading) state2.token.rubies = [];
   state2.token.pitchClass = pitchClass;
   }
 }
@@ -15377,14 +15379,13 @@ class ImageOcrController {
   if (!staleLine) return void 0;
   const line = this.currentOcrLine(staleLine);
   const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-  if (!state2) return void 0;
   const lease = { line };
   const leases = this.lookupLineLeases.get(line) ?? /* @__PURE__ */ new Set();
   leases.add(lease);
   this.lookupLineLeases.set(line, leases);
-  this.activateOcrLineMarkup(state2, line);
+  if (state2) this.activateOcrLineMarkup(state2, line);
   this.syncOcrLineActiveState(line);
-  this.schedulePosition();
+  if (state2) this.schedulePosition();
   let released = false;
   return () => {
     if (released) return;
@@ -15396,7 +15397,7 @@ class ImageOcrController {
     if (!current?.delete(lease)) return;
     if (current.size === 0) this.lookupLineLeases.delete(currentLine);
     this.syncOcrLineActiveState(currentLine);
-    this.schedulePosition();
+    if (state2) this.schedulePosition();
   };
   }
   ensureObserver(settings) {
@@ -16016,6 +16017,7 @@ class ImageOcrController {
       lease.line = void 0;
     });
     this.lookupLineLeases.delete(line);
+    this.syncOcrLineActiveState(line);
   }
   }
   renderNoOcrLines(state2) {

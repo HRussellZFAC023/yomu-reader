@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.e922d9472e4f.user.js#sha256=6SLZRy5PuTEChsQvAVk6KGVu3npyfEwzp3oZ5c9kof8=
+// @require https://yomureader.com/greasyfork/yomu-runtime.85930c13df0b.user.js#sha256=hZMME98LnDcNDGKbcDkIC0RcBnA9FwsphVIEOkHq8/U=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -34656,6 +34656,7 @@ const card = cards.find((candidate) => candidate.spelling === word.dataset.expre
 if (!card) continue;
 const root = this.dependencies.annotationRoot(word);
 if (applyPublicVocabularyFurigana(word, card, settings)) geometryRoots.add(root);
+this.dependencies.reconcileInteractiveVocabulary(word, card, word.dataset.pitchClass ?? "");
 }
 });
 if (!changedWords.length) return;
@@ -37224,6 +37225,7 @@ renderedWordsForCardStateRepaint: (card) => this.renderedWords.wordsForCardState
 resetRenderedWordRepaintCycle: () => this.renderedWords.resetRepaintCycle(),
 pauseMutationObserver: (callback) => this.pauseAutoScanObserver(callback),
 applyVocabulary: (word, card, pitchClass) => this.applyPublicVocabularyToRenderedWord(word, card, pitchClass),
+reconcileInteractiveVocabulary: (word, card, pitchClass) => this.ocr.reconcileRenderedWordVocabulary(word, card, pitchClass),
 annotationRoot: (word) => this.lateAnnotationRootForRenderedWord(word),
 scheduleAnnotationRefresh: (roots, geometryRoots) => this.pageScanner.scheduleLateAnnotationRefresh(roots, geometryRoots),
 registerRenderedRoot: (root) => this.registerRenderedWordsInRoot(root),
