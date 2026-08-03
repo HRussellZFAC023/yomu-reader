@@ -99,6 +99,27 @@ describe('projected reading crowding', () => {
         clearProjectedReadings(owner);
     });
 
+    // The edge solver is allowed to move a long reading by more than a small
+    // fixed pixel tolerance. Font metrics decide the exact amount; the stable
+    // contract is that the shifted paint still covers the centre of its own
+    // source and stays clear of the neighbouring annotation.
+    it('keeps a strongly shifted edge reading anchored to its source', () => {
+        const { owner, readings } = lane([
+            { reading: 'かいらく', rect: rect(100, 40, 20) },
+            { reading: 'あ', rect: rect(120, 40, 20) },
+        ]);
+
+        const [edge, neighbour] = readings.map(paintedSpan);
+        const sourceCentre = 110;
+        const paintedCentre = (edge.left + edge.right) / 2;
+        expect(Math.abs(paintedCentre - sourceCentre)).toBeGreaterThan(4);
+        expect(edge.left).toBeLessThanOrEqual(sourceCentre);
+        expect(edge.right).toBeGreaterThanOrEqual(sourceCentre);
+        expect(neighbour.left).toBeGreaterThanOrEqual(edge.right - 0.01);
+
+        clearProjectedReadings(owner);
+    });
+
     // 繁[しげ] 體[からだ] 中文[ちゅうぶん]: the middle reading is boxed in on both
     // sides, so there is nowhere to shift it to and it has to be condensed.
     it('condenses a reading boxed in by annotated neighbours on both sides', () => {

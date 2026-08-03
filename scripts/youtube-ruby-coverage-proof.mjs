@@ -803,7 +803,6 @@ import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
 const HAS_JAPANESE = /[\\u3040-\\u30ff\\u3400-\\u9fff]/u;
 const HAN_RE = /\\p{Script=Han}/u;
 const CONCRETE_PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka']);
-const PROJECTED_READING_CROWDING_TOLERANCE_PX = 4;
 let proofInitialized = false;
 let proofTargetSnapshots = [];
 let proofRubyRoomAdjustments = 0;
@@ -1017,11 +1016,13 @@ function auditProofTarget(element, vocabulary) {
     const missingProjectedReadings = expectedProjectedReadingSources.filter(source => !associatedSources.has(source));
     const missingProjectedReadingCount = missingProjectedReadings.length;
     const misalignedProjectedReadings = projectedReadingAssociations.filter(association => (
-        // The crowding solver may nudge an edge reading a few pixels so two
-        // adjacent kana labels remain legible. Four CSS pixels leaves one pixel
-        // of font/DPR headroom above the fixture's 3px solver edge while the
-        // source stamp and baseline still have to stay exact.
-        Math.abs(association.centerDelta) > PROJECTED_READING_CROWDING_TOLERANCE_PX
+        // The crowding solver intentionally shifts an edge reading when its
+        // natural-width kana would collide with the next annotation. The exact
+        // shift varies with the installed font, so a pixel delta is not a valid
+        // cross-platform oracle. The reading must still cover the centre of its
+        // own base while the source stamp and baseline remain exact.
+        !association.sourceCentreCovered
+        || !association.projectionTransformIntact
         || Math.abs(association.baselineDelta) > 1
         || !association.sourceStampMatchesBase
         || !association.sourceStampIntersectsTarget
@@ -1258,6 +1259,10 @@ function associateProjectedReadings(sources, target) {
             reading: source.textContent || '',
             surface,
             centerDelta: (cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2,
+            sourceCentreCovered: projectedReadingCoversSourceCentre(cloneRect, baseRect),
+            projectionTransformIntact: clone.style.getPropertyValue('transform')
+                .startsWith('translate(-50%, -100%)')
+                && clone.style.getPropertyPriority('transform') === 'important',
             baselineDelta: cloneRect.bottom - baseRect.top,
             sourceStampMatchesBase,
             sourceStampIntersectsTarget,
@@ -1272,6 +1277,8 @@ function projectedReadingAssociationDetails(association) {
         reading: association.reading,
         surface: association.surface,
         centerDelta: association.centerDelta,
+        sourceCentreCovered: association.sourceCentreCovered,
+        projectionTransformIntact: association.projectionTransformIntact,
         baselineDelta: association.baselineDelta,
         sourceStampMatchesBase: association.sourceStampMatchesBase,
         sourceStampIntersectsTarget: association.sourceStampIntersectsTarget,
@@ -1351,10 +1358,17 @@ function projectedReadingClonePaintMatchesSource(clone, source) {
     if (!base) return false;
     const baseRect = base.getBoundingClientRect();
     const cloneRect = clone.getBoundingClientRect();
-    return Math.abs((cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2)
-            <= PROJECTED_READING_CROWDING_TOLERANCE_PX
+    return projectedReadingCoversSourceCentre(cloneRect, baseRect)
+        && clone.style.getPropertyValue('transform').startsWith('translate(-50%, -100%)')
+        && clone.style.getPropertyPriority('transform') === 'important'
         && Math.abs(cloneRect.bottom - baseRect.top) <= 1
         && !isReadingClipped(clone);
+}
+
+function projectedReadingCoversSourceCentre(cloneRect, baseRect) {
+    const sourceCentre = (baseRect.left + baseRect.right) / 2;
+    return cloneRect.left <= sourceCentre + 0.5
+        && cloneRect.right >= sourceCentre - 0.5;
 }
 
 function projectedReadingCandidateDetails(clone) {
