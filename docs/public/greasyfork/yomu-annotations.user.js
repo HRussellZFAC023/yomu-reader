@@ -102,6 +102,7 @@ const PROJECTED_READING_MIN_SCALE_X = 0.55;
 function syncProjectedReadings(owner, projections) {
   const document2 = owner.ownerDocument;
   const overlay = documentOverlay(document2);
+  pruneDisconnectedRecords(overlay);
   const records = ownerRecords.get(owner) ?? /* @__PURE__ */ new Map();
   const currentSources = new Set(projections.map((projection) => projection.source));
   const context = {
@@ -140,6 +141,9 @@ function syncProjectedReadings(owner, projections) {
     untrackProjectionAnchor(record, overlay);
     record.anchor = projection.anchor;
     record.scrollContextEpoch = void 0;
+    record.cachedTopmost = void 0;
+    record.cachedOcclusionEpoch = void 0;
+    record.cachedOcclusionRect = void 0;
     trackProjectionAnchor(record, overlay);
   }
   record.measure = projection.measure;
@@ -164,6 +168,7 @@ function clearProjectedReadings(owner) {
   else record.clone.remove();
   }
   ownerRecords.delete(owner);
+  resetOcclusionBudgetIfEmpty(overlay);
 }
 function clearProjectedReadingsWithin(root) {
   const document2 = root instanceof Document ? root : root.ownerDocument;
@@ -175,6 +180,7 @@ function clearProjectedReadingsWithin(root) {
   unlinkRecord(record, overlay);
   cleared += 1;
   }
+  resetOcclusionBudgetIfEmpty(overlay);
   return cleared;
 }
 function pruneProjectedReadings(document2) {
@@ -215,6 +221,7 @@ function documentOverlay(document2) {
   hitTestBudgetRemaining: 12,
   refreshing: false,
   graceRefreshNeeded: false,
+  occlusionRefreshNeeded: false,
   scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
   scheduleScrollRefresh: (event) => {
     if (scrollMovedNoProjectedReading(event, overlay)) return;
@@ -348,23 +355,26 @@ function readProjectedReadingPaint(record, rect, context) {
   record.graceFramesRemaining = 3;
   let topmost;
   const overlay = context?.overlay;
-  if (overlay && record.cachedOcclusionEpoch === overlay.occlusionEpoch && record.cachedTopmost !== void 0) {
+  const occlusionGeometryMatches = sameProjectionRect(record.cachedOcclusionRect, valid);
+  if (overlay && occlusionGeometryMatches && record.cachedOcclusionEpoch === overlay.occlusionEpoch && record.cachedTopmost !== void 0) {
     topmost = record.cachedTopmost;
-  } else if (overlay && overlay.hitTestBudgetRemaining <= 0 && record.cachedTopmost !== void 0) {
-    topmost = record.cachedTopmost;
+  } else if (overlay && overlay.hitTestBudgetRemaining <= 0) {
+    topmost = record.cachedTopmost ?? false;
+    overlay.occlusionRefreshNeeded = true;
   } else {
     topmost = projectionIsTopmost(record, valid, context?.occludingPaint);
     if (overlay) {
       overlay.hitTestBudgetRemaining -= 1;
       record.cachedOcclusionEpoch = overlay.occlusionEpoch;
       record.cachedTopmost = topmost;
+      record.cachedOcclusionRect = rectFromEdges(valid.left, valid.top, valid.right, valid.bottom);
     }
   }
   visible = topmost;
   } else if (!valid && record.lastGoodRect && record.graceFramesRemaining && record.graceFramesRemaining > 0 && sourceAllowed && anchorVisible && Date.now() - (record.lastGoodAt ?? 0) <= PROJECTION_GRACE_MAX_AGE_MS) {
   record.graceFramesRemaining -= 1;
   effectiveRect = graceProjectionRect(record, context);
-  visible = record.cachedTopmost ?? true;
+  visible = record.cachedTopmost ?? false;
   if (context) context.overlay.graceRefreshNeeded = true;
   }
   return {
@@ -714,6 +724,7 @@ function refreshProjectedReadingPositions(overlay) {
 function runProjectionRefreshPass(overlay) {
   pruneDisconnectedRecords(overlay);
   overlay.hitTestBudgetRemaining = 12;
+  overlay.occlusionRefreshNeeded = false;
   overlay.documentLayerOrigin = null;
   if (overlay.rootsDirty) {
   overlay.rootsDirty = false;
@@ -742,12 +753,26 @@ function runProjectionRefreshPass(overlay) {
   overlay.graceRefreshNeeded = false;
   overlay.scheduleRefresh();
   }
+  if (overlay.occlusionRefreshNeeded) {
+  overlay.occlusionRefreshNeeded = false;
+  overlay.scheduleRefresh();
+  }
+}
+function sameProjectionRect(previous, current) {
+  if (!previous) return false;
+  return Math.abs(previous.left - current.left) <= 0.5 && Math.abs(previous.top - current.top) <= 0.5 && Math.abs(previous.width - current.width) <= 0.5 && Math.abs(previous.height - current.height) <= 0.5;
 }
 function pruneDisconnectedRecords(overlay) {
   for (const record of overlay.records) {
   if (record.owner.isConnected && record.source.isConnected) continue;
   unlinkRecord(record, overlay);
   }
+  resetOcclusionBudgetIfEmpty(overlay);
+}
+function resetOcclusionBudgetIfEmpty(overlay) {
+  if (!overlay || overlay.records.size) return;
+  overlay.hitTestBudgetRemaining = 12;
+  overlay.occlusionRefreshNeeded = false;
 }
 function projectionBelongsToRoot(record, root) {
   if (root instanceof Document) return record.owner.ownerDocument === root;

@@ -19,6 +19,7 @@ interface ProjectionRecord {
     footprintHeight: number;
     cachedTopmost?: boolean;
     cachedOcclusionEpoch?: number;
+    cachedOcclusionRect?: DOMRect;
     lastGoodRect?: DOMRect | null;
     lastGoodAt?: number;
     lastGoodOrigin?: { x: number; y: number } | null;
@@ -108,6 +109,10 @@ interface DocumentOverlay {
     // stays painted indefinitely — the "stray furigana with no word under it"
     // report.
     graceRefreshNeeded: boolean;
+    // Occlusion decisions are geometry-specific. A scroll can move more live
+    // readings than the per-frame hit-test budget allows, so stale decisions
+    // are carried for one frame at most while this flag pumps bounded passes.
+    occlusionRefreshNeeded: boolean;
 }
 
 interface ProjectionReadContext {
@@ -149,6 +154,7 @@ export function syncProjectedReadings(
 ): void {
     const document = owner.ownerDocument;
     const overlay = documentOverlay(document);
+    pruneDisconnectedRecords(overlay);
     const records = ownerRecords.get(owner) ?? new Map<HTMLElement, ProjectionRecord>();
     const currentSources = new Set(projections.map(projection => projection.source));
     const context: ProjectionReadContext = {
@@ -189,6 +195,9 @@ export function syncProjectedReadings(
             untrackProjectionAnchor(record, overlay);
             record.anchor = projection.anchor;
             record.scrollContextEpoch = undefined;
+            record.cachedTopmost = undefined;
+            record.cachedOcclusionEpoch = undefined;
+            record.cachedOcclusionRect = undefined;
             trackProjectionAnchor(record, overlay);
         }
         record.measure = projection.measure;
@@ -220,6 +229,7 @@ export function clearProjectedReadings(owner: HTMLElement): void {
         else record.clone.remove();
     }
     ownerRecords.delete(owner);
+    resetOcclusionBudgetIfEmpty(overlay);
 }
 
 export function clearProjectedReadingsWithin(root: ParentNode): number {
@@ -232,6 +242,7 @@ export function clearProjectedReadingsWithin(root: ParentNode): number {
         unlinkRecord(record, overlay);
         cleared += 1;
     }
+    resetOcclusionBudgetIfEmpty(overlay);
     return cleared;
 }
 
@@ -279,6 +290,7 @@ function documentOverlay(document: Document): DocumentOverlay {
         hitTestBudgetRemaining: 12,
         refreshing: false,
         graceRefreshNeeded: false,
+        occlusionRefreshNeeded: false,
         scheduleRefresh: () => scheduleProjectionRefresh(document, overlay),
         scheduleScrollRefresh: (event: Event) => {
             if (scrollMovedNoProjectedReading(event, overlay)) return;
@@ -464,16 +476,27 @@ function readProjectedReadingPaint(
 
         let topmost: boolean;
         const overlay = context?.overlay;
-        if (overlay && record.cachedOcclusionEpoch === overlay.occlusionEpoch && record.cachedTopmost !== undefined) {
+        const occlusionGeometryMatches = sameProjectionRect(record.cachedOcclusionRect, valid);
+        if (overlay
+            && occlusionGeometryMatches
+            && record.cachedOcclusionEpoch === overlay.occlusionEpoch
+            && record.cachedTopmost !== undefined) {
             topmost = record.cachedTopmost;
-        } else if (overlay && overlay.hitTestBudgetRemaining <= 0 && record.cachedTopmost !== undefined) {
-            topmost = record.cachedTopmost;
+        } else if (overlay && overlay.hitTestBudgetRemaining <= 0) {
+            // Never let the stable first records monopolise the budget. Keep
+            // a previous decision for the current frame (or conservatively
+            // defer a new clone) and ask for a follow-up whenever geometry or
+            // topology is stale. Refreshed records no longer spend budget next
+            // frame, so each bounded pass advances to the next batch.
+            topmost = record.cachedTopmost ?? false;
+            overlay.occlusionRefreshNeeded = true;
         } else {
             topmost = projectionIsTopmost(record, valid, context?.occludingPaint);
             if (overlay) {
                 overlay.hitTestBudgetRemaining -= 1;
                 record.cachedOcclusionEpoch = overlay.occlusionEpoch;
                 record.cachedTopmost = topmost;
+                record.cachedOcclusionRect = rectFromEdges(valid.left, valid.top, valid.right, valid.bottom);
             }
         }
         visible = topmost;
@@ -485,7 +508,10 @@ function readProjectedReadingPaint(
         && Date.now() - (record.lastGoodAt ?? 0) <= PROJECTION_GRACE_MAX_AGE_MS) {
         record.graceFramesRemaining -= 1;
         effectiveRect = graceProjectionRect(record, context);
-        visible = record.cachedTopmost ?? true;
+        // A cacheless record can be deliberately deferred by the per-frame
+        // occlusion budget. Grace may bridge geometry only after a real
+        // topmost decision; it must never turn "not checked yet" into paint.
+        visible = record.cachedTopmost ?? false;
         // A grace paint is a promise to look again; the pump does not promise
         // that on its own.
         if (context) context.overlay.graceRefreshNeeded = true;
@@ -1058,6 +1084,9 @@ function refreshProjectedReadingPositions(overlay: DocumentOverlay): void {
 function runProjectionRefreshPass(overlay: DocumentOverlay): void {
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
+    // A queued pass is itself the chance to drain prior deferred work. Only a
+    // record deferred by THIS pass should request another frame.
+    overlay.occlusionRefreshNeeded = false;
     // The layer's viewport box moves with every scroll; only its value within
     // a single pass may be reused.
     overlay.documentLayerOrigin = null;
@@ -1099,6 +1128,18 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
         overlay.graceRefreshNeeded = false;
         overlay.scheduleRefresh();
     }
+    if (overlay.occlusionRefreshNeeded) {
+        overlay.occlusionRefreshNeeded = false;
+        overlay.scheduleRefresh();
+    }
+}
+
+function sameProjectionRect(previous: DOMRect | undefined, current: DOMRect): boolean {
+    if (!previous) return false;
+    return Math.abs(previous.left - current.left) <= 0.5
+        && Math.abs(previous.top - current.top) <= 0.5
+        && Math.abs(previous.width - current.width) <= 0.5
+        && Math.abs(previous.height - current.height) <= 0.5;
 }
 
 function pruneDisconnectedRecords(overlay: DocumentOverlay): void {
@@ -1106,6 +1147,13 @@ function pruneDisconnectedRecords(overlay: DocumentOverlay): void {
         if (record.owner.isConnected && record.source.isConnected) continue;
         unlinkRecord(record, overlay);
     }
+    resetOcclusionBudgetIfEmpty(overlay);
+}
+
+function resetOcclusionBudgetIfEmpty(overlay: DocumentOverlay | undefined): void {
+    if (!overlay || overlay.records.size) return;
+    overlay.hitTestBudgetRemaining = 12;
+    overlay.occlusionRefreshNeeded = false;
 }
 
 function projectionBelongsToRoot(record: ProjectionRecord, root: ParentNode): boolean {

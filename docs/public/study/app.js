@@ -102,6 +102,7 @@
   function syncProjectedReadings$1(owner, projections) {
     const document2 = owner.ownerDocument;
     const overlay = documentOverlay(document2);
+    pruneDisconnectedRecords(overlay);
     const records = ownerRecords.get(owner) ?? /* @__PURE__ */ new Map();
     const currentSources = new Set(projections.map((projection) => projection.source));
     const context = {
@@ -140,6 +141,9 @@
         untrackProjectionAnchor(record2, overlay);
         record2.anchor = projection.anchor;
         record2.scrollContextEpoch = void 0;
+        record2.cachedTopmost = void 0;
+        record2.cachedOcclusionEpoch = void 0;
+        record2.cachedOcclusionRect = void 0;
         trackProjectionAnchor(record2, overlay);
       }
       record2.measure = projection.measure;
@@ -164,6 +168,7 @@
       else record2.clone.remove();
     }
     ownerRecords.delete(owner);
+    resetOcclusionBudgetIfEmpty(overlay);
   }
   function clearProjectedReadingsWithin$1(root) {
     const document2 = root instanceof Document ? root : root.ownerDocument;
@@ -175,6 +180,7 @@
       unlinkRecord(record2, overlay);
       cleared += 1;
     }
+    resetOcclusionBudgetIfEmpty(overlay);
     return cleared;
   }
   function pruneProjectedReadings$1(document2) {
@@ -215,6 +221,7 @@
       hitTestBudgetRemaining: 12,
       refreshing: false,
       graceRefreshNeeded: false,
+      occlusionRefreshNeeded: false,
       scheduleRefresh: () => scheduleProjectionRefresh(document2, overlay),
       scheduleScrollRefresh: (event) => {
         if (scrollMovedNoProjectedReading(event, overlay)) return;
@@ -348,23 +355,26 @@
       record2.graceFramesRemaining = 3;
       let topmost;
       const overlay = context?.overlay;
-      if (overlay && record2.cachedOcclusionEpoch === overlay.occlusionEpoch && record2.cachedTopmost !== void 0) {
+      const occlusionGeometryMatches = sameProjectionRect(record2.cachedOcclusionRect, valid);
+      if (overlay && occlusionGeometryMatches && record2.cachedOcclusionEpoch === overlay.occlusionEpoch && record2.cachedTopmost !== void 0) {
         topmost = record2.cachedTopmost;
-      } else if (overlay && overlay.hitTestBudgetRemaining <= 0 && record2.cachedTopmost !== void 0) {
-        topmost = record2.cachedTopmost;
+      } else if (overlay && overlay.hitTestBudgetRemaining <= 0) {
+        topmost = record2.cachedTopmost ?? false;
+        overlay.occlusionRefreshNeeded = true;
       } else {
         topmost = projectionIsTopmost(record2, valid, context?.occludingPaint);
         if (overlay) {
           overlay.hitTestBudgetRemaining -= 1;
           record2.cachedOcclusionEpoch = overlay.occlusionEpoch;
           record2.cachedTopmost = topmost;
+          record2.cachedOcclusionRect = rectFromEdges(valid.left, valid.top, valid.right, valid.bottom);
         }
       }
       visible = topmost;
     } else if (!valid && record2.lastGoodRect && record2.graceFramesRemaining && record2.graceFramesRemaining > 0 && sourceAllowed && anchorVisible && Date.now() - (record2.lastGoodAt ?? 0) <= PROJECTION_GRACE_MAX_AGE_MS) {
       record2.graceFramesRemaining -= 1;
       effectiveRect = graceProjectionRect(record2, context);
-      visible = record2.cachedTopmost ?? true;
+      visible = record2.cachedTopmost ?? false;
       if (context) context.overlay.graceRefreshNeeded = true;
     }
     return {
@@ -714,6 +724,7 @@
   function runProjectionRefreshPass(overlay) {
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
+    overlay.occlusionRefreshNeeded = false;
     overlay.documentLayerOrigin = null;
     if (overlay.rootsDirty) {
       overlay.rootsDirty = false;
@@ -742,12 +753,26 @@
       overlay.graceRefreshNeeded = false;
       overlay.scheduleRefresh();
     }
+    if (overlay.occlusionRefreshNeeded) {
+      overlay.occlusionRefreshNeeded = false;
+      overlay.scheduleRefresh();
+    }
+  }
+  function sameProjectionRect(previous, current) {
+    if (!previous) return false;
+    return Math.abs(previous.left - current.left) <= 0.5 && Math.abs(previous.top - current.top) <= 0.5 && Math.abs(previous.width - current.width) <= 0.5 && Math.abs(previous.height - current.height) <= 0.5;
   }
   function pruneDisconnectedRecords(overlay) {
     for (const record2 of overlay.records) {
       if (record2.owner.isConnected && record2.source.isConnected) continue;
       unlinkRecord(record2, overlay);
     }
+    resetOcclusionBudgetIfEmpty(overlay);
+  }
+  function resetOcclusionBudgetIfEmpty(overlay) {
+    if (!overlay || overlay.records.size) return;
+    overlay.hitTestBudgetRemaining = 12;
+    overlay.occlusionRefreshNeeded = false;
   }
   function projectionBelongsToRoot(record2, root) {
     if (root instanceof Document) return record2.owner.ownerDocument === root;

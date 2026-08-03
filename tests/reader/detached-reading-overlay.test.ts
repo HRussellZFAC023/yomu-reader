@@ -1033,6 +1033,83 @@ describe('detached reading overlay occlusion', () => {
         clearProjectedReadings(target.owner);
     });
 
+    it('rechecks a late projection after its source moves across a sticky surface', async () => {
+        const targets = Array.from({ length: 13 }, (_, index) => readingOwner(`よみ${index}`));
+        const late = targets.at(-1)!;
+        const cover = document.createElement('div');
+        cover.style.backgroundColor = 'rgb(0, 0, 0)';
+        document.body.append(cover);
+        let lateTop = 10;
+        let lateCovered = true;
+        let scrollDelta = 0;
+        let lateMeasurable = true;
+
+        const elementsFromPoint = vi.fn((x: number) => x > 380 && lateCovered
+            ? [cover, late.anchor]
+            : [late.anchor]);
+        Object.defineProperty(document, 'elementsFromPoint', {
+            configurable: true,
+            value: elementsFromPoint,
+        });
+
+        targets.forEach((target, index) => {
+            const measured = (): DOMRect | null => index === targets.length - 1
+                ? (lateMeasurable ? rect(400, lateTop) : null)
+                : rect(20 + index * 24, 120 + scrollDelta);
+            target.anchor.getBoundingClientRect = () => index === targets.length - 1
+                ? rect(400, lateTop)
+                : rect(20 + index * 24, 120 + scrollDelta);
+            syncProjectedReadings(target.owner, [{
+                source: target.source,
+                anchor: target.anchor,
+                rect: measured()!,
+                measure: measured,
+            }]);
+        });
+
+        expect(projectedReading('よみ12')?.style.display).toBe('none');
+        expect(elementsFromPoint.mock.calls.length).toBe(12 * 6);
+
+        // The cacheless 13th record is still awaiting its first occlusion
+        // check. A recycler measurement gap must not let grace paint it from
+        // the unchecked source rect.
+        lateMeasurable = false;
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        expect(projectedReading('よみ12')?.style.display).toBe('none');
+
+        lateMeasurable = true;
+        lateTop = 160;
+        lateCovered = false;
+        scrollDelta = 40;
+        elementsFromPoint.mockClear();
+        document.dispatchEvent(new Event('scroll'));
+
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        expect(projectedReading('よみ12')?.style.display).toBe('none');
+        expect(elementsFromPoint.mock.calls.length).toBeLessThanOrEqual(12 * 6);
+
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+        const recovered = projectedReading('よみ12');
+        expect(recovered?.style.display).toBe('block');
+        expect(Number(recovered?.dataset.yomuSourceTop)).toBe(160);
+
+        lateTop = 10;
+        lateCovered = true;
+        scrollDelta = 80;
+        elementsFromPoint.mockClear();
+        document.dispatchEvent(new Event('scroll'));
+
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+        expect(recovered?.style.display).toBe('block');
+        expect(elementsFromPoint.mock.calls.length).toBeLessThanOrEqual(12 * 6);
+
+        await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+
+        expect(recovered?.style.display).toBe('none');
+        targets.forEach(target => clearProjectedReadings(target.owner));
+    });
+
     it('computes shared anchor visibility once per refresh', async () => {
         const target = readingOwner('ひとつ');
         const secondSource = document.createElement('span');

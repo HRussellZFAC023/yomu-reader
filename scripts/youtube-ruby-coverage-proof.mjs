@@ -13,6 +13,7 @@ const bundlePath = join(outputRoot, 'proof-runner.bundle.js');
 const reportPath = join(outputRoot, 'youtube-ruby-coverage-report.json');
 const videoPath = join(outputRoot, 'youtube-ruby-coverage-proof.webm');
 const cssPath = join(appRoot, 'dist/yomu.css');
+const proofScrollSettleMs = 160;
 const vocabularyIndexSeed = vocabularyIndexes();
 
 const vocabulary = [
@@ -80,6 +81,9 @@ const vocabulary = [
     word('マイページ', 'まいぺーじ', 'heiban'),
     word('毎日', 'まいにち', 'heiban'),
     word('再生', 'さいせい', 'heiban'),
+    word('共有', 'きょうゆう', 'heiban'),
+    word('他', 'ほか', 'heiban'),
+    word('件', 'けん', 'heiban'),
 ];
 
 const longWatchTitle = '【完全独学】留学なし・お金をかけずに家で英語を話せるようになった方法｜日本語でニュースを読む勉強と投資と貯金の方法';
@@ -202,9 +206,9 @@ const pages = [
         html: youtubeShell(`
             <ytd-app>
               <ytd-mini-guide-renderer class="mini-guide">
-                <ytd-mini-guide-entry-renderer><a class="guide-entry"><span data-proof-target data-proof-text="ホーム" data-proof-expect-at-rest-decoration="true">ホーム</span></a></ytd-mini-guide-entry-renderer>
-                <ytd-mini-guide-entry-renderer><a class="guide-entry"><span data-proof-target data-proof-text="登録チャンネル">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
-                <ytd-mini-guide-entry-renderer><a class="guide-entry"><span>マイページ</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/"><span data-proof-target data-proof-text="ホーム" data-proof-expect-at-rest-decoration="true" data-proof-expect-document-portal="true">ホーム</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/subscriptions"><span data-proof-target data-proof-text="登録チャンネル" data-proof-expect-document-portal="true">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/you"><span>マイページ</span></a></ytd-mini-guide-entry-renderer>
               </ytd-mini-guide-renderer>
               <ytd-browse page-subtype="channels" class="channel">
                 <yt-page-header-view-model class="channel-header">
@@ -240,6 +244,13 @@ const pages = [
                     <a id="video-title" class="title clamped" href="/watch?v=ch2" data-proof-target data-proof-text="京都で朝ごはんを食べ歩きしてカフェで日本語を勉強" data-proof-expect-clip-invariant="true">京都で朝ごはんを食べ歩きしてカフェで日本語を勉強</a>
                     <div id="metadata-line" class="grid-meta" data-proof-target data-proof-text="10万回視聴">10万回視聴</div>
                   </ytd-grid-video-renderer>
+                </ytd-shelf-renderer>
+                <ytd-shelf-renderer class="proof-shelf-expansion">
+                  <ytd-vertical-list-renderer>
+                    <div id="more">
+                      <yt-formatted-string role="button" data-proof-target data-proof-text="+ 他 3 件" data-proof-expect-document-portal="true"><span>+ 他 </span><span>3</span><span> 件</span></yt-formatted-string>
+                    </div>
+                  </ytd-vertical-list-renderer>
                 </ytd-shelf-renderer>
               </ytd-browse>
             </ytd-app>
@@ -369,6 +380,11 @@ const pages = [
                   <a id="video-title" class="title" href="/shorts/two" data-proof-target data-proof-text="京都の朝カフェ">京都の朝カフェ</a>
                 </ytd-reel-item-renderer>
               </ytd-rich-grid-renderer>
+              <ytm-shorts class="proof-shorts-root">
+                <div class="proof-shorts-actions" role="toolbar">
+                  <button aria-label="共有" data-proof-target data-proof-text="共有" data-proof-expect-document-portal="true"><span class="proof-shorts-action-label">共有</span></button>
+                </div>
+              </ytm-shorts>
             </ytd-app>
         `),
     },
@@ -478,6 +494,7 @@ function youtubeShell(body) {
     yt-tab-group-shape { display: flex; gap: 26px; }
     .mini-guide { position: fixed; top: 0; left: 0; bottom: 0; width: 76px; padding-top: 70px; background: #0f0f0f; }
     .guide-entry { display: block; padding: 14px 6px; font-size: 11px; color: #f1f1f1; text-align: center; text-decoration: none; }
+    .guide-entry > span { display: block; width: 64px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .channel { margin-left: 96px; padding: 24px; }
     .channel-header { display: block; max-width: 640px; }
     .channel-name { margin: 0 0 8px; font-size: 24px; }
@@ -504,6 +521,14 @@ function youtubeShell(body) {
     .queue-row { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 10px; margin-bottom: 12px; }
     .queue-row .mini-thumb { width: 100px; min-height: 56px; }
     .queue-title { display: block; font-size: 14px; line-height: 1.35; overflow: hidden; height: 40px; max-height: 40px; color: #f1f1f1; text-decoration: none; }
+    .proof-shelf-expansion { display: block; width: 400px; margin: 48px 0 80px; }
+    .proof-shelf-expansion > ytd-vertical-list-renderer { display: block; }
+    .proof-shelf-expansion > ytd-vertical-list-renderer > #more { box-sizing: border-box; display: flex; align-items: center; justify-content: center; width: 400px; height: 40px; overflow: hidden; border-bottom: 1px solid #333; }
+    .proof-shelf-expansion yt-formatted-string { display: inline-flex; align-items: center; white-space: pre; overflow: visible; font: 500 14px/20px Roboto, sans-serif; }
+    .proof-shorts-root { display: block; position: relative; width: 120px; height: 180px; margin: 24px; }
+    .proof-shorts-actions { display: flex; flex-direction: column; width: 48px; }
+    .proof-shorts-actions button { box-sizing: border-box; width: 48px; height: 48px; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .proof-shorts-action-label { display: block; width: 34px; margin: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 14px/20px Roboto, sans-serif; }
     .proof-status { position: sticky; top: 0; z-index: 10; box-sizing: border-box; height: 44px; overflow: hidden; white-space: nowrap; padding: 12px 18px; background: #123d24; border-bottom: 2px solid #65d184; font-size: 14px; font-weight: 700; }
     .topbar { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 24px; background: #0f0f0f; }
     .chips { display: block; padding: 12px 26px 0; }
@@ -541,11 +566,13 @@ function youtubeShell(body) {
     .short-card .short-thumb, .short-thumb { display: block; aspect-ratio: 9 / 16; margin-bottom: 10px; }
     [aria-hidden="true"] { pointer-events: none; }
     [data-proof-hidden] { display: none !important; }
+    [data-proof-scroll-tail] { display: block; height: 900px; pointer-events: none; }
   </style>
 </head>
 <body>
   <div class="proof-status" data-proof-status>Ruby coverage proof pending</div>
   ${body}
+  <div data-proof-scroll-tail aria-hidden="true"></div>
 </body>
 </html>`;
 }
@@ -573,16 +600,22 @@ async function runProofAcrossScroll(page) {
     ));
     const maxY = Math.max(0, scrollHeight - viewport.height);
     const step = Math.max(240, Math.floor(viewport.height * 0.72));
-    const stops = new Set([0, maxY]);
+    // Every fixture gets a meaningful partial scroll while annotations remain
+    // on screen, plus the ordinary stepped walk and the furthest offset where
+    // stale clones must retire. The authored tail makes this non-vacuous even
+    // for compact pages whose content otherwise fits in one viewport.
+    const stops = new Set([0, Math.min(maxY, 160), maxY]);
     for (let y = 0; y < maxY; y += step) stops.add(Math.min(maxY, y));
     for (const y of [...stops].sort((a, b) => a - b)) {
         await page.evaluate(scrollY => window.scrollTo(0, scrollY), y);
-        await page.waitForTimeout(80);
+        // Production deliberately settles clipped document portals after 96ms
+        // at a scroll boundary; audit the stable state beyond that boundary.
+        await page.waitForTimeout(proofScrollSettleMs);
         const result = await page.evaluate(options => window.__yomuRubyCoverageProof(options), { vocabulary });
         snapshots.push({ y, phase: 'outbound', result });
     }
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(80);
+    await page.waitForTimeout(proofScrollSettleMs);
     const returned = await page.evaluate(options => window.__yomuRubyCoverageProof(options), { vocabulary });
     snapshots.push({ y: 0, phase: 'return', result: returned });
     return mergeScrollProofSnapshots(snapshots);
@@ -608,6 +641,7 @@ function mergeScrollProofSnapshots(snapshots) {
     if (targets.size !== targetTotal) {
         failures.push(`scroll proof observed ${targets.size} of ${targetTotal} fixture targets`);
     }
+    if (targetTotal === 0) failures.push('scroll proof fixture contains no proof targets');
     return {
         ...final,
         pass: failures.length === 0,
@@ -619,6 +653,8 @@ function mergeScrollProofSnapshots(snapshots) {
             pass: snapshot.result.pass,
             targetCount: snapshot.result.proofTargets.length,
             failureCount: snapshot.result.failures.length,
+            projectedReadingInventory: snapshot.result.projectedReadingInventory,
+            failureTargets: snapshot.result.proofTargets.filter(target => target.failures.length > 0),
         })),
     };
 }
@@ -767,17 +803,22 @@ import { DEFAULT_SETTINGS } from './src/reader/settings/index.ts';
 const HAS_JAPANESE = /[\\u3040-\\u30ff\\u3400-\\u9fff]/u;
 const HAN_RE = /\\p{Script=Han}/u;
 const CONCRETE_PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka']);
+const PROJECTED_READING_CROWDING_TOLERANCE_PX = 4;
 let proofInitialized = false;
 let proofTargetSnapshots = [];
 let proofRubyRoomAdjustments = 0;
+let nextProofTargetId = 0;
 const proofAppliedScanParents = new WeakSet();
 
 window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     const vocabulary = [...options.vocabulary].sort((a, b) => b.surface.length - a.surface.length);
     document.documentElement.classList.add('jpdb-reader-word-underline-pitch', 'jpdb-reader-word-text-jpdb');
     const allProofTargets = Array.from(document.querySelectorAll('[data-proof-target]'));
-    allProofTargets.forEach((element, index) => {
-        element.dataset.proofTargetId = String(index);
+    allProofTargets.forEach(element => {
+        if (element.dataset.proofTargetId === undefined) {
+            element.dataset.proofTargetId = String(nextProofTargetId);
+            nextProofTargetId += 1;
+        }
     });
     // Mirror the visible-page scanner's scroll continuation without ever
     // re-applying an already-rendered static fixture target. Newly revealed
@@ -830,7 +871,6 @@ window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
         ...nativeCaptions.failures,
         ...projectedReadingInventory.failures,
     ];
-    if (!proofTargets.length) failures.push('no visible proof targets found');
     if (proofTargetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
         failures.push('a visible Japanese scan target had no JPDB-shaped token match');
     }
@@ -939,8 +979,13 @@ function auditProofTarget(element, vocabulary) {
     // Audit the registered source scope instead of mistaking that ownership
     // boundary for missing annotation coverage.
     const wordScope = documentPortalReaderWordScopeForSource(element) ?? element;
+    const expectsDocumentPortal = element.dataset.proofExpectDocumentPortal === 'true';
+    const documentPortal = wordScope !== element
+        && wordScope.classList.contains('jpdb-reader-document-annotation-portal');
     const portalScopeMatchesTarget = wordScope === element
         || compactText(wordScope.dataset.sourceText || '') === compactText(element.textContent || '');
+    const sourceFragmentCount = wordScope.querySelectorAll('.jpdb-reader-source-fragment').length;
+    const nativeAnnotationWordCount = element.querySelectorAll('.jpdb-reader-word').length;
     // Audit every word inside an admitted visible target. Words on a later
     // native-clamped line can have no painted box yet still need complete
     // metadata for a later reveal or reflow.
@@ -971,16 +1016,19 @@ function auditProofTarget(element, vocabulary) {
     const associatedSources = new Set(projectedReadingAssociations.map(association => association.source));
     const missingProjectedReadings = expectedProjectedReadingSources.filter(source => !associatedSources.has(source));
     const missingProjectedReadingCount = missingProjectedReadings.length;
-    const projectedReadingMisaligned = projectedReadingAssociations.some(association => (
+    const misalignedProjectedReadings = projectedReadingAssociations.filter(association => (
         // The crowding solver may nudge an edge reading a few pixels so two
-        // adjacent kana labels remain legible; the source stamp and baseline
-        // still have to stay exact.
-        Math.abs(association.centerDelta) > 3
+        // adjacent kana labels remain legible. Four CSS pixels leaves one pixel
+        // of font/DPR headroom above the fixture's 3px solver edge while the
+        // source stamp and baseline still have to stay exact.
+        Math.abs(association.centerDelta) > PROJECTED_READING_CROWDING_TOLERANCE_PX
         || Math.abs(association.baselineDelta) > 1
         || !association.sourceStampMatchesBase
         || !association.sourceStampIntersectsTarget
     ));
-    const detachedReadingClipped = projectedReadingAssociations.some(association => association.clipped);
+    const clippedProjectedReadings = projectedReadingAssociations.filter(association => association.clipped);
+    const projectedReadingMisaligned = misalignedProjectedReadings.length > 0;
+    const detachedReadingClipped = clippedProjectedReadings.length > 0;
     const projectedReadingsComplete = expectedProjectedReadingSources.length > 0
         && missingProjectedReadingCount === 0
         && !projectedReadingMisaligned
@@ -1006,6 +1054,9 @@ function auditProofTarget(element, vocabulary) {
     const rubySuppressed = scanSuppressRuby || renderedSuppressRuby;
 
     if (!expectedSurfaces.length) failures.push('no expected JPDB token surfaces for proof text');
+    if (expectsDocumentPortal && !documentPortal) failures.push('expected page-owned source to render through a document portal');
+    if (expectsDocumentPortal && sourceFragmentCount === 0) failures.push('document portal has no painted source fragments');
+    if (expectsDocumentPortal && nativeAnnotationWordCount > 0) failures.push('document portal annotation mutated the page-owned source subtree');
     if (!portalScopeMatchesTarget) failures.push('resolved portal scope belongs to a broader native source');
     if (!words.length) failures.push('no rendered reader words');
     if (missingSurfaces.length) failures.push('missing rendered surfaces: ' + missingSurfaces.join(', '));
@@ -1014,8 +1065,16 @@ function auditProofTarget(element, vocabulary) {
     if (words.some(word => !CONCRETE_PITCH_CLASSES.has(word.pitchClass))) failures.push('rendered word without concrete pitch class');
     if (uncoveredKanji.length) failures.push('uncovered kanji: ' + uncoveredKanji.join(''));
     if (missingProjectedReadingCount) failures.push(missingProjectedReadingCount + ' visible detached readings have no painted projection');
-    if (projectedReadingMisaligned) failures.push('a projected reading is misaligned with its native source range');
-    if (detachedReadingClipped) failures.push('a projected reading is clipped by its paint layer');
+    if (projectedReadingMisaligned) {
+        failures.push('projected reading/source alignment mismatch ' + JSON.stringify(
+            misalignedProjectedReadings.map(projectedReadingAssociationDetails),
+        ));
+    }
+    if (detachedReadingClipped) {
+        failures.push('projected reading clipped by paint layer ' + JSON.stringify(
+            clippedProjectedReadings.map(projectedReadingAssociationDetails),
+        ));
+    }
     if (clipped && !rubySuppressed && !clipConstrained && !layoutNeutralDetached) {
         // Environment-sensitive (font metrics decide wrap); carry the numbers
         // so a CI-only failure is diagnosable from the log alone.
@@ -1062,7 +1121,12 @@ function auditProofTarget(element, vocabulary) {
         label,
         text: compactText(element.textContent || ''),
         expectedSurfaces,
+        expectsDocumentPortal,
+        documentPortal,
+        documentPortalClassName: documentPortal ? wordScope.className : '',
         portalScopeMatchesTarget,
+        sourceFragmentCount,
+        nativeAnnotationWordCount,
         wordCount: words.length,
         rubyWordCount: words.filter(word => word.hasRuby).length,
         jpdbWordCount: words.filter(word => word.source === 'jpdb').length,
@@ -1100,15 +1164,7 @@ function auditProofTarget(element, vocabulary) {
         }),
         projectedReadingMisaligned,
         detachedReadingClipped,
-        projectedReadings: projectedReadingAssociations.map(association => ({
-            reading: association.reading,
-            surface: association.surface,
-            centerDelta: association.centerDelta,
-            baselineDelta: association.baselineDelta,
-            sourceStampMatchesBase: association.sourceStampMatchesBase,
-            sourceStampIntersectsTarget: association.sourceStampIntersectsTarget,
-            clipped: association.clipped,
-        })),
+        projectedReadings: projectedReadingAssociations.map(projectedReadingAssociationDetails),
         layoutNeutralDetached,
         scanSuppressRuby,
         renderedSuppressRuby,
@@ -1122,16 +1178,25 @@ function auditProofTarget(element, vocabulary) {
 }
 
 function isVisibleProofTarget(element) {
-    return isViewportVisibleElement(element)
-        || Boolean(Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(isViewportVisibleElement));
+    return isProofContentViewportVisibleElement(element)
+        || Boolean(Array.from(element.querySelectorAll('.jpdb-reader-text-mirror'))
+            .find(isProofContentViewportVisibleElement));
 }
 
 function detachedReadingNeedsProjection(reading) {
     const word = reading.closest('.jpdb-reader-word');
     if (!word) return false;
+    const base = reading.closest('.jpdb-reader-detached-ruby') || word;
+    const baseRect = base.getBoundingClientRect();
+    const readingFontSize = Number.parseFloat(getComputedStyle(reading).fontSize)
+        || Math.max(1, baseRect.height / 2);
+    // The reading paints above its base. A base glyph can peek out below the
+    // sticky proof header while the entire kana lane is still correctly
+    // occluded; only demand a clone once that lane reaches usable content.
+    if (baseRect.top - readingFontSize < proofContentViewportTop() - 0.5) return false;
     const fragments = Array.from(word.querySelectorAll('.jpdb-reader-source-fragment'));
-    if (fragments.length) return fragments.some(isViewportVisibleElement);
-    return isViewportVisibleElement(word);
+    if (fragments.length) return fragments.some(isProofContentViewportVisibleElement);
+    return isProofContentViewportVisibleElement(word);
 }
 
 function associateProjectedReadings(sources, target) {
@@ -1151,6 +1216,11 @@ function associateProjectedReadings(sources, target) {
         const candidates = Array.from(available)
             .filter(clone => clone.textContent === source.textContent)
             .filter(clone => !surface || clone.dataset.yomuExpression === surface)
+            // Duplicate labels are common across sibling YouTube cards. A
+            // same-reading clone belongs here only when its production source
+            // stamp identifies this exact base; proximity alone let one row's
+            // 食べ歩き satisfy another row after scrolling.
+            .filter(clone => projectedReadingCloneMatchesSource(clone, source))
             .map(clone => {
                 const rect = clone.getBoundingClientRect();
                 return {
@@ -1197,6 +1267,18 @@ function associateProjectedReadings(sources, target) {
     return associations;
 }
 
+function projectedReadingAssociationDetails(association) {
+    return {
+        reading: association.reading,
+        surface: association.surface,
+        centerDelta: association.centerDelta,
+        baselineDelta: association.baselineDelta,
+        sourceStampMatchesBase: association.sourceStampMatchesBase,
+        sourceStampIntersectsTarget: association.sourceStampIntersectsTarget,
+        clipped: association.clipped,
+    };
+}
+
 function auditProjectedReadingInventory() {
     const clones = Array.from(document.querySelectorAll('[data-yomu-projected-reading="true"]'))
         .filter(isPaintedProjectedReading);
@@ -1217,8 +1299,14 @@ function auditProjectedReadingInventory() {
         if (!projectedReadingClonePaintMatchesSource(clone, source)) mispainted.push(clone);
     }
     const failures = [];
-    if (orphaned.length) failures.push(orphaned.length + ' painted projected readings have no live source');
-    if (mispainted.length) failures.push(mispainted.length + ' projected readings paint away from their live source');
+    if (orphaned.length) {
+        failures.push(orphaned.length + ' painted projected readings have no live source '
+            + JSON.stringify(orphaned.map(projectedReadingCandidateDetails)));
+    }
+    if (mispainted.length) {
+        failures.push(mispainted.length + ' projected readings paint away from their live source '
+            + JSON.stringify(mispainted.map(projectedReadingCandidateDetails)));
+    }
     return {
         painted: clones.length,
         orphaned: orphaned.map(projectedReadingCandidateDetails),
@@ -1263,7 +1351,8 @@ function projectedReadingClonePaintMatchesSource(clone, source) {
     if (!base) return false;
     const baseRect = base.getBoundingClientRect();
     const cloneRect = clone.getBoundingClientRect();
-    return Math.abs((cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2) <= 3
+    return Math.abs((cloneRect.left + cloneRect.right - baseRect.left - baseRect.right) / 2)
+            <= PROJECTED_READING_CROWDING_TOLERANCE_PX
         && Math.abs(cloneRect.bottom - baseRect.top) <= 1
         && !isReadingClipped(clone);
 }
@@ -1464,6 +1553,26 @@ function isViewportVisibleElement(element) {
         && rect.top <= window.innerHeight
         && rect.right >= 0
         && rect.left <= window.innerWidth;
+}
+
+function isProofContentViewportVisibleElement(element) {
+    if (!isVisibleElement(element)) return false;
+    const rect = element.getBoundingClientRect();
+    const contentTop = proofContentViewportTop();
+    return rect.bottom > contentTop + 0.5
+        && rect.top < window.innerHeight - 0.5
+        && rect.right > 0.5
+        && rect.left < window.innerWidth - 0.5;
+}
+
+function proofContentViewportTop() {
+    const status = document.querySelector('[data-proof-status]');
+    const statusRect = status instanceof HTMLElement && isVisibleElement(status)
+        ? status.getBoundingClientRect()
+        : null;
+    return statusRect && statusRect.bottom > 0 && statusRect.top < window.innerHeight
+        ? Math.max(0, statusRect.bottom)
+        : 0;
 }
 
 function isReadingClipped(reading) {
