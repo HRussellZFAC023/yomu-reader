@@ -3042,19 +3042,35 @@ These shipped and were verified; retained so the squad doesn't re-litigate them.
 
 - [ ] **P0 — Donations: dynamic goal from real operating forecast (£10/month floor), shown in the user's local currency; add PayPal / Ko-fi / Buy Me a Coffee / Patreon alongside Stripe; homepage status bar aggregates ALL providers.** Engineering shipped in **[v1.8.57]**: the £10.20 checked-in forecast rounds only for display, local currency uses fresh FX plus `Intl.NumberFormat`, all five authenticated provider shapes aggregate, and unready links stay absent. Production activation remains owner-queued: apply support migrations `0005`–`0007`, deploy `yomu-support`, then configure Buy Me a Coffee, PayPal, and Patreon's campaign identifiers in a supervised session. No account or credential work was attempted. Evidence: owner ask 2026-07-03; thread 019f14cd donation-copy asks.
 - [ ] **P0 — Study flow: pitch-accent selection + shadow step integration.** THREE OF THE FOUR ASKS
-      HERE SHIPPED — verified 2026-08-03, all in **v1.6.21 (2026-07-03)**:
-      the ＿み物 ambiguity (*"The kanji drawing step always fronts the word meaning with a blanked
-      cloze… so an ambiguous blank never leaves you guessing which word you are drawing"*);
-      progressive hints (*"kanji drawing and typed recall gain a Hint control that reveals one tier at
-      a time (meaning, then a kana cue) without giving the answer away before the reveal"*); and the
-      steps themselves exist in the session model (`listen-pitch` and `speaking` in
-      `src/reader/newtab/study-session.ts:43,67-68,121`). Pinned by
-      `tests/reader/new-tab-study-hints.test.ts`, `new-tab-study-session.test.ts` and
-      `speaking-score.test.ts` — 23 tests, green on this commit.
-      What is genuinely left is the QUALITY of the integration, which no changelog entry claims: the
-      pitch-accent selection and shadow steps were reported as "badly integrated" per codex logs, and
-      a kotu.io-style pitch test remains the north star. Anyone picking this up should walk those two
-      steps as a learner first rather than assume the whole ticket is open.
+      HERE SHIPPED — verified 2026-08-03. See the earlier annotation for the ＿み物 cloze, progressive
+      hints, and both steps existing in the session model (all v1.6.21, 23 tests green).
+
+      **LEARNER WALKTHROUGH DONE 2026-08-03 on the live hosted Study page, and it names the
+      integration problem concretely: a learner never reaches either step.**
+      Driving https://yomureader.com/study/ , the step rail renders
+      `1 Kanji 1 → 2 Kanji 2 → 3 Word → 4 Type → 5 Reveal` with "One review, a few quick checks. Grade
+      once at the reveal." That live-confirms two other GAP items — the flow really is merged rather
+      than mode-tabbed, and a two-kanji word really does produce one drawing step per kanji. But
+      **Listen and Speak are absent from the rail entirely**: the words do not appear anywhere in the
+      page, and there is no control, count or hint suggesting steps 6 and 7 exist.
+
+      Root cause, and it is a deliberate gate rather than a bug: `mergedStudyStepsForCard` adds both
+      steps only `if (options.pitchAvailable)`, which the controller derives from
+      `pitchSeedFromCard(card, …) !== null` (`controller.ts:4606`). That returns null unless the card
+      has BOTH a resolvable pronunciation reading AND a pitch number for it
+      (`newtab/pitch-srs.ts:169-174`). The default hosted card has neither — the page's only
+      "pitch"-named element is the `jpdb-reader-word-underline-pitch` display class on `<html>`, not a
+      datum. The comment in study-session.ts is sound ("Listen/Speak drill pitch accent, so they only
+      make sense once pitch has actually resolved"), so DO NOT force them on: without pitch they would
+      render empty.
+
+      What this leaves as the real question, which is a product call rather than a code one: *does
+      pitch ever resolve on the hosted Study surface?* If it needs an installed dictionary or a
+      provider the no-install page does not have, then two of the seven steps are dead for every
+      learner who arrives via the website, and the honest fixes are either a source that supplies
+      pitch there or a visible "needs pitch data" affordance so the steps are discoverable rather than
+      silently missing. Measure which before building either.
+
 - [ ] **P1 — UserScript-Compiler generic UX/DX audit** (github.com/HRussellZFAC023/UserScript-Compiler): stays generic for any userscript; simple, intuitive, customizable; new-user walkthrough of README/CLI/config/templates.
 
 
