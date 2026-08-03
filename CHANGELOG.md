@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.77] - 2026-08-03
+
+### Fixed
+
+- Off-screen clipped comments and other document-portal annotations no longer run a full Range reprojection after each scroll burst. Their existing furigana and pitch geometry stays intact until the content is visible again, while visible nested scrollers still settle once.
+
 ## [1.8.76] - 2026-08-02
 
 ### Fixed

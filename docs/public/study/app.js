@@ -19838,7 +19838,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function scheduleClippedPortalScrollSettle(document2, watch, alignments) {
     for (const alignment of alignments) {
-      const movedInsideClip = Boolean(alignment.clip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
+      const visibleClip = alignment.clip && alignment.clip.right - alignment.clip.left > 0.5 && alignment.clip.bottom - alignment.clip.top > 0.5;
+      const movedInsideClip = Boolean(visibleClip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
       if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
       else watch.scrollSettleEntries.delete(alignment.entry);
     }
@@ -60230,7 +60231,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.76".trim() ? "1.8.76".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.77".trim() ? "1.8.77".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

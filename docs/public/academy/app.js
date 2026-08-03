@@ -45584,7 +45584,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function scheduleClippedPortalScrollSettle(document2, watch, alignments) {
     for (const alignment of alignments) {
-      const movedInsideClip = Boolean(alignment.clip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
+      const visibleClip = alignment.clip && alignment.clip.right - alignment.clip.left > 0.5 && alignment.clip.bottom - alignment.clip.top > 0.5;
+      const movedInsideClip = Boolean(visibleClip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
       if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
       else watch.scrollSettleEntries.delete(alignment.entry);
     }

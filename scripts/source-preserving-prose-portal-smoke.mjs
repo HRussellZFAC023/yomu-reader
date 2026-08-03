@@ -326,6 +326,10 @@ writeFileSync(entryPath, `
             const clipMeasurementImmediate = documentPortalClipMeasurementCountsForTest();
             const fixedImmediate = firstFragmentAlignment(fixedHost, fixedPortal);
             const stickyImmediate = firstFragmentAlignment(stickyHost, stickyPortal);
+            // Slow WebKit frames can exceed the clipped-portal settle delay.
+            // Observe the settled state explicitly so an offscreen portal
+            // reprojection cannot hide behind a fast local two-frame window.
+            await new Promise(resolve => setTimeout(resolve, 140));
             await frames(2);
             const fixedSettled = firstFragmentAlignment(fixedHost, fixedPortal);
             const stickySettled = firstFragmentAlignment(stickyHost, stickyPortal);
@@ -343,6 +347,9 @@ writeFileSync(entryPath, `
             perfHosts[0]!.remove();
             window.dispatchEvent(new Event('scroll'));
             const disconnectedRegistryPruned = !disconnectedPortal.isConnected;
+            nestedScroller.scrollIntoView({ block: 'center' });
+            window.dispatchEvent(new Event('scroll'));
+            await frames(2);
             const scopedPortalCountBefore = document.querySelectorAll('.jpdb-reader-document-annotation-portal').length;
             const retiredSettleBefore = documentPortalProjectionCountsForTest();
             nestedScroller.scrollTop += 8;

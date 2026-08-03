@@ -288,7 +288,13 @@ function scheduleClippedPortalScrollSettle(
     alignments: readonly PendingAlignment[],
 ): void {
     for (const alignment of alignments) {
-        const movedInsideClip = Boolean(alignment.clip)
+        // Intersecting an offscreen clip chain can yield an empty bounds object.
+        // Reprojecting it would both waste Range work and clear every projected
+        // source fragment until a later visible refresh rebuilds the portal.
+        const visibleClip = alignment.clip
+            && alignment.clip.right - alignment.clip.left > 0.5
+            && alignment.clip.bottom - alignment.clip.top > 0.5;
+        const movedInsideClip = Boolean(visibleClip)
             && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
         if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
         else watch.scrollSettleEntries.delete(alignment.entry);

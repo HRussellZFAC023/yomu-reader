@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.76
+// @version 1.8.77
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.848177859e09.user.js#sha256=hIF3hZ4JJqmQyO1uLMp6l4BXCNi1ceoEtHg0TEsl7FI=
+// @require https://yomureader.com/greasyfork/yomu-runtime.e15c8156a0cc.user.js#sha256=4VyBVqDMGBdnHmD3JEfQTr9f367ltkDLiKIsiTcjFtE=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -8449,7 +8449,8 @@ return watch;
 }
 function scheduleClippedPortalScrollSettle(document2, watch, alignments) {
 for (const alignment of alignments) {
-const movedInsideClip = Boolean(alignment.clip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
+const visibleClip = alignment.clip && alignment.clip.right - alignment.clip.left > 0.5 && alignment.clip.bottom - alignment.clip.top > 0.5;
+const movedInsideClip = Boolean(visibleClip) && (Math.abs(alignment.x) > 0.01 || Math.abs(alignment.y) > 0.01);
 if (movedInsideClip) watch.scrollSettleEntries.add(alignment.entry);
 else watch.scrollSettleEntries.delete(alignment.entry);
 }
@@ -34392,8 +34393,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.76"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.76"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.77"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.77"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34536,7 +34537,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.76"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.77"}`;
 } catch {
 return null;
 }
