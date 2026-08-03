@@ -96,3 +96,12 @@ function localIdentity(
         return null;
     }
 }
+
+/** Canonical key shared by local-SRS hydration and late rendered-word follow-up. */
+export function yomuLocalSrsCardIdentityKey(
+    expression: string,
+    reading: string,
+    language?: string,
+): string | null {
+    return localIdentity(expression, reading, language)?.key ?? null;
+}

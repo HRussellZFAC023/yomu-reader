@@ -6,6 +6,7 @@ import { getPitchClass } from '../jpdb/jpdb-parser';
 import {
     hydrateYomuLocalSrsCardStates,
     repaintYomuLocalSrsRenderedCards,
+    yomuLocalSrsCardIdentityKey,
 } from '../srs/local-yomu-state';
 import type { YomuSrsAdapter } from '../srs/types';
 import { applyPublicVocabularyFurigana } from './dom-helpers';
@@ -127,13 +128,21 @@ export class LateCardReconciliation {
             const connectedRoots = roots.filter(root => root instanceof Node && root.isConnected);
             if (!connectedRoots.length) return;
             const cards = tokens.map(token => token.card);
+            const cardsByIdentity = new Map(cards.flatMap(card => {
+                const key = yomuLocalSrsCardIdentityKey(card.spelling, card.reading, card.language);
+                return key ? [[key, card] as const] : [];
+            }));
             let changedWords: HTMLElement[] = [];
             const geometryRoots = new Set<ParentNode>();
             this.dependencies.pauseMutationObserver(() => {
                 changedWords = repaintYomuLocalSrsRenderedCards(cards, connectedRoots);
                 for (const word of changedWords) {
-                    const card = cards.find(candidate => candidate.spelling === word.dataset.expression
-                        && candidate.reading === word.dataset.reading);
+                    const key = yomuLocalSrsCardIdentityKey(
+                        word.dataset.expression ?? '',
+                        word.dataset.reading ?? '',
+                        word.dataset.language,
+                    );
+                    const card = key ? cardsByIdentity.get(key) : undefined;
                     if (!card) continue;
                     const root = this.dependencies.annotationRoot(word);
                     if (applyPublicVocabularyFurigana(word, card, settings)) geometryRoots.add(root);

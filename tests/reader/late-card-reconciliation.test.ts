@@ -281,7 +281,7 @@ describe('late canonical card reconciliation', () => {
         }
     });
 
-    it('keeps a separately hydrated local-SRS state through OCR reactivation', async () => {
+    it('keeps a normalized separately hydrated local-SRS state through OCR reactivation', async () => {
         vi.useFakeTimers();
         const app = new ReaderApp();
         const internals = app as unknown as AppInternals;
@@ -293,22 +293,24 @@ describe('late canonical card reconciliation', () => {
         const localLookup = deferred<YomuSrsReviewable[]>();
         const lookupCards = vi.fn<[readonly YomuSrsLookupItem[]], Promise<YomuSrsReviewable[]>>(() => localLookup.promise);
         internals.yomuLocalSrs = { lookupCards };
-        const retainedOcrCard = lookupCard(31, '名古屋城', {
-            reading: 'なごやじょう',
+        const retainedOcrCard = lookupCard(31, '神社', {
+            reading: 'じんじゃ',
             provisionalState: true,
             cardState: ['not-in-deck'],
         });
-        const retainedOcrToken = tokenFor(retainedOcrCard, '名古屋城');
-        const separatelyQueuedCard = lookupCard(32, '名古屋城', {
-            reading: 'なごやじょう',
+        const retainedOcrToken = tokenFor(retainedOcrCard, '神社');
+        // Compatibility ideograph 神 normalizes to 神. Local SRS already
+        // treats these as one identity; the interaction registry must do so too.
+        const separatelyQueuedCard = lookupCard(32, '神社', {
+            reading: 'じんじゃ',
             provisionalState: true,
             cardState: ['not-in-deck'],
         });
-        const separatelyQueuedToken = tokenFor(separatelyQueuedCard, '名古屋城');
+        const separatelyQueuedToken = tokenFor(separatelyQueuedCard, '神社');
         const result: OcrResult = {
             width: 300,
             height: 100,
-            lines: [{ text: '名古屋城', box: { left: 0, top: 0, width: 120, height: 40 }, vertical: false }],
+            lines: [{ text: '神社', box: { left: 0, top: 0, width: 120, height: 40 }, vertical: false }],
         };
         const overlay = document.createElement('div');
         const image = document.createElement('img');
@@ -327,7 +329,7 @@ describe('late canonical card reconciliation', () => {
             result,
             result.lines[0]!,
             [retainedOcrToken],
-            '名古屋城',
+            '神社',
             true,
             internals.settings,
         );
@@ -343,10 +345,10 @@ describe('late canonical card reconciliation', () => {
             expect(lookupCards).toHaveBeenCalledTimes(1);
             localLookup.resolve([{
                 providerId: 'yomu-local',
-                providerCardId: '名古屋城\u0000なごやじょう',
+                providerCardId: '神社\u0000じんじゃ',
                 kind: 'vocabulary',
-                expression: '名古屋城',
-                reading: 'なごやじょう',
+                expression: '神社',
+                reading: 'じんじゃ',
                 meanings: [],
                 state: ['known'],
             }]);

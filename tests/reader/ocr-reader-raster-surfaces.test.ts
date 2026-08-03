@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
+import { OcrWordRenderStateRegistry } from '../../src/reader/ocr/word-render-state';
 import { applyPublicVocabularyFurigana } from '../../src/reader/app/dom-helpers';
 import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
 import { captureCanvasMirror as captureRealCanvasMirror, mirrorContentTokenForRecords } from '../../src/reader/ocr/canvas-mirror';
@@ -317,6 +318,51 @@ describe('OCR transform controller wiring', () => {
         controller.destroy();
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
         releaseDuringDestroy?.();
+    });
+
+    it('drops retained ruby ranges when canonical spelling changes', () => {
+        const registry = new OcrWordRenderStateRegistry();
+        const line = document.createElement('div');
+        line.dataset.ocrText = '神社';
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        Object.assign(word.dataset, {
+            vid: '71',
+            sid: '0',
+            tokenStart: '0',
+            tokenEnd: '2',
+            surface: '神社',
+        });
+        line.append(word);
+        const card: JPDBCard = {
+            vid: 71,
+            sid: 0,
+            rid: 0,
+            spelling: '神社',
+            reading: 'じんじゃ',
+            frequencyRank: null,
+            partOfSpeech: ['n'],
+            meanings: [],
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'fallback',
+            provisionalState: true,
+        };
+        const token: JPDBToken = {
+            card,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'かみ', start: 0, end: 1, length: 1 }],
+            pitchClass: 'unknown',
+            sentence: '神社',
+        };
+        registry.rememberLine(line, [token]);
+
+        registry.reconcile(word, { ...card, spelling: '神社', source: 'jiten' }, 'heiban');
+
+        expect(token.rubies).toEqual([]);
     });
 
     it('keeps the Window receiver on the coalesced position frame in Firefox sandboxes', () => {
