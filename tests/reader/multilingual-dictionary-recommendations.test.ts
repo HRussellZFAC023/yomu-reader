@@ -188,3 +188,37 @@ function settingsForLearnerLanguage(learnerLanguage: string, targetLanguage = 'j
         activeLanguageProfileId: profile.id,
     });
 }
+
+// MEASURED 2026-08-03. `wty-yue-en` is 28,109 bytes — a Wiktionary Cantonese
+// extraction with almost nothing in it — and the selector preferred the canonical
+// `wty-<target>-<definitions>` id over everything else, so that is what a Cantonese
+// learner installed. It is the whole of yue's 0/47 in the multilingual parity
+// baseline, against a roster average of 84.2%: not a segmentation problem, not a
+// missing capability, an empty dictionary recommended by name.
+//
+// Content decides within the definition-language rank now. That is not a Cantonese
+// special case — simulated over all 1,056 learner/target pairs it moves exactly two,
+// because Wiktionary already IS the largest archive nearly everywhere. No
+// threshold-free predicate isolates the degenerate case: preferring a >50x larger
+// alternative would move 564 pairs, and "terms smaller than its pronunciation
+// companion" 339, because a smaller archive in the learner's OWN language is
+// usually the correct choice and must keep winning on definition language first.
+describe('a recommendation has to contain something', () => {
+    it('gives Cantonese the Words.hk dictionary instead of an empty Wiktionary extract', () => {
+        const [terms] = recommendedDictionariesForLanguageProfile('en', 'yue');
+        expect(terms.id).toBe(catalogRecommendedDictionaryId('en', 'yue', 'drive-cantonese-yue-en-yue-words-hk-2026-07-22-hietpkiipw'));
+        expect(terms.bytes ?? 0).toBeGreaterThan(10_000_000);
+        // The archive it replaced is still in the catalogue and still nearly empty;
+        // this is what the old canonical-id preference chose.
+        expect(findRecommendedDictionary(catalogRecommendedDictionaryId('en', 'yue', 'wty-yue-en'))?.bytes ?? 0)
+            .toBeLessThan(100_000);
+    });
+
+    it('still prefers the learner\'s own definition language over a larger archive', () => {
+        // The load-bearing half of the ordering: size only breaks ties WITHIN a
+        // definition-language rank. A Spanish speaker studying Chinese must not be
+        // handed a 106 MB Chinese-Chinese dictionary just because it is bigger.
+        const [terms] = recommendedDictionariesForLanguageProfile('es', 'zh');
+        expect(terms.definitionLanguage).toBe('es');
+    });
+});

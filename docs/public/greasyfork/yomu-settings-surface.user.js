@@ -51361,10 +51361,16 @@ function targetTermsRecommendation(learnerLanguage2, targetLanguage2) {
     (language2) => entry2.definitionLanguages.includes(language2)
   ) ?? entry2.definitionLanguages[0] ?? "en";
   const definitionRank = preferredDefinitions.indexOf(definitionLanguage2);
-  const canonicalId = `wty-${targetLanguage2}-${definitionLanguage2}`;
-  const shapeRank = entry2.id === canonicalId ? 0 : entry2.id.includes("-gloss") ? 2 : 1;
-  return { entry: entry2, definitionLanguage: definitionLanguage2, rank: (definitionRank < 0 ? 3 : definitionRank) * 10 + shapeRank };
-  }).sort((left, right) => left.rank - right.rank || left.entry.id.localeCompare(right.entry.id, "en"))[0];
+  const shapeRank = entry2.id.includes("-gloss") ? 2 : 0;
+  return {
+    entry: entry2,
+    definitionLanguage: definitionLanguage2,
+    rank: (definitionRank < 0 ? 3 : definitionRank) * 10 + shapeRank,
+    // Narrowed explicitly: only a published distribution carries an object,
+    // and the filter above already excludes the others.
+    bytes: entry2.distribution.state === "published" ? entry2.distribution.object.bytes : 0
+  };
+  }).sort((left, right) => left.rank - right.rank || right.bytes - left.bytes || left.entry.id.localeCompare(right.entry.id, "en"))[0];
   if (!candidates) return void 0;
   const { entry, definitionLanguage } = candidates;
   return {
