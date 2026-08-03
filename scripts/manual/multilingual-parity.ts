@@ -8,6 +8,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual, promisify } from 'node:util';
 
+import { parityDictionaryId } from '../lib/multilingual-parity-dictionary';
 import publishedCatalogJson from '../../config/dictionaries/published/v1/catalog.json';
 import { YomitanDictionaryStore, type YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
 import {
@@ -102,8 +103,23 @@ function cliValue(flag: string): string | undefined {
     return index >= 0 ? process.argv[index + 1] : undefined;
 }
 
+/**
+ * The dictionary a learner would actually be given for this target.
+ *
+ * This used to be `wty-${language}-en` by naming convention, which measured
+ * something no learner installs. For Cantonese the two had diverged completely:
+ * the convention pinned `wty-yue-en` at 28,109 bytes — a Wiktionary extraction
+ * with almost nothing in it — so yue recorded 0 words out of 47 while the roster
+ * averaged 84.2%, and the number described the pin rather than the language. The
+ * shelf offers Words.hk at 13.6 MB.
+ *
+ * Reading the recommendation instead means the ratchet measures the product. Of
+ * the 33 targets exactly one pin moves, because the convention already agreed
+ * with the shelf everywhere else — including Japanese, whose curated shelf leads
+ * with jmdict-en.
+ */
 function publishedDictionary(language: string): DictionaryEvidence {
-    const id = language === 'ja' ? 'jmdict-en' : `wty-${language}-en`;
+    const id = parityDictionaryId(language);
     const entry = catalog.entries.find(candidate => candidate.id === id);
     if (!entry) throw new Error(`${language}: published dictionary ${id} is absent from the catalog.`);
     if (entry.distribution.state !== 'published' || !entry.categories.includes('terms')) {
@@ -121,6 +137,7 @@ function publishedDictionary(language: string): DictionaryEvidence {
         license: entry.license,
     };
 }
+
 
 async function downloadArchive(dictionary: DictionaryEvidence): Promise<Uint8Array> {
     let lastError: unknown;

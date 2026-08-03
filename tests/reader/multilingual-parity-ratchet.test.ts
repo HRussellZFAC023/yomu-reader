@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { parityDictionaryId } from '../../scripts/lib/multilingual-parity-dictionary';
 import { readFile } from 'node:fs/promises';
 import publishedCatalogJson from '../../config/dictionaries/published/v1/catalog.json';
 import { describe, expect, it, vi } from 'vitest';
@@ -159,7 +160,11 @@ interface CheckpointIdentity {
 }
 
 function dictionaryEvidence(language: string): DictionaryEvidence {
-    const id = language === 'ja' ? 'jmdict-en' : `wty-${language}-en`;
+    // Resolved the same way production does, rather than re-stating the old
+    // `wty-<lang>-en` convention here. A fixture that hardcodes the convention
+    // agrees with a ratchet that has drifted away from the product, which is how
+    // Cantonese stayed measured against a 28 KB archive nobody installs.
+    const id = parityDictionaryId(language);
     const entry = publishedCatalogJson.entries.find(candidate => candidate.id === id);
     if (!entry?.distribution.object) throw new Error(`Test fixture cannot find ${id}.`);
     return {

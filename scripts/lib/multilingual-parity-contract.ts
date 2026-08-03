@@ -74,6 +74,12 @@ const MEASUREMENT_IMPLEMENTATION_FILES = [
     'scripts/lib/multilingual-parity-archive.ts',
     'scripts/lib/multilingual-parity-contract.ts',
     'scripts/lib/multilingual-parity-corpus.ts',
+    // WHICH dictionary a target is measured against is part of the measurement:
+    // change it and older evidence stops being comparable. Left out of this list,
+    // the recorder and the ratchet could disagree about the pin while both looked
+    // healthy — which is exactly how Cantonese came to be measured against a
+    // 28 KB archive no learner installs.
+    'scripts/lib/multilingual-parity-dictionary.ts',
 ] as const;
 
 let yomitanSourceFilesPromise: Promise<string[]> | undefined;
