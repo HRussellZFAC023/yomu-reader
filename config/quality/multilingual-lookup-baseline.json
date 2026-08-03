@@ -1,9 +1,9 @@
 {
-  "measuredAt": "2026-08-03T11:22:29.513Z",
+  "measuredAt": "2026-08-03T11:38:38.958Z",
   "schemaVersion": 3,
   "measurementMode": "production-yomitan-inline-find-term-matches",
   "measurementAlgorithmVersion": "exact-gold-spans-v3-full-archive-filter",
-  "gitCommit": "6aff6580b4d0e70711b5f8fe8e9cd1ea0f1e922d",
+  "gitCommit": "582a673885e4d2fde80f6deef5dab4cddd19de56",
   "gitDirty": false,
   "gitStatusSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
   "node": "v24.16.0",
