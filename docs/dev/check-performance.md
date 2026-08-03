@@ -22,15 +22,19 @@ tests 823s, environment 809s — per-file jsdom environment boot dominated.
   direct/targeted Vitest commands remain isolated by default. Reader leaks
   exposed by the first reuse trial (media activation,
   grade queue, OCR cache, stale window methods, and ruby-room mocking) now have
-  explicit resets or dependency injection. Eighteen incompatible reader files
-  run in a second `VITEST_ISOLATE=1` pass; the runner also rejects a new
+  explicit resets or dependency injection. Thirty-five incompatible reader
+  files run in a final `VITEST_ISOLATE=1` pass; the runner also rejects a new
   unquarantined `vi.mock`. Per-fork heap remains capped (`--max-old-space-size`,
-  `YOMU_VITEST_FORK_HEAP_MB` override) so a leak fails one fork loudly instead
-  of OOM-killing workers (the historical tinypool exit-137).
-- **Two-pass test:ci** (`run-ci-tests.mjs --kind all`): one Vite/Vitest host
-  transforms the shared module graph for the reusable majority instead of many
-  shard processes re-transforming it, followed by one small isolated host. The
-  former monoliths were 316 real reader test files at the time of this port and
+  `YOMU_VITEST_FORK_HEAP_MB` override).
+- **Batched reusable + isolated test:ci** (`run-ci-tests.mjs --kind all`): a
+  small bounded set of Vite/Vitest hosts transforms the shared module graph for
+  the reusable majority, followed by one small isolated host. Reusable hosts
+  still run `isolate:false`, but restart before cumulative jsdom/module heap can
+  consume a whole long-lived worker. The default target is 60 files per
+  configured worker (`YOMU_CI_REUSABLE_FILES_PER_WORKER` overrides it); the
+  resulting worker-count × target process limit is hard, and batches are
+  source-size balanced. The former monoliths were 316 real reader test files at
+  the time of this port and
   are scheduled directly by Vitest. `YOMU_CI_SHARDED=1` keeps the multi-process
   path for CI matrix runners; those regular/jpdb shards explicitly retain
   per-file isolation.
@@ -74,10 +78,11 @@ tests, well under a minute. Stage timings print at the end of every
 `npm run check`; per-stage full logs land in `artifacts/check-logs/`.
 
 Variance note: test:ci swings 130→194s with build-lane contention; the tests
-lane remains the critical path. A one-off SIGKILL of the academy vitest was
-observed once under heavy external load — per-fork heaps are capped
-(`YOMU_VITEST_FORK_HEAP_MB`) and the suites never overlap, which bounds peak
-memory; re-run if it recurs.
+lane remains the critical path. On 2026-08-03, the grown 485-file reusable pass
+reported 484 files green while one of four reused workers exhausted its 2.3GB
+V8 heap. The victim shifted between runs, so raising the heap or isolating that
+file would only move the failure. Bounded reusable-process batches now reset
+the workers while retaining `isolate:false` coverage inside every batch.
 
 The original reader fork-reuse branch measured its reader pass at ~344s with
 per-file isolation and ~96s with reuse, stable across seven runs. On the later

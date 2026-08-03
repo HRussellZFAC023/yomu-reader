@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { availableParallelism, loadavg } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { boundedSizeBalancedBatches, firstNonzeroStatus } from './lib/ci-test-batches.mjs';
 import { formatDuration, readPositiveInt } from './lib/ci-utils.mjs';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -26,17 +27,15 @@ const ISOLATED_PASS_FILES = [
     // keep the two largest allocations out of a fork that other files also share.
     //
     // This REDUCES the pressure; it does not remove it. The reusable pass runs
-    // isolate:false, so a fork accumulates heap across every file it handles, and
-    // after moving these two out a later run lost a different pair
-    // (appearance-preview, cloud-settings-sync) to the same abort. Whichever files
-    // happen to be executing when a fork crosses the cap are the casualties, so
-    // quarantining the current victims is chasing the symptom. The real fix is to
-    // bound per-fork accumulation, and it needs a measurement nobody has taken
-    // yet. Do not raise the heap cap instead: that hides the next pair.
+    // isolate:false, so a fork accumulates heap across every file it handles. On
+    // 2026-08-03 the 485-file/4-worker pass reported 484 files green while one
+    // worker died at the V8 heap limit. Earlier runs lost different files at the
+    // same boundary, proving that quarantining whichever file happened to be last
+    // only chases the victim. runAllTests now bounds each reusable Vitest process
+    // and restarts its forks between batches instead of raising the heap cap.
     //
-    // What IS handled: the gate can no longer report this as a failing test.
-    // scripts/run-ci-suite.mjs detects a dead worker and says so, and names the
-    // files that never ran.
+    // If a bounded batch still dies, scripts/run-ci-suite.mjs remains the
+    // backstop that reports the runtime death instead of calling it a test red.
     join(ROOT, 'tests/reader/dictionary-catalog-browse.test.ts'),
     join(ROOT, 'tests/reader/catalog-browse-search-and-locale.test.ts'),
     // Selects the active learning target through mocked modules, so it must not
@@ -106,10 +105,12 @@ const args = parseArgs(process.argv.slice(2));
 const kind = args.kind ?? 'regular';
 const shard = readPositiveInt(args.shard ?? process.env.CI_TEST_SHARD ?? '1', 'shard');
 const total = readPositiveInt(args.total ?? process.env.CI_TEST_TOTAL ?? '1', 'total');
-const apiPort = args['no-api'] ? '' : args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? defaultApiPort(kind, shard);
-// kind=all runs the ENTIRE reader suite in one process; the historical 540s
-// default was a PER-SHARD budget across 12 processes, so the single run gets a
-// proportionally larger default. An explicit env/flag always wins.
+const apiPort = args['no-api']
+    ? undefined
+    : readPositiveInt(args['api-port'] ?? process.env.YOMU_VITEST_API_PORT ?? defaultApiPort(kind, shard), 'Vitest API port');
+// kind=all orchestrates the ENTIRE reader suite; the historical 540s default
+// was a PER-SHARD budget across 12 processes, so each bounded batch retains the
+// larger ceiling. An explicit env/flag always wins.
 const kindForTimeout = args.kind ?? 'regular';
 const defaultTimeoutMs = kindForTimeout === 'all' ? '1500000' : '540000';
 const testTimeoutMs = readPositiveInt(args['timeout-ms'] ?? process.env.YOMU_CI_TEST_TIMEOUT_MS ?? defaultTimeoutMs, 'YOMU_CI_TEST_TIMEOUT_MS');
@@ -130,9 +131,11 @@ else if (kind === 'jpdb') runJpdbShard(shard, total);
 else if (kind === 'all') runAllTests();
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
-// Run the reusable majority through one Vitest host, then the small incompatible
-// set through a second, per-file-isolated host. Reader tests are real files now;
-// scheduling both sets is left to Vitest.
+// Run the reusable majority through bounded isolate:false hosts, then the small
+// incompatible set through a per-file-isolated host. Restarting after each
+// reusable batch caps cumulative jsdom/module heap while every reusable file
+// still shares a fork with peers. Reader tests are real files; scheduling the
+// files inside each batch is left to Vitest.
 function runAllTests() {
     const allFiles = allReaderTestFiles();
     validateIsolatedPass(allFiles);
@@ -142,19 +145,42 @@ function runAllTests() {
         process.env.YOMU_CI_MAX_WORKERS ?? String(Math.max(2, spareParallelism() - 2)),
         'YOMU_CI_MAX_WORKERS',
     );
-    const reusableResult = spawnVitest(
-        ['run', ...reusableFiles.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${maxWorkers}`],
-        { VITEST_ISOLATE: '0' },
-        { label: `reader fork-reuse pass (${reusableFiles.length} files, ${maxWorkers} workers)` },
+    const reusableFilesPerWorker = readPositiveInt(
+        process.env.YOMU_CI_REUSABLE_FILES_PER_WORKER ?? '60',
+        'YOMU_CI_REUSABLE_FILES_PER_WORKER',
     );
-    const reusableStatus = vitestResultStatus(reusableResult, { label: 'reader fork-reuse pass' });
+    const reusableBatches = boundedSizeBalancedBatches(
+        reusableFiles,
+        maxWorkers * reusableFilesPerWorker,
+        fileSize,
+    );
+    const statuses = [];
+    for (const [index, files] of reusableBatches.entries()) {
+        const batchWorkers = Math.min(maxWorkers, files.length);
+        const context = {
+            label: `reader fork-reuse batch ${index + 1}/${reusableBatches.length} (${files.length} files, ${batchWorkers} workers)`,
+            files,
+            apiPort: apiPortAtOffset(index),
+        };
+        const result = spawnVitest(
+            ['run', ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${batchWorkers}`],
+            { VITEST_ISOLATE: '0' },
+            context,
+        );
+        statuses.push(vitestResultStatus(result, context));
+    }
+    const isolatedContext = {
+        label: `reader isolated pass (${ISOLATED_PASS_FILES.length} files)`,
+        files: ISOLATED_PASS_FILES,
+        apiPort: apiPortAtOffset(reusableBatches.length),
+    };
     const isolatedResult = spawnVitest(
         ['run', ...ISOLATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=2'],
         { VITEST_ISOLATE: '1' },
-        { label: `reader isolated pass (${ISOLATED_PASS_FILES.length} files)`, files: ISOLATED_PASS_FILES },
+        isolatedContext,
     );
-    const isolatedStatus = vitestResultStatus(isolatedResult, { label: 'reader isolated pass' });
-    process.exit(reusableStatus || isolatedStatus);
+    statuses.push(vitestResultStatus(isolatedResult, isolatedContext));
+    process.exit(firstNonzeroStatus(statuses));
 }
 
 function runRegularShard(currentShard, shardTotal) {
@@ -326,7 +352,8 @@ function runVitest(vitestArgs, envOverrides = {}, context = {}) {
 
 // Return the result so --kind all can run both passes and report either failure.
 function spawnVitest(vitestArgs, envOverrides = {}, context = {}) {
-    const apiArgs = apiPort ? ['--api', String(apiPort)] : [];
+    const selectedApiPort = context.apiPort ?? apiPort;
+    const apiArgs = selectedApiPort === undefined ? [] : ['--api', String(selectedApiPort)];
     const commandArgs = [join(ROOT, 'node_modules/vitest/vitest.mjs'), ...vitestArgs, ...apiArgs];
     logVitestRun(context, commandArgs);
     return spawnSync(process.execPath, commandArgs, {
@@ -335,6 +362,10 @@ function spawnVitest(vitestArgs, envOverrides = {}, context = {}) {
         env: { ...process.env, ...envOverrides },
         timeout: testTimeoutMs,
     });
+}
+
+function apiPortAtOffset(offset) {
+    return apiPort === undefined ? undefined : apiPort + offset;
 }
 
 function vitestResultStatus(result, context) {
