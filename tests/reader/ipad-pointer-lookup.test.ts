@@ -253,11 +253,15 @@ describe('iPad pointer lookup', () => {
             );
 
             expectPublicKanaLookupShown(internals, shownCards, jpdbCard);
+            // The span authority carries the winning card with its range, so
+            // the resolved span is asserted by what it means — the full kana
+            // word, not the tapped fragment — rather than by the shape the
+            // retired fragment-expansion helper happened to pass.
             expect(internals.showPointerTextCard).toHaveBeenCalledWith(
                 jpdbCard,
                 KANA_RUN_SENTENCE,
                 expect.objectContaining({ offset, anchor }),
-                { term: 'にほんご', start: 0, end: 4 },
+                expect.objectContaining({ start: 0, end: 4 }),
                 'modal',
                 { userGesture: true },
             );
@@ -334,7 +338,10 @@ describe('iPad pointer lookup', () => {
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true });
 
-            expect(internals.jitenPublicVocabulary.lookupMany).toHaveBeenCalledWith(expect.arrayContaining(['にほんご']));
+            expect(internals.jitenPublicVocabulary.lookupMany).toHaveBeenCalledWith(
+                expect.arrayContaining(['にほんご']),
+                expect.anything(),
+            );
             expect(internals.publicLookupCard).not.toHaveBeenCalled();
             expect(shownCards).toEqual([jpdbCard]);
             expect(internals.showCard).toHaveBeenCalledWith(

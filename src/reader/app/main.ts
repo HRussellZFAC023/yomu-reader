@@ -138,6 +138,7 @@ import {
     visibleJitenReviewableWords,
     renderedWordCardForLookup,
     renderedWordLookupText,
+    unconfirmedRenderedWordSpan,
 } from '../main/rendered-word-lookup';
 import {
     installTokenListHandlers as installTokenListClickHandlers,
@@ -5825,6 +5826,7 @@ export class ReaderApp {
         if (this.refreshActiveRenderedWordHover(word, context)) return;
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
         this.preloadHoverWordAudio(word);
+        if (await this.showAuthoritativeSpanForRenderedWord(word, card, context, options, stackOverSettings, scope)) return;
         await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
     }
 
@@ -5864,6 +5866,54 @@ export class ReaderApp {
             // TermSpanResolver. Never rerun lexical candidate selection here.
             skipInitialCardResolution: true,
         });
+    }
+
+    /**
+     * Re-offer an unconfirmed rendered span to the span authority.
+     *
+     * A page can hold spans an older parse produced — a partial run rendered
+     * before enrichment landed, or annotations stamped by a previous version.
+     * Those words carry a fallback card: nothing confirmed them. Interacting
+     * with one resolves it through the same authority as hover and tap, so the
+     * learner gets the whole word rather than the fragment they touched. Words
+     * already carrying a confirmed card skip this entirely, so no extra lookup
+     * runs on normal interaction.
+     */
+    private async showAuthoritativeSpanForRenderedWord(
+        word: HTMLElement,
+        card: JPDBCard,
+        context: RenderedWordDisplayContext,
+        options: RenderedWordLookupOptions,
+        stackOverSettings: boolean,
+        scope: CardLookupTargetSnapshot,
+    ): Promise<boolean> {
+        const span = unconfirmedRenderedWordSpan(word, card, context);
+        if (!span) return false;
+        try {
+            const token = await this.parser.lookupTokenAt(
+                span.sentence,
+                span.start,
+                { start: 0, end: span.sentence.length },
+                this.pointerTextJpdbParseOptions(),
+            );
+            if (!scope.isCurrent()) return true;
+            // Only a strictly wider authoritative span is an upgrade; an equal
+            // or narrower one means the rendered span was already right.
+            if (!token || token.end - token.start <= span.end - span.start) return false;
+            this.parser.cacheCards?.([token.card]);
+            await this.showRenderedWordCard(
+                token.card,
+                { ...context, sentence: span.sentence },
+                options,
+                stackOverSettings,
+                scope,
+            );
+            return true;
+        } catch (error) {
+            if (!scope.isCurrent()) return true;
+            log.warn('Authoritative rendered-word span lookup failed', { expression: card.spelling }, error);
+            return false;
+        }
     }
 
     private cardForRenderedWord(word: HTMLElement): JPDBCard | undefined {

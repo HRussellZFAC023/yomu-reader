@@ -74,3 +74,30 @@ export function jitenWordCardForMassReview(word: HTMLElement): JPDBCard {
         jitenReadingIndex: Number(word.dataset.sid),
     };
 }
+
+export interface UnconfirmedRenderedWordSpan {
+    sentence: string;
+    start: number;
+    end: number;
+}
+
+/**
+ * The token range a rendered word still holds from an UNCONFIRMED parse, or
+ * null when the word's card was confirmed by a dictionary or provider. The
+ * span authority re-resolves only these: a fallback card means segmentation
+ * guessed the boundary, and the guess may cover a fragment of the real word.
+ */
+export function unconfirmedRenderedWordSpan(
+    word: HTMLElement,
+    card: JPDBCard,
+    context: { sentence?: string },
+): UnconfirmedRenderedWordSpan | null {
+    if (card.source && card.source !== 'fallback') return null;
+    const sentence = context.sentence || word.dataset.sentence || '';
+    if (!sentence) return null;
+    const start = Number(word.dataset.tokenStart);
+    const end = Number(word.dataset.tokenEnd);
+    if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
+    if (start < 0 || end <= start || end > sentence.length) return null;
+    return { sentence, start, end };
+}
