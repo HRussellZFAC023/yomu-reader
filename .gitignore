@@ -46,6 +46,18 @@ docs/.vitepress/dist/
 # VitePress build scratch, like cache/ and dist/ above. It was the one gate
 # byproduct git still reported, which is enough to look like a local edit.
 docs/.vitepress/.temp/
+# The Academy hosted mirror is generated, not authored: scripts/sync-academy.cjs
+# rm -rf's docs/public/academy and rewrites it from public/academy + dist/academy
+# on every `npm run build:academy`, and the Pages deploy runs that before
+# docs:build. Committing it too cost 239 MB of byte-identical duplicates in every
+# clone. Four files stay tracked because gates read their COMMITTED bytes:
+# app.js and style.css come from the ignored dist/academy, and index.html + sw.js
+# carry the revision stamp that check:artifacts verifies.
+/docs/public/academy/**
+!/docs/public/academy/app.js
+!/docs/public/academy/style.css
+!/docs/public/academy/index.html
+!/docs/public/academy/sw.js
 .DS_Store
 .module-sizes-baseline.json
 .module-sizes.json

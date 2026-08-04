@@ -35,7 +35,17 @@ export const GENERATED_ARTIFACT_PATHS = [
     'docs/public/study',
     'docs/public/newtab',
     'docs/public/api',
-    'docs/public/academy',
+    // Academy is the one generated route that is NOT committed wholesale. Its
+    // mirror is rebuilt from public/academy on every build:academy, so the tracked
+    // duplicate bought nothing and cost 239 MB; .gitignore now keeps it out. Only
+    // these four are still committed, so only these four belong here -- naming the
+    // directory would make the Build Userscript workflow's `git add -f` re-commit
+    // all 859 ignored files, and would fail outright in that workflow, which never
+    // runs build:academy and so has no such directory on disk.
+    'docs/public/academy/app.js',
+    'docs/public/academy/style.css',
+    'docs/public/academy/index.html',
+    'docs/public/academy/sw.js',
 ];
 
 // `node scripts/lib/generated-artifacts.mjs` prints the list for shell callers
