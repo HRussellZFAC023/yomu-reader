@@ -243,7 +243,7 @@ export class ReaderParser {
             lookup,
             fallback,
             preconfirm: decorationAlignedSpanConfirmation(text, decorations, target, {
-                trustLocalDecorations: this.localStoreOnlySweeps(),
+                trustLocalDecorations: this.localStoreLacksExactBatch(),
             }),
             // A span containing a standalone case particle can never be one
             // word — never plan it, so the dictionary is not even asked. The
@@ -286,18 +286,18 @@ export class ReaderParser {
         return confirmed;
     }
 
-    // A local decoration row comes from the broad findTermMatches sweep. When
-    // the store can answer exact term lookups (batched or single-term), that
-    // indexed answer is the authority and sweep rows may only SEED candidates.
-    // Only a sweep-only store (injected/legacy companion realm) has already
-    // said everything it knows, so its aligned rows are allowed to confirm.
-    private localStoreOnlySweeps(): boolean {
+    // A local decoration row comes from the broad findTermMatches sweep. A
+    // store with the batched exact-candidate transaction re-verifies every
+    // candidate in one cheap readonly txn, so its sweep rows only SEED
+    // candidates — the exact index is the authority when the two disagree.
+    // Without that batch, per-term re-queries are the flood the sweep
+    // already paid for (or, on a sweep-only realm, impossible), and the
+    // store's own aligned rows are its exact answer for that span.
+    private localStoreLacksExactBatch(): boolean {
         const store = this.dependencies.dictionaries as {
             lookupExactTermCandidates?: unknown;
-            lookup?: unknown;
         };
-        return typeof store.lookupExactTermCandidates !== 'function'
-            && typeof store.lookup !== 'function';
+        return typeof store.lookupExactTermCandidates !== 'function';
     }
 
     private async confirmLocalParserSpanRequests(

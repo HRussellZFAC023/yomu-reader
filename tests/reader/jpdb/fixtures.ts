@@ -2301,7 +2301,23 @@ export function configureRenderedWordTest(app: ReaderApp, options: {
         ...options.settings,
     };
     internals.parser.cacheCards(options.cachedCards);
-    if (options.parseJapanese) internals.parseJapanese = options.parseJapanese;
+    if (options.parseJapanese) {
+        internals.parseJapanese = options.parseJapanese;
+        const parse = options.parseJapanese;
+        // The rendered-word span path goes through the parser's public seam;
+        // mirror ReaderParser.lookupTokenAt over the stubbed parse.
+        (internals.parser as unknown as {
+            lookupTokenAt: (
+                text: string,
+                offset: number,
+                range?: { start: number; end: number },
+                parseOptions?: Record<string, unknown>,
+            ) => Promise<JPDBToken | undefined>;
+        }).lookupTokenAt = async (text, offset, range = { start: 0, end: text.length }, parseOptions = {}) => {
+            const [tokens] = await parse([text], { ...parseOptions, allowSegmentedFallback: true });
+            return pickAuthoritativeTokenAt(tokens ?? [], text, offset, range);
+        };
+    }
     internals.publicLookupCard = publicLookupCard;
     internals.cardLookup.publicLookupCard = publicLookupCard;
     internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
@@ -2385,6 +2401,18 @@ export function configureJitenRenderedWordTest(app: ReaderApp, options: {
         ...options.settings,
     };
     internals.parseJapanese = options.parseJapanese;
+    const parse = options.parseJapanese;
+    // Rendered-word spans resolve through the parser's public seam; mirror
+    // ReaderParser.lookupTokenAt over the stubbed parse.
+    (internals as unknown as { parser: Record<string, unknown> }).parser.lookupTokenAt = async (
+        text: string,
+        offset: number,
+        range: { start: number; end: number } = { start: 0, end: text.length },
+        parseOptions: Record<string, unknown> = {},
+    ) => {
+        const [tokens] = await parse([text], { ...parseOptions, allowSegmentedFallback: true });
+        return pickAuthoritativeTokenAt(tokens ?? [], text, offset, range);
+    };
     internals.publicLookupCard = publicLookupCard;
     internals.lookupText = lookupText;
     internals.showCard = showCard;
