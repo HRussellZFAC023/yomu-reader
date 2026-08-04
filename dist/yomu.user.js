@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.74408d665062.user.js#sha256=dECNZlBiPyMKfjzXy6dknWwGrGZY9eBCAMVHReGffys=
+// @require https://yomureader.com/greasyfork/yomu-runtime.170ad35963be.user.js#sha256=FwrTWWO+w53bp+87k522NN22o+CP8HfEzFLk5rwiiSs=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -411,6 +411,37 @@ function safeReadNumber(source, key) {
 const value = safeReadProperty(source, key);
 return typeof value === "number" ? value : void 0;
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+recorder = next;
+}
+function record(label, error) {
+recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+try {
+return fn();
+} catch (error) {
+record(label, error);
+return fallback;
+}
+}
+function attemptVoid(fn, label) {
+try {
+fn();
+} catch (error) {
+record(label, error);
+}
+}
+function parseJson(text2, fallback, label = "parseJson") {
+if (text2 === null || text2 === void 0 || text2 === "") return fallback;
+try {
+return JSON.parse(text2);
+} catch (error) {
+record(label, error);
+return fallback;
+}
+}
 let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 let initialWindowAddEventListener = initialWindowMethod("addEventListener");
 let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -548,11 +579,7 @@ return readMethod(source, key);
 }
 function readProperty(source, key) {
 if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-try {
-return source[key];
-} catch {
-return void 0;
-}
+return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
 if (!method) return { called: false };
@@ -620,11 +647,10 @@ restoreWindowProperty("removeEventListener", descriptor);
 }
 }
 function restoreWindowProperty(key, descriptor) {
-try {
+attemptVoid(() => {
 const target = window.wrappedJSObject || window;
 Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-} catch {
-}
+}, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
 return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -648,11 +674,7 @@ return void 0;
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
 if (!descriptor) return false;
-try {
-return typeof descriptor.value !== "function";
-} catch {
-return false;
-}
+return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
 const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -846,22 +868,22 @@ dispatchBridgeEvent$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT);
 function storageBridgeRequestDetail(event) {
 const detail = normalizedBridgeEventDetail(event);
 if (!detail || typeof detail !== "object") return void 0;
-const record = detail;
-if (typeof record.id !== "string" || !isGmStorageOp(record.op)) return void 0;
-return { id: record.id, op: record.op, key: typeof record.key === "string" ? record.key : void 0, value: record.value };
+const record2 = detail;
+if (typeof record2.id !== "string" || !isGmStorageOp(record2.op)) return void 0;
+return { id: record2.id, op: record2.op, key: typeof record2.key === "string" ? record2.key : void 0, value: record2.value };
 }
 function storageBridgeResponseDetail(event) {
 const detail = normalizedBridgeEventDetail(event);
 if (!detail || typeof detail !== "object") return void 0;
-const record = detail;
-if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+const record2 = detail;
+if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
 return {
-id: record.id,
-ok: record.ok,
-found: typeof record.found === "boolean" ? record.found : void 0,
-value: record.value,
-keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-message: typeof record.message === "string" ? record.message : void 0
+id: record2.id,
+ok: record2.ok,
+found: typeof record2.found === "boolean" ? record2.found : void 0,
+value: record2.value,
+keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+message: typeof record2.message === "string" ? record2.message : void 0
 };
 }
 function isGmStorageOp(value) {
@@ -2115,10 +2137,10 @@ const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
 if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
 if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-const record = { ...value };
-delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-return record;
+const record2 = { ...value };
+delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
 if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
@@ -3240,13 +3262,13 @@ return typeof href === "string" ? href : location.href;
 function parseFactoryResetSignal(value) {
 const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
 if (!isFactoryResetSignalRecord(parsed)) return null;
-const record = parsed;
-if (!isValidFactoryResetPhase(record.phase)) return null;
+const record2 = parsed;
+if (!isValidFactoryResetPhase(record2.phase)) return null;
 return {
-id: record.id,
-phase: record.phase,
-at: factoryResetSignalTime(record.at),
-href: factoryResetSignalHref(record.href)
+id: record2.id,
+phase: record2.phase,
+at: factoryResetSignalTime(record2.at),
+href: factoryResetSignalHref(record2.href)
 };
 }
 function factoryResetSignalTime(value) {
@@ -4224,6 +4246,7 @@ writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, leve
 }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function configureLogger(options) {
 Logger.configure(options);
 }
@@ -4290,8 +4313,8 @@ const CONSOLE_VALUE_SANITIZERS = [
 (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
 (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
 key,
 shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
 ]));
@@ -5474,18 +5497,18 @@ if (!Array.isArray(value)) return [];
 return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function normalizeDictionaryPreference(item, index) {
-const record = objectRecord$3(item);
-if (!record) return null;
-const name = stringValue(record.name);
+const record2 = objectRecord$3(item);
+if (!record2) return null;
+const name = stringValue(record2.name);
 if (!name.trim()) return null;
-const alias = stringValue(record.alias);
+const alias = stringValue(record2.alias);
 return {
 name,
 alias: alias.trim() ? alias : name,
-enabled: booleanValue(record.enabled, true),
-priority: finiteNumber$1(record.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
-allowSecondarySearches: booleanValue(record.allowSecondarySearches, false),
-type: normalizeDictionaryType(record.type, name)
+enabled: booleanValue(record2.enabled, true),
+priority: finiteNumber$1(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
+allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
+type: normalizeDictionaryType(record2.type, name)
 };
 }
 function defaultDictionaryLookupLinks(mode = "local", targetLanguage = "ja") {
@@ -5584,42 +5607,42 @@ if (!seen.has(builtIn.id)) add(builtIn);
 }
 function normalizeDictionaryLookupLink(value) {
 if (!value || typeof value !== "object") return null;
-const record = value;
-const id = normalizedLookupLinkId(record);
-const label = normalizedLookupLinkLabel(record, id);
-const urlTemplate = normalizedLookupLinkUrlTemplate(record);
-const action = normalizedLookupLinkAction(record, id);
+const record2 = value;
+const id = normalizedLookupLinkId(record2);
+const label = normalizedLookupLinkLabel(record2, id);
+const urlTemplate = normalizedLookupLinkUrlTemplate(record2);
+const action = normalizedLookupLinkAction(record2, id);
 if (!isUsableDictionaryLookupLink(id, label, urlTemplate, action)) return null;
 return {
 id,
 label,
 urlTemplate,
-enabled: normalizedLookupLinkEnabled(record),
+enabled: normalizedLookupLinkEnabled(record2),
 action,
-priority: finiteNumber$1(record.priority, Number.MAX_SAFE_INTEGER)
+priority: finiteNumber$1(record2.priority, Number.MAX_SAFE_INTEGER)
 };
 }
-function normalizedLookupLinkUrlTemplate(record) {
-return typeof record.urlTemplate === "string" ? record.urlTemplate.trim() : "";
+function normalizedLookupLinkUrlTemplate(record2) {
+return typeof record2.urlTemplate === "string" ? record2.urlTemplate.trim() : "";
 }
-function normalizedLookupLinkEnabled(record) {
-return typeof record.enabled === "boolean" ? record.enabled : true;
+function normalizedLookupLinkEnabled(record2) {
+return typeof record2.enabled === "boolean" ? record2.enabled : true;
 }
 function isUsableDictionaryLookupLink(id, label, urlTemplate, action) {
 if (!id || !label) return false;
 return action === "copy" || action === "frequency-live" || action === "frequency-local" || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
 }
-function normalizedLookupLinkId(record) {
-if (typeof record.id === "string" && record.id.trim()) return record.id.trim();
-return typeof record.label === "string" ? `custom-${stableLookupLinkId(record.label)}` : "";
+function normalizedLookupLinkId(record2) {
+if (typeof record2.id === "string" && record2.id.trim()) return record2.id.trim();
+return typeof record2.label === "string" ? `custom-${stableLookupLinkId(record2.label)}` : "";
 }
-function normalizedLookupLinkLabel(record, id) {
-return typeof record.label === "string" && record.label.trim() ? record.label.trim().slice(0, 24) : id;
+function normalizedLookupLinkLabel(record2, id) {
+return typeof record2.label === "string" && record2.label.trim() ? record2.label.trim().slice(0, 24) : id;
 }
-function normalizedLookupLinkAction(record, id) {
-if (record.action === "copy" || id === "copy") return "copy";
-if (record.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
-if (record.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
+function normalizedLookupLinkAction(record2, id) {
+if (record2.action === "copy" || id === "copy") return "copy";
+if (record2.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
+if (record2.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
 return "open";
 }
 function stableLookupLinkId(value) {
@@ -5667,9 +5690,9 @@ records: { ...fromLegacy.records, ...fromStored.records }
 };
 }
 function parseSettingsIntentLedger(value) {
-const record = objectRecord$2(value);
-if (!record) return null;
-const records = objectRecord$2(record.records);
+const record2 = objectRecord$2(value);
+if (!record2) return null;
+const records = objectRecord$2(record2.records);
 if (!records) return null;
 const parsed = {};
 let highest = 0;
@@ -5680,14 +5703,14 @@ const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq
 parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
 highest = Math.max(highest, seq);
 }
-const revision = typeof record.revision === "number" && Number.isFinite(record.revision) ? record.revision : 0;
+const revision = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
 return { revision: Math.max(revision, highest), records: parsed };
 }
 function ledgerFromLegacyPins(value) {
-const record = objectRecord$2(value);
-if (!record) return EMPTY_SETTINGS_INTENT_LEDGER;
+const record2 = objectRecord$2(value);
+if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
 const records = {};
-for (const [key, pinned] of Object.entries(record)) records[key] = { seq: 0, value: pinned };
+for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
 return { revision: 0, records };
 }
 function objectRecord$2(value) {
@@ -5717,10 +5740,10 @@ if (!keys.length) return settings;
 const next = { ...settings };
 let changed = false;
 for (const key of keys) {
-const record = ledger.records[key];
-if (!hasOwn(record, "value") || !hasOwn(next, key)) continue;
-if (sameSettingsValue(next[key], record.value)) continue;
-next[key] = record.value;
+const record2 = ledger.records[key];
+if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+if (sameSettingsValue(next[key], record2.value)) continue;
+next[key] = record2.value;
 changed = true;
 }
 return changed ? next : settings;
@@ -7425,15 +7448,15 @@ function isAudioSourceType(value) {
 return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
 }
 function normalizeAudioSource(value) {
-const record = audioSourceRecord(value);
-if (!record) return null;
-if (!isAudioSourceType(record.type)) return null;
-const subSources = normalizeAudioSubSources(record.subSources);
+const record2 = audioSourceRecord(value);
+if (!record2) return null;
+if (!isAudioSourceType(record2.type)) return null;
+const subSources = normalizeAudioSubSources(record2.subSources);
 return {
-type: record.type,
-url: stringValue(record.url),
-voice: stringValue(record.voice),
-enabled: audioSourceEnabled(record.enabled),
+type: record2.type,
+url: stringValue(record2.url),
+voice: stringValue(record2.voice),
+enabled: audioSourceEnabled(record2.enabled),
 ...subSources.length ? { subSources } : {}
 };
 }
@@ -7443,13 +7466,13 @@ const seen = new Set();
 const subSources = [];
 for (const entry of value) {
 if (!entry || typeof entry !== "object") continue;
-const record = entry;
-const name = stringValue(record.name).trim();
+const record2 = entry;
+const name = stringValue(record2.name).trim();
 if (!name) continue;
 const key = audioSubSourceNameKey(name);
 if (seen.has(key)) continue;
 seen.add(key);
-subSources.push({ name, enabled: audioSourceEnabled(record.enabled) });
+subSources.push({ name, enabled: audioSourceEnabled(record2.enabled) });
 }
 return subSources;
 }
@@ -14556,17 +14579,17 @@ if (rubyRoomGrowthRecords.has(box)) return;
 rubyRoomGrowthRecords.set(box, { before: rubyRoomStyleSnapshot(box) });
 }
 function recordRubyRoomGrowthWrite(box) {
-const record = rubyRoomGrowthRecords.get(box);
-if (record) record.written = rubyRoomStyleSnapshot(box);
+const record2 = rubyRoomGrowthRecords.get(box);
+if (record2) record2.written = rubyRoomStyleSnapshot(box);
 }
 function releaseRubyRoomGrowth(root = document) {
 const boxes = queryAllInAnnotationRoots(root, "[data-yomu-ruby-room]");
 for (const box of boxes) {
-const record = rubyRoomGrowthRecords.get(box);
-restoreRubyRoomProperty(box, "min-height", record, (r) => [r.minHeight, r.minHeightPriority]);
-restoreRubyRoomProperty(box, "height", record, (r) => [r.height, r.heightPriority]);
-restoreRubyRoomProperty(box, "max-height", record, (r) => [r.maxHeight, r.maxHeightPriority]);
-restoreRubyRoomProperty(box, "padding-top", record, (r) => [r.paddingTop, r.paddingTopPriority]);
+const record2 = rubyRoomGrowthRecords.get(box);
+restoreRubyRoomProperty(box, "min-height", record2, (r) => [r.minHeight, r.minHeightPriority]);
+restoreRubyRoomProperty(box, "height", record2, (r) => [r.height, r.heightPriority]);
+restoreRubyRoomProperty(box, "max-height", record2, (r) => [r.maxHeight, r.maxHeightPriority]);
+restoreRubyRoomProperty(box, "padding-top", record2, (r) => [r.paddingTop, r.paddingTopPriority]);
 delete box.dataset.yomuRubyRoom;
 delete box.dataset.yomuRubyRoomHeight;
 delete box.dataset.yomuRubyRoomPadTop;
@@ -14574,14 +14597,14 @@ rubyRoomGrowthRecords.delete(box);
 }
 return boxes.length;
 }
-function restoreRubyRoomProperty(box, property, record, pick) {
-if (record?.written) {
-const [writtenValue, writtenPriority] = pick(record.written);
+function restoreRubyRoomProperty(box, property, record2, pick) {
+if (record2?.written) {
+const [writtenValue, writtenPriority] = pick(record2.written);
 const currentValue = box.style.getPropertyValue(property);
 const currentPriority = box.style.getPropertyPriority(property);
 if (currentValue !== writtenValue || currentPriority !== writtenPriority) return;
 }
-const [value, priority2] = record ? pick(record.before) : ["", ""];
+const [value, priority2] = record2 ? pick(record2.before) : ["", ""];
 if (value) box.style.setProperty(property, value, priority2);
 else box.style.removeProperty(property);
 }
@@ -19244,12 +19267,12 @@ return LOCAL_TERM_TAG_LABELS.get(normalized) ?? tag;
 function hasRichStructuredGlossary(value) {
 if (!value || typeof value !== "object") return false;
 if (Array.isArray(value)) return value.some(hasRichStructuredGlossary);
-const record = value;
-return isRichStructuredGlossaryRecord(record) || hasRichStructuredGlossary(record.content);
+const record2 = value;
+return isRichStructuredGlossaryRecord(record2) || hasRichStructuredGlossary(record2.content);
 }
-function isRichStructuredGlossaryRecord(record) {
-const tag = typeof record.tag === "string" ? record.tag.toLowerCase() : "";
-return record.type === "image" || "path" in record || tag === "img" || tag === "table";
+function isRichStructuredGlossaryRecord(record2) {
+const tag = typeof record2.tag === "string" ? record2.tag.toLowerCase() : "";
+return record2.type === "image" || "path" in record2 || tag === "img" || tag === "table";
 }
 function pillStyle(key) {
 const hue = stableHue(key);
@@ -19280,8 +19303,8 @@ return nested === void 0 ? Number.POSITIVE_INFINITY : metaFrequencyRank(nested);
 }
 function nestedMetaFrequencyValue(value) {
 if (!value || typeof value !== "object") return void 0;
-const record = value;
-return record.frequency ?? record.value ?? record.displayValue;
+const record2 = value;
+return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 function numericFrequencyRank(value) {
 return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
@@ -19375,8 +19398,8 @@ return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
 }
 function nestedFrequencyValue(value) {
 if (!value || typeof value !== "object") return void 0;
-const record = value;
-return record.frequency ?? record.value ?? record.displayValue;
+const record2 = value;
+return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 Logger.scope("DictionaryArchiveCache");
 const PRIVATE_IPV4_RANGES = [
@@ -19637,8 +19660,8 @@ let lastError;
 for (const [index, candidate] of candidates.entries()) {
 if (options.signal?.aborted) throw abortReasonFor(options.signal);
 try {
-const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-const response = await fetchWithTimeout$1(attempt.url, attempt.options);
+const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+const response = await fetchWithTimeout$1(attempt2.url, attempt2.options);
 if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
 lastError = new Error(`Proxy request failed (${response.status}).`);
 continue;
@@ -19782,20 +19805,20 @@ if (typeof value === "string") return value;
 if (typeof value === "number" || typeof value === "boolean") return String(value);
 return void 0;
 }
-function glossaryRecordToText(record, options) {
-if (typeof record.text === "string") return record.text;
-if ("content" in record) return glossaryValueToProfileText(record.content, options);
-const values = glossaryRecordTextValues(record, options);
+function glossaryRecordToText(record2, options) {
+if (typeof record2.text === "string") return record2.text;
+if ("content" in record2) return glossaryValueToProfileText(record2.content, options);
+const values = glossaryRecordTextValues(record2, options);
 if (values.length) return values.join(" ");
-if ("path" in record) return glossaryPathRecordText(record);
+if ("path" in record2) return glossaryPathRecordText(record2);
 return "";
 }
-function glossaryPathRecordText(record) {
-return String(record.description || record.alt || "");
+function glossaryPathRecordText(record2) {
+return String(record2.description || record2.alt || "");
 }
-function glossaryRecordTextValues(record, options) {
+function glossaryRecordTextValues(record2, options) {
 const values = [];
-for (const [key, childValue] of Object.entries(record)) {
+for (const [key, childValue] of Object.entries(record2)) {
 if (!shouldReadRecordTextKey(key, options)) continue;
 const childText = glossaryValueToProfileText(childValue, options);
 if (childText) values.push(childText);
@@ -19827,14 +19850,14 @@ return `#${display}`;
 function metaFrequencyDisplayValue(value) {
 const primitive = primitiveMetaValue(value);
 if (primitive !== null) return primitive;
-const record = objectRecord$1(value);
-return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+const record2 = objectRecord$1(value);
+return record2 ? scalarMetaValue(nestedMetaValue(record2)) : null;
 }
 function scalarMetaValue(value) {
 const primitive = primitiveMetaValue(value);
 if (primitive !== null) return primitive;
-const record = objectRecord$1(value);
-return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+const record2 = objectRecord$1(value);
+return record2 ? scalarMetaValue(nestedMetaValue(record2)) : null;
 }
 function primitiveMetaValue(value) {
 return typeof value === "number" || typeof value === "string" ? String(value) : null;
@@ -19842,8 +19865,8 @@ return typeof value === "number" || typeof value === "string" ? String(value) : 
 function objectRecord$1(value) {
 return value && typeof value === "object" ? value : null;
 }
-function nestedMetaValue(record) {
-return record.displayValue ?? record.frequency ?? record.value;
+function nestedMetaValue(record2) {
+return record2.displayValue ?? record2.frequency ?? record2.value;
 }
 function groupTermEntriesByDictionary(entries2) {
 const grouped = new Map();
@@ -20380,18 +20403,18 @@ if (pattern && !patterns.includes(pattern)) patterns.push(pattern);
 return patterns;
 }
 function readPitchCandidates(value, normalizedReading) {
-const record = objectRecord(value);
-if (!record || !pitchMetadataReadingMatches(record, normalizedReading)) return [];
-const candidates = pitchPositionCandidates(record).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
+const record2 = objectRecord(value);
+if (!record2 || !pitchMetadataReadingMatches(record2, normalizedReading)) return [];
+const candidates = pitchPositionCandidates(record2).map((candidate) => pitchCandidateFromValue(candidate)).filter((candidate) => candidate != null);
 if (candidates.length) return candidates;
-const direct = pitchCandidateFromValue(record.position);
+const direct = pitchCandidateFromValue(record2.position);
 return direct == null ? [] : [direct];
 }
 function pitchPatternFromCandidate(reading, candidate) {
 return typeof candidate === "number" ? pitchPatternFromPosition(reading, candidate) : normalizePitchPatternsForReading([candidate], reading)[0] ?? "";
 }
-function pitchMetadataReadingMatches(record, normalizedReading) {
-const metadataReading = typeof record.reading === "string" ? record.reading : "";
+function pitchMetadataReadingMatches(record2, normalizedReading) {
+const metadataReading = typeof record2.reading === "string" ? record2.reading : "";
 return readingIdentity(metadataReading) === normalizedReading;
 }
 function expressionIdentity(value) {
@@ -20400,16 +20423,16 @@ return value.trim().normalize("NFKC");
 function readingIdentity(value) {
 return expressionIdentity(value).replace(/[ァ-ヶ]/gu, (character) => String.fromCharCode(character.charCodeAt(0) - 96));
 }
-function pitchPositionCandidates(record) {
-if (Array.isArray(record.pitches)) return record.pitches;
-return Array.isArray(record.positions) ? record.positions : [];
+function pitchPositionCandidates(record2) {
+if (Array.isArray(record2.pitches)) return record2.pitches;
+return Array.isArray(record2.positions) ? record2.positions : [];
 }
 function pitchCandidateFromValue(value) {
 const direct = directPitchCandidateValue(value);
 if (direct !== null) return direct;
 if (!value || typeof value !== "object") return null;
-const record = value;
-return pitchCandidateFromValue(record.position);
+const record2 = value;
+return pitchCandidateFromValue(record2.position);
 }
 function directPitchCandidateValue(value) {
 if (typeof value === "number") return validPitchPosition(value);
@@ -21710,9 +21733,9 @@ async listStudyDecks() {
 const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
 if (!Array.isArray(response)) return [];
 return response.map((row) => {
-const record = row;
-const id = Number(record?.userStudyDeckId);
-const name = typeof record?.name === "string" ? record.name : "";
+const record2 = row;
+const id = Number(record2?.userStudyDeckId);
+const name = typeof record2?.name === "string" ? record2.name : "";
 return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
 }).filter((deck) => deck !== null);
 }
@@ -21721,10 +21744,10 @@ const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId
 const keys = new Set();
 if (!Array.isArray(response)) return keys;
 for (const row of response) {
-const record = row;
-const wordId = Number(record?.wordId);
+const record2 = row;
+const wordId = Number(record2?.wordId);
 if (!Number.isFinite(wordId)) continue;
-keys.add(`${wordId}:${Number(record?.readingIndex) || 0}`);
+keys.add(`${wordId}:${Number(record2?.readingIndex) || 0}`);
 }
 return keys;
 }
@@ -21792,11 +21815,7 @@ await this.request("srs/undo-review", jitenCardReference(card));
 }
 async batchReviewCards(cards, grade) {
 const reviews = cards.flatMap((card) => {
-try {
-return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
-} catch {
-return [];
-}
+return attempt(() => [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }], [], "jiten.batchReviewCards");
 });
 if (!reviews.length) return 0;
 await this.request("srs/batch-review", { reviews });
@@ -21810,11 +21829,7 @@ if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
 }
 async refreshCardStates(cards) {
 const entries2 = cards.map((card) => {
-try {
-return { card, ref: jitenCardReference(card) };
-} catch {
-return null;
-}
+return attempt(() => ({ card, ref: jitenCardReference(card) }), null, "jiten.refreshCardStates");
 }).filter((entry) => entry !== null);
 if (!entries2.length) return 0;
 const response = await this.request("reader/lookup-vocabulary", {
@@ -22182,22 +22197,22 @@ const JITEN_CARD_STATE_MAP = {
 7: "in-deck"
 };
 function normalizeJitenVocabularyInfo(value) {
-const record = jitenPayloadRecord(value);
-if (!record) return null;
-const wordId = finiteJitenInteger(record.wordId);
+const record2 = jitenPayloadRecord(value);
+if (!record2) return null;
+const wordId = finiteJitenInteger(record2.wordId);
 if (wordId === void 0 || wordId <= 0) return null;
-const mainReading = normalizeJitenVocabularyReading(record.mainReading);
+const mainReading = normalizeJitenVocabularyReading(record2.mainReading);
 return {
 wordId,
 mainReading,
-alternativeReadings: arrayOfRecords(record.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
-partsOfSpeech: arrayOfStrings(record.partsOfSpeech),
-definitions: arrayOfRecords(record.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
-pitchAccents: jitenStateNumbers(record.pitchAccents),
-knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
-composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
-usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
-usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
+alternativeReadings: arrayOfRecords(record2.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
+partsOfSpeech: arrayOfStrings(record2.partsOfSpeech),
+definitions: arrayOfRecords(record2.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
+pitchAccents: jitenStateNumbers(record2.pitchAccents),
+knownStates: Array.isArray(record2.knownStates) ? jitenKnownStateToCardStates(record2.knownStates) : [],
+composedOf: normalizeJitenVocabularyWordSummaries(record2.composedOf),
+usedIn: normalizeJitenVocabularyWordSummaries(record2.usedIn),
+usedInTotal: finiteJitenInteger(record2.usedInTotal) ?? 0,
 examples: []
 };
 }
@@ -22468,16 +22483,16 @@ return parsed !== void 0 && parsed > 0 ? parsed : void 0;
 function nullableFiniteNumber(value) {
 return finiteJitenNumber(value) ?? null;
 }
-function firstRecordString(record, keys) {
+function firstRecordString(record2, keys) {
 for (const key of keys) {
-const value = record[key];
+const value = record2[key];
 if (typeof value === "string" && value.trim()) return value.trim();
 }
 return null;
 }
-function firstRecordFiniteNumber(record, keys) {
+function firstRecordFiniteNumber(record2, keys) {
 for (const key of keys) {
-const value = finiteJitenNumber(record[key]);
+const value = finiteJitenNumber(record2[key]);
 if (value !== void 0) return value;
 }
 return null;
@@ -22556,9 +22571,9 @@ function jitenStateNumbers(value) {
 return Array.isArray(value) ? value.map(finiteJitenInteger).filter((item) => item !== void 0) : [];
 }
 function jitenReviewGradeIntervals(payload) {
-const record = payload;
+const record2 = payload;
 for (const key of JITEN_REVIEW_INTERVAL_KEYS) {
-const parsed = jitenReviewGradeIntervalsFromValue(record[key]);
+const parsed = jitenReviewGradeIntervalsFromValue(record2[key]);
 if (parsed) return parsed;
 }
 return void 0;
@@ -22576,10 +22591,10 @@ addJitenReviewInterval(intervals, meta ?? JITEN_REVIEW_RATINGS[index], value);
 });
 return Object.keys(intervals).length ? intervals : void 0;
 }
-function jitenReviewGradeIntervalsFromRecord(record) {
+function jitenReviewGradeIntervalsFromRecord(record2) {
 const intervals = {};
 for (const meta of JITEN_REVIEW_RATINGS) {
-const value = meta.keys.map((key) => record[key]).find((candidate) => candidate !== void 0);
+const value = meta.keys.map((key) => record2[key]).find((candidate) => candidate !== void 0);
 addJitenReviewInterval(intervals, meta, value);
 }
 return Object.keys(intervals).length ? intervals : void 0;
@@ -22591,9 +22606,9 @@ if (!interval) return;
 for (const grade of meta.grades) intervals[grade] = interval;
 }
 function jitenReviewInterval(value, meta) {
-const record = isJsonRecord(value) ? value : null;
-const buttonLabel = jitenReviewButtonLabel(record, meta);
-const intervalLabel = jitenReviewIntervalLabel(value, record);
+const record2 = isJsonRecord(value) ? value : null;
+const buttonLabel = jitenReviewButtonLabel(record2, meta);
+const intervalLabel = jitenReviewIntervalLabel(value, record2);
 if (!intervalLabel) return null;
 return {
 buttonLabel,
@@ -22602,12 +22617,12 @@ label: prefixedReviewIntervalLabel(buttonLabel, intervalLabel),
 source: "jiten-study-batch"
 };
 }
-function jitenReviewButtonLabel(record, meta) {
-return firstString(record, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
+function jitenReviewButtonLabel(record2, meta) {
+return firstString(record2, ["buttonLabel", "gradeLabel", "ratingLabel", "name"]) ?? meta.buttonLabel;
 }
-function jitenReviewIntervalLabel(value, record) {
+function jitenReviewIntervalLabel(value, record2) {
 if (typeof value === "string") return normalizeIntervalLabel(value);
-const explicit = firstString(record, [
+const explicit = firstString(record2, [
 "intervalLabel",
 "nextReviewLabel",
 "nextIntervalLabel",
@@ -22620,26 +22635,26 @@ const explicit = firstString(record, [
 "text"
 ]);
 if (explicit) return normalizeIntervalLabel(explicit);
-return jitenReviewIntervalNumberLabel(record) ?? "";
+return jitenReviewIntervalNumberLabel(record2) ?? "";
 }
-function jitenReviewIntervalNumberLabel(record) {
-if (!record) return null;
+function jitenReviewIntervalNumberLabel(record2) {
+if (!record2) return null;
 for (const [key, unit] of JITEN_REVIEW_INTERVAL_NUMERIC_KEYS) {
-const value = finiteJitenNumber(record[key]);
+const value = finiteJitenNumber(record2[key]);
 if (value !== void 0) return formatJitenInterval(value, unit);
 }
 return null;
 }
-function jitenReviewRatingMetaFromRecord(record) {
-const rating = finiteJitenInteger(record.rating) ?? finiteJitenInteger(record.ease) ?? finiteJitenInteger(record.button) ?? finiteJitenInteger(record.value);
+function jitenReviewRatingMetaFromRecord(record2) {
+const rating = finiteJitenInteger(record2.rating) ?? finiteJitenInteger(record2.ease) ?? finiteJitenInteger(record2.button) ?? finiteJitenInteger(record2.value);
 if (rating !== void 0) return JITEN_REVIEW_RATINGS.find((meta) => meta.rating === rating);
-const label = firstString(record, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
+const label = firstString(record2, ["grade", "key", "id", "name", "buttonLabel", "gradeLabel", "ratingLabel"]);
 return label ? JITEN_REVIEW_RATINGS.find((meta) => meta.keys.includes(normalizeJitenReviewKey(label))) : void 0;
 }
-function firstString(record, keys) {
-if (!record) return null;
+function firstString(record2, keys) {
+if (!record2) return null;
 for (const key of keys) {
-const value = record[key];
+const value = record2[key];
 if (typeof value === "string" && value.trim()) return value.trim();
 }
 return null;
@@ -22730,7 +22745,7 @@ globalThis.clearTimeout(timeoutId);
 }
 async function parseJitenResponse(response, authenticated) {
 const text2 = await response.text();
-const json = parseJson(text2);
+const json = parseJson(text2, void 0, "jiten.parseJitenResponse");
 const errorMessage = jitenApplicationErrorMessage(json);
 const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
 if (errorMessage) {
@@ -22757,14 +22772,6 @@ return authenticated && (status === 401 || status === 403) ? "Jiten rejected the
 function statusFromMessage(message) {
 const match = /\((\d{3})\)/.exec(message);
 return match ? Number(match[1]) : void 0;
-}
-function parseJson(text2) {
-if (!text2) return void 0;
-try {
-return JSON.parse(text2);
-} catch {
-return void 0;
-}
 }
 function jitenApplicationErrorMessage(value) {
 if (!isJsonRecord(value)) return void 0;
@@ -27912,7 +27919,7 @@ return `${reasonBlock(options, collection.reason)}
 <button class="jpdb-reader-btn" type="button" data-action="retry-example-source" data-example-source-id="${escapeHtml(options.sourceId)}">${escapeHtml(uiText(options.interfaceLanguage, "exampleSourceRetry"))}</button>`;
 case "loaded":
 return `
-<ul class="jpdb-reader-jpdb-examples">${collection.items.map((record) => renderExampleRecord(record, options)).join("")}</ul>
+<ul class="jpdb-reader-jpdb-examples">${collection.items.map((record2) => renderExampleRecord(record2, options)).join("")}</ul>
 ${mediaNotices(options, collection)}
 `;
 }
@@ -27933,7 +27940,7 @@ return uiText(interfaceLanguage, "exampleSourceFailedShort");
 function mediaNotices(options, collection) {
 const notices = [];
 const audio = options.capabilities.audio;
-const playable = collection.items.some((record) => record.audio?.length);
+const playable = collection.items.some((record2) => record2.audio?.length);
 if (audio.availability === "none") {
 notices.push(reasonBlock(options, "no-sentence-audio-source"));
 } else if (!playable) {
@@ -27990,40 +27997,40 @@ return new Intl.DisplayNames([locale], { type: "language" }).of(tag) ?? tag;
 return tag;
 }
 }
-function renderExampleRecord(record, options) {
-const audio = record.audio?.[0];
+function renderExampleRecord(record2, options) {
+const audio = record2.audio?.[0];
 return `
-<li class="jpdb-reader-jpdb-example" data-provider-example-id="${escapeHtml(record.id)}">
+<li class="jpdb-reader-jpdb-example" data-provider-example-id="${escapeHtml(record2.id)}">
 <div class="jpdb-reader-jpdb-example-row${audio ? " has-audio" : ""}">
 ${audio ? renderAudioButton(audio.url, options.interfaceLanguage) : ""}
 <div class="jpdb-reader-jpdb-example-text">
-<div class="jpdb-reader-example-sentence" lang="${escapeHtml(record.text.language)}" dir="auto" data-provider-example-sentence>${escapeHtml(record.text.value)}</div>
-${renderTranslation(record, options)}
-${renderProvenance(record, options)}
+<div class="jpdb-reader-example-sentence" lang="${escapeHtml(record2.text.language)}" dir="auto" data-provider-example-sentence>${escapeHtml(record2.text.value)}</div>
+${renderTranslation(record2, options)}
+${renderProvenance(record2, options)}
 </div>
 </div>
 </li>
 `;
 }
-function renderTranslation(record, options) {
-if (!record.translation) return reasonBlock(options, "no-human-translation");
+function renderTranslation(record2, options) {
+if (!record2.translation) return reasonBlock(options, "no-human-translation");
 const blurred = options.blurTranslations ?? false;
 return `<div class="jpdb-reader-example-translation"
-lang="${escapeHtml(record.translation.language)}"
+lang="${escapeHtml(record2.translation.language)}"
 dir="auto"
 data-provider-example-translation
-data-translation-provenance="${escapeHtml(record.translation.provenance)}"
+data-translation-provenance="${escapeHtml(record2.translation.provenance)}"
 ${blurred ? 'data-provider-translation-blurred="true" role="button" tabindex="0" aria-label="' + escapeHtml(uiText(options.interfaceLanguage, "revealTranslation")) + '"' : ""}
->${escapeHtml(record.translation.value)}</div>`;
+>${escapeHtml(record2.translation.value)}</div>`;
 }
-function renderProvenance(record, options) {
+function renderProvenance(record2, options) {
 const marks = [];
-if (record.translation?.provenance === "machine") marks.push(uiText(options.interfaceLanguage, "exampleSourceMachineTranslation"));
-if (record.translation && record.translation.direct === false) marks.push(uiText(options.interfaceLanguage, "exampleSourceIndirectTranslation"));
-const audioCredit = record.audio?.[0];
+if (record2.translation?.provenance === "machine") marks.push(uiText(options.interfaceLanguage, "exampleSourceMachineTranslation"));
+if (record2.translation && record2.translation.direct === false) marks.push(uiText(options.interfaceLanguage, "exampleSourceIndirectTranslation"));
+const audioCredit = record2.audio?.[0];
 return `<div class="jpdb-reader-example-provenance" data-example-provenance>
-<a href="${escapeHtml(record.source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(record.source.attribution)}</a>
-<span data-example-licence>${escapeHtml(record.source.licence)}</span>
+<a href="${escapeHtml(record2.source.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(record2.source.attribution)}</a>
+<span data-example-licence>${escapeHtml(record2.source.licence)}</span>
 ${audioCredit ? `<span data-example-audio-licence>${escapeHtml(`${audioCredit.attribution} · ${audioCredit.licence.id}`)}</span>` : ""}
 ${marks.map((mark) => `<span data-example-translation-mark>${escapeHtml(mark)}</span>`).join("")}
 </div>`;
@@ -28156,7 +28163,7 @@ return { availability: "unavailable", items: [], reason: failure.reason };
 }
 if (!failure) backoffMs = RATE_LIMIT_INITIAL_BACKOFF_MS;
 const withheldMedia = [];
-const items = payloads.flatMap((response) => sentenceRows(response.payload)).map((row) => toExampleRecord(row, coverage, request.outputLanguage, withheldMedia)).filter((record) => Boolean(record)).slice(0, limit);
+const items = payloads.flatMap((response) => sentenceRows(response.payload)).map((row) => toExampleRecord(row, coverage, request.outputLanguage, withheldMedia)).filter((record2) => Boolean(record2)).slice(0, limit);
 if (!items.length) return { availability: "empty", items: [] };
 return withheldMedia.length ? { availability: "loaded", items, withheldMedia } : { availability: "loaded", items };
 }
@@ -28281,22 +28288,22 @@ direct: chosen.is_direct === true
 function licensedAudio(raw, withheldMedia, coverage) {
 if (!Array.isArray(raw)) return [];
 const assets = [];
-raw.filter(isRecord).forEach((record) => {
-const id = text(record.id);
-const decision = decideMediaLicence(record.license);
+raw.filter(isRecord).forEach((record2) => {
+const id = text(record2.id);
+const decision = decideMediaLicence(record2.license);
 if (!decision.allowed) {
-withheldMedia.push({ kind: "audio", licence: text(record.license) || "", reason: decision.withheld });
+withheldMedia.push({ kind: "audio", licence: text(record2.license) || "", reason: decision.withheld });
 return;
 }
 if (!id) return;
-const author = text(record.author);
+const author = text(record2.author);
 assets.push({
 kind: "audio",
 scope: "sentence",
-url: text(record.download_url) || `${TATOEBA_AUDIO_URL}/${id}`,
+url: text(record2.download_url) || `${TATOEBA_AUDIO_URL}/${id}`,
 licence: decision.licence,
 attribution: author ? `${author} (Tatoeba${coverage.entry.audioIsReconstruction ? ", reconstructed pronunciation" : ""})` : "Tatoeba",
-recordUrl: text(record.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id}`
+recordUrl: text(record2.attribution_url) || `${TATOEBA_SENTENCE_URL}/${id}`
 });
 });
 return assets;
@@ -31594,8 +31601,8 @@ input.addEventListener("change", schedule);
 };
 bindToggleInputs();
 const observer = new MutationObserver((records) => {
-for (const record of records) {
-if (record.addedNodes.length) {
+for (const record2 of records) {
+if (record2.addedNodes.length) {
 bindToggleInputs();
 return;
 }
@@ -31630,8 +31637,8 @@ scheduled = true;
 };
 run();
 new MutationObserver((records) => {
-for (const record of records) {
-if (record.addedNodes.length) {
+for (const record2 of records) {
+if (record2.addedNodes.length) {
 schedule();
 return;
 }
@@ -33843,8 +33850,8 @@ function hostedPageInterfaceLanguage() {
 try {
 const raw = window.localStorage?.getItem(SETTINGS_STORAGE_KEY);
 if (!raw) return null;
-const record = JSON.parse(raw);
-const value = record?.interfaceLanguage;
+const record2 = JSON.parse(raw);
+const value = record2?.interfaceLanguage;
 return value === "auto" || value === "en" || value === "ja" ? value : null;
 } catch {
 return null;
@@ -35050,12 +35057,12 @@ return element.closest(`[${AUTHORED_VOCABULARY_ATTRIBUTE}]`);
 }
 function normalizeAnnotation(value) {
 if (!value || typeof value !== "object") return null;
-const record = value;
-const surface = exactJapaneseSurface(record.surface);
-const lemma = normalizedJapaneseText(record.lemma);
-const reading = normalizedJapaneseText(record.reading);
+const record2 = value;
+const surface = exactJapaneseSurface(record2.surface);
+const lemma = normalizedJapaneseText(record2.lemma);
+const reading = normalizedJapaneseText(record2.reading);
 if (!surface || !lemma || !reading || !isKanaReading(reading)) return null;
-const pitch = normalizePitch(record.pitch, reading);
+const pitch = normalizePitch(record2.pitch, reading);
 return { surface, lemma, reading, ...pitch ? { pitch } : {} };
 }
 function exactJapaneseSurface(value) {
@@ -35067,9 +35074,9 @@ return text2;
 }
 function normalizePitch(value, reading) {
 if (!value || typeof value !== "object") return void 0;
-const record = value;
-const pattern = typeof record.pattern === "string" ? record.pattern.trim() : "";
-const source = typeof record.source === "string" ? record.source.trim().slice(0, 120) : "";
+const record2 = value;
+const pattern = typeof record2.pattern === "string" ? record2.pattern.trim() : "";
+const source = typeof record2.source === "string" ? record2.source.trim().slice(0, 120) : "";
 if (!pattern || !source || !pitchClassNameForPattern(pattern, reading)) return void 0;
 return { pattern, source };
 }
@@ -36720,12 +36727,12 @@ if (![...queuedWork.tokens].some((token) => this.needsHydration(token))) {
 this.work.delete(key);
 continue;
 }
-const attempt = this.claimAttempt(queuedWork);
-if (attempt === "claimed") {
+const attempt2 = this.claimAttempt(queuedWork);
+if (attempt2 === "claimed") {
 works.push([key, queuedWork]);
 continue;
 }
-if (attempt === "background-budget" || attempt === "url-budget") this.stopVisibleRefill();
+if (attempt2 === "background-budget" || attempt2 === "url-budget") this.stopVisibleRefill();
 if (queuedWork.attempts > 0) {
 queuedWork.tokens.forEach((token) => {
 this.dependencies.rememberUnresolvedFallback(fallbackResolutionCacheKey(token));

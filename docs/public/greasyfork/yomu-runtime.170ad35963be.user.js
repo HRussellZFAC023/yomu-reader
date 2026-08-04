@@ -3867,6 +3867,11 @@ const EN_SUBTITLE_SETTINGS_COPY = {
 subtitlePlayerEnabled: "Enable video subtitle player",
 subtitleAutoDetect: "Auto-detect page subtitles",
 subtitleOverlayVisible: "Show subtitle overlay",
+// Not a control label: no checkbox writes this any more, the three-way
+// `subtitleNativeDisplay` select does. It stays because a stored setting with
+// no control of its own takes its wording in docs/reference/settings.md from
+// the i18n entry keyed by its own name, and this sentence is what the stored
+// boolean means.
 subtitleSecondaryVisible: "Show native subtitles",
 subtitleNativeBlurred: "Blur native subtitles until hover",
 subtitleNativeDisplay: "Translation",
@@ -6660,7 +6665,8 @@ const MANAGED_STATE_MANIFEST = [
 { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
 { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
 { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-{ owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+{ owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+{ owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
 // Cloud settings sync handoff written before an OAuth redirect.
 { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
 // App-level signals / flags / caches.
@@ -8843,6 +8849,67 @@ function isJapaneseKanjiCharacter(value) {
 return BMP_KANJI_CHARACTER_RE.test(value) || value.length > 1 && isUnifiedIdeograph(value);
 }
 const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+const DEINFLECTION_CONDITION = {
+Ichidan: 1 << 0,
+GodanU: 1 << 1,
+GodanK: 1 << 2,
+GodanG: 1 << 3,
+GodanS: 1 << 4,
+GodanT: 1 << 5,
+GodanN: 1 << 6,
+GodanB: 1 << 7,
+GodanM: 1 << 8,
+GodanR: 1 << 9,
+Suru: 1 << 10,
+Kuru: 1 << 11,
+IAdjective: 1 << 12,
+Masu: 1 << 13,
+Te: 1 << 14,
+Ta: 1 << 15,
+Conditional: 1 << 16,
+Adverbial: 1 << 17
+};
+const GODAN_CONDITIONS = DEINFLECTION_CONDITION.GodanU | DEINFLECTION_CONDITION.GodanK | DEINFLECTION_CONDITION.GodanG | DEINFLECTION_CONDITION.GodanS | DEINFLECTION_CONDITION.GodanT | DEINFLECTION_CONDITION.GodanN | DEINFLECTION_CONDITION.GodanB | DEINFLECTION_CONDITION.GodanM | DEINFLECTION_CONDITION.GodanR;
+const INPUT_CONDITIONS_BY_REASON = {
+negative: DEINFLECTION_CONDITION.IAdjective,
+desiderative: DEINFLECTION_CONDITION.IAdjective,
+potential: DEINFLECTION_CONDITION.Ichidan,
+"potential/passive": DEINFLECTION_CONDITION.Ichidan,
+passive: DEINFLECTION_CONDITION.Ichidan,
+causative: DEINFLECTION_CONDITION.Ichidan,
+"causative passive": DEINFLECTION_CONDITION.Ichidan,
+excessive: DEINFLECTION_CONDITION.Ichidan,
+progressive: DEINFLECTION_CONDITION.Ichidan,
+"contracted progressive": DEINFLECTION_CONDITION.Ichidan,
+completion: DEINFLECTION_CONDITION.GodanU,
+"contracted completion": DEINFLECTION_CONDITION.GodanU,
+polite: DEINFLECTION_CONDITION.Masu,
+"te-form": DEINFLECTION_CONDITION.Te,
+past: DEINFLECTION_CONDITION.Ta,
+conditional: DEINFLECTION_CONDITION.Conditional,
+adverbial: DEINFLECTION_CONDITION.Adverbial
+};
+const CONDITION_FLAG_BY_RULE = {
+v1: DEINFLECTION_CONDITION.Ichidan,
+v5u: DEINFLECTION_CONDITION.GodanU,
+v5k: DEINFLECTION_CONDITION.GodanK,
+v5g: DEINFLECTION_CONDITION.GodanG,
+v5s: DEINFLECTION_CONDITION.GodanS,
+v5t: DEINFLECTION_CONDITION.GodanT,
+v5n: DEINFLECTION_CONDITION.GodanN,
+v5b: DEINFLECTION_CONDITION.GodanB,
+v5m: DEINFLECTION_CONDITION.GodanM,
+v5r: DEINFLECTION_CONDITION.GodanR,
+v5: GODAN_CONDITIONS,
+vs: DEINFLECTION_CONDITION.Suru,
+"vs-s": DEINFLECTION_CONDITION.Suru,
+suru: DEINFLECTION_CONDITION.Suru,
+vk: DEINFLECTION_CONDITION.Kuru,
+kuru: DEINFLECTION_CONDITION.Kuru,
+"adj-i": DEINFLECTION_CONDITION.IAdjective,
+"i-adj": DEINFLECTION_CONDITION.IAdjective
+};
+const GODAN_R_SPECIAL_RULES = /* @__PURE__ */ new Set(["v5aru"]);
 const GODAN_ROWS = [
 { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
 { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -9021,17 +9088,17 @@ const RULES = [
 { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
 { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
 { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-];
+].map(conditionDeinflectionRule);
 const DEINFLECTION_CACHE_MAX = 4e3;
 const deinflectionCache = /* @__PURE__ */ new Map();
 function deinflectJapaneseTerm(source) {
 const cached = deinflectionCache.get(source);
 if (cached) return cached;
-const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+const results = [{ term: source, rules: [], reasons: [], depth: 0, conditions: 0 }];
 const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
 const queue = [results[0]];
 expandDeinflectionQueue(queue, results, seen);
-const sorted = sortDeinflectedTerms(results);
+const sorted = sortDeinflectedTerms(results).map(publicDeinflectionCandidate);
 if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
 const oldest = deinflectionCache.keys().next().value;
 if (oldest !== void 0) deinflectionCache.delete(oldest);
@@ -9045,13 +9112,9 @@ expandDeinflectedTerm(queue[index], queue, results, seen);
 }
 }
 function expandDeinflectedTerm(current, queue, results, seen) {
-if (isTerminalDeinflection(current)) return;
 for (const rule of RULES) {
 rememberExpandedDeinflection(current, rule, queue, results, seen);
 }
-}
-function isTerminalDeinflection(current) {
-return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
 }
 function rememberExpandedDeinflection(current, rule, queue, results, seen) {
 const next = deinflectedCandidate(current, rule);
@@ -9064,18 +9127,23 @@ function sortDeinflectedTerms(results) {
 return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
 }
 function deinflectedCandidate(current, rule) {
-if (!canApplyDeinflectionRule(current.term, rule)) return null;
-const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-if (!term || term === current.term) return null;
+if (!ruleMatchesDeinflectionState(current, rule)) return null;
+const term = transformedDeinflectionTerm(current.term, rule);
+if (!term) return null;
 return {
 term,
 rules: rule.rules,
 reasons: [...current.reasons, rule.reason],
-depth: current.depth + 1
+depth: current.depth + 1,
+conditions: rule.conditionsOut
 };
 }
-function canApplyDeinflectionRule(term, rule) {
-return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+function ruleMatchesDeinflectionState(current, rule) {
+return conditionsMatch(current.conditions, rule.conditionsIn) && current.term.endsWith(rule.from);
+}
+function transformedDeinflectionTerm(term, rule) {
+const transformed = `${term.slice(0, -rule.from.length)}${rule.to}`;
+return transformed && transformed !== term ? transformed : null;
 }
 function rememberDeinflectedCandidate(candidate, seen) {
 const key = candidateKey(candidate);
@@ -9086,21 +9154,54 @@ return true;
 function termRulesMatch(entryRules, candidateRules) {
 if (!candidateRules.length) return true;
 const entryRuleSet = entryRulesSet(entryRules);
-return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
+if (!entryRuleSet.size) return false;
+const candidateGodanClasses = godanRuleClasses(candidateRules);
+return candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet, candidateGodanClasses));
 }
 function entryRulesSet(entryRules) {
 return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
 }
-function termRuleMatches(rule, entryRuleSet) {
+function termRuleMatches(rule, entryRuleSet, candidateGodanClasses) {
+if (entryRuleSet.has(rule)) return true;
+const candidateGodanClass = godanRuleClass(rule);
+if (candidateGodanClass) {
+return entryHasGodanClass(entryRuleSet, candidateGodanClass);
+}
+if (rule === "v5") {
+return entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses);
+}
 return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
 }
+function entryHasGodanClass(entryRuleSet, candidateGodanClass) {
+if (entryRuleSet.has("v5")) return true;
+return [...entryRuleSet].some((entryRule) => godanRuleClass(entryRule) === candidateGodanClass);
+}
+function entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses) {
+if (!candidateGodanClasses.size) return [...entryRuleSet].some(isGodanRule);
+return [...entryRuleSet].some((entryRule) => {
+const entryGodanClass = godanRuleClass(entryRule);
+return entryGodanClass !== void 0 && candidateGodanClasses.has(entryGodanClass);
+});
+}
+function isGodanRule(rule) {
+return rule === "v5" || godanRuleClass(rule) !== void 0;
+}
 const TERM_RULE_MATCHERS = [
-(rule, entryRuleSet) => entryRuleSet.has(rule),
-(rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
-(rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
 (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
 (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
 ];
+function godanRuleClasses(rules) {
+const result = /* @__PURE__ */ new Set();
+for (const rule of rules) {
+const ruleClass = godanRuleClass(rule);
+if (ruleClass) result.add(ruleClass);
+}
+return result;
+}
+function godanRuleClass(rule) {
+if (GODAN_R_SPECIAL_RULES.has(rule)) return "r";
+return /^v5([ukgstnbmr])(?:-|$)/u.exec(rule)?.[1];
+}
 function godanRules(row) {
 const rules = row.rules;
 return [
@@ -9160,10 +9261,39 @@ if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
 if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
 return "";
 }
+function conditionDeinflectionRule(rule) {
+return {
+...rule,
+conditionsIn: inputConditionsForReason(rule.reason),
+conditionsOut: conditionFlagsForRules(rule.rules)
+};
+}
+function conditionsMatch(currentConditions, nextConditions) {
+return currentConditions === 0 || (currentConditions & nextConditions) !== 0;
+}
+function inputConditionsForReason(reason) {
+return INPUT_CONDITIONS_BY_REASON[reason] ?? 0;
+}
+function conditionFlagsForRules(rules) {
+const specificGodanConditions = unionConditionFlags(rules.filter(isSpecificGodanConditionRule));
+return specificGodanConditions || unionConditionFlags(rules);
+}
+function isSpecificGodanConditionRule(rule) {
+return /^v5[ukgstnbmr]$/u.test(rule);
+}
+function unionConditionFlags(rules) {
+return rules.reduce((conditions, rule) => conditions | conditionFlagForRule(rule), 0);
+}
+function conditionFlagForRule(rule) {
+return CONDITION_FLAG_BY_RULE[rule] ?? 0;
+}
+function publicDeinflectionCandidate(state2) {
+const { conditions: _conditions, ...candidate } = state2;
+return candidate;
+}
 function candidateKey(candidate) {
 return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
+${candidate.conditions}`;
 }
 function escapeRegExp(value) {
 return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9267,6 +9397,7 @@ const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+const KANA_GRAMMAR_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set([...INFLECTION_BOUNDARY_SEGMENTS, "な"]);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
 const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
 `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
@@ -9296,16 +9427,10 @@ const SURU_STEM_SEGMENT_RE = new RegExp(
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
 const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(
-`(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-"u"
-);
 function normalizeFallbackTerm(text2) {
 return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
 }
@@ -9341,7 +9466,7 @@ return finalizeJapaneseRunSegments(segments, sourceText);
 function finalizeJapaneseRunSegments(segments, sourceText) {
 const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
 const normalizedSegments = splitTrailingPoliteParticleSegments(
-mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
+mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(separatedSegments))
 );
 return mergeInflectedFallbackSegments(
 splitLeadingParticleSegments(normalizedSegments),
@@ -9385,9 +9510,16 @@ end: segment.start + to
 };
 }
 function mergeContiguousKanaSegments(segments) {
-if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
 const merged = [];
 for (let index = 0; index < segments.length; ) {
+const runEnd = contiguousKanaRunEnd(segments, index);
+const previous = segments[index - 1];
+const followsAnotherScript = runEnd > index + 1 && previous && previous.end === segments[index].start && !isPureKanaSegment(previous.surface);
+if (followsAnotherScript) {
+merged.push(...segments.slice(index, runEnd));
+index = runEnd;
+continue;
+}
 const span = contiguousKanaMergeSpanAt(segments, index);
 if (span) {
 merged.push(span.segment);
@@ -9423,8 +9555,9 @@ function contiguousKanaMergeSpanAt(segments, startIndex) {
 const first2 = segments[startIndex];
 if (!first2 || !isPureKanaSegment(first2.surface)) return null;
 const previous = segments[startIndex - 1];
-const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
-if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
+const canStartKanaWord = !previous || previous.end !== first2.start || KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(previous.surface);
+if (KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(first2.surface) && !canStartKanaWord) return null;
+if (isKanaContentWordSpan(first2.surface)) return null;
 const runEnd = contiguousKanaRunEnd(segments, startIndex);
 if (runEnd - startIndex < 2) return null;
 let surface = first2.surface;
@@ -9432,7 +9565,7 @@ let lastIndex = startIndex;
 for (let index = startIndex + 1; index < runEnd; index += 1) {
 const current = segments[index];
 const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+if (KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
 surface += current.surface;
 lastIndex = index;
 }
@@ -9492,39 +9625,6 @@ return [
 { surface: prefix, start: segment.start, end: segment.start + prefix.length },
 { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
 ];
-}
-function mergeSegmenterCompoundOverrides(segments) {
-const merged = [];
-for (let index = 0; index < segments.length; ) {
-const span = segmenterCompoundOverrideSpanAt(segments, index);
-if (span) {
-merged.push(span.segment);
-index = span.nextIndex;
-continue;
-}
-merged.push(segments[index]);
-index += 1;
-}
-return merged;
-}
-function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-const first2 = segments[startIndex];
-if (!first2) return null;
-let surface = "";
-let best = null;
-for (let index = startIndex; index < segments.length; index += 1) {
-const current = segments[index];
-if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-surface += current.surface;
-if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-best = {
-segment: { surface, start: first2.start, end: current.end },
-nextIndex: index + 1
-};
-}
-}
-return best;
 }
 function mergeInflectedFallbackSegments(segments, sourceText) {
 const merged = [];
@@ -10525,7 +10625,7 @@ const afterLastParticle = match.replace(/^.*[はがをにへともやの]/u, "")
 return afterLastParticle || match;
 }
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-`(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+`(?:[${KANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
 "gu"
 );
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
@@ -13435,7 +13535,7 @@ DEFAULT_OCR_BACKGROUND_OPACITY
 function hasOwn(value, key) {
 return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
-function objectRecord$3(value) {
+function objectRecord$4(value) {
 return value && typeof value === "object" ? value : null;
 }
 function trimmedText(value) {
@@ -15132,12 +15232,13 @@ targetLanguage2
 if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
 return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
 }
+const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
 function normalizeDictionaryPreferences(value) {
 if (!Array.isArray(value)) return [];
 return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function normalizeDictionaryPreference(item, index) {
-const record2 = objectRecord$3(item);
+const record2 = objectRecord$4(item);
 if (!record2) return null;
 const name = stringValue$4(record2.name);
 if (!name.trim()) return null;
@@ -15146,7 +15247,7 @@ return {
 name,
 alias: alias.trim() ? alias : name,
 enabled: booleanValue(record2.enabled, true),
-priority: finiteNumber$1(record2.priority, index),
+priority: finiteNumber$1(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
 allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
 type: normalizeDictionaryType(record2.type, name)
 };
@@ -15242,7 +15343,7 @@ const link = normalizeDictionaryLookupLink(item);
 if (link && !isRemovedBuiltInLookupLink(link)) add(link);
 }
 appendMissingBuiltInLookupLinks(builtIns, seen, add);
-return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
+return withLookupLinkPriorities(normalized);
 }
 function isRemovedBuiltInLookupLink(link) {
 return isRemovedBuiltInLookupLinkId(link.id);
@@ -15262,16 +15363,6 @@ return links.map((link, index) => ({
 ...link,
 priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
 }));
-}
-function ensureJitenBeforeJpdb(links) {
-const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
-const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
-const reordered = [...links];
-const [jiten] = reordered.splice(jitenIndex, 1);
-const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-reordered.splice(Math.max(0, insertAt), 0, jiten);
-return reordered;
 }
 function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
 for (const builtIn of builtIns) {
@@ -15376,7 +15467,7 @@ return inherited;
 function mergeDictionaryPreference(merged, name, type, inherit) {
 const existing = merged.get(name);
 if (!existing) {
-const defaults = defaultDictionaryPreference(name, type, merged.size);
+const defaults = defaultDictionaryPreference(name, type, UNORDERED_DICTIONARY_PRIORITY_BASE + merged.size);
 merged.set(name, inherit ? {
 ...defaults,
 // A stale alias equal to the old title is a default, not a
@@ -15411,49 +15502,91 @@ if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|
 if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
 return "terms";
 }
-function settingsValueEquals(left, right) {
-return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
-function changedSettingsKeys(previous, next) {
-return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
-}
-const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-"annotationsPaused",
-"manualScanEnabled",
-"showFurigana",
-"furiganaMode",
-"puckFuriganaModeBeforeHide",
-"ocrEnabled",
-"ocrAutoScanImages",
-"youtubeImmersionEnabled",
-"youtubeImmersionEnabledChosen",
-"youtubeShowChannelRecommendations",
-"youtubeShowChannelRecommendationsChosen",
-"subtitleOverlayVisible",
-"subtitleSecondaryVisible",
-"subtitleOverlayVisibleChosen",
-"subtitleSecondaryVisibleChosen",
-"subtitleNativeBlurred",
-"subtitleNativeBlurStrength"
-];
-const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
-["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
-["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
-["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
-];
-function coupledExplicitUserChoiceKeys(keys) {
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
+const NO_EXPLICIT_USER_CHOICE = [];
+const CHOSEN_SUFFIX = "Chosen";
+function coupledIntentKeys(keys, known) {
 const expanded = new Set(keys);
-for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-if (!pair.some((key) => expanded.has(key))) continue;
-pair.forEach((key) => expanded.add(key));
+for (const key of keys) {
+const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+if (known(sibling)) expanded.add(sibling);
 }
 return [...expanded];
 }
-function changedAutomationProtectedSettingsKeys(previous, next) {
-return coupledExplicitUserChoiceKeys(
-AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
-);
+function settingsIntentLedgerFromStorage(stored, legacyPins) {
+const fromLegacy = ledgerFromLegacyPins(legacyPins);
+const fromStored = parseSettingsIntentLedger(stored);
+if (!fromStored) return fromLegacy;
+return {
+revision: Math.max(fromStored.revision, fromLegacy.revision),
+records: { ...fromLegacy.records, ...fromStored.records }
+};
+}
+function parseSettingsIntentLedger(value) {
+const record2 = objectRecord$3(value);
+if (!record2) return null;
+const records = objectRecord$3(record2.records);
+if (!records) return null;
+const parsed = {};
+let highest = 0;
+for (const [key, entry] of Object.entries(records)) {
+const item = objectRecord$3(entry);
+if (!item) continue;
+const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
+parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+highest = Math.max(highest, seq);
+}
+const revision2 = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
+return { revision: Math.max(revision2, highest), records: parsed };
+}
+function ledgerFromLegacyPins(value) {
+const record2 = objectRecord$3(value);
+if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
+const records = {};
+for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
+return { revision: 0, records };
+}
+function objectRecord$3(value) {
+return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function recordSettingsIntent(ledger, keys, settings) {
+if (!keys.length) return ledger;
+const records = { ...ledger.records };
+let revision2 = ledger.revision;
+for (const key of keys) {
+if (!hasOwn(settings, key)) continue;
+const value = settings[key];
+records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
+}
+return revision2 === ledger.revision ? ledger : { revision: revision2, records };
+}
+function clearSettingsIntent(ledger, keys) {
+const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+if (!cleared.length) return ledger;
+const records = { ...ledger.records };
+for (const key of cleared) delete records[key];
+return { revision: ledger.revision + 1, records };
+}
+function applySettingsIntent(settings, ledger) {
+const keys = Object.keys(ledger.records);
+if (!keys.length) return settings;
+const next = { ...settings };
+let changed = false;
+for (const key of keys) {
+const record2 = ledger.records[key];
+if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+if (sameSettingsValue(next[key], record2.value)) continue;
+next[key] = record2.value;
+changed = true;
+}
+return changed ? next : settings;
+}
+function isSubstitutableSettingValue(value) {
+return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+function sameSettingsValue(left, right) {
+return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 function createDefaultSubtitleSettings(fontFamily) {
 return {
@@ -15487,6 +15620,19 @@ subtitleMiningPause: true,
 subtitleHoverPause: true,
 subtitleSeekPadding: 0.08
 };
+}
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+async function persistPreferredJapaneseSiteLanguage(value) {
+await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+});
+}
+function settingsValueEquals(left, right) {
+return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function changedSettingsKeys(previous, next) {
+return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
 }
 const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
 function getOrderedAudioSources(settings) {
@@ -15735,7 +15881,6 @@ function dedupeShortcutParts(parts) {
 return parts.filter((part, index) => parts.indexOf(part) === index);
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
 "jpdb-reader-settings",
@@ -15746,7 +15891,6 @@ const SETTINGS_STORAGE_KEYS = [
 SETTINGS_STORAGE_KEY,
 ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const log$z = Logger.scope("Settings");
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -16570,7 +16714,7 @@ aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
 return aliases;
 }
 function isLegacyDefaultDefinitionSourceOrder(value) {
-return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
+return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
 }
 function normalizeRemovedDictionarySettings(value) {
 return {
@@ -17094,58 +17238,52 @@ return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_S
 function normalizedOcrEngineInput(value) {
 return typeof value === "string" ? value.trim() : "";
 }
-async function persistPreferredJapaneseSiteLanguage(value) {
-await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-});
-}
-function settingsRecord(value) {
-return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-async function saveSettings(settings, options = {}) {
+async function saveSettings(settings, options) {
+const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
 try {
 const normalizedSettings = mergeSettings(settings);
-if (options.persistPreferredJapaneseSiteLanguage) {
+if (intent.persistPreferredJapaneseSiteLanguage) {
 await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
 }
-await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
+await persistSettings(
+normalizedSettings,
+intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+intent.clearExplicitUserChoiceKeys
+);
 } catch (error) {
 log$z.warn("Settings save failed", { error });
 throw error;
 }
 }
-async function persistSettings(settings, explicitUserChoiceKeys = []) {
+function coupledSettingsIntentKeys(keys) {
+return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
+}
+async function readSettingsIntentLedger() {
+return settingsIntentLedgerFromStorage(
+await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+);
+}
+async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
 const normalizedSettings = mergeSettings(settings);
 let storedSettings = normalizedSettings;
 await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-const existingExplicitSettings = settingsRecord(await gmStorageGet(
-EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-null
-));
-const nextExplicitSettings = { ...existingExplicitSettings };
-for (const key of explicitUserChoiceKeys) {
-assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
-}
-if (explicitUserChoiceKeys.length > 0) {
-await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
-}
-storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+const ledger = await readSettingsIntentLedger();
+const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
+const nextLedger = recordSettingsIntent(
+withdrawn,
+coupledSettingsIntentKeys(explicitUserChoiceKeys),
+normalizedSettings
+);
+if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+storedSettings = mergeSettings(
+applySettingsIntent(normalizedSettings, nextLedger)
+);
 const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
 await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
 storedSettings = supportedSettings;
 });
 dispatchSettingsChange(storedSettings);
-}
-function assignSetting(settings, key, value) {
-settings[key] = value;
-}
-function applyExplicitUserSettings(settings, explicitSettings) {
-if (!explicitSettings) return settings;
-const candidate = { ...settings };
-for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
-if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
-}
-return mergeSettings(candidate);
 }
 function dispatchSettingsChange(settings) {
 try {
@@ -19347,6 +19485,7 @@ const TERM_MATCH_SELECTION_COMPARATORS = [
 compareTermMatchLengthDescending,
 compareTermMatchDeinflectionDepth,
 compareTermMatchStart,
+compareTermMatchDictionaryPriority,
 compareTermMatchDictionaryName,
 compareTermMatchEntryScoreDescending
 ];
@@ -19373,7 +19512,10 @@ function compareMetaEntriesWithinMode(a, b, rank) {
 return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
 }
 function compareFrequencyMetaEntries(a, b, rank) {
-return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank$1(a.data) - frequencyRank$1(b.data) || compareDictionaryName(a, b);
+return compareDeclaredDictionaryPriority(a, b, rank) || jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank$1(a.data) - frequencyRank$1(b.data) || compareDictionaryName(a, b);
+}
+function compareDeclaredDictionaryPriority(a, b, rank) {
+return rank.has(a.dictionary) && rank.has(b.dictionary) ? compareDictionaryPriority(a, b, rank) : 0;
 }
 function jpdbFrequencyPriority(entry) {
 return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
@@ -19391,11 +19533,11 @@ function extractFrequency(value) {
 const rank = frequencyRank$1(value);
 return Number.isFinite(rank) ? rank : void 0;
 }
-function nonOverlappingMatches(matches, limit) {
+function nonOverlappingMatches(matches, limit, rank) {
 const selected = [];
 const occupied = [];
 const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
-for (const match of matches.sort(compareTermMatchesForSelection)) {
+for (const match of matches.sort((left, right) => compareTermMatchesForSelection(left, right, rank))) {
 if (overlaps(match)) continue;
 selected.push(match);
 occupied.push([match.start, match.end]);
@@ -19404,9 +19546,9 @@ if (selected.length >= limit) break;
 const result = selected.sort((a, b) => a.start - b.start);
 return result;
 }
-function leftToRightLongestMatches(matches, limit) {
+function leftToRightLongestMatches(matches, limit, rank) {
 const candidates = [...matches].sort(
-(a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
+(a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryPriority(a, b, rank) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
 );
 const selected = [];
 let coveredUntil = 0;
@@ -19418,12 +19560,16 @@ if (selected.length >= limit) break;
 }
 return selected;
 }
-function compareTermMatchesForSelection(a, b) {
+function compareTermMatchesForSelection(a, b, rank) {
 for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-const result = compare(a, b);
+const result = compare(a, b, rank);
 if (result) return result;
 }
 return 0;
+}
+function compareTermMatchDictionaryPriority(a, b, rank) {
+if (!rank) return 0;
+return dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank);
 }
 function compareTermMatchLengthDescending(a, b) {
 return b.end - b.start - (a.end - a.start);
@@ -19458,6 +19604,8 @@ const record2 = value;
 return record2.frequency ?? record2.value ?? record2.displayValue;
 }
 const WHITESPACE_RE = /\s/u;
+const TERM_MATCH_INDEX_FAST_ROWS = 8;
+const TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS = TERM_MATCH_INDEX_FAST_ROWS + 1;
 function targetTermMatchLookupCandidates(target, surface) {
 const result = [];
 for (const deinflected of target.lookupCandidates(surface)) {
@@ -19499,46 +19647,160 @@ return target.isLookupableText(surface) && !WHITESPACE_RE.test(surface);
 function sortedTermMatchExpressions(candidates) {
 return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
 }
-function requestTermMatchIndex(index, expression, addMatches, finish, reject) {
-const request = index.getAll(IDBKeyRange.only(expression), 8);
+function exactTermMatchCandidates(target, requests) {
+const candidates = /* @__PURE__ */ new Map();
+requests.forEach((request, requestIndex) => {
+if (!target.isLookupableText(request.lookupCandidate.term)) return;
+const position = {
+start: requestIndex,
+end: requestIndex + 1,
+surface: request.surface,
+deinflected: request.lookupCandidate
+};
+for (const key of genericLookupTextVariants(request.lookupCandidate.term)) {
+const positions = candidates.get(key) ?? [];
+positions.push(position);
+candidates.set(key, positions);
+}
+});
+return candidates;
+}
+function exactTermCandidateMatches(requests, matches, rank) {
+const entryByRequestIndex = /* @__PURE__ */ new Map();
+for (const match of matches) {
+const requestIndex = exactRequestIndex(match, requests);
+if (requestIndex === void 0) continue;
+retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank);
+}
+return requests.flatMap((request, requestIndex) => {
+const entry = entryByRequestIndex.get(requestIndex);
+return entry ? [{ request, requestIndex, entry }] : [];
+});
+}
+function retainExactTermCandidateEntry(requestIndex, entry, entryByRequestIndex, rank) {
+const current = entryByRequestIndex.get(requestIndex);
+if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+entryByRequestIndex.set(requestIndex, entry);
+}
+function exactRequestIndex(match, requests) {
+const requestIndex = match.start;
+const request = requests[requestIndex];
+if (!request || match.end !== requestIndex + 1 || match.surface !== request.surface) return void 0;
+return requestIndex;
+}
+function requestTermMatchIndex(index, expression, visit, finish, reject) {
+const query = IDBKeyRange.only(expression);
+const request = index.getAll(query, TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS);
 request.onsuccess = () => {
-addMatches(expression, request.result);
+const entries2 = request.result;
+if (entries2.length < TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS) {
+for (const entry of entries2) visit(expression, entry);
 finish();
+return;
+}
+const cursorRequest = index.openCursor(query);
+cursorRequest.onsuccess = () => {
+const cursor = cursorRequest.result;
+if (!cursor) {
+finish();
+return;
+}
+visit(expression, cursor.value);
+cursor.continue();
+};
+cursorRequest.onerror = () => reject(cursorRequest.error);
 };
 request.onerror = () => reject(request.error);
 }
-function termMatchesForEntries(expression, foundEntries, candidates, rank) {
-const entries2 = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
-if (!entries2.length) return [];
-return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries2)).filter((match) => Boolean(match));
-}
-function deduplicateTermMatchEntries(entries2) {
-const seen = /* @__PURE__ */ new Set();
-return entries2.filter((item) => {
-const key = `${item.id ?? ""}
-${item.dictionary}
-${item.expression}
-${item.reading}
-${item.sequence ?? ""}`;
-if (seen.has(key)) return false;
-seen.add(key);
-return true;
+function createTermMatchEntryCollector(expression, candidates, rank, matchesRules = targetLookupCandidateRulesMatch) {
+const positions = candidates.get(expression) ?? [];
+const candidateRules = distinctCandidateRules(positions);
+const bestEntryByRules = /* @__PURE__ */ new Map();
+return {
+add(entry) {
+if (!dictionaryEnabled(entry.dictionary, rank)) return;
+collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules);
+},
+matches() {
+return positions.flatMap((position) => {
+const entry = bestEntryByRules.get(candidateRulesKey(position.deinflected.rules));
+return entry ? [termMatchForEntry(position, entry)] : [];
 });
 }
-function sortTermMatchEntries(entries2, rank) {
-return entries2.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+};
+}
+function collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules) {
+for (const [rulesKey, rules] of candidateRules) {
+if (!matchesRules(entry.rules, rules)) continue;
+retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank);
+}
+}
+function retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank) {
+const current = bestEntryByRules.get(rulesKey);
+if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+bestEntryByRules.set(rulesKey, entry);
+}
+function distinctCandidateRules(positions) {
+const result = /* @__PURE__ */ new Map();
+for (const position of positions) {
+const rules = position.deinflected.rules;
+const key = candidateRulesKey(rules);
+if (!result.has(key)) result.set(key, rules);
+}
+return result;
+}
+function candidateRulesKey(rules) {
+return rules.join("\0");
+}
+function compareTermMatchEntries(a, b, rank) {
+return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0);
 }
 function rankedDictionaryEntries(entries2, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
 const ranked = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
 return limit === void 0 ? ranked : ranked.slice(0, limit);
 }
-function termMatchForPosition(position, entries2) {
-const entry = entries2.find((item) => targetLookupCandidateRulesMatch(item.rules, position.deinflected.rules));
-return entry ? {
+function termMatchForEntry(position, entry) {
+return {
 entry,
 ...position,
 deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
-} : null;
+};
+}
+function collectTermMatchCandidates(db, target, candidates, rank) {
+return new Promise((resolve, reject) => {
+const tx = db.transaction("terms", "readonly");
+const store = tx.objectStore("terms");
+const expressionIndex = store.index("expression");
+const readingIndex = store.index("reading");
+const expressions = sortedTermMatchExpressions(candidates);
+const collectors = new Map(expressions.map((expression) => [
+expression,
+createTermMatchEntryCollector(
+expression,
+candidates,
+rank,
+(entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
+)
+]));
+const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
+let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
+const finish = () => {
+if (--pending2 <= 0) {
+resolve(expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
+}
+};
+const visit = (expression, entry) => {
+collectors.get(expression)?.add(entry);
+};
+for (const expression of expressions) {
+requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
+if (queriesReadingIndex) {
+requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
+}
+}
+tx.onerror = () => reject(tx.error);
+tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+});
 }
 function firefoxXrayWaiver(value) {
 if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
@@ -22380,8 +22642,23 @@ ${entry.reading}`;
         done();
       }
     }
+    /**
+     * Confirms target-owned candidates exactly, without collecting substrings
+     * or deriving a second morphology ladder inside the dictionary store.
+     */
+    // Public companion seam; the core caller is wired independently of this
+    // settings-surface implementation during the parser-unification slice.
+    // fallow-ignore-next-line unused-class-member
+    async lookupExactTermCandidates(requests, preferences = [], target = activeLearningTarget()) {
+      if (!requests.length) return [];
+      const candidates = exactTermMatchCandidates(target, requests);
+      if (!candidates.size) return [];
+      const matches = await this.lookupTermMatchCandidates(target, candidates, preferences);
+      return exactTermCandidateMatches(requests, matches, dictionaryRank(preferences));
+    }
     async sweepTermMatchWindows(source, limit, preferences, target, targetGeneration) {
       const selected = [];
+      const rank = dictionaryRank(preferences);
       let coveredUntil = 0;
       for (let start = 0; start < source.length; ) {
         if (start > 0) await nextTask();
@@ -22389,7 +22666,7 @@ ${entry.reading}`;
         if (!isCurrentLookupTarget(target, targetGeneration)) return [];
         const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
         const free = matches.filter((match) => match.start >= coveredUntil);
-        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit) : nonOverlappingMatches(free, limit);
+        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit, rank) : nonOverlappingMatches(free, limit, rank);
         for (const match of windowMatches) {
           selected.push(match);
           coveredUntil = Math.max(coveredUntil, match.end);
@@ -22403,32 +22680,7 @@ ${entry.reading}`;
       return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
     }
     async lookupTermMatchCandidates(target, candidates, preferences) {
-      const db = await this.db();
-      const rank = dictionaryRank(preferences);
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction("terms", "readonly");
-        const store = tx.objectStore("terms");
-        const expressionIndex = store.index("expression");
-        const readingIndex = store.index("reading");
-        const results = [];
-        const expressions = sortedTermMatchExpressions(candidates);
-        const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
-        let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
-        const finish = () => {
-          if (--pending2 <= 0) resolve(results);
-        };
-        const addMatches = (expression, foundEntries) => {
-          results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank));
-        };
-        for (const expression of expressions) {
-          requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
-          if (queriesReadingIndex) {
-            requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
-          }
-        }
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(transactionError(tx, "Could not read dictionary term matches."));
-      });
+      return collectTermMatchCandidates(await this.db(), target, candidates, dictionaryRank(preferences));
     }
     async summary() {
       if (!this.summaryPromise) {
@@ -23877,9 +24129,6 @@ ${glossaryKey}`;
       };
     }, { durability: "relaxed" });
     return deleted;
-  }
-  function transactionError(tx, fallback) {
-    return tx.error ?? new Error(fallback);
   }
   function isCurrentLookupTarget(target, generation) {
     return activeLearningTarget() === target && activeLearningTargetGeneration() === generation;
@@ -30955,7 +31204,13 @@ bunproMiningEnabled: true
 if (status) status.textContent = ui.saving;
 try {
 options.setSettings(nextSettings);
-await options.saveSettings(nextSettings);
+await options.saveSettings(nextSettings, {
+explicitUserChoiceKeys: [
+"bunproFrontendApiToken",
+"bunproFrontendApiTokenExpiresAt",
+"bunproMiningEnabled"
+]
+});
 if (status) status.textContent = ui.saved;
 options.toast?.(ui.saved);
 } catch {
@@ -51609,7 +51864,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
 return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.78".trim() ? "1.8.78".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.81".trim() ? "1.8.81".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
 if (!value || typeof value !== "object") return null;
 const record2 = value;
@@ -87651,6 +87906,7 @@ const next = readTargetLanguage(data, previous);
 return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
 }
 function readDictionaryLookupLinkRow(data, get, index) {
+const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
 const label = get(`dictionaryLookupLinks.${index}.label`).trim();
 const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
 const action = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
@@ -87661,8 +87917,13 @@ label: dictionaryLookupLinkLabel(label, action),
 urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
 enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
 action,
-priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index
+priority
 };
+}
+function readSubmittedRowPriority(value, index) {
+if (!value.trim()) return index;
+const parsed = Number(value);
+return Number.isFinite(parsed) ? parsed : index;
 }
 function dictionaryLookupLinkAction(value) {
 if (value === "copy") return "copy";
@@ -92632,13 +92893,14 @@ const visibleNames = /* @__PURE__ */ new Set([
 ...rows.filter((row) => row.removable).map((row) => row.name)
 ]);
 const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
-const hidden = hiddenPreferences.map((preference) => {
+const hidden = hiddenPreferences.map((preference, hiddenIndex) => {
 const index = settings.dictionaryPreferences.indexOf(preference);
+const priority = rows.length + hiddenIndex;
 return `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$2(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$2(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$2(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${priority}">
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$2(preference.type ?? "terms")}">
         `;
 }).join("");
@@ -94702,6 +94964,7 @@ const log$5 = Logger.scope("SettingsDialog");
 const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
 const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
 const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
+const AUTO_REPLACE_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
 const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
 const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
@@ -94800,6 +95063,7 @@ return shouldUseScannedAnkiDeck(deckNames, currentDeck) ? deckNames[0] ?? curren
 function selectedAnkiScanModel(scan, currentModel) {
 const savedModel = currentModel.trim();
 if (savedModel && scan.models.some((model) => model.modelName === savedModel)) return savedModel;
+if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
 return scan.suggestedModel?.modelName || savedModel;
 }
 function ankiScanSelection(controls, scan) {
@@ -95005,9 +95269,7 @@ const settings = this.settings;
 try {
 await saveSettings(settings, {
 persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
-changedSettingsKeys(previousSettings, settings)
-)
+explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
 });
 this.dependencies.onSettingsPersisted?.(settings);
 } catch (error) {
@@ -95909,7 +96171,7 @@ const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title,
 const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
 if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
 this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
 }
 async enqueueDictionaryOperation(form, task) {
 this.pendingDictionaryOperations++;
@@ -96680,7 +96942,7 @@ await this.dependencies.dictionaries.deleteDictionary(dictionary);
 this.dictionaryRefreshId++;
 await clearNewTabOfflineCache().catch(() => void 0);
 this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
 await this.dependencies.refreshDictionaryStyles();
 this.dependencies.scheduleDictionaryRescan();
 await this.refreshDictionaryStatus(form);
@@ -96769,7 +97031,7 @@ this.settings = captureActiveLanguageProfileDictionaries(
 dictionaryPreferences
 );
 await markDictionaryReplicaFresh();
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
 await this.dependencies.refreshDictionaryStyles();
 this.dependencies.scheduleDictionaryRescan();
 }
@@ -97356,7 +97618,10 @@ try {
 this.options.setSettings(settings);
 await saveSettings(settings, {
 persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
+// Every field the onboarding panel's own controls moved. It used to
+// declare only the 17 allowlisted keys, so a theme or hotkey chosen
+// here was not intent and a legacy store could replay the old one.
+explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
 });
 this.close();
 await this.options.onComplete?.(settings);
@@ -102349,7 +102614,7 @@ const NATIVE_DISPLAY_EXPLICIT_KEYS = [
 "subtitleSecondaryVisibleChosen",
 "subtitleNativeBlurred"
 ];
-const RESET_EXPLICIT_KEYS = [
+const RESET_WITHDRAWN_KEYS = [
 ...NATIVE_DISPLAY_EXPLICIT_KEYS,
 "subtitleNativeBlurStrength",
 "subtitleFontSize",
@@ -102405,12 +102670,13 @@ return [setting];
 return void 0;
 }
 function resetSubtitleStyleSettings(settings) {
-let changed = applyNativeSubtitleDisplayMode(settings, "blurred");
+let changed = applyNativeSubtitleDisplayMode(settings, "blurred", { markVisibilityChosen: false });
 const reset = (key) => {
 if (settings[key] === DEFAULT_SETTINGS[key]) return;
 settings[key] = DEFAULT_SETTINGS[key];
 changed = true;
 };
+reset("subtitleSecondaryVisibleChosen");
 reset("subtitleNativeBlurStrength");
 reset("subtitleFontSize");
 reset("subtitleFontWeight");
@@ -102419,7 +102685,7 @@ reset("subtitleBackgroundOpacity");
 reset("subtitleFontFamily");
 reset("subtitleMiningPause");
 reset("subtitleHoverPause");
-return changed ? RESET_EXPLICIT_KEYS : void 0;
+return changed ? RESET_WITHDRAWN_KEYS : void 0;
 }
 function syncNativeSubtitleBlurVariables(surfaces, strength) {
 for (const surface of surfaces) {
@@ -107389,7 +107655,7 @@ const settings = this.options.getSettings();
 if (placement === this.plannedTranscriptPlacement()) return;
 settings.subtitleTranscriptPlacement = placement;
 if (placement !== "bottom") this.clampStoredSideWidthForCurrentVideo(placement);
-this.options.onSettingsChange();
+this.options.onSettingsChange(["subtitleTranscriptPlacement"]);
 if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderOpenSubtitlePanel();
 else {
 this.lastTranscriptSignature = "";
@@ -107406,7 +107672,9 @@ this.resetLegacySubtitleDragOffset();
 this.syncRootStyleSettings(settings);
 this.syncSubtitleStyleControls();
 this.render();
-if (explicitUserChoiceKeys) this.options.onSettingsChange(explicitUserChoiceKeys);
+if (explicitUserChoiceKeys) {
+this.options.onSettingsChange(NO_EXPLICIT_USER_CHOICE, explicitUserChoiceKeys);
+}
 this.showControlsTemporarily();
 }
 handlePointerActivity(event) {
@@ -107656,7 +107924,7 @@ if (settings.subtitleBottomOffset === next) return;
 settings.subtitleBottomOffset = next;
 this.applyEffectiveSubtitleBottom();
 this.syncSubtitleStyleControls();
-this.options.onSettingsChange();
+this.options.onSettingsChange(["subtitleBottomOffset"]);
 }
 resetSubtitleBottomOffset() {
 this.setSubtitleBottomOffset(DEFAULT_SUBTITLE_BOTTOM_OFFSET);
@@ -108080,12 +108348,12 @@ toggleVideoFrameOcr() {
 const settings = this.options.getSettings();
 if (settings.ocrVideoPauseFrames) {
 settings.ocrVideoPauseFrames = false;
-this.options.onSettingsChange();
+this.options.onSettingsChange(["ocrVideoPauseFrames"]);
 return;
 }
 this.requestVideoFrameOcr();
 settings.ocrVideoPauseFrames = true;
-this.options.onSettingsChange();
+this.options.onSettingsChange(["ocrVideoPauseFrames"]);
 }
 requestVideoFrameOcr() {
 const video = this.video;
@@ -108324,7 +108592,7 @@ if (!options.auto) this.revealPrimarySubtitleOverlay();
 const loaded = await this.loadPrimaryTrackSelection(id, requestId);
 if (!loaded) return;
 if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
-if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
+if (options.auto) this.revealPrimarySubtitleOverlay();
 if (!await this.prewarmPrimaryTrackFirstPaint(loaded, requestId)) return;
 this.applyPrimaryTrackSelection(loaded);
 this.finishTrackSelection();
@@ -108385,21 +108653,24 @@ this.secondaryTrackId = "";
 this.secondaryCues = [];
 this.secondaryCue = void 0;
 }
-revealPrimarySubtitleOverlay(options = {}) {
-this.revealSubtitleOverlay("subtitleOverlayVisible", "subtitleOverlayVisibleChosen", Boolean(options.auto));
+revealPrimarySubtitleOverlay() {
+this.revealSubtitleOverlay("subtitleOverlayVisible", "subtitleOverlayVisibleChosen");
 if (!this.options.getSettings().subtitleOverlayVisible) return;
 this.root?.classList.remove("jpdb-subtitle-hidden");
 }
-// Selecting a track shows its overlay, but an automatic pick must never
-// overrule a visibility the user chose: writing the setting back to true
-// from here is what made an unchecked overlay switch itself on again on
-// the next page load.
-revealSubtitleOverlay(visibleKey, chosenKey, auto) {
+// Selecting a track shows its overlay, but no track pick may overrule a
+// visibility the learner chose. The guard used to apply only to AUTOMATIC
+// picks, so choosing a track by hand switched a hidden overlay back on and
+// re-persisted it -- "the show native subtitles toggle turns itself back
+// on". Picking a track says which track to watch, not that the overlay the
+// learner switched off should come back; the rail eye and the style
+// popover are how it comes back. Nothing is declared here either way: this
+// is a consequence of loading a track, not a choice about visibility.
+revealSubtitleOverlay(visibleKey, chosenKey) {
 const settings = this.options.getSettings();
-if (settings[visibleKey]) return;
-if (auto && settings[chosenKey]) return;
+if (settings[visibleKey] || settings[chosenKey]) return;
 settings[visibleKey] = true;
-this.options.onSettingsChange();
+this.options.onSettingsChange(NO_EXPLICIT_USER_CHOICE);
 }
 async loadPrimaryTrackSelection(id, requestId) {
 return this.loadTrackSelection({ id, requestId, role: "primary", transcriptEligible: true });
@@ -108460,7 +108731,7 @@ if (!options.auto) this.revealSecondarySubtitleOverlay();
 const loaded = await this.loadSecondaryTrackSelection(id, requestId);
 if (!loaded) return;
 if (options.auto && this.revertSingleCueAutoSelection("secondary", loaded)) return;
-if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
+if (options.auto) this.revealSecondarySubtitleOverlay();
 this.applySecondaryTrackSelection(loaded);
 this.finishTrackSelection();
 }
@@ -108485,8 +108756,8 @@ this.secondaryCue = void 0;
 this.lastShadowSignature = "";
 return requestId;
 }
-revealSecondarySubtitleOverlay(options = {}) {
-this.revealSubtitleOverlay("subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen", Boolean(options.auto));
+revealSecondarySubtitleOverlay() {
+this.revealSubtitleOverlay("subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen");
 }
 async loadSecondaryTrackSelection(id, requestId) {
 return this.loadTrackSelection({ id, requestId, role: "secondary", transcriptEligible: false });
@@ -108695,7 +108966,7 @@ toggleOverlayVisibility() {
 const settings = this.options.getSettings();
 settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
 settings.subtitleOverlayVisibleChosen = true;
-this.options.onSettingsChange();
+this.options.onSettingsChange(["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"]);
 this.refresh();
 }
 syncVisibilityRailButton() {
@@ -108716,7 +108987,7 @@ toggleSubtitleControlRailExpanded() {
 const settings = this.options.getSettings();
 const expanded = settings.subtitleControlsMode === "always";
 settings.subtitleControlsMode = expanded ? "auto" : "always";
-this.options.onSettingsChange();
+this.options.onSettingsChange(["subtitleControlsMode"]);
 this.syncRootVisibility(settings);
 if (expanded) this.hideControlsImmediately();
 else this.showControlsTemporarily({ independentOfPlayerChrome: true });
@@ -108973,7 +109244,7 @@ toggleShadowAutoPause() {
 const settings = this.options.getSettings();
 settings.subtitleShadowAutoPause = !settings.subtitleShadowAutoPause;
 this.shadowAutoPausedCueSignature = "";
-this.options.onSettingsChange();
+this.options.onSettingsChange(["subtitleShadowAutoPause"]);
 this.renderShadowPanel(true);
 }
 toggleShadowText() {
@@ -109164,7 +109435,7 @@ this.closeTranscriptPanel({ persist: false, autoPause: true });
 } else {
 this.pausePanelOpen = false;
 }
-this.options.onSettingsChange();
+this.options.onSettingsChange(["subtitlePausePanel", "subtitleTranscriptVisible"]);
 this.renderOpenSubtitlePanel();
 this.syncControls();
 }
