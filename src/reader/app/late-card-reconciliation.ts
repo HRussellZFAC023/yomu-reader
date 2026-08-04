@@ -88,8 +88,14 @@ export class LateCardReconciliation {
         const changedRoots = new Set<ParentNode>();
         const geometryRoots = new Set<ParentNode>();
         // Resolve every sentence scope before mutating identity or ruby geometry.
+        // The span filter keeps a card resolved at one occurrence from
+        // repainting the same card's OTHER occurrences (which may resolve
+        // differently). Words without token stamps (raw passive shells) have
+        // exactly one identity per card, so a missing stamp matches rather
+        // than excludes.
         const targets = this.dependencies.renderedWordsForCardStateRepaint(fallback)
             .filter(word => !span
+                || word.dataset.tokenStart === undefined
                 || (Number(word.dataset.tokenStart) === span.start
                     && Number(word.dataset.tokenEnd) === span.end))
             .map(word => ({ word, root: this.dependencies.annotationRoot(word) }));

@@ -297,7 +297,7 @@ import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
-import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, updateRenderedPitch, wait } from './dom-helpers';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, pickAuthoritativeTokenAt, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
@@ -3521,7 +3521,14 @@ export class ReaderApp {
             }).finally(() => this.releaseOrphanedModalOcrPin());
             return;
         }
-        this.releaseOrphanedModalOcrPin();
+        // A resolved word click must always open: shells without token spans
+        // (and environments without caret geometry) fall back to the word's
+        // own identity, which still routes through the span authority inside.
+        void this.showWord(word, {
+            trigger: 'click',
+            userGesture: true,
+            navigation: surfaces.r ? 'push-current' : 'reset',
+        }).finally(() => this.releaseOrphanedModalOcrPin());
     }
 
     private handleOcrReaderWordPointerDown(event: PointerEvent): boolean {
@@ -3543,7 +3550,11 @@ export class ReaderApp {
             }).finally(() => this.releaseOrphanedModalOcrPin());
             return true;
         }
-        this.releaseOrphanedModalOcrPin();
+        void this.showWord(word, {
+            trigger: 'click',
+            userGesture: true,
+            navigation: surfaces.r ? 'push-current' : 'reset',
+        }).finally(() => this.releaseOrphanedModalOcrPin());
         return true;
     }
 
@@ -5578,16 +5589,23 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
     ): boolean {
         if (!nestedWord || !this.shouldLookupNestedDictionaryWord(nestedWord, query)) return false;
-        const candidate = this.renderedWordLookupCandidateForActivation(nestedWord, event);
-        if (!candidate) return false;
         event.preventDefault();
         event.stopPropagation();
         this.primeLookupAudioFromGesture();
-        void this.showLookupCandidate(candidate, trigger, {
-            navigation: trigger === 'modal' ? 'push-current' : 'reset',
-            preservePosition: trigger === 'modal',
-            userGesture: true,
-        });
+        const navigation = trigger === 'modal' ? 'push-current' : 'reset';
+        const candidate = this.renderedWordLookupCandidateForActivation(nestedWord, event);
+        if (candidate) {
+            void this.showLookupCandidate(candidate, trigger, {
+                navigation,
+                preservePosition: trigger === 'modal',
+                userGesture: true,
+            });
+        } else {
+            // Passive reference shells are clickable before the nested
+            // re-parse stamps token spans; without a resolvable candidate the
+            // word's own identity still beats the whole-compound reference.
+            void this.showWord(nestedWord, { trigger: 'click', navigation, userGesture: true });
+        }
         return true;
     }
 
@@ -5848,7 +5866,27 @@ export class ReaderApp {
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
         this.preloadHoverWordAudio(word);
         if (await this.showAuthoritativeSpanForRenderedWord(word, card, context, options, stackOverSettings, scope)) return;
+        if (await this.showOcrKanjiRenderedWord(word, card, context, scope)) return;
         await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
+    }
+
+    // The span authority deliberately stays silent for single-kanji fallback
+    // surfaces, so an OCR click on one glyph opens the kanji card instead of
+    // a guessed vocabulary parse.
+    private async showOcrKanjiRenderedWord(
+        word: HTMLElement,
+        card: JPDBCard,
+        context: RenderedWordDisplayContext,
+        scope: CardLookupTargetSnapshot,
+    ): Promise<boolean> {
+        if (!scope.isCurrent()) return true;
+        const ocrKanji = singleKanjiOcrLookupCharacter(word);
+        if (!ocrKanji || context.trigger !== 'modal') return false;
+        await this.showKanjiCard(card, ocrKanji, ocrKanji, context.anchor, {
+            navigation: context.navigation,
+            preservePosition: context.insideReaderPopup,
+        });
+        return true;
     }
 
     private shouldIgnoreRenderedWordLookup(word: HTMLElement, options: RenderedWordLookupOptions): boolean {

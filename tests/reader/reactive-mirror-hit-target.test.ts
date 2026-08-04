@@ -56,18 +56,18 @@ describe('reactive mirror source hit targets', () => {
         });
 
         const app = new ReaderApp();
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             ocr: { pinLineForElement: () => void; destroy: () => void };
             prepareModalLookupFromPointer: () => void;
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
         internals.ocr = { pinLineForElement: vi.fn(), destroy: vi.fn() };
         internals.prepareModalLookupFromPointer = vi.fn();
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
@@ -76,10 +76,18 @@ describe('reactive mirror source hit targets', () => {
             label.dispatchEvent(up);
 
             expect(up.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledTimes(1);
-            expect(showWord).toHaveBeenCalledWith(
-                expect.objectContaining({ dataset: expect.objectContaining({ expression: '評価' }) }),
-                expect.objectContaining({ trigger: 'click', userGesture: true }),
+            expect(showLookupCandidate).toHaveBeenCalledTimes(1);
+            // The tap resolves the mirror word under the pointer into a
+            // sentence-space candidate; the span authority picks the span from
+            // there, so the seam to assert is the candidate, not showWord.
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: '高評価',
+                    offset: 2,
+                    anchor: expect.objectContaining({ dataset: expect.objectContaining({ expression: '評価' }) }),
+                }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
             );
         } finally {
             app.destroy();
@@ -127,19 +135,19 @@ describe('reactive mirror source hit targets', () => {
         expect(portalWord).toBeTruthy();
 
         const app = new ReaderApp();
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             ocr: { pinLineForElement: () => void; destroy: () => void };
             prepareModalLookupFromPointer: () => void;
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
             readerWordForPointerEvent(event: MouseEvent, options: { clickLookup?: boolean }): HTMLElement | null;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
         internals.ocr = { pinLineForElement: vi.fn(), destroy: vi.fn() };
         internals.prepareModalLookupFromPointer = vi.fn();
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
         const nativeClick = vi.fn();
         label.addEventListener('click', nativeClick);
@@ -156,15 +164,18 @@ describe('reactive mirror source hit targets', () => {
             label.dispatchEvent(native);
             expect(native.defaultPrevented).toBe(false);
             expect(nativeClick).toHaveBeenCalledTimes(1);
-            expect(showWord).not.toHaveBeenCalled();
+            expect(showLookupCandidate).not.toHaveBeenCalled();
 
             const forced = mouseEvent('click', 30, 40, { shiftKey: true });
             label.dispatchEvent(forced);
             expect(forced.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledWith(portalWord, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            // Portal geometry maps back to the source run: the candidate spans
+            // exactly the 他 glyph and anchors on the portal word element.
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '+ 他 3 件', start: 2, end: 3, anchor: portalWord }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
         } finally {
             app.destroy();
             if (restoreGetClientRects) Object.defineProperty(Range.prototype, 'getClientRects', restoreGetClientRects);

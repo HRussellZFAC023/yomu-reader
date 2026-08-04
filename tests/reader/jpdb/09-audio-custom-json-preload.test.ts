@@ -1847,7 +1847,53 @@ describe('reader helpers', () => {
         popover.className = 'jpdb-reader-popover';
         popover.innerHTML = `
             <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="日本語訳" data-dictionary-reading="にほんごやく" data-dictionary="JPDB">
-                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="10" data-sid="20" data-sentence="日本語訳">日本語</span>
+                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="10" data-sid="20" data-sentence="日本語訳" data-token-start="0" data-token-end="3">日本語</span>
+                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="11" data-sid="21" data-sentence="日本語訳" data-token-start="3" data-token-end="4">訳</span>
+            </a>
+        `;
+        document.body.append(popover);
+        const nestedWord = popover.querySelector<HTMLElement>('.jpdb-reader-word[data-vid="11"]')!;
+        const showLookupCandidate = vi.fn(async () => undefined);
+        const lookupDictionaryReference = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            handleDictionaryLookupLink(event: MouseEvent, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): boolean;
+            showLookupCandidate: typeof showLookupCandidate;
+            lookupDictionaryReference: typeof lookupDictionaryReference;
+        };
+        internals.showLookupCandidate = showLookupCandidate;
+        internals.lookupDictionaryReference = lookupDictionaryReference;
+        let handled = false;
+        popover.addEventListener('click', event => {
+            handled = internals.handleDictionaryLookupLink(event as MouseEvent, popover, 'modal');
+        });
+
+        try {
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            nestedWord.dispatchEvent(event);
+
+            expect(handled).toBe(true);
+            expect(event.defaultPrevented).toBe(true);
+            // Nested-word clicks resolve through the same pointer candidate
+            // as every other lookup surface: the compound reference text with
+            // the clicked word's offset, so the span authority answers 訳.
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '日本語訳', offset: 3 }),
+                'modal',
+                expect.objectContaining({ navigation: 'push-current', userGesture: true }),
+            );
+            expect(lookupDictionaryReference).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('opens the clicked word by identity when the passive shell has no token spans yet', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <a class="gloss-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="日本語訳" data-dictionary-reading="にほんごやく" data-dictionary="JPDB">
                 <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="11" data-sid="21" data-sentence="日本語訳">訳</span>
             </a>
         `;
@@ -1873,6 +1919,9 @@ describe('reader helpers', () => {
 
             expect(handled).toBe(true);
             expect(event.defaultPrevented).toBe(true);
+            // The nested re-parse has not stamped token spans, so no pointer
+            // candidate resolves — the word's own card identity must still win
+            // over the whole-compound reference lookup.
             expect(showWord).toHaveBeenCalledWith(nestedWord, {
                 trigger: 'click',
                 navigation: 'push-current',
