@@ -292848,6 +292848,42 @@ recommendedJiten	Jiten由来の頻度バッジです。
       deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
     };
   }
+  function collectTermMatchCandidates(db, target2, candidates, rank2) {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("terms", "readonly");
+      const store = tx.objectStore("terms");
+      const expressionIndex = store.index("expression");
+      const readingIndex = store.index("reading");
+      const expressions2 = sortedTermMatchExpressions(candidates);
+      const collectors = new Map(expressions2.map((expression) => [
+        expression,
+        createTermMatchEntryCollector(
+          expression,
+          candidates,
+          rank2,
+          (entryRules, candidateRules) => target2.matchesLookupCandidateRules(entryRules, candidateRules)
+        )
+      ]));
+      const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target2);
+      let pending2 = expressions2.length * (queriesReadingIndex ? 2 : 1);
+      const finish = () => {
+        if (--pending2 <= 0) {
+          resolve(expressions2.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
+        }
+      };
+      const visit2 = (expression, entry2) => {
+        collectors.get(expression)?.add(entry2);
+      };
+      for (const expression of expressions2) {
+        requestTermMatchIndex(expressionIndex, expression, visit2, finish, reject);
+        if (queriesReadingIndex) {
+          requestTermMatchIndex(readingIndex, expression, visit2, finish, reject);
+        }
+      }
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+    });
+  }
   function firefoxXrayWaiver(value) {
     if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
     try {
@@ -295682,42 +295718,7 @@ ${entry2.reading}`;
       return candidates.size ? await this.lookupTermMatchCandidates(target2, candidates, preferences) : [];
     }
     async lookupTermMatchCandidates(target2, candidates, preferences) {
-      const db = await this.db();
-      const rank2 = dictionaryRank(preferences);
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction("terms", "readonly");
-        const store = tx.objectStore("terms");
-        const expressionIndex = store.index("expression");
-        const readingIndex = store.index("reading");
-        const expressions2 = sortedTermMatchExpressions(candidates);
-        const collectors = new Map(expressions2.map((expression) => [
-          expression,
-          createTermMatchEntryCollector(
-            expression,
-            candidates,
-            rank2,
-            (entryRules, candidateRules) => target2.matchesLookupCandidateRules(entryRules, candidateRules)
-          )
-        ]));
-        const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target2);
-        let pending2 = expressions2.length * (queriesReadingIndex ? 2 : 1);
-        const finish = () => {
-          if (--pending2 <= 0) {
-            resolve(expressions2.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
-          }
-        };
-        const visit2 = (expression, entry2) => {
-          collectors.get(expression)?.add(entry2);
-        };
-        for (const expression of expressions2) {
-          requestTermMatchIndex(expressionIndex, expression, visit2, finish, reject);
-          if (queriesReadingIndex) {
-            requestTermMatchIndex(readingIndex, expression, visit2, finish, reject);
-          }
-        }
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(transactionError(tx, "Could not read dictionary term matches."));
-      });
+      return collectTermMatchCandidates(await this.db(), target2, candidates, dictionaryRank(preferences));
     }
     async summary() {
       if (!this.summaryPromise) {
@@ -297166,9 +297167,6 @@ ${glossaryKey}`;
       };
     }, { durability: "relaxed" });
     return deleted;
-  }
-  function transactionError(tx, fallback) {
-    return tx.error ?? new Error(fallback);
   }
   function isCurrentLookupTarget(target2, generation2) {
     return activeLearningTarget() === target2 && activeLearningTargetGeneration() === generation2;

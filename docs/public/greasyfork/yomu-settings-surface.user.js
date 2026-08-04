@@ -58825,6 +58825,42 @@ function termMatchForEntry(position, entry) {
   deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
   };
 }
+function collectTermMatchCandidates(db, target, candidates, rank) {
+  return new Promise((resolve, reject) => {
+  const tx = db.transaction("terms", "readonly");
+  const store = tx.objectStore("terms");
+  const expressionIndex = store.index("expression");
+  const readingIndex = store.index("reading");
+  const expressions = sortedTermMatchExpressions(candidates);
+  const collectors = new Map(expressions.map((expression) => [
+    expression,
+    createTermMatchEntryCollector(
+      expression,
+      candidates,
+      rank,
+      (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
+    )
+  ]));
+  const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
+  let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
+  const finish = () => {
+    if (--pending2 <= 0) {
+      resolve(expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
+    }
+  };
+  const visit = (expression, entry) => {
+    collectors.get(expression)?.add(entry);
+  };
+  for (const expression of expressions) {
+    requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
+    if (queriesReadingIndex) {
+      requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
+    }
+  }
+  tx.onerror = () => reject(tx.error);
+  tx.onabort = () => reject(tx.error ?? new Error("Could not read dictionary term matches."));
+  });
+}
 const log$9 = Logger.scope("DictionaryArchiveCache");
 const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
 const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
@@ -61553,42 +61589,7 @@ ${entry.reading}`;
       return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
     }
     async lookupTermMatchCandidates(target, candidates, preferences) {
-      const db = await this.db();
-      const rank = dictionaryRank(preferences);
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction("terms", "readonly");
-        const store = tx.objectStore("terms");
-        const expressionIndex = store.index("expression");
-        const readingIndex = store.index("reading");
-        const expressions = sortedTermMatchExpressions(candidates);
-        const collectors = new Map(expressions.map((expression) => [
-          expression,
-          createTermMatchEntryCollector(
-            expression,
-            candidates,
-            rank,
-            (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
-          )
-        ]));
-        const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
-        let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
-        const finish = () => {
-          if (--pending2 <= 0) {
-            resolve(expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
-          }
-        };
-        const visit = (expression, entry) => {
-          collectors.get(expression)?.add(entry);
-        };
-        for (const expression of expressions) {
-          requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
-          if (queriesReadingIndex) {
-            requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
-          }
-        }
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(transactionError(tx, "Could not read dictionary term matches."));
-      });
+      return collectTermMatchCandidates(await this.db(), target, candidates, dictionaryRank(preferences));
     }
     async summary() {
       if (!this.summaryPromise) {
@@ -63037,9 +63038,6 @@ ${glossaryKey}`;
       };
     }, { durability: "relaxed" });
     return deleted;
-  }
-  function transactionError(tx, fallback) {
-    return tx.error ?? new Error(fallback);
   }
   function isCurrentLookupTarget(target, generation) {
     return activeLearningTarget() === target && activeLearningTargetGeneration() === generation;
