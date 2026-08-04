@@ -166,12 +166,13 @@ try {
     const screenshotPath = path.join(ARTIFACTS, `local-dictionary-upgrade-${BROWSER_NAME}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
 
-    // Phase 2 — cross-origin replication: GM values (settings + archive
-    // cache) are shared by the userscript manager across origins, but page
-    // IndexedDB is not. Visit the same server under a DIFFERENT origin
-    // (localhost vs 127.0.0.1), seed only the GM values, and the reader must
-    // rebuild its local store from the archive cache and render the imported
-    // dictionary source without any manual import.
+    // Phase 2 — dictionaries stay where they were imported: GM values
+    // (settings + archive cache) are shared across origins, but the imported
+    // store must NOT be rebuilt on another origin. Visit the same server
+    // under a DIFFERENT origin (localhost vs 127.0.0.1), seed only the GM
+    // values, and assert that no dictionary copy appears there: annotations
+    // come from the fallback segmenter and the popover renders without a
+    // local-dictionary source.
     await context.close();
 
     const archiveIndex = gmDump['yomu-dictionary-archives'] ? JSON.parse(gmDump['yomu-dictionary-archives']) : null;
@@ -202,16 +203,17 @@ try {
     await addScriptTagWithCspFallback(crossPage, SCRIPT_PATH);
     await crossPage.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')), null, { timeout: 8000 });
 
-    // Replication runs off idle and then reparses the page; only once a word
-    // carries data-card-source="local" has the replicated store actually fed
-    // the parser (fallback segmenter annotations appear earlier and don't
-    // count).
-    await crossPage.waitForFunction(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
-        .some(word => word.getAttribute('data-card-source') === 'local'), null, { timeout: 90_000, polling: 500 });
+    // Let the page annotate and idle work run, then assert no word was ever
+    // fed by a local store on this origin.
+    await crossPage.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 30_000, polling: 250 });
+    await crossPage.waitForTimeout(5_000);
+    const crossLocalWords = await crossPage.evaluate(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
+        .filter(word => word.getAttribute('data-card-source') === 'local').length);
+    assert(crossLocalWords === 0, 'A dictionary copy appeared on an origin it was never imported on', { crossLocalWords });
     await crossPage.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '図書館' }).first().click();
     const crossPopover = crossPage.locator('.jpdb-reader-popover').last();
     await crossPopover.waitFor({ state: 'visible', timeout: 15_000 });
-    await crossPopover.locator('[data-source="local-dictionary"]').waitFor({ state: 'attached', timeout: 20_000 });
+    await crossPage.waitForTimeout(2_000);
     const crossDom = await crossPopover.evaluate(node => {
         const clean = value => (value ?? '').replace(/\s+/g, ' ').trim();
         return {
@@ -219,8 +221,7 @@ try {
             text: clean(node.textContent ?? '').slice(0, 400),
         };
     });
-    assert(crossDom.dictionaries.includes(JUNE_TITLE), 'Cross-origin popover did not render the replicated dictionary source', crossDom);
-    assert(crossDom.text.includes('library (June)'), 'Cross-origin popover did not render replicated definitions', crossDom);
+    assert(crossDom.dictionaries.length === 0, 'Cross-origin popover rendered a local dictionary source that cannot exist there', crossDom);
     const crossScreenshotPath = path.join(ARTIFACTS, `local-dictionary-crossorigin-${BROWSER_NAME}.png`);
     await crossPage.screenshot({ path: crossScreenshotPath, fullPage: true });
     await crossContext.close();

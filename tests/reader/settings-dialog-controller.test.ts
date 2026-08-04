@@ -52,7 +52,6 @@ vi.mock('../../src/reader/settings/form', async importOriginal => {
 // before this file's mocks. Reload it here so the form seams above are active.
 vi.resetModules();
 const { SettingsDialogController } = await import('../../src/reader/settings/dialog-controller');
-const { ensureLocalDictionariesReplicated } = await import('../../src/reader/dictionaries/replication');
 // Same module instance the controller above resolved: opening a dialog probes
 // each aggregator audio URL once and memoizes it, so every test must start
 // without another test's cached (or still in-flight) probe.
@@ -1878,9 +1877,8 @@ describe('settings dialog dictionary imports', () => {
         button.click();
         await waitForCondition(() => deleteDatabase.mock.calls.length === 1);
 
-        expect(confirm.mock.calls[1]?.[0]).toContain('everywhere');
-        expect(confirm.mock.calls[1]?.[0]).toContain("only this site's dictionary copy");
-        expect(confirm.mock.calls[1]?.[0]).toContain('shared archive is kept');
+        expect(confirm.mock.calls[1]?.[0]).toContain("delete this site's stored copy");
+        expect(confirm.mock.calls[1]?.[0]).toContain('remove it the next time you visit them');
         expect(settings.localDictionariesEnabled).toBe(false);
         expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({ localDictionariesEnabled: false }));
         expect(toggle.checked).toBe(false);
@@ -1893,7 +1891,7 @@ describe('settings dialog dictionary imports', () => {
         expect(dependencies.refreshNewTabIfCurrent).toHaveBeenCalledOnce();
         expect(form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('No dictionaries imported yet.');
         expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries [data-import-status]')?.textContent)
-            .toContain("This site's copy was deleted; the shared archive was kept.");
+            .toContain("This site's copy was deleted; other sites clean up as you visit them.");
         expect(await listDictionaryArchives()).toEqual(archivesBefore);
     });
 
@@ -1931,7 +1929,7 @@ describe('settings dialog dictionary imports', () => {
         expect(deleteDatabase).not.toHaveBeenCalled();
         expect(clearButton.disabled).toBe(true);
         expect(importButton.disabled).toBe(true);
-        expect(dependencies.toast).not.toHaveBeenCalledWith(expect.stringContaining('shared archive was kept'));
+        expect(dependencies.toast).not.toHaveBeenCalledWith(expect.stringContaining('other sites clean up'));
 
         imported.resolve(importSummary('Imported before cleanup'));
         await waitForCondition(() => deleteDatabase.mock.calls.length === 1);
@@ -1941,74 +1939,7 @@ describe('settings dialog dictionary imports', () => {
         expect(settings.localDictionariesEnabled).toBe(false);
         expect(form.querySelector<HTMLInputElement>('input[name="localDictionariesEnabled"]')?.checked).toBe(false);
         expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries [data-import-status]')?.textContent)
-            .toContain("This site's copy was deleted; the shared archive was kept.");
-    });
-
-    it('waits for active background replication before deleting the current site database', async () => {
-        const archiveTitle = 'Background archive [2026-08-01]';
-        await persistDictionaryArchive({
-            title: archiveTitle,
-            filename: 'background.zip',
-            file: new File(['background archive'], 'background.zip', { type: 'application/zip' }),
-        });
-        const importStarted = deferred<void>();
-        const finishImport = deferred<ImportSummary>();
-        const events: string[] = [];
-        let settings: ReaderSettings = {
-            ...DEFAULT_SETTINGS,
-            localDictionariesEnabled: true,
-            dictionaryPreferences: [{
-                name: archiveTitle,
-                alias: archiveTitle,
-                enabled: true,
-                priority: 0,
-                type: 'terms',
-            }],
-        };
-        const replication = ensureLocalDictionariesReplicated({
-            dictionaries: {
-                summary: vi.fn(async () => ({ dictionaries: [] })),
-                importFile: vi.fn(async () => {
-                    events.push('replication:start');
-                    importStarted.resolve(undefined);
-                    const summary = await finishImport.promise;
-                    events.push('replication:finish');
-                    return summary;
-                }),
-                importFromUrl: vi.fn(async () => importSummary('unused')),
-            },
-            getSettings: () => settings,
-            onReplicated: () => { events.push('replication:callback'); },
-        });
-        await importStarted.promise;
-
-        const deleteDatabase = vi.fn(async () => { events.push('database:delete'); });
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
-        const { form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings: (next: ReaderSettings) => { settings = next; },
-            dictionaries: {
-                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 }),
-                deleteDatabase,
-            },
-        });
-
-        form.querySelector<HTMLButtonElement>('[data-action="clear-local-dictionary-site-storage"]')!.click();
-        await waitForCondition(() => settings.localDictionariesEnabled === false);
-        await flushPromises();
-
-        expect(deleteDatabase).not.toHaveBeenCalled();
-        finishImport.resolve(importSummary(archiveTitle));
-        await replication;
-        await waitForCondition(() => deleteDatabase.mock.calls.length === 1);
-
-        expect(events).toEqual([
-            'replication:start',
-            'replication:finish',
-            'replication:callback',
-            'database:delete',
-        ]);
-        expect(settings.localDictionariesEnabled).toBe(false);
+            .toContain("This site's copy was deleted; other sites clean up as you visit them.");
     });
 
     it('uses the origin-local dictionary summary for the installed button state', async () => {

@@ -6,7 +6,6 @@ import { OnboardingController } from '../app/onboarding';
 import { installOfflineParsingDictionaries } from '../dictionaries/offline-setup';
 import { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import { renderStructuredGlossaryHtml } from '../dictionaries/yomitan/structured-content';
-import { ensureLocalDictionariesReplicated } from '../dictionaries/replication';
 import { enumerateDictionaryArchiveStorageKeys } from '../dictionaries/archive-cache';
 import {
     nestedSettingsParseAlreadyRendered,
@@ -63,6 +62,5 @@ registerYomuCompanion('settings', {
 registerYomuCompanion('localDictionaries', {
     YomitanDictionaryStore,
     renderStructuredGlossaryHtml,
-    ensureLocalDictionariesReplicated,
     enumerateDictionaryArchiveStorageKeys,
 });

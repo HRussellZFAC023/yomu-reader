@@ -172,10 +172,6 @@ interface YomuCompanionRegistry {
     localDictionaries?: {
         YomitanDictionaryStore: typeof import('../dictionaries/yomitan').YomitanDictionaryStore;
         renderStructuredGlossaryHtml?: typeof import('../dictionaries/yomitan/structured-content').renderStructuredGlossaryHtml;
-        // Rebuilds this origin's per-origin dictionary store from the
-        // cross-origin archive cache; ships with the settings-surface
-        // companion because core has no local dictionaries without it.
-        ensureLocalDictionariesReplicated?: typeof import('../dictionaries/replication').ensureLocalDictionariesReplicated;
         enumerateDictionaryArchiveStorageKeys?: typeof import('../dictionaries/archive-cache').enumerateDictionaryArchiveStorageKeys;
     };
     anki?: {

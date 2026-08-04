@@ -14,9 +14,8 @@ describe('factory reset across ambient-only userscript realms', () => {
                 "import { FactoryResetCoordinator } from './src/reader/app/factory-reset-coordinator.ts';",
                 "import { DEFAULT_SETTINGS, saveSettings } from './src/reader/settings/index.ts';",
                 "import { loadReaderStartupSettings } from './src/reader/app/startup.ts';",
-                "import { persistDictionaryArchive, listDictionaryArchives } from './src/reader/dictionaries/archive-cache.ts';",
-                "import { ensureLocalDictionariesReplicated } from './src/reader/dictionaries/replication.ts';",
-                'export { FactoryResetCoordinator, DEFAULT_SETTINGS, saveSettings, loadReaderStartupSettings, persistDictionaryArchive, listDictionaryArchives, ensureLocalDictionariesReplicated };',
+                "import { persistDictionaryArchive, listDictionaryArchives, readDictionaryArchiveFile } from './src/reader/dictionaries/archive-cache.ts';",
+                'export { FactoryResetCoordinator, DEFAULT_SETTINGS, saveSettings, loadReaderStartupSettings, persistDictionaryArchive, listDictionaryArchives, readDictionaryArchiveFile };',
             ].join('\\n');
             const result = await build({
                 stdin: {
@@ -122,31 +121,9 @@ describe('factory reset across ambient-only userscript realms', () => {
                     file: new realmA.dom.window.Blob([new realmA.dom.window.Uint8Array(64)]),
                 });
 
-                const importSummary = {
-                    dictionaries: [title],
-                    entries: 1,
-                    terms: 1,
-                    kanji: 0,
-                    termMeta: 0,
-                    kanjiMeta: 0,
-                };
-                let preResetImports = 0;
-                let preResetNotifications = 0;
-                const preResetReplicated = await realmA.api.ensureLocalDictionariesReplicated({
-                    dictionaries: {
-                        summary: async () => ({ dictionaries: [] }),
-                        importFile: async () => {
-                            preResetImports += 1;
-                            return importSummary;
-                        },
-                        importFromUrl: async () => importSummary,
-                    },
-                    getSettings: () => staleSettings,
-                    onReplicated: () => { preResetNotifications += 1; },
-                });
-                equal(preResetReplicated, [title], 'pre-reset replication control failed');
-                equal(preResetImports, 1, 'pre-reset archive was not imported once');
-                equal(preResetNotifications, 1, 'pre-reset replication notification mismatch');
+                const preResetArchives = await realmA.api.listDictionaryArchives();
+                assert(preResetArchives['jitendex.org'], 'pre-reset archive control failed');
+                assert(await realmA.api.readDictionaryArchiveFile('jitendex.org'), 'pre-reset archive bytes unreadable');
 
                 const realmB = createRealm('https://www.youtube.com/watch?v=factory-reset');
                 realms.push(realmB);
@@ -199,36 +176,9 @@ describe('factory reset across ambient-only userscript realms', () => {
                 equal(startupC.settings.dictionaryPreferences, [], 'fresh Realm C restored reset dictionary preferences');
                 equal(await realmC.api.listDictionaryArchives(), {}, 'fresh Realm C restored reset archives');
 
-                let postResetSummaryCalls = 0;
-                let postResetFileImports = 0;
-                let postResetUrlImports = 0;
-                let postResetNotifications = 0;
-                const postResetReplicated = await realmC.api.ensureLocalDictionariesReplicated({
-                    dictionaries: {
-                        summary: async () => {
-                            postResetSummaryCalls += 1;
-                            return { dictionaries: [] };
-                        },
-                        importFile: async () => {
-                            postResetFileImports += 1;
-                            return importSummary;
-                        },
-                        importFromUrl: async () => {
-                            postResetUrlImports += 1;
-                            return importSummary;
-                        },
-                    },
-                    // Keep the old preference enabled so this proves that the
-                    // reset archive cannot be resurrected, rather than merely
-                    // exercising the disabled/default replication fast path.
-                    getSettings: () => staleSettings,
-                    onReplicated: () => { postResetNotifications += 1; },
-                });
-                equal(postResetReplicated, [], 'fresh Realm C replicated a reset archive');
-                equal(postResetSummaryCalls, 0, 'fresh Realm C inspected its local dictionary store after archive reset');
-                equal(postResetFileImports, 0, 'fresh Realm C imported a reset file archive');
-                equal(postResetUrlImports, 0, 'fresh Realm C imported a reset URL archive');
-                equal(postResetNotifications, 0, 'fresh Realm C announced a reset archive import');
+                // The reset archive cannot be resurrected: bytes and index are
+                // both gone from the shared store for a fresh realm.
+                equal(await realmC.api.readDictionaryArchiveFile('jitendex.org'), null, 'fresh Realm C read a reset archive');
                 assert(!values.has('jpdb-popup-reader-settings'), 'fresh Realm C recreated reset settings');
                 assert(!values.has('yomu-dictionary-archives'), 'fresh Realm C recreated the archive index');
                 assert(!values.has('yomu-dictionary-archive:jitendex.org:0'), 'fresh Realm C recreated an archive chunk');

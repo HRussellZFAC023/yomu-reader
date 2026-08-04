@@ -87,7 +87,7 @@ import { bindLiveSettingsSync } from './live-settings-sync';
 import { syncYoutubeImmersionTarget } from './youtube-panel';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
-import { waitForLocalDictionaryReplicationIdle } from '../dictionaries/replication';
+import { markDictionaryReplicaFresh, requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
@@ -2425,16 +2425,10 @@ export class SettingsDialogController {
                     settingsSaved = true;
                     if (enabled) enabled.checked = false;
 
-                    // Background archive replication does not use the Settings
-                    // import queue. Disabling first prevents another pass;
-                    // waiting here lets an already-open import transaction
-                    // finish before deleteDatabase closes and removes the DB,
-                    // so no later batch can recreate the copy after success.
-                    await waitForLocalDictionaryReplicationIdle();
-
-                    // deleteDatabase only removes this origin's IndexedDB. The shared
-                    // GM archive is deliberately untouched, so enabling dictionaries
-                    // later can replicate them back without another import.
+                    // deleteDatabase removes this origin's IndexedDB now; the
+                    // purge marker removes every other origin's copy the next
+                    // time that origin loads. The shared GM archive is kept.
+                    await requestDictionaryReplicaPurge();
                     await this.dependencies.dictionaries.deleteDatabase();
                     this.dictionaryRefreshId++;
                     await this.dependencies.refreshDictionaryStyles();
@@ -2580,6 +2574,7 @@ export class SettingsDialogController {
             { ...this.settings, localDictionariesEnabled: true },
             dictionaryPreferences,
         );
+        await markDictionaryReplicaFresh();
         await saveSettings(this.settings);
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();

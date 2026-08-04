@@ -84,7 +84,12 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
         prefix: 'yomu-dictionary-archive:',
         enumerate: enumerateDictionaryArchiveStorageKeys,
     },
-    { owner: 'dictionaries/replication', kind: 'local', key: 'yomu-dictionary-replication-state' },
+    // Replication was removed in 1.8.78 (dictionaries live only where they
+    // are imported); the state key stays registered so resets sweep what
+    // earlier releases left behind.
+    { owner: 'dictionaries/replication (legacy)', kind: 'local', key: 'yomu-dictionary-replication-state' },
+    { owner: 'dictionaries/replica-purge', kind: 'gm', key: 'yomu:dictionary-replica-purge:v1' },
+    { owner: 'dictionaries/replica-purge', kind: 'local', key: 'yomu:dictionary-replica-purged:v1' },
 
     // OCR result cache.
     { owner: 'ocr/ocr-cache-store', kind: 'local', key: 'yomu-ocr-cache-v1' },

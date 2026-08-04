@@ -21,7 +21,6 @@ import { cardKey } from '../cards/utils';
 import { normalizeCardStates } from '../cards/state';
 import {
     yomuImageOcrController,
-    yomuLocalDictionaries,
     yomuOnboardingController,
     yomuSettingsSurfaceCompanion,
     yomuSettingsDialogController,
@@ -395,6 +394,7 @@ import type {
     YomitanTermEntry,
 } from '../dictionaries/yomitan';
 import { createLocalDictionaryStore } from '../dictionaries/local-store';
+import { honorDictionaryReplicaPurge } from '../dictionaries/replica-purge';
 import {
     cardHasContextPitch,
     isCompactPitchEnrichmentViewport,
@@ -967,7 +967,6 @@ export class ReaderApp {
     private suppressWordClickUntil = 0;
     private suppressPenHoverUntil = 0;
     private pageHasJapaneseText = false;
-    private localDictionaryReplicationScheduled = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
     private tapLookup?: { id: number; x: number; y: number; word?: HTMLElement };
@@ -1135,6 +1134,11 @@ export class ReaderApp {
     private async installCoreSurfaces(): Promise<void> {
         this.installStyles();
         this.applyTheme();
+        // A requested all-sites purge must delete this origin's dictionary
+        // copy before anything opens the database — our own connection would
+        // otherwise block the deletion on every visit. One shared-storage read
+        // when no purge is pending.
+        await honorDictionaryReplicaPurge().catch((error: unknown) => log.debug('Dictionary replica purge check failed', error));
         // Local dictionary CSS is an enhancement, not a prerequisite for the
         // reader controls. Opening the dictionary IndexedDB can be delayed by
         // browser storage startup (notably in userscript page contexts), and
@@ -1213,85 +1217,6 @@ export class ReaderApp {
         } else {
             this.scheduleStatusWarmups();
         }
-        this.scheduleLocalDictionaryReplication();
-    }
-
-    // Imported dictionaries live in per-origin IndexedDB, so a first visit to
-    // a site has none of them even though settings promise their sources.
-    // Rebuild the local store from the cross-origin archive cache off the
-    // critical path; a successful replication reparses the page so local
-    // parsing and popup sources appear without a reload.
-    private scheduleLocalDictionaryReplication(): void {
-        if (!this.pageHasJapaneseText || !this.settings.localDictionariesEnabled) return;
-        const replicate = yomuLocalDictionaries()?.ensureLocalDictionariesReplicated;
-        if (!replicate || this.localDictionaryReplicationScheduled) return;
-        this.localDictionaryReplicationScheduled = true;
-        const run = () => {
-            if (this.isDestroyed) {
-                this.localDictionaryReplicationScheduled = false;
-                return;
-            }
-            void replicate({
-                dictionaries: this.dictionaries,
-                getSettings: () => this.settings,
-                onReplicated: () => {
-                    if (this.isDestroyed) return;
-                    this.parser.clearLocalCache();
-                    // A popover can finish its empty local lookup while a
-                    // large archive is still importing. Clear the settled
-                    // render load only when replication actually completes,
-                    // then refresh the still-open card from the populated DB.
-                    this.cardRenderData.clear();
-                    // The initial scan may have annotated with a remote tier or
-                    // segmenter fallback before replication landed. Scans skip
-                    // already-wrapped text, so unwrap the page annotations and
-                    // let the rescan prefer the newly restored local store.
-                    unwrapReaderWords(document);
-                    void this.refreshActiveCardAfterLocalDictionaryReplication()
-                        .catch(error => log.debug('Active card refresh after dictionary replication failed', error));
-                    this.scheduleDictionaryRescan();
-                },
-            })
-                .catch(error => log.warn('Scheduled dictionary replication failed', error))
-                .finally(() => { this.localDictionaryReplicationScheduled = false; });
-        };
-        if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 15_000 });
-        else window.setTimeout(run, 3_000);
-    }
-
-    private async refreshActiveCardAfterLocalDictionaryReplication(): Promise<void> {
-        if (!this.settings.localDictionariesEnabled) return;
-        const popover = this.activePopover;
-        const card = this.lastCard;
-        if (!popover?.isConnected || !card || !popover.querySelector('[data-card-popover]')) return;
-        const trigger = this.activePopoverMode === 'hover' ? 'hover' : 'modal';
-        const hoverLookupGeneration = trigger === 'hover' ? this.hoverLookupGeneration : undefined;
-        const hoverLookupKey = trigger === 'hover' ? this.activeHoverLookupKey : undefined;
-        const load = this.cardRenderData.load(card);
-        const initialEntries = await load.localEntries;
-        const entries = initialEntries.length
-            ? initialEntries
-            : await load.hydrateLocalEntries?.() ?? initialEntries;
-        const stillCurrent = this.activePopover === popover
-            && popover.isConnected
-            && this.settings.localDictionariesEnabled
-            && (trigger !== 'hover'
-                || (this.hoverLookupGeneration === hoverLookupGeneration
-                    && this.activeHoverLookupKey === hoverLookupKey
-                    && this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey ?? '')));
-        if (!entries.length || !stillCurrent) return;
-        await this.showCard(card, this.lastCardSentence, this.connectedActivePopoverAnchor(), {
-            autoPlay: false,
-            trigger,
-            navigation: 'preserve',
-            preservePosition: true,
-            hoverLookupGeneration,
-            hoverLookupKey,
-            // This card is the already-resolved identity shown in the active
-            // popover. Skipping another initial provider resolution keeps the
-            // identity/generation check above adjacent to the replacement.
-            skipInitialCardResolution: true,
-        });
     }
 
     private async installBunproTokenImporter(): Promise<void> {
@@ -1855,9 +1780,6 @@ export class ReaderApp {
             this.dictionaryRescanPending = true;
             return;
         }
-        // Re-enabling imported dictionaries from Settings should restore the
-        // preserved archive on this origin immediately, not only after reload.
-        this.scheduleLocalDictionaryReplication();
         this.pitchEnrichmentLocalCache.clear();
         this.localPitchDictionaryAvailability = undefined;
         this.jitenPublicVocabulary.clear();
@@ -2813,12 +2735,7 @@ export class ReaderApp {
             if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
             else if (mutationsOnlyInsideReaderRoot) return;
             else if (mutationHasJapaneseText) {
-                const firstJapaneseContent = !this.pageHasJapaneseText;
                 this.pageHasJapaneseText = true;
-                // A Latin-first SPA skipped the boot-time replication gate.
-                // Arm it exactly on the first later Japanese mutation so the
-                // newly visible content can use the learner's imported sources.
-                if (firstJapaneseContent) this.scheduleLocalDictionaryReplication();
                 this.noteVisibleAutoScanWorkObserved();
                 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
                     // The observer has just proved fresh Japanese exists,

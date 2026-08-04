@@ -228,7 +228,8 @@ describe('factory reset invariant — nothing managed survives resetAllData', ()
         const sourceSamples = sourceManagedStorageSamples();
         expect(sourceSamples).toContain('yomu-dictionary-archives');
         expect(sourceSamples).toContain('yomu-dictionary-archive:source-inventory-probe');
-        expect(sourceSamples).toContain('yomu-dictionary-replication-state');
+        expect(sourceSamples).toContain('yomu:dictionary-replica-purge:v1');
+        expect(sourceSamples).toContain('yomu:dictionary-replica-purged:v1');
         expect(unregisteredManagedStorageKeys(sourceSamples)).toEqual([]);
     });
 });
