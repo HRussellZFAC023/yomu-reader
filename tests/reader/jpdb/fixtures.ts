@@ -302,6 +302,12 @@ export type TestJitenLookupManyMock = ((terms: readonly string[]) => Promise<Map
 };
 export type TestPointerParserStub = {
     parse?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
+    lookupTokenAt?: (
+        text: string,
+        offset: number,
+        range?: { start: number; end: number },
+        parseOptions?: Record<string, unknown>,
+    ) => Promise<JPDBToken | undefined>;
     fallbackCardFromText?: (text: string) => JPDBCard;
     isJpdbBackedCard?: (card: JPDBCard) => boolean;
 };
