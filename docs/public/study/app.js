@@ -127375,7 +127375,6 @@ ${component.reading}`;
     }
     // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
     // reader-study-decks). Rows carry userStudyDeckId + name.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDecks() {
       const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
       if (!Array.isArray(response)) return [];
@@ -127388,7 +127387,6 @@ ${component.reading}`;
     }
     // UT-44: srs/study-batch has no deck parameter, so deck scoping
     // intersects the batch with the deck's word keys.
-    // fallow-ignore-next-line unused-class-member
     async studyDeckWordKeys(deckId) {
       const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
       const keys = /* @__PURE__ */ new Set();
@@ -127464,7 +127462,6 @@ ${component.reading}`;
     }
     // Community ask (jpdb issue-tracker #417 class): reverse the most recent
     // review of a word. Called by NewTabController through its Jiten dependency.
-    // fallow-ignore-next-line unused-class-member
     async undoReview(card) {
       await this.request("srs/undo-review", jitenCardReference(card));
     }
