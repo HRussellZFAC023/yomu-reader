@@ -25,7 +25,9 @@ import type { InterfaceLanguage } from './types';
 const log = Logger.scope('FactoryReset');
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 30000;
-const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
+// Must accommodate a multi-gigabyte dictionary database; the old 750ms budget
+// aborted the whole reset on the installs that most needed it.
+const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 60_000;
 
 export interface FactoryResetCoordinatorDependencies {
     isDestroyed: () => boolean;

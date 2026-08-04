@@ -70,7 +70,11 @@ const YOMU_LOCAL_SRS_STORAGE_KEY = 'yomu:srs-local:v1';
 const YOMU_LOCAL_SRS_V2_INDEX_KEY = 'yomu:srs-local:v2:index';
 const YOMU_LOCAL_SRS_V2_CARD_PREFIX = 'yomu:srs-local:v2:card:';
 const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = 'yomu:srs-local:v2:tombstone:';
-const MANAGED_IDB_DELETE_TIMEOUT_MS = 2_000;
+// A dictionary database can hold gigabytes; Firefox routinely needs tens of
+// seconds to delete one. The old 2s budget made factory reset fail on exactly
+// the installs that most need it. Blocked deletions (another Yomu tab holding
+// a connection) still surface the close-other-tabs message at the deadline.
+const MANAGED_IDB_DELETE_TIMEOUT_MS = 60_000;
 const MANAGED_CACHE_NAME_PREFIXES = [
     'yomu-newtab-',
     'yomu-pdf-reader-',
