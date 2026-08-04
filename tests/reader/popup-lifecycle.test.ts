@@ -10,7 +10,8 @@ import {
     restorePopoverScrollOffsetSoon,
 } from '../../src/reader/popup/shell';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import type { CardRenderData, JPDBCard, ReaderSettings } from '../../src/reader/app/types';
+import type { CardRenderData } from '../../src/reader/cards/render-data';
+import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 /**
  * The reported symptoms, one describe each:
