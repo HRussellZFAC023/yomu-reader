@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.a6424322d239.user.js#sha256=pkJDItI5ZiQSCjEz0np3Lp45HttdWrCAxStco1cmHow=
+// @require https://yomureader.com/greasyfork/yomu-runtime.74408d665062.user.js#sha256=dECNZlBiPyMKfjzXy6dknWwGrGZY9eBCAMVHReGffys=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -5767,6 +5767,25 @@ subtitleHoverPause: true,
 subtitleSeekPadding: 0.08
 };
 }
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+if (typeof storedValue === "boolean") return storedValue;
+return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+const currentValue = await gmStorageGet(
+PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+void 0
+);
+if (typeof currentValue === "boolean") return currentValue;
+await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+return migrationFallback;
+});
+}
+async function persistPreferredJapaneseSiteLanguage(value) {
+await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+});
+}
 function settingsValueEquals(left, right) {
 return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
@@ -5859,7 +5878,6 @@ function isModifierKey(key) {
 return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
 "jpdb-reader-settings",
@@ -5870,7 +5888,6 @@ const SETTINGS_STORAGE_KEYS = [
 SETTINGS_STORAGE_KEY,
 ...LEGACY_SETTINGS_STORAGE_KEYS
 ];
-const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const log$a = Logger.scope("Settings");
 let settingsResetInProgress = false;
@@ -7284,23 +7301,6 @@ return settings;
 log$a.warn("Settings load failed", { error });
 return mergeSettings(null);
 }
-}
-async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
-if (typeof storedValue === "boolean") return storedValue;
-return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-const currentValue = await gmStorageGet(
-PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-void 0
-);
-if (typeof currentValue === "boolean") return currentValue;
-await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-return migrationFallback;
-});
-}
-async function persistPreferredJapaneseSiteLanguage(value) {
-await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-});
 }
 function strandedHostedLocalSettingsRecord() {
 if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;

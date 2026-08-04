@@ -16521,6 +16521,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       subtitleSeekPadding: 0.08
     };
   }
+  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+  const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+  async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+    if (typeof storedValue === "boolean") return storedValue;
+    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      const currentValue = await gmStorageGet(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        void 0
+      );
+      if (typeof currentValue === "boolean") return currentValue;
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+      return migrationFallback;
+    });
+  }
+  async function persistPreferredJapaneseSiteLanguage(value) {
+    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+    });
+  }
   function settingsValueEquals(left, right) {
     return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
@@ -16794,7 +16813,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return parts.filter((part, index) => parts.indexOf(part) === index);
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
   const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
   const LEGACY_SETTINGS_STORAGE_KEYS = [
     "jpdb-reader-settings",
@@ -16805,7 +16823,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
   const log$J = Logger.scope("Settings");
   let settingsResetInProgress = false;
@@ -18230,23 +18247,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       log$J.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
-  }
-  async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
-    if (typeof storedValue === "boolean") return storedValue;
-    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-      const currentValue = await gmStorageGet(
-        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-        void 0
-      );
-      if (typeof currentValue === "boolean") return currentValue;
-      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-      return migrationFallback;
-    });
-  }
-  async function persistPreferredJapaneseSiteLanguage(value) {
-    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-    });
   }
   function strandedHostedLocalSettingsRecord() {
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;

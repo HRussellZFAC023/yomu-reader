@@ -11548,6 +11548,7 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleSeekPadding: 0.08
   };
 }
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 function matchesShortcut(event, shortcut = "") {
   if (!shortcut) return false;
   const parts = parseShortcut(shortcut);
@@ -11596,7 +11597,6 @@ function isModifierKey(key) {
   return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const LEGACY_SETTINGS_STORAGE_KEYS = [
   "jpdb-reader-settings",
   "yomu-reader-settings",

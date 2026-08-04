@@ -13805,6 +13805,13 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleSeekPadding: 0.08
   };
 }
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+async function persistPreferredJapaneseSiteLanguage(value) {
+  await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+  await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+  });
+}
 function settingsValueEquals(left, right) {
   return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
@@ -13867,9 +13874,7 @@ function dedupeShortcutParts(parts) {
   return parts.filter((part, index) => parts.indexOf(part) === index);
 }
 const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
-const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
 const log$c = Logger.scope("Settings");
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
@@ -15216,11 +15221,6 @@ function normalizeOcrEngine(value) {
 }
 function normalizedOcrEngineInput(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-async function persistPreferredJapaneseSiteLanguage(value) {
-  await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-  await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-  });
 }
 async function saveSettings(settings, options) {
   const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };

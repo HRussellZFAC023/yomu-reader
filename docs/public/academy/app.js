@@ -42325,6 +42325,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
       subtitleSeekPadding: 0.08
     };
   }
+  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+  const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+  async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+    if (typeof storedValue === "boolean") return storedValue;
+    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      const currentValue = await gmStorageGet(
+        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+        void 0
+      );
+      if (typeof currentValue === "boolean") return currentValue;
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+      return migrationFallback;
+    });
+  }
+  async function persistPreferredJapaneseSiteLanguage(value) {
+    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+    });
+  }
   function settingsValueEquals(left, right) {
     return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
@@ -42598,7 +42617,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return parts.filter((part, index) => parts.indexOf(part) === index);
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-  const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
   const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
   const LEGACY_SETTINGS_STORAGE_KEYS = [
     "jpdb-reader-settings",
@@ -42609,7 +42627,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
   const log$u = Logger.scope("Settings");
   let settingsResetInProgress = false;
@@ -44034,23 +44051,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       log$u.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
-  }
-  async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
-    if (typeof storedValue === "boolean") return storedValue;
-    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-      const currentValue = await gmStorageGet(
-        PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-        void 0
-      );
-      if (typeof currentValue === "boolean") return currentValue;
-      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-      return migrationFallback;
-    });
-  }
-  async function persistPreferredJapaneseSiteLanguage(value) {
-    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-    });
   }
   function strandedHostedLocalSettingsRecord() {
     if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
