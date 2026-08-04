@@ -2091,8 +2091,13 @@ export interface SaveSettingsOptions {
 
 export async function saveSettings(
     settings: ReaderSettings,
+    // Required at the type level, which is where "a new surface cannot silently
+    // skip intent" is enforced. Read defensively because a bundled or older
+    // untyped caller reaching this at runtime must still SAVE -- degrading to a
+    // machine write is the safe outcome; throwing would lose the write.
     options: SaveSettingsOptions,
 ): Promise<void> {
+    const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
     if (settingsResetInProgress) {
         log.warn('Rejected save during reset');
         // Resolving here told every caller that a write which never happened
@@ -2103,13 +2108,13 @@ export async function saveSettings(
     }
     try {
         const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
-        if (options.persistPreferredJapaneseSiteLanguage) {
+        if (intent.persistPreferredJapaneseSiteLanguage) {
             await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
         }
         await persistSettings(
             normalizedSettings,
-            options.explicitUserChoiceKeys,
-            options.clearExplicitUserChoiceKeys,
+            intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+            intent.clearExplicitUserChoiceKeys,
         );
     } catch (error) {
         log.warn('Settings save failed', { error });

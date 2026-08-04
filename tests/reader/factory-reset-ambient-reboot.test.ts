@@ -114,7 +114,7 @@ describe('factory reset across ambient-only userscript realms', () => {
                         type: 'terms',
                     }],
                 };
-                await realmA.api.saveSettings(staleSettings);
+                await realmA.api.saveSettings(staleSettings, { explicitUserChoiceKeys: [] });
                 await realmA.api.persistDictionaryArchive({
                     title,
                     filename: 'jitendex.zip',
@@ -157,7 +157,7 @@ describe('factory reset across ambient-only userscript realms', () => {
 
                 let staleSaveError;
                 try {
-                    await realmA.api.saveSettings(staleSettings);
+                    await realmA.api.saveSettings(staleSettings, { explicitUserChoiceKeys: [] });
                 } catch (error) {
                     staleSaveError = error;
                 }

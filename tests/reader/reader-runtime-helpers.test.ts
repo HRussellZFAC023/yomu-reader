@@ -275,7 +275,9 @@ describe('reader runtime helpers', () => {
         expect(settings.theme).toBe('light');
         expect(setSettings).toHaveBeenCalledWith(settings);
         expect(applyTheme).toHaveBeenCalled();
-        expect(saveSettings).toHaveBeenCalledWith(settings);
+        // The theme arrived in the event from the surface the learner switched
+        // it on, so the mirroring write declares it.
+        expect(saveSettings).toHaveBeenCalledWith(settings, ['theme']);
         expect(clearBridgeCaches).toHaveBeenCalled();
     });
 
