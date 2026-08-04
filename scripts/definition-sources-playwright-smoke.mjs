@@ -17,6 +17,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(ARTIFACTS, 'definition-source-matrix-playwright');
@@ -198,9 +199,11 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
             const body = await page.locator('body').evaluate(node => node.innerHTML).catch(() => '');
             throw new Error(`${scenario.label} popover page annotation did not settle: ${error instanceof Error ? error.message : String(error)}\n${JSON.stringify({ body, requests: summarizeRequests(requests) }, null, 2)}`);
         }
-        await page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first().click();
+        const lookupWord = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
+        await lookupWord.click();
         const popover = page.locator('.jpdb-reader-popover').last();
         await popover.waitFor({ state: 'visible', timeout: 15_000 });
+        await assertPopoverHeadwordMatchesLookup(page, lookupWord, { label: `${scenario.label} popover` });
         try {
             await waitForSources(popover, sourceExpectation(scenario, 'popover'));
         } catch (error) {

@@ -18,6 +18,7 @@ import {
     routeMockedHttpRequests,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const {
     root: ROOT,
@@ -260,6 +261,7 @@ async function measureFirstHover(page) {
     await word.hover();
     try {
         await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 5_000 });
+        await assertPopoverHeadwordMatchesLookup(page, word, { label: 'try-me hover' });
         return { popoverOpened: true, latencyMs: Date.now() - started };
     } catch {
         return { popoverOpened: false, latencyMs: Date.now() - started };

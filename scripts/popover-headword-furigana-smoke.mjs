@@ -14,6 +14,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/popover-headword-furigana.html';
@@ -100,6 +101,9 @@ try {
 
     const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${LOOKUP_WORD}"]`).first();
     await word.click();
+    // The ruby + kanji-navigation worst case: this is the one that proves the
+    // shared rt/rp-stripping extraction is right.
+    await assertPopoverHeadwordMatchesLookup(page, word, { label: 'ruby headword' });
     const headword = await waitForHeadwordFurigana(page);
     assert(headword.metaReading === '', 'Popup still showed duplicate reading metadata beside ruby headword', headword);
     const widePitchLayout = await waitForWidePitchLayout(page);

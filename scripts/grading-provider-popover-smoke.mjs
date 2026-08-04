@@ -18,6 +18,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SMOKE_VIEWPORT = smokeViewportName(process.env.YOMU_GRADING_PROVIDER_SMOKE_VIEWPORT);
@@ -118,6 +119,9 @@ try {
     assert(await word.count() === 1, 'jpdb parse did not render the 復習 reader word');
     await word.click();
     await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
+    // Before any kanji navigation: renderKanjiCardShell replaces the title row,
+    // so .jpdb-reader-spelling stops existing once kanji details are open.
+    await assertPopoverHeadwordMatchesLookup(page, word, { label: 'grading-provider first open' });
 
     // The toggle only appears once the Jiten identity is enriched onto the card.
     await waitForProviderToggle(page);

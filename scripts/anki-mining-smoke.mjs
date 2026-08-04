@@ -26,7 +26,7 @@ import {
     serveFile,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
+import { assertPopoverHeadwordMatchesLookup, waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
 
 const {
     root: ROOT,
@@ -680,6 +680,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     const hoverStartedAt = Date.now();
     await knownWord.hover();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+    await assertPopoverHeadwordMatchesLookup(page, knownWord, { label: 'anki hover' });
     await page.waitForSelector('.jpdb-reader-popover .jpdb-reader-anki-existing', { timeout: 8000 });
     await waitForExistingAnkiStatusText(page);
     await waitForRenderedExistingAnkiCardText(page);
@@ -718,6 +719,12 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     await closeVisiblePopovers(page);
     const missingWord = page.locator(WRITING_WORD_SELECTOR);
     await missingWord.click({ force: true });
+    // Deconjugated: the surface is かきます, the dictionary form is 書く. The
+    // headword must be the dictionary form, which is what data-expression holds.
+    await assertPopoverHeadwordMatchesLookup(page, missingWord, {
+        popoverSelector: VISIBLE_WRITING_POPOVER_SELECTOR,
+        label: 'anki deconjugated click',
+    });
     await waitForVisibleAddButton(page, requests);
     await clickVisibleWritingAddButton(page);
     await waitForRecordedRequest(requests, item => item.kind === 'anki-side-effect' && item.action === 'addNote', 10000);

@@ -96,7 +96,16 @@ async function runCase(engineName) {
                 root
                 && root.getAttribute('role') === 'dialog'
                 && root.querySelector('.jpdb-reader-popover-body')
-                && root.querySelector('.jpdb-reader-spelling')?.textContent?.includes('秘密')
+                // Exact, with furigana rt/rp stripped: renderRuby interleaves
+                // `<rp>(</rp>…<rp>)</rp>`, and `includes` would also pass for a
+                // popover showing a longer word that merely contains this one.
+                && (() => {
+                    const spelling = root.querySelector('.jpdb-reader-spelling');
+                    if (!spelling) return false;
+                    const clone = spelling.cloneNode(true);
+                    clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+                    return (clone.textContent ?? '').replace(/\s+/gu, '') === '秘密';
+                })()
             );
         }, POPOVER_SEL, { timeout: 6000 });
         popover = true;

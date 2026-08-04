@@ -22,6 +22,7 @@ import {
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 import { yomitanZipBuffer } from './lib/yomitan-zip.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
@@ -147,9 +148,11 @@ try {
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     await inject();
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 30_000 });
-    await page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '図書館' }).first().click();
+    const lookupWord = page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '図書館' }).first();
+    await lookupWord.click();
     const popover = page.locator('.jpdb-reader-popover').last();
     await popover.waitFor({ state: 'visible', timeout: 15_000 });
+    await assertPopoverHeadwordMatchesLookup(page, lookupWord, { label: 'local-dictionary popover' });
     await popover.locator('[data-source="local-dictionary"]').waitFor({ state: 'attached', timeout: 15_000 });
 
     const dom = await popover.evaluate(node => {
@@ -210,9 +213,11 @@ try {
     const crossLocalWords = await crossPage.evaluate(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
         .filter(word => word.getAttribute('data-card-source') === 'local').length);
     assert(crossLocalWords === 0, 'A dictionary copy appeared on an origin it was never imported on', { crossLocalWords });
-    await crossPage.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '図書館' }).first().click();
+    const crossLookupWord = crossPage.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: '図書館' }).first();
+    await crossLookupWord.click();
     const crossPopover = crossPage.locator('.jpdb-reader-popover').last();
     await crossPopover.waitFor({ state: 'visible', timeout: 15_000 });
+    await assertPopoverHeadwordMatchesLookup(crossPage, crossLookupWord, { label: 'cross-origin popover' });
     await crossPage.waitForTimeout(2_000);
     const crossDom = await crossPopover.evaluate(node => {
         const clean = value => (value ?? '').replace(/\s+/g, ' ').trim();

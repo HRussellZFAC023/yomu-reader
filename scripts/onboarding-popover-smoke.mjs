@@ -16,6 +16,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const SETTINGS_COMPANION_PATH = path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js');
@@ -149,6 +150,7 @@ try {
         return popover && getComputedStyle(popover).display !== 'none' && /日本語/.test(popover.textContent ?? '');
     }, null, { timeout: 8_000 });
 
+    await assertPopoverHeadwordMatchesLookup(page, word, { label: 'welcome word' });
     const popoverText = (await page.locator('.jpdb-reader-popover').innerText()).trim();
     assert(popoverText.includes('日本語'), 'Welcome word click opened a popover without the clicked word', { popoverText });
     assert(popoverText.includes('JITEN') && popoverText.includes('smoke definition'), 'Welcome word click did not render the working Jiten definition', { popoverText });
