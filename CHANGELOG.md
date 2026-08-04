@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.78] - 2026-08-04
+
+### Changed
+
+- Imported dictionaries now stay on the site where you import them. Earlier releases copied the full dictionary set into every site that showed Japanese text, which could quietly consume tens of gigabytes of disk; those copies are no longer created, and sites without one answer lookups from Jiten and the other online sources.
+
+### Fixed
+
+- Updating no longer wipes imported dictionaries for learners who ever used Factory Reset. A dictionary database from an older schema is adopted instead of cleared, so Jitendex and other imports stay recognized without a re-import.
+- Dictionaries discovered by the settings panel or restored from a settings backup stay enabled and keep their position instead of being silently disabled behind the built-in sources.
+- Disabling imported dictionaries now also removes the copies earlier versions left on other sites, one site at a time as you next visit them.
+- Factory Reset no longer fails on large dictionary databases: deletion has a realistic time budget, and a deletion blocked by another よむ tab says so instead of failing silently.
+
 ## [1.8.77] - 2026-08-03
 
 ### Fixed
