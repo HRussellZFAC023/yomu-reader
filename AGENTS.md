@@ -19,6 +19,13 @@ look successful after npm failed. Inspect `artifacts/check-logs/` after the
 command instead. If a live pipeline is unavoidable, enable `set -o pipefail`
 first. See [the 2026-07-18 exit-status incident](docs/dev/check-exit-code-incident-2026-07-18.md).
 
+`artifacts/` is where the check gate writes those logs, and it is on the
+repository-hygiene blocklist (`scripts/check-repository-hygiene.mjs`) as well as in
+`.gitignore`. Reading it is expected; **committing anything under it is not** — one
+tracked file there hard-fails `check:release` for every session in the repository,
+which is exactly how a release publish was lost once. Never `git add -A`, `git add -u`,
+or `git add artifacts` after a check run.
+
 Use the browser QA audit for regression coverage:
 
 ```bash
@@ -39,14 +46,15 @@ For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fi
 - Prefer local/imported data and optional runtime lookups over bundling large datasets.
 - Treat external kanji/etymology sources as license-sensitive. Verify licensing and attribution before adding a source.
 - Keep visible product naming as `よむ` and the built userscript as `dist/yomu.user.js`.
-- When adding user-visible app or website copy, add both English and Japanese entries in `src/reader/i18n.ts`, verify Japanese mode does not show `未翻訳`, and rebuild/sync hosted assets so `docs/public/newtab/app.js` carries the new copy.
+- The userscript is not the only shipping channel. `scripts/build-extension.mjs` (`npm run build:extension`) packages the same source as the Chrome/Firefox/Safari browser extension that both stores serve, so a change that only works under a userscript manager is incomplete. It needs the UserScript Compiler in the ignored `tools/` directory — see the README.
+- When adding user-visible app or website copy, add both English and Japanese entries in `src/reader/app/i18n.ts`, verify Japanese mode does not show `未翻訳`, and rebuild/sync hosted assets so `docs/public/study/app.js` carries the new copy.
 - Update `dist/yomu.user.js` by running the build when source changes affect the bundle.
 - Greasy Fork limits scripts to 2 MB. `npm run verify` warns when the readable hosted build exceeds that limit, and Greasy Fork upload scripts must still reject oversized uploads. Do not minify, compress, pack, or obfuscate the userscript to fit the limit; Greasy Fork forbids that. If size gets tight, remove duplication, purge unused CSS, prefer runtime/hosted assets for nonessential media such as icons, and avoid bundling large datasets.
 - Treat bundle size as architecture, not bookkeeping. Ask: what is the smallest amount of code needed to preserve the feature? Keep common reader behavior generic, and do not add page-specific layout handling unless usage evidence shows it is needed. When code handles a special website shape, isolate it behind a named Adapter and keep the generic path simple.
 - Fight long-files syndrome. Prefer focused Modules with explicit Interfaces over files that accumulate unrelated behavior. If a file grows because it owns several jobs, split by responsibility before adding more branches.
 - Remove dead or stale code only after confirming with usage search. For verbose code, prefer deleting duplication, debug-only chatter, unused edge-case branches, and over-specific guards before adding helpers. Every cleanup should make the Implementation smaller, deeper, or easier to reason about.
 - For every task, improve nearby code quality when it helps the requested work. Keep cleanup in verified vertical slices: one behavior, one Module, or one clear architectural story at a time. Prefer deep Modules with small Interfaces over shallow helper sprawl, and stop each slice with tests or a documented verification command.
-- Use `CONTEXT.md` for domain vocabulary and `docs/adr/` for load-bearing architectural decisions. If a cleanup introduces or sharpens a domain term, update `CONTEXT.md`. If a decision blocks an otherwise plausible refactor, record or reference an ADR.
+- Use `CONTEXT.md` for domain vocabulary and `adr/` (repository root, not under `docs/`) for load-bearing architectural decisions. If a cleanup introduces or sharpens a domain term, update `CONTEXT.md`. If a decision blocks an otherwise plausible refactor, record or reference an ADR.
 
 ## Definition of Done
 
