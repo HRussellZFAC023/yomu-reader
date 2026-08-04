@@ -90,14 +90,6 @@ export function newTabAction(action: NewTabAction): NewTabAction {
     return action;
 }
 
-/** `dataset` fragment for `el()`-built controls. */
-export function newTabActionDataset(
-    action: NewTabAction,
-    extra?: Record<string, string | boolean | number>,
-): Record<string, string | boolean | number> {
-    return { newtabAction: action, ...(extra ?? {}) };
-}
-
 /** Attribute text for template-literal markup. */
 export function newTabActionAttr(action: NewTabAction): string {
     return `data-newtab-action="${action}"`;

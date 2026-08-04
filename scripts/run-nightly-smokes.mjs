@@ -47,6 +47,9 @@ export const NIGHTLY_SMOKES = [
     'smoke:popup-lifecycle',
     'smoke:study-personas',
     'smoke:subtitle-network',
+    // Live api.tatoeba.org contract. Network-dependent, so it stays out of
+    // check:release; nightly is the lane its own header comment names.
+    'smoke:tatoeba-contract',
     'smoke:transcript-drawer',
     'smoke:youtube-dom-safe',
 ];

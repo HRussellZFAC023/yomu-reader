@@ -148,6 +148,17 @@ const lanes = [
         // Any hit or miss changing under the recorded runtime/lookup contract
         // requires a fresh authoritative archive measurement and baseline.
         stage('multilingual-parity-ratchet', 'npm run -s quality:multilingual-parity'),
+        // Third ratchet, previously reachable only from ci.yml's `fallow` job —
+        // so a release check never saw new dead code. config/quality/dead-code-baseline.json
+        // may only shrink. ~2s of static analysis, no browser, no network.
+        //
+        // The browser-bound half of the release gate is NOT here:
+        // `npm run check:release:smokes` (smoke:layout-regressions) needs
+        // chromium + firefox + webkit installed, which check:release deliberately
+        // does not require. ci.yml runs it in the `layout-smoke` job and
+        // release.yml runs it through smoke:release immediately after
+        // check:release, so it is gated — just not in this process.
+        stage('dead-code-ratchet', 'npm run -s quality:dead-code'),
     ),
     lane(testStage('test:ci', 'npm run -s test:ci')),
     lane(
