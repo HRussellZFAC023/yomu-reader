@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.8.79] - 2026-08-04
+
+### Fixed
+
+- One span authority now decides which characters every lookup covers: hover, click, and tap resolve through the same longest-match resolution, and dictionary or provider results confirm a span but can never paint it onto neighbouring text. In the reported NHK sentence, hovering 言葉 inside 優しい言葉 answers 言葉, ことば keeps its final ば, and です no longer opens を (GitHub #48).
+- A provider's parse of the sentence still counts: its aligned words confirm spans directly, with guards that keep the provider's own segmentation mistakes from freezing — a token cut inside a word, a clause glued into one "word", or a dictionary stem that splits a compound all fall through to real lookups and whole-word fallback.
+- Hiragana words inside mixed sentences now segment identically across browser engines, guarded by a recorded ICU boundary fixture, so a word like にほんご no longer splits differently in Firefox than in Chrome.
+- Tapping a kana fragment left by an earlier annotation resolves the whole word through the same authority, and words the parser could not confirm re-resolve on interaction instead of staying stuck.
+- Deinflection carries its grammar conditions across steps, so a conjugated form only matches dictionary entries that can actually inflect that way.
+- Clicking an annotated word always opens it: words that have not finished re-annotating (popup reference text, mirrored site chrome) no longer swallow the click, and a word inside a dictionary reference link opens that word instead of the whole compound.
+- Tapping a single kanji in OCR text opens its kanji card again instead of a guessed vocabulary entry.
+- Pitch colour and furigana hydration reach popup reference words again, not only freshly annotated page words.
+- Dictionary lookups scan every index row for a term instead of stopping at the first eight, so entries in very large dictionaries stop silently losing to lower-ranked rows.
+- Cantonese, Chinese, and Korean dictionary words that cross an automatic segmentation boundary resolve again: the dictionary corrects the segmenter's guess instead of being vetoed by it.
+
 ## [1.8.78] - 2026-08-04
 
 ### Changed

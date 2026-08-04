@@ -2623,6 +2623,67 @@ function normalizedJapaneseCardReading(spelling, reading) {
 function cleanCardHighlightValue(value) {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
+const DEINFLECTION_CONDITION = {
+  Ichidan: 1 << 0,
+  GodanU: 1 << 1,
+  GodanK: 1 << 2,
+  GodanG: 1 << 3,
+  GodanS: 1 << 4,
+  GodanT: 1 << 5,
+  GodanN: 1 << 6,
+  GodanB: 1 << 7,
+  GodanM: 1 << 8,
+  GodanR: 1 << 9,
+  Suru: 1 << 10,
+  Kuru: 1 << 11,
+  IAdjective: 1 << 12,
+  Masu: 1 << 13,
+  Te: 1 << 14,
+  Ta: 1 << 15,
+  Conditional: 1 << 16,
+  Adverbial: 1 << 17
+};
+const GODAN_CONDITIONS = DEINFLECTION_CONDITION.GodanU | DEINFLECTION_CONDITION.GodanK | DEINFLECTION_CONDITION.GodanG | DEINFLECTION_CONDITION.GodanS | DEINFLECTION_CONDITION.GodanT | DEINFLECTION_CONDITION.GodanN | DEINFLECTION_CONDITION.GodanB | DEINFLECTION_CONDITION.GodanM | DEINFLECTION_CONDITION.GodanR;
+const INPUT_CONDITIONS_BY_REASON = {
+  negative: DEINFLECTION_CONDITION.IAdjective,
+  desiderative: DEINFLECTION_CONDITION.IAdjective,
+  potential: DEINFLECTION_CONDITION.Ichidan,
+  "potential/passive": DEINFLECTION_CONDITION.Ichidan,
+  passive: DEINFLECTION_CONDITION.Ichidan,
+  causative: DEINFLECTION_CONDITION.Ichidan,
+  "causative passive": DEINFLECTION_CONDITION.Ichidan,
+  excessive: DEINFLECTION_CONDITION.Ichidan,
+  progressive: DEINFLECTION_CONDITION.Ichidan,
+  "contracted progressive": DEINFLECTION_CONDITION.Ichidan,
+  completion: DEINFLECTION_CONDITION.GodanU,
+  "contracted completion": DEINFLECTION_CONDITION.GodanU,
+  polite: DEINFLECTION_CONDITION.Masu,
+  "te-form": DEINFLECTION_CONDITION.Te,
+  past: DEINFLECTION_CONDITION.Ta,
+  conditional: DEINFLECTION_CONDITION.Conditional,
+  adverbial: DEINFLECTION_CONDITION.Adverbial
+};
+const CONDITION_FLAG_BY_RULE = {
+  v1: DEINFLECTION_CONDITION.Ichidan,
+  v5u: DEINFLECTION_CONDITION.GodanU,
+  v5k: DEINFLECTION_CONDITION.GodanK,
+  v5g: DEINFLECTION_CONDITION.GodanG,
+  v5s: DEINFLECTION_CONDITION.GodanS,
+  v5t: DEINFLECTION_CONDITION.GodanT,
+  v5n: DEINFLECTION_CONDITION.GodanN,
+  v5b: DEINFLECTION_CONDITION.GodanB,
+  v5m: DEINFLECTION_CONDITION.GodanM,
+  v5r: DEINFLECTION_CONDITION.GodanR,
+  v5: GODAN_CONDITIONS,
+  vs: DEINFLECTION_CONDITION.Suru,
+  "vs-s": DEINFLECTION_CONDITION.Suru,
+  suru: DEINFLECTION_CONDITION.Suru,
+  vk: DEINFLECTION_CONDITION.Kuru,
+  kuru: DEINFLECTION_CONDITION.Kuru,
+  "adj-i": DEINFLECTION_CONDITION.IAdjective,
+  "i-adj": DEINFLECTION_CONDITION.IAdjective
+};
+const GODAN_R_SPECIAL_RULES = /* @__PURE__ */ new Set(["v5aru"]);
 const GODAN_ROWS = [
   { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
   { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -2801,17 +2862,17 @@ const RULES = [
   { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
   { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
   { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-];
+].map(conditionDeinflectionRule);
 const DEINFLECTION_CACHE_MAX = 4e3;
 const deinflectionCache = /* @__PURE__ */ new Map();
 function deinflectJapaneseTerm(source) {
   const cached = deinflectionCache.get(source);
   if (cached) return cached;
-  const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+  const results = [{ term: source, rules: [], reasons: [], depth: 0, conditions: 0 }];
   const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
   const queue = [results[0]];
   expandDeinflectionQueue(queue, results, seen);
-  const sorted = sortDeinflectedTerms(results);
+  const sorted = sortDeinflectedTerms(results).map(publicDeinflectionCandidate);
   if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
   const oldest = deinflectionCache.keys().next().value;
   if (oldest !== void 0) deinflectionCache.delete(oldest);
@@ -2825,13 +2886,9 @@ function expandDeinflectionQueue(queue, results, seen) {
   }
 }
 function expandDeinflectedTerm(current, queue, results, seen) {
-  if (isTerminalDeinflection(current)) return;
   for (const rule of RULES) {
   rememberExpandedDeinflection(current, rule, queue, results, seen);
   }
-}
-function isTerminalDeinflection(current) {
-  return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
 }
 function rememberExpandedDeinflection(current, rule, queue, results, seen) {
   const next = deinflectedCandidate(current, rule);
@@ -2844,18 +2901,23 @@ function sortDeinflectedTerms(results) {
   return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
 }
 function deinflectedCandidate(current, rule) {
-  if (!canApplyDeinflectionRule(current.term, rule)) return null;
-  const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-  if (!term || term === current.term) return null;
+  if (!ruleMatchesDeinflectionState(current, rule)) return null;
+  const term = transformedDeinflectionTerm(current.term, rule);
+  if (!term) return null;
   return {
   term,
   rules: rule.rules,
   reasons: [...current.reasons, rule.reason],
-  depth: current.depth + 1
+  depth: current.depth + 1,
+  conditions: rule.conditionsOut
   };
 }
-function canApplyDeinflectionRule(term, rule) {
-  return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+function ruleMatchesDeinflectionState(current, rule) {
+  return conditionsMatch(current.conditions, rule.conditionsIn) && current.term.endsWith(rule.from);
+}
+function transformedDeinflectionTerm(term, rule) {
+  const transformed = `${term.slice(0, -rule.from.length)}${rule.to}`;
+  return transformed && transformed !== term ? transformed : null;
 }
 function rememberDeinflectedCandidate(candidate, seen) {
   const key = candidateKey(candidate);
@@ -2866,21 +2928,54 @@ function rememberDeinflectedCandidate(candidate, seen) {
 function termRulesMatch(entryRules, candidateRules) {
   if (!candidateRules.length) return true;
   const entryRuleSet = entryRulesSet(entryRules);
-  return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
+  if (!entryRuleSet.size) return false;
+  const candidateGodanClasses = godanRuleClasses(candidateRules);
+  return candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet, candidateGodanClasses));
 }
 function entryRulesSet(entryRules) {
   return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
 }
-function termRuleMatches(rule, entryRuleSet) {
+function termRuleMatches(rule, entryRuleSet, candidateGodanClasses) {
+  if (entryRuleSet.has(rule)) return true;
+  const candidateGodanClass = godanRuleClass(rule);
+  if (candidateGodanClass) {
+  return entryHasGodanClass(entryRuleSet, candidateGodanClass);
+  }
+  if (rule === "v5") {
+  return entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses);
+  }
   return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
 }
+function entryHasGodanClass(entryRuleSet, candidateGodanClass) {
+  if (entryRuleSet.has("v5")) return true;
+  return [...entryRuleSet].some((entryRule) => godanRuleClass(entryRule) === candidateGodanClass);
+}
+function entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses) {
+  if (!candidateGodanClasses.size) return [...entryRuleSet].some(isGodanRule);
+  return [...entryRuleSet].some((entryRule) => {
+  const entryGodanClass = godanRuleClass(entryRule);
+  return entryGodanClass !== void 0 && candidateGodanClasses.has(entryGodanClass);
+  });
+}
+function isGodanRule(rule) {
+  return rule === "v5" || godanRuleClass(rule) !== void 0;
+}
 const TERM_RULE_MATCHERS = [
-  (rule, entryRuleSet) => entryRuleSet.has(rule),
-  (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
-  (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
   (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
   (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
 ];
+function godanRuleClasses(rules) {
+  const result = /* @__PURE__ */ new Set();
+  for (const rule of rules) {
+  const ruleClass = godanRuleClass(rule);
+  if (ruleClass) result.add(ruleClass);
+  }
+  return result;
+}
+function godanRuleClass(rule) {
+  if (GODAN_R_SPECIAL_RULES.has(rule)) return "r";
+  return /^v5([ukgstnbmr])(?:-|$)/u.exec(rule)?.[1];
+}
 function godanRules(row) {
   const rules = row.rules;
   return [
@@ -2940,10 +3035,39 @@ function contractedCompletionStem(te) {
   if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
   return "";
 }
+function conditionDeinflectionRule(rule) {
+  return {
+  ...rule,
+  conditionsIn: inputConditionsForReason(rule.reason),
+  conditionsOut: conditionFlagsForRules(rule.rules)
+  };
+}
+function conditionsMatch(currentConditions, nextConditions) {
+  return currentConditions === 0 || (currentConditions & nextConditions) !== 0;
+}
+function inputConditionsForReason(reason) {
+  return INPUT_CONDITIONS_BY_REASON[reason] ?? 0;
+}
+function conditionFlagsForRules(rules) {
+  const specificGodanConditions = unionConditionFlags(rules.filter(isSpecificGodanConditionRule));
+  return specificGodanConditions || unionConditionFlags(rules);
+}
+function isSpecificGodanConditionRule(rule) {
+  return /^v5[ukgstnbmr]$/u.test(rule);
+}
+function unionConditionFlags(rules) {
+  return rules.reduce((conditions, rule) => conditions | conditionFlagForRule(rule), 0);
+}
+function conditionFlagForRule(rule) {
+  return CONDITION_FLAG_BY_RULE[rule] ?? 0;
+}
+function publicDeinflectionCandidate(state) {
+  const { conditions: _conditions, ...candidate } = state;
+  return candidate;
+}
 function candidateKey(candidate) {
   return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
+${candidate.conditions}`;
 }
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -3007,6 +3131,7 @@ const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+const KANA_GRAMMAR_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set([...INFLECTION_BOUNDARY_SEGMENTS, "な"]);
 const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
 const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
   `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
@@ -3036,16 +3161,10 @@ const SURU_STEM_SEGMENT_RE = new RegExp(
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
 const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
 const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
 const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
 const KANA_I_ADJECTIVE_END_RE = /い$/u;
 const SMALL_TSU_RE = /っ/u;
 const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-const NON_HIRAGANA_SCRIPT_RE = new RegExp(
-  `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-  "u"
-);
 function normalizeFallbackTerm(text) {
   return codePointSafePrefix(text.replace(/\s+/g, " ").trim(), 80);
 }
@@ -3078,7 +3197,7 @@ function segmentJapaneseRun(text, offset, segmenter, sourceText) {
 function finalizeJapaneseRunSegments(segments, sourceText) {
   const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
   const normalizedSegments = splitTrailingPoliteParticleSegments(
-  mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
+  mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(separatedSegments))
   );
   return mergeInflectedFallbackSegments(
   splitLeadingParticleSegments(normalizedSegments),
@@ -3122,9 +3241,16 @@ function separatorFreeSegmentSlice(segment, from, to) {
   };
 }
 function mergeContiguousKanaSegments(segments) {
-  if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
   const merged = [];
   for (let index = 0; index < segments.length; ) {
+  const runEnd = contiguousKanaRunEnd(segments, index);
+  const previous = segments[index - 1];
+  const followsAnotherScript = runEnd > index + 1 && previous && previous.end === segments[index].start && !isPureKanaSegment(previous.surface);
+  if (followsAnotherScript) {
+    merged.push(...segments.slice(index, runEnd));
+    index = runEnd;
+    continue;
+  }
   const span = contiguousKanaMergeSpanAt(segments, index);
   if (span) {
     merged.push(span.segment);
@@ -3160,8 +3286,9 @@ function contiguousKanaMergeSpanAt(segments, startIndex) {
   const first = segments[startIndex];
   if (!first || !isPureKanaSegment(first.surface)) return null;
   const previous = segments[startIndex - 1];
-  const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
-  if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
+  const canStartKanaWord = !previous || previous.end !== first.start || KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(previous.surface);
+  if (KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(first.surface) && !canStartKanaWord) return null;
+  if (isKanaContentWordSpan(first.surface)) return null;
   const runEnd = contiguousKanaRunEnd(segments, startIndex);
   if (runEnd - startIndex < 2) return null;
   let surface = first.surface;
@@ -3169,7 +3296,7 @@ function contiguousKanaMergeSpanAt(segments, startIndex) {
   for (let index = startIndex + 1; index < runEnd; index += 1) {
   const current = segments[index];
   const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-  if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+  if (KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
   surface += current.surface;
   lastIndex = index;
   }
@@ -3229,39 +3356,6 @@ function splitLeadingParticleSegment(segment) {
   { surface: prefix, start: segment.start, end: segment.start + prefix.length },
   { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
   ];
-}
-function mergeSegmenterCompoundOverrides(segments) {
-  const merged = [];
-  for (let index = 0; index < segments.length; ) {
-  const span = segmenterCompoundOverrideSpanAt(segments, index);
-  if (span) {
-    merged.push(span.segment);
-    index = span.nextIndex;
-    continue;
-  }
-  merged.push(segments[index]);
-  index += 1;
-  }
-  return merged;
-}
-function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-  const first = segments[startIndex];
-  if (!first) return null;
-  let surface = "";
-  let best = null;
-  for (let index = startIndex; index < segments.length; index += 1) {
-  const current = segments[index];
-  if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-  surface += current.surface;
-  if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-  if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-    best = {
-      segment: { surface, start: first.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  }
-  return best;
 }
 function mergeInflectedFallbackSegments(segments, sourceText) {
   const merged = [];
@@ -4223,7 +4317,7 @@ function japaneseLearnerMatch(name, rawMatch) {
   return afterLastParticle || match;
 }
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-  `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+  `(?:[${KANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
   "gu"
 );
 const JAPANESE_LEARNING_TARGET = createLearningTargetModule({

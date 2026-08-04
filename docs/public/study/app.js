@@ -9522,6 +9522,67 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return BMP_KANJI_CHARACTER_RE.test(value) || value.length > 1 && isUnifiedIdeograph(value);
   }
   const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+  const DEINFLECTION_CONDITION = {
+    Ichidan: 1 << 0,
+    GodanU: 1 << 1,
+    GodanK: 1 << 2,
+    GodanG: 1 << 3,
+    GodanS: 1 << 4,
+    GodanT: 1 << 5,
+    GodanN: 1 << 6,
+    GodanB: 1 << 7,
+    GodanM: 1 << 8,
+    GodanR: 1 << 9,
+    Suru: 1 << 10,
+    Kuru: 1 << 11,
+    IAdjective: 1 << 12,
+    Masu: 1 << 13,
+    Te: 1 << 14,
+    Ta: 1 << 15,
+    Conditional: 1 << 16,
+    Adverbial: 1 << 17
+  };
+  const GODAN_CONDITIONS = DEINFLECTION_CONDITION.GodanU | DEINFLECTION_CONDITION.GodanK | DEINFLECTION_CONDITION.GodanG | DEINFLECTION_CONDITION.GodanS | DEINFLECTION_CONDITION.GodanT | DEINFLECTION_CONDITION.GodanN | DEINFLECTION_CONDITION.GodanB | DEINFLECTION_CONDITION.GodanM | DEINFLECTION_CONDITION.GodanR;
+  const INPUT_CONDITIONS_BY_REASON = {
+    negative: DEINFLECTION_CONDITION.IAdjective,
+    desiderative: DEINFLECTION_CONDITION.IAdjective,
+    potential: DEINFLECTION_CONDITION.Ichidan,
+    "potential/passive": DEINFLECTION_CONDITION.Ichidan,
+    passive: DEINFLECTION_CONDITION.Ichidan,
+    causative: DEINFLECTION_CONDITION.Ichidan,
+    "causative passive": DEINFLECTION_CONDITION.Ichidan,
+    excessive: DEINFLECTION_CONDITION.Ichidan,
+    progressive: DEINFLECTION_CONDITION.Ichidan,
+    "contracted progressive": DEINFLECTION_CONDITION.Ichidan,
+    completion: DEINFLECTION_CONDITION.GodanU,
+    "contracted completion": DEINFLECTION_CONDITION.GodanU,
+    polite: DEINFLECTION_CONDITION.Masu,
+    "te-form": DEINFLECTION_CONDITION.Te,
+    past: DEINFLECTION_CONDITION.Ta,
+    conditional: DEINFLECTION_CONDITION.Conditional,
+    adverbial: DEINFLECTION_CONDITION.Adverbial
+  };
+  const CONDITION_FLAG_BY_RULE = {
+    v1: DEINFLECTION_CONDITION.Ichidan,
+    v5u: DEINFLECTION_CONDITION.GodanU,
+    v5k: DEINFLECTION_CONDITION.GodanK,
+    v5g: DEINFLECTION_CONDITION.GodanG,
+    v5s: DEINFLECTION_CONDITION.GodanS,
+    v5t: DEINFLECTION_CONDITION.GodanT,
+    v5n: DEINFLECTION_CONDITION.GodanN,
+    v5b: DEINFLECTION_CONDITION.GodanB,
+    v5m: DEINFLECTION_CONDITION.GodanM,
+    v5r: DEINFLECTION_CONDITION.GodanR,
+    v5: GODAN_CONDITIONS,
+    vs: DEINFLECTION_CONDITION.Suru,
+    "vs-s": DEINFLECTION_CONDITION.Suru,
+    suru: DEINFLECTION_CONDITION.Suru,
+    vk: DEINFLECTION_CONDITION.Kuru,
+    kuru: DEINFLECTION_CONDITION.Kuru,
+    "adj-i": DEINFLECTION_CONDITION.IAdjective,
+    "i-adj": DEINFLECTION_CONDITION.IAdjective
+  };
+  const GODAN_R_SPECIAL_RULES = /* @__PURE__ */ new Set(["v5aru"]);
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -9700,17 +9761,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
     { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
     { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-  ];
+  ].map(conditionDeinflectionRule);
   const DEINFLECTION_CACHE_MAX = 4e3;
   const deinflectionCache = /* @__PURE__ */ new Map();
   function deinflectJapaneseTerm(source) {
     const cached = deinflectionCache.get(source);
     if (cached) return cached;
-    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+    const results = [{ term: source, rules: [], reasons: [], depth: 0, conditions: 0 }];
     const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
     const queue = [results[0]];
     expandDeinflectionQueue(queue, results, seen);
-    const sorted = sortDeinflectedTerms(results);
+    const sorted = sortDeinflectedTerms(results).map(publicDeinflectionCandidate);
     if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
       const oldest = deinflectionCache.keys().next().value;
       if (oldest !== void 0) deinflectionCache.delete(oldest);
@@ -9724,13 +9785,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   function expandDeinflectedTerm(current, queue, results, seen) {
-    if (isTerminalDeinflection(current)) return;
     for (const rule of RULES) {
       rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
-  }
-  function isTerminalDeinflection(current) {
-    return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
   }
   function rememberExpandedDeinflection(current, rule, queue, results, seen) {
     const next = deinflectedCandidate(current, rule);
@@ -9743,18 +9800,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
   }
   function deinflectedCandidate(current, rule) {
-    if (!canApplyDeinflectionRule(current.term, rule)) return null;
-    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-    if (!term || term === current.term) return null;
+    if (!ruleMatchesDeinflectionState(current, rule)) return null;
+    const term = transformedDeinflectionTerm(current.term, rule);
+    if (!term) return null;
     return {
       term,
       rules: rule.rules,
       reasons: [...current.reasons, rule.reason],
-      depth: current.depth + 1
+      depth: current.depth + 1,
+      conditions: rule.conditionsOut
     };
   }
-  function canApplyDeinflectionRule(term, rule) {
-    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+  function ruleMatchesDeinflectionState(current, rule) {
+    return conditionsMatch(current.conditions, rule.conditionsIn) && current.term.endsWith(rule.from);
+  }
+  function transformedDeinflectionTerm(term, rule) {
+    const transformed = `${term.slice(0, -rule.from.length)}${rule.to}`;
+    return transformed && transformed !== term ? transformed : null;
   }
   function rememberDeinflectedCandidate(candidate, seen) {
     const key = candidateKey(candidate);
@@ -9765,21 +9827,54 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function termRulesMatch(entryRules, candidateRules) {
     if (!candidateRules.length) return true;
     const entryRuleSet = entryRulesSet(entryRules);
-    return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
+    if (!entryRuleSet.size) return false;
+    const candidateGodanClasses = godanRuleClasses(candidateRules);
+    return candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet, candidateGodanClasses));
   }
   function entryRulesSet(entryRules) {
     return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
   }
-  function termRuleMatches(rule, entryRuleSet) {
+  function termRuleMatches(rule, entryRuleSet, candidateGodanClasses) {
+    if (entryRuleSet.has(rule)) return true;
+    const candidateGodanClass = godanRuleClass(rule);
+    if (candidateGodanClass) {
+      return entryHasGodanClass(entryRuleSet, candidateGodanClass);
+    }
+    if (rule === "v5") {
+      return entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses);
+    }
     return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
   }
+  function entryHasGodanClass(entryRuleSet, candidateGodanClass) {
+    if (entryRuleSet.has("v5")) return true;
+    return [...entryRuleSet].some((entryRule) => godanRuleClass(entryRule) === candidateGodanClass);
+  }
+  function entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses) {
+    if (!candidateGodanClasses.size) return [...entryRuleSet].some(isGodanRule);
+    return [...entryRuleSet].some((entryRule) => {
+      const entryGodanClass = godanRuleClass(entryRule);
+      return entryGodanClass !== void 0 && candidateGodanClasses.has(entryGodanClass);
+    });
+  }
+  function isGodanRule(rule) {
+    return rule === "v5" || godanRuleClass(rule) !== void 0;
+  }
   const TERM_RULE_MATCHERS = [
-    (rule, entryRuleSet) => entryRuleSet.has(rule),
-    (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
-    (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
     (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
     (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
   ];
+  function godanRuleClasses(rules) {
+    const result = /* @__PURE__ */ new Set();
+    for (const rule of rules) {
+      const ruleClass = godanRuleClass(rule);
+      if (ruleClass) result.add(ruleClass);
+    }
+    return result;
+  }
+  function godanRuleClass(rule) {
+    if (GODAN_R_SPECIAL_RULES.has(rule)) return "r";
+    return /^v5([ukgstnbmr])(?:-|$)/u.exec(rule)?.[1];
+  }
   function godanRules(row) {
     const rules = row.rules;
     return [
@@ -9839,10 +9934,39 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
     return "";
   }
+  function conditionDeinflectionRule(rule) {
+    return {
+      ...rule,
+      conditionsIn: inputConditionsForReason(rule.reason),
+      conditionsOut: conditionFlagsForRules(rule.rules)
+    };
+  }
+  function conditionsMatch(currentConditions, nextConditions) {
+    return currentConditions === 0 || (currentConditions & nextConditions) !== 0;
+  }
+  function inputConditionsForReason(reason) {
+    return INPUT_CONDITIONS_BY_REASON[reason] ?? 0;
+  }
+  function conditionFlagsForRules(rules) {
+    const specificGodanConditions = unionConditionFlags(rules.filter(isSpecificGodanConditionRule));
+    return specificGodanConditions || unionConditionFlags(rules);
+  }
+  function isSpecificGodanConditionRule(rule) {
+    return /^v5[ukgstnbmr]$/u.test(rule);
+  }
+  function unionConditionFlags(rules) {
+    return rules.reduce((conditions, rule) => conditions | conditionFlagForRule(rule), 0);
+  }
+  function conditionFlagForRule(rule) {
+    return CONDITION_FLAG_BY_RULE[rule] ?? 0;
+  }
+  function publicDeinflectionCandidate(state2) {
+    const { conditions: _conditions, ...candidate } = state2;
+    return candidate;
+  }
   function candidateKey(candidate) {
     return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
+${candidate.conditions}`;
   }
   function escapeRegExp(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -9882,7 +10006,7 @@ ${candidate.depth}`;
   }
   function codePointBoundaryAtOrBefore(text2, offset) {
     const clamped = Math.max(0, Math.min(offset, text2.length));
-    if (clamped > 0 && clamped < text2.length && isLowSurrogate$1(text2.charCodeAt(clamped)) && isHighSurrogate$1(text2.charCodeAt(clamped - 1))) {
+    if (clamped > 0 && clamped < text2.length && isLowSurrogate(text2.charCodeAt(clamped)) && isHighSurrogate(text2.charCodeAt(clamped - 1))) {
       return clamped - 1;
     }
     return clamped;
@@ -9924,10 +10048,10 @@ ${candidate.depth}`;
     }
     return offsets;
   }
-  function isHighSurrogate$1(value) {
+  function isHighSurrogate(value) {
     return value >= 55296 && value <= 56319;
   }
-  function isLowSurrogate$1(value) {
+  function isLowSurrogate(value) {
     return value >= 56320 && value <= 57343;
   }
   const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
@@ -9946,6 +10070,7 @@ ${candidate.depth}`;
   const FALLBACK_INFLECTION_MAX_LENGTH = 18;
   const FALLBACK_LOOKUP_TERM_LIMIT = 8;
   const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+  const KANA_GRAMMAR_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set([...INFLECTION_BOUNDARY_SEGMENTS, "な"]);
   const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
   const PARTICLE_PREFIX_REMAINDER_RE = new RegExp(
     `^(?:[${KATAKANA_WITH_PROLONGED}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
@@ -9976,20 +10101,14 @@ ${candidate.depth}`;
   const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
   const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
   const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
   const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
   const KANA_I_ADJECTIVE_END_RE = /い$/u;
   const SMALL_TSU_RE = /っ/u;
   const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = new RegExp(
-    `(?:[${KATAKANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
-    "u"
-  );
   function normalizeFallbackTerm(text2) {
     return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
   }
-  function bareFallbackCardFromText(text2, language2 = activeLearningTargetLanguage()) {
+  function bareFallbackCardFromText(text2, language2) {
     const spelling = normalizeFallbackTerm(text2);
     const id = -stablePositiveHashId(`fallback
 ${language2}
@@ -10047,7 +10166,7 @@ ${spelling}`);
   function finalizeJapaneseRunSegments(segments, sourceText) {
     const separatedSegments = splitNumericCounterPrefixSegments(splitSeparatorSegments(segments), sourceText);
     const normalizedSegments = splitTrailingPoliteParticleSegments(
-      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(mergeSegmenterCompoundOverrides(separatedSegments)))
+      mergeContiguousKanaSegments(mergeContiguousKatakanaSegments(separatedSegments))
     );
     return mergeInflectedFallbackSegments(
       splitLeadingParticleSegments(normalizedSegments),
@@ -10091,9 +10210,16 @@ ${spelling}`);
     };
   }
   function mergeContiguousKanaSegments(segments) {
-    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
     const merged = [];
     for (let index = 0; index < segments.length; ) {
+      const runEnd = contiguousKanaRunEnd(segments, index);
+      const previous = segments[index - 1];
+      const followsAnotherScript = runEnd > index + 1 && previous && previous.end === segments[index].start && !isPureKanaSegment(previous.surface);
+      if (followsAnotherScript) {
+        merged.push(...segments.slice(index, runEnd));
+        index = runEnd;
+        continue;
+      }
       const span = contiguousKanaMergeSpanAt(segments, index);
       if (span) {
         merged.push(span.segment);
@@ -10129,8 +10255,9 @@ ${spelling}`);
     const first2 = segments[startIndex];
     if (!first2 || !isPureKanaSegment(first2.surface)) return null;
     const previous = segments[startIndex - 1];
-    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
-    if (isBoundarySegment(first2.surface) && !atKanaRunStart) return null;
+    const canStartKanaWord = !previous || previous.end !== first2.start || KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(previous.surface);
+    if (KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(first2.surface) && !canStartKanaWord) return null;
+    if (isKanaContentWordSpan(first2.surface)) return null;
     const runEnd = contiguousKanaRunEnd(segments, startIndex);
     if (runEnd - startIndex < 2) return null;
     let surface = first2.surface;
@@ -10138,7 +10265,7 @@ ${spelling}`);
     for (let index = startIndex + 1; index < runEnd; index += 1) {
       const current = segments[index];
       const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      if (KANA_GRAMMAR_BOUNDARY_SEGMENTS.has(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
       surface += current.surface;
       lastIndex = index;
     }
@@ -10198,39 +10325,6 @@ ${spelling}`);
       { surface: prefix, start: segment.start, end: segment.start + prefix.length },
       { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
     ];
-  }
-  function mergeSegmenterCompoundOverrides(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = segmenterCompoundOverrideSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < segments.length; index += 1) {
-      const current = segments[index];
-      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-      surface += current.surface;
-      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-        best = {
-          segment: { surface, start: first2.start, end: current.end },
-          nextIndex: index + 1
-        };
-      }
-    }
-    return best;
   }
   function mergeInflectedFallbackSegments(segments, sourceText) {
     const merged = [];
@@ -11246,7 +11340,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return afterLastParticle || match;
   }
   const JAPANESE_POINTER_WORD_RE = new RegExp(
-    `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    `(?:[${KANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
     "gu"
   );
   const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
@@ -21518,7 +21612,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function appendSegmentedHostFallbackTokens(hostText, gapStart, gapEnd, additions) {
     for (const segment of segmentTargetLanguageText(hostText.slice(gapStart, gapEnd))) {
       additions.push({
-        card: bareFallbackCardFromText(segment.text),
+        card: bareFallbackCardFromText(segment.text, activeLearningTargetLanguage()),
         start: gapStart + segment.start,
         end: gapStart + segment.end,
         length: segment.end - segment.start,
@@ -24430,6 +24524,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return record2.frequency ?? record2.value ?? record2.displayValue;
   }
   const WHITESPACE_RE = /\s/u;
+  const TERM_MATCH_INDEX_FAST_ROWS = 8;
+  const TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS = TERM_MATCH_INDEX_FAST_ROWS + 1;
   function targetTermMatchLookupCandidates(target, surface) {
     const result = [];
     for (const deinflected of target.lookupCandidates(surface)) {
@@ -24471,46 +24567,124 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function sortedTermMatchExpressions(candidates) {
     return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
   }
-  function requestTermMatchIndex(index, expression, addMatches, finish, reject) {
-    const request = index.getAll(IDBKeyRange.only(expression), 8);
+  function exactTermMatchCandidates(target, requests) {
+    const candidates = /* @__PURE__ */ new Map();
+    requests.forEach((request, requestIndex) => {
+      if (!target.isLookupableText(request.lookupCandidate.term)) return;
+      const position = {
+        start: requestIndex,
+        end: requestIndex + 1,
+        surface: request.surface,
+        deinflected: request.lookupCandidate
+      };
+      for (const key of genericLookupTextVariants(request.lookupCandidate.term)) {
+        const positions = candidates.get(key) ?? [];
+        positions.push(position);
+        candidates.set(key, positions);
+      }
+    });
+    return candidates;
+  }
+  function exactTermCandidateMatches(requests, matches, rank) {
+    const entryByRequestIndex = /* @__PURE__ */ new Map();
+    for (const match of matches) {
+      const requestIndex = exactRequestIndex(match, requests);
+      if (requestIndex === void 0) continue;
+      retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank);
+    }
+    return requests.flatMap((request, requestIndex) => {
+      const entry = entryByRequestIndex.get(requestIndex);
+      return entry ? [{ request, requestIndex, entry }] : [];
+    });
+  }
+  function retainExactTermCandidateEntry(requestIndex, entry, entryByRequestIndex, rank) {
+    const current = entryByRequestIndex.get(requestIndex);
+    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    entryByRequestIndex.set(requestIndex, entry);
+  }
+  function exactRequestIndex(match, requests) {
+    const requestIndex = match.start;
+    const request = requests[requestIndex];
+    if (!request || match.end !== requestIndex + 1 || match.surface !== request.surface) return void 0;
+    return requestIndex;
+  }
+  function requestTermMatchIndex(index, expression, visit, finish, reject) {
+    const query = IDBKeyRange.only(expression);
+    const request = index.getAll(query, TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS);
     request.onsuccess = () => {
-      addMatches(expression, request.result);
-      finish();
+      const entries2 = request.result;
+      if (entries2.length < TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS) {
+        for (const entry of entries2) visit(expression, entry);
+        finish();
+        return;
+      }
+      const cursorRequest = index.openCursor(query);
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) {
+          finish();
+          return;
+        }
+        visit(expression, cursor.value);
+        cursor.continue();
+      };
+      cursorRequest.onerror = () => reject(cursorRequest.error);
     };
     request.onerror = () => reject(request.error);
   }
-  function termMatchesForEntries(expression, foundEntries, candidates, rank) {
-    const entries2 = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
-    if (!entries2.length) return [];
-    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries2)).filter((match) => Boolean(match));
+  function createTermMatchEntryCollector(expression, candidates, rank, matchesRules = targetLookupCandidateRulesMatch) {
+    const positions = candidates.get(expression) ?? [];
+    const candidateRules = distinctCandidateRules(positions);
+    const bestEntryByRules = /* @__PURE__ */ new Map();
+    return {
+      add(entry) {
+        if (!dictionaryEnabled(entry.dictionary, rank)) return;
+        collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules);
+      },
+      matches() {
+        return positions.flatMap((position) => {
+          const entry = bestEntryByRules.get(candidateRulesKey(position.deinflected.rules));
+          return entry ? [termMatchForEntry(position, entry)] : [];
+        });
+      }
+    };
   }
-  function deduplicateTermMatchEntries(entries2) {
-    const seen = /* @__PURE__ */ new Set();
-    return entries2.filter((item) => {
-      const key = `${item.id ?? ""}
-${item.dictionary}
-${item.expression}
-${item.reading}
-${item.sequence ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  function collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules) {
+    for (const [rulesKey, rules] of candidateRules) {
+      if (!matchesRules(entry.rules, rules)) continue;
+      retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank);
+    }
   }
-  function sortTermMatchEntries(entries2, rank) {
-    return entries2.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+  function retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank) {
+    const current = bestEntryByRules.get(rulesKey);
+    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    bestEntryByRules.set(rulesKey, entry);
+  }
+  function distinctCandidateRules(positions) {
+    const result = /* @__PURE__ */ new Map();
+    for (const position of positions) {
+      const rules = position.deinflected.rules;
+      const key = candidateRulesKey(rules);
+      if (!result.has(key)) result.set(key, rules);
+    }
+    return result;
+  }
+  function candidateRulesKey(rules) {
+    return rules.join("\0");
+  }
+  function compareTermMatchEntries(a, b, rank) {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0);
   }
   function rankedDictionaryEntries(entries2, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
     const ranked = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
     return limit === void 0 ? ranked : ranked.slice(0, limit);
   }
-  function termMatchForPosition(position, entries2) {
-    const entry = entries2.find((item) => targetLookupCandidateRulesMatch(item.rules, position.deinflected.rules));
-    return entry ? {
+  function termMatchForEntry(position, entry) {
+    return {
       entry,
       ...position,
       deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
-    } : null;
+    };
   }
   function firefoxXrayWaiver(value) {
     if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
@@ -27352,6 +27526,20 @@ ${entry.reading}`;
         done();
       }
     }
+    /**
+     * Confirms target-owned candidates exactly, without collecting substrings
+     * or deriving a second morphology ladder inside the dictionary store.
+     */
+    // Public companion seam; the core caller is wired independently of this
+    // settings-surface implementation during the parser-unification slice.
+    // fallow-ignore-next-line unused-class-member
+    async lookupExactTermCandidates(requests, preferences = [], target = activeLearningTarget()) {
+      if (!requests.length) return [];
+      const candidates = exactTermMatchCandidates(target, requests);
+      if (!candidates.size) return [];
+      const matches = await this.lookupTermMatchCandidates(target, candidates, preferences);
+      return exactTermCandidateMatches(requests, matches, dictionaryRank(preferences));
+    }
     async sweepTermMatchWindows(source, limit, preferences, target, targetGeneration) {
       const selected = [];
       let coveredUntil = 0;
@@ -27382,20 +27570,30 @@ ${entry.reading}`;
         const store = tx.objectStore("terms");
         const expressionIndex = store.index("expression");
         const readingIndex = store.index("reading");
-        const results = [];
         const expressions = sortedTermMatchExpressions(candidates);
+        const collectors = new Map(expressions.map((expression) => [
+          expression,
+          createTermMatchEntryCollector(
+            expression,
+            candidates,
+            rank,
+            (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules)
+          )
+        ]));
         const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
         let pending2 = expressions.length * (queriesReadingIndex ? 2 : 1);
         const finish = () => {
-          if (--pending2 <= 0) resolve(results);
+          if (--pending2 <= 0) {
+            resolve(expressions.flatMap((expression) => collectors.get(expression)?.matches() ?? []));
+          }
         };
-        const addMatches = (expression, foundEntries) => {
-          results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank));
+        const visit = (expression, entry) => {
+          collectors.get(expression)?.add(entry);
         };
         for (const expression of expressions) {
-          requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
+          requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
           if (queriesReadingIndex) {
-            requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+            requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
           }
         }
         tx.onerror = () => reject(tx.error);
@@ -46409,6 +46607,232 @@ ${normalizedReading}`;
     const ratio = Math.max(0, Math.min(1, height / viewportHeight2));
     gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
   }
+  class TermSpanResolver {
+    #target;
+    #lookup;
+    #fallback;
+    #preconfirm;
+    #plan;
+    #admit;
+    #maximumSourceLength;
+    constructor(options) {
+      this.#target = options.target;
+      this.#lookup = options.lookup;
+      this.#fallback = options.fallback;
+      this.#preconfirm = options.preconfirm;
+      this.#plan = options.plan;
+      this.#admit = options.admit;
+      this.#maximumSourceLength = Math.max(1, Math.floor(options.maximumSourceLength ?? 18));
+    }
+    /** Resolve the longest provider-confirmed term beginning at `source.start`. */
+    async resolveAt(source) {
+      const range = sourceRange(source);
+      if (range.start === range.end) return null;
+      const planned = this.#candidatesAt(range, range.start);
+      if (!planned.length) return null;
+      const confirmations = await this.#confirm(planned);
+      return firstConfirmedSpan(
+        range.text,
+        planned,
+        confirmations,
+        this.#admit,
+        singleStartAdmitContext(planned, confirmations)
+      );
+    }
+    /**
+     * Resolve all confirmed terms in reading order, advancing by each winning
+     * span. Fallback is considered only after confirmed spans are fixed and is
+     * bounded to the uncovered gaps between them.
+     */
+    async resolveAll(source) {
+      const range = sourceRange(source);
+      if (range.start === range.end) return [];
+      const plannedByStart = /* @__PURE__ */ new Map();
+      const allPlanned = [];
+      for (const start of codePointStarts(range.text, range.start, range.end)) {
+        const planned = this.#candidatesAt(range, start);
+        plannedByStart.set(start, planned);
+        allPlanned.push(...planned);
+      }
+      const confirmations = await this.#confirm(allPlanned);
+      const confirmed = this.#confirmedSpans(range, plannedByStart, confirmations);
+      if (!this.#fallback) return confirmed;
+      return this.#withFallbackSpans(range, confirmed, this.#fallback);
+    }
+    async #confirm(planned) {
+      const preconfirmed = /* @__PURE__ */ new Map();
+      const pending2 = [];
+      for (const item of planned) {
+        const match = this.#preconfirm?.({
+          start: item.start,
+          end: item.end,
+          surface: item.request.surface,
+          lookupCandidate: item.request.lookupCandidate
+        });
+        if (match === null || match === void 0) {
+          pending2.push(item);
+          continue;
+        }
+        preconfirmed.set(item.request, match);
+      }
+      if (!pending2.length) return preconfirmed;
+      const looked = await this.#lookup.lookup(pending2.map((item) => item.request));
+      if (!preconfirmed.size) return looked;
+      for (const [request, match] of looked) preconfirmed.set(request, match);
+      return preconfirmed;
+    }
+    #candidatesAt(range, start) {
+      const planned = [];
+      const maximumEnd = Math.min(range.end, start + this.#maximumSourceLength);
+      for (const end of codePointEndsLongestFirst(range.text, start, maximumEnd)) {
+        const surface = range.text.slice(start, end);
+        if (this.#plan && !this.#plan({
+          start,
+          end,
+          surface,
+          // The identity candidate stands in for the span at planning
+          // time; per-deinflection planning would re-ask the same
+          // span-shape question with the same answer.
+          lookupCandidate: { term: surface, rules: [], reasons: [], depth: 0 }
+        })) {
+          continue;
+        }
+        const lookupCandidates = [...this.#target.lookupCandidates(surface)].map((lookupCandidate, order) => ({ lookupCandidate, order })).sort((a, b) => this.#target.compareLookupCandidates(
+          a.lookupCandidate,
+          b.lookupCandidate
+        ) || a.order - b.order);
+        for (const { lookupCandidate } of lookupCandidates) {
+          planned.push({
+            start,
+            end,
+            request: { surface, lookupCandidate }
+          });
+        }
+      }
+      return planned;
+    }
+    #confirmedSpans(range, plannedByStart, confirmations) {
+      const confirmed = [];
+      const admitContext = {
+        hasConfirmedSpanAt: (offset) => (plannedByStart.get(offset) ?? []).some((item) => confirmations.has(item.request))
+      };
+      let cursor = range.start;
+      while (cursor < range.end) {
+        const winner = firstConfirmedSpan(
+          range.text,
+          plannedByStart.get(cursor) ?? [],
+          confirmations,
+          this.#admit,
+          admitContext
+        );
+        if (winner) {
+          confirmed.push(winner);
+          cursor = winner.end;
+          continue;
+        }
+        cursor = nextCodePointOffset(range.text, cursor);
+      }
+      return confirmed;
+    }
+    async #withFallbackSpans(range, confirmed, fallback) {
+      const resolved = [];
+      let gapStart = range.start;
+      for (const span of confirmed) {
+        resolved.push(...await fallbackSpansInGap(range.text, gapStart, span.start, fallback));
+        resolved.push(span);
+        gapStart = span.end;
+      }
+      resolved.push(...await fallbackSpansInGap(range.text, gapStart, range.end, fallback));
+      return resolved;
+    }
+  }
+  function singleStartAdmitContext(planned, confirmations) {
+    return {
+      hasConfirmedSpanAt: (offset) => planned.some((item) => item.start === offset && confirmations.has(item.request))
+    };
+  }
+  function firstConfirmedSpan(text2, planned, confirmations, admit, admitContext = { hasConfirmedSpanAt: () => false }) {
+    for (const item of planned) {
+      if (!confirmations.has(item.request)) continue;
+      const match = confirmations.get(item.request);
+      const surface = text2.slice(item.start, item.end);
+      if (admit && !admit({
+        start: item.start,
+        end: item.end,
+        surface,
+        lookupCandidate: item.request.lookupCandidate
+      }, match, admitContext)) continue;
+      return {
+        kind: "confirmed",
+        start: item.start,
+        end: item.end,
+        surface,
+        lookupCandidate: item.request.lookupCandidate,
+        match
+      };
+    }
+    return null;
+  }
+  async function fallbackSpansInGap(text2, start, end, fallback) {
+    const spans = [];
+    let cursor = start;
+    while (cursor < end) {
+      const candidate = await fallback.spanAt({ text: text2, start: cursor, end });
+      if (isValidFallbackSpan(text2, cursor, end, candidate)) {
+        spans.push({
+          kind: "fallback",
+          start: candidate.start,
+          end: candidate.end,
+          surface: text2.slice(candidate.start, candidate.end),
+          fallback: candidate.value
+        });
+        cursor = candidate.end;
+        continue;
+      }
+      cursor = nextCodePointOffset(text2, cursor);
+    }
+    return spans;
+  }
+  function isValidFallbackSpan(text2, expectedStart, maximumEnd, candidate) {
+    return candidate !== null && Number.isInteger(candidate.start) && Number.isInteger(candidate.end) && candidate.start === expectedStart && candidate.end > candidate.start && candidate.end <= maximumEnd && isCodePointBoundary(text2, candidate.start) && isCodePointBoundary(text2, candidate.end);
+  }
+  function sourceRange(source) {
+    const end = source.end ?? source.text.length;
+    if (!Number.isInteger(source.start) || !Number.isInteger(end) || source.start < 0 || end < source.start || end > source.text.length || !isCodePointBoundary(source.text, source.start) || !isCodePointBoundary(source.text, end)) {
+      throw new RangeError("Term span source must use valid UTF-16 code-point boundaries.");
+    }
+    return { text: source.text, start: source.start, end };
+  }
+  function codePointStarts(text2, start, end) {
+    const starts = [];
+    let cursor = start;
+    while (cursor < end) {
+      starts.push(cursor);
+      cursor = nextCodePointOffset(text2, cursor);
+    }
+    return starts;
+  }
+  function codePointEndsLongestFirst(text2, start, end) {
+    const ends = [];
+    let cursor = start;
+    while (cursor < end) {
+      const next = nextCodePointOffset(text2, cursor);
+      if (next > end) break;
+      cursor = next;
+      ends.push(cursor);
+    }
+    return ends.reverse();
+  }
+  function nextCodePointOffset(text2, offset) {
+    const codePoint = text2.codePointAt(offset);
+    return offset + (codePoint !== void 0 && codePoint > 65535 ? 2 : 1);
+  }
+  function isCodePointBoundary(text2, offset) {
+    if (offset <= 0 || offset >= text2.length) return true;
+    const before = text2.charCodeAt(offset - 1);
+    const after = text2.charCodeAt(offset);
+    return !(before >= 55296 && before <= 56319 && after >= 56320 && after <= 57343);
+  }
   const KANA_CHAR_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]$`, "u");
   function splitReadingAcrossKanji(base, reading, readingsForKanji) {
     if (kanjiCharacterCount$1(base) < 2) return null;
@@ -47134,10 +47558,6 @@ ${normalizedReading}`;
   const LOCAL_ENRICHMENT_CONCURRENCY = 12;
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
-  const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
-  const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
-  const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
-  const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
   const LOCAL_PARSE_TIMEOUT_MS = 8e3;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
@@ -47156,7 +47576,6 @@ ${normalizedReading}`;
   const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
   const log$q = Logger.scope("ReaderParser");
-  const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
     return { includeLocalPitch: false, ...options, requireApi };
@@ -47178,7 +47597,6 @@ ${normalizedReading}`;
     localCardEvidenceCache = /* @__PURE__ */ new Map();
     localParseCache = /* @__PURE__ */ new Map();
     localPitchCache = /* @__PURE__ */ new Map();
-    localBoundaryEvidenceCache = /* @__PURE__ */ new Map();
     localTermDictionaryAvailability;
     enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     kanjiReadingCache = /* @__PURE__ */ new Map();
@@ -47196,7 +47614,9 @@ ${normalizedReading}`;
       try {
         const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
         if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
-        const evidenceReconciled = this.withCachedCardEvidence(paragraphs, parsed);
+        const authoritative = await this.withAuthoritativeTermSpans(paragraphs, parsed, options, target);
+        if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
+        const evidenceReconciled = this.withCachedCardEvidence(paragraphs, authoritative);
         const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
         if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
         const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
@@ -47216,6 +47636,170 @@ ${normalizedReading}`;
         done();
       }
     }
+    /**
+     * Resolve the authoritative token underneath one source offset through the
+     * exact same span pipeline used for passive annotation.
+     */
+    async lookupTokenAt(text2, offset, range = { start: 0, end: text2.length }, options = {}) {
+      const [tokens] = await this.parse([text2], { ...options, allowSegmentedFallback: true });
+      return pickAuthoritativeTokenAt(tokens ?? [], text2, offset, range);
+    }
+    async withAuthoritativeTermSpans(paragraphs, parsed, options, target) {
+      const sources = await this.authoritativeSpanSources(paragraphs, options, target);
+      const lookup = new BatchedParserSpanLookup((requests) => this.authoritativeSpanConfirmations(requests, sources, options, target));
+      const resolved = await Promise.all(paragraphs.map((text2, index) => this.authoritativeTermSpans(text2, parsed[index] ?? [], options, target, lookup)));
+      return resolved.every((tokens, index) => tokens === parsed[index]) ? parsed : resolved;
+    }
+    async authoritativeTermSpans(text2, decorations, options, target, lookup) {
+      const fallbackSegments = target.segment(text2);
+      const fallback = options.allowSegmentedFallback === true ? {
+        spanAt: (request) => {
+          const segment = fallbackSegments.find((item) => item.start <= request.start && request.start < item.end);
+          if (!segment) return null;
+          const end = Math.min(segment.end, request.end);
+          if (end <= request.start) return null;
+          const surface = text2.slice(request.start, end);
+          if (!target.isLookupableText(surface)) return null;
+          return {
+            start: request.start,
+            end,
+            value: this.fallbackCardFromText(surface, target)
+          };
+        }
+      } : void 0;
+      const resolver = new TermSpanResolver({
+        target,
+        maximumSourceLength: 18,
+        lookup,
+        fallback,
+        preconfirm: decorationAlignedSpanConfirmation(text2, decorations, target, {
+          trustLocalDecorations: this.localStoreLacksExactBatch()
+        }),
+        // A span containing a standalone case particle can never be one
+        // word — never plan it, so the dictionary is not even asked. The
+        // same tell later vetoes glued confirmations that got in another
+        // way (a provider echoing a whole clause back as one token).
+        plan: (candidate) => !segmentsContainInternalParticle(text2, fallbackSegments, candidate.start, candidate.end),
+        admit: rejectUntrustworthySpanShapes(text2, fallbackSegments, target)
+      });
+      const spans = (await Promise.all(target.pointerWordSegments(text2).map((run) => resolver.resolveAll({ text: text2, start: run.start, end: run.end })))).flat().sort((first2, second) => first2.start - second.start || second.end - first2.end);
+      const tokens = spans.map((span) => authoritativeTokenFromSpan(text2, span, decorations));
+      return tokens.length === decorations.length && tokens.every((token, index) => token === decorations[index]) ? decorations : tokens;
+    }
+    /**
+     * Confirm candidates through exact term lookups. Paragraph parser tokens
+     * are intentionally absent from this method: they may decorate a winning
+     * card later, but their offsets and lexical choices cannot establish a
+     * source span.
+     */
+    async authoritativeSpanConfirmations(requests, sources, options, target) {
+      const confirmed = /* @__PURE__ */ new Map();
+      for (const source of sources) {
+        const pending2 = requests.filter((request) => !confirmed.has(request));
+        if (!pending2.length) break;
+        if (source === "local" && await this.confirmLocalParserSpanRequests(pending2, target, confirmed)) continue;
+        const terms = authoritativeLookupTerms(pending2, target);
+        if (!terms.length) continue;
+        const cards = await this.authoritativeCardsForSource(source, terms, options, target);
+        confirmParserSpanRequests(pending2, cards, target, confirmed);
+      }
+      return confirmed;
+    }
+    // A local decoration row comes from the broad findTermMatches sweep. A
+    // store with the batched exact-candidate transaction re-verifies every
+    // candidate in one cheap readonly txn, so its sweep rows only SEED
+    // candidates — the exact index is the authority when the two disagree.
+    // Without that batch, per-term re-queries are the flood the sweep
+    // already paid for (or, on a sweep-only realm, impossible), and the
+    // store's own aligned rows are its exact answer for that span.
+    localStoreLacksExactBatch() {
+      const store = this.dependencies.dictionaries;
+      return typeof store.lookupExactTermCandidates !== "function";
+    }
+    async confirmLocalParserSpanRequests(requests, target, confirmed) {
+      const store = this.dependencies.dictionaries;
+      if (typeof store.lookupExactTermCandidates !== "function") {
+        return typeof store.lookup !== "function";
+      }
+      try {
+        const matches = await store.lookupExactTermCandidates(
+          requests,
+          this.dependencies.getSettings().dictionaryPreferences,
+          target
+        );
+        for (const match of matches) {
+          const card = this.localCardFromEntry(match.entry, target);
+          const term = target.normalizeText(match.request.lookupCandidate.term);
+          if (cardMatchesLookupTerm(card, term, target) && parserSpanRulesMatch(card, match.request, target)) {
+            confirmed.set(match.request, { card });
+          }
+        }
+        return true;
+      } catch (error) {
+        log$q.warn("Exact local term span lookup failed", { requests: requests.length }, error);
+        return true;
+      }
+    }
+    async authoritativeSpanSources(paragraphs, options, target) {
+      const settings = this.dependencies.getSettings();
+      const hasLocal = await this.hasLocalTermDictionaries();
+      const local = hasLocal ? ["local"] : [];
+      if (target.language !== "ja" || shouldSkipApiParser(options)) return local;
+      if (settings.parserProvider === "local" && hasLocal) return local;
+      if (this.shouldRouteShortBatchToLocal([...paragraphs], options, settings) && hasLocal) return local;
+      const jpdb = hasJpdbApiCredential(settings) ? ["jpdb"] : [];
+      const jiten = shouldUseJitenParser(settings, options, this.dependencies.jiten) ? ["jiten"] : [];
+      const publicJiten = options.allowSegmentedFallback === true && this.dependencies.jitenPublicVocabulary && (typeof navigator === "undefined" || navigator.onLine !== false) ? ["public-jiten"] : [];
+      if (options.requireJpdb === true) return [...jpdb, ...local, ...publicJiten];
+      if (settings.parserProvider === "jiten") return [...jiten, ...local, ...publicJiten];
+      if (settings.parserProvider === "jpdb") return [...jpdb, ...local, ...publicJiten];
+      return shouldPreferJitenParser(settings, options, this.dependencies.jiten) ? [...jiten, ...jpdb, ...local, ...publicJiten] : [...jpdb, ...jiten, ...local, ...publicJiten];
+    }
+    async authoritativeCardsForSource(source, terms, options, target) {
+      try {
+        if (source === "local") return await this.localAuthoritativeCards(terms, target);
+        if (source === "public-jiten") return await this.publicJitenAuthoritativeCards(terms, options, target);
+        const parsed = source === "jpdb" ? await this.parseWithJpdb([...terms], options) : await this.parseWithJiten([...terms], options);
+        return authoritativeCardsFromParsedTerms(terms, parsed, target);
+      } catch (error) {
+        log$q.warn("Exact term span lookup failed", { source, terms: terms.length }, error);
+        return /* @__PURE__ */ new Map();
+      }
+    }
+    // Reached only for stores that expose the indexed single-term lookup but
+    // not the batched exact-candidate transaction; the batched path and the
+    // decoration-only degradation are decided in confirmLocalParserSpanRequests.
+    async localAuthoritativeCards(terms, target) {
+      const settings = this.dependencies.getSettings();
+      const store = this.dependencies.dictionaries;
+      if (typeof store.lookup !== "function") return /* @__PURE__ */ new Map();
+      const rows = await mapLimited(terms, LOCAL_ENRICHMENT_CONCURRENCY, async (term) => {
+        const entries2 = await store.lookup(term, term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences);
+        return [term, entries2];
+      });
+      const cards = /* @__PURE__ */ new Map();
+      for (const [term, entries2] of rows) {
+        const key = target.normalizeText(term);
+        cards.set(key, entries2.filter((entry) => [entry.expression, entry.reading].some((value) => target.normalizeText(value) === key)).map((entry) => this.localCardFromEntry(entry, target)));
+      }
+      return cards;
+    }
+    async publicJitenAuthoritativeCards(terms, options, target) {
+      const client = this.dependencies.jitenPublicVocabulary;
+      if (!client) return /* @__PURE__ */ new Map();
+      if (typeof client.lookupMany === "function") {
+        const found = await client.lookupMany(terms, {
+          detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length)
+        });
+        const cards = /* @__PURE__ */ new Map();
+        found.forEach((card, term) => cards.set(target.normalizeText(term), [card]));
+        return cards;
+      }
+      const parsed = await client.parse(terms, {
+        detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length)
+      });
+      return authoritativeCardsFromParsedTerms(terms, parsed, target);
+    }
     // The boundary + kanji-ruby reconciliation both read IndexedDB. Like the
     // leaf local parse, an iPad-WebKit stall in either would hang parse()
     // forever. These steps only REFINE an already-valid parse, so a stall (or
@@ -47232,9 +47816,8 @@ ${normalizedReading}`;
         return parsed;
       }
     }
-    async reconcileLocalParseResolved(paragraphs, parsed, options, target) {
-      const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options, target);
-      return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled, target);
+    async reconcileLocalParseResolved(paragraphs, parsed, _options, target) {
+      return this.withLocallySplitKanjiRubies(paragraphs, parsed, target);
     }
     async parseWithPreferredSource(paragraphs, options, settings, target) {
       if (target.language !== "ja") {
@@ -47383,7 +47966,6 @@ ${normalizedReading}`;
       this.localCardEvidenceCache.clear();
       this.localParseCache.clear();
       this.localPitchCache.clear();
-      this.localBoundaryEvidenceCache.clear();
       this.localTermDictionaryAvailability = void 0;
     }
     localCardFromEntry(entry, target = activeLearningTarget()) {
@@ -47391,6 +47973,7 @@ ${normalizedReading}`;
 ${entry.dictionary}
 ${entry.expression}
 ${entry.reading}`);
+      const partOfSpeech = (entry.rules ?? "").split(/\s+/).filter(Boolean);
       const card = {
         vid: id,
         sid: id,
@@ -47399,10 +47982,10 @@ ${entry.reading}`);
         reading: entry.reading || entry.expression,
         language: target.language,
         frequencyRank: entry.jpdbFrequency ?? null,
-        partOfSpeech: [],
+        partOfSpeech,
         meanings: [{
           glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),
-          partOfSpeech: []
+          partOfSpeech
         }],
         cardState: ["not-in-deck"],
         // Local dictionary carries no SRS state: not-in-deck is a default,
@@ -47508,48 +48091,6 @@ ${entry.reading}`);
         sentence: text2
       };
     }
-    async withExactLocalBoundaryEvidence(paragraphs, parsed, options, target) {
-      if (!this.canUseLocalDictionaryFallback()) return parsed;
-      const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
-      if (!candidates.some((items) => items.length)) return parsed;
-      if (!await this.hasLocalTermDictionaries(true)) return parsed;
-      const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-        const text2 = paragraphs[paragraphIndex] ?? "";
-        const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
-          const relative = await this.exactLocalBoundaryMatch(candidate, target);
-          if (!relative) return null;
-          const match = offsetTermMatch(relative, candidate.start);
-          if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
-          return this.localTokenFromMatch(text2, match, options, target);
-        }));
-        return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
-      }));
-      return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
-    }
-    exactLocalBoundaryMatch(candidate, target) {
-      const settings = this.dependencies.getSettings();
-      const { surface, boundary } = candidate;
-      const key = localBoundaryEvidenceCacheKey(surface, boundary, settings, target);
-      const cached = this.localBoundaryEvidenceCache.get(key);
-      if (cached) return cached;
-      const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
-        surface,
-        LOCAL_BOUNDARY_MATCH_LIMIT,
-        settings.dictionaryPreferences,
-        target
-      )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
-        if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-        log$q.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
-        return null;
-      });
-      this.localBoundaryEvidenceCache.set(key, promise);
-      while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
-        const oldest = this.localBoundaryEvidenceCache.keys().next().value;
-        if (typeof oldest !== "string") break;
-        this.localBoundaryEvidenceCache.delete(oldest);
-      }
-      return promise;
-    }
     // A store that cannot report availability still gets a chance in the
     // fallback path (it tolerates empty lookups), but local-first replaces
     // remote parsing outright, so `confirmed` demands a positive report.
@@ -47608,15 +48149,47 @@ ${entry.reading}`);
     fillSegmentedFallbackGaps(text2, tokens, target) {
       tokens = nonOverlappingTokens([...tokens].sort((first2, second) => first2.start - second.start || second.end - second.start - (first2.end - first2.start)), text2);
       const fallbackTokens = this.parseSegmentedText(text2, target);
-      const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
-      const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
-      const replacements = [
-        ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
-        ...fallbackTokens.filter((fallback) => broad.some((token) => tokenInsideRange(fallback, token.start, token.end)))
-      ];
-      const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)));
-      const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end))) : tokens;
-      return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
+      const extras = this.segmentedFallbackGapTokens(text2, fallbackTokens, tokens, target);
+      return extras.length ? [...tokens, ...extras].sort(compareTokensByOffset) : tokens;
+    }
+    /**
+     * Segmentation is gap coverage, never lexical evidence. A fallback span may
+     * carry wider lookup terms for a later dictionary request, but it must not
+     * replace or resize a span which a provider or local dictionary confirmed.
+     *
+     * ICU boundaries can cross a confirmed token. Subtract those ranges and
+     * mint fallback cards only for the uncovered source slices, preserving the
+     * confirmed token verbatim. This makes dictionary evidence monotonic and
+     * prevents a broad segmented token from repainting a narrower real word.
+     */
+    segmentedFallbackGapTokens(text2, fallbackTokens, confirmedTokens, target) {
+      const extras = [];
+      for (const fallback of fallbackTokens) {
+        const blockers2 = confirmedTokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)).sort(compareTokensByOffset);
+        let start = fallback.start;
+        for (const blocker of blockers2) {
+          this.pushSegmentedFallbackGap(extras, text2, start, Math.min(blocker.start, fallback.end), target);
+          start = Math.max(start, blocker.end);
+          if (start >= fallback.end) break;
+        }
+        this.pushSegmentedFallbackGap(extras, text2, start, fallback.end, target);
+      }
+      return extras;
+    }
+    pushSegmentedFallbackGap(tokens, text2, start, end, target) {
+      if (end <= start) return;
+      const surface = text2.slice(start, end);
+      if (!target.isLookupableText(surface)) return;
+      const card = this.fallbackCardFromText(surface, target);
+      tokens.push({
+        card,
+        start,
+        end,
+        length: end - start,
+        rubies: [],
+        pitchClass: "",
+        sentence: text2
+      });
     }
     // All-kanji compounds get their reading split per kanji when the user's
     // kanji dictionaries allow an exact, unambiguous alignment (琉球藍 →
@@ -47790,6 +48363,231 @@ ${entry.reading}`);
       }
     }
   }
+  class BatchedParserSpanLookup {
+    constructor(load) {
+      this.load = load;
+    }
+    pending = [];
+    flushScheduled = false;
+    lookup(requests) {
+      return new Promise((resolve, reject) => {
+        this.pending.push({ requests, resolve, reject });
+        if (this.flushScheduled) return;
+        this.flushScheduled = true;
+        queueMicrotask(() => {
+          void this.flush();
+        });
+      });
+    }
+    async flush() {
+      this.flushScheduled = false;
+      const pending2 = this.pending;
+      this.pending = [];
+      try {
+        const matches = await this.load(pending2.flatMap((item) => [...item.requests]));
+        for (const item of pending2) {
+          const result = /* @__PURE__ */ new Map();
+          for (const request of item.requests) {
+            const match = matches.get(request);
+            if (match) result.set(request, match);
+          }
+          item.resolve(result);
+        }
+      } catch (error) {
+        pending2.forEach((item) => item.reject(error));
+      }
+    }
+  }
+  function authoritativeLookupTerms(requests, target) {
+    const terms = /* @__PURE__ */ new Map();
+    for (const request of requests) {
+      const term = request.lookupCandidate.term.trim();
+      const key = target.normalizeText(term);
+      if (key && !terms.has(key)) terms.set(key, term);
+    }
+    return [...terms.values()];
+  }
+  function confirmParserSpanRequests(requests, cardsByTerm, target, confirmed) {
+    for (const request of requests) {
+      if (confirmed.has(request)) continue;
+      if (!target.isLookupableText(request.surface)) continue;
+      const term = target.normalizeText(request.lookupCandidate.term);
+      if (!term) continue;
+      const card = cardsByTerm.get(term)?.find((candidate) => cardMatchesLookupTerm(candidate, term, target) && parserSpanRulesMatch(candidate, request, target));
+      if (card) confirmed.set(request, { card });
+    }
+  }
+  function decorationAlignedSpanConfirmation(text2, decorations, target, options) {
+    const bySpan = /* @__PURE__ */ new Map();
+    for (const token of decorations) {
+      if (token.card.source === "fallback") continue;
+      if (token.card.source === "local" && !options.trustLocalDecorations) continue;
+      bySpan.set(`${token.start}:${token.end}`, token);
+    }
+    if (!bySpan.size) return () => null;
+    return (candidate) => {
+      const token = bySpan.get(`${candidate.start}:${candidate.end}`);
+      if (!token) return null;
+      if (endsInsideKanaRun(text2, candidate.end)) return null;
+      const term = target.normalizeText(candidate.lookupCandidate.term);
+      return cardMatchesLookupTerm(token.card, term, target) ? { card: token.card } : null;
+    };
+  }
+  function rejectUntrustworthySpanShapes(text2, segments, target) {
+    const segmentsAreWordCovers = target.language === "ja" || target.lookupStartsAtSegmentBoundary;
+    return (candidate, match, context) => {
+      const term = target.normalizeText(candidate.lookupCandidate.term);
+      const identity = term === target.normalizeText(candidate.surface);
+      if (identity && match.card.source !== "local" && !match.card.pitchAccent?.length && (segmentsContainInternalParticle(text2, segments, candidate.start, candidate.end) || hasInternalKanaToKanjiTransition(text2, candidate.start, candidate.end))) {
+        return false;
+      }
+      if (segmentsAreWordCovers && endsStrictlyInsideSegment(segments, candidate.end) && !context.hasConfirmedSpanAt(candidate.end) && !KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, candidate.end))) {
+        return false;
+      }
+      return true;
+    };
+  }
+  function endsStrictlyInsideSegment(segments, end) {
+    return segments.some((segment) => segment.start < end && end < segment.end);
+  }
+  function segmentsContainInternalParticle(text2, segments, start, end) {
+    return segments.some((segment) => segment.start >= start && segment.end <= end && !(segment.start === start && segment.end === end) && SPAN_BOUNDARY_PARTICLES.includes(text2.slice(segment.start, segment.end)));
+  }
+  const KANA_RUN_CHARACTER_RE = new RegExp(`^[${KANA}${PROLONGED_SOUND_MARK}]$`, "u");
+  const KANJI_CHARACTER_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
+  function hasInternalKanaToKanjiTransition(text2, start, end) {
+    for (let index = start + 1; index < end; index++) {
+      if (KANA_RUN_CHARACTER_RE.test(text2[index - 1]) && KANJI_CHARACTER_RE.test(text2[index])) return true;
+    }
+    return false;
+  }
+  const KANA_CASE_PARTICLE_CONTINUATIONS = [
+    "から",
+    "まで",
+    "より",
+    "だけ",
+    "しか",
+    "など",
+    "は",
+    "が",
+    "を",
+    "に",
+    "へ",
+    "と",
+    "で",
+    "の",
+    "や"
+  ];
+  const KANA_FINAL_PARTICLE_CONTINUATIONS = ["かしら", "かな", "っけ", "ね", "な", "か", "よ", "わ", "ぞ", "ぜ", "さ"];
+  const SPAN_BOUNDARY_PARTICLES = [...KANA_CASE_PARTICLE_CONTINUATIONS, "な"];
+  let standaloneGrammarParticleSet;
+  function standaloneGrammarParticles() {
+    standaloneGrammarParticleSet ??= /* @__PURE__ */ new Set([
+      ...SPAN_BOUNDARY_PARTICLES,
+      ...KANA_FINAL_PARTICLE_CONTINUATIONS
+    ]);
+    return standaloneGrammarParticleSet;
+  }
+  function pickAuthoritativeTokenAt(tokens, text2, offset, range = { start: 0, end: text2.length }) {
+    const start = Math.max(0, Math.min(range.start, text2.length));
+    const end = Math.max(start, Math.min(range.end, text2.length));
+    if (offset < start || offset >= end) return void 0;
+    const token = tokens.find((item) => item.start >= start && item.end <= end && item.start <= offset && offset < item.end);
+    if (!token) return void 0;
+    if (token.card.source !== "fallback") return token;
+    const surface = text2.slice(token.start, token.end);
+    if (standaloneGrammarParticles().has(surface)) return void 0;
+    if (surface.length === 1 && KANJI_CHARACTER_RE.test(surface)) return void 0;
+    return token;
+  }
+  function endsInsideKanaRun(text2, end) {
+    if (end <= 0 || end >= text2.length) return false;
+    if (!KANA_RUN_CHARACTER_RE.test(text2[end - 1]) || !KANA_RUN_CHARACTER_RE.test(text2[end])) return false;
+    if (KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, end))) return false;
+    let cursor = end;
+    let consumedFinal = true;
+    while (consumedFinal && cursor < text2.length) {
+      consumedFinal = false;
+      for (const particle of KANA_FINAL_PARTICLE_CONTINUATIONS) {
+        if (!text2.startsWith(particle, cursor)) continue;
+        cursor += particle.length;
+        consumedFinal = true;
+        break;
+      }
+    }
+    if (cursor > end && (cursor >= text2.length || !KANA_RUN_CHARACTER_RE.test(text2[cursor]))) return false;
+    return true;
+  }
+  function authoritativeCardsFromParsedTerms(terms, parsed, target) {
+    const result = /* @__PURE__ */ new Map();
+    terms.forEach((term, index) => {
+      const key = target.normalizeText(term);
+      const cards = (parsed[index] ?? []).map((token) => token.card).filter((card) => card.source !== "fallback" && cardMatchesLookupTerm(card, key, target));
+      if (cards.length) result.set(key, cards);
+    });
+    return result;
+  }
+  function cardMatchesLookupTerm(card, term, target) {
+    return [card.spelling, card.reading].some((value) => target.normalizeText(value) === term);
+  }
+  function parserSpanRulesMatch(card, request, target) {
+    if (!request.lookupCandidate.rules.length) return true;
+    const rules = [
+      ...card.partOfSpeech,
+      ...card.meanings.flatMap((meaning) => meaning.partOfSpeech)
+    ].filter(Boolean).join(" ");
+    return target.matchesLookupCandidateRules(rules, request.lookupCandidate.rules);
+  }
+  function authoritativeTokenFromSpan(text2, span, decorations) {
+    if (span.kind === "fallback") {
+      return {
+        card: span.fallback,
+        start: span.start,
+        end: span.end,
+        length: span.end - span.start,
+        rubies: [],
+        pitchClass: "",
+        sentence: text2
+      };
+    }
+    const card = span.match.card;
+    const decoration = decorations.find((token) => cardsShareEvidenceIdentity(token.card, card));
+    if (decoration?.card === card && decoration.start === span.start && decoration.end === span.end && decoration.length === span.end - span.start && (decoration.sentence ?? text2) === text2 && text2.slice(decoration.start, decoration.end) === span.surface) {
+      return decoration;
+    }
+    const rubies = decoration ? authoritativeDecorationRubies(text2, span, decoration) : [];
+    return {
+      ...decoration ?? {},
+      card,
+      start: span.start,
+      end: span.end,
+      length: span.end - span.start,
+      rubies: rubies.length ? rubies : authoritativeCardRubies(span, card),
+      pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling),
+      sentence: text2
+    };
+  }
+  function authoritativeDecorationRubies(text2, span, decoration) {
+    const decorationSurface = text2.slice(decoration.start, decoration.end);
+    if (decorationSurface !== span.surface) return [];
+    return decoration.rubies.flatMap((ruby) => {
+      const relativeStart = ruby.start - decoration.start;
+      const relativeEnd = ruby.end - decoration.start;
+      if (relativeStart < 0 || relativeEnd <= relativeStart || relativeEnd > span.end - span.start) return [];
+      const start = span.start + relativeStart;
+      const end = span.start + relativeEnd;
+      return [{ ...ruby, start, end, length: end - start }];
+    });
+  }
+  function authoritativeCardRubies(span, card) {
+    const reading = card.reading.trim();
+    if (!reading || reading === span.surface) return [];
+    return inferredInflectedSurfaceRubies(span.surface, card.spelling, reading).map((ruby) => ({
+      ...ruby,
+      start: span.start + ruby.start,
+      end: span.start + ruby.end
+    }));
+  }
   function firstLocalPitchPattern(resolution) {
     return resolution.patterns[0] ?? "";
   }
@@ -47835,111 +48633,6 @@ ${entry.reading}`);
       }))
     });
   }
-  function boundaryEvidenceCandidates(text2, tokens) {
-    const sorted = [...tokens].sort(compareTokensByOffset);
-    const candidates = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (let index = 1; index < sorted.length; index += 1) {
-      const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
-      if (!candidate) continue;
-      const key = `${candidate.start}:${candidate.surface}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      candidates.push(candidate);
-      if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
-    }
-    return candidates;
-  }
-  function boundaryEvidenceCandidate(text2, first2, second) {
-    if (first2.end !== second.start) return null;
-    if (!isReconciliableParseToken(first2) || !isReconciliableParseToken(second)) return null;
-    const left = codePointBeforeUtf16Offset(text2, first2.end);
-    const right = codePointAtUtf16Offset(text2, second.start);
-    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-    const firstSurface = text2.slice(first2.start, first2.end);
-    const secondSurface = text2.slice(second.start, second.end);
-    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-    return {
-      surface: text2.slice(first2.start, second.end),
-      start: first2.start,
-      boundary: first2.end - first2.start
-    };
-  }
-  function isReconciliableParseToken(token) {
-    return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
-  }
-  function isSingleJapaneseCharacter(surface) {
-    const characters = Array.from(surface);
-    return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
-  }
-  function codePointBeforeUtf16Offset(text2, offset) {
-    if (offset <= 0) return "";
-    const trailingCodeUnit = text2.charCodeAt(offset - 1);
-    const start = isLowSurrogate(trailingCodeUnit) && offset > 1 && isHighSurrogate(text2.charCodeAt(offset - 2)) ? offset - 2 : offset - 1;
-    return text2.slice(start, offset);
-  }
-  function codePointAtUtf16Offset(text2, offset) {
-    const codePoint = text2.codePointAt(offset);
-    return codePoint === void 0 ? "" : String.fromCodePoint(codePoint);
-  }
-  function isHighSurrogate(value) {
-    return value >= 55296 && value <= 56319;
-  }
-  function isLowSurrogate(value) {
-    return value >= 56320 && value <= 57343;
-  }
-  function exactBoundaryMatch(surface, boundary, matches) {
-    const accepted = matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.start < boundary && match.end > boundary && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim()));
-    const identities = new Set(accepted.map((match) => boundaryMatchIdentity(match)));
-    if (identities.size !== 1) return null;
-    return accepted.sort((first2, second) => second.end - second.start - (first2.end - first2.start) || first2.start - second.start)[0] ?? null;
-  }
-  function boundaryMatchIdentity(match) {
-    return `${match.entry.expression.normalize("NFKC").trim()}
-${match.entry.reading.normalize("NFKC").trim()}`;
-  }
-  function offsetTermMatch(match, offset) {
-    return {
-      ...match,
-      start: match.start + offset,
-      end: match.end + offset
-    };
-  }
-  function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
-    const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
-    if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
-    return overlapping.every((token) => {
-      const prefix = text2.slice(token.start, Math.min(token.end, match.start));
-      const suffix = text2.slice(Math.max(token.start, match.end), token.end);
-      return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
-    });
-  }
-  function replaceRemoteFragments(tokens, candidates) {
-    if (!candidates.length) return tokens;
-    const accepted = [];
-    for (const candidate of [...candidates].sort((first2, second) => second.length - first2.length || first2.start - second.start)) {
-      if (accepted.some((token) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))) continue;
-      accepted.push(candidate);
-    }
-    if (!accepted.length) return tokens;
-    return [
-      ...tokens.filter((token) => !accepted.some((candidate) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))),
-      ...accepted
-    ].sort(compareTokensByOffset);
-  }
-  function localBoundaryEvidenceCacheKey(surface, boundary, settings, target) {
-    return JSON.stringify({
-      surface,
-      boundary,
-      target: target.id,
-      language: target.language,
-      dictionaries: settings.dictionaryPreferences.map((preference) => ({
-        name: preference.name,
-        enabled: preference.enabled,
-        priority: preference.priority
-      }))
-    });
-  }
   function localParseCacheKey(text2, options, settings, target) {
     const localDictionariesEnabled = settings.localDictionariesEnabled;
     return JSON.stringify({
@@ -47958,50 +48651,6 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   function rangesOverlap$1(start, end, otherStart, otherEnd) {
     return start < otherEnd && otherStart < end;
-  }
-  function tokenInsideRange(token, start, end) {
-    return token.start >= start && token.end <= end;
-  }
-  function preferInflectedFallback(fallback, tokens) {
-    if (!fallback.card.fallbackLookupTerms?.length) return false;
-    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
-    return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
-  }
-  function isBroadPublic(token) {
-    return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
-  }
-  function fallbackRepairTokens(text2, fallbackTokens, tokens) {
-    const repaired = /* @__PURE__ */ new Set();
-    for (const fallback of fallbackTokens) {
-      const group = fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens);
-      group?.forEach((token) => repaired.add(token));
-    }
-    return [...repaired].sort(compareTokensByOffset);
-  }
-  function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
-    if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
-    const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
-    if (!overlapping.length) return null;
-    const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
-    const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
-    if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-    return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
-  }
-  function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
-    for (let index = start; index < end; ) {
-      const character = codePointAtUtf16Offset(text2, index);
-      if (!character) break;
-      const characterEnd = index + character.length;
-      if (JAPANESE_CHARACTER_RE.test(character) && !tokens.some((token) => token.start <= index && characterEnd <= token.end)) return true;
-      index = characterEnd;
-    }
-    return false;
-  }
-  function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
-    const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
-    if (!group.length) return null;
-    group.sort(compareTokensByOffset);
-    return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
   }
   function compareTokensByOffset(a, b) {
     return a.start - b.start || b.length - a.length;
@@ -60241,7 +60890,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.78".trim() ? "1.8.78".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.79".trim() ? "1.8.79".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

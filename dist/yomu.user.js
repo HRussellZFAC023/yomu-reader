@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.78
+// @version 1.8.79
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.3626468d2f3e.user.js#sha256=NiZGjS8+ttYOEhqOa0RE/IJ4o9dfsVTdVBdn84beHqY=
+// @require https://yomureader.com/greasyfork/yomu-runtime.0b093d0f2129.user.js#sha256=Cwk9DyEp/c2KdmDBXBARPDO8DL0FeORYZpTKmxRo2xU=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -7932,7 +7932,15 @@ function renderedFallbackVocabularyCacheKey(word) {
 const vid = Number(word.dataset.vid);
 const sid = Number(word.dataset.sid);
 const spelling = word.dataset.expression?.trim() ?? "";
-return Number.isFinite(vid) && Number.isFinite(sid) && spelling ? `${vid}:${sid}:${spelling}:` : "";
+const start = Number(word.dataset.tokenStart);
+const end = Number(word.dataset.tokenEnd);
+return Number.isFinite(vid) && Number.isFinite(sid) && spelling && Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start ? fallbackVocabularySpanCacheKeyParts(vid, sid, spelling, "", start, end) : "";
+}
+function fallbackVocabularySpanCacheKey(card, span) {
+return fallbackVocabularySpanCacheKeyParts(card.vid, card.sid, card.spelling, card.reading, span.start, span.end);
+}
+function fallbackVocabularySpanCacheKeyParts(vid, sid, spelling, reading, start, end) {
+return `${vid}:${sid}:${spelling}:${reading}:${start}:${end}`;
 }
 function setRenderedWordPitchClass(word, pitchClass) {
 Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
@@ -9462,6 +9470,66 @@ return sentence.slice(start, end).trim();
 function nodeTextContent$1(node) {
 return node.textContent ?? "";
 }
+const DEINFLECTION_CONDITION = {
+Ichidan: 1 << 0,
+GodanU: 1 << 1,
+GodanK: 1 << 2,
+GodanG: 1 << 3,
+GodanS: 1 << 4,
+GodanT: 1 << 5,
+GodanN: 1 << 6,
+GodanB: 1 << 7,
+GodanM: 1 << 8,
+GodanR: 1 << 9,
+Suru: 1 << 10,
+Kuru: 1 << 11,
+IAdjective: 1 << 12,
+Masu: 1 << 13,
+Te: 1 << 14,
+Ta: 1 << 15,
+Conditional: 1 << 16,
+Adverbial: 1 << 17
+};
+const GODAN_CONDITIONS = DEINFLECTION_CONDITION.GodanU | DEINFLECTION_CONDITION.GodanK | DEINFLECTION_CONDITION.GodanG | DEINFLECTION_CONDITION.GodanS | DEINFLECTION_CONDITION.GodanT | DEINFLECTION_CONDITION.GodanN | DEINFLECTION_CONDITION.GodanB | DEINFLECTION_CONDITION.GodanM | DEINFLECTION_CONDITION.GodanR;
+const INPUT_CONDITIONS_BY_REASON = {
+negative: DEINFLECTION_CONDITION.IAdjective,
+desiderative: DEINFLECTION_CONDITION.IAdjective,
+potential: DEINFLECTION_CONDITION.Ichidan,
+"potential/passive": DEINFLECTION_CONDITION.Ichidan,
+passive: DEINFLECTION_CONDITION.Ichidan,
+causative: DEINFLECTION_CONDITION.Ichidan,
+"causative passive": DEINFLECTION_CONDITION.Ichidan,
+excessive: DEINFLECTION_CONDITION.Ichidan,
+progressive: DEINFLECTION_CONDITION.Ichidan,
+"contracted progressive": DEINFLECTION_CONDITION.Ichidan,
+completion: DEINFLECTION_CONDITION.GodanU,
+"contracted completion": DEINFLECTION_CONDITION.GodanU,
+polite: DEINFLECTION_CONDITION.Masu,
+"te-form": DEINFLECTION_CONDITION.Te,
+past: DEINFLECTION_CONDITION.Ta,
+conditional: DEINFLECTION_CONDITION.Conditional,
+adverbial: DEINFLECTION_CONDITION.Adverbial
+};
+const CONDITION_FLAG_BY_RULE = {
+v1: DEINFLECTION_CONDITION.Ichidan,
+v5u: DEINFLECTION_CONDITION.GodanU,
+v5k: DEINFLECTION_CONDITION.GodanK,
+v5g: DEINFLECTION_CONDITION.GodanG,
+v5s: DEINFLECTION_CONDITION.GodanS,
+v5t: DEINFLECTION_CONDITION.GodanT,
+v5n: DEINFLECTION_CONDITION.GodanN,
+v5b: DEINFLECTION_CONDITION.GodanB,
+v5m: DEINFLECTION_CONDITION.GodanM,
+v5r: DEINFLECTION_CONDITION.GodanR,
+v5: GODAN_CONDITIONS,
+vs: DEINFLECTION_CONDITION.Suru,
+"vs-s": DEINFLECTION_CONDITION.Suru,
+suru: DEINFLECTION_CONDITION.Suru,
+vk: DEINFLECTION_CONDITION.Kuru,
+kuru: DEINFLECTION_CONDITION.Kuru,
+"adj-i": DEINFLECTION_CONDITION.IAdjective,
+"i-adj": DEINFLECTION_CONDITION.IAdjective
+};
 const GODAN_ROWS = [
 { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
 { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -9640,17 +9708,17 @@ const RULES = [
 { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
 { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
 { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-];
+].map(conditionDeinflectionRule);
 const DEINFLECTION_CACHE_MAX = 4e3;
 const deinflectionCache = new Map();
 function deinflectJapaneseTerm(source) {
 const cached = deinflectionCache.get(source);
 if (cached) return cached;
-const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+const results = [{ term: source, rules: [], reasons: [], depth: 0, conditions: 0 }];
 const seen = new Set([candidateKey(results[0])]);
 const queue = [results[0]];
 expandDeinflectionQueue(queue, results, seen);
-const sorted = sortDeinflectedTerms(results);
+const sorted = sortDeinflectedTerms(results).map(publicDeinflectionCandidate);
 if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
 const oldest = deinflectionCache.keys().next().value;
 if (oldest !== void 0) deinflectionCache.delete(oldest);
@@ -9664,13 +9732,9 @@ expandDeinflectedTerm(queue[index], queue, results, seen);
 }
 }
 function expandDeinflectedTerm(current, queue, results, seen) {
-if (isTerminalDeinflection(current)) return;
 for (const rule of RULES) {
 rememberExpandedDeinflection(current, rule, queue, results, seen);
 }
-}
-function isTerminalDeinflection(current) {
-return current.depth >= 2 || current.reasons.at(-1) === "simultaneous action";
 }
 function rememberExpandedDeinflection(current, rule, queue, results, seen) {
 const next = deinflectedCandidate(current, rule);
@@ -9683,18 +9747,23 @@ function sortDeinflectedTerms(results) {
 return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
 }
 function deinflectedCandidate(current, rule) {
-if (!canApplyDeinflectionRule(current.term, rule)) return null;
-const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-if (!term || term === current.term) return null;
+if (!ruleMatchesDeinflectionState(current, rule)) return null;
+const term = transformedDeinflectionTerm(current.term, rule);
+if (!term) return null;
 return {
 term,
 rules: rule.rules,
 reasons: [...current.reasons, rule.reason],
-depth: current.depth + 1
+depth: current.depth + 1,
+conditions: rule.conditionsOut
 };
 }
-function canApplyDeinflectionRule(term, rule) {
-return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+function ruleMatchesDeinflectionState(current, rule) {
+return conditionsMatch(current.conditions, rule.conditionsIn) && current.term.endsWith(rule.from);
+}
+function transformedDeinflectionTerm(term, rule) {
+const transformed = `${term.slice(0, -rule.from.length)}${rule.to}`;
+return transformed && transformed !== term ? transformed : null;
 }
 function rememberDeinflectedCandidate(candidate, seen) {
 const key = candidateKey(candidate);
@@ -9761,10 +9830,39 @@ if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
 if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
 return "";
 }
+function conditionDeinflectionRule(rule) {
+return {
+...rule,
+conditionsIn: inputConditionsForReason(rule.reason),
+conditionsOut: conditionFlagsForRules(rule.rules)
+};
+}
+function conditionsMatch(currentConditions, nextConditions) {
+return currentConditions === 0 || (currentConditions & nextConditions) !== 0;
+}
+function inputConditionsForReason(reason) {
+return INPUT_CONDITIONS_BY_REASON[reason] ?? 0;
+}
+function conditionFlagsForRules(rules) {
+const specificGodanConditions = unionConditionFlags(rules.filter(isSpecificGodanConditionRule));
+return specificGodanConditions || unionConditionFlags(rules);
+}
+function isSpecificGodanConditionRule(rule) {
+return /^v5[ukgstnbmr]$/u.test(rule);
+}
+function unionConditionFlags(rules) {
+return rules.reduce((conditions, rule) => conditions | conditionFlagForRule(rule), 0);
+}
+function conditionFlagForRule(rule) {
+return CONDITION_FLAG_BY_RULE[rule] ?? 0;
+}
+function publicDeinflectionCandidate(state) {
+const { conditions: _conditions, ...candidate } = state;
+return candidate;
+}
 function candidateKey(candidate) {
 return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
+${candidate.conditions}`;
 }
 function uniqueStrings(values, options = {}) {
 const seen = new Set();
@@ -9798,77 +9896,33 @@ return stableHash32(value) || 1;
 }
 function codePointBoundaryAtOrBefore(text2, offset) {
 const clamped = Math.max(0, Math.min(offset, text2.length));
-if (clamped > 0 && clamped < text2.length && isLowSurrogate$1(text2.charCodeAt(clamped)) && isHighSurrogate$1(text2.charCodeAt(clamped - 1))) {
+if (clamped > 0 && clamped < text2.length && isLowSurrogate(text2.charCodeAt(clamped)) && isHighSurrogate(text2.charCodeAt(clamped - 1))) {
 return clamped - 1;
 }
 return clamped;
 }
-function codePointBoundaryAtOrAfter(text2, offset) {
-const before = codePointBoundaryAtOrBefore(text2, offset);
-return before === offset ? before : Math.min(text2.length, before + 2);
-}
 function codePointSafePrefix(text2, maxUtf16Units) {
 return text2.slice(0, codePointBoundaryAtOrBefore(text2, maxUtf16Units));
 }
-function lookupSpansContainingOffset(text2, segment, pointerOffset, maxCodePoints, startWindow) {
-const offsets = codePointOffsets(text2, segment.start, segment.end);
-const pointer = codePointBoundaryAtOrBefore(text2, pointerOffset);
-const pointerIndex = offsets.findIndex(
-(start, index) => index < offsets.length - 1 && start <= pointer && pointer < offsets[index + 1]
-);
-if (pointerIndex < 0) return [];
-const firstStartIndex = Math.max(0, pointerIndex - startWindow);
-const spans = [];
-for (let startIndex = firstStartIndex; startIndex <= pointerIndex; startIndex++) {
-const lastEndIndex = Math.min(offsets.length - 1, startIndex + maxCodePoints);
-for (let endIndex = pointerIndex + 1; endIndex <= lastEndIndex; endIndex++) {
-spans.push({
-term: text2.slice(offsets[startIndex], offsets[endIndex]),
-start: offsets[startIndex],
-end: offsets[endIndex],
-codePoints: endIndex - startIndex
-});
-}
-}
-return spans.sort(
-(a, b) => b.codePoints - a.codePoints || a.start - b.start || a.end - b.end
-);
-}
-function codePointOffsets(text2, start, end) {
-const safeStart = codePointBoundaryAtOrAfter(text2, start);
-const safeEnd = codePointBoundaryAtOrBefore(text2, end);
-const offsets = [safeStart];
-let offset = safeStart;
-for (const character of text2.slice(safeStart, safeEnd)) {
-offset += character.length;
-offsets.push(offset);
-}
-return offsets;
-}
-function isHighSurrogate$1(value) {
+function isHighSurrogate(value) {
 return value >= 55296 && value <= 56319;
 }
-function isLowSurrogate$1(value) {
+function isLowSurrogate(value) {
 return value >= 56320 && value <= 57343;
 }
-const JAPANESE_SCRIPT_GROUP_RE = new RegExp(
-`${KANJI_LIKE_WITH_COUNTERS_PATTERN}+|[${HIRAGANA_WITH_PROLONGED}]+|[${KATAKANA_WITH_PROLONGED}]+|[${HALFWIDTH_KATAKANA}]+`,
-"gu"
-);
 const JAPANESE_CHARACTER_RE = new RegExp(
 `(?:[${KANA}${HALFWIDTH_KATAKANA}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})`,
 "u"
 );
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など", "ね"]);
+new Set([...INFLECTION_BOUNDARY_SEGMENTS, "な"]);
 [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
 const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
-const SEGMENTER_COMPOUND_OVERRIDES = new Set(["巨乳"]);
-Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max, value) => Math.max(max, value.length), 0);
 function normalizeFallbackTerm(text2) {
 return codePointSafePrefix(text2.replace(/\s+/g, " ").trim(), 80);
 }
-function bareFallbackCardFromText(text2, language = activeLearningTargetLanguage()) {
+function bareFallbackCardFromText(text2, language) {
 const spelling = normalizeFallbackTerm(text2);
 const id = -stablePositiveHashId(`fallback
 ${language}
@@ -9892,18 +9946,11 @@ source: "fallback",
 ...fallbackLookupTerms.length ? { fallbackLookupTerms } : {}
 };
 }
-function isBoundarySegment(surface) {
-return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-}
 function fallbackLookupTermsForText(text2) {
 const source = normalizeFallbackTerm(text2);
 if (!source) return [];
 const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
 return uniqueNonEmptyStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-}
-function fallbackDictionaryLookupTermsForText(text2) {
-const terms = fallbackLookupTermsForText(text2);
-return dictionaryFirstFallbackLookupTerms(terms, hasAmbiguousContinuativeStemCandidate(terms[0] ?? ""));
 }
 function fallbackLookupTermsForCard(card) {
 const terms = uniqueNonEmptyStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean));
@@ -11223,7 +11270,7 @@ appendSegmentedHostFallbackTokens(hostText, gap.start, gap.end, additions);
 function appendSegmentedHostFallbackTokens(hostText, gapStart, gapEnd, additions) {
 for (const segment of segmentTargetLanguageText(hostText.slice(gapStart, gapEnd))) {
 additions.push({
-card: bareFallbackCardFromText(segment.text),
+card: bareFallbackCardFromText(segment.text, activeLearningTargetLanguage()),
 start: gapStart + segment.start,
 end: gapStart + segment.end,
 length: segment.end - segment.start,
@@ -22701,6 +22748,229 @@ params.set(key, String(value));
 const queryString = params.toString();
 return queryString ? `${url}?${queryString}` : url;
 }
+class TermSpanResolver {
+#target;
+#lookup;
+#fallback;
+#preconfirm;
+#plan;
+#admit;
+#maximumSourceLength;
+constructor(options) {
+this.#target = options.target;
+this.#lookup = options.lookup;
+this.#fallback = options.fallback;
+this.#preconfirm = options.preconfirm;
+this.#plan = options.plan;
+this.#admit = options.admit;
+this.#maximumSourceLength = Math.max(1, Math.floor(options.maximumSourceLength ?? 18));
+}
+/** Resolve the longest provider-confirmed term beginning at `source.start`. */
+async resolveAt(source) {
+const range = sourceRange(source);
+if (range.start === range.end) return null;
+const planned = this.#candidatesAt(range, range.start);
+if (!planned.length) return null;
+const confirmations = await this.#confirm(planned);
+return firstConfirmedSpan(
+range.text,
+planned,
+confirmations,
+this.#admit,
+singleStartAdmitContext(planned, confirmations)
+);
+}
+/**
+* Resolve all confirmed terms in reading order, advancing by each winning
+* span. Fallback is considered only after confirmed spans are fixed and is
+* bounded to the uncovered gaps between them.
+*/
+async resolveAll(source) {
+const range = sourceRange(source);
+if (range.start === range.end) return [];
+const plannedByStart = new Map();
+const allPlanned = [];
+for (const start of codePointStarts(range.text, range.start, range.end)) {
+const planned = this.#candidatesAt(range, start);
+plannedByStart.set(start, planned);
+allPlanned.push(...planned);
+}
+const confirmations = await this.#confirm(allPlanned);
+const confirmed = this.#confirmedSpans(range, plannedByStart, confirmations);
+if (!this.#fallback) return confirmed;
+return this.#withFallbackSpans(range, confirmed, this.#fallback);
+}
+async #confirm(planned) {
+const preconfirmed = new Map();
+const pending = [];
+for (const item of planned) {
+const match = this.#preconfirm?.({
+start: item.start,
+end: item.end,
+surface: item.request.surface,
+lookupCandidate: item.request.lookupCandidate
+});
+if (match === null || match === void 0) {
+pending.push(item);
+continue;
+}
+preconfirmed.set(item.request, match);
+}
+if (!pending.length) return preconfirmed;
+const looked = await this.#lookup.lookup(pending.map((item) => item.request));
+if (!preconfirmed.size) return looked;
+for (const [request, match] of looked) preconfirmed.set(request, match);
+return preconfirmed;
+}
+#candidatesAt(range, start) {
+const planned = [];
+const maximumEnd = Math.min(range.end, start + this.#maximumSourceLength);
+for (const end of codePointEndsLongestFirst(range.text, start, maximumEnd)) {
+const surface = range.text.slice(start, end);
+if (this.#plan && !this.#plan({
+start,
+end,
+surface,
+lookupCandidate: { term: surface, rules: [], reasons: [], depth: 0 }
+})) {
+continue;
+}
+const lookupCandidates = [...this.#target.lookupCandidates(surface)].map((lookupCandidate, order) => ({ lookupCandidate, order })).sort((a, b) => this.#target.compareLookupCandidates(
+a.lookupCandidate,
+b.lookupCandidate
+) || a.order - b.order);
+for (const { lookupCandidate } of lookupCandidates) {
+planned.push({
+start,
+end,
+request: { surface, lookupCandidate }
+});
+}
+}
+return planned;
+}
+#confirmedSpans(range, plannedByStart, confirmations) {
+const confirmed = [];
+const admitContext = {
+hasConfirmedSpanAt: (offset) => (plannedByStart.get(offset) ?? []).some((item) => confirmations.has(item.request))
+};
+let cursor = range.start;
+while (cursor < range.end) {
+const winner = firstConfirmedSpan(
+range.text,
+plannedByStart.get(cursor) ?? [],
+confirmations,
+this.#admit,
+admitContext
+);
+if (winner) {
+confirmed.push(winner);
+cursor = winner.end;
+continue;
+}
+cursor = nextCodePointOffset(range.text, cursor);
+}
+return confirmed;
+}
+async #withFallbackSpans(range, confirmed, fallback) {
+const resolved = [];
+let gapStart = range.start;
+for (const span of confirmed) {
+resolved.push(...await fallbackSpansInGap(range.text, gapStart, span.start, fallback));
+resolved.push(span);
+gapStart = span.end;
+}
+resolved.push(...await fallbackSpansInGap(range.text, gapStart, range.end, fallback));
+return resolved;
+}
+}
+function singleStartAdmitContext(planned, confirmations) {
+return {
+hasConfirmedSpanAt: (offset) => planned.some((item) => item.start === offset && confirmations.has(item.request))
+};
+}
+function firstConfirmedSpan(text2, planned, confirmations, admit, admitContext = { hasConfirmedSpanAt: () => false }) {
+for (const item of planned) {
+if (!confirmations.has(item.request)) continue;
+const match = confirmations.get(item.request);
+const surface = text2.slice(item.start, item.end);
+if (admit && !admit({
+start: item.start,
+end: item.end,
+surface,
+lookupCandidate: item.request.lookupCandidate
+}, match, admitContext)) continue;
+return {
+kind: "confirmed",
+start: item.start,
+end: item.end,
+surface,
+lookupCandidate: item.request.lookupCandidate,
+match
+};
+}
+return null;
+}
+async function fallbackSpansInGap(text2, start, end, fallback) {
+const spans = [];
+let cursor = start;
+while (cursor < end) {
+const candidate = await fallback.spanAt({ text: text2, start: cursor, end });
+if (isValidFallbackSpan(text2, cursor, end, candidate)) {
+spans.push({
+kind: "fallback",
+start: candidate.start,
+end: candidate.end,
+surface: text2.slice(candidate.start, candidate.end),
+fallback: candidate.value
+});
+cursor = candidate.end;
+continue;
+}
+cursor = nextCodePointOffset(text2, cursor);
+}
+return spans;
+}
+function isValidFallbackSpan(text2, expectedStart, maximumEnd, candidate) {
+return candidate !== null && Number.isInteger(candidate.start) && Number.isInteger(candidate.end) && candidate.start === expectedStart && candidate.end > candidate.start && candidate.end <= maximumEnd && isCodePointBoundary(text2, candidate.start) && isCodePointBoundary(text2, candidate.end);
+}
+function sourceRange(source) {
+const end = source.end ?? source.text.length;
+if (!Number.isInteger(source.start) || !Number.isInteger(end) || source.start < 0 || end < source.start || end > source.text.length || !isCodePointBoundary(source.text, source.start) || !isCodePointBoundary(source.text, end)) {
+throw new RangeError("Term span source must use valid UTF-16 code-point boundaries.");
+}
+return { text: source.text, start: source.start, end };
+}
+function codePointStarts(text2, start, end) {
+const starts = [];
+let cursor = start;
+while (cursor < end) {
+starts.push(cursor);
+cursor = nextCodePointOffset(text2, cursor);
+}
+return starts;
+}
+function codePointEndsLongestFirst(text2, start, end) {
+const ends = [];
+let cursor = start;
+while (cursor < end) {
+const next = nextCodePointOffset(text2, cursor);
+if (next > end) break;
+cursor = next;
+ends.push(cursor);
+}
+return ends.reverse();
+}
+function nextCodePointOffset(text2, offset) {
+const codePoint = text2.codePointAt(offset);
+return offset + (codePoint !== void 0 && codePoint > 65535 ? 2 : 1);
+}
+function isCodePointBoundary(text2, offset) {
+if (offset <= 0 || offset >= text2.length) return true;
+const before = text2.charCodeAt(offset - 1);
+const after = text2.charCodeAt(offset);
+return !(before >= 55296 && before <= 56319 && after >= 56320 && after <= 57343);
+}
 const KANA_CHAR_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]$`, "u");
 function splitReadingAcrossKanji(base, reading, readingsForKanji) {
 if (kanjiCharacterCount(base) < 2) return null;
@@ -22816,10 +23086,6 @@ const LOCAL_MATCH_LIMIT = 40;
 const LOCAL_ENRICHMENT_CONCURRENCY = 12;
 const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
-const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
-const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
-const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
-const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const LOCAL_PARSE_TIMEOUT_MS = 8e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
@@ -22838,7 +23104,6 @@ const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(
 const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
 const log$8 = Logger.scope("ReaderParser");
-const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 function apiFirstParseOptions(options = {}) {
 const requireApi = options.requireApi ?? options.requireJpdb ?? true;
 return { includeLocalPitch: false, ...options, requireApi };
@@ -22856,7 +23121,6 @@ localCardCache = new Map();
 localCardEvidenceCache = new Map();
 localParseCache = new Map();
 localPitchCache = new Map();
-localBoundaryEvidenceCache = new Map();
 localTermDictionaryAvailability;
 enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
 kanjiReadingCache = new Map();
@@ -22874,7 +23138,9 @@ localFallback: settings.localDictionariesEnabled
 try {
 const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
 if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
-const evidenceReconciled = this.withCachedCardEvidence(paragraphs, parsed);
+const authoritative = await this.withAuthoritativeTermSpans(paragraphs, parsed, options, target);
+if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
+const evidenceReconciled = this.withCachedCardEvidence(paragraphs, authoritative);
 const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
 if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
 const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
@@ -22894,6 +23160,156 @@ return isCurrentLearningTarget(target, targetGeneration) ? normalized : emptyPar
 done();
 }
 }
+/**
+* Resolve the authoritative token underneath one source offset through the
+* exact same span pipeline used for passive annotation.
+*/
+async lookupTokenAt(text2, offset, range = { start: 0, end: text2.length }, options = {}) {
+const [tokens] = await this.parse([text2], { ...options, allowSegmentedFallback: true });
+return pickAuthoritativeTokenAt(tokens ?? [], text2, offset, range);
+}
+async withAuthoritativeTermSpans(paragraphs, parsed, options, target) {
+const sources = await this.authoritativeSpanSources(paragraphs, options, target);
+const lookup = new BatchedParserSpanLookup((requests) => this.authoritativeSpanConfirmations(requests, sources, options, target));
+const resolved = await Promise.all(paragraphs.map((text2, index) => this.authoritativeTermSpans(text2, parsed[index] ?? [], options, target, lookup)));
+return resolved.every((tokens, index) => tokens === parsed[index]) ? parsed : resolved;
+}
+async authoritativeTermSpans(text2, decorations, options, target, lookup) {
+const fallbackSegments = target.segment(text2);
+const fallback = options.allowSegmentedFallback === true ? {
+spanAt: (request) => {
+const segment = fallbackSegments.find((item) => item.start <= request.start && request.start < item.end);
+if (!segment) return null;
+const end = Math.min(segment.end, request.end);
+if (end <= request.start) return null;
+const surface = text2.slice(request.start, end);
+if (!target.isLookupableText(surface)) return null;
+return {
+start: request.start,
+end,
+value: this.fallbackCardFromText(surface, target)
+};
+}
+} : void 0;
+const resolver = new TermSpanResolver({
+target,
+maximumSourceLength: 18,
+lookup,
+fallback,
+preconfirm: decorationAlignedSpanConfirmation(text2, decorations, target, {
+trustLocalDecorations: this.localStoreLacksExactBatch()
+}),
+plan: (candidate) => !segmentsContainInternalParticle(text2, fallbackSegments, candidate.start, candidate.end),
+admit: rejectUntrustworthySpanShapes(text2, fallbackSegments, target)
+});
+const spans = (await Promise.all(target.pointerWordSegments(text2).map((run) => resolver.resolveAll({ text: text2, start: run.start, end: run.end })))).flat().sort((first, second) => first.start - second.start || second.end - first.end);
+const tokens = spans.map((span) => authoritativeTokenFromSpan(text2, span, decorations));
+return tokens.length === decorations.length && tokens.every((token, index) => token === decorations[index]) ? decorations : tokens;
+}
+/**
+* Confirm candidates through exact term lookups. Paragraph parser tokens
+* are intentionally absent from this method: they may decorate a winning
+* card later, but their offsets and lexical choices cannot establish a
+* source span.
+*/
+async authoritativeSpanConfirmations(requests, sources, options, target) {
+const confirmed = new Map();
+for (const source of sources) {
+const pending = requests.filter((request) => !confirmed.has(request));
+if (!pending.length) break;
+if (source === "local" && await this.confirmLocalParserSpanRequests(pending, target, confirmed)) continue;
+const terms = authoritativeLookupTerms(pending, target);
+if (!terms.length) continue;
+const cards = await this.authoritativeCardsForSource(source, terms, options, target);
+confirmParserSpanRequests(pending, cards, target, confirmed);
+}
+return confirmed;
+}
+localStoreLacksExactBatch() {
+const store = this.dependencies.dictionaries;
+return typeof store.lookupExactTermCandidates !== "function";
+}
+async confirmLocalParserSpanRequests(requests, target, confirmed) {
+const store = this.dependencies.dictionaries;
+if (typeof store.lookupExactTermCandidates !== "function") {
+return typeof store.lookup !== "function";
+}
+try {
+const matches = await store.lookupExactTermCandidates(
+requests,
+this.dependencies.getSettings().dictionaryPreferences,
+target
+);
+for (const match of matches) {
+const card = this.localCardFromEntry(match.entry, target);
+const term = target.normalizeText(match.request.lookupCandidate.term);
+if (cardMatchesLookupTerm(card, term, target) && parserSpanRulesMatch(card, match.request, target)) {
+confirmed.set(match.request, { card });
+}
+}
+return true;
+} catch (error) {
+log$8.warn("Exact local term span lookup failed", { requests: requests.length }, error);
+return true;
+}
+}
+async authoritativeSpanSources(paragraphs, options, target) {
+const settings = this.dependencies.getSettings();
+const hasLocal = await this.hasLocalTermDictionaries();
+const local = hasLocal ? ["local"] : [];
+if (target.language !== "ja" || shouldSkipApiParser(options)) return local;
+if (settings.parserProvider === "local" && hasLocal) return local;
+if (this.shouldRouteShortBatchToLocal([...paragraphs], options, settings) && hasLocal) return local;
+const jpdb = hasJpdbApiCredential(settings) ? ["jpdb"] : [];
+const jiten = shouldUseJitenParser(settings, options, this.dependencies.jiten) ? ["jiten"] : [];
+const publicJiten = options.allowSegmentedFallback === true && this.dependencies.jitenPublicVocabulary && (typeof navigator === "undefined" || navigator.onLine !== false) ? ["public-jiten"] : [];
+if (options.requireJpdb === true) return [...jpdb, ...local, ...publicJiten];
+if (settings.parserProvider === "jiten") return [...jiten, ...local, ...publicJiten];
+if (settings.parserProvider === "jpdb") return [...jpdb, ...local, ...publicJiten];
+return shouldPreferJitenParser(settings, options, this.dependencies.jiten) ? [...jiten, ...jpdb, ...local, ...publicJiten] : [...jpdb, ...jiten, ...local, ...publicJiten];
+}
+async authoritativeCardsForSource(source, terms, options, target) {
+try {
+if (source === "local") return await this.localAuthoritativeCards(terms, target);
+if (source === "public-jiten") return await this.publicJitenAuthoritativeCards(terms, options, target);
+const parsed = source === "jpdb" ? await this.parseWithJpdb([...terms], options) : await this.parseWithJiten([...terms], options);
+return authoritativeCardsFromParsedTerms(terms, parsed, target);
+} catch (error) {
+log$8.warn("Exact term span lookup failed", { source, terms: terms.length }, error);
+return new Map();
+}
+}
+async localAuthoritativeCards(terms, target) {
+const settings = this.dependencies.getSettings();
+const store = this.dependencies.dictionaries;
+if (typeof store.lookup !== "function") return new Map();
+const rows = await mapLimited(terms, LOCAL_ENRICHMENT_CONCURRENCY, async (term) => {
+const entries2 = await store.lookup(term, term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences);
+return [term, entries2];
+});
+const cards = new Map();
+for (const [term, entries2] of rows) {
+const key = target.normalizeText(term);
+cards.set(key, entries2.filter((entry) => [entry.expression, entry.reading].some((value) => target.normalizeText(value) === key)).map((entry) => this.localCardFromEntry(entry, target)));
+}
+return cards;
+}
+async publicJitenAuthoritativeCards(terms, options, target) {
+const client = this.dependencies.jitenPublicVocabulary;
+if (!client) return new Map();
+if (typeof client.lookupMany === "function") {
+const found = await client.lookupMany(terms, {
+detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length)
+});
+const cards = new Map();
+found.forEach((card, term) => cards.set(target.normalizeText(term), [card]));
+return cards;
+}
+const parsed = await client.parse(terms, {
+detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length)
+});
+return authoritativeCardsFromParsedTerms(terms, parsed, target);
+}
 async reconcileLocalParse(paragraphs, parsed, options, target) {
 try {
 return await withTimeout(
@@ -22906,9 +23322,8 @@ log$8.warn("Local parse reconciliation timed out or failed; keeping unreconciled
 return parsed;
 }
 }
-async reconcileLocalParseResolved(paragraphs, parsed, options, target) {
-const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options, target);
-return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled, target);
+async reconcileLocalParseResolved(paragraphs, parsed, _options, target) {
+return this.withLocallySplitKanjiRubies(paragraphs, parsed, target);
 }
 async parseWithPreferredSource(paragraphs, options, settings, target) {
 if (target.language !== "ja") {
@@ -23052,7 +23467,6 @@ this.localCardCache.clear();
 this.localCardEvidenceCache.clear();
 this.localParseCache.clear();
 this.localPitchCache.clear();
-this.localBoundaryEvidenceCache.clear();
 this.localTermDictionaryAvailability = void 0;
 }
 localCardFromEntry(entry, target = activeLearningTarget()) {
@@ -23060,6 +23474,7 @@ const id = -stablePositiveHashId(`${target.language}
 ${entry.dictionary}
 ${entry.expression}
 ${entry.reading}`);
+const partOfSpeech = (entry.rules ?? "").split(/\s+/).filter(Boolean);
 const card = {
 vid: id,
 sid: id,
@@ -23068,10 +23483,10 @@ spelling: entry.expression,
 reading: entry.reading || entry.expression,
 language: target.language,
 frequencyRank: entry.jpdbFrequency ?? null,
-partOfSpeech: [],
+partOfSpeech,
 meanings: [{
 glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),
-partOfSpeech: []
+partOfSpeech
 }],
 cardState: ["not-in-deck"],
 provisionalState: true,
@@ -23169,48 +23584,6 @@ pitchClass: pitch ? getPitchClass([pitch], card.reading) : "",
 sentence: text2
 };
 }
-async withExactLocalBoundaryEvidence(paragraphs, parsed, options, target) {
-if (!this.canUseLocalDictionaryFallback()) return parsed;
-const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? "", tokens));
-if (!candidates.some((items) => items.length)) return parsed;
-if (!await this.hasLocalTermDictionaries(true)) return parsed;
-const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-const text2 = paragraphs[paragraphIndex] ?? "";
-const replacements = await Promise.all(candidates[paragraphIndex].map(async (candidate) => {
-const relative = await this.exactLocalBoundaryMatch(candidate, target);
-if (!relative) return null;
-const match = offsetTermMatch(relative, candidate.start);
-if (!exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens)) return null;
-return this.localTokenFromMatch(text2, match, options, target);
-}));
-return replaceRemoteFragments(tokens, replacements.filter((token) => Boolean(token)));
-}));
-return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
-}
-exactLocalBoundaryMatch(candidate, target) {
-const settings = this.dependencies.getSettings();
-const { surface, boundary } = candidate;
-const key = localBoundaryEvidenceCacheKey(surface, boundary, settings, target);
-const cached = this.localBoundaryEvidenceCache.get(key);
-if (cached) return cached;
-const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
-surface,
-LOCAL_BOUNDARY_MATCH_LIMIT,
-settings.dictionaryPreferences,
-target
-)).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
-if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-log$8.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
-return null;
-});
-this.localBoundaryEvidenceCache.set(key, promise);
-while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
-const oldest = this.localBoundaryEvidenceCache.keys().next().value;
-if (typeof oldest !== "string") break;
-this.localBoundaryEvidenceCache.delete(oldest);
-}
-return promise;
-}
 async hasLocalTermDictionaries(confirmed = false) {
 if (!this.canUseLocalDictionaryFallback()) return false;
 return await this.reportedTermDictionaryAvailability() ?? !confirmed;
@@ -23259,15 +23632,47 @@ return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) 
 fillSegmentedFallbackGaps(text2, tokens, target) {
 tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start || second.end - second.start - (first.end - first.start)), text2);
 const fallbackTokens = this.parseSegmentedText(text2, target);
-const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
-const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
-const replacements = [
-...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
-...fallbackTokens.filter((fallback) => broad.some((token) => tokenInsideRange(fallback, token.start, token.end)))
-];
-const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)));
-const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end))) : tokens;
-return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
+const extras = this.segmentedFallbackGapTokens(text2, fallbackTokens, tokens, target);
+return extras.length ? [...tokens, ...extras].sort(compareTokensByOffset) : tokens;
+}
+/**
+* Segmentation is gap coverage, never lexical evidence. A fallback span may
+* carry wider lookup terms for a later dictionary request, but it must not
+* replace or resize a span which a provider or local dictionary confirmed.
+*
+* ICU boundaries can cross a confirmed token. Subtract those ranges and
+* mint fallback cards only for the uncovered source slices, preserving the
+* confirmed token verbatim. This makes dictionary evidence monotonic and
+* prevents a broad segmented token from repainting a narrower real word.
+*/
+segmentedFallbackGapTokens(text2, fallbackTokens, confirmedTokens, target) {
+const extras = [];
+for (const fallback of fallbackTokens) {
+const blockers = confirmedTokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end)).sort(compareTokensByOffset);
+let start = fallback.start;
+for (const blocker of blockers) {
+this.pushSegmentedFallbackGap(extras, text2, start, Math.min(blocker.start, fallback.end), target);
+start = Math.max(start, blocker.end);
+if (start >= fallback.end) break;
+}
+this.pushSegmentedFallbackGap(extras, text2, start, fallback.end, target);
+}
+return extras;
+}
+pushSegmentedFallbackGap(tokens, text2, start, end, target) {
+if (end <= start) return;
+const surface = text2.slice(start, end);
+if (!target.isLookupableText(surface)) return;
+const card = this.fallbackCardFromText(surface, target);
+tokens.push({
+card,
+start,
+end,
+length: end - start,
+rubies: [],
+pitchClass: "",
+sentence: text2
+});
 }
 async localRubySegments(surface, reading, start, end) {
 const whole = [{ text: reading, start, end, length: end - start }];
@@ -23438,6 +23843,231 @@ this.localPitchCache.delete(oldest);
 }
 }
 }
+class BatchedParserSpanLookup {
+constructor(load) {
+this.load = load;
+}
+pending = [];
+flushScheduled = false;
+lookup(requests) {
+return new Promise((resolve, reject) => {
+this.pending.push({ requests, resolve, reject });
+if (this.flushScheduled) return;
+this.flushScheduled = true;
+queueMicrotask(() => {
+void this.flush();
+});
+});
+}
+async flush() {
+this.flushScheduled = false;
+const pending = this.pending;
+this.pending = [];
+try {
+const matches = await this.load(pending.flatMap((item) => [...item.requests]));
+for (const item of pending) {
+const result = new Map();
+for (const request of item.requests) {
+const match = matches.get(request);
+if (match) result.set(request, match);
+}
+item.resolve(result);
+}
+} catch (error) {
+pending.forEach((item) => item.reject(error));
+}
+}
+}
+function authoritativeLookupTerms(requests, target) {
+const terms = new Map();
+for (const request of requests) {
+const term = request.lookupCandidate.term.trim();
+const key = target.normalizeText(term);
+if (key && !terms.has(key)) terms.set(key, term);
+}
+return [...terms.values()];
+}
+function confirmParserSpanRequests(requests, cardsByTerm, target, confirmed) {
+for (const request of requests) {
+if (confirmed.has(request)) continue;
+if (!target.isLookupableText(request.surface)) continue;
+const term = target.normalizeText(request.lookupCandidate.term);
+if (!term) continue;
+const card = cardsByTerm.get(term)?.find((candidate) => cardMatchesLookupTerm(candidate, term, target) && parserSpanRulesMatch(candidate, request, target));
+if (card) confirmed.set(request, { card });
+}
+}
+function decorationAlignedSpanConfirmation(text2, decorations, target, options) {
+const bySpan = new Map();
+for (const token of decorations) {
+if (token.card.source === "fallback") continue;
+if (token.card.source === "local" && !options.trustLocalDecorations) continue;
+bySpan.set(`${token.start}:${token.end}`, token);
+}
+if (!bySpan.size) return () => null;
+return (candidate) => {
+const token = bySpan.get(`${candidate.start}:${candidate.end}`);
+if (!token) return null;
+if (endsInsideKanaRun(text2, candidate.end)) return null;
+const term = target.normalizeText(candidate.lookupCandidate.term);
+return cardMatchesLookupTerm(token.card, term, target) ? { card: token.card } : null;
+};
+}
+function rejectUntrustworthySpanShapes(text2, segments, target) {
+const segmentsAreWordCovers = target.language === "ja" || target.lookupStartsAtSegmentBoundary;
+return (candidate, match, context) => {
+const term = target.normalizeText(candidate.lookupCandidate.term);
+const identity = term === target.normalizeText(candidate.surface);
+if (identity && match.card.source !== "local" && !match.card.pitchAccent?.length && (segmentsContainInternalParticle(text2, segments, candidate.start, candidate.end) || hasInternalKanaToKanjiTransition(text2, candidate.start, candidate.end))) {
+return false;
+}
+if (segmentsAreWordCovers && endsStrictlyInsideSegment(segments, candidate.end) && !context.hasConfirmedSpanAt(candidate.end) && !KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, candidate.end))) {
+return false;
+}
+return true;
+};
+}
+function endsStrictlyInsideSegment(segments, end) {
+return segments.some((segment) => segment.start < end && end < segment.end);
+}
+function segmentsContainInternalParticle(text2, segments, start, end) {
+return segments.some((segment) => segment.start >= start && segment.end <= end && !(segment.start === start && segment.end === end) && SPAN_BOUNDARY_PARTICLES.includes(text2.slice(segment.start, segment.end)));
+}
+const KANA_RUN_CHARACTER_RE = new RegExp(`^[${KANA}${PROLONGED_SOUND_MARK}]$`, "u");
+const KANJI_CHARACTER_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
+function hasInternalKanaToKanjiTransition(text2, start, end) {
+for (let index = start + 1; index < end; index++) {
+if (KANA_RUN_CHARACTER_RE.test(text2[index - 1]) && KANJI_CHARACTER_RE.test(text2[index])) return true;
+}
+return false;
+}
+const KANA_CASE_PARTICLE_CONTINUATIONS = [
+"から",
+"まで",
+"より",
+"だけ",
+"しか",
+"など",
+"は",
+"が",
+"を",
+"に",
+"へ",
+"と",
+"で",
+"の",
+"や"
+];
+const KANA_FINAL_PARTICLE_CONTINUATIONS = ["かしら", "かな", "っけ", "ね", "な", "か", "よ", "わ", "ぞ", "ぜ", "さ"];
+const SPAN_BOUNDARY_PARTICLES = [...KANA_CASE_PARTICLE_CONTINUATIONS, "な"];
+let standaloneGrammarParticleSet;
+function standaloneGrammarParticles() {
+standaloneGrammarParticleSet ??= new Set([
+...SPAN_BOUNDARY_PARTICLES,
+...KANA_FINAL_PARTICLE_CONTINUATIONS
+]);
+return standaloneGrammarParticleSet;
+}
+function pickAuthoritativeTokenAt(tokens, text2, offset, range = { start: 0, end: text2.length }) {
+const start = Math.max(0, Math.min(range.start, text2.length));
+const end = Math.max(start, Math.min(range.end, text2.length));
+if (offset < start || offset >= end) return void 0;
+const token = tokens.find((item) => item.start >= start && item.end <= end && item.start <= offset && offset < item.end);
+if (!token) return void 0;
+if (token.card.source !== "fallback") return token;
+const surface = text2.slice(token.start, token.end);
+if (standaloneGrammarParticles().has(surface)) return void 0;
+if (surface.length === 1 && KANJI_CHARACTER_RE.test(surface)) return void 0;
+return token;
+}
+function endsInsideKanaRun(text2, end) {
+if (end <= 0 || end >= text2.length) return false;
+if (!KANA_RUN_CHARACTER_RE.test(text2[end - 1]) || !KANA_RUN_CHARACTER_RE.test(text2[end])) return false;
+if (KANA_CASE_PARTICLE_CONTINUATIONS.some((particle) => text2.startsWith(particle, end))) return false;
+let cursor = end;
+let consumedFinal = true;
+while (consumedFinal && cursor < text2.length) {
+consumedFinal = false;
+for (const particle of KANA_FINAL_PARTICLE_CONTINUATIONS) {
+if (!text2.startsWith(particle, cursor)) continue;
+cursor += particle.length;
+consumedFinal = true;
+break;
+}
+}
+if (cursor > end && (cursor >= text2.length || !KANA_RUN_CHARACTER_RE.test(text2[cursor]))) return false;
+return true;
+}
+function authoritativeCardsFromParsedTerms(terms, parsed, target) {
+const result = new Map();
+terms.forEach((term, index) => {
+const key = target.normalizeText(term);
+const cards = (parsed[index] ?? []).map((token) => token.card).filter((card) => card.source !== "fallback" && cardMatchesLookupTerm(card, key, target));
+if (cards.length) result.set(key, cards);
+});
+return result;
+}
+function cardMatchesLookupTerm(card, term, target) {
+return [card.spelling, card.reading].some((value) => target.normalizeText(value) === term);
+}
+function parserSpanRulesMatch(card, request, target) {
+if (!request.lookupCandidate.rules.length) return true;
+const rules = [
+...card.partOfSpeech,
+...card.meanings.flatMap((meaning) => meaning.partOfSpeech)
+].filter(Boolean).join(" ");
+return target.matchesLookupCandidateRules(rules, request.lookupCandidate.rules);
+}
+function authoritativeTokenFromSpan(text2, span, decorations) {
+if (span.kind === "fallback") {
+return {
+card: span.fallback,
+start: span.start,
+end: span.end,
+length: span.end - span.start,
+rubies: [],
+pitchClass: "",
+sentence: text2
+};
+}
+const card = span.match.card;
+const decoration = decorations.find((token) => cardsShareEvidenceIdentity(token.card, card));
+if (decoration?.card === card && decoration.start === span.start && decoration.end === span.end && decoration.length === span.end - span.start && (decoration.sentence ?? text2) === text2 && text2.slice(decoration.start, decoration.end) === span.surface) {
+return decoration;
+}
+const rubies = decoration ? authoritativeDecorationRubies(text2, span, decoration) : [];
+return {
+...decoration ?? {},
+card,
+start: span.start,
+end: span.end,
+length: span.end - span.start,
+rubies: rubies.length ? rubies : authoritativeCardRubies(span, card),
+pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling),
+sentence: text2
+};
+}
+function authoritativeDecorationRubies(text2, span, decoration) {
+const decorationSurface = text2.slice(decoration.start, decoration.end);
+if (decorationSurface !== span.surface) return [];
+return decoration.rubies.flatMap((ruby) => {
+const relativeStart = ruby.start - decoration.start;
+const relativeEnd = ruby.end - decoration.start;
+if (relativeStart < 0 || relativeEnd <= relativeStart || relativeEnd > span.end - span.start) return [];
+const start = span.start + relativeStart;
+const end = span.start + relativeEnd;
+return [{ ...ruby, start, end, length: end - start }];
+});
+}
+function authoritativeCardRubies(span, card) {
+const reading = card.reading.trim();
+if (!reading || reading === span.surface) return [];
+return inferredInflectedSurfaceRubies(span.surface, card.spelling, reading).map((ruby) => ({
+...ruby,
+start: span.start + ruby.start,
+end: span.start + ruby.end
+}));
+}
 function firstLocalPitchPattern$1(resolution) {
 return resolution.patterns[0] ?? "";
 }
@@ -23483,111 +24113,6 @@ priority: preference.priority
 }))
 });
 }
-function boundaryEvidenceCandidates(text2, tokens) {
-const sorted = [...tokens].sort(compareTokensByOffset);
-const candidates = [];
-const seen = new Set();
-for (let index = 1; index < sorted.length; index += 1) {
-const candidate = boundaryEvidenceCandidate(text2, sorted[index - 1], sorted[index]);
-if (!candidate) continue;
-const key = `${candidate.start}:${candidate.surface}`;
-if (seen.has(key)) continue;
-seen.add(key);
-candidates.push(candidate);
-if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
-}
-return candidates;
-}
-function boundaryEvidenceCandidate(text2, first, second) {
-if (first.end !== second.start) return null;
-if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
-const left = codePointBeforeUtf16Offset(text2, first.end);
-const right = codePointAtUtf16Offset(text2, second.start);
-if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-const firstSurface = text2.slice(first.start, first.end);
-const secondSurface = text2.slice(second.start, second.end);
-if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-return {
-surface: text2.slice(first.start, second.end),
-start: first.start,
-boundary: first.end - first.start
-};
-}
-function isReconciliableParseToken(token) {
-return !token.card.source || token.card.source === "jpdb" || token.card.source === "jiten" || token.card.source === "fallback";
-}
-function isSingleJapaneseCharacter(surface) {
-const characters = Array.from(surface);
-return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
-}
-function codePointBeforeUtf16Offset(text2, offset) {
-if (offset <= 0) return "";
-const trailingCodeUnit = text2.charCodeAt(offset - 1);
-const start = isLowSurrogate(trailingCodeUnit) && offset > 1 && isHighSurrogate(text2.charCodeAt(offset - 2)) ? offset - 2 : offset - 1;
-return text2.slice(start, offset);
-}
-function codePointAtUtf16Offset(text2, offset) {
-const codePoint = text2.codePointAt(offset);
-return codePoint === void 0 ? "" : String.fromCodePoint(codePoint);
-}
-function isHighSurrogate(value) {
-return value >= 55296 && value <= 56319;
-}
-function isLowSurrogate(value) {
-return value >= 56320 && value <= 57343;
-}
-function exactBoundaryMatch(surface, boundary, matches) {
-const accepted = matches.filter((match) => !match.deinflected && match.start >= 0 && match.end <= surface.length && match.end - match.start >= 2 && match.start < boundary && match.end > boundary && match.surface === surface.slice(match.start, match.end) && match.entry.expression === match.surface && Boolean(match.entry.reading.trim()));
-const identities = new Set(accepted.map((match) => boundaryMatchIdentity(match)));
-if (identities.size !== 1) return null;
-return accepted.sort((first, second) => second.end - second.start - (first.end - first.start) || first.start - second.start)[0] ?? null;
-}
-function boundaryMatchIdentity(match) {
-return `${match.entry.expression.normalize("NFKC").trim()}
-${match.entry.reading.normalize("NFKC").trim()}`;
-}
-function offsetTermMatch(match, offset) {
-return {
-...match,
-start: match.start + offset,
-end: match.end + offset
-};
-}
-function exactMatchSafelyCrossesRemoteBoundary(text2, match, tokens) {
-const overlapping = tokens.filter((token) => rangesOverlap$1(match.start, match.end, token.start, token.end));
-if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
-return overlapping.every((token) => {
-const prefix = text2.slice(token.start, Math.min(token.end, match.start));
-const suffix = text2.slice(Math.max(token.start, match.end), token.end);
-return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
-});
-}
-function replaceRemoteFragments(tokens, candidates) {
-if (!candidates.length) return tokens;
-const accepted = [];
-for (const candidate of [...candidates].sort((first, second) => second.length - first.length || first.start - second.start)) {
-if (accepted.some((token) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))) continue;
-accepted.push(candidate);
-}
-if (!accepted.length) return tokens;
-return [
-...tokens.filter((token) => !accepted.some((candidate) => rangesOverlap$1(candidate.start, candidate.end, token.start, token.end))),
-...accepted
-].sort(compareTokensByOffset);
-}
-function localBoundaryEvidenceCacheKey(surface, boundary, settings, target) {
-return JSON.stringify({
-surface,
-boundary,
-target: target.id,
-language: target.language,
-dictionaries: settings.dictionaryPreferences.map((preference) => ({
-name: preference.name,
-enabled: preference.enabled,
-priority: preference.priority
-}))
-});
-}
 function localParseCacheKey(text2, options, settings, target) {
 const localDictionariesEnabled = settings.localDictionariesEnabled;
 return JSON.stringify({
@@ -23604,73 +24129,8 @@ priority: preference.priority
 })) : []
 });
 }
-function fallbackLookupTermAtOffset(text2, offset) {
-const range = fallbackLookupRangeAtOffset(text2, offset);
-if (range) return normalizeFallbackTerm(text2.slice(range.start, range.end));
-return normalizeFallbackTerm(text2);
-}
-function fallbackLookupRangeAtOffset(text2, offset) {
-const clampedOffset = Math.max(0, Math.min(offset, Math.max(0, text2.length - 1)));
-const segment = segmentTargetLanguageText(text2).find((item) => offsetInsideFallbackMatch(item.start, item.end, clampedOffset));
-if (segment) return { start: segment.start, end: segment.end };
-for (const match of text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)) {
-const start = match.index ?? 0;
-const end = start + match[0].length;
-if (offsetInsideFallbackMatch(start, end, clampedOffset)) {
-return { start, end };
-}
-}
-return void 0;
-}
-function offsetInsideFallbackMatch(start, end, offset) {
-return start <= offset && offset < end;
-}
 function rangesOverlap$1(start, end, otherStart, otherEnd) {
 return start < otherEnd && otherStart < end;
-}
-function tokenInsideRange(token, start, end) {
-return token.start >= start && token.end <= end;
-}
-function preferInflectedFallback(fallback, tokens) {
-if (!fallback.card.fallbackLookupTerms?.length) return false;
-const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
-return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
-}
-function isBroadPublic(token) {
-return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
-}
-function fallbackRepairTokens(text2, fallbackTokens, tokens) {
-const repaired = new Set();
-for (const fallback of fallbackTokens) {
-const group = fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens);
-group?.forEach((token) => repaired.add(token));
-}
-return [...repaired].sort(compareTokensByOffset);
-}
-function fallbackRepairGroupForToken(text2, fallback, fallbackTokens, tokens) {
-if (!rangeHasUncoveredJapaneseText(text2, fallback.start, fallback.end, tokens)) return null;
-const overlapping = tokens.filter((token) => rangesOverlap$1(fallback.start, fallback.end, token.start, token.end));
-if (!overlapping.length) return null;
-const start = Math.min(fallback.start, ...overlapping.map((token) => token.start));
-const end = Math.max(fallback.end, ...overlapping.map((token) => token.end));
-if (!tokens.every((token) => !rangesOverlap$1(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-return fallbackTokensCoveringRange(text2, fallbackTokens, start, end);
-}
-function rangeHasUncoveredJapaneseText(text2, start, end, tokens) {
-for (let index = start; index < end; ) {
-const character = codePointAtUtf16Offset(text2, index);
-if (!character) break;
-const characterEnd = index + character.length;
-if (JAPANESE_CHARACTER_RE.test(character) && !tokens.some((token) => token.start <= index && characterEnd <= token.end)) return true;
-index = characterEnd;
-}
-return false;
-}
-function fallbackTokensCoveringRange(text2, fallbackTokens, start, end) {
-const group = fallbackTokens.filter((token) => token.start >= start && token.end <= end);
-if (!group.length) return null;
-group.sort(compareTokensByOffset);
-return rangeHasUncoveredJapaneseText(text2, start, end, group) ? null : group;
 }
 function compareTokensByOffset(a, b) {
 return a.start - b.start || b.length - a.length;
@@ -29041,7 +29501,6 @@ function updateKanjiMiningControlsMount(popover, controls, setMiningControlsExpa
 yomuKanjiStudyCompanion()?.updateKanjiMiningControlsMount?.(popover, controls, setMiningControlsExpanded2);
 }
 const SINGLE_HIRAGANA_MORA_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]$`, "u");
-const SUBSTANTIVE_LOCAL_EXPANSION_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, "u");
 function normalizedLookupText(text2) {
 return text2.replace(/\s+/g, " ").trim();
 }
@@ -29052,26 +29511,12 @@ function lookupCandidateSentence(text2, start = 0, end = text2.length) {
 const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText(text2);
 return isLookupableTargetLanguageText(sentence) ? sentence : "";
 }
-function pointerTokenAtOffset(tokens, offset) {
-return tokens.find((token) => tokenContainsPointerOffset(token, offset));
-}
-function tokenContainsPointerOffset(token, offset) {
-return token.start <= offset && offset < token.end;
-}
 function isLowValuePitchEnrichmentToken(token) {
 return isLowValuePointerTextToken(token);
 }
 function isLowValuePointerTextToken(token) {
 const spelling = token.card.spelling.trim();
 return SINGLE_HIRAGANA_MORA_RE.test(spelling);
-}
-function canExpandLocalPointerRange(surface) {
-return surface.length > 1 || SUBSTANTIVE_LOCAL_EXPANSION_RE.test(surface);
-}
-function isOverbroadLocalPointerRange(run, range) {
-const rangeLength = range.end - range.start;
-const runLength = run.end - run.start;
-return rangeLength > 8 && range.start <= run.start && range.end >= run.end && runLength > 8;
 }
 function preferredRenderedWordSentence(nearest, tokenSentence) {
 const cleanNearest = normalizedLookupText(nearest);
@@ -29112,501 +29557,204 @@ rubies: [],
 pitchClass: ""
 };
 }
-const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
-const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
-const JPDB_POINTER_CANDIDATE_LIMIT = 24;
-const JPDB_POINTER_BOUNDARY_SEGMENTS = [
-"から",
-"まで",
-"より",
-"だけ",
-"しか",
-"など",
-"には",
-"では",
-"とは",
-"は",
-"が",
-"を",
-"に",
-"へ",
-"と",
-"で",
-"の",
-"や"
-];
-const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
-const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
-"script",
-"style",
-"noscript",
-"textarea",
-"input",
-"select",
-"option",
-"svg",
-"use",
-"rt",
-"rp",
-"[contenteditable]",
-'[role="textbox"]',
-'[role="searchbox"]',
-'[role="combobox"]',
-"[aria-placeholder]",
-"[data-placeholder]",
-'[class*="placeholder" i]',
-READER_ROOT_SELECTOR$2
-].join(",");
-const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
-"button",
-"summary",
-'[role="button"]',
-'[role="checkbox"]',
-'[role="radio"]',
-'[role="tab"]',
-"[onclick]"
-].join(",");
-const POINTER_TEXT_SKIP_SELECTOR = `${POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR},${POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR}`;
-const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR$2} .jpdb-reader-local-glossary a[href]`;
-const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
-const YOUTUBE_METADATA_SELECTOR = [
-"#metadata",
-"#metadata-line",
-"#metadata-text",
-"#video-info",
-"#stats",
-"ytd-video-meta-block",
-"yt-content-metadata-view-model",
-".inline-metadata-item",
-".badge-style-type-simple"
-].join(",");
-const METADATA_TOKEN_RE = /^(?:[\d０-９][\d０-９,.，]*\s*)?(?:万|億)?(?:回視聴|視聴|再生|回再生|件|コメント|高評価|日前|時間前|分前|秒前|か月前|ヶ月前|週間前|年前|ライブ配信中|新着)$/u;
-const POINTER_TEXT_CONTEXT_ROOT_SELECTOR = [
-"p",
-"li",
-"figcaption",
-"blockquote",
-"h1",
-"h2",
-"h3",
-"h4",
-"h5",
-"h6",
-"a",
-"yt-formatted-string",
-"yt-attributed-string",
-'[id="content-text"]',
-'[id="video-title"]',
-"[data-jpdb-reader-context]"
-].join(",");
-const POINTER_TEXT_CONTEXT_SKIP_SELECTOR = [
-"script",
-"style",
-"noscript",
-"textarea",
-"input",
-"select",
-"button",
-"option",
-"summary",
-"svg",
-"use",
-"rt",
-"rp",
-'[aria-hidden="true"]',
-"[hidden]"
-].join(",");
-const POINTER_TEXT_CONTEXT_MAX_LENGTH = 220;
-const POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH = 80;
-const POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH = 4;
-function caretTextPositionFromPoint(x, y) {
-const doc = document;
-const position = doc.caretPositionFromPoint?.(x, y);
-if (position?.offsetNode.nodeType === Node.TEXT_NODE) {
-return { node: position.offsetNode, offset: position.offset };
+function renderedWordLookupText(word) {
+return normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
 }
-const range = doc.caretRangeFromPoint?.(x, y);
-if (range?.startContainer.nodeType === Node.TEXT_NODE) {
-return { node: range.startContainer, offset: range.startOffset };
+function renderedWordCacheMatches(word, card) {
+const expression = normalizedLookupText(word.dataset.expression ?? "");
+const reading = normalizedLookupText(word.dataset.reading ?? "");
+if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
+if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
+return true;
 }
-return null;
+function cardMatchesRenderedLookupValue(card, value) {
+return normalizedLookupText(card.spelling) === value || normalizedLookupText(card.reading) === value;
 }
-const pointerTextRunAt = targetPointerWordAt;
-function jpdbPointerLookupCandidates(text2, offset) {
-const target = activeLearningTarget();
-const run = pointerTextRunAt(text2, offset);
-if (!run) return [];
-if (target.lookupStartsAtSegmentBoundary) {
-const term = text2.slice(run.start, run.end).trim();
-return term ? [{ term, start: run.start, end: run.end }] : [];
+function renderedWordCardForLookup(word, cachedCard) {
+if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return void 0;
+if (!cachedCard) return void 0;
+const reading = normalizedLookupText(word.dataset.reading ?? "");
+const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? "");
+const explicitSpelling = normalizedLookupText(word.dataset.expression || "");
+if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
+if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
+if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;
+return cachedCard;
 }
-if (target.lookupSubsegments) {
-return pointerSuffixStrippedCandidates(text2, run, target);
+function renderedWordPitchAccent(value) {
+return value.split("|").map((pattern) => pattern.trim()).filter((pattern) => /^[HL]+$/u.test(pattern));
 }
-if (target.lookupSweepMode === "left-to-right-longest-exact") {
-return lookupSpansContainingOffset(
-text2,
-run,
-run.offset,
-JPDB_POINTER_CANDIDATE_MAX_LENGTH,
-JPDB_POINTER_CANDIDATE_START_WINDOW
-).map((span) => pointerCandidate(text2, span.start, span.end)).filter((candidate) => Boolean(candidate));
-}
-const candidates = [];
-pushPointerCandidate(candidates, pointerBoundaryCandidate(text2, run));
-const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
-const maxEnd = Math.min(run.end, run.offset + JPDB_POINTER_CANDIDATE_MAX_LENGTH);
-const maxLength = Math.min(JPDB_POINTER_CANDIDATE_MAX_LENGTH, maxEnd - minStart);
-for (let length = maxLength; length >= 2; length--) {
-const firstStart = Math.max(minStart, run.offset - length + 1);
-const lastStart = Math.min(run.offset, maxEnd - length);
-for (let start = firstStart; start <= lastStart; start++) {
-pushPointerCandidate(candidates, pointerCandidate(text2, start, start + length));
-if (candidates.length >= JPDB_POINTER_CANDIDATE_LIMIT) return candidates;
-}
-}
-return candidates;
-}
-function pointerSuffixStrippedCandidates(text2, run, target) {
-const runText = text2.slice(run.start, run.end);
-const relativeOffset = run.offset - run.start;
-return target.lookupSubsegments(runText, JPDB_POINTER_CANDIDATE_MAX_LENGTH).filter((term) => relativeOffset < term.length).map((term) => ({ term, start: run.start, end: run.start + term.length }));
-}
-function pointerBoundaryCandidate(text2, run) {
-const relativeOffset = run.offset - run.start;
-const runText = text2.slice(run.start, run.end);
-const boundaries = pointerBoundarySegments(runText);
-let start = 0;
-let end = runText.length;
-for (const boundary of boundaries) {
-if (relativeOffset >= boundary.start && relativeOffset < boundary.end) {
-return pointerCandidate(text2, run.start + boundary.start, run.start + boundary.end);
-}
-if (boundary.end <= relativeOffset) start = boundary.end;
-if (boundary.start > relativeOffset) {
-end = boundary.start;
-break;
-}
-}
-return pointerCandidate(text2, run.start + start, run.start + end);
-}
-function pointerBoundarySegments(text2) {
-const boundaries = [];
-for (let index = 0; index < text2.length; ) {
-const boundary = boundarySegmentAt(text2, index);
-if (!boundary) {
-index++;
-continue;
-}
-if (index > 0 && index + boundary.length < text2.length) {
-boundaries.push({ start: index, end: index + boundary.length });
-}
-index += boundary.length;
-}
-return boundaries;
-}
-function boundarySegmentAt(text2, index) {
-return JPDB_POINTER_BOUNDARY_SEGMENTS.find((segment) => text2.startsWith(segment, index)) ?? "";
-}
-function pointerCandidate(text2, start, end) {
-if (end <= start) return null;
-const term = text2.slice(start, end).trim();
-if (!isUsefulPointerCandidateTerm(term)) return null;
-return { term, start, end };
-}
-function isUsefulPointerCandidateTerm(term) {
-const characters = Array.from(term);
-return (characters.length > 1 || isUnifiedIdeograph(characters[0] ?? "")) && hasTargetPointerWord(term);
-}
-function pushPointerCandidate(candidates, candidate) {
-if (!candidate) return;
-if (candidates.some((existing) => existing.term === candidate.term && existing.start === candidate.start && existing.end === candidate.end)) return;
-candidates.push(candidate);
-}
-function pointerTextCharacterOffset(node, caretOffset, x, y) {
-const parent = node.parentElement;
-if (!parent || !isPointerTextParentEligible(parent)) return null;
-const clamped = Math.min(Math.max(caretOffset, 0), node.data.length - 1);
-const candidates = [clamped, clamped - 1, clamped + 1].filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
-return candidates.find((offset) => textCharacterContainsPoint(node, offset, x, y)) ?? null;
-}
-function pointerTextLookupFromRenderedWord(word, x, y) {
-const context = renderedWordLookupContext(word);
-if (!context) return null;
-const surfaceOffset = renderedWordSurfaceOffsetAtPoint(word, context.surface, x, y);
-if (surfaceOffset === null) return null;
-const offset = context.tokenStart + surfaceOffset;
-const run = pointerTextRunAt(context.sentence, offset);
-if (!run) return null;
-return {
-text: context.sentence,
-offset: run.offset,
-start: run.start,
-end: run.end,
-anchor: word
-};
-}
-function renderedWordLookupContext(word) {
-const sentence = word.dataset.sentence ?? "";
-const surface = readerWordSurfaceText(word);
-if (!sentence || !surface) return null;
-const range = renderedWordTokenRange(word);
-if (!range || sentence.slice(range.start, range.end) !== surface) return null;
-return { sentence, surface, tokenStart: range.start };
-}
-function renderedWordTokenRange(word) {
-const start = Number.parseInt(word.dataset.tokenStart ?? "", 10);
-const end = Number.parseInt(word.dataset.tokenEnd ?? "", 10);
-if (![start, end].every(Number.isFinite)) return null;
-if (start < 0) return null;
-if (end <= start) return null;
-return { start, end };
-}
-function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
-const parent = node.parentElement;
-if (!parent || !isPointerTextParentEligible(parent, options)) return null;
-const local = pointerTextLookupForText(parent, node.data, characterOffset);
-const contextual = pointerTextLookupContext(node, characterOffset, parent);
-return contextual ?? local;
-}
-function renderedWordSurfaceOffsetAtPoint(word, surface, x, y) {
-const nodes = renderedWordSurfaceTextNodes(word);
-const caretOffset = renderedWordCaretOffset(nodes, surface.length, x, y);
-if (caretOffset !== null) return caretOffset;
-const rangeOffset = renderedWordRangeOffsetAtPoint(nodes, x, y);
-if (rangeOffset !== null && rangeOffset < surface.length) return rangeOffset;
-return proportionalRenderedWordOffset(word, surface.length, x, y);
-}
-function renderedWordCaretOffset(nodes, surfaceLength, x, y) {
-const caret = caretTextPositionFromPoint(x, y);
-if (!caret) return null;
-let preceding = 0;
-for (const node of nodes) {
-if (node === caret.node && node.data.length) {
-const nodeOffset = Math.min(Math.max(caret.offset, 0), node.data.length - 1);
-return Math.min(surfaceLength - 1, preceding + nodeOffset);
-}
-preceding += node.data.length;
-}
-return null;
-}
-function renderedWordSurfaceTextNodes(word) {
-const nodes = [];
-const visit = (node) => {
-if (node.nodeType === Node.TEXT_NODE) {
-nodes.push(node);
-return;
-}
-if (node.nodeType !== Node.ELEMENT_NODE) return;
-const element = node;
-if (element !== word && element.matches("rt,rp,script,style,[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi")) return;
-element.childNodes.forEach(visit);
-};
-visit(word);
-return nodes;
-}
-function renderedWordRangeOffsetAtPoint(nodes, x, y) {
-const hits = [];
-let surfaceOffset = 0;
-for (const node of nodes) {
-for (let offset = 0; offset < node.data.length; offset++) {
-const hit = renderedWordCharacterHit(node, offset, surfaceOffset + offset, x, y);
-if (hit) hits.push(hit);
-}
-surfaceOffset += node.data.length;
-}
-return hits.sort((left, right) => left.score - right.score)[0]?.offset ?? null;
-}
-function renderedWordCharacterHit(node, nodeOffset, surfaceOffset, x, y) {
-const range = document.createRange();
-try {
-range.setStart(node, nodeOffset);
-range.setEnd(node, nodeOffset + 1);
-const scores = Array.from(range.getClientRects()).map((rect) => pointerRectScore(rect, x, y)).filter((score) => score !== null);
-return scores.length ? { offset: surfaceOffset, score: Math.min(...scores) } : null;
-} catch {
-return null;
-} finally {
-range.detach?.();
-}
-}
-function pointerRectScore(rect, x, y) {
-const bounds = pointerRectBoundsAtPoint(rect, x, y);
-if (!bounds) return null;
-return Math.hypot(x - (rect.left + bounds.right) / 2, y - (rect.top + bounds.bottom) / 2);
-}
-function proportionalRenderedWordOffset(word, surfaceLength, x, y) {
-if (surfaceLength <= 0) return null;
+const MASS_REVIEW_STATES = new Set(["due", "failed", "learning", "new"]);
+function visibleJitenReviewableWords() {
+const seen = new Set();
+return Array.from(document.querySelectorAll('.jpdb-reader-word[data-card-source="jiten"]')).filter((word) => {
+const state = word.dataset.cardState ?? "";
+if (!MASS_REVIEW_STATES.has(state)) return false;
+const key = `${word.dataset.vid}:${word.dataset.sid}`;
+if (seen.has(key) || !(Number(word.dataset.vid) > 0)) return false;
 const rect = word.getBoundingClientRect();
-const bounds = pointerRectBoundsAtPoint(rect, x, y);
-if (!bounds) return null;
-const vertical = getComputedStyle(word).writingMode.startsWith("vertical");
-const span = vertical ? bounds.bottom - rect.top : bounds.right - rect.left;
-const position = vertical ? y - rect.top : x - rect.left;
-return proportionalSurfaceOffset(surfaceLength, position, span);
+const visible = rect.bottom > 0 && rect.top < window.innerHeight && rect.width > 0 && rect.height > 0;
+if (!visible) return false;
+seen.add(key);
+return true;
+});
 }
-function pointerRectBoundsAtPoint(rect, x, y) {
-const right = rect.right || rect.left + rect.width;
-const bottom = rect.bottom || rect.top + rect.height;
-if (!hasPositiveRectArea(rect, right, bottom)) return null;
-if (!coordinateInRange(x, rect.left, right, 1)) return null;
-if (!coordinateInRange(y, rect.top, bottom, 1)) return null;
-return { right, bottom };
-}
-function proportionalSurfaceOffset(surfaceLength, position, span) {
-const progress = span > 0 ? Math.min(0.999999, Math.max(0, position / span)) : 0;
-return Math.min(surfaceLength - 1, Math.floor(progress * surfaceLength));
-}
-function isLowValuePointerText(text2, parent) {
-const compact2 = text2.replace(/\s+/g, "");
-if (!compact2) return true;
-if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
-const parts = compact2.split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u).map((part) => part.trim()).filter(Boolean);
-if (!parts.length) return false;
-return parts.every((part) => METADATA_TOKEN_RE.test(part));
-}
-function pointerTextLookupContext(node, characterOffset, anchor) {
-const root = pointerTextContextRoot(anchor);
-if (!root || root === anchor) return null;
-const context = readablePointerTextContext(root, node);
-if (!context || context.text.length > POINTER_TEXT_CONTEXT_MAX_LENGTH) return null;
-const offset = context.start + Math.min(Math.max(characterOffset, 0), node.data.length - 1);
-const lookup = pointerTextLookupForText(anchor, context.text, offset);
-if (!lookup || lookup.end - lookup.start <= localPointerWordLength(node.data, characterOffset)) return null;
-return isLowValuePointerText(lookup.text, root) ? null : lookup;
-}
-function pointerTextLookupForText(anchor, text2, offset) {
-const run = pointerTextRunAt(text2, offset);
-if (!run || isLowValuePointerText(text2, anchor)) return null;
+function jitenWordCardForMassReview(word) {
 return {
-text: text2,
-offset: run.offset,
-start: run.start,
-end: run.end,
-anchor
+vid: Number(word.dataset.vid),
+sid: Number(word.dataset.sid),
+rid: 0,
+spelling: word.dataset.expression || readerWordSurfaceText(word),
+reading: word.dataset.reading ?? "",
+frequencyRank: null,
+partOfSpeech: [],
+meanings: [],
+cardState: word.dataset.cardState ? [word.dataset.cardState] : [],
+pitchAccent: [],
+wordWithReading: null,
+source: "jiten",
+jitenWordId: Number(word.dataset.vid),
+jitenReadingIndex: Number(word.dataset.sid)
 };
 }
-function localPointerWordLength(text2, offset) {
-const run = pointerTextRunAt(text2, offset);
-return run ? run.end - run.start : 0;
+function unconfirmedRenderedWordSpan(word, card, context) {
+if (card?.source && card.source !== "fallback") return null;
+const sentence = context.sentence || word.dataset.sentence || "";
+if (!sentence) return null;
+const start = Number(word.dataset.tokenStart);
+const end = Number(word.dataset.tokenEnd);
+if (!Number.isInteger(start) || !Number.isInteger(end)) return null;
+if (start < 0 || end <= start || end > sentence.length) return null;
+return { sentence, start, end };
 }
-function pointerTextContextRoot(anchor) {
-const root = anchor.closest(POINTER_TEXT_CONTEXT_ROOT_SELECTOR);
-if (!root) return pointerTextInlineContextRoot(anchor);
-if (!isPointerTextParentEligible(root)) return null;
-return root === anchor ? pointerTextInlineContextRoot(anchor) : root;
+class PopupNavigationController {
+constructor(hasActiveKanjiPopover) {
+this.hasActiveKanjiPopover = hasActiveKanjiPopover;
 }
-function pointerTextInlineContextRoot(anchor) {
-const localText = anchor.textContent ?? "";
-let current = anchor.parentElement;
-for (let depth = 0; current && depth < POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH; depth++, current = current.parentElement) {
-if (current === document.body || current === document.documentElement) return null;
-if (isPointerTextInlineContextCandidate(current, localText.length)) {
-return current;
-}
-}
-return null;
-}
-function isPointerTextInlineContextCandidate(element, localTextLength) {
-const text2 = element.textContent ?? "";
-return text2.length > localTextLength && text2.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && hasTargetPointerWord(text2) && isPointerTextParentEligible(element);
-}
-function readablePointerTextContext(root, target) {
-let text2 = "";
-let rangeStart = -1;
-let rangeEnd = -1;
-const visit = (node) => {
-if (node.nodeType === Node.TEXT_NODE) {
-const value = node.textContent ?? "";
-if (node === target) {
-rangeStart = text2.length;
-rangeEnd = text2.length + value.length;
-}
-text2 += value;
+wordStack = [];
+currentWord;
+kanjiStack = [];
+currentKanji;
+updateWord(card, sentence, trigger, mode, previousNavigationEntry) {
+if (trigger !== "modal") {
+this.clearWord();
 return;
 }
-if (node.nodeType !== Node.ELEMENT_NODE) return;
-const element = node;
-if (element.matches(POINTER_TEXT_CONTEXT_SKIP_SELECTOR)) return;
-element.childNodes.forEach(visit);
+const next = { card, sentence };
+if (mode === "reset") this.wordStack = [];
+else this.pushPreviousWord(mode, next, previousNavigationEntry);
+this.currentWord = next;
+}
+updateKanji(card, kanji, sentence, mode) {
+const next = { card, kanji, sentence };
+if (mode === "reset") {
+this.kanjiStack = [];
+this.currentKanji = next;
+return;
+}
+const previous = this.previousKanjiToPush(mode, next);
+if (previous) this.pushDistinctKanjiEntry(previous);
+this.currentKanji = next;
+}
+clearWord() {
+this.wordStack = [];
+this.currentWord = void 0;
+}
+clearKanji() {
+this.kanjiStack = [];
+this.currentKanji = void 0;
+}
+activeKanjiEntry() {
+if (!this.currentKanji || !this.hasActiveKanjiPopover()) return void 0;
+return this.kanjiEntry(this.currentKanji);
+}
+activeWordEntry() {
+return this.currentWord ? this.wordEntry(this.currentWord) : void 0;
+}
+popPreviousWord() {
+return this.wordStack.pop();
+}
+popPreviousKanji() {
+return this.kanjiStack.pop();
+}
+renderWordHistory(language, trigger) {
+if (trigger !== "modal") return "";
+const previous = this.wordStack[this.wordStack.length - 1];
+if (!previous) return "";
+return renderModalNavigation({
+backAction: "word-history-back",
+backTitle: previous.kind === "kanji" ? `${uiText(language, "backToKanji")}: ${previous.kanji}` : `${uiText(language, "backToWord")}: ${previous.card.spelling}`,
+label: previous.kind === "kanji" ? previous.kanji : previous.card.spelling
+});
+}
+kanjiModalBack(card, language) {
+const previousKanji = this.kanjiStack[this.kanjiStack.length - 1];
+return previousKanji ? {
+backAction: "kanji-history-back",
+backTitle: `${uiText(language, "backToKanji")}: ${previousKanji.kanji}`,
+label: previousKanji.kanji
+} : {
+backAction: "word-back",
+backTitle: `${uiText(language, "backToWord")}: ${card.spelling}`,
+label: card.spelling
 };
-visit(root);
-if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text2)) return null;
-const leadingWhitespace = text2.match(/^\s*/u)?.[0].length ?? 0;
-const trailingWhitespace = text2.match(/\s*$/u)?.[0].length ?? 0;
-const trimmedText2 = text2.slice(leadingWhitespace, text2.length - trailingWhitespace);
-if (!trimmedText2 || !hasTargetPointerWord(trimmedText2)) return null;
-return {
-text: trimmedText2,
-start: rangeStart - leadingWhitespace,
-end: rangeEnd - leadingWhitespace
-};
 }
-function isPointerTextParentEligible(parent, options = {}) {
-const insideSubtitle = Boolean(parent.closest(".jpdb-subtitle-player, .jpdb-subtitle-list"));
-const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
-let current = parent;
-while (current) {
-if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle, options)) return false;
-current = current.parentElement;
+pushPreviousWord(mode, next, previousNavigationEntry) {
+const previous = previousNavigationEntry ?? this.previousWordEntry(next);
+if (!this.shouldPushPreviousWord(mode, previous, next)) return;
+this.pushDistinctWordEntry(previous);
 }
-return true;
+shouldPushPreviousWord(mode, previous, next) {
+if (mode !== "push-current") return false;
+if (!previous) return false;
+return !this.isSameEntryAsWord(previous, next);
 }
-function isPointerTextElementEligible(element, allowReaderRoot = false, insideSubtitle = false, options = {}) {
-const style = getComputedStyle(element);
-return elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle, options) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element, style);
+pushDistinctWordEntry(previous) {
+const lastStackEntry = this.wordStack[this.wordStack.length - 1];
+if (!lastStackEntry || !this.isSamePopupEntry(lastStackEntry, previous)) this.wordStack.push(previous);
 }
-function elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle = false, options = {}) {
-if (element.hasAttribute("hidden") || element.hasAttribute("inert") || element.getAttribute("aria-hidden")?.toLowerCase() === "true") {
-return false;
+previousWordEntry(next) {
+return this.currentWord && !this.isSameCard(this.currentWord, next) ? this.wordEntry(this.currentWord) : void 0;
 }
-if (insideSubtitle) {
-if (element.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable],[role="textbox"],[role="searchbox"],[role="combobox"],[aria-placeholder],[data-placeholder],[class*="placeholder" i],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
-return false;
+previousKanjiToPush(mode, next) {
+const current = this.currentKanji;
+if (mode !== "push-current") return void 0;
+if (!current) return void 0;
+return this.isSameKanji(current, next) ? void 0 : current;
 }
-return true;
+pushDistinctKanjiEntry(entry) {
+const lastStackEntry = this.kanjiStack[this.kanjiStack.length - 1];
+if (!lastStackEntry || !this.isSameKanji(lastStackEntry, entry)) this.kanjiStack.push(entry);
 }
-const skipSelector = options.allowInteractiveText ? POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR : POINTER_TEXT_SKIP_SELECTOR;
-return !element.matches(skipSelector) || allowReaderRoot && element.matches(READER_ROOT_SELECTOR$2);
+wordEntry(entry) {
+return { kind: "word", card: entry.card, sentence: entry.sentence };
 }
-function stylePassesPointerTextLookup(style) {
-return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
+kanjiEntry(entry) {
+return { kind: "kanji", card: entry.card, sentence: entry.sentence, kanji: entry.kanji };
 }
-function isScreenReaderOnlyElement(element, style) {
-if (hasScreenReaderOnlyClass(element)) return true;
-const rect = element.getBoundingClientRect();
-return isTinyClippedElement(rect, style) || isTinyHiddenAbsoluteElement(rect, style);
+isSameCard(first, second) {
+return cardKey(first.card) === cardKey(second.card);
 }
-function hasScreenReaderOnlyClass(element) {
-return SCREEN_READER_ONLY_CLASS_RE.test(element.className || "");
+isSameKanji(first, second) {
+return this.isSameCard(first, second) && first.kanji === second.kanji;
 }
-function isTinyClippedElement(rect, style) {
-const clipped = Boolean(style.clip && style.clip !== "auto" || style.clipPath && style.clipPath !== "none");
-return clipped && isTinyRect(rect);
+isSameEntryAsWord(entry, word) {
+return entry.kind === "word" && this.isSameCard(entry, word);
 }
-function isTinyHiddenAbsoluteElement(rect, style) {
-return style.position === "absolute" && style.overflow === "hidden" && isTinyRect(rect);
-}
-function isTinyRect(rect) {
-return rect.width <= 2 && rect.height <= 2;
-}
-function textCharacterContainsPoint(node, offset, x, y) {
-if (!node.data.length) return false;
-const start = Math.min(Math.max(offset, 0), node.data.length - 1);
-const range = document.createRange();
-try {
-range.setStart(node, start);
-range.setEnd(node, start + 1);
-return Array.from(range.getClientRects()).some((rect) => rectContainsPoint(rect, x, y));
-} finally {
-range.detach?.();
+isSamePopupEntry(first, second) {
+if (first.kind !== second.kind) return false;
+if (first.kind === "kanji" && second.kind === "kanji") return this.isSameKanji(first, second);
+return this.isSameCard(first, second);
 }
 }
-function rectContainsPoint(rect, x, y) {
-const right = rect.right || rect.left + rect.width;
-const bottom = rect.bottom || rect.top + rect.height;
-const slack = 1;
-return hasPositiveRectArea(rect, right, bottom) && coordinateInRange(x, rect.left, right, slack) && coordinateInRange(y, rect.top, bottom, slack);
+function renderModalNavigation(options) {
+return `
+<div class="jpdb-reader-modal-nav">
+<button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml(options.backAction)}" title="${escapeHtml(options.backTitle)}" aria-label="${escapeHtml(options.backTitle)}">←</button>
+<span title="${escapeHtml(options.label)}">${escapeHtml(options.label)}</span>
+${options.controlsHtml ?? ""}
+</div>
+`;
 }
 const READER_DOCUMENT_CLICK_IGNORE_SELECTOR = [
 "[data-jpdb-reader-surface-ignore]",
@@ -29927,553 +30075,6 @@ const bottom = rect.bottom || rect.top + rect.height;
 const dx = Math.max(rect.left - x, 0, x - right);
 const dy = Math.max(rect.top - y, 0, y - bottom);
 return Math.hypot(dx, dy);
-}
-const TERM_AUDIO_PRELOAD_LIMIT = 4;
-const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
-const NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS = 350;
-const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
-const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
-const TEXT_LOOKUP_JPDB_TIMEOUT_MS = 650;
-const POINTER_TEXT_JPDB_TIMEOUT_MS = 450;
-const RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS = 450;
-const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
-const PITCH_ENRICHMENT_LIMIT = 12;
-const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
-const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
-const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
-const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
-const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
-const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 6;
-const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
-const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
-const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
-const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
-const DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS = 180;
-const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 256;
-const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
-const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
-const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
-const PITCH_LOCAL_META_LIMIT = 12;
-const LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS = 500;
-const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
-const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
-const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1200;
-const UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS = 12e4;
-const PUBLIC_VOCABULARY_MISS_RETRY_LIMIT = 2;
-const DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS = 3e3;
-const MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT = 24;
-const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
-const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
-const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
-const SUBTITLE_SURFACE_SELECTOR = [
-".jpdb-subtitle-player",
-".jpdb-subtitle-list",
-".asbplayer-subtitles-container-bottom",
-".asbplayer-offscreen",
-".jpdb-reader-subtitle-surface"
-].join(", ");
-const KANA_ONLY_LOOKUP_RUN_RE = KANA_ONLY_RUN_RE;
-const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
-const TWO_BUTTON_REVIEW_SHORTCUTS = [
-["gradeFail", "fail"],
-["gradePass", "pass"]
-];
-const FIVE_BUTTON_REVIEW_SHORTCUTS = [
-["gradeNothing", "nothing"],
-["gradeSomething", "something"],
-["gradeHard", "hard"],
-["gradeOkay", "okay"],
-["gradeEasy", "easy"]
-];
-const BUNPRO_FSRS_REVIEW_SHORTCUTS = [
-["gradeNothing", "nothing"],
-["gradeSomething", "hard"],
-["gradeHard", "okay"],
-["gradeOkay", "easy"]
-];
-const JPDB_REVIEW_BLOCKING_STATES = new Set(["blacklisted", "never-forget", "locked"]);
-function matchedReviewShortcutGrade(event, shortcuts, candidates) {
-return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
-}
-function hasBlockedJpdbReviewState(states) {
-return states.some((state) => JPDB_REVIEW_BLOCKING_STATES.has(state));
-}
-function pickExactTokenForSelection(tokens = [], selected) {
-return tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
-}
-function dictionaryLookupLink(target) {
-return target?.closest?.("a.gloss-link[data-dictionary-lookup]") ?? null;
-}
-function actionPillLink(target) {
-return target?.closest?.("a.jpdb-reader-action-pill[href]") ?? null;
-}
-function actionPillUrl(link) {
-try {
-const url = new URL(link.getAttribute("href") ?? "", location.href);
-return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
-} catch {
-return null;
-}
-}
-function handleReaderActionPillLink(event, open = openUrlInNewTab) {
-const link = actionPillLink(event.target);
-if (!link) return false;
-event.preventDefault();
-event.stopPropagation();
-const url = actionPillUrl(link);
-if (!url) return true;
-if (!open(url)) location.href = url;
-return true;
-}
-function dictionaryLookupQuery(link) {
-return normalizedLookupText(link.dataset.dictionaryLookup ?? "");
-}
-function dictionaryLookupNestedWord(target, link) {
-const word = target?.closest?.(".jpdb-reader-word[data-vid][data-sid]") ?? null;
-return word && link.contains(word) ? word : null;
-}
-function dictionaryLookupWordMatchesLink(word, query) {
-return Boolean(query && normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word)) === query);
-}
-function connectedElement(element) {
-return element?.isConnected ? element : void 0;
-}
-function hasVisibleAutoScanTargets() {
-return hasVisibleSiteScanTargets() || allowsGenericVisibleAutoScan() && collectVisibleTextTargets(1).length > 0;
-}
-function hasVisibleSiteScanTargets() {
-return (collectSiteScanTargets(1)?.length ?? 0) > 0;
-}
-function allowsGenericVisibleAutoScan() {
-return !isBookWalkerReaderPage();
-}
-function shouldAutoScanImageOcr(pageHasJapaneseText) {
-return pageHasJapaneseText || documentLooksLikeImageReadingPage() || isBookWalkerReaderPage() && Boolean(document.querySelector("canvas"));
-}
-function allowsFrequentVisibleAutoScan() {
-return true;
-}
-function isYouTubeHostname(hostname = location.hostname) {
-return isYouTubeAppHostname(hostname);
-}
-function backgroundPitchEnrichmentOptionsForHost(_hostname, compactViewport = false) {
-return {
-publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
-publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
-publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-publicLookupTermLimit: 3,
-substantivePublicLookupOnly: true
-};
-}
-function nestedPitchEnrichmentOptionsForHost(_hostname) {
-return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
-}
-function visibleAutoScanMutationDelay(defaultDelay = 450) {
-return isYouTubeHostForAutoScan() ? 320 : defaultDelay;
-}
-function visibleAutoScanInitialDelay(defaultDelay = 600) {
-return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
-}
-const AUTO_SCAN_MIN_INTERVAL_MS = 900;
-const AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS = 1e3;
-function debouncedAutoScanDeadline(requestedDeadline, debounceStartedAt) {
-return Math.min(requestedDeadline, debounceStartedAt + AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS);
-}
-function throttledAutoScanDelay(delay2, options, lastScanStartedAt, now, frequentHost = allowsFrequentVisibleAutoScan()) {
-if (!options.debounce || !frequentHost) return delay2;
-const floorDelay = AUTO_SCAN_MIN_INTERVAL_MS - (now - lastScanStartedAt);
-return Math.max(delay2, Math.min(floorDelay, AUTO_SCAN_MIN_INTERVAL_MS));
-}
-function isYouTubeHostForAutoScan(hostname = location.hostname) {
-return isYouTubeAppHostname(hostname);
-}
-function hasPressLookupEnabled(settings) {
-return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover);
-}
-function isMousePointerEvent(event) {
-return !("pointerType" in event) || event.pointerType === "mouse";
-}
-function eventElement(event) {
-return event.target instanceof Element ? event.target : null;
-}
-function audioPreloadLimits(options) {
-return {
-sourceLimit: options.sourceLimit ?? 1,
-candidateLimit: options.candidateLimit ?? 1,
-prepareAudio: options.prepareAudio
-};
-}
-function evictOldestStringKeysWhileOverLimit(cache, limit) {
-while (cache.size > limit) {
-const oldest = cache.keys().next().value;
-if (typeof oldest !== "string") break;
-cache.delete(oldest);
-}
-}
-function ankiLookupHasDisplayableNotes(lookup) {
-return Boolean(lookup.primary || lookup.notes.length);
-}
-function cardDisplayTrigger(options) {
-return options.trigger === "hover" ? "hover" : "modal";
-}
-function cardSourceLabel(card) {
-return card.source ?? "jpdb";
-}
-function renderedWordNavigationMode(insideReaderPopup, trigger) {
-return insideReaderPopup && trigger === "modal" ? "push-current" : "reset";
-}
-function renderedWordAnchor(word, insideReaderPopup, activePopoverAnchor) {
-return insideReaderPopup ? activePopoverAnchor ?? void 0 : word;
-}
-function selectionIntersectsElement(selection, element) {
-for (let index = 0; index < selection.rangeCount; index += 1) {
-try {
-if (selection.getRangeAt(index).intersectsNode(element)) return true;
-} catch {
-}
-}
-return false;
-}
-function popoverAnchorRect(anchor, fallback) {
-const rect = anchor?.getBoundingClientRect();
-return rect && (rect.width > 0 || rect.height > 0) ? rememberOverlaySourceRect(rect, anchor) : fallback;
-}
-function shouldLockMountedPopoverPosition(popover, state) {
-return state.mode !== "hover" && !popover.classList.contains("jpdb-reader-sheet") && Boolean(state.previousPopoverRect);
-}
-function mountedHoverPointerPosition(state, lastPointerPosition) {
-const hoverPointerPosition = state.previousHoverPointerPosition ?? lastPointerPosition;
-return state.mode === "hover" && hoverPointerPosition ? { ...hoverPointerPosition } : void 0;
-}
-const HOVER_POINTER_TEXT_LOOKUP_OPTIONS = { allowPassiveInteractionText: true };
-function canSchedulePointerTextHoverLookup(hoverEnabled, candidate) {
-return hoverEnabled && Boolean(candidate);
-}
-function samePointerTextLookupTarget(active, candidate) {
-return active.anchor === candidate.anchor && active.text === candidate.text;
-}
-function pointerOffsetInsideLiveLookup(active, offset) {
-return active.start <= offset && offset < active.end;
-}
-const KANA_FRAGMENT_LOOKUP_START_WINDOW = 6;
-const KANA_FRAGMENT_LOOKUP_MAX_LENGTH = 12;
-function renderedWordLookupText(word) {
-return normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
-}
-function publicJpdbRenderedWordLookup(word, card, context, canUsePublicJpdb) {
-return canUsePublicJpdb ? renderedKanaFragmentExpansionLookup(word, card, context) : void 0;
-}
-function renderedKanaFragmentExpansionLookup(word, card, context) {
-const sentence = normalizedLookupText(word.dataset.sentence || context.sentence || "");
-const offset = renderedWordOffsetInSentence(word, card, sentence);
-if (!canCorrectKanaOnlyRenderedWord(sentence, offset)) return void 0;
-const surfaceLength = renderedWordSurfaceLength(word, card);
-const terms = renderedKanaFragmentExpansionTerms(sentence, offset, surfaceLength);
-return terms.length ? { sentence, offset, surfaceLength, terms } : void 0;
-}
-function renderedWordExpansionLookup(word, expression, sentenceValue) {
-const sentence = sentenceValue ?? expression;
-const offset = renderedWordValueOffsetInSentence(sentence, [
-readerWordSurfaceText(word),
-word.dataset.reading ?? "",
-word.dataset.expression ?? "",
-expression
-], renderedWordTokenStartInSentence(word, sentence));
-if (!canCorrectKanaOnlyRenderedWord(sentence, offset)) return void 0;
-const surfaceLength = normalizedLookupText(readerWordSurfaceText(word) || word.dataset.reading || word.dataset.expression || expression).length;
-return { sentence, offset, surfaceLength };
-}
-function renderedWordCacheMatches(word, card) {
-const expression = normalizedLookupText(word.dataset.expression ?? "");
-const reading = normalizedLookupText(word.dataset.reading ?? "");
-if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
-if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
-return true;
-}
-function cardMatchesRenderedLookupValue(card, value) {
-return normalizedLookupText(card.spelling) === value || normalizedLookupText(card.reading) === value;
-}
-function renderedWordCardForLookup(word, cachedCard) {
-if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return void 0;
-if (!cachedCard) return void 0;
-const reading = normalizedLookupText(word.dataset.reading ?? "");
-const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? "");
-const explicitSpelling = normalizedLookupText(word.dataset.expression || "");
-if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
-if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
-if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;
-return cachedCard;
-}
-function renderedWordPitchAccent(value) {
-return value.split("|").map((pattern) => pattern.trim()).filter((pattern) => /^[HL]+$/u.test(pattern));
-}
-function renderedWordSurfaceLength(word, card) {
-return normalizedLookupText(readerWordSurfaceText(word) || card.reading || card.spelling).length;
-}
-function renderedWordOffsetInSentence(word, card, sentence) {
-return renderedWordValueOffsetInSentence(sentence, [
-readerWordSurfaceText(word),
-word.dataset.reading ?? "",
-word.dataset.expression ?? "",
-card.reading,
-card.spelling
-], renderedWordTokenStartInSentence(word, sentence));
-}
-function renderedWordValueOffsetInSentence(sentence, values, preferredOffset) {
-if (!sentence) return -1;
-const candidates = [...new Set(values.map(normalizedLookupText).filter(Boolean))];
-if (preferredOffset !== void 0 && renderedWordOffsetMatchesAnyValue(sentence, preferredOffset, candidates)) {
-return preferredOffset;
-}
-for (const candidate of candidates) {
-const offset = sentence.indexOf(candidate);
-if (offset >= 0) return offset;
-}
-return -1;
-}
-function renderedWordTokenStartInSentence(word, sentence) {
-const tokenStart = Number(word.dataset.tokenStart);
-if (!Number.isInteger(tokenStart) || tokenStart < 0 || tokenStart >= sentence.length) return void 0;
-return tokenStart;
-}
-function renderedWordOffsetMatchesAnyValue(sentence, offset, values) {
-return values.some((value) => value && sentence.startsWith(value, offset));
-}
-function renderedKanaFragmentExpansionTerms(sentence, offset, surfaceLength) {
-const anchored = renderedKanaFragmentAnchoredTerms(sentence, offset, surfaceLength);
-const pointer = jpdbPointerLookupCandidates(sentence, offset).filter((span) => span.end - span.start > surfaceLength).map((span) => span.term).filter(isKanaOnlyLookupTerm);
-return uniqueNonEmptyStrings(shouldPreferAnchoredKanaFragmentTerms(sentence, offset, surfaceLength) ? [...anchored, ...pointer] : [...pointer, ...anchored]);
-}
-function shouldPreferAnchoredKanaFragmentTerms(sentence, offset, surfaceLength) {
-return surfaceLength === 1 && Boolean(kanaFragmentBoundaryAt(sentence, offset));
-}
-function renderedKanaFragmentAnchoredTerms(sentence, offset, surfaceLength) {
-const run = pointerTextRunAt(sentence, offset);
-if (!run) return [];
-const terms = [];
-const minStart = Math.max(run.start, offset - KANA_FRAGMENT_LOOKUP_START_WINDOW);
-for (let start = offset; start >= minStart; start -= 1) {
-const end = kanaFragmentCandidateEnd(sentence, run.end, start, offset);
-const term = normalizedLookupText(sentence.slice(start, end));
-if (term.length > surfaceLength && isKanaOnlyLookupTerm(term)) terms.push(term);
-}
-return terms;
-}
-function kanaFragmentCandidateEnd(sentence, runEnd, start, offset) {
-const minEnd = Math.max(offset + 1, start + 2);
-const boundary = nextKanaFragmentBoundary(sentence, minEnd, runEnd);
-return Math.min(boundary ?? runEnd, start + KANA_FRAGMENT_LOOKUP_MAX_LENGTH);
-}
-function nextKanaFragmentBoundary(sentence, start, end) {
-for (let index = start; index < end; index += 1) {
-const boundary = kanaFragmentBoundaryAt(sentence, index);
-if (boundary) return index;
-}
-return void 0;
-}
-function kanaFragmentBoundaryAt(sentence, index) {
-return JPDB_POINTER_BOUNDARY_SEGMENTS.find((segment) => sentence.startsWith(segment, index)) ?? "";
-}
-function canCorrectKanaOnlyRenderedWord(sentence, offset) {
-return offset >= 0 && isKanaOnlyRenderedWordCorrection(sentence, offset);
-}
-function isKanaOnlyRenderedWordCorrection(sentence, offset) {
-return isKanaOnlyLookupTerm(sentence[offset] ?? "");
-}
-function isKanaOnlyLookupTerm(term) {
-return KANA_ONLY_LOOKUP_RUN_RE.test(term);
-}
-function kanaRunRenderedWordsForSurface(anchor, surface) {
-if (!surface) return [];
-const run = [anchor];
-for (let prev = anchor.previousElementSibling; isRenderedWordElement(prev); prev = prev.previousElementSibling) run.unshift(prev);
-for (let next = anchor.nextElementSibling; isRenderedWordElement(next); next = next.nextElementSibling) run.push(next);
-for (let start = 0; start < run.length; start += 1) {
-let text2 = "";
-for (let end = start; end < run.length; end += 1) {
-text2 += renderedWordSurfaceText(run[end]);
-if (text2.length > surface.length) break;
-if (text2 === surface) {
-const window2 = run.slice(start, end + 1);
-if (window2.includes(anchor)) return window2;
-break;
-}
-}
-}
-return [];
-}
-function isRenderedWordElement(node) {
-return node instanceof HTMLElement && node.classList.contains("jpdb-reader-word");
-}
-function renderedWordSurfaceText(word) {
-if (!word) return "";
-if (word.dataset.surface) return word.dataset.surface;
-if (!word.querySelector("rt, rp")) return word.textContent ?? "";
-const clone = word.cloneNode(true);
-clone.querySelectorAll("rt, rp").forEach((node) => node.remove());
-return clone.textContent ?? "";
-}
-const MASS_REVIEW_STATES = new Set(["due", "failed", "learning", "new"]);
-function visibleJitenReviewableWords() {
-const seen = new Set();
-return Array.from(document.querySelectorAll('.jpdb-reader-word[data-card-source="jiten"]')).filter((word) => {
-const state = word.dataset.cardState ?? "";
-if (!MASS_REVIEW_STATES.has(state)) return false;
-const key = `${word.dataset.vid}:${word.dataset.sid}`;
-if (seen.has(key) || !(Number(word.dataset.vid) > 0)) return false;
-const rect = word.getBoundingClientRect();
-const visible = rect.bottom > 0 && rect.top < window.innerHeight && rect.width > 0 && rect.height > 0;
-if (!visible) return false;
-seen.add(key);
-return true;
-});
-}
-function jitenWordCardForMassReview(word) {
-return {
-vid: Number(word.dataset.vid),
-sid: Number(word.dataset.sid),
-rid: 0,
-spelling: word.dataset.expression || readerWordSurfaceText(word),
-reading: word.dataset.reading ?? "",
-frequencyRank: null,
-partOfSpeech: [],
-meanings: [],
-cardState: word.dataset.cardState ? [word.dataset.cardState] : [],
-pitchAccent: [],
-wordWithReading: null,
-source: "jiten",
-jitenWordId: Number(word.dataset.vid),
-jitenReadingIndex: Number(word.dataset.sid)
-};
-}
-class PopupNavigationController {
-constructor(hasActiveKanjiPopover) {
-this.hasActiveKanjiPopover = hasActiveKanjiPopover;
-}
-wordStack = [];
-currentWord;
-kanjiStack = [];
-currentKanji;
-updateWord(card, sentence, trigger, mode, previousNavigationEntry) {
-if (trigger !== "modal") {
-this.clearWord();
-return;
-}
-const next = { card, sentence };
-if (mode === "reset") this.wordStack = [];
-else this.pushPreviousWord(mode, next, previousNavigationEntry);
-this.currentWord = next;
-}
-updateKanji(card, kanji, sentence, mode) {
-const next = { card, kanji, sentence };
-if (mode === "reset") {
-this.kanjiStack = [];
-this.currentKanji = next;
-return;
-}
-const previous = this.previousKanjiToPush(mode, next);
-if (previous) this.pushDistinctKanjiEntry(previous);
-this.currentKanji = next;
-}
-clearWord() {
-this.wordStack = [];
-this.currentWord = void 0;
-}
-clearKanji() {
-this.kanjiStack = [];
-this.currentKanji = void 0;
-}
-activeKanjiEntry() {
-if (!this.currentKanji || !this.hasActiveKanjiPopover()) return void 0;
-return this.kanjiEntry(this.currentKanji);
-}
-activeWordEntry() {
-return this.currentWord ? this.wordEntry(this.currentWord) : void 0;
-}
-popPreviousWord() {
-return this.wordStack.pop();
-}
-popPreviousKanji() {
-return this.kanjiStack.pop();
-}
-renderWordHistory(language, trigger) {
-if (trigger !== "modal") return "";
-const previous = this.wordStack[this.wordStack.length - 1];
-if (!previous) return "";
-return renderModalNavigation({
-backAction: "word-history-back",
-backTitle: previous.kind === "kanji" ? `${uiText(language, "backToKanji")}: ${previous.kanji}` : `${uiText(language, "backToWord")}: ${previous.card.spelling}`,
-label: previous.kind === "kanji" ? previous.kanji : previous.card.spelling
-});
-}
-kanjiModalBack(card, language) {
-const previousKanji = this.kanjiStack[this.kanjiStack.length - 1];
-return previousKanji ? {
-backAction: "kanji-history-back",
-backTitle: `${uiText(language, "backToKanji")}: ${previousKanji.kanji}`,
-label: previousKanji.kanji
-} : {
-backAction: "word-back",
-backTitle: `${uiText(language, "backToWord")}: ${card.spelling}`,
-label: card.spelling
-};
-}
-pushPreviousWord(mode, next, previousNavigationEntry) {
-const previous = previousNavigationEntry ?? this.previousWordEntry(next);
-if (!this.shouldPushPreviousWord(mode, previous, next)) return;
-this.pushDistinctWordEntry(previous);
-}
-shouldPushPreviousWord(mode, previous, next) {
-if (mode !== "push-current") return false;
-if (!previous) return false;
-return !this.isSameEntryAsWord(previous, next);
-}
-pushDistinctWordEntry(previous) {
-const lastStackEntry = this.wordStack[this.wordStack.length - 1];
-if (!lastStackEntry || !this.isSamePopupEntry(lastStackEntry, previous)) this.wordStack.push(previous);
-}
-previousWordEntry(next) {
-return this.currentWord && !this.isSameCard(this.currentWord, next) ? this.wordEntry(this.currentWord) : void 0;
-}
-previousKanjiToPush(mode, next) {
-const current = this.currentKanji;
-if (mode !== "push-current") return void 0;
-if (!current) return void 0;
-return this.isSameKanji(current, next) ? void 0 : current;
-}
-pushDistinctKanjiEntry(entry) {
-const lastStackEntry = this.kanjiStack[this.kanjiStack.length - 1];
-if (!lastStackEntry || !this.isSameKanji(lastStackEntry, entry)) this.kanjiStack.push(entry);
-}
-wordEntry(entry) {
-return { kind: "word", card: entry.card, sentence: entry.sentence };
-}
-kanjiEntry(entry) {
-return { kind: "kanji", card: entry.card, sentence: entry.sentence, kanji: entry.kanji };
-}
-isSameCard(first, second) {
-return cardKey(first.card) === cardKey(second.card);
-}
-isSameKanji(first, second) {
-return this.isSameCard(first, second) && first.kanji === second.kanji;
-}
-isSameEntryAsWord(entry, word) {
-return entry.kind === "word" && this.isSameCard(entry, word);
-}
-isSamePopupEntry(first, second) {
-if (first.kind !== second.kind) return false;
-if (first.kind === "kanji" && second.kind === "kanji") return this.isSameKanji(first, second);
-return this.isSameCard(first, second);
-}
-}
-function renderModalNavigation(options) {
-return `
-<div class="jpdb-reader-modal-nav">
-<button class="jpdb-reader-icon-mini" type="button" data-action="${escapeHtml(options.backAction)}" title="${escapeHtml(options.backTitle)}" aria-label="${escapeHtml(options.backTitle)}">←</button>
-<span title="${escapeHtml(options.label)}">${escapeHtml(options.label)}</span>
-${options.controlsHtml ?? ""}
-</div>
-`;
 }
 function renderWordPills(options) {
 const context = wordPillContext(options.card, options.overrideQuery);
@@ -31594,6 +31195,231 @@ return;
 const maxHeight = Number.parseFloat(popover.style.maxHeight);
 if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
 }
+const TERM_AUDIO_PRELOAD_LIMIT = 4;
+const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
+const NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS = 350;
+const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
+const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
+const TEXT_LOOKUP_JPDB_TIMEOUT_MS = 650;
+const POINTER_TEXT_JPDB_TIMEOUT_MS = 450;
+const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
+const PITCH_ENRICHMENT_LIMIT = 12;
+const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
+const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
+const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
+const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
+const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
+const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 6;
+const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
+const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
+const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
+const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
+const DEFERRED_PUBLIC_PITCH_HOVER_PAUSE_MS = 180;
+const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 256;
+const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
+const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
+const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
+const PITCH_LOCAL_META_LIMIT = 12;
+const LOCAL_PITCH_DICTIONARY_PRESENCE_TIMEOUT_MS = 500;
+const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
+const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
+const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1200;
+const UNRESOLVED_FALLBACK_VOCABULARY_RETRY_TTL_MS = 12e4;
+const PUBLIC_VOCABULARY_MISS_RETRY_LIMIT = 2;
+const DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS = 3e3;
+const MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT = 24;
+const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
+const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
+const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
+const SUBTITLE_SURFACE_SELECTOR = [
+".jpdb-subtitle-player",
+".jpdb-subtitle-list",
+".asbplayer-subtitles-container-bottom",
+".asbplayer-offscreen",
+".jpdb-reader-subtitle-surface"
+].join(", ");
+const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
+const TWO_BUTTON_REVIEW_SHORTCUTS = [
+["gradeFail", "fail"],
+["gradePass", "pass"]
+];
+const FIVE_BUTTON_REVIEW_SHORTCUTS = [
+["gradeNothing", "nothing"],
+["gradeSomething", "something"],
+["gradeHard", "hard"],
+["gradeOkay", "okay"],
+["gradeEasy", "easy"]
+];
+const BUNPRO_FSRS_REVIEW_SHORTCUTS = [
+["gradeNothing", "nothing"],
+["gradeSomething", "hard"],
+["gradeHard", "okay"],
+["gradeOkay", "easy"]
+];
+const JPDB_REVIEW_BLOCKING_STATES = new Set(["blacklisted", "never-forget", "locked"]);
+function matchedReviewShortcutGrade(event, shortcuts, candidates) {
+return candidates.find(([key]) => matchesShortcut(event, shortcuts[key]))?.[1] ?? null;
+}
+function hasBlockedJpdbReviewState(states) {
+return states.some((state) => JPDB_REVIEW_BLOCKING_STATES.has(state));
+}
+function pickExactTokenForSelection(tokens = [], selected) {
+return tokens.find((token) => token.card.spelling === selected || token.card.reading === selected);
+}
+function dictionaryLookupLink(target) {
+return target?.closest?.("a.gloss-link[data-dictionary-lookup]") ?? null;
+}
+function actionPillLink(target) {
+return target?.closest?.("a.jpdb-reader-action-pill[href]") ?? null;
+}
+function actionPillUrl(link) {
+try {
+const url = new URL(link.getAttribute("href") ?? "", location.href);
+return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+} catch {
+return null;
+}
+}
+function handleReaderActionPillLink(event, open = openUrlInNewTab) {
+const link = actionPillLink(event.target);
+if (!link) return false;
+event.preventDefault();
+event.stopPropagation();
+const url = actionPillUrl(link);
+if (!url) return true;
+if (!open(url)) location.href = url;
+return true;
+}
+function dictionaryLookupQuery(link) {
+return normalizedLookupText(link.dataset.dictionaryLookup ?? "");
+}
+function dictionaryLookupNestedWord(target, link) {
+const word = target?.closest?.(".jpdb-reader-word[data-vid][data-sid]") ?? null;
+return word && link.contains(word) ? word : null;
+}
+function dictionaryLookupWordMatchesLink(word, query) {
+return Boolean(query && normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word)) === query);
+}
+function connectedElement(element) {
+return element?.isConnected ? element : void 0;
+}
+function hasVisibleAutoScanTargets() {
+return hasVisibleSiteScanTargets() || allowsGenericVisibleAutoScan() && collectVisibleTextTargets(1).length > 0;
+}
+function hasVisibleSiteScanTargets() {
+return (collectSiteScanTargets(1)?.length ?? 0) > 0;
+}
+function allowsGenericVisibleAutoScan() {
+return !isBookWalkerReaderPage();
+}
+function shouldAutoScanImageOcr(pageHasJapaneseText) {
+return pageHasJapaneseText || documentLooksLikeImageReadingPage() || isBookWalkerReaderPage() && Boolean(document.querySelector("canvas"));
+}
+function allowsFrequentVisibleAutoScan() {
+return true;
+}
+function isYouTubeHostname(hostname = location.hostname) {
+return isYouTubeAppHostname(hostname);
+}
+function backgroundPitchEnrichmentOptionsForHost(_hostname, compactViewport = false) {
+return {
+publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+publicLookupTermLimit: 3,
+substantivePublicLookupOnly: true
+};
+}
+function nestedPitchEnrichmentOptionsForHost(_hostname) {
+return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+}
+function visibleAutoScanMutationDelay(defaultDelay = 450) {
+return isYouTubeHostForAutoScan() ? 320 : defaultDelay;
+}
+function visibleAutoScanInitialDelay(defaultDelay = 600) {
+return isYouTubeHostForAutoScan() ? 220 : defaultDelay;
+}
+const AUTO_SCAN_MIN_INTERVAL_MS = 900;
+const AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS = 1e3;
+function debouncedAutoScanDeadline(requestedDeadline, debounceStartedAt) {
+return Math.min(requestedDeadline, debounceStartedAt + AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS);
+}
+function throttledAutoScanDelay(delay2, options, lastScanStartedAt, now, frequentHost = allowsFrequentVisibleAutoScan()) {
+if (!options.debounce || !frequentHost) return delay2;
+const floorDelay = AUTO_SCAN_MIN_INTERVAL_MS - (now - lastScanStartedAt);
+return Math.max(delay2, Math.min(floorDelay, AUTO_SCAN_MIN_INTERVAL_MS));
+}
+function isYouTubeHostForAutoScan(hostname = location.hostname) {
+return isYouTubeAppHostname(hostname);
+}
+function hasPressLookupEnabled(settings) {
+return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover);
+}
+function isMousePointerEvent(event) {
+return !("pointerType" in event) || event.pointerType === "mouse";
+}
+function eventElement(event) {
+return event.target instanceof Element ? event.target : null;
+}
+function audioPreloadLimits(options) {
+return {
+sourceLimit: options.sourceLimit ?? 1,
+candidateLimit: options.candidateLimit ?? 1,
+prepareAudio: options.prepareAudio
+};
+}
+function evictOldestStringKeysWhileOverLimit(cache, limit) {
+while (cache.size > limit) {
+const oldest = cache.keys().next().value;
+if (typeof oldest !== "string") break;
+cache.delete(oldest);
+}
+}
+function ankiLookupHasDisplayableNotes(lookup) {
+return Boolean(lookup.primary || lookup.notes.length);
+}
+function cardDisplayTrigger(options) {
+return options.trigger === "hover" ? "hover" : "modal";
+}
+function cardSourceLabel(card) {
+return card.source ?? "jpdb";
+}
+function renderedWordNavigationMode(insideReaderPopup, trigger) {
+return insideReaderPopup && trigger === "modal" ? "push-current" : "reset";
+}
+function renderedWordAnchor(word, insideReaderPopup, activePopoverAnchor) {
+return insideReaderPopup ? activePopoverAnchor ?? void 0 : word;
+}
+function selectionIntersectsElement(selection, element) {
+for (let index = 0; index < selection.rangeCount; index += 1) {
+try {
+if (selection.getRangeAt(index).intersectsNode(element)) return true;
+} catch {
+}
+}
+return false;
+}
+function popoverAnchorRect(anchor, fallback) {
+const rect = anchor?.getBoundingClientRect();
+return rect && (rect.width > 0 || rect.height > 0) ? rememberOverlaySourceRect(rect, anchor) : fallback;
+}
+function shouldLockMountedPopoverPosition(popover, state) {
+return state.mode !== "hover" && !popover.classList.contains("jpdb-reader-sheet") && Boolean(state.previousPopoverRect);
+}
+function mountedHoverPointerPosition(state, lastPointerPosition) {
+const hoverPointerPosition = state.previousHoverPointerPosition ?? lastPointerPosition;
+return state.mode === "hover" && hoverPointerPosition ? { ...hoverPointerPosition } : void 0;
+}
+const HOVER_POINTER_TEXT_LOOKUP_OPTIONS = { allowPassiveInteractionText: true };
+function canSchedulePointerTextHoverLookup(hoverEnabled, candidate) {
+return hoverEnabled && Boolean(candidate);
+}
+function samePointerTextLookupTarget(active, candidate) {
+return active.anchor === candidate.anchor && active.text === candidate.text;
+}
+function pointerOffsetInsideLiveLookup(active, offset) {
+return active.start <= offset && offset < active.end;
+}
 const MOKURO_OCR_DEFAULT_MARKER = "yomu_mokuro_ocr_default_applied";
 const MOKURO_TOGGLE_LABEL = "OCR enabled";
 const MOKURO_TOGGLE_NOTE = "off = Yomu OCR · on = mokuro OCR";
@@ -31779,7 +31605,7 @@ textBudgetExhausted: false
 };
 }
 const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded", "contenteditable", "role", "aria-controls", "aria-disabled", ANNOTATION_SCOPE_SURFACE_ATTRIBUTE]);
-const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
+const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
 const DYNAMIC_UI_DISCLOSURE_SELECTOR = [
 "summary",
 "[aria-controls]",
@@ -31813,7 +31639,7 @@ const JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR = [
 ].join(",");
 const JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR = `${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`;
 const JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR = [
-READER_ROOT_SELECTOR$1,
+READER_ROOT_SELECTOR$2,
 "[data-immersion-kit]",
 '[class*="immersion" i]'
 ].join(",");
@@ -31829,16 +31655,16 @@ return Boolean(element?.closest?.(".asbplayer-offscreen, .asbplayer-subtitles-co
 });
 }
 function mutationInsideReaderRoot(mutation) {
-return mutationInsideClosest(mutation, READER_ROOT_SELECTOR$1);
+return mutationInsideClosest(mutation, READER_ROOT_SELECTOR$2);
 }
 function clickMayRevealDynamicUiText(eventOrTarget) {
 const elements = dynamicUiClickElements(eventOrTarget);
-if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
+if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$2))) return false;
 return elements.some((element) => Boolean(element.closest(DYNAMIC_UI_DISCLOSURE_SELECTOR)));
 }
 function clickMayRevealReviewAnswer(eventOrTarget) {
 const elements = dynamicUiClickElements(eventOrTarget);
-if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$1))) return false;
+if (elements.some((element) => element.closest(READER_ROOT_SELECTOR$2))) return false;
 return elements.some((element) => {
 const control = element.closest(REVIEW_ANSWER_CONTROL_SELECTOR);
 if (!control) return false;
@@ -31886,7 +31712,7 @@ return scopeRoots.filter((root) => node === root || node.contains(root));
 }
 function nodeIsReaderOwned(node) {
 const element = mutationNodeElement(node);
-return Boolean(element?.closest(`${READER_ROOT_SELECTOR$1},.jpdb-reader-text-mirror`));
+return Boolean(element?.closest(`${READER_ROOT_SELECTOR$2},.jpdb-reader-text-mirror`));
 }
 function styleOrClassMutationRevealsJapaneseText(mutation, attribute, budget, candidates) {
 const element = mutation.target instanceof HTMLElement ? mutation.target : null;
@@ -32233,109 +32059,6 @@ return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") :
 }
 function nestedParseKey(targets) {
 return targets.map((target) => target.text).join("\n\n");
-}
-const log$5 = Logger.scope("PublicLookupFallback");
-function normalizedJitenLookupKey(term) {
-return term.replace(/\s+/g, "");
-}
-function jitenFallbackTokenMatches(term, token) {
-const normalizedTerm = normalizedJitenLookupKey(term);
-const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
-return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
-}
-function jitenFallbackCardMatchesTerm(term, card) {
-const normalizedTerm = normalizedJitenLookupKey(term);
-return normalizedJitenLookupKey(card.spelling) === normalizedTerm || normalizedJitenLookupKey(card.reading) === normalizedTerm;
-}
-function uniqueFallbackLookupEntries(cards, termLimit) {
-const seen = new Set();
-const entries2 = [];
-for (const card of cards) {
-const key = cardKey(card);
-if (seen.has(key)) continue;
-seen.add(key);
-const allTerms = fallbackLookupTermsForCard(card);
-const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
-if (terms.length) entries2.push({ key, terms, validationTerms: allTerms });
-}
-return entries2;
-}
-function fairFallbackLookupTerms(entries2) {
-const terms = [];
-const seen = new Set();
-const rounds = entries2.reduce((maximum, entry) => Math.max(maximum, entry.terms.length), 0);
-for (let candidateIndex = 0; candidateIndex < rounds; candidateIndex++) {
-for (const entry of entries2) {
-const term = entry.terms[candidateIndex];
-if (!term || seen.has(term)) continue;
-seen.add(term);
-terms.push(term);
-}
-}
-return terms;
-}
-async function batchJitenFallbackCards(terms, parse) {
-const cards = new Map();
-const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
-if (!uniqueTerms.length) return cards;
-const parsed = await parse(uniqueTerms).catch((error) => {
-log$5.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
-if (isMissingProxyTransportError(error)) throw error;
-return [];
-});
-uniqueTerms.forEach((term, index) => {
-const tokens = parsed[index] ?? [];
-const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card;
-if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
-});
-return cards;
-}
-async function jitenFallbackCards(terms, entryCount, deps, options) {
-if (deps.jitenApiActive()) {
-const batched = await batchJitenFallbackCards(terms, deps.parse).catch((error) => {
-if (!isMissingProxyTransportError(error)) throw error;
-return null;
-});
-if (batched) return batched;
-}
-const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
-log$5.warn("Jiten fallback failed", { terms: terms.length }, error);
-return new Map();
-});
-const cards = new Map();
-loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
-return cards;
-}
-async function publicLookupFallbackCards(cards, deps, options) {
-const result = new Map();
-const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
-if (!entries2.length) return result;
-const terms = fairFallbackLookupTerms(entries2);
-const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
-for (const entry of entries2) {
-let resolved;
-for (const term of entry.terms) {
-const card = jitenCards.get(normalizedJitenLookupKey(term));
-if (!card) continue;
-if (jitenFallbackCardMatchesTerm(term, card)) {
-resolved = card;
-break;
-}
-if (!resolved && entry.validationTerms.some((candidate) => jitenFallbackCardMatchesTerm(candidate, card))) resolved = card;
-}
-if (resolved) result.set(entry.key, resolved);
-}
-if (options.jpdbPublicLookup === false) return result;
-const unresolved = entries2.filter((entry) => !result.has(entry.key));
-await runLimited(unresolved, options.concurrency, async (entry) => {
-for (const term of entry.terms) {
-const publicCard = await deps.publicSpellingCard(term);
-if (!publicCard) continue;
-result.set(entry.key, publicCard);
-return;
-}
-});
-return result;
 }
 async function translateJapaneseSentence(sentence, language = "en") {
 return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
@@ -33443,6 +33166,401 @@ function applyOcrInteractionMode(settings, mode) {
 settings.ocrEnabled = mode !== "off";
 settings.ocrAutoScanImages = mode === "auto";
 }
+const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
+const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
+"script",
+"style",
+"noscript",
+"textarea",
+"input",
+"select",
+"option",
+"svg",
+"use",
+"rt",
+"rp",
+"[contenteditable]",
+'[role="textbox"]',
+'[role="searchbox"]',
+'[role="combobox"]',
+"[aria-placeholder]",
+"[data-placeholder]",
+'[class*="placeholder" i]',
+READER_ROOT_SELECTOR$1
+].join(",");
+const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
+"button",
+"summary",
+'[role="button"]',
+'[role="checkbox"]',
+'[role="radio"]',
+'[role="tab"]',
+"[onclick]"
+].join(",");
+const POINTER_TEXT_SKIP_SELECTOR = `${POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR},${POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR}`;
+const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR$1} .jpdb-reader-local-glossary a[href]`;
+const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
+const YOUTUBE_METADATA_SELECTOR = [
+"#metadata",
+"#metadata-line",
+"#metadata-text",
+"#video-info",
+"#stats",
+"ytd-video-meta-block",
+"yt-content-metadata-view-model",
+".inline-metadata-item",
+".badge-style-type-simple"
+].join(",");
+const METADATA_TOKEN_RE = /^(?:[\d０-９][\d０-９,.，]*\s*)?(?:万|億)?(?:回視聴|視聴|再生|回再生|件|コメント|高評価|日前|時間前|分前|秒前|か月前|ヶ月前|週間前|年前|ライブ配信中|新着)$/u;
+const POINTER_TEXT_CONTEXT_ROOT_SELECTOR = [
+"p",
+"li",
+"figcaption",
+"blockquote",
+"h1",
+"h2",
+"h3",
+"h4",
+"h5",
+"h6",
+"a",
+"yt-formatted-string",
+"yt-attributed-string",
+'[id="content-text"]',
+'[id="video-title"]',
+"[data-jpdb-reader-context]"
+].join(",");
+const POINTER_TEXT_CONTEXT_SKIP_SELECTOR = [
+"script",
+"style",
+"noscript",
+"textarea",
+"input",
+"select",
+"button",
+"option",
+"summary",
+"svg",
+"use",
+"rt",
+"rp",
+'[aria-hidden="true"]',
+"[hidden]"
+].join(",");
+const POINTER_TEXT_CONTEXT_MAX_LENGTH = 220;
+const POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH = 80;
+const POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH = 4;
+function caretTextPositionFromPoint(x, y) {
+const doc = document;
+const position = doc.caretPositionFromPoint?.(x, y);
+if (position?.offsetNode.nodeType === Node.TEXT_NODE) {
+return { node: position.offsetNode, offset: position.offset };
+}
+const range = doc.caretRangeFromPoint?.(x, y);
+if (range?.startContainer.nodeType === Node.TEXT_NODE) {
+return { node: range.startContainer, offset: range.startOffset };
+}
+return null;
+}
+const pointerTextRunAt = targetPointerWordAt;
+function pointerTextCharacterOffset(node, caretOffset, x, y) {
+const parent = node.parentElement;
+if (!parent || !isPointerTextParentEligible(parent)) return null;
+const clamped = Math.min(Math.max(caretOffset, 0), node.data.length - 1);
+const candidates = [clamped, clamped - 1, clamped + 1].filter((offset, index, offsets) => offset >= 0 && offset < node.data.length && offsets.indexOf(offset) === index);
+return candidates.find((offset) => textCharacterContainsPoint(node, offset, x, y)) ?? null;
+}
+function pointerTextLookupFromRenderedWord(word, x, y) {
+const context = renderedWordLookupContext(word);
+if (!context) return null;
+const surfaceOffset = renderedWordSurfaceOffsetAtPoint(word, context.surface, x, y);
+if (surfaceOffset === null) return null;
+const offset = context.tokenStart + surfaceOffset;
+const run = pointerTextRunAt(context.sentence, offset);
+if (!run) return null;
+return {
+text: context.sentence,
+offset: run.offset,
+start: run.start,
+end: run.end,
+anchor: word
+};
+}
+function pointerTextLookupFromRenderedWordStart(word) {
+const context = renderedWordLookupContext(word);
+if (!context) return null;
+const run = pointerTextRunAt(context.sentence, context.tokenStart);
+if (!run) return null;
+return {
+text: context.sentence,
+offset: run.offset,
+start: run.start,
+end: run.end,
+anchor: word
+};
+}
+function renderedWordLookupContext(word) {
+const sentence = word.dataset.sentence ?? "";
+const surface = readerWordSurfaceText(word);
+if (!sentence || !surface) return null;
+const range = renderedWordTokenRange(word);
+if (!range || sentence.slice(range.start, range.end) !== surface) return null;
+return { sentence, surface, tokenStart: range.start };
+}
+function renderedWordTokenRange(word) {
+const start = Number.parseInt(word.dataset.tokenStart ?? "", 10);
+const end = Number.parseInt(word.dataset.tokenEnd ?? "", 10);
+if (![start, end].every(Number.isFinite)) return null;
+if (start < 0) return null;
+if (end <= start) return null;
+return { start, end };
+}
+function pointerTextLookupFromTextNode(node, characterOffset, options = {}) {
+const parent = node.parentElement;
+if (!parent || !isPointerTextParentEligible(parent, options)) return null;
+const local = pointerTextLookupForText(parent, node.data, characterOffset);
+const contextual = pointerTextLookupContext(node, characterOffset, parent);
+return contextual ?? local;
+}
+function renderedWordSurfaceOffsetAtPoint(word, surface, x, y) {
+const nodes = renderedWordSurfaceTextNodes(word);
+const caretOffset = renderedWordCaretOffset(nodes, surface.length, x, y);
+if (caretOffset !== null) return caretOffset;
+const rangeOffset = renderedWordRangeOffsetAtPoint(nodes, x, y);
+if (rangeOffset !== null && rangeOffset < surface.length) return rangeOffset;
+return proportionalRenderedWordOffset(word, surface.length, x, y);
+}
+function renderedWordCaretOffset(nodes, surfaceLength, x, y) {
+const caret = caretTextPositionFromPoint(x, y);
+if (!caret) return null;
+let preceding = 0;
+for (const node of nodes) {
+if (node === caret.node && node.data.length) {
+const nodeOffset = Math.min(Math.max(caret.offset, 0), node.data.length - 1);
+return Math.min(surfaceLength - 1, preceding + nodeOffset);
+}
+preceding += node.data.length;
+}
+return null;
+}
+function renderedWordSurfaceTextNodes(word) {
+const nodes = [];
+const visit = (node) => {
+if (node.nodeType === Node.TEXT_NODE) {
+nodes.push(node);
+return;
+}
+if (node.nodeType !== Node.ELEMENT_NODE) return;
+const element = node;
+if (element !== word && element.matches("rt,rp,script,style,[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi")) return;
+element.childNodes.forEach(visit);
+};
+visit(word);
+return nodes;
+}
+function renderedWordRangeOffsetAtPoint(nodes, x, y) {
+const hits = [];
+let surfaceOffset = 0;
+for (const node of nodes) {
+for (let offset = 0; offset < node.data.length; offset++) {
+const hit = renderedWordCharacterHit(node, offset, surfaceOffset + offset, x, y);
+if (hit) hits.push(hit);
+}
+surfaceOffset += node.data.length;
+}
+return hits.sort((left, right) => left.score - right.score)[0]?.offset ?? null;
+}
+function renderedWordCharacterHit(node, nodeOffset, surfaceOffset, x, y) {
+const range = document.createRange();
+try {
+range.setStart(node, nodeOffset);
+range.setEnd(node, nodeOffset + 1);
+const scores = Array.from(range.getClientRects()).map((rect) => pointerRectScore(rect, x, y)).filter((score) => score !== null);
+return scores.length ? { offset: surfaceOffset, score: Math.min(...scores) } : null;
+} catch {
+return null;
+} finally {
+range.detach?.();
+}
+}
+function pointerRectScore(rect, x, y) {
+const bounds = pointerRectBoundsAtPoint(rect, x, y);
+if (!bounds) return null;
+return Math.hypot(x - (rect.left + bounds.right) / 2, y - (rect.top + bounds.bottom) / 2);
+}
+function proportionalRenderedWordOffset(word, surfaceLength, x, y) {
+if (surfaceLength <= 0) return null;
+const rect = word.getBoundingClientRect();
+const bounds = pointerRectBoundsAtPoint(rect, x, y);
+if (!bounds) return null;
+const vertical = getComputedStyle(word).writingMode.startsWith("vertical");
+const span = vertical ? bounds.bottom - rect.top : bounds.right - rect.left;
+const position = vertical ? y - rect.top : x - rect.left;
+return proportionalSurfaceOffset(surfaceLength, position, span);
+}
+function pointerRectBoundsAtPoint(rect, x, y) {
+const right = rect.right || rect.left + rect.width;
+const bottom = rect.bottom || rect.top + rect.height;
+if (!hasPositiveRectArea(rect, right, bottom)) return null;
+if (!coordinateInRange(x, rect.left, right, 1)) return null;
+if (!coordinateInRange(y, rect.top, bottom, 1)) return null;
+return { right, bottom };
+}
+function proportionalSurfaceOffset(surfaceLength, position, span) {
+const progress = span > 0 ? Math.min(0.999999, Math.max(0, position / span)) : 0;
+return Math.min(surfaceLength - 1, Math.floor(progress * surfaceLength));
+}
+function isLowValuePointerText(text2, parent) {
+const compact2 = text2.replace(/\s+/g, "");
+if (!compact2) return true;
+if (parent?.closest(YOUTUBE_METADATA_SELECTOR)) return true;
+const parts = compact2.split(/[・•|｜/／()[\]【】「」『』<>〈〉《》]+/u).map((part) => part.trim()).filter(Boolean);
+if (!parts.length) return false;
+return parts.every((part) => METADATA_TOKEN_RE.test(part));
+}
+function pointerTextLookupContext(node, characterOffset, anchor) {
+const root = pointerTextContextRoot(anchor);
+if (!root || root === anchor) return null;
+const context = readablePointerTextContext(root, node);
+if (!context || context.text.length > POINTER_TEXT_CONTEXT_MAX_LENGTH) return null;
+const offset = context.start + Math.min(Math.max(characterOffset, 0), node.data.length - 1);
+const lookup = pointerTextLookupForText(anchor, context.text, offset);
+if (!lookup || lookup.end - lookup.start <= localPointerWordLength(node.data, characterOffset)) return null;
+return isLowValuePointerText(lookup.text, root) ? null : lookup;
+}
+function pointerTextLookupForText(anchor, text2, offset) {
+const run = pointerTextRunAt(text2, offset);
+if (!run || isLowValuePointerText(text2, anchor)) return null;
+return {
+text: text2,
+offset: run.offset,
+start: run.start,
+end: run.end,
+anchor
+};
+}
+function localPointerWordLength(text2, offset) {
+const run = pointerTextRunAt(text2, offset);
+return run ? run.end - run.start : 0;
+}
+function pointerTextContextRoot(anchor) {
+const root = anchor.closest(POINTER_TEXT_CONTEXT_ROOT_SELECTOR);
+if (!root) return pointerTextInlineContextRoot(anchor);
+if (!isPointerTextParentEligible(root)) return null;
+return root === anchor ? pointerTextInlineContextRoot(anchor) : root;
+}
+function pointerTextInlineContextRoot(anchor) {
+const localText = anchor.textContent ?? "";
+let current = anchor.parentElement;
+for (let depth = 0; current && depth < POINTER_TEXT_INLINE_CONTEXT_MAX_DEPTH; depth++, current = current.parentElement) {
+if (current === document.body || current === document.documentElement) return null;
+if (isPointerTextInlineContextCandidate(current, localText.length)) {
+return current;
+}
+}
+return null;
+}
+function isPointerTextInlineContextCandidate(element, localTextLength) {
+const text2 = element.textContent ?? "";
+return text2.length > localTextLength && text2.length <= POINTER_TEXT_INLINE_CONTEXT_MAX_LENGTH && hasTargetPointerWord(text2) && isPointerTextParentEligible(element);
+}
+function readablePointerTextContext(root, target) {
+let text2 = "";
+let rangeStart = -1;
+let rangeEnd = -1;
+const visit = (node) => {
+if (node.nodeType === Node.TEXT_NODE) {
+const value = node.textContent ?? "";
+if (node === target) {
+rangeStart = text2.length;
+rangeEnd = text2.length + value.length;
+}
+text2 += value;
+return;
+}
+if (node.nodeType !== Node.ELEMENT_NODE) return;
+const element = node;
+if (element.matches(POINTER_TEXT_CONTEXT_SKIP_SELECTOR)) return;
+element.childNodes.forEach(visit);
+};
+visit(root);
+if (rangeStart < 0 || rangeEnd <= rangeStart || !hasTargetPointerWord(text2)) return null;
+const leadingWhitespace = text2.match(/^\s*/u)?.[0].length ?? 0;
+const trailingWhitespace = text2.match(/\s*$/u)?.[0].length ?? 0;
+const trimmedText2 = text2.slice(leadingWhitespace, text2.length - trailingWhitespace);
+if (!trimmedText2 || !hasTargetPointerWord(trimmedText2)) return null;
+return {
+text: trimmedText2,
+start: rangeStart - leadingWhitespace,
+end: rangeEnd - leadingWhitespace
+};
+}
+function isPointerTextParentEligible(parent, options = {}) {
+const insideSubtitle = Boolean(parent.closest(".jpdb-subtitle-player, .jpdb-subtitle-list"));
+const allowReaderRoot = Boolean(parent.closest(READER_ROOT_POINTER_TEXT_LINK_SELECTOR));
+let current = parent;
+while (current) {
+if (!isPointerTextElementEligible(current, allowReaderRoot, insideSubtitle, options)) return false;
+current = current.parentElement;
+}
+return true;
+}
+function isPointerTextElementEligible(element, allowReaderRoot = false, insideSubtitle = false, options = {}) {
+const style = getComputedStyle(element);
+return elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle, options) && stylePassesPointerTextLookup(style) && !isScreenReaderOnlyElement(element, style);
+}
+function elementPassesPointerTextAttributes(element, allowReaderRoot, insideSubtitle = false, options = {}) {
+if (element.hasAttribute("hidden") || element.hasAttribute("inert") || element.getAttribute("aria-hidden")?.toLowerCase() === "true") {
+return false;
+}
+if (insideSubtitle) {
+if (element.matches('script,style,noscript,textarea,input,select,button,option,summary,svg,use,rt,rp,[contenteditable],[role="textbox"],[role="searchbox"],[role="combobox"],[aria-placeholder],[data-placeholder],[class*="placeholder" i],[role="checkbox"],[role="radio"],[role="tab"],[onclick]')) {
+return false;
+}
+return true;
+}
+const skipSelector = options.allowInteractiveText ? POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR : POINTER_TEXT_SKIP_SELECTOR;
+return !element.matches(skipSelector) || allowReaderRoot && element.matches(READER_ROOT_SELECTOR$1);
+}
+function stylePassesPointerTextLookup(style) {
+return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
+}
+function isScreenReaderOnlyElement(element, style) {
+if (hasScreenReaderOnlyClass(element)) return true;
+const rect = element.getBoundingClientRect();
+return isTinyClippedElement(rect, style) || isTinyHiddenAbsoluteElement(rect, style);
+}
+function hasScreenReaderOnlyClass(element) {
+return SCREEN_READER_ONLY_CLASS_RE.test(element.className || "");
+}
+function isTinyClippedElement(rect, style) {
+const clipped = Boolean(style.clip && style.clip !== "auto" || style.clipPath && style.clipPath !== "none");
+return clipped && isTinyRect(rect);
+}
+function isTinyHiddenAbsoluteElement(rect, style) {
+return style.position === "absolute" && style.overflow === "hidden" && isTinyRect(rect);
+}
+function isTinyRect(rect) {
+return rect.width <= 2 && rect.height <= 2;
+}
+function textCharacterContainsPoint(node, offset, x, y) {
+if (!node.data.length) return false;
+const start = Math.min(Math.max(offset, 0), node.data.length - 1);
+const range = document.createRange();
+try {
+range.setStart(node, start);
+range.setEnd(node, start + 1);
+return Array.from(range.getClientRects()).some((rect) => rectContainsPoint(rect, x, y));
+} finally {
+range.detach?.();
+}
+}
+function rectContainsPoint(rect, x, y) {
+const right = rect.right || rect.left + rect.width;
+const bottom = rect.bottom || rect.top + rect.height;
+const slack = 1;
+return hasPositiveRectArea(rect, right, bottom) && coordinateInRange(x, rect.left, right, slack) && coordinateInRange(y, rect.top, bottom, slack);
+}
 const HOVER_POPOVER_TRANSIT_RADIUS_PX = 12;
 const HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS = 160;
 function isActiveHoverPopoverPointerContext(state) {
@@ -34395,8 +34513,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.78"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.78"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.79"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.79"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34539,7 +34657,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.78"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.79"}`;
 } catch {
 return null;
 }
@@ -34577,7 +34695,7 @@ const Controller = yomuKanjiStudyCompanion()?.StudySourceController;
 return Controller ? new Controller(dependencies) : new DisabledStudySourceController();
 }
 };
-const log$4 = Logger.scope("LateCardReconciliation");
+const log$5 = Logger.scope("LateCardReconciliation");
 const RESOLVED_WORD_EFFECTS_BATCH_DELAY_MS = 0;
 function currentAnkiLookupBatch(tokens, lookupKeys, lookups) {
 const currentTokens = [];
@@ -34616,10 +34734,10 @@ rubies: [],
 pitchClass: isParticleCard(card) ? "particle" : pitchClass
 };
 }
-repaint(fallback, card, pitchClass) {
+repaint(fallback, card, pitchClass, span) {
 const changedRoots = new Set();
 const geometryRoots = new Set();
-const targets = this.dependencies.renderedWordsForCardStateRepaint(fallback).map((word) => ({ word, root: this.dependencies.annotationRoot(word) }));
+const targets = this.dependencies.renderedWordsForCardStateRepaint(fallback).filter((word) => !span || word.dataset.tokenStart === void 0 || Number(word.dataset.tokenStart) === span.start && Number(word.dataset.tokenEnd) === span.end).map((word) => ({ word, root: this.dependencies.annotationRoot(word) }));
 this.dependencies.pauseMutationObserver(() => {
 targets.forEach(({ word, root }) => {
 if (this.dependencies.applyVocabulary(word, card, pitchClass)) geometryRoots.add(root);
@@ -34683,7 +34801,7 @@ if (!changedWords.length) return;
 const changedRoots = uniqueParentNodes(changedWords.map((word) => this.dependencies.annotationRoot(word)));
 this.dependencies.scheduleAnnotationRefresh(changedRoots, geometryRoots);
 } catch (error) {
-log$4.warnOnce("local-srs-hydration-failed", "Academy SRS late-card hydration failed", error);
+log$5.warnOnce("local-srs-hydration-failed", "Academy SRS late-card hydration failed", error);
 }
 }
 }
@@ -34937,7 +35055,7 @@ return tokens.find((token) => token.start === start && token.end === end)?.pitch
 function rangesOverlap(first, second) {
 return first.start < second.end && second.start < first.end;
 }
-const log$3 = Logger.scope("VisiblePageScanner");
+const log$4 = Logger.scope("VisiblePageScanner");
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
 const VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET = 3200;
@@ -35081,7 +35199,7 @@ return;
 if (!this.beginScan(silent)) return;
 this.scanGeneration++;
 const generation = this.scanGeneration;
-const done = log$3.time("scanVisiblePage", { silent });
+const done = log$4.time("scanVisiblePage", { silent });
 try {
 this.syncPageFuriganaMode();
 await this.runVisiblePageScan(silent, generation);
@@ -35324,11 +35442,11 @@ try {
 return await this.dependencies.parseJapanese(paragraphs, options);
 } catch (error) {
 if (this.isStaleScan(generation)) return paragraphs.map(() => []);
-log$3.warn("Visible page parse batch failed; retrying locally", error);
+log$4.warn("Visible page parse batch failed; retrying locally", error);
 try {
 return await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
 } catch (fallbackError) {
-log$3.warn("Visible page local parse recovery failed; continuing with later batches", fallbackError);
+log$4.warn("Visible page local parse recovery failed; continuing with later batches", fallbackError);
 onTransientFailure?.();
 return paragraphs.map(() => []);
 }
@@ -35408,7 +35526,7 @@ language: activeTargetLanguageDisplayName(interfaceLanguage)
 }));
 }
 handleVisiblePageScanError(error, silent) {
-log$3.warn("Visible page scan failed", error);
+log$4.warn("Visible page scan failed", error);
 if (!silent) {
 const language = this.dependencies.getSettings().interfaceLanguage;
 this.dependencies.toast(userFacingErrorText(language, "jpdbScanFailed", error));
@@ -35691,6 +35809,7 @@ searchTerms: async () => [],
 lookupKanji: async () => [],
 lookupTermMeta: async () => [],
 findTermMatches: async () => [],
+lookupExactTermCandidates: async () => [],
 listRandomTerms: async () => [],
 listRandomTopTerms: async () => [],
 hasDictionaries: async () => false,
@@ -35716,7 +35835,7 @@ return inert;
 function companionMissingError() {
 return new Error("Local dictionaries unavailable: Yomu Settings Surface companion did not load.");
 }
-const log$2 = Logger.scope("DictionaryReplicaPurge");
+const log$3 = Logger.scope("DictionaryReplicaPurge");
 const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
 const PURGE_HONORED_KEY = "yomu:dictionary-replica-purged:v1";
 const DICTIONARY_DB_NAME = "jpdb-popup-reader-yomitan";
@@ -35730,7 +35849,7 @@ try {
 managedLocalStorage.setItem(PURGE_HONORED_KEY, String(requestedAt));
 } catch {
 }
-log$2.info("Removed this origin's dictionary copy after an all-sites purge");
+log$3.info("Removed this origin's dictionary copy after an all-sites purge");
 return true;
 }
 function honoredAt() {
@@ -35837,31 +35956,6 @@ return Math.min(Math.max(0, Math.floor(requested)), PITCH_ENRICHMENT_LIMIT * 2);
 function isHydratablePublicJitenCard(card) {
 return card.source === "jiten" && Number.isFinite(card.jitenWordId ?? card.vid) && Number.isFinite(card.jitenReadingIndex ?? card.sid) && (!card.reading || !card.pitchAccent.length || !card.wordWithReading || !card.meanings.length);
 }
-function uniquePointerTextSpans(spans) {
-const seen = new Set();
-return spans.filter((span) => {
-const key = `${span.term}
-${span.start}
-${span.end}`;
-if (seen.has(key)) return false;
-seen.add(key);
-return true;
-});
-}
-function pointerSpanForResolvedCard(text2, offset, span, card) {
-const surface = normalizedLookupText(text2.slice(span.start, span.end));
-if (!surface) return span;
-const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText).filter(Boolean))].sort((first, second) => second.length - first.length);
-for (const value of values) {
-const relativeStart = surface.indexOf(value);
-if (relativeStart < 0) continue;
-const start = span.start + relativeStart;
-const end = start + value.length;
-if (offset < start || offset >= end) continue;
-return { ...span, start, end };
-}
-return span;
-}
 function cardHasContextPitch(card) {
 if (!card.pitchAccent.length) return false;
 const reading = cardPronunciationReading(card);
@@ -35870,6 +35964,109 @@ return Boolean(contextPitchPattern(card.pitchAccent, reading));
 }
 function mergePitchPatterns(preferred, existing) {
 return [...preferred, ...existing.filter((pattern) => !preferred.includes(pattern))];
+}
+const log$2 = Logger.scope("PublicLookupFallback");
+function normalizedJitenLookupKey(term) {
+return term.replace(/\s+/g, "");
+}
+function jitenFallbackTokenMatches(term, token) {
+const normalizedTerm = normalizedJitenLookupKey(term);
+const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
+return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
+}
+function jitenFallbackCardMatchesTerm(term, card) {
+const normalizedTerm = normalizedJitenLookupKey(term);
+return normalizedJitenLookupKey(card.spelling) === normalizedTerm || normalizedJitenLookupKey(card.reading) === normalizedTerm;
+}
+function uniqueFallbackLookupEntries(cards, termLimit) {
+const seen = new Set();
+const entries2 = [];
+for (const card of cards) {
+const key = cardKey(card);
+if (seen.has(key)) continue;
+seen.add(key);
+const allTerms = fallbackLookupTermsForCard(card);
+const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(card.spelling.endsWith("ながら") ? 2 : 1, Math.floor(termLimit))) : allTerms;
+if (terms.length) entries2.push({ key, terms, validationTerms: allTerms });
+}
+return entries2;
+}
+function fairFallbackLookupTerms(entries2) {
+const terms = [];
+const seen = new Set();
+const rounds = entries2.reduce((maximum, entry) => Math.max(maximum, entry.terms.length), 0);
+for (let candidateIndex = 0; candidateIndex < rounds; candidateIndex++) {
+for (const entry of entries2) {
+const term = entry.terms[candidateIndex];
+if (!term || seen.has(term)) continue;
+seen.add(term);
+terms.push(term);
+}
+}
+return terms;
+}
+async function batchJitenFallbackCards(terms, parse) {
+const cards = new Map();
+const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+if (!uniqueTerms.length) return cards;
+const parsed = await parse(uniqueTerms).catch((error) => {
+log$2.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+if (isMissingProxyTransportError(error)) throw error;
+return [];
+});
+uniqueTerms.forEach((term, index) => {
+const tokens = parsed[index] ?? [];
+const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card;
+if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
+});
+return cards;
+}
+async function jitenFallbackCards(terms, entryCount, deps, options) {
+if (deps.jitenApiActive()) {
+const batched = await batchJitenFallbackCards(terms, deps.parse).catch((error) => {
+if (!isMissingProxyTransportError(error)) throw error;
+return null;
+});
+if (batched) return batched;
+}
+const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
+log$2.warn("Jiten fallback failed", { terms: terms.length }, error);
+return new Map();
+});
+const cards = new Map();
+loaded.forEach((card, term) => cards.set(normalizedJitenLookupKey(term), card));
+return cards;
+}
+async function publicLookupFallbackCards(cards, deps, options) {
+const result = new Map();
+const entries2 = uniqueFallbackLookupEntries(cards, options.termLimit);
+if (!entries2.length) return result;
+const terms = fairFallbackLookupTerms(entries2);
+const jitenCards = await jitenFallbackCards(terms, entries2.length, deps, options);
+for (const entry of entries2) {
+let resolved;
+for (const term of entry.terms) {
+const card = jitenCards.get(normalizedJitenLookupKey(term));
+if (!card) continue;
+if (jitenFallbackCardMatchesTerm(term, card)) {
+resolved = card;
+break;
+}
+if (!resolved && entry.validationTerms.some((candidate) => jitenFallbackCardMatchesTerm(candidate, card))) resolved = card;
+}
+if (resolved) result.set(entry.key, resolved);
+}
+if (options.jpdbPublicLookup === false) return result;
+const unresolved = entries2.filter((entry) => !result.has(entry.key));
+await runLimited(unresolved, options.concurrency, async (entry) => {
+for (const term of entry.terms) {
+const publicCard = await deps.publicSpellingCard(term);
+if (!publicCard) continue;
+result.set(entry.key, publicCard);
+return;
+}
+});
+return result;
 }
 function createTextLookupDisplayContext(text2, options, state) {
 const selected = normalizedLookupText(text2);
@@ -36233,7 +36430,7 @@ this.stopVisibleRefill();
 this.generation += 1;
 }
 queueToken(token, urgent = false) {
-if (this.dependencies.hasUnresolvedFallback(cardKey(token.card))) return "retained";
+if (this.dependencies.hasUnresolvedFallback(fallbackResolutionCacheKey(token))) return "retained";
 const key = parsedCardHydrationKey(token.card);
 const existing = this.work.get(key);
 if (existing) {
@@ -36451,7 +36648,9 @@ continue;
 }
 if (attempt === "background-budget" || attempt === "url-budget") this.stopVisibleRefill();
 if (queuedWork.attempts > 0) {
-this.dependencies.rememberUnresolvedFallback(cardKey(queuedWork.card));
+queuedWork.tokens.forEach((token) => {
+this.dependencies.rememberUnresolvedFallback(fallbackResolutionCacheKey(token));
+});
 }
 this.work.delete(key);
 }
@@ -36500,11 +36699,15 @@ if (queuedWork.urgent) this.queue.unshift(key);
 else this.queue.push(key);
 return;
 }
-this.dependencies.rememberUnresolvedFallback(cardKey(queuedWork.card));
+queuedWork.tokens.forEach((token) => {
+this.dependencies.rememberUnresolvedFallback(fallbackResolutionCacheKey(token));
+});
 this.work.delete(key);
 }
 async applyResolvedCard(key, queuedWork, card) {
-this.dependencies.forgetUnresolvedFallback(cardKey(queuedWork.card));
+queuedWork.tokens.forEach((token) => {
+this.dependencies.forgetUnresolvedFallback(fallbackResolutionCacheKey(token));
+});
 this.resolvedCards.set(key, card);
 const hydratedTokens = [];
 for (const token of queuedWork.tokens) {
@@ -36560,11 +36763,16 @@ tokenFromRenderedWord(word) {
 const card = jitenWordCardForMassReview(word);
 if (!Number.isFinite(card.vid) || !Number.isFinite(card.sid)) return null;
 const surface = readerWordSurfaceText(word);
+const recordedStart = Number(word.dataset.tokenStart);
+const recordedEnd = Number(word.dataset.tokenEnd);
+const hasRecordedSpan = Number.isInteger(recordedStart) && Number.isInteger(recordedEnd) && recordedStart >= 0 && recordedEnd > recordedStart;
+const start = hasRecordedSpan ? recordedStart : 0;
+const end = hasRecordedSpan ? recordedEnd : surface.length;
 return {
 card,
-start: 0,
-end: surface.length,
-length: surface.length,
+start,
+end,
+length: end - start,
 rubies: [],
 pitchClass: word.dataset.pitchClass ?? "",
 sentence: word.dataset.sentence || surface
@@ -36611,18 +36819,25 @@ if (localOnlyTokens.length) await dependencies.enrichLocalPitch(localOnlyTokens)
 return queuedTokens;
 }
 function addPublicFallbackGroup(token, groups, options, dependencies) {
-const key = cardKey(token.card);
+const key = token.card.source === "fallback" ? fallbackVocabularySpanCacheKey(token.card, token) : cardKey(token.card);
 if (!options.urgent && dependencies.hasUnresolvedFallback(key)) return;
 const group = groups.get(key) ?? { card: token.card, tokens: [] };
 group.tokens.push(token);
 groups.set(key, group);
+}
+function fallbackResolutionCacheKey(token) {
+return token.card.source === "fallback" ? fallbackVocabularySpanCacheKey(token.card, token) : cardKey(token.card);
 }
 async function resolvedFallbackAndJitenCards(fallbackGroups, jitenGroups, options, scope, dependencies) {
 const [fallbackCards, jitenCards] = await Promise.all([
 fallbackGroups.size ? dependencies.lookupFallbackCards([...fallbackGroups.values()].map((group) => group.card), options, scope) : Promise.resolve(new Map()),
 jitenGroups.size ? dependencies.lookupJitenCards([...jitenGroups.values()].map((group) => group.card), scope) : Promise.resolve(new Map())
 ]);
-const resolved = new Map(fallbackCards);
+const resolved = new Map();
+for (const [key, group] of fallbackGroups) {
+const card = fallbackCards.get(cardKey(group.card));
+if (card) resolved.set(key, card);
+}
 for (const [key, group] of jitenGroups) {
 const card = jitenCards.get(parsedCardHydrationKey(group.card));
 if (card) resolved.set(key, card);
@@ -36633,7 +36848,7 @@ function applyResolvedFallbackGroup(group, card, queuedTokens, options, dependen
 for (const token of group.tokens) {
 const fallback = token.card;
 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
-if (fallback.source === "fallback") dependencies.rememberResolvedFallback(fallback, card);
+if (fallback.source === "fallback") dependencies.rememberResolvedFallback(token, fallback, card);
 void dependencies.applyResolvedCard(token, fallback, card, pitchClass);
 if (dependencies.shouldQueueResolvedPublicPitch(card, options.jpdbPublicLookup !== false)) {
 queuedTokens.push(token);
@@ -36862,33 +37077,6 @@ if (expectedParts.length < 3) return true;
 const [, spelling, expectedReading] = expectedParts;
 return expectedReading === spelling;
 }
-function renderedWordSubwordRange(word, candidate) {
-const token = renderedWordTokenRange(word);
-if (!token || !pointerCandidateBelongsToRenderedWord(word, token, candidate)) return null;
-if (!renderedWordNeedsSubwordRecovery(word, candidate.text.slice(token.start, token.end))) return null;
-const subword = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
-if (!subword) return null;
-return isProperRenderedWordSubword(token, subword) ? subword : null;
-}
-function renderedWordNeedsSubwordRecovery(word, surface) {
-const source = word.dataset.cardSource;
-if (!source || source === "fallback") return true;
-const normalizedSurface = normalizedLookupText(surface);
-if (!normalizedSurface) return false;
-return [word.dataset.expression, word.dataset.reading].some((value) => {
-const identity = normalizedLookupText(value ?? "");
-return identity.length > 0 && identity.length < normalizedSurface.length && normalizedSurface.includes(identity);
-});
-}
-function pointerCandidateBelongsToRenderedWord(word, token, candidate) {
-if (candidate.text !== word.dataset.sentence) return false;
-return candidate.offset >= token.start && candidate.offset < token.end;
-}
-function isProperRenderedWordSubword(token, subword) {
-if (subword.start < token.start) return false;
-if (subword.end > token.end) return false;
-return subword.start !== token.start || subword.end !== token.end;
-}
 const log = Logger.scope("ReaderApp");
 class ReaderApp {
 abortController = new AbortController();
@@ -37109,8 +37297,18 @@ parser = new ReaderParser({
 getSettings: () => this.settings,
 jpdb: this.jpdb,
 jiten: this.jiten,
-jitenPublicVocabulary: this.jitenPublicVocabulary,
-dictionaries: this.dictionaries,
+jitenPublicVocabulary: {
+parse: (paragraphs, options) => this.jitenPublicVocabulary.parse(paragraphs, options),
+lookupMany: (terms, options) => this.jitenPublicVocabulary.lookupMany(terms, options)
+},
+dictionaries: new Proxy({}, {
+get: (_target, property) => {
+const store = this.dictionaries;
+const value = store[property];
+return typeof value === "function" ? value.bind(this.dictionaries) : value;
+},
+has: (_target, property) => property in this.dictionaries
+}),
 yomuLocalSrs: this.yomuLocalSrs
 });
 onboarding = this.createOnboardingController();
@@ -39246,7 +39444,12 @@ this.cancelPendingHoverLookup();
 this.cancelHoverClose();
 this.pinOcrLineForModalLookup(press.word);
 if (this.shouldPauseForLookupAnchor(press.word)) this.pauseVideoForSubtitleMining();
-void this.showWord(press.word, { trigger: "click", userGesture: true, fastInitialRender: true }).finally(() => this.releaseOrphanedModalOcrPin());
+const candidate = this.renderedWordPointerLookupCandidate(press.word, press.x, press.y, press.word);
+if (candidate) {
+void this.showLookupCandidate(candidate, "modal", { userGesture: true }).finally(() => this.releaseOrphanedModalOcrPin());
+return;
+}
+this.releaseOrphanedModalOcrPin();
 }
 openReaderWordFromPointer(event, word, surfaces) {
 if (!surfaces.n) {
@@ -39256,8 +39459,20 @@ event.stopPropagation();
 this.prepareModalLookupFromPointer(event);
 this.pinOcrLineForModalLookup(word);
 if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
-const fastInitialRender = (surfaces.s || this.shouldFastRenderReaderWordPointerLookup(event)) && !word.closest(".jpdb-ocr-line");
-void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender }).finally(() => this.releaseOrphanedModalOcrPin());
+const candidate = this.renderedWordLookupCandidateForActivation(word, event);
+if (candidate) {
+void this.showLookupCandidate(candidate, "modal", {
+navigation: surfaces.r ? "push-current" : "reset",
+preservePosition: surfaces.r,
+userGesture: true
+}).finally(() => this.releaseOrphanedModalOcrPin());
+return;
+}
+void this.showWord(word, {
+trigger: "click",
+userGesture: true,
+navigation: surfaces.r ? "push-current" : "reset"
+}).finally(() => this.releaseOrphanedModalOcrPin());
 }
 handleOcrReaderWordPointerDown(event) {
 const word = this.ocrPointerDownReaderWord(event);
@@ -39269,8 +39484,20 @@ this.prepareModalLookupFromPointer(event);
 const now = Date.now();
 this.suppressWordClickUntil = now + 700;
 this.pinOcrLineForModalLookup(word);
-const fastInitialRender = !word.closest(".jpdb-ocr-line");
-void this.showWord(word, surfaces.r ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender }).finally(() => this.releaseOrphanedModalOcrPin());
+const candidate = this.renderedWordLookupCandidateForActivation(word, event);
+if (candidate) {
+void this.showLookupCandidate(candidate, "modal", {
+navigation: surfaces.r ? "push-current" : "reset",
+preservePosition: surfaces.r,
+userGesture: true
+}).finally(() => this.releaseOrphanedModalOcrPin());
+return true;
+}
+void this.showWord(word, {
+trigger: "click",
+userGesture: true,
+navigation: surfaces.r ? "push-current" : "reset"
+}).finally(() => this.releaseOrphanedModalOcrPin());
 return true;
 }
 ocrPointerDownReaderWord(event) {
@@ -39304,10 +39531,6 @@ if (Date.now() >= this.suppressWordClickUntil && !this.shouldIgnoreCurrentImmers
 event.preventDefault();
 event.stopPropagation();
 return true;
-}
-shouldFastRenderReaderWordPointerLookup(event) {
-const pointerType = event.pointerType;
-return event.type.startsWith("pointer") && (pointerType === "touch" || pointerType === "pen");
 }
 boundSubtitleVideo() {
 if (!("getBoundVideo" in this.subtitles)) return void 0;
@@ -39707,7 +39930,8 @@ this.hoverLookupTimer = void 0;
 this.hoverPendingWord = void 0;
 this.hoverPendingLookupKey = "";
 const hoverLookupGeneration = this.nextHoverLookupGeneration();
-void this.showWord(word, { trigger: "hover", hoverLookupGeneration });
+const candidate = this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
+if (candidate) void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration });
 }
 activatePressLookupIfNeeded(pressLookup, event) {
 if (pressLookup.active) return true;
@@ -39969,30 +40193,32 @@ this.keepPlainSubtitleHoverPause(event.target);
 const insideActivePopover = this.handleActivePopoverHover(event);
 if (insideActivePopover) return;
 const word = this.hoverReaderWordForEvent(event);
-const subword = this.renderedWordSubwordCandidateAtPointer(word, event);
+const candidate = this.renderedWordPointerLookupCandidateAtPointer(word, event);
 if (isHoverPopoverTransitActive(this.activeHoverPopoverPointerState())) {
-this.handleHoverPopoverTransit(word, subword, event);
+this.handleHoverPopoverTransit(word, candidate, event);
 return;
 }
 if (!word) {
 this.handlePointerTextHover(event);
 return;
 }
-if (subword) {
-this.handlePointerTextHoverCandidate(event, subword);
+if (candidate) {
+this.keepSubtitleMiningPauseForPendingHover(word);
+this.preloadHoverWordAudio(word);
+this.handlePointerTextHoverCandidate(event, candidate);
 return;
 }
 this.handleReaderWordHover(word, event);
 }
-renderedWordSubwordCandidateAtPointer(word, event) {
+renderedWordPointerLookupCandidateAtPointer(word, event) {
 if (!word) return null;
-return this.renderedWordSubwordHoverCandidate(word, event.clientX, event.clientY, event.target);
+return this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
 }
-handleHoverPopoverTransit(word, subword, event) {
+handleHoverPopoverTransit(word, candidate, event) {
 this.cancelHoverClose();
 this.cancelPendingHoverLookup();
-if (subword) {
-this.handlePointerTextHoverCandidate(event, subword, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
+if (candidate) {
+this.handlePointerTextHoverCandidate(event, candidate, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
 return;
 }
 if (word) {
@@ -40156,12 +40382,13 @@ return configured === void 0 ? this.shouldLookupOnHover(event) : configured;
 rememberPointerTextHoverOrigin(event, minimumDelayMs) {
 if (minimumDelayMs === void 0) this.rememberHoverPopoverPointer(event);
 }
-renderedWordSubwordHoverCandidate(word, x, y, eventTarget) {
-const candidate = this.lookupCandidateFromPoint(x, y, eventTarget, HOVER_POINTER_TEXT_LOOKUP_OPTIONS) ?? pointerTextLookupFromRenderedWord(word, x, y);
-if (!candidate) return null;
-const subword = renderedWordSubwordRange(word, candidate);
-if (!subword) return null;
-return { ...candidate, start: subword.start, end: subword.end };
+renderedWordPointerLookupCandidate(word, x, y, eventTarget) {
+return pointerTextLookupFromRenderedWord(word, x, y) ?? this.lookupCandidateFromPoint(x, y, eventTarget, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+}
+renderedWordLookupCandidateForActivation(word, event) {
+const candidate = this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
+if (candidate || this.eventHasPointTarget(event)) return candidate;
+return pointerTextLookupFromRenderedWordStart(word);
 }
 refreshActivePointerTextHover(candidate, event) {
 if (!this.isActivePointerTextLookup(candidate)) return false;
@@ -40477,8 +40704,13 @@ return fallbackWord.isConnected ? fallbackWord : null;
 }
 startScheduledHoverWordLookup(activeWord, hoverLookupGeneration) {
 const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
+const pointer = this.lastPointerPosition;
+if (!pointer) return;
+const target = document.elementFromPoint(pointer.x, pointer.y);
+const candidate = this.renderedWordPointerLookupCandidate(activeWord, pointer.x, pointer.y, target);
+if (!candidate) return;
 if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-void this.showWord(activeWord, { trigger: "hover", hoverLookupGeneration }).finally(() => {
+void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).finally(() => {
 if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = "";
 });
 }
@@ -40717,8 +40949,8 @@ return Boolean(current && samePointerTextLookupTarget({ anchor: candidate.anchor
 }
 currentPointerTextHoverCandidateAtPoint(x, y, target) {
 const word = this.liveReaderWordAtPointer(x, y);
-const subword = word ? this.renderedWordSubwordHoverCandidate(word, x, y, target) : null;
-return subword ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+const candidate = word ? this.renderedWordPointerLookupCandidate(word, x, y, target) : null;
+return candidate ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
 }
 hasActiveHoverPopover() {
 return this.activePopoverMode === "hover" && Boolean(this.activePopover);
@@ -40759,9 +40991,6 @@ return this.parser.getCachedCard(vid, sid);
 isJpdbBackedCard(card) {
 return this.parser.isJpdbBackedCard(card);
 }
-isParserBackedLookupCard(card) {
-return this.isJpdbBackedCard(card) || card.source === "jiten";
-}
 lookupText(text2, sentence = text2, options = {}, scope = this.cardLookup.captureTarget()) {
 return this.cardLookup.lookupText(text2, sentence, options, scope);
 }
@@ -40776,9 +41005,6 @@ return this.cardLookup.publicLookupCard(term, exact, readingOrOptions, options);
 }
 publicLookupFallbackCards(cards, options = {}, scope = this.cardLookup.captureTarget()) {
 return this.cardLookup.publicLookupFallbackCards(cards, options, scope);
-}
-publicLookupFirstCandidateTerm(terms) {
-return this.cardLookup.publicLookupFirstCandidateTerm(terms);
 }
 lookupFallbackApiCard(card, options = {}, scope = this.cardLookup.captureTarget()) {
 return this.cardLookup.lookupFallbackApiCard(card, options, scope);
@@ -40806,11 +41032,17 @@ if (!nestedWord || !this.shouldLookupNestedDictionaryWord(nestedWord, query)) re
 event.preventDefault();
 event.stopPropagation();
 this.primeLookupAudioFromGesture();
-void this.showWord(nestedWord, {
-trigger: "click",
-navigation: trigger === "modal" ? "push-current" : "reset",
+const navigation = trigger === "modal" ? "push-current" : "reset";
+const candidate = this.renderedWordLookupCandidateForActivation(nestedWord, event);
+if (candidate) {
+void this.showLookupCandidate(candidate, trigger, {
+navigation,
+preservePosition: trigger === "modal",
 userGesture: true
 });
+} else {
+void this.showWord(nestedWord, { trigger: "click", navigation, userGesture: true });
+}
 return true;
 }
 shouldLookupNestedDictionaryWord(nestedWord, query) {
@@ -40908,28 +41140,17 @@ done();
 }
 async showFirstPointerTextCandidate(candidate, sentence, trigger, options) {
 const scope = this.cardLookup.captureTarget();
-if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-if (!scope.isCurrent()) return;
-if (await this.showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-if (!scope.isCurrent()) return;
-if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-if (!scope.isCurrent()) return;
-if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-}
-async showParsedPointerTextCandidate(candidate, sentence, trigger, options, scope) {
 try {
-const [tokens] = await this.parseJapanese([candidate.text], this.pointerTextJpdbParseOptions());
-if (!scope.isCurrent()) return true;
-const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
-if (!token || this.shouldSkipPointerTextToken(candidate, token)) return false;
-if (!this.isParserBackedLookupCard(token.card)) return false;
-if (!scope.isCurrent()) return true;
-await this.showPointerTextCard(token.card, sentence, candidate, { start: token.start, end: token.end }, trigger, options);
-return true;
+const token = await this.parser.lookupTokenAt(
+candidate.text,
+candidate.offset,
+{ start: candidate.start, end: candidate.end },
+this.pointerTextJpdbParseOptions()
+);
+if (!scope.isCurrent() || !token) return;
+await this.showPointerTextCard(token.card, sentence, candidate, token, trigger, options);
 } catch (error) {
-if (!scope.isCurrent()) return true;
-log.warn("Pointer parse failed", { offset: candidate.offset }, error);
-return false;
+if (scope.isCurrent()) log.warn("Authoritative pointer lookup failed", { offset: candidate.offset }, error);
 }
 }
 pointerTextJpdbParseOptions() {
@@ -40939,96 +41160,6 @@ requireJpdb: false,
 jpdbTimeoutMs: POINTER_TEXT_JPDB_TIMEOUT_MS,
 allowJpdbTimeoutFallback: true
 });
-}
-shouldSkipPointerTextToken(candidate, token) {
-if (token.start < candidate.start || token.end > candidate.end) return true;
-const tokenLength = token.end - token.start;
-const run = pointerTextRunAt(candidate.text, candidate.offset);
-const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
-if (surroundingLength <= tokenLength) return false;
-if (isLowValuePointerTextToken(token)) return true;
-if (!KANA_ONLY_LOOKUP_RUN_RE.test(token.card.spelling.trim())) return false;
-return !this.isCoveredParsedKanaPointerToken(candidate, token);
-}
-isCoveredParsedKanaPointerToken(candidate, token) {
-if (token.end - token.start <= 1) return false;
-const surface = normalizedLookupText(candidate.text.slice(token.start, token.end));
-if (!KANA_ONLY_LOOKUP_RUN_RE.test(surface)) return false;
-const spelling = normalizedLookupText(token.card.spelling);
-const reading = normalizedLookupText(token.card.reading);
-return surface === spelling || surface === reading;
-}
-async showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options, scope) {
-if (!scope.isCurrent()) return true;
-if (!this.canUsePublicJpdbPointerLookup()) return false;
-const spans = this.publicJpdbPointerLookupCandidates(candidate);
-if (!this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
-const jitenCards = await this.cardLookup.publicJitenLookupCandidateCards(spans.map((span) => span.term));
-if (!scope.isCurrent()) return true;
-for (const span of spans) {
-const card = jitenCards.get(normalizedJitenLookupKey(span.term));
-if (!card) continue;
-const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
-if (!scope.isCurrent()) return true;
-this.parser.cacheCards?.([card]);
-await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
-return true;
-}
-for (const span of spans) {
-const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
-if (!scope.isCurrent()) return true;
-if (card) {
-const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
-this.parser.cacheCards?.([card]);
-await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
-return true;
-}
-}
-return false;
-}
-publicJpdbPointerLookupCandidates(candidate) {
-const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset).filter((span) => span.start >= candidate.start && span.end <= candidate.end);
-const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
-if (!fallbackRange) return spans;
-const fallbackSurface = candidate.text.slice(fallbackRange.start, fallbackRange.end);
-const fallbackSurfaceKey = normalizedLookupText(fallbackSurface);
-const deinflectedSpans = fallbackDictionaryLookupTermsForText(fallbackSurface).filter((term) => normalizedLookupText(term) !== fallbackSurfaceKey).map((term) => ({ term, start: fallbackRange.start, end: fallbackRange.end }));
-return uniquePointerTextSpans([...deinflectedSpans, ...spans]);
-}
-canUsePublicJpdbPointerLookup() {
-return activeLearningTarget().language === "ja" && !hasJpdbApiCredential(this.settings);
-}
-canUsePublicJpdbPointerTextLookup(candidate, spans) {
-return this.settings.jpdbDefinitionsEnabled || this.settings.showPitchAccent || this.hasKanaRunIdentityPublicLookupCandidate(candidate, spans);
-}
-hasKanaRunIdentityPublicLookupCandidate(candidate, spans) {
-if (spans.length <= 1) return false;
-const fallbackTerm = normalizedLookupText(fallbackLookupTermAtOffset(candidate.text, candidate.offset));
-const candidateLength = candidate.end - candidate.start;
-return spans.some((span) => {
-const term = normalizedLookupText(span.term);
-if (term.length <= 1 || !KANA_ONLY_LOOKUP_RUN_RE.test(term)) return false;
-if (candidateLength > term.length) return true;
-return Boolean(fallbackTerm && fallbackTerm !== term && term.includes(fallbackTerm));
-});
-}
-async showLocalPointerTextCandidate(candidate, sentence, trigger, options, scope) {
-const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
-if (!scope.isCurrent() || !localMatch || localMatch.start < candidate.start || localMatch.end > candidate.end || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
-const card = this.parser.localCardFromEntry(localMatch.entry, scope.target);
-if (!scope.isCurrent()) return true;
-await this.showPointerTextCard(card, sentence, candidate, localMatch, trigger, options);
-return true;
-}
-async showFallbackPointerTextCandidate(candidate, sentence, trigger, options, scope) {
-if (!scope.isCurrent()) return false;
-const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset) ?? candidate;
-const fallbackTerm = this.pointerFallbackDisplayTerm(candidate, fallbackRange);
-if (!fallbackTerm || this.isWeakPointerFallbackTerm(candidate, fallbackTerm) || this.isOverbroadPointerFallback(candidate, fallbackRange)) return false;
-const card = this.parser.fallbackCardFromText(fallbackTerm, scope.target);
-if (!scope.isCurrent()) return true;
-await this.showPointerTextCard(card, sentence, candidate, fallbackRange, trigger, options);
-return true;
 }
 async showPointerTextCard(card, sentence, candidate, range, trigger, options) {
 if (trigger === "hover" && !this.isCurrentPointerTextHoverResult(candidate, range, options.hoverLookupGeneration)) return;
@@ -41042,16 +41173,9 @@ preservePosition: options.preservePosition,
 previousNavigationEntry: this.textLookupPreviousNavigationEntry(trigger, navigation),
 hoverLookupKey: trigger === "hover" ? this.activePointerTextLookupKey(candidate, range.start, range.end, card) : void 0,
 hoverLookupGeneration: options.hoverLookupGeneration,
-pointerTextLookup: trigger === "hover" ? pointerTextLookup : void 0,
+pointerTextLookup,
 userGesture: options.userGesture
 });
-}
-async lookupLocalEntryAtOffset(text2, offset) {
-if (!this.settings.localDictionariesEnabled) return void 0;
-const run = pointerTextRunAt(text2, offset);
-if (!run) return void 0;
-const pointerRange = fallbackLookupRangeAtOffset(text2, run.offset) ?? { start: run.start, end: run.end };
-return await this.lookupLocalEntryInRun(text2, run, pointerRange);
 }
 isCurrentRenderedWordHover(word, hoverLookupKey, hoverLookupGeneration) {
 if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
@@ -41078,105 +41202,6 @@ return this.isActiveHoverLookup(hoverLookupKey) && !this.hasPendingDifferentHove
 hasPendingDifferentHoverLookup(hoverLookupKey) {
 return Boolean(this.hoverPendingLookupKey && this.hoverPendingLookupKey !== hoverLookupKey || this.hoverLookupInFlightKey && this.hoverLookupInFlightKey !== hoverLookupKey);
 }
-async lookupLocalEntryInRun(text2, run, pointerRange) {
-const target = activeLearningTarget();
-if (target.lookupStartsAtSegmentBoundary) {
-const surface = text2.slice(pointerRange.start, pointerRange.end);
-const entry = await this.lookupSingleLocalSurface(surface);
-return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : void 0;
-}
-if (target.lookupSubsegments) {
-return await this.lookupSuffixStrippedLocalEntry(target, text2, run);
-}
-if (target.lookupSweepMode === "left-to-right-longest-exact") {
-for (const span of jpdbPointerLookupCandidates(text2, run.offset)) {
-const entry = await this.lookupSingleLocalSurface(span.term);
-if (entry) return { entry, start: span.start, end: span.end };
-}
-return void 0;
-}
-if (isOverbroadLocalPointerRange(run, pointerRange)) {
-return await this.lookupContainingLocalEntryInRun(text2, run, pointerRange, { preferShorter: true });
-}
-const exactSurface = text2.slice(pointerRange.start, pointerRange.end);
-const exactEntry = await this.lookupSingleLocalSurface(exactSurface);
-if (exactEntry) return { entry: exactEntry, start: pointerRange.start, end: pointerRange.end };
-if (!canExpandLocalPointerRange(exactSurface)) return void 0;
-return await this.lookupContainingLocalEntryInRun(text2, run, pointerRange);
-}
-async lookupSuffixStrippedLocalEntry(target, text2, run) {
-const runText = text2.slice(run.start, run.end);
-const relativeOffset = run.offset - run.start;
-for (const surface of target.lookupSubsegments(runText, 18)) {
-if (relativeOffset >= surface.length) continue;
-const entry = await this.lookupSingleLocalSurface(surface);
-if (entry) return { entry, start: run.start, end: run.start + surface.length };
-}
-return void 0;
-}
-async lookupContainingLocalEntryInRun(text2, run, pointerRange, options = {}) {
-const minStart = Math.max(run.start, run.offset - 8);
-const maxEnd = Math.min(run.end, Math.max(pointerRange.end, run.offset + 18));
-if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text2, run, minStart, maxEnd);
-for (let start = Math.min(pointerRange.start, run.offset); start >= minStart; start--) {
-const longestEnd = Math.min(maxEnd, start + 18);
-for (let end = longestEnd; end > run.offset; end--) {
-const surface = text2.slice(start, end);
-const entry = await this.lookupSingleLocalSurface(surface);
-if (entry) return { entry, start, end };
-}
-}
-return void 0;
-}
-async lookupContainingLocalEntryShortestFirst(text2, run, minStart, maxEnd) {
-const maxLength = Math.min(18, maxEnd - minStart);
-for (let length = 2; length <= maxLength; length++) {
-const firstStart = Math.max(minStart, run.offset - length + 1);
-const lastStart = Math.min(run.offset, maxEnd - length);
-for (let start = lastStart; start >= firstStart; start--) {
-const end = start + length;
-const surface = text2.slice(start, end);
-const entry = await this.lookupSingleLocalSurface(surface);
-if (entry) return { entry, start, end };
-}
-}
-return void 0;
-}
-async lookupSingleLocalSurface(surface) {
-const target = activeLearningTarget();
-for (const candidate of target.lookupCandidates(surface)) {
-const entries2 = await this.dictionaries.lookup(candidate.term, candidate.term, 8, this.settings.dictionaryPreferences).catch(() => []);
-const match = entries2.find(
-(entry) => (target.lookupSweepMode !== "left-to-right-longest-exact" || target.normalizeText(entry.expression) === target.normalizeText(candidate.term)) && target.matchesLookupCandidateRules(entry.rules, candidate.rules)
-);
-if (match) return match;
-}
-return void 0;
-}
-isWeakPointerLocalMatch(candidate, match) {
-return this.isWeakPointerTextRange(candidate, match.start, match.end);
-}
-isWeakPointerFallbackTerm(candidate, term) {
-return term.length <= 1 && candidate.end - candidate.start > 1;
-}
-pointerFallbackDisplayTerm(candidate, range) {
-const surface = normalizeFallbackTerm(candidate.text.slice(range.start, range.end));
-if (this.shouldPreferPointerFallbackSurface(candidate, range, surface)) return surface;
-return fallbackLookupTermAtOffset(candidate.text, candidate.offset);
-}
-shouldPreferPointerFallbackSurface(candidate, range, surface) {
-return surface.length > 1 && range.start === candidate.start && range.end === candidate.end && KANA_ONLY_RUN_RE.test(surface);
-}
-isOverbroadPointerFallback(candidate, range) {
-const target = activeLearningTarget();
-if (target.lookupStartsAtSegmentBoundary || target.lookupSubsegments) return false;
-const fallbackLength = range.end - range.start;
-const candidateLength = candidate.end - candidate.start;
-return fallbackLength >= candidateLength && candidateLength > 6 && fallbackLength > 4;
-}
-isWeakPointerTextRange(candidate, start, end) {
-return end - start <= 1 && candidate.end - candidate.start > 1;
-}
 async showWord(word, options = {}) {
 const scope = this.cardLookup.captureTarget();
 if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
@@ -41193,55 +41218,23 @@ this.rememberRenderedWordMiningContext(word, card, insideReaderPopup);
 const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
 if (this.refreshActiveRenderedWordHover(word, context)) return;
 if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
-if (this.shouldShowRenderedWordCardImmediately(context, options)) {
 this.preloadHoverWordAudio(word);
-await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
-return;
-}
-if (await this.showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return;
-if (!scope.isCurrent()) return;
-this.preloadHoverWordAudio(word);
+if (await this.showAuthoritativeSpanForRenderedWord(word, card, context, options, stackOverSettings, scope)) return;
+if (await this.showOcrKanjiRenderedWord(word, card, context, scope)) return;
 await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
 }
-async showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings, scope) {
+async showOcrKanjiRenderedWord(word, card, context, scope) {
 if (!scope.isCurrent()) return true;
-if (await this.showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return true;
-if (!scope.isCurrent()) return true;
-if (await this.showLocalRenderedWordCandidate(card, context, options, stackOverSettings, scope)) return true;
-if (!scope.isCurrent()) return true;
-if (await this.showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return true;
-if (!scope.isCurrent()) return true;
-if (this.shouldSuppressRenderedKanaFragmentFallback(word, card, context)) return true;
-return this.showOcrKanjiRenderedWord(word, card, context, scope);
-}
-async showLocalRenderedWordCandidate(card, context, options, stackOverSettings, scope) {
-if (!this.settings.localDictionariesEnabled || card.source !== "fallback") return false;
-for (const term of fallbackLookupTermsForCard(card)) {
-const entries2 = await this.dictionaries.lookup(
-term,
-term,
-this.settings.localDictionaryMaxResults,
-this.settings.dictionaryPreferences
-).catch(() => []);
-if (!scope.isCurrent()) return true;
-const entry = entries2[0];
-if (!entry) continue;
-await this.showRenderedWordCard(
-this.parser.localCardFromEntry(entry, scope.target),
-context,
-options,
-stackOverSettings,
-scope
-);
+const ocrKanji = singleKanjiOcrLookupCharacter(word);
+if (!ocrKanji || context.trigger !== "modal") return false;
+await this.showKanjiCard(card, ocrKanji, ocrKanji, context.anchor, {
+navigation: context.navigation,
+preservePosition: context.insideReaderPopup
+});
 return true;
-}
-return false;
 }
 shouldIgnoreRenderedWordLookup(word, options) {
 return options.trigger === "click" && this.shouldIgnoreCurrentImmersionExampleTargetClick(word);
-}
-shouldShowRenderedWordCardImmediately(context, options) {
-return context.trigger === "hover" || context.trigger === "modal" && options.fastInitialRender === true;
 }
 refreshActiveRenderedWordHover(word, context) {
 if (!context.hoverLookupKey || !this.isActiveHoverLookup(context.hoverLookupKey)) return false;
@@ -41250,17 +41243,6 @@ return true;
 }
 isStaleRenderedWordHover(word, context, hoverLookupGeneration) {
 return context.trigger === "hover" && !this.isCurrentRenderedWordHover(word, context.hoverLookupKey ?? "", hoverLookupGeneration);
-}
-async showOcrKanjiRenderedWord(word, card, context, scope) {
-if (!scope.isCurrent()) return true;
-const ocrKanji = singleKanjiOcrLookupCharacter(word);
-if (!ocrKanji || context.trigger !== "modal") return false;
-if (!scope.isCurrent()) return true;
-await this.showKanjiCard(card, ocrKanji, ocrKanji, context.anchor, {
-navigation: context.navigation,
-preservePosition: context.insideReaderPopup
-});
-return true;
 }
 showRenderedWordCard(card, context, options, stackOverSettings, scope) {
 if (!scope.isCurrent()) return Promise.resolve();
@@ -41274,8 +41256,48 @@ hoverLookupGeneration: options.hoverLookupGeneration,
 insideReaderPopup: context.insideReaderPopup,
 userGesture: options.userGesture,
 stackOverSettings,
-skipInitialCardResolution: this.shouldShowRenderedWordCardImmediately(context, options)
+skipInitialCardResolution: true
 });
+}
+/**
+* Re-offer an unconfirmed rendered span to the span authority.
+*
+* A page can hold spans an older parse produced — a partial run rendered
+* before enrichment landed, or annotations stamped by a previous version.
+* Those words carry a fallback card: nothing confirmed them. Interacting
+* with one resolves it through the same authority as hover and tap, so the
+* learner gets the whole word rather than the fragment they touched. Words
+* already carrying a confirmed card skip this entirely, so no extra lookup
+* runs on normal interaction.
+*/
+async showAuthoritativeSpanForRenderedWord(word, card, context, options, stackOverSettings, scope) {
+const span = unconfirmedRenderedWordSpan(word, card, context);
+if (!span) return false;
+try {
+const token = await this.parser.lookupTokenAt(
+span.sentence,
+span.start,
+{ start: 0, end: span.sentence.length },
+this.pointerTextJpdbParseOptions()
+);
+if (!scope.isCurrent()) return true;
+if (!token) return false;
+if (card && token.end - token.start <= span.end - span.start) return false;
+if (!card && token.card.source === "fallback" && token.end - token.start <= span.end - span.start) return false;
+this.parser.cacheCards?.([token.card]);
+await this.showRenderedWordCard(
+token.card,
+{ ...context, sentence: span.sentence },
+options,
+stackOverSettings,
+scope
+);
+return true;
+} catch (error) {
+if (!scope.isCurrent()) return true;
+log.warn("Authoritative rendered-word span lookup failed", { expression: card?.spelling ?? word.dataset.expression }, error);
+return false;
+}
 }
 cardForRenderedWord(word) {
 const vid = Number(word.dataset.vid);
@@ -41283,94 +41305,13 @@ const sid = Number(word.dataset.sid);
 const card = this.getCachedCard(vid, sid);
 return renderedWordCardForLookup(word, card);
 }
-async showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings, scope) {
-if (!scope.isCurrent()) return true;
-const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
-if (!lookup) return false;
-const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms, this.isExactRenderedWordCardMatch(word, card));
-if (!scope.isCurrent()) return true;
-if (!resolved) return false;
-this.parser.cacheCards?.([resolved]);
-await this.showRenderedWordCard(resolved, { ...context, sentence: lookup.sentence }, options, stackOverSettings, scope);
-return true;
-}
-isExactRenderedWordCardMatch(word, card) {
-return renderedWordLookupText(word) === normalizedLookupText(card.spelling);
-}
-async showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings, scope) {
-if (!scope.isCurrent()) return true;
-if (!this.canUseParserBackedRenderedWordLookup()) return false;
-const lookup = renderedKanaFragmentExpansionLookup(word, card, context);
-if (!lookup) return false;
-try {
-const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
-if (!scope.isCurrent()) return true;
-const token = this.parsedRenderedWordCandidateToken(tokens ?? [], lookup, word);
-if (!token) return false;
-this.parser.cacheCards?.([token.card]);
-this.restampKanaRunRenderedWords(word, token, lookup.sentence);
-await this.showRenderedWordCard(token.card, { ...context, sentence: lookup.sentence }, options, stackOverSettings, scope);
-return true;
-} catch (error) {
-if (!scope.isCurrent()) return true;
-log.warn("Rendered JPDB parse failed", { expression: card.spelling }, error);
-return false;
-}
-}
-restampKanaRunRenderedWords(word, token, sentence) {
-const surface = sentence.slice(token.start, token.end);
-const run = kanaRunRenderedWordsForSurface(word, surface);
-if (run.length < 2) return;
-const pitchClass = getPitchClass(token.card.pitchAccent, token.card.reading || token.card.spelling) || "unknown";
-this.pauseAutoScanObserver(() => {
-for (const fragment of run) {
-fragment.dataset.vid = String(token.card.vid);
-fragment.dataset.sid = String(token.card.sid);
-this.applyPublicVocabularyToRenderedWord(fragment, token.card, pitchClass);
-}
-refreshReaderWordContrast(word.parentElement ?? word);
-});
-}
-parsedRenderedWordCandidateToken(tokens, lookup, word) {
-const token = pointerTokenAtOffset(tokens, lookup.offset);
-const candidate = { text: lookup.sentence, offset: lookup.offset, start: 0, end: lookup.sentence.length, anchor: word };
-return this.canUseParsedRenderedWordToken(token, lookup, candidate) ? token : void 0;
-}
-canUseParsedRenderedWordToken(token, lookup, candidate) {
-if (!token) return false;
-if (token.end - token.start <= lookup.surfaceLength) return false;
-if (this.shouldSkipPointerTextToken(candidate, token)) return false;
-return this.isParserBackedLookupCard(token.card);
-}
-canUseParserBackedRenderedWordLookup() {
-return Boolean(hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings));
-}
-shouldSuppressRenderedKanaFragmentFallback(word, card, context) {
-const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
-if (!lookup?.terms.length) return false;
-if (this.isExactRenderedWordCardMatch(word, card)) return false;
-const surface = renderedWordLookupText(word);
-const spelling = normalizedLookupText(card.spelling);
-const reading = normalizedLookupText(card.reading);
-const isRenderedKanaFragment = KANA_ONLY_LOOKUP_RUN_RE.test(surface) && surface.length < Math.max(spelling.length, reading.length, lookup.terms[0]?.length ?? 0);
-return isRenderedKanaFragment;
-}
-resolvePublicJpdbRenderedWordCandidate(terms, boundWait) {
-const resolved = this.resolvePublicJpdbRenderedWordCandidateTerms(terms);
-if (!boundWait) return resolved;
-void resolved.catch(() => void 0);
-return Promise.race([
-resolved,
-delay(RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS).then(() => void 0)
-]);
-}
-async resolvePublicJpdbRenderedWordCandidateTerms(terms) {
-return this.publicLookupFirstCandidateTerm(terms);
-}
 async handleMissingRenderedWordCard(word, options, insideReaderPopup, scope) {
 if (!scope.isCurrent()) return;
 const vid = Number(word.dataset.vid);
 const sid = Number(word.dataset.sid);
+const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
+if (await this.showAuthoritativeSpanForRenderedWord(word, void 0, context, options, options.stackOverSettings ?? false, scope)) return;
+if (!scope.isCurrent()) return;
 if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options, scope)) return;
 if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options, scope)) return;
 if (!scope.isCurrent()) return;
@@ -41384,13 +41325,6 @@ const expression = renderedWordLookupText(word);
 if (!isLookupableTargetLanguageText(expression)) return false;
 const trigger = this.renderedWordTrigger(options.trigger, false);
 const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
-const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
-if (options.fastInitialRender) {
-await this.showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation, scope);
-return true;
-}
-if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation, scope)) return true;
-if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation, scope)) return true;
 if (!scope.isCurrent()) return true;
 await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
 anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
@@ -41403,62 +41337,6 @@ hoverLookupGeneration: options.hoverLookupGeneration,
 stackOverSettings: options.stackOverSettings
 }, scope);
 return true;
-}
-async showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation, scope) {
-if (!scope.isCurrent()) return;
-const sentence = this.renderedWordSentence(word) ?? expression;
-const card = this.parser.fallbackCardFromText(expression, scope.target);
-if (!scope.isCurrent()) return;
-await this.showCard(card, sentence, renderedWordAnchor(word, false, this.activePopoverAnchor), {
-trigger,
-navigation,
-preservePosition: trigger === "hover",
-previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
-userGesture: options.userGesture,
-hoverLookupGeneration: options.hoverLookupGeneration,
-stackOverSettings: options.stackOverSettings,
-skipInitialCardResolution: true
-});
-if (!scope.isCurrent()) return;
-this.scheduleVisiblePageReparse();
-}
-async lookupUncachedPageWordViaParsedJpdb(word, lookup, expression, options, trigger, navigation, scope) {
-try {
-const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
-if (!scope.isCurrent()) return true;
-const token = pointerTokenAtOffset(tokens ?? [], lookup.offset);
-const candidate = { text: lookup.sentence, offset: lookup.offset, start: 0, end: lookup.sentence.length, anchor: word };
-if (!token || token.end - token.start <= lookup.surfaceLength || this.shouldSkipPointerTextToken(candidate, token) || !this.isParserBackedLookupCard(token.card)) return false;
-await this.showRenderedWordExpansionCard(token.card, lookup.sentence, word, options, trigger, navigation, scope);
-return true;
-} catch (error) {
-if (!scope.isCurrent()) return true;
-log.warn("Uncached JPDB parse failed", { expression }, error);
-return false;
-}
-}
-async lookupUncachedPageWordViaPublicJpdb(word, lookup, options, trigger, navigation, scope) {
-if (!scope.isCurrent()) return true;
-const terms = jpdbPointerLookupCandidates(lookup.sentence, lookup.offset).filter((span) => span.end - span.start > lookup.surfaceLength).map((span) => span.term);
-if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
-const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms, false);
-if (!scope.isCurrent()) return true;
-if (!resolved) return false;
-await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation, scope);
-return true;
-}
-async showRenderedWordExpansionCard(card, sentence, word, options, trigger, navigation, scope) {
-if (!scope.isCurrent()) return;
-this.parser.cacheCards?.([card]);
-await this.showCard(card, sentence, word, {
-trigger,
-navigation,
-preservePosition: trigger === "hover",
-previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
-userGesture: options.userGesture,
-hoverLookupGeneration: options.hoverLookupGeneration,
-stackOverSettings: options.stackOverSettings
-});
 }
 async lookupUncachedPopupWord(word, options, scope) {
 if (!scope.isCurrent()) return true;
@@ -43079,7 +42957,7 @@ return;
 }
 await runLimited(fallbackTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async (token) => {
 const fallback = token.card;
-const resolved = await this.resolveFallbackVocabularyForPriorityRender(fallback);
+const resolved = await this.resolveFallbackVocabularyForPriorityRender(token);
 if (resolved === fallback || resolved.source === "fallback") return;
 this.applyResolvedFallbackVocabularyToToken(token, fallback, resolved);
 });
@@ -43088,7 +42966,7 @@ async resolvePublicOcrFallbackTokens(tokens) {
 const pending = new Map();
 for (const token of tokens) {
 const fallback = token.card;
-const key = cardKey(fallback);
+const key = fallbackVocabularySpanCacheKey(fallback, token);
 const cached = this.resolvedFallbackVocabularyCache.get(key);
 if (cached && cached !== fallback && cached.source !== "fallback") {
 this.applyResolvedFallbackVocabularyToToken(token, fallback, cached);
@@ -43100,17 +42978,18 @@ pending.set(key, group);
 }
 if (!pending.size) return;
 const resolved = await this.publicLookupFallbackCards([...pending.values()].map((group) => group.card), { jpdbPublicLookup: false });
-for (const [key, group] of pending) {
-const card = resolved.get(key);
+for (const group of pending.values()) {
+const card = resolved.get(cardKey(group.card));
 if (!card || card.source === "fallback") continue;
 for (const token of group.tokens) this.applyResolvedFallbackVocabularyToToken(token, group.card, card);
 }
 }
-async resolveFallbackVocabularyForPriorityRender(fallback) {
+async resolveFallbackVocabularyForPriorityRender(token) {
+const fallback = token.card;
 if (fallback.source !== "fallback") return fallback;
-const cached = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
+const key = fallbackVocabularySpanCacheKey(fallback, token);
+const cached = this.resolvedFallbackVocabularyCache.get(key);
 if (cached) return cached;
-const key = cardKey(fallback);
 const existing = this.fallbackVocabularyResolutionCache.get(key);
 if (existing) return existing;
 const lookup = this.resolveLookupCard(fallback).catch(() => fallback).finally(() => {
@@ -43120,7 +42999,7 @@ this.fallbackVocabularyResolutionCache.set(key, lookup);
 return lookup;
 }
 applyResolvedFallbackVocabularyToToken(token, fallback, resolved) {
-this.rememberResolvedFallbackVocabulary(fallback, resolved);
+this.rememberResolvedFallbackVocabulary(token, fallback, resolved);
 token.card = resolved;
 token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
 }
@@ -43215,7 +43094,7 @@ if (!this.shouldRunAnkiBackgroundWork()) return [];
 this.registerRenderedWord(word);
 const token = this.renderedWordTokenForRecolor(word);
 if (!token) continue;
-const key = cardKey(token.card);
+const key = token.card.source === "fallback" ? fallbackVocabularySpanCacheKey(token.card, token) : cardKey(token.card);
 if (seen.has(key)) continue;
 seen.add(key);
 tokens.push(token);
@@ -43227,11 +43106,16 @@ renderedWordTokenForRecolor(word) {
 const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
 if (!card) return null;
 const surface = readerWordSurfaceText(word);
+const recordedStart = Number(word.dataset.tokenStart);
+const recordedEnd = Number(word.dataset.tokenEnd);
+const hasRecordedSpan = Number.isInteger(recordedStart) && Number.isInteger(recordedEnd) && recordedStart >= 0 && recordedEnd > recordedStart;
+const start = hasRecordedSpan ? recordedStart : 0;
+const end = hasRecordedSpan ? recordedEnd : surface.length;
 return {
 card,
-start: 0,
-end: surface.length,
-length: surface.length,
+start,
+end,
+length: end - start,
 rubies: [],
 pitchClass: word.dataset.pitchClass ?? "",
 sentence: word.dataset.sentence
@@ -43340,7 +43224,7 @@ lookupFallbackCards: (cards, lookupOptions, scope) => this.publicLookupFallbackC
 lookupJitenCards: (cards, scope) => this.cardLookup.publicLookupHydratableJitenCards(cards, scope),
 noteFallbackMiss: (key, missedTokens) => this.noteFallbackVocabularyMiss(key, missedTokens),
 showPitchAccent: () => this.settings.showPitchAccent,
-rememberResolvedFallback: (fallback, card) => this.rememberResolvedFallbackVocabulary(fallback, card),
+rememberResolvedFallback: (token, fallback, card) => this.rememberResolvedFallbackVocabulary(token, fallback, card),
 applyResolvedCard: (token, fallback, card, pitchClass) => this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass),
 shouldQueueResolvedPublicPitch: (card, publicLookup) => this.shouldQueueResolvedPublicPitch(card, publicLookup),
 queueSubtitleRefresh: (sentence) => this.queueSubtitleParsedHtmlRefresh(sentence),
@@ -43444,12 +43328,12 @@ if (dropped) this.forgetQueuedPitchEnrichmentToken(cardKey(dropped.card));
 applyCachedPublicVocabularyToToken(token) {
 if (token.card.source !== "fallback") return false;
 const fallback = token.card;
-const card = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
+const card = this.resolvedFallbackVocabularyCache.get(fallbackVocabularySpanCacheKey(fallback, token));
 if (!card) return false;
 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
 token.card = card;
 token.pitchClass = isParticleCard(card) ? "particle" : pitchClass;
-const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass);
+const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass, token);
 this.queueResolvedWordEffects([token], changedRoots);
 this.queueSubtitleParsedHtmlRefresh(token.sentence);
 return true;
@@ -43544,7 +43428,7 @@ async enrichPitchToken(token, options = {}) {
 if (isParticleCard(token.card)) return;
 const fallback = token.card;
 const previousPitchClass = token.pitchClass ?? "";
-const card = await this.pitchEnrichedRenderedCard(fallback, options);
+const card = await this.pitchEnrichedRenderedCard(token, options);
 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
 if (card !== fallback) {
 await this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
@@ -43559,17 +43443,19 @@ return;
 this.applyPitchClassToFallbackToken(token, card, pitchClass);
 if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
 }
-async pitchEnrichedRenderedCard(fallback, options) {
+async pitchEnrichedRenderedCard(token, options) {
+const fallback = token.card;
 if (!cardUsesPitchAccentPronunciation(fallback)) return fallback;
 await this.fillCardPitchFromLocalDictionary(fallback);
-const card = await this.resolvePitchFallbackCard(fallback, options);
+const card = await this.resolvePitchFallbackCard(token, options);
 if (card !== fallback) await this.fillCardPitchFromLocalDictionary(card);
 await this.ensureCardPitchAccent(card, options);
 return card;
 }
-async resolvePitchFallbackCard(fallback, options) {
+async resolvePitchFallbackCard(token, options) {
+const fallback = token.card;
 if (cardHasContextPitch(fallback) || hasResolvedPitchComponents(fallback) || options.publicLookup === false) return fallback;
-return await this.resolveRenderedFallbackVocabulary(fallback, options) ?? fallback;
+return await this.resolveRenderedFallbackVocabulary(token, options) ?? fallback;
 }
 async ensureCardPitchAccent(card, options) {
 if (!this.settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card)) return;
@@ -43621,7 +43507,7 @@ card.pitchComponents = void 0;
 }
 token.card = card;
 token.pitchClass = isParticleCard(card) ? "particle" : getPitchClass(card.pitchAccent, card.reading || card.spelling) || pitchClass;
-const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass || "unknown");
+const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass || "unknown", token);
 this.queueResolvedWordEffects([token], changedRoots);
 await this.invalidateActivePopoverPitch(card, fallback);
 }
@@ -43717,10 +43603,11 @@ rememberLocalPitchEnrichment(key, promise) {
 this.pitchEnrichmentLocalCache.set(key, promise);
 evictOldestStringKeysWhileOverLimit(this.pitchEnrichmentLocalCache, PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT);
 }
-async resolveRenderedFallbackVocabulary(card, options = {}) {
+async resolveRenderedFallbackVocabulary(token, options = {}) {
+const card = token.card;
 if (card.source !== "fallback") return void 0;
 const scope = this.cardLookup.captureTarget();
-const key = cardKey(card);
+const key = fallbackVocabularySpanCacheKey(card, token);
 if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) return void 0;
 const publicCard = await this.lookupFallbackApiCard(card, options, scope);
 if (!scope.isCurrent()) return void 0;
@@ -43733,18 +43620,18 @@ const pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publi
 if (!scope.isCurrent()) return void 0;
 publicCard.pitchAccent = pitchAccent;
 }
-this.rememberResolvedFallbackVocabulary(card, publicCard);
+this.rememberResolvedFallbackVocabulary(token, card, publicCard);
 this.parser.cacheCards?.([publicCard]);
 return publicCard;
 }
-rememberResolvedFallbackVocabulary(fallback, card) {
+rememberResolvedFallbackVocabulary(token, fallback, card) {
 if (fallback.source !== "fallback") return;
-const key = cardKey(fallback);
+const key = fallbackVocabularySpanCacheKey(fallback, token);
 this.unresolvedFallbackVocabularyCache.delete(key);
 this.resolvedFallbackVocabularyCache.delete(key);
 this.resolvedFallbackVocabularyCache.set(key, card);
 evictOldestStringKeysWhileOverLimit(this.resolvedFallbackVocabularyCache, RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
-this.scheduleCachedPublicVocabularyHydration(document, { fallback, card });
+this.scheduleCachedPublicVocabularyHydration(document, { fallback, card, span: token });
 }
 rememberUnresolvedFallbackVocabulary(key) {
 this.unresolvedFallbackVocabularyCache.delete(key);
@@ -43935,8 +43822,8 @@ root.querySelectorAll(selector).forEach(apply);
 changedRoots.forEach((root) => refreshReaderWordContrast(root));
 });
 }
-applyPublicVocabularyToRenderedWords(fallback, card, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown") {
-return this.lateCardReconciliation.repaint(fallback, card, pitchClass);
+applyPublicVocabularyToRenderedWords(fallback, card, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown", span) {
+return this.lateCardReconciliation.repaint(fallback, card, pitchClass, span);
 }
 lateAnnotationRootForRenderedWord(word) {
 return renderedWordSentenceScope(word);
@@ -44087,7 +43974,12 @@ if (changedRoots.size) this.queueResolvedWordEffects([...effectTokens.values()],
 }
 scheduleCachedPublicVocabularyHydration(root, resolved) {
 if (resolved) {
-const changedRoots = this.applyPublicVocabularyToRenderedWords(resolved.fallback, resolved.card);
+const changedRoots = this.applyPublicVocabularyToRenderedWords(
+resolved.fallback,
+resolved.card,
+void 0,
+resolved.span
+);
 if (changedRoots.length) {
 this.queueResolvedWordEffects([this.resolvedWordEffectsToken(resolved.card)], changedRoots);
 }
