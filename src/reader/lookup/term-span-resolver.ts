@@ -82,10 +82,34 @@ export type ResolvedTermSpan<TMatch, TFallback = never> =
     | ConfirmedTermSpan<TMatch>
     | FallbackTermSpan<TFallback>;
 
+/** A planned span offered to the pre-confirmation oracle. */
+export interface TermSpanPreconfirmCandidate {
+    readonly start: number;
+    readonly end: number;
+    readonly surface: string;
+    readonly lookupCandidate: LanguageLookupCandidate;
+}
+
 export interface TermSpanResolverOptions<TMatch, TFallback = never> {
     readonly target: TermSpanLookupTarget;
     readonly lookup: TermSpanCandidateLookup<TMatch>;
     readonly fallback?: TermSpanFallbackProvider<TFallback>;
+    /**
+     * Synchronous confirmation for spans something already analyzed — e.g. a
+     * provider's parse of this exact paragraph whose token aligns with the
+     * planned span. Like the async lookup it can only answer yes or no for a
+     * span the resolver proposed; it cannot introduce spans of its own.
+     * Confirmed candidates skip the batched lookup.
+     */
+    readonly preconfirm?: (candidate: TermSpanPreconfirmCandidate) => TMatch | null | undefined;
+    /**
+     * Final say over a confirmed span before it is accepted. The lookup can
+     * only judge a candidate in isolation; this filter sees it with the match
+     * attached and may veto shapes the caller distrusts (a source-language
+     * policy, not a lookup concern). A vetoed span loses to the next shorter
+     * candidate at the same start, exactly as if it had not been confirmed.
+     */
+    readonly admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch) => boolean;
     /** Maximum original-source UTF-16 length considered from one start. */
     readonly maximumSourceLength?: number;
 }
@@ -114,12 +138,16 @@ export class TermSpanResolver<TMatch, TFallback = never> {
     readonly #target: TermSpanLookupTarget;
     readonly #lookup: TermSpanCandidateLookup<TMatch>;
     readonly #fallback?: TermSpanFallbackProvider<TFallback>;
+    readonly #preconfirm?: (candidate: TermSpanPreconfirmCandidate) => TMatch | null | undefined;
+    readonly #admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch) => boolean;
     readonly #maximumSourceLength: number;
 
     constructor(options: TermSpanResolverOptions<TMatch, TFallback>) {
         this.#target = options.target;
         this.#lookup = options.lookup;
         this.#fallback = options.fallback;
+        this.#preconfirm = options.preconfirm;
+        this.#admit = options.admit;
         this.#maximumSourceLength = Math.max(1, Math.floor(options.maximumSourceLength ?? 18));
     }
 
@@ -131,8 +159,8 @@ export class TermSpanResolver<TMatch, TFallback = never> {
         const planned = this.#candidatesAt(range, range.start);
         if (!planned.length) return null;
 
-        const confirmations = await this.#lookup.lookup(planned.map(item => item.request));
-        return firstConfirmedSpan(range.text, planned, confirmations);
+        const confirmations = await this.#confirm(planned);
+        return firstConfirmedSpan(range.text, planned, confirmations, this.#admit);
     }
 
     /**
@@ -152,13 +180,34 @@ export class TermSpanResolver<TMatch, TFallback = never> {
             allPlanned.push(...planned);
         }
 
-        const confirmations: ReadonlyMap<TermSpanLookupCandidate, TMatch> = allPlanned.length
-            ? await this.#lookup.lookup(allPlanned.map(item => item.request))
-            : new Map<TermSpanLookupCandidate, TMatch>();
+        const confirmations = await this.#confirm(allPlanned);
         const confirmed = this.#confirmedSpans(range, plannedByStart, confirmations);
         if (!this.#fallback) return confirmed;
 
         return this.#withFallbackSpans(range, confirmed, this.#fallback);
+    }
+
+    async #confirm(planned: readonly PlannedCandidate[]): Promise<ReadonlyMap<TermSpanLookupCandidate, TMatch>> {
+        const preconfirmed = new Map<TermSpanLookupCandidate, TMatch>();
+        const pending: PlannedCandidate[] = [];
+        for (const item of planned) {
+            const match = this.#preconfirm?.({
+                start: item.start,
+                end: item.end,
+                surface: item.request.surface,
+                lookupCandidate: item.request.lookupCandidate,
+            });
+            if (match === null || match === undefined) {
+                pending.push(item);
+                continue;
+            }
+            preconfirmed.set(item.request, match);
+        }
+        if (!pending.length) return preconfirmed;
+        const looked = await this.#lookup.lookup(pending.map(item => item.request));
+        if (!preconfirmed.size) return looked;
+        for (const [request, match] of looked) preconfirmed.set(request, match);
+        return preconfirmed;
     }
 
     #candidatesAt(range: SourceRange, start: number): PlannedCandidate[] {
@@ -195,6 +244,7 @@ export class TermSpanResolver<TMatch, TFallback = never> {
                 range.text,
                 plannedByStart.get(cursor) ?? [],
                 confirmations,
+                this.#admit,
             );
             if (winner) {
                 confirmed.push(winner);
@@ -227,19 +277,28 @@ function firstConfirmedSpan<TMatch>(
     text: string,
     planned: readonly PlannedCandidate[],
     confirmations: ReadonlyMap<TermSpanLookupCandidate, TMatch>,
+    admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch) => boolean,
 ): ConfirmedTermSpan<TMatch> | null {
     for (const item of planned) {
         if (!confirmations.has(item.request)) continue;
+        // Map.get is present after Map.has; TMatch itself remains opaque and
+        // may legitimately contain fields named start/end, which are never
+        // consulted when constructing the authoritative source span.
+        const match = confirmations.get(item.request) as TMatch;
+        const surface = text.slice(item.start, item.end);
+        if (admit && !admit({
+            start: item.start,
+            end: item.end,
+            surface,
+            lookupCandidate: item.request.lookupCandidate,
+        }, match)) continue;
         return {
             kind: 'confirmed',
             start: item.start,
             end: item.end,
-            surface: text.slice(item.start, item.end),
+            surface,
             lookupCandidate: item.request.lookupCandidate,
-            // Map.get is present after Map.has; TMatch itself remains opaque and
-            // may legitimately contain fields named start/end, which are never
-            // consulted when constructing the authoritative source span.
-            match: confirmations.get(item.request) as TMatch,
+            match,
         };
     }
     return null;

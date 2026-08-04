@@ -400,8 +400,16 @@ describe('ReaderParser span authority contract', () => {
                 ['台風', '台風'],
                 ['被害', '被害'],
             ]);
-            expect(candidateTerms).toContain('台風');
-            expect(candidateTerms).toContain('被害');
+            if (provider === 'local') {
+                // The local sweep already analysed this paragraph; its aligned
+                // matches confirm 台風 and 被害 directly, so the per-term
+                // queries carry only the remaining unconfirmed candidates.
+                expect(candidateTerms).not.toContain('台風');
+                expect(candidateTerms).not.toContain('被害');
+            } else {
+                expect(candidateTerms).toContain('台風');
+                expect(candidateTerms).toContain('被害');
+            }
             expect(new Set(candidateTerms).size).toBe(candidateTerms.length);
             // Four code points have only ten non-empty forward substrings. The
             // provider may batch those ten, but must not issue duplicate work.

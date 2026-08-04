@@ -12,6 +12,7 @@ import {
     type FallbackTermSpan,
     type TermSpanCandidateLookup,
     type TermSpanLookupCandidate,
+    type TermSpanPreconfirmCandidate,
 } from './term-span-resolver';
 import { activeLearningTarget, activeLearningTargetGeneration } from '../languages';
 import type { LearningTargetModule } from '../languages/types';
@@ -246,6 +247,8 @@ export class ReaderParser {
             maximumSourceLength: 18,
             lookup,
             fallback,
+            preconfirm: decorationAlignedSpanConfirmation(text, decorations, target),
+            admit: rejectUntrustworthySpanShapes(text, fallbackSegments, target),
         });
         const spans = (await Promise.all(target.pointerWordSegments(text).map(run => (
             resolver.resolveAll({ text, start: run.start, end: run.end })
@@ -289,7 +292,16 @@ export class ReaderParser {
         const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
             lookupExactTermCandidates?: YomitanDictionaryStore['lookupExactTermCandidates'];
         };
-        if (typeof store.lookupExactTermCandidates !== 'function') return false;
+        // Without the batched exact-candidate transaction, a store that still
+        // has the indexed single-term lookup answers per unique term below.
+        // A store with only the full findTermMatches sweep (an injected or
+        // legacy companion realm) already contributed everything it knows
+        // through the decoration sweep, and those aligned decorations confirm
+        // spans via preconfirm — re-running the sweep once per candidate term
+        // would re-ask the same store dozens of times per sentence.
+        if (typeof store.lookupExactTermCandidates !== 'function') {
+            return typeof (store as { lookup?: unknown }).lookup !== 'function';
+        }
         try {
             const matches = await store.lookupExactTermCandidates(
                 requests,
@@ -361,6 +373,9 @@ export class ReaderParser {
         }
     }
 
+    // Reached only for stores that expose the indexed single-term lookup but
+    // not the batched exact-candidate transaction; the batched path and the
+    // decoration-only degradation are decided in confirmLocalParserSpanRequests.
     private async localAuthoritativeCards(
         terms: readonly string[],
         target: LearningTargetModule,
@@ -368,21 +383,18 @@ export class ReaderParser {
         const settings = this.dependencies.getSettings();
         const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
             lookup?: YomitanDictionaryStore['lookup'];
-            findTermMatches?: YomitanDictionaryStore['findTermMatches'];
         };
+        if (typeof store.lookup !== 'function') return new Map();
         const rows = await mapLimited(terms, LOCAL_ENRICHMENT_CONCURRENCY, async term => {
-            const entries = typeof store.lookup === 'function'
-                ? await store.lookup(term, term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences)
-                : typeof store.findTermMatches === 'function'
-                    ? (await store.findTermMatches(term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target)).map(match => match.entry)
-                    : [];
+            const entries = await store.lookup!(term, term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences);
             return [term, entries] as const;
         });
         const cards = new Map<string, JPDBCard[]>();
         for (const [term, entries] of rows) {
             const key = target.normalizeText(term);
             cards.set(key, entries
-                .filter(entry => localEntryMatchesLookupTerm(entry, key, target))
+                .filter(entry => [entry.expression, entry.reading]
+                    .some(value => target.normalizeText(value) === key))
                 .map(entry => this.localCardFromEntry(entry, target)));
         }
         return cards;
@@ -1249,6 +1261,142 @@ function confirmParserSpanRequests(
     }
 }
 
+/**
+ * A provider's parse of THIS paragraph is itself a confirmation source: a
+ * planned span whose exact range carries a provider token, and whose lookup
+ * term the token's card answers, is confirmed without another lookup. The
+ * span still originates from the resolver's own enumeration — an aligned
+ * decoration only says yes to it — so provider offsets keep having no power
+ * to paint outside their exact analysed range, while two provider words can
+ * no longer be swallowed by a broader unconfirmed guess.
+ *
+ * A token that stops inside a kana run stays unconfirmed: that shape is an
+ * inflection cut mid-word (やや|さし for ややさしい), and real lookups plus
+ * segmented fallback recover the whole word. Local-matcher decorations pass
+ * through here too — their stem cuts are policed by the admit filter, and a
+ * legacy store without the batched exact-candidate API has no other way to
+ * speak for local dictionaries than the sweep that produced them.
+ */
+function decorationAlignedSpanConfirmation(
+    text: string,
+    decorations: readonly JPDBToken[],
+    target: LearningTargetModule,
+): (candidate: TermSpanPreconfirmCandidate) => ParserSpanMatch | null {
+    const bySpan = new Map<string, JPDBToken>();
+    for (const token of decorations) {
+        if (token.card.source === 'fallback') continue;
+        bySpan.set(`${token.start}:${token.end}`, token);
+    }
+    if (!bySpan.size) return () => null;
+    return candidate => {
+        const token = bySpan.get(`${candidate.start}:${candidate.end}`);
+        if (!token) return null;
+        if (endsInsideKanaRun(text, candidate.end)) return null;
+        const term = target.normalizeText(candidate.lookupCandidate.term);
+        return cardMatchesLookupTerm(token.card, term, target) ? { card: token.card } : null;
+    };
+}
+
+/**
+ * Veto two confirmed shapes the old repair passes existed for.
+ *
+ * Phrase glue: a span that is its own lookup term (no deinflection reached a
+ * dictionary form), carries no pitch evidence, has a case particle standing
+ * as a whole segment INSIDE it, and is vouched for only by a provider's
+ * parse of itself is a clause glued into one "word" (頭|が|おかしい). The
+ * internal particle is the tell: a compound noun the segmenter over-splits
+ * (本人|確認) contains none, so it keeps its provider identity. A dictionary
+ * entry is exempt — a name like 紫音 is a pitchless multi-segment identity,
+ * and the entry's existence is the proof the span is a real lexeme.
+ *
+ * Local stem cuts: our own dictionary happily confirms 読み inside 読み取る —
+ * the entry exists — but a local match that stops strictly inside its
+ * covering segment, with a continuation that is not a grammatical boundary,
+ * has cut a compound. Remote tokenizers earn more trust: their span came
+ * from analysing this sentence, not from an isolated entry hit.
+ *
+ * Vetoed spans lose to the next shorter candidate or to segmented fallback.
+ */
+function rejectUntrustworthySpanShapes(
+    text: string,
+    segments: readonly { start: number; end: number }[],
+    target: LearningTargetModule,
+): (candidate: TermSpanPreconfirmCandidate, match: ParserSpanMatch) => boolean {
+    return (candidate, match) => {
+        const term = target.normalizeText(candidate.lookupCandidate.term);
+        const identity = term === target.normalizeText(candidate.surface);
+        if (identity
+            && match.card.source !== 'local'
+            && !match.card.pitchAccent?.length
+            && (segments.some(segment => segment.start > candidate.start
+                && segment.end < candidate.end
+                && KANA_CASE_PARTICLE_CONTINUATIONS.includes(text.slice(segment.start, segment.end)))
+                // A kana→kanji transition inside the span is the other glue
+                // tell: inflection endings close a word (優しい|言葉), so no
+                // single lexeme resumes kanji after kana mid-span, while
+                // single-script compounds (本人確認, パスキー) never trip this.
+                || hasInternalKanaToKanjiTransition(text, candidate.start, candidate.end))) {
+            return false;
+        }
+        if (match.card.source === 'local'
+            && endsStrictlyInsideSegment(segments, candidate.end)
+            && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
+            return false;
+        }
+        return true;
+    };
+}
+
+function endsStrictlyInsideSegment(
+    segments: readonly { start: number; end: number }[],
+    end: number,
+): boolean {
+    return segments.some(segment => segment.start < end && end < segment.end);
+}
+
+const KANA_RUN_CHARACTER_RE = new RegExp(`^[${KANA}${PROLONGED_SOUND_MARK}]$`, 'u');
+const KANJI_CHARACTER_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, 'u');
+
+function hasInternalKanaToKanjiTransition(text: string, start: number, end: number): boolean {
+    for (let index = start + 1; index < end; index++) {
+        if (KANA_RUN_CHARACTER_RE.test(text[index - 1]) && KANJI_CHARACTER_RE.test(text[index])) return true;
+    }
+    return false;
+}
+
+// Kana that legitimately OPENS a new grammatical unit after a word. A span
+// cut is only a mid-word cut when the continuation is none of these:
+// 聞き取れませんでした|か is a real boundary, やや|さし is not. Case and
+// binding particles bind whatever follows, so they stand on their own;
+// sentence-final particles only close a clause, so they are boundaries only
+// when nothing kana follows them (かな in the middle of a kana run is far
+// more often word-internal さ/か than two stacked particles). Longest
+// entries first so から wins over か at the same position.
+const KANA_CASE_PARTICLE_CONTINUATIONS = [
+    'から', 'まで', 'より', 'だけ', 'しか', 'など',
+    'は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や',
+];
+const KANA_FINAL_PARTICLE_CONTINUATIONS = ['かしら', 'かな', 'っけ', 'ね', 'な', 'か', 'よ', 'わ', 'ぞ', 'ぜ', 'さ'];
+
+function endsInsideKanaRun(text: string, end: number): boolean {
+    if (end <= 0 || end >= text.length) return false;
+    if (!KANA_RUN_CHARACTER_RE.test(text[end - 1]) || !KANA_RUN_CHARACTER_RE.test(text[end])) return false;
+    if (KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, end))) return false;
+    let cursor = end;
+    let consumedFinal = true;
+    while (consumedFinal && cursor < text.length) {
+        consumedFinal = false;
+        for (const particle of KANA_FINAL_PARTICLE_CONTINUATIONS) {
+            if (!text.startsWith(particle, cursor)) continue;
+            cursor += particle.length;
+            consumedFinal = true;
+            break;
+        }
+    }
+    if (cursor > end && (cursor >= text.length || !KANA_RUN_CHARACTER_RE.test(text[cursor]))) return false;
+    return true;
+}
+
 function authoritativeCardsFromParsedTerms(
     terms: readonly string[],
     parsed: readonly JPDBToken[][],
@@ -1263,14 +1411,6 @@ function authoritativeCardsFromParsedTerms(
         if (cards.length) result.set(key, cards);
     });
     return result;
-}
-
-function localEntryMatchesLookupTerm(
-    entry: YomitanTermEntry,
-    term: string,
-    target: LearningTargetModule,
-): boolean {
-    return [entry.expression, entry.reading].some(value => target.normalizeText(value) === term);
 }
 
 function cardMatchesLookupTerm(
