@@ -27878,7 +27878,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
     { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-    { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+    { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+    { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
@@ -31779,7 +31780,7 @@ ${spelling}`);
     return `${GRAMMAR_PREFERENCES_KEY}:${targetId}`;
   }
   function normalizeGrammarKnowledge(value, target2) {
-    const record2 = objectRecord$3(value);
+    const record2 = objectRecord$4(value);
     const entries2 = record2?.version === 2 ? normalizeEntries(record2.entries, target2) : migrateLegacyKnownRules(record2?.knownRuleIds, target2);
     return {
       entries: entries2,
@@ -31787,11 +31788,11 @@ ${spelling}`);
     };
   }
   function normalizeEntries(value, target2) {
-    const entries2 = objectRecord$3(value);
+    const entries2 = objectRecord$4(value);
     if (!entries2) return {};
     const normalized2 = {};
     for (const [ruleId, candidate2] of Object.entries(entries2)) {
-      const entry2 = objectRecord$3(candidate2);
+      const entry2 = objectRecord$4(candidate2);
       if (!targetHasGrammarRule(target2, ruleId) || !KNOWLEDGE_VALUES.has(entry2?.knowledge) || !validTimestamp(entry2?.at) || typeof entry2?.changeId !== "string" || !entry2.changeId.trim()) continue;
       normalized2[ruleId] = {
         knowledge: entry2.knowledge,
@@ -31823,7 +31824,7 @@ ${spelling}`);
   function targetHasGrammarRule(target2, ruleId) {
     return target2.grammar.rules.some((rule) => rule.ruleId === ruleId);
   }
-  function objectRecord$3(value) {
+  function objectRecord$4(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
   }
   function validTimestamp(value) {
@@ -36711,7 +36712,7 @@ ${spelling}`);
   function hasOwn(value, key2) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key2);
   }
-  function objectRecord$2(value) {
+  function objectRecord$3(value) {
     return value && typeof value === "object" ? value : null;
   }
   function trimmedText(value) {
@@ -37932,6 +37933,11 @@ ${spelling}`);
     subtitlePlayerEnabled: "Enable video subtitle player",
     subtitleAutoDetect: "Auto-detect page subtitles",
     subtitleOverlayVisible: "Show subtitle overlay",
+    // Not a control label: no checkbox writes this any more, the three-way
+    // `subtitleNativeDisplay` select does. It stays because a stored setting with
+    // no control of its own takes its wording in docs/reference/settings.md from
+    // the i18n entry keyed by its own name, and this sentence is what the stored
+    // boolean means.
     subtitleSecondaryVisible: "Show native subtitles",
     subtitleNativeBlurred: "Blur native subtitles until hover",
     subtitleNativeDisplay: "Translation",
@@ -41927,12 +41933,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
     return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
   }
+  const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
   function normalizeDictionaryPreferences(value) {
     if (!Array.isArray(value)) return [];
     return value.map(normalizeDictionaryPreference).filter((item2) => item2 !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
   }
   function normalizeDictionaryPreference(item2, index) {
-    const record2 = objectRecord$2(item2);
+    const record2 = objectRecord$3(item2);
     if (!record2) return null;
     const name = stringValue$2(record2.name);
     if (!name.trim()) return null;
@@ -41941,7 +41948,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       name,
       alias: alias.trim() ? alias : name,
       enabled: booleanValue(record2.enabled, true),
-      priority: finiteNumber$1(record2.priority, index),
+      priority: finiteNumber$1(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
       allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
       type: normalizeDictionaryType(record2.type, name)
     };
@@ -42037,7 +42044,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (link && !isRemovedBuiltInLookupLink(link)) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
-    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized2));
+    return withLookupLinkPriorities(normalized2);
   }
   function isRemovedBuiltInLookupLink(link) {
     return isRemovedBuiltInLookupLinkId(link.id);
@@ -42057,16 +42064,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...link,
       priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
     }));
-  }
-  function ensureJitenBeforeJpdb(links) {
-    const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
-    const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-    if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
-    const reordered = [...links];
-    const [jiten] = reordered.splice(jitenIndex, 1);
-    const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-    reordered.splice(Math.max(0, insertAt), 0, jiten);
-    return reordered;
   }
   function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
     for (const builtIn of builtIns) {
@@ -42171,7 +42168,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function mergeDictionaryPreference(merged, name, type, inherit) {
     const existing = merged.get(name);
     if (!existing) {
-      const defaults = defaultDictionaryPreference(name, type, merged.size);
+      const defaults = defaultDictionaryPreference(name, type, UNORDERED_DICTIONARY_PRIORITY_BASE + merged.size);
       merged.set(name, inherit ? {
         ...defaults,
         // A stale alias equal to the old title is a default, not a
@@ -42206,64 +42203,94 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (/\b(?:kanjidic|kanji)\b/.test(normalized2)) return "kanji";
     return "terms";
   }
-  function settingsValueEquals(left, right) {
-    return left === right || JSON.stringify(left) === JSON.stringify(right);
-  }
-  function changedSettingsKeys(previous, next) {
-    return Object.keys(previous).filter((key2) => !settingsValueEquals(previous[key2], next[key2]));
-  }
-  function recoverLegacySettings(current, legacy, settledKeys, defaults) {
-    return recoverInto(current, legacy, settledKeys, defaults, () => false);
-  }
-  function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
-    return recoverInto(current, stranded, settledKeys, defaults, (key2) => HOSTED_DEMO_SETTINGS_KEYS.has(key2));
-  }
-  function recoverInto(current, donor, settledKeys, defaults, excluded) {
-    let settings = current;
-    let changed = false;
-    for (const key2 of Object.keys(defaults)) {
-      if (excluded(key2)) continue;
-      if (settledKeys.has(key2)) continue;
-      if (!settingsValueEquals(settings[key2], defaults[key2])) continue;
-      if (settingsValueEquals(donor[key2], defaults[key2])) continue;
-      settings = { ...settings, [key2]: donor[key2] };
-      settledKeys.add(key2);
-      changed = true;
-    }
-    return { settings, changed };
-  }
-  const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-    "annotationsPaused",
-    "manualScanEnabled",
-    "showFurigana",
-    "furiganaMode",
-    "puckFuriganaModeBeforeHide",
-    "ocrEnabled",
-    "ocrAutoScanImages",
-    "youtubeImmersionEnabled",
-    "youtubeImmersionEnabledChosen",
-    "youtubeShowChannelRecommendations",
-    "youtubeShowChannelRecommendationsChosen",
-    "subtitleOverlayVisible",
-    "subtitleSecondaryVisible",
-    "subtitleOverlayVisibleChosen",
-    "subtitleSecondaryVisibleChosen",
-    "subtitleNativeBlurred",
-    "subtitleNativeBlurStrength"
-  ];
-  const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-    ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
-    ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
-    ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
-    ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
-  ];
-  function coupledExplicitUserChoiceKeys(keys) {
+  const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+  const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
+  const NO_EXPLICIT_USER_CHOICE = [];
+  const CHOSEN_SUFFIX = "Chosen";
+  function coupledIntentKeys(keys, known) {
     const expanded = new Set(keys);
-    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-      if (!pair.some((key2) => expanded.has(key2))) continue;
-      pair.forEach((key2) => expanded.add(key2));
+    for (const key2 of keys) {
+      const sibling = key2.endsWith(CHOSEN_SUFFIX) ? key2.slice(0, -CHOSEN_SUFFIX.length) : `${key2}${CHOSEN_SUFFIX}`;
+      if (known(sibling)) expanded.add(sibling);
     }
     return [...expanded];
+  }
+  function settingsIntentLedgerFromStorage(stored, legacyPins) {
+    const fromLegacy = ledgerFromLegacyPins(legacyPins);
+    const fromStored = parseSettingsIntentLedger(stored);
+    if (!fromStored) return fromLegacy;
+    return {
+      revision: Math.max(fromStored.revision, fromLegacy.revision),
+      records: { ...fromLegacy.records, ...fromStored.records }
+    };
+  }
+  function parseSettingsIntentLedger(value) {
+    const record2 = objectRecord$2(value);
+    if (!record2) return null;
+    const records2 = objectRecord$2(record2.records);
+    if (!records2) return null;
+    const parsed = {};
+    let highest = 0;
+    for (const [key2, entry2] of Object.entries(records2)) {
+      const item2 = objectRecord$2(entry2);
+      if (!item2) continue;
+      const seq = typeof item2.seq === "number" && Number.isFinite(item2.seq) ? item2.seq : 0;
+      parsed[key2] = hasOwn(item2, "value") ? { seq, value: item2.value } : { seq };
+      highest = Math.max(highest, seq);
+    }
+    const revision2 = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
+    return { revision: Math.max(revision2, highest), records: parsed };
+  }
+  function ledgerFromLegacyPins(value) {
+    const record2 = objectRecord$2(value);
+    if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
+    const records2 = {};
+    for (const [key2, pinned] of Object.entries(record2)) records2[key2] = { seq: 0, value: pinned };
+    return { revision: 0, records: records2 };
+  }
+  function objectRecord$2(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  function recordSettingsIntent(ledger, keys, settings) {
+    if (!keys.length) return ledger;
+    const records2 = { ...ledger.records };
+    let revision2 = ledger.revision;
+    for (const key2 of keys) {
+      if (!hasOwn(settings, key2)) continue;
+      const value = settings[key2];
+      records2[key2] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
+    }
+    return revision2 === ledger.revision ? ledger : { revision: revision2, records: records2 };
+  }
+  function clearSettingsIntent(ledger, keys) {
+    const cleared = keys.filter((key2) => hasOwn(ledger.records, key2));
+    if (!cleared.length) return ledger;
+    const records2 = { ...ledger.records };
+    for (const key2 of cleared) delete records2[key2];
+    return { revision: ledger.revision + 1, records: records2 };
+  }
+  function applySettingsIntent(settings, ledger) {
+    const keys = Object.keys(ledger.records);
+    if (!keys.length) return settings;
+    const next = { ...settings };
+    let changed = false;
+    for (const key2 of keys) {
+      const record2 = ledger.records[key2];
+      if (!hasOwn(record2, "value") || !hasOwn(next, key2)) continue;
+      if (sameSettingsValue(next[key2], record2.value)) continue;
+      next[key2] = record2.value;
+      changed = true;
+    }
+    return changed ? next : settings;
+  }
+  function isSubstitutableSettingValue(value) {
+    return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+  }
+  function settingsIntentKeys(ledger) {
+    return Object.keys(ledger.records);
+  }
+  function sameSettingsValue(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function createDefaultSubtitleSettings(fontFamily) {
     return {
@@ -42297,6 +42324,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
       subtitleHoverPause: true,
       subtitleSeekPadding: 0.08
     };
+  }
+  function settingsValueEquals(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
+  }
+  function changedSettingsKeys(previous, next) {
+    return Object.keys(previous).filter((key2) => !settingsValueEquals(previous[key2], next[key2]));
+  }
+  function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+    return recoverInto(current, legacy, settledKeys, defaults, () => false);
+  }
+  function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+    return recoverInto(current, stranded, settledKeys, defaults, (key2) => HOSTED_DEMO_SETTINGS_KEYS.has(key2));
+  }
+  function recoverInto(current, donor, settledKeys, defaults, excluded) {
+    let settings = current;
+    let changed = false;
+    for (const key2 of Object.keys(defaults)) {
+      if (excluded(key2)) continue;
+      if (settledKeys.has(key2)) continue;
+      if (!settingsValueEquals(settings[key2], defaults[key2])) continue;
+      if (settingsValueEquals(donor[key2], defaults[key2])) continue;
+      settings = { ...settings, [key2]: donor[key2] };
+      settledKeys.add(key2);
+      changed = true;
+    }
+    return { settings, changed };
   }
   const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
@@ -43381,7 +43434,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return aliases;
   }
   function isLegacyDefaultDefinitionSourceOrder(value) {
-    return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
+    return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
@@ -43945,15 +43998,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         void 0
       );
-      const explicitUserSettings = settingsRecord(await gmStorageGet(
-        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-        null
-      ));
+      const intentLedger = await readSettingsIntentLedger();
       const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
       let recoveredLegacySettings = false;
-      const settledKeys = new Set(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
+      const settledKeys = new Set(settingsIntentKeys(intentLedger));
       for (const key2 of LEGACY_SETTINGS_STORAGE_KEYS) {
         const legacyRecord = settingsRecord(await gmStorageGet(key2, null));
         if (!legacyRecord) continue;
@@ -43974,8 +44024,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
           settings.preferJapaneseSiteLanguage
         )
       };
-      settings = applyExplicitUserSettings(settings, explicitUserSettings);
-      if (recoveredLegacySettings) await persistSettings(settings);
+      settings = mergeSettings(applySettingsIntent(settings, intentLedger));
+      if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
       else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
         cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
       }
@@ -44021,7 +44071,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const unsubscribers = [
       subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh2),
       subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh2),
-      subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh2)
+      subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh2),
+      subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh2)
     ];
     return () => {
       active = false;
@@ -44029,54 +44080,56 @@ recommendedJiten	Jiten由来の頻度バッジです。
       for (const unsubscribe of unsubscribers) unsubscribe();
     };
   }
-  async function saveSettings(settings, options = {}) {
+  async function saveSettings(settings, options) {
+    const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
     if (settingsResetInProgress) {
       log$u.warn("Rejected save during reset");
       throw new Error();
     }
     try {
       const normalizedSettings = mergeSettings(settings);
-      if (options.persistPreferredJapaneseSiteLanguage) {
+      if (intent.persistPreferredJapaneseSiteLanguage) {
         await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
       }
-      await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
+      await persistSettings(
+        normalizedSettings,
+        intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+        intent.clearExplicitUserChoiceKeys
+      );
     } catch (error) {
       log$u.warn("Settings save failed", { error });
       throw error;
     }
   }
-  async function persistSettings(settings, explicitUserChoiceKeys = []) {
+  function coupledSettingsIntentKeys(keys) {
+    return coupledIntentKeys(keys, (key2) => hasOwn(DEFAULT_SETTINGS, key2));
+  }
+  async function readSettingsIntentLedger() {
+    return settingsIntentLedgerFromStorage(
+      await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+      await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+    );
+  }
+  async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
     const normalizedSettings = mergeSettings(settings);
     let storedSettings = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-      const existingExplicitSettings = settingsRecord(await gmStorageGet(
-        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-        null
-      ));
-      const nextExplicitSettings = { ...existingExplicitSettings };
-      for (const key2 of explicitUserChoiceKeys) {
-        assignSetting(nextExplicitSettings, key2, normalizedSettings[key2]);
-      }
-      if (explicitUserChoiceKeys.length > 0) {
-        await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
-      }
-      storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+      const ledger = await readSettingsIntentLedger();
+      const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
+      const nextLedger = recordSettingsIntent(
+        withdrawn,
+        coupledSettingsIntentKeys(explicitUserChoiceKeys),
+        normalizedSettings
+      );
+      if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+      storedSettings = mergeSettings(
+        applySettingsIntent(normalizedSettings, nextLedger)
+      );
       const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
       await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
       storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
-  }
-  function assignSetting(settings, key2, value) {
-    settings[key2] = value;
-  }
-  function applyExplicitUserSettings(settings, explicitSettings) {
-    if (!explicitSettings) return settings;
-    const candidate2 = { ...settings };
-    for (const key2 of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
-      if (hasOwn(explicitSettings, key2)) assignSetting(candidate2, key2, explicitSettings[key2]);
-    }
-    return mergeSettings(candidate2);
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -44096,6 +44149,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const key2 of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key2);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
     await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
+    await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
   }
   function isAudioSourceType(value) {
     return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
@@ -292575,6 +292629,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     compareTermMatchLengthDescending,
     compareTermMatchDeinflectionDepth,
     compareTermMatchStart,
+    compareTermMatchDictionaryPriority,
     compareTermMatchDictionaryName,
     compareTermMatchEntryScoreDescending
   ];
@@ -292601,7 +292656,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank2) : compareDictionaryMetaEntries(a, b, rank2);
   }
   function compareFrequencyMetaEntries(a, b, rank2) {
-    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank2) || frequencyRank$1(a.data) - frequencyRank$1(b.data) || compareDictionaryName(a, b);
+    return compareDeclaredDictionaryPriority(a, b, rank2) || jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank2) || frequencyRank$1(a.data) - frequencyRank$1(b.data) || compareDictionaryName(a, b);
+  }
+  function compareDeclaredDictionaryPriority(a, b, rank2) {
+    return rank2.has(a.dictionary) && rank2.has(b.dictionary) ? compareDictionaryPriority(a, b, rank2) : 0;
   }
   function jpdbFrequencyPriority(entry2) {
     return isJpdbFrequencyDictionary(entry2.dictionary) ? 0 : 1;
@@ -292619,11 +292677,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const rank2 = frequencyRank$1(value);
     return Number.isFinite(rank2) ? rank2 : void 0;
   }
-  function nonOverlappingMatches(matches, limit) {
+  function nonOverlappingMatches(matches, limit, rank2) {
     const selected2 = [];
     const occupied = [];
     const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
-    for (const match of matches.sort(compareTermMatchesForSelection)) {
+    for (const match of matches.sort((left, right) => compareTermMatchesForSelection(left, right, rank2))) {
       if (overlaps(match)) continue;
       selected2.push(match);
       occupied.push([match.start, match.end]);
@@ -292632,9 +292690,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const result2 = selected2.sort((a, b) => a.start - b.start);
     return result2;
   }
-  function leftToRightLongestMatches(matches, limit) {
+  function leftToRightLongestMatches(matches, limit, rank2) {
     const candidates = [...matches].sort(
-      (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
+      (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryPriority(a, b, rank2) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
     );
     const selected2 = [];
     let coveredUntil = 0;
@@ -292646,12 +292704,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return selected2;
   }
-  function compareTermMatchesForSelection(a, b) {
+  function compareTermMatchesForSelection(a, b, rank2) {
     for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-      const result2 = compare(a, b);
+      const result2 = compare(a, b, rank2);
       if (result2) return result2;
     }
     return 0;
+  }
+  function compareTermMatchDictionaryPriority(a, b, rank2) {
+    if (!rank2) return 0;
+    return dictionaryPriority(a.entry.dictionary, rank2) - dictionaryPriority(b.entry.dictionary, rank2);
   }
   function compareTermMatchLengthDescending(a, b) {
     return b.end - b.start - (a.end - a.start);
@@ -295697,6 +295759,7 @@ ${entry2.reading}`;
     }
     async sweepTermMatchWindows(source2, limit, preferences, target2, targetGeneration) {
       const selected2 = [];
+      const rank2 = dictionaryRank(preferences);
       let coveredUntil = 0;
       for (let start = 0; start < source2.length; ) {
         if (start > 0) await nextTask();
@@ -295704,7 +295767,7 @@ ${entry2.reading}`;
         if (!isCurrentLookupTarget(target2, targetGeneration)) return [];
         const matches = await this.termMatchesInWindow(source2, start, end, preferences, target2);
         const free = matches.filter((match) => match.start >= coveredUntil);
-        const windowMatches = target2.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit) : nonOverlappingMatches(free, limit);
+        const windowMatches = target2.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit, rank2) : nonOverlappingMatches(free, limit, rank2);
         for (const match of windowMatches) {
           selected2.push(match);
           coveredUntil = Math.max(coveredUntil, match.end);
@@ -322086,7 +322149,7 @@ ${options.version}`;
       const settings = this.dependencies.getSettings();
       if (!settings.newTabStudyTourSeen) {
         settings.newTabStudyTourSeen = true;
-        await this.dependencies.onSettingsChange();
+        await this.dependencies.onSettingsChange(["newTabStudyTourSeen"]);
       }
       const card = this.visibleWords[this.index];
       if (card) this.renderWord(root, card);
@@ -322510,7 +322573,7 @@ ${options.version}`;
         this.dependencies.setImmersionTranslationBlurred(shouldBlur);
       } else {
         settings.immersionKitRevealTranslationOnClick = shouldBlur;
-        void this.dependencies.onSettingsChange();
+        void this.dependencies.onSettingsChange(["immersionKitRevealTranslationOnClick"]);
       }
       root.querySelectorAll(".jpdb-reader-example-translation").forEach((translation2) => {
         setNewTabImmersionTranslationBlurred(translation2, shouldBlur, settings.interfaceLanguage);
@@ -323627,7 +323690,7 @@ ${options.version}`;
       return this.loadGeneration === loadGeneration;
     }
     persistSourceSettingChange(source2) {
-      return Promise.resolve().then(() => this.dependencies.onSettingsChange()).catch((error) => {
+      return Promise.resolve().then(() => this.dependencies.onSettingsChange(["newTabSource"])).catch((error) => {
         log$7.warn("New-tab source update failed", { source: source2 }, error);
       });
     }
@@ -325896,7 +325959,7 @@ ${options.version}`;
       const settings = this.dependencies.getSettings();
       if (settings.newTabTypeWordInputMode === mode) return;
       settings.newTabTypeWordInputMode = mode;
-      void this.dependencies.onSettingsChange();
+      void this.dependencies.onSettingsChange(["newTabTypeWordInputMode"]);
       const card = this.visibleWords[this.index];
       if (card) this.renderWord(root, card);
     }
@@ -328950,14 +329013,14 @@ ${options.version}`;
       const settings = this.dependencies.getSettings();
       const current = this.effectiveTheme(settings.theme);
       settings.theme = current === "dark" ? "light" : "dark";
-      await this.dependencies.onSettingsChange();
+      await this.dependencies.onSettingsChange(["theme"]);
       this.dependencies.applyTheme();
       this.syncThemeToggle(root);
     }
     async toggleInterfaceLanguage(_root) {
       const settings = this.dependencies.getSettings();
       settings.interfaceLanguage = nextExplicitUiLanguage(settings.interfaceLanguage);
-      await this.dependencies.onSettingsChange();
+      await this.dependencies.onSettingsChange(["interfaceLanguage"]);
       await this.renderPage();
     }
     syncThemeToggle(root) {
@@ -365971,6 +366034,7 @@ ${options.version}`;
     return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
   }
   function readDictionaryLookupLinkRow(data, get, index) {
+    const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
     const label = get(`dictionaryLookupLinks.${index}.label`).trim();
     const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
     const action2 = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
@@ -365981,8 +366045,13 @@ ${options.version}`;
       urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action2),
       enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
       action: action2,
-      priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index
+      priority
     };
+  }
+  function readSubmittedRowPriority(value, index) {
+    if (!value.trim()) return index;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : index;
   }
   function dictionaryLookupLinkAction(value) {
     if (value === "copy") return "copy";
@@ -370430,13 +370499,14 @@ ${options.version}`;
       ...rows.filter((row2) => row2.removable).map((row2) => row2.name)
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
-    const hidden = hiddenPreferences.map((preference) => {
+    const hidden = hiddenPreferences.map((preference, hiddenIndex) => {
       const index = settings.dictionaryPreferences.indexOf(preference);
+      const priority = rows.length + hiddenIndex;
       return `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$2(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$2(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$2(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${priority}">
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$2(preference.type ?? "terms")}">
         `;
     }).join("");
@@ -371651,6 +371721,7 @@ ${options.version}`;
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
+  const AUTO_REPLACE_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
@@ -371749,6 +371820,7 @@ ${options.version}`;
   function selectedAnkiScanModel(scan, currentModel) {
     const savedModel = currentModel.trim();
     if (savedModel && scan.models.some((model2) => model2.modelName === savedModel)) return savedModel;
+    if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
     return scan.suggestedModel?.modelName || savedModel;
   }
   function ankiScanSelection(controls, scan) {
@@ -371935,9 +372007,7 @@ ${options.version}`;
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
-            changedSettingsKeys(previousSettings, settings)
-          )
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
@@ -372839,7 +372909,7 @@ ${options.version}`;
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
       this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
     async enqueueDictionaryOperation(form2, task2) {
       this.pendingDictionaryOperations++;
@@ -373610,7 +373680,7 @@ ${options.version}`;
       this.dictionaryRefreshId++;
       await clearNewTabOfflineCache().catch(() => void 0);
       this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item2) => item2.name !== dictionary);
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form2);
@@ -373699,7 +373769,7 @@ ${options.version}`;
         dictionaryPreferences
       );
       await markDictionaryReplicaFresh();
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
     }
@@ -375881,7 +375951,7 @@ ${rank2.detail}` : baseTitle;
       invalidateCardData: () => this.cardRenderData.clear(),
       setApiGradingProvider: (provider) => {
         this.settings.apiGradingProvider = provider;
-        void saveSettings(this.settings);
+        void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
       },
       onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
       onApiCardStateChanged: (card) => this.handleApiCardStateChanged(card)
@@ -376022,7 +376092,7 @@ ${rank2.detail}` : baseTitle;
           getSettings: () => this.settings,
           applySettings: async (settings) => {
             this.settings = settings;
-            await saveSettings(settings);
+            await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
           },
           onProgress: (message) => this.toast(message)
         });
@@ -376261,7 +376331,7 @@ ${rank2.detail}` : baseTitle;
         dictionarySourceAttributes: (key2, initiallyExpanded) => this.dictionarySourceState.attributes(key2, initiallyExpanded),
         isDictionarySourceOpen: (key2, initiallyExpanded) => this.dictionarySourceState.isOpen(key2, initiallyExpanded),
         installDictionarySourceTracking: (root) => this.dictionarySourceState.installTracking(root),
-        onSettingsChange: () => saveSettings(this.settings),
+        onSettingsChange: (explicitUserChoiceKeys) => saveSettings(this.settings, { explicitUserChoiceKeys }),
         applyTheme: () => this.applyTheme(),
         showSettings: (panel) => this.showSettings(panel),
         dismissLookup: () => this.dismissLookupPopover(),
@@ -376276,7 +376346,7 @@ ${rank2.detail}` : baseTitle;
     setImmersionTranslationBlurred(blurred) {
       if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
       this.settings = { ...this.settings, immersionKitRevealTranslationOnClick: blurred };
-      void saveSettings(this.settings);
+      void saveSettings(this.settings, { explicitUserChoiceKeys: ["immersionKitRevealTranslationOnClick"] });
     }
     showSettings(panel) {
       this.settingsDialog.open(panel);

@@ -688,7 +688,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
   { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+  { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+  { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
   // Cloud settings sync handoff written before an OAuth redirect.
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
@@ -7398,6 +7399,11 @@ const EN_SUBTITLE_SETTINGS_COPY = {
   subtitlePlayerEnabled: "Enable video subtitle player",
   subtitleAutoDetect: "Auto-detect page subtitles",
   subtitleOverlayVisible: "Show subtitle overlay",
+  // Not a control label: no checkbox writes this any more, the three-way
+  // `subtitleNativeDisplay` select does. It stays because a stored setting with
+  // no control of its own takes its wording in docs/reference/settings.md from
+  // the i18n entry keyed by its own name, and this sentence is what the stored
+  // boolean means.
   subtitleSecondaryVisible: "Show native subtitles",
   subtitleNativeBlurred: "Blur native subtitles until hover",
   subtitleNativeDisplay: "Translation",

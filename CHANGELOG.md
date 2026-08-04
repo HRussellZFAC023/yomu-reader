@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.8.81] - 2026-08-05
+
+### Fixed
+
+- Your settings now stay exactly as you set them. Every switch, slider, and choice records that you chose it, the newest choice always wins, and background machinery can no longer quietly put an old value back while the dialog still shows the one you picked. This closes the class behind the native-subtitles toggle turning itself back on and the subtitle size slider reverting.
+- The subtitle style panel's Reset now really resets: it withdraws your recorded choices instead of pinning the panel's defaults as if you had chosen them.
+- Dictionary order is finally yours (GitHub #43). Dragging a dictionary above Jiten or JPDB sticks: nothing splices Jiten back to the top, a reordered list is not mistaken for an unmigrated default, newly imported dictionaries no longer tie with the built-ins and win alphabetically, and opening and saving the settings without touching anything leaves the order byte-identical.
+- Dictionary order now also decides which dictionary answers a lookup when several match equally well, instead of the alphabetically first name winning.
+- An Anki note type that is missing from your collection is only replaced by the suggested one when it was the shipped default, so a renamed custom note type is no longer silently overwritten.
+
 ## [1.8.80] - 2026-08-04
 
 ### Fixed

@@ -3934,6 +3934,11 @@
     subtitlePlayerEnabled: "Enable video subtitle player",
     subtitleAutoDetect: "Auto-detect page subtitles",
     subtitleOverlayVisible: "Show subtitle overlay",
+    // Not a control label: no checkbox writes this any more, the three-way
+    // `subtitleNativeDisplay` select does. It stays because a stored setting with
+    // no control of its own takes its wording in docs/reference/settings.md from
+    // the i18n entry keyed by its own name, and this sentence is what the stored
+    // boolean means.
     subtitleSecondaryVisible: "Show native subtitles",
     subtitleNativeBlurred: "Blur native subtitles until hover",
     subtitleNativeDisplay: "Translation",
@@ -6769,7 +6774,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
     { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
     { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-    { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+    { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+    { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
     // Cloud settings sync handoff written before an OAuth redirect.
     { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
     // App-level signals / flags / caches.
@@ -14406,7 +14412,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function hasOwn(value, key) {
     return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
   }
-  function objectRecord$4(value) {
+  function objectRecord$5(value) {
     return value && typeof value === "object" ? value : null;
   }
   function trimmedText(value) {
@@ -16123,12 +16129,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
     return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
   }
+  const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
   function normalizeDictionaryPreferences(value) {
     if (!Array.isArray(value)) return [];
     return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
   }
   function normalizeDictionaryPreference(item, index) {
-    const record2 = objectRecord$4(item);
+    const record2 = objectRecord$5(item);
     if (!record2) return null;
     const name = stringValue$4(record2.name);
     if (!name.trim()) return null;
@@ -16137,7 +16144,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       name,
       alias: alias.trim() ? alias : name,
       enabled: booleanValue(record2.enabled, true),
-      priority: finiteNumber$1(record2.priority, index),
+      priority: finiteNumber$1(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
       allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
       type: normalizeDictionaryType(record2.type, name)
     };
@@ -16233,7 +16240,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (link && !isRemovedBuiltInLookupLink(link)) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
-    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
+    return withLookupLinkPriorities(normalized);
   }
   function isRemovedBuiltInLookupLink(link) {
     return isRemovedBuiltInLookupLinkId(link.id);
@@ -16253,16 +16260,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ...link,
       priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
     }));
-  }
-  function ensureJitenBeforeJpdb(links) {
-    const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
-    const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-    if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
-    const reordered = [...links];
-    const [jiten] = reordered.splice(jitenIndex, 1);
-    const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-    reordered.splice(Math.max(0, insertAt), 0, jiten);
-    return reordered;
   }
   function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
     for (const builtIn of builtIns) {
@@ -16367,7 +16364,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function mergeDictionaryPreference(merged, name, type, inherit) {
     const existing = merged.get(name);
     if (!existing) {
-      const defaults = defaultDictionaryPreference(name, type, merged.size);
+      const defaults = defaultDictionaryPreference(name, type, UNORDERED_DICTIONARY_PRIORITY_BASE + merged.size);
       merged.set(name, inherit ? {
         ...defaults,
         // A stale alias equal to the old title is a default, not a
@@ -16402,69 +16399,94 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
     return "terms";
   }
-  function settingsValueEquals(left, right) {
-    return left === right || JSON.stringify(left) === JSON.stringify(right);
-  }
-  function changedSettingsKeys(previous, next) {
-    return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
-  }
-  function recoverLegacySettings(current, legacy, settledKeys, defaults) {
-    return recoverInto(current, legacy, settledKeys, defaults, () => false);
-  }
-  function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
-    return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
-  }
-  function recoverInto(current, donor, settledKeys, defaults, excluded) {
-    let settings = current;
-    let changed = false;
-    for (const key of Object.keys(defaults)) {
-      if (excluded(key)) continue;
-      if (settledKeys.has(key)) continue;
-      if (!settingsValueEquals(settings[key], defaults[key])) continue;
-      if (settingsValueEquals(donor[key], defaults[key])) continue;
-      settings = { ...settings, [key]: donor[key] };
-      settledKeys.add(key);
-      changed = true;
-    }
-    return { settings, changed };
-  }
-  const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-    "annotationsPaused",
-    "manualScanEnabled",
-    "showFurigana",
-    "furiganaMode",
-    "puckFuriganaModeBeforeHide",
-    "ocrEnabled",
-    "ocrAutoScanImages",
-    "youtubeImmersionEnabled",
-    "youtubeImmersionEnabledChosen",
-    "youtubeShowChannelRecommendations",
-    "youtubeShowChannelRecommendationsChosen",
-    "subtitleOverlayVisible",
-    "subtitleSecondaryVisible",
-    "subtitleOverlayVisibleChosen",
-    "subtitleSecondaryVisibleChosen",
-    "subtitleNativeBlurred",
-    "subtitleNativeBlurStrength"
-  ];
-  const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-    ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
-    ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
-    ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
-    ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
-  ];
-  function coupledExplicitUserChoiceKeys(keys) {
+  const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+  const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
+  const NO_EXPLICIT_USER_CHOICE = [];
+  const CHOSEN_SUFFIX = "Chosen";
+  function coupledIntentKeys(keys, known) {
     const expanded = new Set(keys);
-    for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-      if (!pair.some((key) => expanded.has(key))) continue;
-      pair.forEach((key) => expanded.add(key));
+    for (const key of keys) {
+      const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+      if (known(sibling)) expanded.add(sibling);
     }
     return [...expanded];
   }
-  function changedAutomationProtectedSettingsKeys(previous, next) {
-    return coupledExplicitUserChoiceKeys(
-      AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
-    );
+  function settingsIntentLedgerFromStorage(stored, legacyPins) {
+    const fromLegacy = ledgerFromLegacyPins(legacyPins);
+    const fromStored = parseSettingsIntentLedger(stored);
+    if (!fromStored) return fromLegacy;
+    return {
+      revision: Math.max(fromStored.revision, fromLegacy.revision),
+      records: { ...fromLegacy.records, ...fromStored.records }
+    };
+  }
+  function parseSettingsIntentLedger(value) {
+    const record2 = objectRecord$4(value);
+    if (!record2) return null;
+    const records = objectRecord$4(record2.records);
+    if (!records) return null;
+    const parsed = {};
+    let highest = 0;
+    for (const [key, entry] of Object.entries(records)) {
+      const item = objectRecord$4(entry);
+      if (!item) continue;
+      const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
+      parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+      highest = Math.max(highest, seq);
+    }
+    const revision2 = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
+    return { revision: Math.max(revision2, highest), records: parsed };
+  }
+  function ledgerFromLegacyPins(value) {
+    const record2 = objectRecord$4(value);
+    if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
+    const records = {};
+    for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
+    return { revision: 0, records };
+  }
+  function objectRecord$4(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  function recordSettingsIntent(ledger, keys, settings) {
+    if (!keys.length) return ledger;
+    const records = { ...ledger.records };
+    let revision2 = ledger.revision;
+    for (const key of keys) {
+      if (!hasOwn(settings, key)) continue;
+      const value = settings[key];
+      records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
+    }
+    return revision2 === ledger.revision ? ledger : { revision: revision2, records };
+  }
+  function clearSettingsIntent(ledger, keys) {
+    const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+    if (!cleared.length) return ledger;
+    const records = { ...ledger.records };
+    for (const key of cleared) delete records[key];
+    return { revision: ledger.revision + 1, records };
+  }
+  function applySettingsIntent(settings, ledger) {
+    const keys = Object.keys(ledger.records);
+    if (!keys.length) return settings;
+    const next = { ...settings };
+    let changed = false;
+    for (const key of keys) {
+      const record2 = ledger.records[key];
+      if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+      if (sameSettingsValue(next[key], record2.value)) continue;
+      next[key] = record2.value;
+      changed = true;
+    }
+    return changed ? next : settings;
+  }
+  function isSubstitutableSettingValue(value) {
+    return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+  }
+  function settingsIntentKeys(ledger) {
+    return Object.keys(ledger.records);
+  }
+  function sameSettingsValue(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
   }
   function createDefaultSubtitleSettings(fontFamily) {
     return {
@@ -16498,6 +16520,32 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       subtitleHoverPause: true,
       subtitleSeekPadding: 0.08
     };
+  }
+  function settingsValueEquals(left, right) {
+    return left === right || JSON.stringify(left) === JSON.stringify(right);
+  }
+  function changedSettingsKeys(previous, next) {
+    return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
+  }
+  function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+    return recoverInto(current, legacy, settledKeys, defaults, () => false);
+  }
+  function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+    return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+  }
+  function recoverInto(current, donor, settledKeys, defaults, excluded) {
+    let settings = current;
+    let changed = false;
+    for (const key of Object.keys(defaults)) {
+      if (excluded(key)) continue;
+      if (settledKeys.has(key)) continue;
+      if (!settingsValueEquals(settings[key], defaults[key])) continue;
+      if (settingsValueEquals(donor[key], defaults[key])) continue;
+      settings = { ...settings, [key]: donor[key] };
+      settledKeys.add(key);
+      changed = true;
+    }
+    return { settings, changed };
   }
   const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
@@ -17582,7 +17630,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return aliases;
   }
   function isLegacyDefaultDefinitionSourceOrder(value) {
-    return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
+    return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
@@ -18146,15 +18194,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         void 0
       );
-      const explicitUserSettings = settingsRecord(await gmStorageGet(
-        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-        null
-      ));
+      const intentLedger = await readSettingsIntentLedger();
       const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
       const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       let settings = mergeSettings(currentRecord);
       let recoveredLegacySettings = false;
-      const settledKeys = new Set(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
+      const settledKeys = new Set(settingsIntentKeys(intentLedger));
       for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
         const legacyRecord = settingsRecord(await gmStorageGet(key, null));
         if (!legacyRecord) continue;
@@ -18175,8 +18220,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           settings.preferJapaneseSiteLanguage
         )
       };
-      settings = applyExplicitUserSettings(settings, explicitUserSettings);
-      if (recoveredLegacySettings) await persistSettings(settings);
+      settings = mergeSettings(applySettingsIntent(settings, intentLedger));
+      if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
       else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
         cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
       }
@@ -18222,7 +18267,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const unsubscribers = [
       subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
       subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
-      subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh)
+      subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
+      subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh)
     ];
     return () => {
       active = false;
@@ -18230,54 +18276,56 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       for (const unsubscribe of unsubscribers) unsubscribe();
     };
   }
-  async function saveSettings(settings, options = {}) {
+  async function saveSettings(settings, options) {
+    const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
     if (settingsResetInProgress) {
       log$J.warn("Rejected save during reset");
       throw new Error();
     }
     try {
       const normalizedSettings = mergeSettings(settings);
-      if (options.persistPreferredJapaneseSiteLanguage) {
+      if (intent.persistPreferredJapaneseSiteLanguage) {
         await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
       }
-      await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
+      await persistSettings(
+        normalizedSettings,
+        intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+        intent.clearExplicitUserChoiceKeys
+      );
     } catch (error) {
       log$J.warn("Settings save failed", { error });
       throw error;
     }
   }
-  async function persistSettings(settings, explicitUserChoiceKeys = []) {
+  function coupledSettingsIntentKeys(keys) {
+    return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
+  }
+  async function readSettingsIntentLedger() {
+    return settingsIntentLedgerFromStorage(
+      await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+      await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+    );
+  }
+  async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
     const normalizedSettings = mergeSettings(settings);
     let storedSettings = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-      const existingExplicitSettings = settingsRecord(await gmStorageGet(
-        EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-        null
-      ));
-      const nextExplicitSettings = { ...existingExplicitSettings };
-      for (const key of explicitUserChoiceKeys) {
-        assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
-      }
-      if (explicitUserChoiceKeys.length > 0) {
-        await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
-      }
-      storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+      const ledger = await readSettingsIntentLedger();
+      const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
+      const nextLedger = recordSettingsIntent(
+        withdrawn,
+        coupledSettingsIntentKeys(explicitUserChoiceKeys),
+        normalizedSettings
+      );
+      if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+      storedSettings = mergeSettings(
+        applySettingsIntent(normalizedSettings, nextLedger)
+      );
       const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
       await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
       storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
-  }
-  function assignSetting(settings, key, value) {
-    settings[key] = value;
-  }
-  function applyExplicitUserSettings(settings, explicitSettings) {
-    if (!explicitSettings) return settings;
-    const candidate = { ...settings };
-    for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
-      if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
-    }
-    return mergeSettings(candidate);
   }
   function dispatchSettingsChange(settings) {
     try {
@@ -18297,6 +18345,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
     await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
+    await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
   }
   function isAudioSourceType(value) {
     return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
@@ -24413,6 +24462,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     compareTermMatchLengthDescending,
     compareTermMatchDeinflectionDepth,
     compareTermMatchStart,
+    compareTermMatchDictionaryPriority,
     compareTermMatchDictionaryName,
     compareTermMatchEntryScoreDescending
   ];
@@ -24439,7 +24489,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
   }
   function compareFrequencyMetaEntries(a, b, rank) {
-    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank$2(a.data) - frequencyRank$2(b.data) || compareDictionaryName(a, b);
+    return compareDeclaredDictionaryPriority(a, b, rank) || jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank$2(a.data) - frequencyRank$2(b.data) || compareDictionaryName(a, b);
+  }
+  function compareDeclaredDictionaryPriority(a, b, rank) {
+    return rank.has(a.dictionary) && rank.has(b.dictionary) ? compareDictionaryPriority(a, b, rank) : 0;
   }
   function jpdbFrequencyPriority(entry) {
     return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
@@ -24457,11 +24510,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const rank = frequencyRank$2(value);
     return Number.isFinite(rank) ? rank : void 0;
   }
-  function nonOverlappingMatches(matches, limit) {
+  function nonOverlappingMatches(matches, limit, rank) {
     const selected = [];
     const occupied = [];
     const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
-    for (const match of matches.sort(compareTermMatchesForSelection)) {
+    for (const match of matches.sort((left, right) => compareTermMatchesForSelection(left, right, rank))) {
       if (overlaps(match)) continue;
       selected.push(match);
       occupied.push([match.start, match.end]);
@@ -24470,9 +24523,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const result = selected.sort((a, b) => a.start - b.start);
     return result;
   }
-  function leftToRightLongestMatches(matches, limit) {
+  function leftToRightLongestMatches(matches, limit, rank) {
     const candidates = [...matches].sort(
-      (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
+      (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryPriority(a, b, rank) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
     );
     const selected = [];
     let coveredUntil = 0;
@@ -24484,12 +24537,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return selected;
   }
-  function compareTermMatchesForSelection(a, b) {
+  function compareTermMatchesForSelection(a, b, rank) {
     for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-      const result = compare(a, b);
+      const result = compare(a, b, rank);
       if (result) return result;
     }
     return 0;
+  }
+  function compareTermMatchDictionaryPriority(a, b, rank) {
+    if (!rank) return 0;
+    return dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank);
   }
   function compareTermMatchLengthDescending(a, b) {
     return b.end - b.start - (a.end - a.start);
@@ -27578,6 +27635,7 @@ ${entry.reading}`;
     }
     async sweepTermMatchWindows(source, limit, preferences, target, targetGeneration) {
       const selected = [];
+      const rank = dictionaryRank(preferences);
       let coveredUntil = 0;
       for (let start = 0; start < source.length; ) {
         if (start > 0) await nextTask();
@@ -27585,7 +27643,7 @@ ${entry.reading}`;
         if (!isCurrentLookupTarget(target, targetGeneration)) return [];
         const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
         const free = matches.filter((match) => match.start >= coveredUntil);
-        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit) : nonOverlappingMatches(free, limit);
+        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit, rank) : nonOverlappingMatches(free, limit, rank);
         for (const match of windowMatches) {
           selected.push(match);
           coveredUntil = Math.max(coveredUntil, match.end);
@@ -36340,7 +36398,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (status) status.textContent = ui.saving;
     try {
       options.setSettings(nextSettings);
-      await options.saveSettings(nextSettings);
+      await options.saveSettings(nextSettings, {
+        explicitUserChoiceKeys: [
+          "bunproFrontendApiToken",
+          "bunproFrontendApiTokenExpiresAt",
+          "bunproMiningEnabled"
+        ]
+      });
       if (status) status.textContent = ui.saved;
       options.toast?.(ui.saved);
     } catch {
@@ -60888,7 +60952,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.80".trim() ? "1.8.80".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.81".trim() ? "1.8.81".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -96930,6 +96994,7 @@ ${reading}`);
     return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
   }
   function readDictionaryLookupLinkRow(data, get, index) {
+    const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
     const label = get(`dictionaryLookupLinks.${index}.label`).trim();
     const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
     const action = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
@@ -96940,8 +97005,13 @@ ${reading}`);
       urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
       enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
       action,
-      priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index
+      priority
     };
+  }
+  function readSubmittedRowPriority(value, index) {
+    if (!value.trim()) return index;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : index;
   }
   function dictionaryLookupLinkAction(value) {
     if (value === "copy") return "copy";
@@ -101911,13 +101981,14 @@ ${reading}`);
       ...rows.filter((row) => row.removable).map((row) => row.name)
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
-    const hidden = hiddenPreferences.map((preference) => {
+    const hidden = hiddenPreferences.map((preference, hiddenIndex) => {
       const index = settings.dictionaryPreferences.indexOf(preference);
+      const priority = rows.length + hiddenIndex;
       return `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$2(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$2(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$2(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${priority}">
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$2(preference.type ?? "terms")}">
         `;
     }).join("");
@@ -104063,6 +104134,7 @@ ${reading}`);
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
+  const AUTO_REPLACE_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
@@ -104161,6 +104233,7 @@ ${reading}`);
   function selectedAnkiScanModel(scan, currentModel) {
     const savedModel = currentModel.trim();
     if (savedModel && scan.models.some((model) => model.modelName === savedModel)) return savedModel;
+    if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
     return scan.suggestedModel?.modelName || savedModel;
   }
   function ankiScanSelection(controls, scan) {
@@ -104366,9 +104439,7 @@ ${reading}`);
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
-            changedSettingsKeys(previousSettings, settings)
-          )
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
@@ -105270,7 +105341,7 @@ ${reading}`);
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
       this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
     async enqueueDictionaryOperation(form, task) {
       this.pendingDictionaryOperations++;
@@ -106041,7 +106112,7 @@ ${reading}`);
       this.dictionaryRefreshId++;
       await clearNewTabOfflineCache().catch(() => void 0);
       this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form);
@@ -106130,7 +106201,7 @@ ${reading}`);
         dictionaryPreferences
       );
       await markDictionaryReplicaFresh();
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
     }
@@ -106717,7 +106788,10 @@ ${reading}`);
         this.options.setSettings(settings);
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
+          // Every field the onboarding panel's own controls moved. It used to
+          // declare only the 17 allowlisted keys, so a theme or hotkey chosen
+          // here was not intent and a legacy store could replay the old one.
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.close();
         await this.options.onComplete?.(settings);
@@ -111807,7 +111881,7 @@ ${reading}`);
     "subtitleSecondaryVisibleChosen",
     "subtitleNativeBlurred"
   ];
-  const RESET_EXPLICIT_KEYS = [
+  const RESET_WITHDRAWN_KEYS = [
     ...NATIVE_DISPLAY_EXPLICIT_KEYS,
     "subtitleNativeBlurStrength",
     "subtitleFontSize",
@@ -111863,12 +111937,13 @@ ${reading}`);
     return void 0;
   }
   function resetSubtitleStyleSettings(settings) {
-    let changed = applyNativeSubtitleDisplayMode(settings, "blurred");
+    let changed = applyNativeSubtitleDisplayMode(settings, "blurred", { markVisibilityChosen: false });
     const reset = (key) => {
       if (settings[key] === DEFAULT_SETTINGS[key]) return;
       settings[key] = DEFAULT_SETTINGS[key];
       changed = true;
     };
+    reset("subtitleSecondaryVisibleChosen");
     reset("subtitleNativeBlurStrength");
     reset("subtitleFontSize");
     reset("subtitleFontWeight");
@@ -111877,7 +111952,7 @@ ${reading}`);
     reset("subtitleFontFamily");
     reset("subtitleMiningPause");
     reset("subtitleHoverPause");
-    return changed ? RESET_EXPLICIT_KEYS : void 0;
+    return changed ? RESET_WITHDRAWN_KEYS : void 0;
   }
   function syncNativeSubtitleBlurVariables(surfaces, strength) {
     for (const surface of surfaces) {
@@ -117329,7 +117404,7 @@ ${reading}`);
       if (placement === this.plannedTranscriptPlacement()) return;
       settings.subtitleTranscriptPlacement = placement;
       if (placement !== "bottom") this.clampStoredSideWidthForCurrentVideo(placement);
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["subtitleTranscriptPlacement"]);
       if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderOpenSubtitlePanel();
       else {
         this.lastTranscriptSignature = "";
@@ -117346,7 +117421,9 @@ ${reading}`);
       this.syncRootStyleSettings(settings);
       this.syncSubtitleStyleControls();
       this.render();
-      if (explicitUserChoiceKeys) this.options.onSettingsChange(explicitUserChoiceKeys);
+      if (explicitUserChoiceKeys) {
+        this.options.onSettingsChange(NO_EXPLICIT_USER_CHOICE, explicitUserChoiceKeys);
+      }
       this.showControlsTemporarily();
     }
     handlePointerActivity(event) {
@@ -117596,7 +117673,7 @@ ${reading}`);
       settings.subtitleBottomOffset = next;
       this.applyEffectiveSubtitleBottom();
       this.syncSubtitleStyleControls();
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["subtitleBottomOffset"]);
     }
     resetSubtitleBottomOffset() {
       this.setSubtitleBottomOffset(DEFAULT_SUBTITLE_BOTTOM_OFFSET);
@@ -118020,12 +118097,12 @@ ${reading}`);
       const settings = this.options.getSettings();
       if (settings.ocrVideoPauseFrames) {
         settings.ocrVideoPauseFrames = false;
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(["ocrVideoPauseFrames"]);
         return;
       }
       this.requestVideoFrameOcr();
       settings.ocrVideoPauseFrames = true;
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["ocrVideoPauseFrames"]);
     }
     requestVideoFrameOcr() {
       const video = this.video;
@@ -118264,7 +118341,7 @@ ${reading}`);
       const loaded = await this.loadPrimaryTrackSelection(id, requestId);
       if (!loaded) return;
       if (options.auto && this.revertSingleCueAutoSelection("primary", loaded)) return;
-      if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
+      if (options.auto) this.revealPrimarySubtitleOverlay();
       if (!await this.prewarmPrimaryTrackFirstPaint(loaded, requestId)) return;
       this.applyPrimaryTrackSelection(loaded);
       this.finishTrackSelection();
@@ -118325,21 +118402,24 @@ ${reading}`);
       this.secondaryCues = [];
       this.secondaryCue = void 0;
     }
-    revealPrimarySubtitleOverlay(options = {}) {
-      this.revealSubtitleOverlay("subtitleOverlayVisible", "subtitleOverlayVisibleChosen", Boolean(options.auto));
+    revealPrimarySubtitleOverlay() {
+      this.revealSubtitleOverlay("subtitleOverlayVisible", "subtitleOverlayVisibleChosen");
       if (!this.options.getSettings().subtitleOverlayVisible) return;
       this.root?.classList.remove("jpdb-subtitle-hidden");
     }
-    // Selecting a track shows its overlay, but an automatic pick must never
-    // overrule a visibility the user chose: writing the setting back to true
-    // from here is what made an unchecked overlay switch itself on again on
-    // the next page load.
-    revealSubtitleOverlay(visibleKey, chosenKey, auto) {
+    // Selecting a track shows its overlay, but no track pick may overrule a
+    // visibility the learner chose. The guard used to apply only to AUTOMATIC
+    // picks, so choosing a track by hand switched a hidden overlay back on and
+    // re-persisted it -- "the show native subtitles toggle turns itself back
+    // on". Picking a track says which track to watch, not that the overlay the
+    // learner switched off should come back; the rail eye and the style
+    // popover are how it comes back. Nothing is declared here either way: this
+    // is a consequence of loading a track, not a choice about visibility.
+    revealSubtitleOverlay(visibleKey, chosenKey) {
       const settings = this.options.getSettings();
-      if (settings[visibleKey]) return;
-      if (auto && settings[chosenKey]) return;
+      if (settings[visibleKey] || settings[chosenKey]) return;
       settings[visibleKey] = true;
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(NO_EXPLICIT_USER_CHOICE);
     }
     async loadPrimaryTrackSelection(id, requestId) {
       return this.loadTrackSelection({ id, requestId, role: "primary", transcriptEligible: true });
@@ -118400,7 +118480,7 @@ ${reading}`);
       const loaded = await this.loadSecondaryTrackSelection(id, requestId);
       if (!loaded) return;
       if (options.auto && this.revertSingleCueAutoSelection("secondary", loaded)) return;
-      if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
+      if (options.auto) this.revealSecondarySubtitleOverlay();
       this.applySecondaryTrackSelection(loaded);
       this.finishTrackSelection();
     }
@@ -118425,8 +118505,8 @@ ${reading}`);
       this.lastShadowSignature = "";
       return requestId;
     }
-    revealSecondarySubtitleOverlay(options = {}) {
-      this.revealSubtitleOverlay("subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen", Boolean(options.auto));
+    revealSecondarySubtitleOverlay() {
+      this.revealSubtitleOverlay("subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen");
     }
     async loadSecondaryTrackSelection(id, requestId) {
       return this.loadTrackSelection({ id, requestId, role: "secondary", transcriptEligible: false });
@@ -118635,7 +118715,7 @@ ${reading}`);
       const settings = this.options.getSettings();
       settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
       settings.subtitleOverlayVisibleChosen = true;
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"]);
       this.refresh();
     }
     syncVisibilityRailButton() {
@@ -118656,7 +118736,7 @@ ${reading}`);
       const settings = this.options.getSettings();
       const expanded = settings.subtitleControlsMode === "always";
       settings.subtitleControlsMode = expanded ? "auto" : "always";
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["subtitleControlsMode"]);
       this.syncRootVisibility(settings);
       if (expanded) this.hideControlsImmediately();
       else this.showControlsTemporarily({ independentOfPlayerChrome: true });
@@ -118913,7 +118993,7 @@ ${reading}`);
       const settings = this.options.getSettings();
       settings.subtitleShadowAutoPause = !settings.subtitleShadowAutoPause;
       this.shadowAutoPausedCueSignature = "";
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["subtitleShadowAutoPause"]);
       this.renderShadowPanel(true);
     }
     toggleShadowText() {
@@ -119104,7 +119184,7 @@ ${reading}`);
       } else {
         this.pausePanelOpen = false;
       }
-      this.options.onSettingsChange();
+      this.options.onSettingsChange(["subtitlePausePanel", "subtitleTranscriptVisible"]);
       this.renderOpenSubtitlePanel();
       this.syncControls();
     }
@@ -140159,7 +140239,7 @@ ${options.version}`;
       const settings = this.dependencies.getSettings();
       if (!settings.newTabStudyTourSeen) {
         settings.newTabStudyTourSeen = true;
-        await this.dependencies.onSettingsChange();
+        await this.dependencies.onSettingsChange(["newTabStudyTourSeen"]);
       }
       const card = this.visibleWords[this.index];
       if (card) this.renderWord(root, card);
@@ -140583,7 +140663,7 @@ ${options.version}`;
         this.dependencies.setImmersionTranslationBlurred(shouldBlur);
       } else {
         settings.immersionKitRevealTranslationOnClick = shouldBlur;
-        void this.dependencies.onSettingsChange();
+        void this.dependencies.onSettingsChange(["immersionKitRevealTranslationOnClick"]);
       }
       root.querySelectorAll(".jpdb-reader-example-translation").forEach((translation) => {
         setNewTabImmersionTranslationBlurred(translation, shouldBlur, settings.interfaceLanguage);
@@ -141700,7 +141780,7 @@ ${options.version}`;
       return this.loadGeneration === loadGeneration;
     }
     persistSourceSettingChange(source) {
-      return Promise.resolve().then(() => this.dependencies.onSettingsChange()).catch((error) => {
+      return Promise.resolve().then(() => this.dependencies.onSettingsChange(["newTabSource"])).catch((error) => {
         log$2.warn("New-tab source update failed", { source }, error);
       });
     }
@@ -143969,7 +144049,7 @@ ${options.version}`;
       const settings = this.dependencies.getSettings();
       if (settings.newTabTypeWordInputMode === mode) return;
       settings.newTabTypeWordInputMode = mode;
-      void this.dependencies.onSettingsChange();
+      void this.dependencies.onSettingsChange(["newTabTypeWordInputMode"]);
       const card = this.visibleWords[this.index];
       if (card) this.renderWord(root, card);
     }
@@ -147023,14 +147103,14 @@ ${options.version}`;
       const settings = this.dependencies.getSettings();
       const current = this.effectiveTheme(settings.theme);
       settings.theme = current === "dark" ? "light" : "dark";
-      await this.dependencies.onSettingsChange();
+      await this.dependencies.onSettingsChange(["theme"]);
       this.dependencies.applyTheme();
       this.syncThemeToggle(root);
     }
     async toggleInterfaceLanguage(_root) {
       const settings = this.dependencies.getSettings();
       settings.interfaceLanguage = nextExplicitUiLanguage(settings.interfaceLanguage);
-      await this.dependencies.onSettingsChange();
+      await this.dependencies.onSettingsChange(["interfaceLanguage"]);
       await this.renderPage();
     }
     syncThemeToggle(root) {
@@ -148522,7 +148602,7 @@ ${rank.detail}` : baseTitle;
       invalidateCardData: () => this.cardRenderData.clear(),
       setApiGradingProvider: (provider) => {
         this.settings.apiGradingProvider = provider;
-        void saveSettings(this.settings);
+        void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
       },
       onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
       onApiCardStateChanged: (card) => this.handleApiCardStateChanged(card)
@@ -148663,7 +148743,7 @@ ${rank.detail}` : baseTitle;
           getSettings: () => this.settings,
           applySettings: async (settings) => {
             this.settings = settings;
-            await saveSettings(settings);
+            await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
           },
           onProgress: (message) => this.toast(message)
         });
@@ -148902,7 +148982,7 @@ ${rank.detail}` : baseTitle;
         dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
         isDictionarySourceOpen: (key, initiallyExpanded) => this.dictionarySourceState.isOpen(key, initiallyExpanded),
         installDictionarySourceTracking: (root) => this.dictionarySourceState.installTracking(root),
-        onSettingsChange: () => saveSettings(this.settings),
+        onSettingsChange: (explicitUserChoiceKeys) => saveSettings(this.settings, { explicitUserChoiceKeys }),
         applyTheme: () => this.applyTheme(),
         showSettings: (panel) => this.showSettings(panel),
         dismissLookup: () => this.dismissLookupPopover(),
@@ -148917,7 +148997,7 @@ ${rank.detail}` : baseTitle;
     setImmersionTranslationBlurred(blurred) {
       if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
       this.settings = { ...this.settings, immersionKitRevealTranslationOnClick: blurred };
-      void saveSettings(this.settings);
+      void saveSettings(this.settings, { explicitUserChoiceKeys: ["immersionKitRevealTranslationOnClick"] });
     }
     showSettings(panel) {
       this.settingsDialog.open(panel);

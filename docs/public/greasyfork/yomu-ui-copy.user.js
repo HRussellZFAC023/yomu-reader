@@ -2121,6 +2121,11 @@ const EN_SUBTITLE_SETTINGS_COPY = {
   subtitlePlayerEnabled: "Enable video subtitle player",
   subtitleAutoDetect: "Auto-detect page subtitles",
   subtitleOverlayVisible: "Show subtitle overlay",
+  // Not a control label: no checkbox writes this any more, the three-way
+  // `subtitleNativeDisplay` select does. It stays because a stored setting with
+  // no control of its own takes its wording in docs/reference/settings.md from
+  // the i18n entry keyed by its own name, and this sentence is what the stored
+  // boolean means.
   subtitleSecondaryVisible: "Show native subtitles",
   subtitleNativeBlurred: "Blur native subtitles until hover",
   subtitleNativeDisplay: "Translation",

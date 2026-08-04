@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.80
+// @version 1.8.81
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.c1d9ce1c3757.user.js#sha256=wdnOHDdXVxZbaWRalFCwRe76icQSeh4wYDdr059pXng=
+// @require https://yomureader.com/greasyfork/yomu-runtime.a6424322d239.user.js#sha256=pkJDItI5ZiQSCjEz0np3Lp45HttdWrCAxStco1cmHow=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -1073,7 +1073,8 @@ const MANAGED_STATE_MANIFEST = [
 { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
 { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
 { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-{ owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+{ owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+{ owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
 { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
 { owner: "app/storage", kind: "gm", key: "yomu:factory-reset-signal" },
 { owner: "app/storage epoch", kind: "gm", key: "yomu:state-epoch" },
@@ -5000,7 +5001,7 @@ DEFAULT_OCR_BACKGROUND_OPACITY
 function hasOwn(value, key) {
 return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
-function objectRecord$2(value) {
+function objectRecord$3(value) {
 return value && typeof value === "object" ? value : null;
 }
 function trimmedText(value) {
@@ -5467,12 +5468,13 @@ targetLanguage
 if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
 return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
 }
+const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
 function normalizeDictionaryPreferences(value) {
 if (!Array.isArray(value)) return [];
 return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function normalizeDictionaryPreference(item, index) {
-const record = objectRecord$2(item);
+const record = objectRecord$3(item);
 if (!record) return null;
 const name = stringValue(record.name);
 if (!name.trim()) return null;
@@ -5481,7 +5483,7 @@ return {
 name,
 alias: alias.trim() ? alias : name,
 enabled: booleanValue(record.enabled, true),
-priority: finiteNumber$1(record.priority, index),
+priority: finiteNumber$1(record.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
 allowSecondarySearches: booleanValue(record.allowSecondarySearches, false),
 type: normalizeDictionaryType(record.type, name)
 };
@@ -5554,7 +5556,7 @@ const link = normalizeDictionaryLookupLink(item);
 if (link && !isRemovedBuiltInLookupLink(link)) add(link);
 }
 appendMissingBuiltInLookupLinks(builtIns, seen, add);
-return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
+return withLookupLinkPriorities(normalized);
 }
 function isRemovedBuiltInLookupLink(link) {
 return isRemovedBuiltInLookupLinkId(link.id);
@@ -5574,16 +5576,6 @@ return links.map((link, index) => ({
 ...link,
 priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
 }));
-}
-function ensureJitenBeforeJpdb(links) {
-const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
-const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
-const reordered = [...links];
-const [jiten] = reordered.splice(jitenIndex, 1);
-const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-reordered.splice(Math.max(0, insertAt), 0, jiten);
-return reordered;
 }
 function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
 for (const builtIn of builtIns) {
@@ -5653,48 +5645,95 @@ if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|
 if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
 return "terms";
 }
-function settingsValueEquals(left, right) {
-return left === right || JSON.stringify(left) === JSON.stringify(right);
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
+const NO_EXPLICIT_USER_CHOICE = [];
+const CHOSEN_SUFFIX = "Chosen";
+function coupledIntentKeys(keys, known) {
+const expanded = new Set(keys);
+for (const key of keys) {
+const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+if (known(sibling)) expanded.add(sibling);
 }
-function recoverLegacySettings(current, legacy, settledKeys, defaults) {
-return recoverInto(current, legacy, settledKeys, defaults, () => false);
+return [...expanded];
 }
-function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
-return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+function settingsIntentLedgerFromStorage(stored, legacyPins) {
+const fromLegacy = ledgerFromLegacyPins(legacyPins);
+const fromStored = parseSettingsIntentLedger(stored);
+if (!fromStored) return fromLegacy;
+return {
+revision: Math.max(fromStored.revision, fromLegacy.revision),
+records: { ...fromLegacy.records, ...fromStored.records }
+};
 }
-function recoverInto(current, donor, settledKeys, defaults, excluded) {
-let settings = current;
+function parseSettingsIntentLedger(value) {
+const record = objectRecord$2(value);
+if (!record) return null;
+const records = objectRecord$2(record.records);
+if (!records) return null;
+const parsed = {};
+let highest = 0;
+for (const [key, entry] of Object.entries(records)) {
+const item = objectRecord$2(entry);
+if (!item) continue;
+const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
+parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+highest = Math.max(highest, seq);
+}
+const revision = typeof record.revision === "number" && Number.isFinite(record.revision) ? record.revision : 0;
+return { revision: Math.max(revision, highest), records: parsed };
+}
+function ledgerFromLegacyPins(value) {
+const record = objectRecord$2(value);
+if (!record) return EMPTY_SETTINGS_INTENT_LEDGER;
+const records = {};
+for (const [key, pinned] of Object.entries(record)) records[key] = { seq: 0, value: pinned };
+return { revision: 0, records };
+}
+function objectRecord$2(value) {
+return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function recordSettingsIntent(ledger, keys, settings) {
+if (!keys.length) return ledger;
+const records = { ...ledger.records };
+let revision = ledger.revision;
+for (const key of keys) {
+if (!hasOwn(settings, key)) continue;
+const value = settings[key];
+records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision, value } : { seq: ++revision };
+}
+return revision === ledger.revision ? ledger : { revision, records };
+}
+function clearSettingsIntent(ledger, keys) {
+const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+if (!cleared.length) return ledger;
+const records = { ...ledger.records };
+for (const key of cleared) delete records[key];
+return { revision: ledger.revision + 1, records };
+}
+function applySettingsIntent(settings, ledger) {
+const keys = Object.keys(ledger.records);
+if (!keys.length) return settings;
+const next = { ...settings };
 let changed = false;
-for (const key of Object.keys(defaults)) {
-if (excluded(key)) continue;
-if (settledKeys.has(key)) continue;
-if (!settingsValueEquals(settings[key], defaults[key])) continue;
-if (settingsValueEquals(donor[key], defaults[key])) continue;
-settings = { ...settings, [key]: donor[key] };
-settledKeys.add(key);
+for (const key of keys) {
+const record = ledger.records[key];
+if (!hasOwn(record, "value") || !hasOwn(next, key)) continue;
+if (sameSettingsValue(next[key], record.value)) continue;
+next[key] = record.value;
 changed = true;
 }
-return { settings, changed };
+return changed ? next : settings;
 }
-const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-"annotationsPaused",
-"manualScanEnabled",
-"showFurigana",
-"furiganaMode",
-"puckFuriganaModeBeforeHide",
-"ocrEnabled",
-"ocrAutoScanImages",
-"youtubeImmersionEnabled",
-"youtubeImmersionEnabledChosen",
-"youtubeShowChannelRecommendations",
-"youtubeShowChannelRecommendationsChosen",
-"subtitleOverlayVisible",
-"subtitleSecondaryVisible",
-"subtitleOverlayVisibleChosen",
-"subtitleSecondaryVisibleChosen",
-"subtitleNativeBlurred",
-"subtitleNativeBlurStrength"
-];
+function isSubstitutableSettingValue(value) {
+return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+function settingsIntentKeys(ledger) {
+return Object.keys(ledger.records);
+}
+function sameSettingsValue(left, right) {
+return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
 function createDefaultSubtitleSettings(fontFamily) {
 return {
 subtitlePlayerEnabled: true,
@@ -5727,6 +5766,29 @@ subtitleMiningPause: true,
 subtitleHoverPause: true,
 subtitleSeekPadding: 0.08
 };
+}
+function settingsValueEquals(left, right) {
+return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+return recoverInto(current, legacy, settledKeys, defaults, () => false);
+}
+function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+}
+function recoverInto(current, donor, settledKeys, defaults, excluded) {
+let settings = current;
+let changed = false;
+for (const key of Object.keys(defaults)) {
+if (excluded(key)) continue;
+if (settledKeys.has(key)) continue;
+if (!settingsValueEquals(settings[key], defaults[key])) continue;
+if (settingsValueEquals(donor[key], defaults[key])) continue;
+settings = { ...settings, [key]: donor[key] };
+settledKeys.add(key);
+changed = true;
+}
+return { settings, changed };
 }
 function audioSubSourceProviderName(name) {
 const trimmed = name.trim().normalize("NFC");
@@ -6592,7 +6654,7 @@ aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
 return aliases;
 }
 function isLegacyDefaultDefinitionSourceOrder(value) {
-return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
+return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
 }
 function normalizeRemovedDictionarySettings(value) {
 return {
@@ -7186,15 +7248,12 @@ const storedPreferredJapaneseSiteLanguage = await gmStorageGet(
 PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
 void 0
 );
-const explicitUserSettings = settingsRecord(await gmStorageGet(
-EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-null
-));
+const intentLedger = await readSettingsIntentLedger();
 const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
 const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
 let settings = mergeSettings(currentRecord);
 let recoveredLegacySettings = false;
-const settledKeys = new Set(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
+const settledKeys = new Set(settingsIntentKeys(intentLedger));
 for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
 const legacyRecord = settingsRecord(await gmStorageGet(key, null));
 if (!legacyRecord) continue;
@@ -7215,8 +7274,8 @@ storedPreferredJapaneseSiteLanguage,
 settings.preferJapaneseSiteLanguage
 )
 };
-settings = applyExplicitUserSettings(settings, explicitUserSettings);
-if (recoveredLegacySettings) await persistSettings(settings);
+settings = mergeSettings(applySettingsIntent(settings, intentLedger));
+if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
 else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
 cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
 }
@@ -7260,7 +7319,7 @@ mergeSettings(strandedRecord),
 new Set(gmRecord ? Object.keys(gmRecord) : []),
 DEFAULT_SETTINGS
 );
-if (recovery.changed) await persistSettings(recovery.settings);
+if (recovery.changed) await persistSettings(recovery.settings, NO_EXPLICIT_USER_CHOICE);
 return true;
 } catch (error) {
 log$a.warn("Stranded hosted settings promotion failed", { error });
@@ -7282,7 +7341,8 @@ if (active && revision === refreshRevision) onSettings(settings);
 const unsubscribers = [
 subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
 subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
-subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh)
+subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
+subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh)
 ];
 return () => {
 active = false;
@@ -7290,54 +7350,56 @@ refreshRevision += 1;
 for (const unsubscribe of unsubscribers) unsubscribe();
 };
 }
-async function saveSettings(settings, options = {}) {
+async function saveSettings(settings, options) {
+const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
 if (settingsResetInProgress) {
 log$a.warn("Rejected save during reset");
 throw new Error();
 }
 try {
 const normalizedSettings = mergeSettings(settings);
-if (options.persistPreferredJapaneseSiteLanguage) {
+if (intent.persistPreferredJapaneseSiteLanguage) {
 await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
 }
-await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
+await persistSettings(
+normalizedSettings,
+intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+intent.clearExplicitUserChoiceKeys
+);
 } catch (error) {
 log$a.warn("Settings save failed", { error });
 throw error;
 }
 }
-async function persistSettings(settings, explicitUserChoiceKeys = []) {
+function coupledSettingsIntentKeys(keys) {
+return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
+}
+async function readSettingsIntentLedger() {
+return settingsIntentLedgerFromStorage(
+await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+);
+}
+async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
 const normalizedSettings = mergeSettings(settings);
 let storedSettings = normalizedSettings;
 await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-const existingExplicitSettings = settingsRecord(await gmStorageGet(
-EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-null
-));
-const nextExplicitSettings = { ...existingExplicitSettings };
-for (const key of explicitUserChoiceKeys) {
-assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
-}
-if (explicitUserChoiceKeys.length > 0) {
-await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
-}
-storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+const ledger = await readSettingsIntentLedger();
+const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
+const nextLedger = recordSettingsIntent(
+withdrawn,
+coupledSettingsIntentKeys(explicitUserChoiceKeys),
+normalizedSettings
+);
+if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+storedSettings = mergeSettings(
+applySettingsIntent(normalizedSettings, nextLedger)
+);
 const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
 await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
 storedSettings = supportedSettings;
 });
 dispatchSettingsChange(storedSettings);
-}
-function assignSetting(settings, key, value) {
-settings[key] = value;
-}
-function applyExplicitUserSettings(settings, explicitSettings) {
-if (!explicitSettings) return settings;
-const candidate = { ...settings };
-for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
-if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
-}
-return mergeSettings(candidate);
 }
 function dispatchSettingsChange(settings) {
 try {
@@ -7357,6 +7419,7 @@ async function deleteSettingsStorage() {
 for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
 await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
 await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
+await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
 }
 function isAudioSourceType(value) {
 return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
@@ -33690,7 +33753,7 @@ register(`${APP_NAME} YouTube`, handlers.toggleYoutube);
 register(`${APP_NAME} toggle puck`, () => {
 const settings = handlers.getSettings();
 settings.showFloatingButton = !settings.showFloatingButton;
-void handlers.saveSettings(settings).then(() => handlers.installFloatingButton());
+void handlers.saveSettings(settings, ["showFloatingButton"]).then(() => handlers.installFloatingButton());
 });
 register(`${APP_NAME} Factory Reset`, () => handlers.factoryReset());
 }
@@ -33733,7 +33796,7 @@ if (!theme || settings.theme === theme) return;
 settings.theme = theme;
 handlers.setSettings(settings);
 handlers.applyTheme();
-if (detail?.preview !== true) void handlers.saveSettings(settings);
+if (detail?.preview !== true) void handlers.saveSettings(settings, ["theme"]);
 }, { signal });
 addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
 handlers.clearBridgeCaches();
@@ -34529,8 +34592,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.80"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.80"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.81"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.81"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34673,7 +34736,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.80"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.81"}`;
 } catch {
 return null;
 }
@@ -37131,7 +37194,7 @@ immersionKitRevealTranslationOnClick: blurred
 document.querySelectorAll('input[name="immersionKitRevealTranslationOnClick"]').forEach((input) => {
 input.checked = blurred;
 });
-void saveSettings(this.settings);
+void saveSettings(this.settings, { explicitUserChoiceKeys: ["immersionKitRevealTranslationOnClick"] });
 };
 jpdb = new CompanionBackedJpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
 jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -37288,7 +37351,7 @@ toast: (message) => this.toast(message),
 invalidateCardData: () => this.cardRenderData.clear(),
 setApiGradingProvider: (provider) => {
 this.settings.apiGradingProvider = provider;
-void saveSettings(this.settings);
+void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
 },
 onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
 onApiCardStateChanged: (card) => {
@@ -37614,7 +37677,10 @@ navigation: "push-current"
 mineBatchMiningCandidates: (candidates) => this.cardActions.addBatchMiningCards(candidates),
 gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
 toast: (message) => this.toast(message),
-onSettingsChange: (explicitUserChoiceKeys) => void saveSettings(this.settings, { explicitUserChoiceKeys })
+onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void saveSettings(this.settings, {
+explicitUserChoiceKeys,
+clearExplicitUserChoiceKeys
+})
 });
 }
 createYoutubeFilter() {
@@ -37920,7 +37986,7 @@ registerMenuCommands() {
 registerReaderMenuCommands({
 cycleOcr: () => this.cycleOcrMode(),
 getSettings: () => this.settings,
-saveSettings: (settings) => saveSettings(settings),
+saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
 installFloatingButton: () => this.installFab(),
 showSettings: () => this.showSettings(),
 toggleAnnotations: () => this.toggleAnnotationsPaused(),
@@ -37964,7 +38030,7 @@ this.settings.youtubeImmersionEnabledChosen
 }
 async setYoutubeFilterNoticeVisible(visible) {
 this.settings.youtubeShowFilterNotice = visible;
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: ["youtubeShowFilterNotice"] });
 this.youtube.refresh();
 }
 async togglePreferredJapaneseSiteLanguage() {
@@ -37974,7 +38040,10 @@ async setPreferredJapaneseSiteLanguage(enabled) {
 const previous = this.settings.preferJapaneseSiteLanguage;
 if (previous === enabled) return;
 this.settings.preferJapaneseSiteLanguage = enabled;
-const save = saveSettings(this.settings, { persistPreferredJapaneseSiteLanguage: true });
+const save = saveSettings(this.settings, {
+persistPreferredJapaneseSiteLanguage: true,
+explicitUserChoiceKeys: ["preferJapaneseSiteLanguage"]
+});
 if (!enabled) this.applyPreferredJapaneseSiteLanguage(this.settings, false, true);
 try {
 await save;
@@ -37999,7 +38068,7 @@ this.youtube.refresh();
 async setInterfaceLanguage(language) {
 if (this.settings.interfaceLanguage === language) return;
 this.settings.interfaceLanguage = language;
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: ["interfaceLanguage"] });
 this.settingsDialog?.refreshLanguage(language);
 this.clearHostedPageReaderWords();
 this.installFab();
@@ -38149,7 +38218,7 @@ refreshReaderWordContrast(document);
 return;
 }
 this.settings = { ...this.settings, theme: hostTheme };
-void saveSettings(this.settings);
+void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
 applyReaderTheme(this.settings);
 refreshReaderWordContrast(document);
 this.publishThemeSettingsChange();
@@ -38210,7 +38279,7 @@ dictionaries: this.dictionaries,
 getSettings: () => this.settings,
 applySettings: async (settings) => {
 this.settings = settings;
-await saveSettings(settings);
+await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
 },
 onProgress: (message) => this.toast(message)
 });
@@ -38703,7 +38772,7 @@ applyReaderWordColors(settings);
 installFab() {
 this.floatingButton.install(
 this.settings,
-() => void saveSettings(this.settings),
+() => void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
 {
 openSettings: () => this.showSettings(),
 openStudyPage: () => this.openStudyPage(),
@@ -38726,7 +38795,7 @@ hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && (isYouTubeHostnam
 }
 async toggleAutoSubtitles() {
 this.settings.subtitleAutoDetect = !this.settings.subtitleAutoDetect;
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: ["subtitleAutoDetect"] });
 this.subtitles.destroy();
 this.subtitles.init();
 }
@@ -38778,7 +38847,7 @@ async toggleAutoPlayAudio() {
 const enabled = this.isAutoPlayAudioEnabled();
 this.settings.autoPlayAudio = !enabled;
 if (!enabled && this.settings.audioAutoPlayMode === "off") this.settings.audioAutoPlayMode = "all";
-await saveSettings(this.settings);
+await saveSettings(this.settings, { explicitUserChoiceKeys: ["autoPlayAudio", "audioAutoPlayMode"] });
 this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
 }
 isFuriganaEnabled() {
@@ -39208,7 +39277,7 @@ isDestroyed: () => this.isDestroyed,
 showSettings: (panel) => this.showSettings(panel),
 setInterfaceLanguage: (language) => this.setInterfaceLanguage(language),
 applyTheme: () => this.applyTheme(),
-saveSettings: (settings) => saveSettings(settings),
+saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
 clearBridgeCaches: () => this.clearBridgeBackedCaches()
 }, this.abortController.signal);
 addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {

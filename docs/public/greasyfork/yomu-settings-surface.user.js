@@ -6449,7 +6449,8 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "settings (legacy)", kind: "gm", key: "yomu-reader-settings" },
   { owner: "settings (legacy)", kind: "gm", key: "yomu-settings" },
   { owner: "settings", kind: "gm", key: "yomu:prefer-japanese-site-language:v1" },
-  { owner: "settings", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+  { owner: "settings (pre-ledger pins)", kind: "gm", key: "yomu:explicit-user-settings:v1" },
+  { owner: "settings/intent-ledger", kind: "gm", key: "yomu:settings-intent:v2" },
   // Cloud settings sync handoff written before an OAuth redirect.
   { owner: "settings/dialog-controller", kind: "gm", key: "__yomu_cloud_settings_sync_pending_action" },
   // App-level signals / flags / caches.
@@ -8581,7 +8582,7 @@ const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
 function hasOwn(value, key) {
   return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
 }
-function objectRecord(value) {
+function objectRecord$1(value) {
   return value && typeof value === "object" ? value : null;
 }
 function trimmedText(value) {
@@ -9465,6 +9466,11 @@ const EN_SUBTITLE_SETTINGS_COPY = {
   subtitlePlayerEnabled: "Enable video subtitle player",
   subtitleAutoDetect: "Auto-detect page subtitles",
   subtitleOverlayVisible: "Show subtitle overlay",
+  // Not a control label: no checkbox writes this any more, the three-way
+  // `subtitleNativeDisplay` select does. It stays because a stored setting with
+  // no control of its own takes its wording in docs/reference/settings.md from
+  // the i18n entry keyed by its own name, and this sentence is what the stored
+  // boolean means.
   subtitleSecondaryVisible: "Show native subtitles",
   subtitleNativeBlurred: "Blur native subtitles until hover",
   subtitleNativeDisplay: "Translation",
@@ -13410,12 +13416,13 @@ function normalizeDictionaryLookupLinkSettings(value, targetLanguage2 = "ja") {
   if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
   return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
 }
+const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
 function normalizeDictionaryPreferences(value) {
   if (!Array.isArray(value)) return [];
   return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
 }
 function normalizeDictionaryPreference(item, index) {
-  const record2 = objectRecord(item);
+  const record2 = objectRecord$1(item);
   if (!record2) return null;
   const name = stringValue(record2.name);
   if (!name.trim()) return null;
@@ -13424,7 +13431,7 @@ function normalizeDictionaryPreference(item, index) {
   name,
   alias: alias.trim() ? alias : name,
   enabled: booleanValue(record2.enabled, true),
-  priority: finiteNumber$1(record2.priority, index),
+  priority: finiteNumber$1(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
   allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
   type: normalizeDictionaryType(record2.type, name)
   };
@@ -13520,7 +13527,7 @@ function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguag
   if (link && !isRemovedBuiltInLookupLink(link)) add(link);
   }
   appendMissingBuiltInLookupLinks(builtIns, seen, add);
-  return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
+  return withLookupLinkPriorities(normalized);
 }
 function isRemovedBuiltInLookupLink(link) {
   return isRemovedBuiltInLookupLinkId(link.id);
@@ -13540,16 +13547,6 @@ function withLookupLinkPriorities(links) {
   ...link,
   priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
   }));
-}
-function ensureJitenBeforeJpdb(links) {
-  const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
-  const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-  if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
-  const reordered = [...links];
-  const [jiten] = reordered.splice(jitenIndex, 1);
-  const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
-  reordered.splice(Math.max(0, insertAt), 0, jiten);
-  return reordered;
 }
 function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
   for (const builtIn of builtIns) {
@@ -13654,7 +13651,7 @@ function retireReplacedDictionaryPreferences(merged, names, replaced) {
 function mergeDictionaryPreference(merged, name, type, inherit) {
   const existing = merged.get(name);
   if (!existing) {
-  const defaults = defaultDictionaryPreference(name, type, merged.size);
+  const defaults = defaultDictionaryPreference(name, type, UNORDERED_DICTIONARY_PRIORITY_BASE + merged.size);
   merged.set(name, inherit ? {
     ...defaults,
     // A stale alias equal to the old title is a default, not a
@@ -13689,49 +13686,91 @@ function inferDictionaryTypeFromName(name) {
   if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
   return "terms";
 }
-function settingsValueEquals(left, right) {
-  return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
-function changedSettingsKeys(previous, next) {
-  return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
-}
-const AUTOMATION_PROTECTED_SETTINGS_KEYS = [
-  "annotationsPaused",
-  "manualScanEnabled",
-  "showFurigana",
-  "furiganaMode",
-  "puckFuriganaModeBeforeHide",
-  "ocrEnabled",
-  "ocrAutoScanImages",
-  "youtubeImmersionEnabled",
-  "youtubeImmersionEnabledChosen",
-  "youtubeShowChannelRecommendations",
-  "youtubeShowChannelRecommendationsChosen",
-  "subtitleOverlayVisible",
-  "subtitleSecondaryVisible",
-  "subtitleOverlayVisibleChosen",
-  "subtitleSecondaryVisibleChosen",
-  "subtitleNativeBlurred",
-  "subtitleNativeBlurStrength"
-];
-const COUPLED_EXPLICIT_USER_CHOICE_KEYS = [
-  ["youtubeImmersionEnabled", "youtubeImmersionEnabledChosen"],
-  ["youtubeShowChannelRecommendations", "youtubeShowChannelRecommendationsChosen"],
-  ["subtitleOverlayVisible", "subtitleOverlayVisibleChosen"],
-  ["subtitleSecondaryVisible", "subtitleSecondaryVisibleChosen"]
-];
-function coupledExplicitUserChoiceKeys(keys) {
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
+const NO_EXPLICIT_USER_CHOICE = [];
+const CHOSEN_SUFFIX = "Chosen";
+function coupledIntentKeys(keys, known) {
   const expanded = new Set(keys);
-  for (const pair of COUPLED_EXPLICIT_USER_CHOICE_KEYS) {
-  if (!pair.some((key) => expanded.has(key))) continue;
-  pair.forEach((key) => expanded.add(key));
+  for (const key of keys) {
+  const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+  if (known(sibling)) expanded.add(sibling);
   }
   return [...expanded];
 }
-function changedAutomationProtectedSettingsKeys(previous, next) {
-  return coupledExplicitUserChoiceKeys(
-  AUTOMATION_PROTECTED_SETTINGS_KEYS.filter((key) => !settingsValueEquals(previous[key], next[key]))
-  );
+function settingsIntentLedgerFromStorage(stored, legacyPins) {
+  const fromLegacy = ledgerFromLegacyPins(legacyPins);
+  const fromStored = parseSettingsIntentLedger(stored);
+  if (!fromStored) return fromLegacy;
+  return {
+  revision: Math.max(fromStored.revision, fromLegacy.revision),
+  records: { ...fromLegacy.records, ...fromStored.records }
+  };
+}
+function parseSettingsIntentLedger(value) {
+  const record2 = objectRecord(value);
+  if (!record2) return null;
+  const records = objectRecord(record2.records);
+  if (!records) return null;
+  const parsed = {};
+  let highest = 0;
+  for (const [key, entry] of Object.entries(records)) {
+  const item = objectRecord(entry);
+  if (!item) continue;
+  const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
+  parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+  highest = Math.max(highest, seq);
+  }
+  const revision2 = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
+  return { revision: Math.max(revision2, highest), records: parsed };
+}
+function ledgerFromLegacyPins(value) {
+  const record2 = objectRecord(value);
+  if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
+  const records = {};
+  for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
+  return { revision: 0, records };
+}
+function objectRecord(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function recordSettingsIntent(ledger, keys, settings) {
+  if (!keys.length) return ledger;
+  const records = { ...ledger.records };
+  let revision2 = ledger.revision;
+  for (const key of keys) {
+  if (!hasOwn(settings, key)) continue;
+  const value = settings[key];
+  records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision2, value } : { seq: ++revision2 };
+  }
+  return revision2 === ledger.revision ? ledger : { revision: revision2, records };
+}
+function clearSettingsIntent(ledger, keys) {
+  const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+  if (!cleared.length) return ledger;
+  const records = { ...ledger.records };
+  for (const key of cleared) delete records[key];
+  return { revision: ledger.revision + 1, records };
+}
+function applySettingsIntent(settings, ledger) {
+  const keys = Object.keys(ledger.records);
+  if (!keys.length) return settings;
+  const next = { ...settings };
+  let changed = false;
+  for (const key of keys) {
+  const record2 = ledger.records[key];
+  if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+  if (sameSettingsValue(next[key], record2.value)) continue;
+  next[key] = record2.value;
+  changed = true;
+  }
+  return changed ? next : settings;
+}
+function isSubstitutableSettingValue(value) {
+  return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+function sameSettingsValue(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 function createDefaultSubtitleSettings(fontFamily) {
   return {
@@ -13765,6 +13804,12 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleHoverPause: true,
   subtitleSeekPadding: 0.08
   };
+}
+function settingsValueEquals(left, right) {
+  return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function changedSettingsKeys(previous, next) {
+  return Object.keys(previous).filter((key) => !settingsValueEquals(previous[key], next[key]));
 }
 function audioSubSourceProviderName(name) {
   const trimmed = name.trim().normalize("NFC");
@@ -14648,7 +14693,7 @@ function normalizeSourceAliasSettings(value) {
   return aliases;
 }
 function isLegacyDefaultDefinitionSourceOrder(value) {
-  return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
+  return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
 }
 function normalizeRemovedDictionarySettings(value) {
   return {
@@ -15177,53 +15222,52 @@ async function persistPreferredJapaneseSiteLanguage(value) {
   await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
   });
 }
-function settingsRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-async function saveSettings(settings, options = {}) {
+async function saveSettings(settings, options) {
+  const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
   try {
   const normalizedSettings = mergeSettings(settings);
-  if (options.persistPreferredJapaneseSiteLanguage) {
+  if (intent.persistPreferredJapaneseSiteLanguage) {
     await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
   }
-  await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
+  await persistSettings(
+    normalizedSettings,
+    intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+    intent.clearExplicitUserChoiceKeys
+  );
   } catch (error) {
   log$c.warn("Settings save failed", { error });
   throw error;
   }
 }
-async function persistSettings(settings, explicitUserChoiceKeys = []) {
+function coupledSettingsIntentKeys(keys) {
+  return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
+}
+async function readSettingsIntentLedger() {
+  return settingsIntentLedgerFromStorage(
+  await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+  await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+  );
+}
+async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
   const normalizedSettings = mergeSettings(settings);
   let storedSettings = normalizedSettings;
   await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-  const existingExplicitSettings = settingsRecord(await gmStorageGet(
-    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-    null
-  ));
-  const nextExplicitSettings = { ...existingExplicitSettings };
-  for (const key of explicitUserChoiceKeys) {
-    assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
-  }
-  if (explicitUserChoiceKeys.length > 0) {
-    await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
-  }
-  storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+  const ledger = await readSettingsIntentLedger();
+  const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
+  const nextLedger = recordSettingsIntent(
+    withdrawn,
+    coupledSettingsIntentKeys(explicitUserChoiceKeys),
+    normalizedSettings
+  );
+  if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+  storedSettings = mergeSettings(
+    applySettingsIntent(normalizedSettings, nextLedger)
+  );
   const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
   await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
   storedSettings = supportedSettings;
   });
   dispatchSettingsChange(storedSettings);
-}
-function assignSetting(settings, key, value) {
-  settings[key] = value;
-}
-function applyExplicitUserSettings(settings, explicitSettings) {
-  if (!explicitSettings) return settings;
-  const candidate = { ...settings };
-  for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
-  if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key]);
-  }
-  return mergeSettings(candidate);
 }
 function dispatchSettingsChange(settings) {
   try {
@@ -16098,7 +16142,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.80".trim() ? "1.8.80".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.81".trim() ? "1.8.81".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -52749,6 +52793,7 @@ function readTargetAwareDictionaryLookupLinks(data, current) {
   return next === previous ? readDictionaryLookupLinks(data) : dictionaryLookupLinksForTarget(lookupLinkRows(data), next);
 }
 function readDictionaryLookupLinkRow(data, get, index) {
+  const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
   const label = get(`dictionaryLookupLinks.${index}.label`).trim();
   const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
   const action = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
@@ -52759,8 +52804,13 @@ function readDictionaryLookupLinkRow(data, get, index) {
   urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
   enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
   action,
-  priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index
+  priority
   };
+}
+function readSubmittedRowPriority(value, index) {
+  if (!value.trim()) return index;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : index;
 }
 function dictionaryLookupLinkAction(value) {
   if (value === "copy") return "copy";
@@ -58089,13 +58139,14 @@ function renderDictionarySourceRows(settings) {
   ...rows.filter((row) => row.removable).map((row) => row.name)
   ]);
   const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
-  const hidden = hiddenPreferences.map((preference) => {
+  const hidden = hiddenPreferences.map((preference, hiddenIndex) => {
   const index = settings.dictionaryPreferences.indexOf(preference);
+  const priority = rows.length + hiddenIndex;
   return `
             <input type="hidden" name="dictionaryPreferences.${index}.name" value="${escapeHtml$1(preference.name)}">
             <input type="hidden" name="dictionaryPreferences.${index}.alias" value="${escapeHtml$1(preference.alias)}">
             ${preference.enabled ? `<input type="hidden" name="dictionaryPreferences.${index}.enabled" value="on">` : ""}
-            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${escapeHtml$1(String(preference.priority))}">
+            <input type="hidden" name="dictionaryPreferences.${index}.priority" value="${priority}">
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
         `;
   }).join("");
@@ -58552,6 +58603,7 @@ const TERM_MATCH_SELECTION_COMPARATORS = [
   compareTermMatchLengthDescending,
   compareTermMatchDeinflectionDepth,
   compareTermMatchStart,
+  compareTermMatchDictionaryPriority,
   compareTermMatchDictionaryName,
   compareTermMatchEntryScoreDescending
 ];
@@ -58578,7 +58630,10 @@ function compareMetaEntriesWithinMode(a, b, rank) {
   return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
 }
 function compareFrequencyMetaEntries(a, b, rank) {
-  return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank(a.data) - frequencyRank(b.data) || compareDictionaryName(a, b);
+  return compareDeclaredDictionaryPriority(a, b, rank) || jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank(a.data) - frequencyRank(b.data) || compareDictionaryName(a, b);
+}
+function compareDeclaredDictionaryPriority(a, b, rank) {
+  return rank.has(a.dictionary) && rank.has(b.dictionary) ? compareDictionaryPriority(a, b, rank) : 0;
 }
 function jpdbFrequencyPriority(entry) {
   return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
@@ -58596,11 +58651,11 @@ function extractFrequency(value) {
   const rank = frequencyRank(value);
   return Number.isFinite(rank) ? rank : void 0;
 }
-function nonOverlappingMatches(matches, limit) {
+function nonOverlappingMatches(matches, limit, rank) {
   const selected = [];
   const occupied = [];
   const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
-  for (const match of matches.sort(compareTermMatchesForSelection)) {
+  for (const match of matches.sort((left, right) => compareTermMatchesForSelection(left, right, rank))) {
   if (overlaps(match)) continue;
   selected.push(match);
   occupied.push([match.start, match.end]);
@@ -58609,9 +58664,9 @@ function nonOverlappingMatches(matches, limit) {
   const result = selected.sort((a, b) => a.start - b.start);
   return result;
 }
-function leftToRightLongestMatches(matches, limit) {
+function leftToRightLongestMatches(matches, limit, rank) {
   const candidates = [...matches].sort(
-  (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
+  (a, b) => a.start - b.start || compareTermMatchLengthDescending(a, b) || compareTermMatchDeinflectionDepth(a, b) || compareTermMatchDictionaryPriority(a, b, rank) || compareTermMatchDictionaryName(a, b) || compareTermMatchEntryScoreDescending(a, b)
   );
   const selected = [];
   let coveredUntil = 0;
@@ -58623,12 +58678,16 @@ function leftToRightLongestMatches(matches, limit) {
   }
   return selected;
 }
-function compareTermMatchesForSelection(a, b) {
+function compareTermMatchesForSelection(a, b, rank) {
   for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-  const result = compare(a, b);
+  const result = compare(a, b, rank);
   if (result) return result;
   }
   return 0;
+}
+function compareTermMatchDictionaryPriority(a, b, rank) {
+  if (!rank) return 0;
+  return dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank);
 }
 function compareTermMatchLengthDescending(a, b) {
   return b.end - b.start - (a.end - a.start);
@@ -61568,6 +61627,7 @@ ${entry.reading}`;
     }
     async sweepTermMatchWindows(source, limit, preferences, target, targetGeneration) {
       const selected = [];
+      const rank = dictionaryRank(preferences);
       let coveredUntil = 0;
       for (let start = 0; start < source.length; ) {
         if (start > 0) await nextTask();
@@ -61575,7 +61635,7 @@ ${entry.reading}`;
         if (!isCurrentLookupTarget(target, targetGeneration)) return [];
         const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
         const free = matches.filter((match) => match.start >= coveredUntil);
-        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit) : nonOverlappingMatches(free, limit);
+        const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit, rank) : nonOverlappingMatches(free, limit, rank);
         for (const match of windowMatches) {
           selected.push(match);
           coveredUntil = Math.max(coveredUntil, match.end);
@@ -64772,6 +64832,7 @@ ${glossaryKey}`;
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
+  const AUTO_REPLACE_ANKI_MODEL_NAMES = /* @__PURE__ */ new Set(["", "よむ Japanese", "Yomu Japanese"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
   const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
@@ -64870,6 +64931,7 @@ ${glossaryKey}`;
   function selectedAnkiScanModel(scan, currentModel) {
     const savedModel = currentModel.trim();
     if (savedModel && scan.models.some((model) => model.modelName === savedModel)) return savedModel;
+    if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
     return scan.suggestedModel?.modelName || savedModel;
   }
   function ankiScanSelection(controls, scan) {
@@ -65075,9 +65137,7 @@ ${glossaryKey}`;
       try {
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
-            changedSettingsKeys(previousSettings, settings)
-          )
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.dependencies.onSettingsPersisted?.(settings);
       } catch (error) {
@@ -65979,7 +66039,7 @@ ${glossaryKey}`;
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
       this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
     async enqueueDictionaryOperation(form, task) {
       this.pendingDictionaryOperations++;
@@ -66750,7 +66810,7 @@ ${glossaryKey}`;
       this.dictionaryRefreshId++;
       await clearNewTabOfflineCache().catch(() => void 0);
       this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
       await this.refreshDictionaryStatus(form);
@@ -66839,7 +66899,7 @@ ${glossaryKey}`;
         dictionaryPreferences
       );
       await markDictionaryReplicaFresh();
-      await saveSettings(this.settings);
+      await saveSettings(this.settings, { explicitUserChoiceKeys: ["dictionaryPreferences", "localDictionariesEnabled"] });
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
     }
@@ -67426,7 +67486,10 @@ ${glossaryKey}`;
         this.options.setSettings(settings);
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-          explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings)
+          // Every field the onboarding panel's own controls moved. It used to
+          // declare only the 17 allowlisted keys, so a theme or hotkey chosen
+          // here was not intent and a legacy store could replay the old one.
+          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
         });
         this.close();
         await this.options.onComplete?.(settings);
