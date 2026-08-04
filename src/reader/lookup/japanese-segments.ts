@@ -507,7 +507,7 @@ function inflectedFallbackCandidateAt(
     };
 }
 
-export function isBoundarySegment(surface: string): boolean {
+function isBoundarySegment(surface: string): boolean {
     return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
 }
 

@@ -579,7 +579,6 @@ export class JitenApiClient {
 
     // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
     // reader-study-decks). Rows carry userStudyDeckId + name.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDecks(): Promise<Array<{ id: number; name: string }>> {
         const response = await this.requestEndpoint<unknown>('srs/study-decks', undefined, { method: 'GET' });
         if (!Array.isArray(response)) return [];
@@ -595,7 +594,6 @@ export class JitenApiClient {
 
     // UT-44: srs/study-batch has no deck parameter, so deck scoping
     // intersects the batch with the deck's word keys.
-    // fallow-ignore-next-line unused-class-member
     async studyDeckWordKeys(deckId: number): Promise<Set<string>> {
         const response = await this.requestEndpoint<unknown>(`srs/study-decks/${Math.floor(deckId)}/word-keys`, undefined, { method: 'GET' });
         const keys = new Set<string>();
@@ -676,7 +674,6 @@ export class JitenApiClient {
 
     // Community ask (jpdb issue-tracker #417 class): reverse the most recent
     // review of a word. Called by NewTabController through its Jiten dependency.
-    // fallow-ignore-next-line unused-class-member
     async undoReview(card: JPDBCard): Promise<void> {
         await this.request('srs/undo-review', jitenCardReference(card));
     }

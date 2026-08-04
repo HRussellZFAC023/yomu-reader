@@ -244,6 +244,12 @@ export class ReaderCardLookupSession {
         return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
+    // Production stopped calling this in 1.8.79: the span authority's
+    // rendered-word path replaced the public-JPDB kana-expansion stage it
+    // implemented. Kept until the later-candidate-after-Jiten-miss fallback
+    // it encodes is verified preserved (or ported) in the authority path -
+    // two tests pin that contract meanwhile.
+    // fallow-ignore-next-line unused-class-member
     async publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined> {
         const scope = this.captureTarget();
         if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;

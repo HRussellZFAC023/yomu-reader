@@ -1,11 +1,9 @@
 import { sentenceAroundRange } from '../dom/index';
 import { activeLearningTarget } from '../languages/target-runtime';
-import type { pointerTextRunAt } from './pointer-text-lookup';
 import type { JPDBCard, JPDBToken } from '../app/types';
-import { HAS_JAPANESE, HIRAGANA_WITH_PROLONGED, KANJI_LIKE_WITH_COUNTERS, KATAKANA } from './japanese-script';
+import { HAS_JAPANESE, HIRAGANA_WITH_PROLONGED } from './japanese-script';
 
 const SINGLE_HIRAGANA_MORA_RE = new RegExp(`^[${HIRAGANA_WITH_PROLONGED}]$`, 'u');
-const SUBSTANTIVE_LOCAL_EXPANSION_RE = new RegExp(`[${KANJI_LIKE_WITH_COUNTERS}${KATAKANA}]`, 'u');
 
 export function normalizedLookupText(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
@@ -50,22 +48,9 @@ export function isLowValuePitchEnrichmentToken(token: JPDBToken): boolean {
     return isLowValuePointerTextToken(token);
 }
 
-export function isLowValuePointerTextToken(token: JPDBToken): boolean {
+function isLowValuePointerTextToken(token: JPDBToken): boolean {
     const spelling = token.card.spelling.trim();
     return SINGLE_HIRAGANA_MORA_RE.test(spelling);
-}
-
-export function canExpandLocalPointerRange(surface: string): boolean {
-    return surface.length > 1 || SUBSTANTIVE_LOCAL_EXPANSION_RE.test(surface);
-}
-
-export function isOverbroadLocalPointerRange(
-    run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
-    range: { start: number; end: number },
-): boolean {
-    const rangeLength = range.end - range.start;
-    const runLength = run.end - run.start;
-    return rangeLength > 8 && range.start <= run.start && range.end >= run.end && runLength > 8;
 }
 
 export function preferredRenderedWordSentence(nearest: string, tokenSentence: string): string | undefined {

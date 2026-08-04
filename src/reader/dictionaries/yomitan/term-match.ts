@@ -33,7 +33,7 @@ type LookupCandidateRuleMatcher = (
     candidateRules: readonly string[],
 ) => boolean;
 
-export interface TermMatchEntryCollector {
+interface TermMatchEntryCollector {
     add(entry: YomitanTermEntry): void;
     matches(): YomitanTermMatch[];
 }
@@ -112,7 +112,7 @@ export function isSearchableTargetSurface(surface: string, target: LearningTarge
     return target.isLookupableText(surface) && !WHITESPACE_RE.test(surface);
 }
 
-export function sortedTermMatchExpressions(candidates: TermMatchCandidates): string[] {
+function sortedTermMatchExpressions(candidates: TermMatchCandidates): string[] {
     return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
 }
 
@@ -184,7 +184,7 @@ function exactRequestIndex(
     return requestIndex;
 }
 
-export function requestTermMatchIndex(
+function requestTermMatchIndex(
     index: IDBIndex,
     expression: string,
     visit: (expression: string, entry: YomitanTermEntry) => void,
@@ -221,7 +221,7 @@ export function requestTermMatchIndex(
     request.onerror = () => reject(request.error);
 }
 
-export function createTermMatchEntryCollector(
+function createTermMatchEntryCollector(
     expression: string,
     candidates: TermMatchCandidates,
     rank: Map<string, DictionaryPreference>,

@@ -1728,7 +1728,7 @@ export function pointerTextCandidate(sentence: string, anchor: HTMLElement, offs
     };
 }
 
-export function pointerTextInternals(app: ReaderApp): TestPointerTextInternals {
+function pointerTextInternals(app: ReaderApp): TestPointerTextInternals {
     return app as unknown as TestPointerTextInternals;
 }
 
@@ -2331,39 +2331,6 @@ export function configureRenderedWordTest(app: ReaderApp, options: {
     return { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard };
 }
 
-export async function expectParserBackedRenderedKanaWord(options: {
-    app: ReaderApp;
-    cachedCard: JPDBCard;
-    renderedText: string;
-    jpdbCard: JPDBCard;
-    tokenOptions?: Parameters<typeof testTokenForCard>[2];
-}): Promise<void> {
-    const sentence = 'にほんごのじかん';
-    const token = testTokenForCard(options.jpdbCard, undefined, {
-        pitchClass: 'heiban',
-        ...options.tokenOptions,
-    });
-    const word = appendRenderedReaderWord(options.cachedCard, { text: options.renderedText });
-    word.dataset.sentence = sentence;
-    const parseJapanese = vi.fn(async () => [[token]]);
-    const { internals, publicLookupCard, showRenderedWordCard } = configureRenderedWordTest(options.app, {
-        cachedCards: [options.cachedCard],
-        parseJapanese,
-        settings: { apiKey: 'jpdb-key' },
-    });
-
-    await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-    expectRenderedWordParse(parseJapanese, sentence);
-    expect(publicLookupCard).not.toHaveBeenCalled();
-    expect(showRenderedWordCard).toHaveBeenCalledWith(
-        options.jpdbCard,
-        expect.objectContaining({ sentence, anchor: word }),
-        expect.objectContaining({ trigger: 'click', userGesture: true }),
-        false,
-        currentJapaneseLookupScopeMatcher(),
-    );
-}
 
 export function expectRenderedKanaModalCard(options: {
     showCard: unknown;
