@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.77
+// @version 1.8.78
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.8979a9a99d48.user.js#sha256=iXmpqZ1Izhlv/JlS5CPGiS7KqcI/8jRom/JPrS05JFw=
+// @require https://yomureader.com/greasyfork/yomu-runtime.3626468d2f3e.user.js#sha256=NiZGjS8+ttYOEhqOa0RE/IJ4o9dfsVTdVBdn84beHqY=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -1112,7 +1112,9 @@ kind: "gm",
 prefix: "yomu-dictionary-archive:",
 enumerate: enumerateDictionaryArchiveStorageKeys
 },
-{ owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
+{ owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
+{ owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
+{ owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
 { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
 { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
 { owner: "ocr/canvas-mirror", kind: "session", key: "yomu:bw:mirror-loadguard" },
@@ -1798,7 +1800,7 @@ const YOMU_LOCAL_SRS_STORAGE_KEY = "yomu:srs-local:v1";
 const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
 const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
 const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = "yomu:srs-local:v2:tombstone:";
-const MANAGED_IDB_DELETE_TIMEOUT_MS = 2e3;
+const MANAGED_IDB_DELETE_TIMEOUT_MS = 6e4;
 const MANAGED_CACHE_NAME_PREFIXES = [
 "yomu-newtab-",
 "yomu-pdf-reader-",
@@ -5808,7 +5810,7 @@ SETTINGS_STORAGE_KEY,
 ];
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-const log$9 = Logger.scope("Settings");
+const log$a = Logger.scope("Settings");
 let settingsResetInProgress = false;
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
@@ -6463,7 +6465,7 @@ const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
 if (!value.ankiFieldMappings) return migrated;
 const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
 if (!movedModels.length) return migrated;
-log$9.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+log$a.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
 return { ...migrated, ankiFieldMappings: mappings };
 }
 function migrateLegacyDefaultMobileSettings(value) {
@@ -7121,7 +7123,7 @@ function applyUrlBootstrapSettings(settings, search = location.search) {
 const params = new URLSearchParams(search);
 const bootstrap = urlBootstrapSettings(params);
 if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-log$9.info("Applying URL bootstrap settings", {
+log$a.info("Applying URL bootstrap settings", {
 hasApiKey: Boolean(bootstrap.apiKey),
 hasAudio: Boolean(bootstrap.audio),
 hasOcr: Boolean(bootstrap.ocr)
@@ -7220,7 +7222,7 @@ cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings
 }
 return settings;
 } catch (error) {
-log$9.warn("Settings load failed", { error });
+log$a.warn("Settings load failed", { error });
 return mergeSettings(null);
 }
 }
@@ -7261,7 +7263,7 @@ DEFAULT_SETTINGS
 if (recovery.changed) await persistSettings(recovery.settings);
 return true;
 } catch (error) {
-log$9.warn("Stranded hosted settings promotion failed", { error });
+log$a.warn("Stranded hosted settings promotion failed", { error });
 return false;
 }
 }
@@ -7290,7 +7292,7 @@ for (const unsubscribe of unsubscribers) unsubscribe();
 }
 async function saveSettings(settings, options = {}) {
 if (settingsResetInProgress) {
-log$9.warn("Rejected save during reset");
+log$a.warn("Rejected save during reset");
 throw new Error();
 }
 try {
@@ -7300,7 +7302,7 @@ await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSite
 }
 await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
 } catch (error) {
-log$9.warn("Settings save failed", { error });
+log$a.warn("Settings save failed", { error });
 throw error;
 }
 }
@@ -15875,7 +15877,7 @@ if (control.getAttribute("aria-disabled") === "true") return true;
 if (control.closest('[aria-disabled="true"]')) return true;
 return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$8 = Logger.scope("CardStateSignal");
+const log$9 = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -15917,7 +15919,7 @@ card: cardStateSignalCard(card)
 try {
 gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
 } catch (error) {
-log$8.debug("GM card-state publish failed", error);
+log$9.debug("GM card-state publish failed", error);
 }
 publishBroadcastCardStateSignal(signal);
 }
@@ -15928,7 +15930,7 @@ const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
 channel.postMessage(signal);
 channel.close();
 } catch (error) {
-log$8.debug("Broadcast card-state publish failed", error);
+log$9.debug("Broadcast card-state publish failed", error);
 }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -15950,7 +15952,7 @@ const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
 channel.onmessage = (event) => handle(event.data);
 cleanups.push(() => channel.close());
 } catch (error) {
-log$8.debug("Broadcast card-state listener failed", error);
+log$9.debug("Broadcast card-state listener failed", error);
 }
 }
 return () => cleanups.forEach((cleanup) => cleanup());
@@ -22835,7 +22837,7 @@ const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(
 );
 const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
-const log$7 = Logger.scope("ReaderParser");
+const log$8 = Logger.scope("ReaderParser");
 const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 function apiFirstParseOptions(options = {}) {
 const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -22863,7 +22865,7 @@ const { getSettings } = this.dependencies;
 const settings = getSettings();
 const target = activeLearningTarget();
 const targetGeneration = activeLearningTargetGeneration();
-const done = log$7.time("parse", {
+const done = log$8.time("parse", {
 paragraphs: paragraphs.length,
 hasApiKey: hasJpdbApiCredential(settings),
 hasJitenApiKey: hasJitenApiCredential(settings),
@@ -22885,7 +22887,7 @@ LOCAL_PARSE_TIMEOUT_MS,
 );
 return isCurrentLearningTarget(target, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
 } catch (error) {
-log$7.warn("Academy SRS state hydration failed; keeping provider states", error);
+log$8.warn("Academy SRS state hydration failed; keeping provider states", error);
 return isCurrentLearningTarget(target, targetGeneration) ? normalized : emptyParseResult(paragraphs);
 }
 } finally {
@@ -22900,7 +22902,7 @@ LOCAL_PARSE_TIMEOUT_MS,
 () => new Error("Local parse reconciliation timed out.")
 );
 } catch (error) {
-log$7.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+log$8.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
 return parsed;
 }
 }
@@ -22977,7 +22979,7 @@ return timeoutMs > 0 ? withTimeout(parsePromise, timeoutMs, () => new Error("Jit
 }
 handleRemoteParseError(source, error, options) {
 const canFallback = this.canUseParseFallback(options);
-log$7.warn(remoteParseErrorMessage(source, options, canFallback), error);
+log$8.warn(remoteParseErrorMessage(source, options, canFallback), error);
 if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
 }
 async parseWithFallbackSource(paragraphs, options, target) {
@@ -22997,7 +22999,7 @@ const parsed = options.publicJitenDetailLimit === void 0 ? await parser.parse(pa
 if (!parsed.some((tokens) => tokens.length)) return null;
 return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target);
 } catch (error) {
-log$7.warn("Jiten public parse failed; using local or segmented fallback", error);
+log$8.warn("Jiten public parse failed; using local or segmented fallback", error);
 return null;
 }
 }
@@ -23113,7 +23115,7 @@ LOCAL_PARSE_TIMEOUT_MS,
 () => new Error("Local parse timed out.")
 );
 } catch (error) {
-log$7.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+log$8.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
 return this.localParseTimeoutFallback(text2, options, target);
 }
 }
@@ -23142,7 +23144,7 @@ const { dictionaries, getSettings } = this.dependencies;
 if (!await this.hasLocalTermDictionaries()) return [];
 const settings = getSettings();
 const matches = await dictionaries.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target).catch((error) => {
-log$7.warn("Local dictionary parse failed", { length: text2.length }, error);
+log$8.warn("Local dictionary parse failed", { length: text2.length }, error);
 return [];
 });
 return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options, target));
@@ -23198,7 +23200,7 @@ settings.dictionaryPreferences,
 target
 )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
 if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-log$7.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+log$8.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
 return null;
 });
 this.localBoundaryEvidenceCache.set(key, promise);
@@ -23218,7 +23220,7 @@ const store = this.dependencies.dictionaries;
 if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
 this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
 this.localTermDictionaryAvailability = void 0;
-log$7.warn("Local term dictionary availability check failed", { error });
+log$8.warn("Local term dictionary availability check failed", { error });
 return void 0;
 });
 return this.localTermDictionaryAvailability;
@@ -23373,7 +23375,7 @@ card.spelling,
 card.reading,
 (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
 ).catch((error) => {
-log$7.warn("Local pitch parse failed", { term: card.spelling }, error);
+log$8.warn("Local pitch parse failed", { term: card.spelling }, error);
 return { patterns: [] };
 });
 this.rememberLocalPitchCacheEntry(key, promise);
@@ -23855,7 +23857,7 @@ return typeof value === "number" && Number.isInteger(value) && value > 0 ? value
 function normalizeIdentityText(value) {
 return value.normalize("NFKC").trim();
 }
-const log$6 = Logger.scope("CardRenderData");
+const log$7 = Logger.scope("CardRenderData");
 const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
 const CARD_RENDER_LOCAL_TIMEOUT_MS = 2500;
@@ -24098,7 +24100,7 @@ loadLocalTermEntriesUncapped(card) {
 const settings = this.settings();
 if (!settings.localDictionariesEnabled) return Promise.resolve([]);
 return this.lookupLocalTermEntries(card, settings).catch((error) => {
-log$6.warn("Local term lookup failed", { term: card.spelling }, error);
+log$7.warn("Local term lookup failed", { term: card.spelling }, error);
 return [];
 });
 }
@@ -24122,7 +24124,7 @@ loadLocalKanjiEntries(card) {
 const settings = this.settings();
 if (!targetSupportsCharacterLookup() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
-log$6.warn("Local kanji lookup failed", { term: card.spelling }, error);
+log$7.warn("Local kanji lookup failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -24133,13 +24135,13 @@ const lookup = this.dependencies.dictionaries.lookupTermMeta(card.spelling, CARD
 entries: entries2,
 completed: true
 })).catch((error) => {
-log$6.warn("Local metadata lookup failed", { term: card.spelling }, error);
+log$7.warn("Local metadata lookup failed", { term: card.spelling }, error);
 return { entries: [], completed: false };
 });
 return Promise.race([
 lookup,
 delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-log$6.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
+log$7.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
 return { entries: [], completed: false };
 })
 ]);
@@ -24148,7 +24150,7 @@ loadPublicPitch(card) {
 const settings = this.settings();
 if (!settings.showPitchAccent || !cardUsesPitchAccentPronunciation(card) || card.pitchAccent.length) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
-log$6.warn("Public pitch lookup failed", { term: card.spelling }, error);
+log$7.warn("Public pitch lookup failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -24161,7 +24163,7 @@ const settings = this.settings();
 if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
 const jpdbVid = this.dependencies.isJpdbBackedCard(card) ? card.vid : 0;
 return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(jpdbVid, card.spelling, card.reading).catch((error) => {
-log$6.warn("JPDB page lookup failed", { term: card.spelling }, error);
+log$7.warn("JPDB page lookup failed", { term: card.spelling }, error);
 return null;
 }), null);
 }
@@ -24173,7 +24175,7 @@ if (!this.isProviderTarget(providerEpoch)) return null;
 enrichCardFromJitenVocabularyInfo(card, info);
 return info;
 }).catch((error) => {
-log$6.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
+log$7.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
 return null;
 });
 }
@@ -24181,13 +24183,13 @@ loadFrequencyRanks(card, jitenVocabularyLookup, seeded, bunproDefinitionLookup) 
 const settings = this.settings();
 const searchJiten = this.dependencies.jiten?.searchVocabulary?.bind(this.dependencies.jiten);
 const jiten = liveFrequencyEnabled(settings, "jiten") && !seeded.jiten ? settings.jitenDefinitionsEnabled ? jitenVocabularyLookup.then((info) => jitenFrequencyRankForCard(card, info)) : searchJiten ? searchJiten(card.spelling, 10).then((candidates) => exactJitenFrequencyRank(card, candidates)).catch((error) => {
-log$6.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
+log$7.warn("Jiten frequency lookup failed", { term: card.spelling }, error);
 return null;
 }) : Promise.resolve(null) : Promise.resolve(null);
 const searchJpdb = this.dependencies.jpdbVocabulary.search?.bind(this.dependencies.jpdbVocabulary);
 const jpdbIdentityReady = cardNeedsCanonicalReading(card) ? jitenVocabularyLookup.then(() => card, () => card) : Promise.resolve(card);
 const jpdb = liveFrequencyEnabled(settings, "jpdb") && !seeded.jpdb && searchJpdb ? Promise.all([searchJpdb(card.spelling, 10), jpdbIdentityReady]).then(([candidates]) => exactJpdbFrequencyRank(card, candidates)).catch((error) => {
-log$6.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
+log$7.warn("JPDB frequency lookup failed", { term: card.spelling }, error);
 return null;
 }) : Promise.resolve(null);
 const bunpro = liveFrequencyEnabled(settings, "bunpro") ? bunproDefinitionLookup.then((result) => bunproFrequencyRank(card, result.info)).catch(() => null) : Promise.resolve(null);
@@ -24207,13 +24209,13 @@ if (!this.dependencies.bunpro) return Promise.resolve({ info: null, status: { st
 const lookupBunproDefinitionResult = yomuBunproCompanion()?.lookupBunproDefinitionResult;
 if (!lookupBunproDefinitionResult) return Promise.resolve({ info: null, status: { state: "client-unavailable" } });
 const startedAt = performance.now();
-log$6.debug("Bunpro definition lookup started", { term: card.spelling });
+log$7.debug("Bunpro definition lookup started", { term: card.spelling });
 return lookupBunproDefinitionResult(this.dependencies.bunpro, card).then((result) => {
 const resolved = {
 info: result.info,
 status: result.state === "success" ? { state: "success" } : { state: "no-match", reason: result.reason }
 };
-log$6.debug("Bunpro definition lookup completed", {
+log$7.debug("Bunpro definition lookup completed", {
 term: card.spelling,
 state: resolved.status.state,
 reason: resolved.status.state === "no-match" ? resolved.status.reason : void 0,
@@ -24221,7 +24223,7 @@ durationMs: Math.round(performance.now() - startedAt)
 });
 return resolved;
 }).catch((error) => {
-log$6.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
+log$7.warn("Bunpro definition lookup failed", { term: card.spelling }, error);
 return { info: null, status: { state: "error" } };
 });
 }
@@ -24230,14 +24232,14 @@ if (!shouldLookupAnkiStatus(this.settings())) return Promise.resolve(emptyAnkiLo
 const fallback = sourceCardAnkiLookupOrEmpty(card);
 if (typeof this.dependencies.anki.findCachedStatusBatch !== "function") return Promise.resolve(fallback);
 return this.dependencies.anki.findCachedStatusBatch([card]).then(([lookup]) => lookup ?? fallback).catch((error) => {
-log$6.warn("Cached Anki status failed", { term: card.spelling }, error);
+log$7.warn("Cached Anki status failed", { term: card.spelling }, error);
 return fallback;
 });
 }
 loadDetailedAnkiLookup(card, fastLookup) {
 if (!shouldLookupAnkiStatus(this.settings())) return fastLookup;
 return fastLookup.then((fallback) => this.withFallback(card, CARD_RENDER_ANKI_TIMEOUT_MS, "Anki existing cards", this.loadAnkiLookupWhenAvailable(card, fallback).catch((error) => {
-log$6.warn("Anki lookup failed", { term: card.spelling }, error);
+log$7.warn("Anki lookup failed", { term: card.spelling }, error);
 return ankiLookupWithUnavailableDetails(fallback);
 }), ankiLookupWithUnavailableDetails(fallback)));
 }
@@ -24250,14 +24252,14 @@ loadJpdbDecks(card) {
 const settings = this.settings();
 if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.isJpdbBackedCard(card)) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "JPDB deck list", this.cachedJpdbDecks(settings).catch((error) => {
-log$6.warn("JPDB deck list failed", { term: card.spelling }, error);
+log$7.warn("JPDB deck list failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
 loadAnkiDecks(card) {
 if (!this.settings().ankiEnabled) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki deck list", this.cachedAnkiDecks(this.settings()).catch((error) => {
-log$6.warn("Anki deck list failed", { term: card.spelling }, error);
+log$7.warn("Anki deck list failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -24265,7 +24267,7 @@ loadJitenDecks(card) {
 const settings = this.settings();
 if (!settings.jpdbMiningEnabled || !isJitenBackedCard(card) || !hasJitenApiCredential(settings)) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Jiten deck list", this.cachedJitenDecks(settings).catch((error) => {
-log$6.warn("Jiten deck list failed", { term: card.spelling }, error);
+log$7.warn("Jiten deck list failed", { term: card.spelling }, error);
 return [];
 }), []);
 }
@@ -24274,7 +24276,7 @@ const settings = this.settings();
 if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
 if (typeof this.dependencies.anki.noteFieldTargetPlan !== "function") return Promise.resolve(null);
 return this.withFallback(card, CARD_RENDER_DECK_TIMEOUT_MS, "Anki field target plan", this.dependencies.anki.noteFieldTargetPlan().catch((error) => {
-log$6.warn("Anki field target plan failed", { term: card.spelling }, error);
+log$7.warn("Anki field target plan failed", { term: card.spelling }, error);
 return null;
 }), null);
 }
@@ -24285,7 +24287,7 @@ if (!settings.jpdbMiningEnabled || !hasJpdbApiCredential(settings) || !this.depe
 const isInUserDeckPool = this.dependencies.jpdb.isInUserDeckPool?.bind(this.dependencies.jpdb);
 if (typeof isInUserDeckPool !== "function") return Promise.resolve(false);
 return this.withFallback(card, CARD_RENDER_DECK_POOL_TIMEOUT_MS, "JPDB pooled deck membership", isInUserDeckPool(card).catch((error) => {
-log$6.warn("JPDB pool lookup failed", { term: card.spelling }, error);
+log$7.warn("JPDB pool lookup failed", { term: card.spelling }, error);
 return false;
 }), false);
 }
@@ -24399,7 +24401,7 @@ card.reading,
 (expression) => this.dependencies.dictionaries.lookupTermMeta(expression, CARD_RENDER_META_LOOKUP_LIMIT, settings.dictionaryPreferences),
 { initialEntries: metaEntries }
 ).catch((error) => {
-log$6.warn("Local pitch lookup failed", { term: card.spelling }, error);
+log$7.warn("Local pitch lookup failed", { term: card.spelling }, error);
 return { patterns: [] };
 });
 if (!this.isProviderTarget(providerEpoch)) return;
@@ -24513,7 +24515,7 @@ function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs
 return Promise.race([
 promise,
 delay(timeoutMs).then(() => {
-log$6.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+log$7.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
 return fallback;
 })
 ]);
@@ -24674,10 +24676,10 @@ this.styleElement = style;
 this.options.onRefreshed?.(css.length);
 }
 }
-const log$5 = Logger.scope("FactoryReset");
+const log$6 = Logger.scope("FactoryReset");
 const FACTORY_RESET_PREPARE_DELAY_MS = 80;
 const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
-const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
+const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 6e4;
 function resetFactoryResetDictionaryDatabase(dictionaries) {
 return dictionaries.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true }));
 }
@@ -24727,21 +24729,21 @@ await this.assertManagedStateDeleted();
 await this.dependencies.resetDictionaryDatabase();
 await commitManagedStateResetEpoch(resetSignal.id);
 epochCommitted = true;
-await this.dependencies.resetDictionaryDatabase().catch((error) => log$5.warn("Final dictionary reset failed after epoch commit", error));
-await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$5.warn("Factory reset completion signal failed after epoch commit", error));
-await clearFactoryResetSignal().catch((error) => log$5.warn("Factory reset signal cleanup failed after epoch commit", error));
+await this.dependencies.resetDictionaryDatabase().catch((error) => log$6.warn("Final dictionary reset failed after epoch commit", error));
+await publishFactoryResetSignal(createFactoryResetSignal("complete", resetSignal.id)).catch((error) => log$6.warn("Factory reset completion signal failed after epoch commit", error));
+await clearFactoryResetSignal().catch((error) => log$6.warn("Factory reset signal cleanup failed after epoch commit", error));
 this.dependencies.reload();
 } catch (error) {
 if (epochCommitted || managedStateResetEpochMayHaveCommitted(error)) {
-log$5.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
-await clearFactoryResetSignal().catch((signalError) => log$5.warn("Factory reset signal cleanup failed", signalError));
+log$6.warn("Factory reset finalization failed after epoch commit; reloading stale realm", error);
+await clearFactoryResetSignal().catch((signalError) => log$6.warn("Factory reset signal cleanup failed", signalError));
 this.dependencies.reload();
 return;
 }
 this.activeResetId = "";
-await clearFactoryResetSignal().catch((signalError) => log$5.warn("Factory reset signal cleanup failed", signalError));
+await clearFactoryResetSignal().catch((signalError) => log$6.warn("Factory reset signal cleanup failed", signalError));
 endSettingsResetGuard();
-log$5.warn("All-data reset failed", error);
+log$6.warn("All-data reset failed", error);
 this.dependencies.toast(userFacingErrorText(this.dependencies.getLanguage(), "factoryResetFailed", error));
 }
 }
@@ -24763,7 +24765,7 @@ this.scheduleRemoteGuardRelease();
 async assertManagedStateDeleted() {
 const managedKeysStillPresent = await managedStoredKeysStillPresent();
 if (!managedKeysStillPresent.length) return;
-log$5.warn("Managed keys remained after reset", { managedKeysStillPresent });
+log$6.warn("Managed keys remained after reset", { managedKeysStillPresent });
 throw new ManagedStateResetError(`Managed keys remained after reset: ${managedKeysStillPresent.join(", ")}`);
 }
 text(key, values = {}) {
@@ -28119,9 +28121,9 @@ window.setTimeout(resolve, Math.max(0, fallbackDelayMs));
 });
 }
 function scheduleIdleCallback(callback, timeoutMs = 75) {
-const requestIdleCallback2 = window.requestIdleCallback;
-if (typeof requestIdleCallback2 !== "function") return false;
-requestIdleCallback2.call(window, callback, { timeout: timeoutMs });
+const requestIdleCallback = window.requestIdleCallback;
+if (typeof requestIdleCallback !== "function") return false;
+requestIdleCallback.call(window, callback, { timeout: timeoutMs });
 return true;
 }
 function scopedDocument(scope = {}) {
@@ -32232,7 +32234,7 @@ return renderedRoots.length === parseRoots.length ? renderedRoots.join("\n\n") :
 function nestedParseKey(targets) {
 return targets.map((target) => target.text).join("\n\n");
 }
-const log$4 = Logger.scope("PublicLookupFallback");
+const log$5 = Logger.scope("PublicLookupFallback");
 function normalizedJitenLookupKey(term) {
 return term.replace(/\s+/g, "");
 }
@@ -32277,7 +32279,7 @@ const cards = new Map();
 const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
 if (!uniqueTerms.length) return cards;
 const parsed = await parse(uniqueTerms).catch((error) => {
-log$4.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+log$5.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
 if (isMissingProxyTransportError(error)) throw error;
 return [];
 });
@@ -32297,7 +32299,7 @@ return null;
 if (batched) return batched;
 }
 const loaded = await deps.lookupMany(terms, options.detailLimit ? { detailLimit: options.detailLimit(entryCount) } : void 0).catch((error) => {
-log$4.warn("Jiten fallback failed", { terms: terms.length }, error);
+log$5.warn("Jiten fallback failed", { terms: terms.length }, error);
 return new Map();
 });
 const cards = new Map();
@@ -34393,8 +34395,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.77"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.77"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.78"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.78"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34537,7 +34539,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.77"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.78"}`;
 } catch {
 return null;
 }
@@ -34575,7 +34577,7 @@ const Controller = yomuKanjiStudyCompanion()?.StudySourceController;
 return Controller ? new Controller(dependencies) : new DisabledStudySourceController();
 }
 };
-const log$3 = Logger.scope("LateCardReconciliation");
+const log$4 = Logger.scope("LateCardReconciliation");
 const RESOLVED_WORD_EFFECTS_BATCH_DELAY_MS = 0;
 function currentAnkiLookupBatch(tokens, lookupKeys, lookups) {
 const currentTokens = [];
@@ -34681,7 +34683,7 @@ if (!changedWords.length) return;
 const changedRoots = uniqueParentNodes(changedWords.map((word) => this.dependencies.annotationRoot(word)));
 this.dependencies.scheduleAnnotationRefresh(changedRoots, geometryRoots);
 } catch (error) {
-log$3.warnOnce("local-srs-hydration-failed", "Academy SRS late-card hydration failed", error);
+log$4.warnOnce("local-srs-hydration-failed", "Academy SRS late-card hydration failed", error);
 }
 }
 }
@@ -34935,7 +34937,7 @@ return tokens.find((token) => token.start === start && token.end === end)?.pitch
 function rangesOverlap(first, second) {
 return first.start < second.end && second.start < first.end;
 }
-const log$2 = Logger.scope("VisiblePageScanner");
+const log$3 = Logger.scope("VisiblePageScanner");
 const VISIBLE_SCAN_PARSE_BATCH_SIZE = 80;
 const VISIBLE_SCAN_PARSE_CHAR_BUDGET = 6e3;
 const VISIBLE_SCAN_MOBILE_PARSE_CHAR_BUDGET = 3200;
@@ -35079,7 +35081,7 @@ return;
 if (!this.beginScan(silent)) return;
 this.scanGeneration++;
 const generation = this.scanGeneration;
-const done = log$2.time("scanVisiblePage", { silent });
+const done = log$3.time("scanVisiblePage", { silent });
 try {
 this.syncPageFuriganaMode();
 await this.runVisiblePageScan(silent, generation);
@@ -35322,11 +35324,11 @@ try {
 return await this.dependencies.parseJapanese(paragraphs, options);
 } catch (error) {
 if (this.isStaleScan(generation)) return paragraphs.map(() => []);
-log$2.warn("Visible page parse batch failed; retrying locally", error);
+log$3.warn("Visible page parse batch failed; retrying locally", error);
 try {
 return await this.dependencies.parseJapanese(paragraphs, { ...options, skipApi: true });
 } catch (fallbackError) {
-log$2.warn("Visible page local parse recovery failed; continuing with later batches", fallbackError);
+log$3.warn("Visible page local parse recovery failed; continuing with later batches", fallbackError);
 onTransientFailure?.();
 return paragraphs.map(() => []);
 }
@@ -35406,7 +35408,7 @@ language: activeTargetLanguageDisplayName(interfaceLanguage)
 }));
 }
 handleVisiblePageScanError(error, silent) {
-log$2.warn("Visible page scan failed", error);
+log$3.warn("Visible page scan failed", error);
 if (!silent) {
 const language = this.dependencies.getSettings().interfaceLanguage;
 this.dependencies.toast(userFacingErrorText(language, "jpdbScanFailed", error));
@@ -35713,6 +35715,43 @@ return inert;
 }
 function companionMissingError() {
 return new Error("Local dictionaries unavailable: Yomu Settings Surface companion did not load.");
+}
+const log$2 = Logger.scope("DictionaryReplicaPurge");
+const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
+const PURGE_HONORED_KEY = "yomu:dictionary-replica-purged:v1";
+const DICTIONARY_DB_NAME = "jpdb-popup-reader-yomitan";
+async function honorDictionaryReplicaPurge() {
+const requestedAt = await gmStorageGet(PURGE_REQUEST_KEY, 0);
+if (requestedAt) await ensureManagedWebStorageCurrent();
+if (!requestedAt || requestedAt <= honoredAt()) return false;
+const deleted = await deleteDictionaryDatabase();
+if (!deleted) return false;
+try {
+managedLocalStorage.setItem(PURGE_HONORED_KEY, String(requestedAt));
+} catch {
+}
+log$2.info("Removed this origin's dictionary copy after an all-sites purge");
+return true;
+}
+function honoredAt() {
+try {
+return Number(managedLocalStorage.getItem(PURGE_HONORED_KEY)) || 0;
+} catch {
+return 0;
+}
+}
+function deleteDictionaryDatabase() {
+if (typeof indexedDB === "undefined") return Promise.resolve(false);
+return new Promise((resolve) => {
+try {
+const request = indexedDB.deleteDatabase(DICTIONARY_DB_NAME);
+request.onsuccess = () => resolve(true);
+request.onerror = () => resolve(false);
+request.onblocked = () => resolve(false);
+} catch {
+resolve(false);
+}
+});
 }
 function uniqueTokensByCard(tokens) {
 const seen = new Set();
@@ -37294,7 +37333,6 @@ nextHoverAnchorId = 1;
 suppressWordClickUntil = 0;
 suppressPenHoverUntil = 0;
 pageHasJapaneseText = false;
-localDictionaryReplicationScheduled = false;
 embeddedFrame = false;
 pressLookup;
 tapLookup;
@@ -37446,6 +37484,7 @@ return startup.shouldShowWelcome;
 async installCoreSurfaces() {
 this.installStyles();
 this.applyTheme();
+await honorDictionaryReplicaPurge().catch((error) => log.debug("Dictionary replica purge check failed", error));
 void this.refreshDictionaryStyles();
 this.installSettingsStorageSubscription();
 if (this.embeddedFrame) return;
@@ -37499,58 +37538,6 @@ void this.pageScanner.scanVisiblePage({ silent: true }).finally(() => this.sched
 } else {
 this.scheduleStatusWarmups();
 }
-this.scheduleLocalDictionaryReplication();
-}
-scheduleLocalDictionaryReplication() {
-if (!this.pageHasJapaneseText || !this.settings.localDictionariesEnabled) return;
-const replicate = yomuLocalDictionaries()?.ensureLocalDictionariesReplicated;
-if (!replicate || this.localDictionaryReplicationScheduled) return;
-this.localDictionaryReplicationScheduled = true;
-const run = () => {
-if (this.isDestroyed) {
-this.localDictionaryReplicationScheduled = false;
-return;
-}
-void replicate({
-dictionaries: this.dictionaries,
-getSettings: () => this.settings,
-onReplicated: () => {
-if (this.isDestroyed) return;
-this.parser.clearLocalCache();
-this.cardRenderData.clear();
-unwrapReaderWords(document);
-void this.refreshActiveCardAfterLocalDictionaryReplication().catch((error) => log.debug("Active card refresh after dictionary replication failed", error));
-this.scheduleDictionaryRescan();
-}
-}).catch((error) => log.warn("Scheduled dictionary replication failed", error)).finally(() => {
-this.localDictionaryReplicationScheduled = false;
-});
-};
-if (typeof requestIdleCallback === "function") requestIdleCallback(run, { timeout: 15e3 });
-else window.setTimeout(run, 3e3);
-}
-async refreshActiveCardAfterLocalDictionaryReplication() {
-if (!this.settings.localDictionariesEnabled) return;
-const popover = this.activePopover;
-const card = this.lastCard;
-if (!popover?.isConnected || !card || !popover.querySelector("[data-card-popover]")) return;
-const trigger = this.activePopoverMode === "hover" ? "hover" : "modal";
-const hoverLookupGeneration = trigger === "hover" ? this.hoverLookupGeneration : void 0;
-const hoverLookupKey = trigger === "hover" ? this.activeHoverLookupKey : void 0;
-const load = this.cardRenderData.load(card);
-const initialEntries = await load.localEntries;
-const entries2 = initialEntries.length ? initialEntries : await load.hydrateLocalEntries?.() ?? initialEntries;
-const stillCurrent = this.activePopover === popover && popover.isConnected && this.settings.localDictionariesEnabled && (trigger !== "hover" || this.hoverLookupGeneration === hoverLookupGeneration && this.activeHoverLookupKey === hoverLookupKey && this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey ?? ""));
-if (!entries2.length || !stillCurrent) return;
-await this.showCard(card, this.lastCardSentence, this.connectedActivePopoverAnchor(), {
-autoPlay: false,
-trigger,
-navigation: "preserve",
-preservePosition: true,
-hoverLookupGeneration,
-hoverLookupKey,
-skipInitialCardResolution: true
-});
 }
 async installBunproTokenImporter() {
 await this.bunproCompanion?.installBunproFrontendTokenImporter({
@@ -38014,7 +38001,6 @@ if (this.activePopover?.classList.contains("jpdb-reader-settings")) {
 this.dictionaryRescanPending = true;
 return;
 }
-this.scheduleLocalDictionaryReplication();
 this.pitchEnrichmentLocalCache.clear();
 this.localPitchDictionaryAvailability = void 0;
 this.jitenPublicVocabulary.clear();
@@ -38742,9 +38728,7 @@ if (canScanText && renderRejectionDelay !== null) this.scheduleAutoScan(renderRe
 if (canScanText && scanMutations.some(mutationTouchesAsbPlayer)) this.scheduleAsbPlayerScan(120);
 else if (mutationsOnlyInsideReaderRoot) return;
 else if (mutationHasJapaneseText) {
-const firstJapaneseContent = !this.pageHasJapaneseText;
 this.pageHasJapaneseText = true;
-if (firstJapaneseContent) this.scheduleLocalDictionaryReplication();
 this.noteVisibleAutoScanWorkObserved();
 this.scheduleAutoScan(visibleAutoScanMutationDelay(), {
 force: true,

@@ -4003,11 +4003,11 @@
   const LOCAL_DICTIONARY_STORAGE_COPY = {
     enSettings: {
       localDictionariesEnabled: "Show imported dictionary definitions",
-      localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
-      clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
-      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
+      localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
+      clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
+      clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries and delete this site's stored copy?\n\nSites that still hold a copy from earlier versions remove it the next time you visit them. You can re-import dictionaries at any time.",
       clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
-      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept."
+      clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled. This site's copy was deleted; other sites clean up as you visit them."
     },
     enImport: {
       dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
@@ -4019,11 +4019,11 @@
     },
     jaSettings: {
       localDictionariesEnabled: "インポート済み辞書の定義を表示",
-      localDictionarySiteStorageHelp: "インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。",
-      clearLocalDictionarySiteStorage: "すべてで無効にし、このサイトのコピーを削除",
-      clearLocalDictionarySiteStorageConfirm: "インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。",
+      localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+      clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
+      clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
       clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
-      clearLocalDictionarySiteStorageDone: "インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。"
+      clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
     }
   };
   const COPY = {
@@ -6819,7 +6819,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       prefix: "yomu-dictionary-archive:",
       enumerate: enumerateDictionaryArchiveStorageKeys$1
     },
-    { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
+    // Replication was removed in 1.8.78 (dictionaries live only where they
+    // are imported); the state key stays registered so resets sweep what
+    // earlier releases left behind.
+    { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
+    { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
+    { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
     // OCR result cache.
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
     { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
@@ -7519,7 +7524,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const YOMU_LOCAL_SRS_V2_INDEX_KEY = "yomu:srs-local:v2:index";
   const YOMU_LOCAL_SRS_V2_CARD_PREFIX = "yomu:srs-local:v2:card:";
   const YOMU_LOCAL_SRS_V2_TOMBSTONE_PREFIX = "yomu:srs-local:v2:tombstone:";
-  const MANAGED_IDB_DELETE_TIMEOUT_MS = 2e3;
+  const MANAGED_IDB_DELETE_TIMEOUT_MS = 6e4;
   const MANAGED_CACHE_NAME_PREFIXES = [
     "yomu-newtab-",
     "yomu-pdf-reader-",
@@ -16660,7 +16665,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   ];
   const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-  const log$K = Logger.scope("Settings");
+  const log$J = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
@@ -17356,7 +17361,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!value.ankiFieldMappings) return migrated;
     const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
     if (!movedModels.length) return migrated;
-    log$K.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+    log$J.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
     return { ...migrated, ankiFieldMappings: mappings };
   }
   function migrateLegacyDefaultMobileSettings(value) {
@@ -18083,7 +18088,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       return settings;
     } catch (error) {
-      log$K.warn("Settings load failed", { error });
+      log$J.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
@@ -18133,7 +18138,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function saveSettings(settings, options = {}) {
     if (settingsResetInProgress) {
-      log$K.warn("Rejected save during reset");
+      log$J.warn("Rejected save during reset");
       throw new Error();
     }
     try {
@@ -18143,7 +18148,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
     } catch (error) {
-      log$K.warn("Settings save failed", { error });
+      log$J.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -24595,7 +24600,7 @@ ${item.sequence ?? ""}`;
       return void 0;
     }
   }
-  const log$J = Logger.scope("DictionaryArchiveCache");
+  const log$I = Logger.scope("DictionaryArchiveCache");
   const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
   const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
   const ARCHIVE_CHUNK_BYTES = 4 * 1024 * 1024;
@@ -24629,24 +24634,10 @@ ${item.sequence ?? ""}`;
       if (previous && previous.chunkCount > meta.chunkCount) {
         await deleteArchiveChunks(identity, previous.chunkCount, meta.chunkCount);
       }
-      log$J.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
+      log$I.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
     } catch (error) {
-      log$J.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
+      log$I.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
     }
-  }
-  async function readDictionaryArchiveFile(identity) {
-    const meta = (await listDictionaryArchives())[identity];
-    if (!meta || !meta.chunkCount) return null;
-    const parts = [];
-    for (let chunk = 0; chunk < meta.chunkCount; chunk++) {
-      const encoded = await gmStorageGet(archiveChunkKey(identity, chunk), "");
-      if (!encoded) {
-        log$J.warn("Dictionary archive chunk missing", { identity, chunk });
-        return null;
-      }
-      parts.push(base64ToBytes(encoded));
-    }
-    return new File(parts, meta.filename || `${identity}.zip`, { type: "application/zip" });
   }
   async function deleteDictionaryArchive(title) {
     const identity = yomitanDictionaryIdentity(title);
@@ -24658,7 +24649,7 @@ ${item.sequence ?? ""}`;
       return next;
     });
     await deleteArchiveChunks(identity, meta.chunkCount, 0);
-    log$J.info("Dictionary archive deleted", { identity });
+    log$I.info("Dictionary archive deleted", { identity });
   }
   async function writeArchivePayload(identity, input2) {
     if (input2.downloadUrl) {
@@ -24673,7 +24664,7 @@ ${item.sequence ?? ""}`;
     }
     if (!input2.file) return null;
     if (input2.file.size > MAX_ARCHIVE_BYTES) {
-      log$J.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
+      log$I.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
       return null;
     }
     const bytes = await blobBytes(input2.file);
@@ -24711,12 +24702,6 @@ ${item.sequence ?? ""}`;
       binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
     }
     return btoa(binary);
-  }
-  function base64ToBytes(encoded) {
-    const binary = atob(encoded);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-    return bytes;
   }
   const SHA256_PATTERN = /^[a-f0-9]{64}$/;
   function isSha256Hex(value) {
@@ -25064,7 +25049,7 @@ ${item.sequence ?? ""}`;
   function userFacingCopyKey(error) {
     return userFacingCopyKeyOf(error);
   }
-  const log$I = Logger.scope("Yomitan");
+  const log$H = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -25112,7 +25097,7 @@ ${item.sequence ?? ""}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$3(url, proxyUrl, onProgress, language2 = "en") {
-    const done = log$I.time("Dictionary download", { host: safeHost$2(url) });
+    const done = log$H.time("Dictionary download", { host: safeHost$2(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
@@ -25133,26 +25118,26 @@ ${item.sequence ?? ""}`;
       },
       readResponse: (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$I.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: response.response.size });
+          log$H.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: response.response.size });
           done();
           return response.response;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$I.warn("Dictionary download HTTP error", { host: safeHost$2(url), status: response.status });
+          log$H.warn("Dictionary download HTTP error", { host: safeHost$2(url), status: response.status });
           done();
           throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, response.status) });
         }
-        log$I.warn("Dictionary download payload failed", { host: safeHost$2(url), status: response.status });
+        log$H.warn("Dictionary download payload failed", { host: safeHost$2(url), status: response.status });
         done();
         throw userFacingError("dictionaryDownloadNotZip", { diagnostic: `Dictionary download payload was not a ZIP (status ${response.status}).` });
       },
       onError: () => {
-        log$I.warn("Dictionary download failed", { host: safeHost$2(url) });
+        log$H.warn("Dictionary download failed", { host: safeHost$2(url) });
         done();
         return userFacingError("dictionaryDownloadFailed", { diagnostic: "The userscript manager reported a request error." });
       },
       onTimeout: () => {
-        log$I.warn("Dictionary download timed out", { host: safeHost$2(url) });
+        log$H.warn("Dictionary download timed out", { host: safeHost$2(url) });
         done();
         return userFacingError("dictionaryDownloadTimedOut", { diagnostic: "The dictionary download exceeded its 120s budget." });
       }
@@ -25177,7 +25162,7 @@ ${item.sequence ?? ""}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
     const blob = await responseBlobWithProgress(response, onProgress, language2);
-    log$I.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: blob.size });
+    log$H.info("Dictionary download completed", { host: safeHost$2(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -25210,17 +25195,17 @@ ${item.sequence ?? ""}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language2) {
-    log$I.warn("Dictionary download HTTP error", { host: safeHost$2(url), status });
+    log$H.warn("Dictionary download HTTP error", { host: safeHost$2(url), status });
     throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, status) });
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done) {
     const host = safeHost$2(url);
     if (isDictionaryCorsError(error)) {
-      log$I.warn("Dictionary download CORS failed", { host, downloadUrl });
+      log$H.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
       throw userFacingError("dictionaryDownloadBlocked", { diagnostic: `Cross-origin dictionary download was blocked for ${host}.` });
     }
-    log$I.warn("Dictionary download fetch failed", { host, error });
+    log$H.warn("Dictionary download fetch failed", { host, error });
     done();
     throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
   }
@@ -25804,7 +25789,7 @@ ${scopedInner}
             return;
           }
         }
-        if (storedToken !== void 0 || epoch.generation > 0) {
+        if (storedToken !== void 0) {
           for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
           for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
         }
@@ -26841,7 +26826,7 @@ ${entry.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
-  const log$H = Logger.scope("YomitanSettingsImport");
+  const log$G = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -26851,11 +26836,11 @@ ${entry.reading}`;
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language2 = "en") {
-    const done = log$H.time("Yomitan settings export parse");
+    const done = log$G.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$H.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$G.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language2, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -26870,7 +26855,7 @@ ${entry.reading}`;
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$H.info("Yomitan settings import parsed", {
+    log$G.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       theme: settings.theme
     });
@@ -27111,14 +27096,14 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
-  const log$G = Logger.scope("Yomitan");
+  const log$F = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$G.info("Persistent storage request", { granted });
+        log$F.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -27147,7 +27132,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$G.warn("Term search index preparation failed", { error });
+        log$F.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -27185,7 +27170,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [...expressionVariants, ...readingVariants, limit], preferences),
         async () => {
-          const done = log$G.time("Term lookup", {
+          const done = log$F.time("Term lookup", {
             expression: normalizedExpression,
             reading: normalizedReading,
             limit,
@@ -27216,7 +27201,7 @@ ${entry.reading}`;
             });
             return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
           } catch (error) {
-            log$G.warn("Term lookup failed", {
+            log$F.warn("Term lookup failed", {
               expression: normalizedExpression,
               reading: normalizedReading,
               error
@@ -27230,7 +27215,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$G.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$F.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -27249,7 +27234,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$G.warn("Term search failed", { query: normalizedQuery, error });
+        log$F.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -27259,7 +27244,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$G.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$F.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -27268,7 +27253,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
-            log$G.warn("Kanji lookup failed", { length: text2.length, error });
+            log$F.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -27279,14 +27264,14 @@ ${entry.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$G.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$F.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$G.warn("Kanji character list failed", { error });
+        log$F.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -27298,7 +27283,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [...expressionVariants, limit], preferences),
         async () => {
-          const done = log$G.time("Term metadata lookup", {
+          const done = log$F.time("Term metadata lookup", {
             expression: normalizedExpression,
             limit,
             dictionaries: preferences.length
@@ -27316,7 +27301,7 @@ ${entry.reading}`;
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$G.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
+            log$F.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
             throw error;
           } finally {
             done();
@@ -27328,7 +27313,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$G.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$F.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -27338,7 +27323,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$G.warn("Similar terms by kanji lookup failed", { character, error });
+            log$F.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -27348,10 +27333,10 @@ ${entry.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = [], target = activeLearningTarget()) {
       const targetGeneration = activeLearningTargetGeneration();
-      const done = log$G.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$F.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = codePointSafePrefix(text2, TERM_MATCH_SOURCE_LIMIT);
       if (source.length < text2.length) {
-        log$G.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
+        log$F.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
       }
       if (!source.trim()) {
         done();
@@ -27361,7 +27346,7 @@ ${entry.reading}`;
         const matches = await this.sweepTermMatchWindows(source, limit, preferences, target, targetGeneration);
         return isCurrentLookupTarget(target, targetGeneration) ? matches : [];
       } catch (error) {
-        log$G.warn("Inline term match search failed", { length: source.length, error });
+        log$F.warn("Inline term match search failed", { length: source.length, error });
         throw error;
       } finally {
         done();
@@ -27457,20 +27442,20 @@ ${entry.reading}`;
       return false;
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$G.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$F.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$G.warn("Random term listing failed", { limit, error });
+        log$F.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$G.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$F.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -27487,7 +27472,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$G.warn("Random top term listing failed", { limit, error });
+        log$F.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -27570,16 +27555,16 @@ ${entry.reading}`;
     }
     async importFile(file, onProgress, sourceUrl = "", options = {}) {
       await assertManagedStateMutationAllowed();
-      const done = log$G.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$F.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$G.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$F.info("Dictionary file import started", fileSummary(file, sourceUrl));
         if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
         if (options.persistArchive !== false) requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
-        log$G.info("Dictionary file import completed", summary);
+        log$F.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$G.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$F.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
@@ -27587,12 +27572,12 @@ ${entry.reading}`;
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
       await assertManagedStateMutationAllowed();
-      log$G.info("Dictionary URL import started", { filename, host: safeHost$2(url) });
+      log$F.info("Dictionary URL import started", { filename, host: safeHost$2(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url, options);
-      log$G.info("Dictionary URL import completed", { filename, host: safeHost$2(url), ...summary });
+      log$F.info("Dictionary URL import completed", { filename, host: safeHost$2(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
@@ -27689,7 +27674,7 @@ ${entry.reading}`;
           integrity: options.integrity
         });
       }
-      log$G.info("ZIP dictionary import parsed", summary);
+      log$F.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -27718,7 +27703,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$G.info("JSON dictionary import parsed", summary);
+      log$F.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -27821,13 +27806,13 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$G.info("Dexie dictionary import parsed", summary);
+      log$F.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$G.time("Dictionary export");
+      const done = log$F.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries2, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -27837,7 +27822,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$G.info("Dictionary export prepared", {
+        log$F.info("Dictionary export prepared", {
           dictionaries: dictionaries2.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -27855,7 +27840,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$G.warn("Dictionary export failed", { error });
+        log$F.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -27874,19 +27859,19 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$G.warn("Dictionary stylesheet render failed", { error });
+        log$F.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$G.time("Dictionary store clear");
+      const done = log$F.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$G.info("Dictionary store cleared");
+        log$F.info("Dictionary store cleared");
       } catch (error) {
-        log$G.warn("Dictionary store clear failed", { error });
+        log$F.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
@@ -27900,12 +27885,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$G.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$F.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$G.time("Dictionary database delete");
+      const done = log$F.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -27931,12 +27916,12 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$G.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$F.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$G.info("Dictionary database deleted", { name: DB_NAME });
+        log$F.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$G.warn("Dictionary database delete failed", { error });
+        log$F.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
@@ -27962,19 +27947,19 @@ ${entry.reading}`;
       return stale.filter((title) => title !== dictionary);
     }
     async deleteDictionary(dictionary) {
-      const done = log$G.time("Dictionary delete", { dictionary });
+      const done = log$F.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries2 = await this.getAllDictionaryInfo(db);
         if (!dictionaries2.some((item) => item.title === dictionary)) {
-          log$G.info("Dictionary delete skipped; not installed", { dictionary });
+          log$F.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries2.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
           await deleteDictionaryArchive(dictionary).catch(() => void 0);
-          log$G.info("Only installed dictionary cleared", { dictionary });
+          log$F.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -27987,9 +27972,9 @@ ${entry.reading}`;
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
         await deleteDictionaryArchive(dictionary).catch(() => void 0);
-        log$G.info("Dictionary deleted", { dictionary });
+        log$F.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$G.warn("Dictionary delete failed", { dictionary, error });
+        log$F.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -28283,9 +28268,9 @@ ${entry.reading}`;
         for (const title of stale) {
           try {
             await this.deleteDictionary(title);
-            log$G.info("Removed duplicate dictionary revision", { title });
+            log$F.info("Removed duplicate dictionary revision", { title });
           } catch (error) {
-            log$G.warn("Duplicate dictionary revision cleanup failed", { title, error });
+            log$F.warn("Duplicate dictionary revision cleanup failed", { title, error });
           }
         }
       })();
@@ -28356,7 +28341,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$G.time("Term search index rebuild");
+      const done = log$F.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termSearch", (tx) => tx.objectStore("termSearch").clear());
@@ -28373,13 +28358,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$G.info("Term search index rebuilt", { terms: indexedTerms });
+        log$F.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$G.time("Term kanji index rebuild");
+      const done = log$F.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
@@ -28396,7 +28381,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$G.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$F.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -28472,7 +28457,7 @@ ${entry.reading}`;
           if (settled) return;
           settled = true;
           if (this.dbPromise === promise) this.dbPromise = void 0;
-          log$G.warn("Dictionary database open failed", { reason, error });
+          log$F.warn("Dictionary database open failed", { reason, error });
           reject(error instanceof Error ? error : new Error(reason));
         };
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
@@ -28480,7 +28465,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$G.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$F.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -28545,7 +28530,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$G.info("Dictionary DB version change; closing", {
+        log$F.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -29443,7 +29428,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
   const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
   const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$F = Logger.scope("Anki");
+  const log$E = Logger.scope("Anki");
   function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
     const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
     if (!isAnkiStatusIndexRebuildLease(lease)) return null;
@@ -29486,7 +29471,7 @@ ${entry.reading || ""}`;
       await saveAnkiStatusIndexToIndexedDb(index);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      log$F.warn("Anki status save fell back", error);
+      log$E.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
@@ -29500,7 +29485,7 @@ ${entry.reading || ""}`;
       await putStoredAnkiStatusIndexMeta(meta);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      log$F.warn("Anki status metadata failed", error);
+      log$E.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
   }
@@ -30046,7 +30031,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const ANKI_RENDERED_MEDIA_LIMIT = 12;
   const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
   const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
-  const log$E = Logger.scope("Anki");
+  const log$D = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -30135,7 +30120,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.markAvailable();
         return true;
       } catch (error) {
-        log$E.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$D.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -30150,7 +30135,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.markAvailable();
         return true;
       }).catch((error) => {
-        log$E.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        log$D.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return false;
       }).finally(() => {
@@ -30333,7 +30318,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           this.applyLookupGroupResult(results, group.indexes, result);
         }
       } catch (error) {
-        log$E.warn("Exact Anki status lookup failed", error);
+        log$D.warn("Exact Anki status lookup failed", error);
       }
     }
     collectPendingLookupGroups(cards, results, readCache) {
@@ -30363,7 +30348,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!pending2.length) return results;
       const batches = this.pendingLookupBatches(pending2);
       try {
-        const done = log$E.time("findExistingCardsBatch", { terms: pending2.length, inFlight: batches.inFlight.length });
+        const done = log$D.time("findExistingCardsBatch", { terms: pending2.length, inFlight: batches.inFlight.length });
         if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
         if (this.isDestroyed) return results;
         const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
@@ -30372,7 +30357,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         done();
         return results;
       } catch (error) {
-        log$E.warn("Anki batch lookup failed", { terms: pending2.length }, error);
+        log$D.warn("Anki batch lookup failed", { terms: pending2.length }, error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return results;
       }
@@ -30440,7 +30425,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async loadStoredStatusIndex() {
       const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$E.warn("Anki status load failed", error);
+        log$D.warn("Anki status load failed", error);
         return null;
       });
       const validIndexed = this.validStatusIndex(indexed);
@@ -30459,7 +30444,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const keys = unique$1(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$E.warn("Anki status entry failed", error);
+        log$D.warn("Anki status entry failed", error);
         return null;
       });
     }
@@ -30492,7 +30477,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (this.isDestroyed || this.isLookupCoolingDown()) return null;
       if (this.statusIndexRefresh) return this.statusIndexRefresh;
       this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$E.warn("Anki status index refresh failed", error);
+        log$D.warn("Anki status index refresh failed", error);
         return null;
       }).finally(() => {
         this.statusIndexRefresh = void 0;
@@ -30538,7 +30523,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
         this.statusIndex = dirty;
         await saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$E.warn("Anki edited-sweep dirty marker failed", error);
+          log$D.warn("Anki edited-sweep dirty marker failed", error);
         });
         return { handled: false, index: dirty };
       }
@@ -30614,7 +30599,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.statusIndexRefreshQueued = false;
         if (this.isDestroyed) return;
         void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$E.warn("Queued Anki status index refresh failed", error);
+          log$D.warn("Queued Anki status index refresh failed", error);
           return null;
         });
       };
@@ -30683,7 +30668,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         rebuild.settingsKey,
         rebuild.rebuildLeaseOwner
       ).catch((error) => {
-        log$E.warn("Anki status rebuild fell back", error);
+        log$D.warn("Anki status rebuild fell back", error);
         return null;
       });
     }
@@ -30930,7 +30915,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
       await this.rememberStatusIndexNotes(unique$1([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$E.warn("Anki status cache update failed", error);
+        log$D.warn("Anki status cache update failed", error);
       });
       return results;
     }
@@ -31097,7 +31082,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           try {
             mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
           } catch (error) {
-            log$E.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+            log$D.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
           }
         });
         if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
@@ -31123,7 +31108,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$E.info("Answering Anki card", { cardId, grade, ease });
+      log$D.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -31135,7 +31120,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
-      log$E.info("Setting Anki card suspension", { cardIds, suspended });
+      log$D.info("Setting Anki card suspension", { cardIds, suspended });
       await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -31146,7 +31131,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
-      log$E.info("Setting Anki note tag", { noteIds, tag, present });
+      log$D.info("Setting Anki note tag", { noteIds, tag, present });
       await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -31155,7 +31140,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
-      log$E.info("Opening Anki note browser", { noteId });
+      log$D.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async mediaFileDataUrl(filename) {
@@ -31282,7 +31267,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (audio.length) note.audio = audio;
     }
     logAnkiNoteAdd(card, note) {
-      log$E.info("Adding Anki note", {
+      log$D.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -31296,7 +31281,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       await this.ensureAnkiNoteCanAdd(preparedNote);
       this.logAnkiNoteAdd(card, preparedNote);
       const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$E.info("Anki note added", { term: card.spelling, noteId });
+      log$D.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       if (noteId === null) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
       return noteId;
@@ -31304,7 +31289,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async ensureAnkiNoteCanAdd(note) {
       const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
         if (isAnkiConnectAvailabilityError$1(error)) throw error;
-        log$E.warn("Anki duplicate preflight failed", error);
+        log$D.warn("Anki duplicate preflight failed", error);
         return [true];
       });
       if (canAdd === false) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
@@ -31342,7 +31327,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         this.writeStatusLookupCache(cacheKey, result);
         this.markStatusIndexDirtyAfterMutation("add");
       } catch (error) {
-        log$E.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$D.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
         this.statusLookupCache.delete(cacheKey);
         this.markStatusIndexDirtyAfterMutation("add");
@@ -31360,7 +31345,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
         this.statusIndex = dirty;
         void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$E.warn("Anki dirty marker failed", { reason }, error);
+          log$D.warn("Anki dirty marker failed", { reason }, error);
         }).finally(() => {
           if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
         });
@@ -31374,12 +31359,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (this.isDestroyed) return;
         dirtyLoadedIndex(index);
       }).catch((error) => {
-        log$E.warn("Anki dirty marker failed", { reason }, error);
+        log$D.warn("Anki dirty marker failed", { reason }, error);
       });
     }
     addCardWithFallback(error, settings, note, card) {
       if (!canUseMobileAnkiHandoff$1(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$E.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      log$D.warn("AnkiConnect add failed", { term: card.spelling }, error);
       if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
@@ -31426,7 +31411,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const plan = await this.yomuModelUpdatePlan();
       if (!plan) return [];
       if (plan.modelName !== expectedModelName) {
-        log$E.info("Anki note type update declined", { offered: expectedModelName, configured: plan.modelName });
+        log$D.info("Anki note type update declined", { offered: expectedModelName, configured: plan.modelName });
         return [];
       }
       await this.addModelFields(plan.modelName, plan.missingFields);
@@ -31448,7 +31433,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$E.info("Anki model created", { modelName });
+      log$D.info("Anki model created", { modelName });
     }
     // Adding nothing is the steady state once the note type matches this
     // release. A field list that would not read is a failed request, not a
@@ -31463,7 +31448,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       for (const fieldName of fieldNames) {
         await this.invoke("modelFieldAdd", { modelName, fieldName });
       }
-      if (fieldNames.length) log$E.info("Anki model fields added", { modelName, fields: fieldNames });
+      if (fieldNames.length) log$D.info("Anki model fields added", { modelName, fields: fieldNames });
     }
     async invoke(action, params = {}) {
       return this.invokeWithTimeout(action, params, ANKI_CONNECT_REQUEST_TIMEOUT_MS);
@@ -31481,7 +31466,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
       this.markAvailable();
       if (response.error) {
-        log$E.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$D.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
@@ -31493,11 +31478,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
       } catch (error) {
         if (isAnkiConnectAvailabilityError$1(error)) {
-          log$E.warn("AnkiConnect multi failed; cooling down", error);
+          log$D.warn("AnkiConnect multi failed; cooling down", error);
           this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
           return actions.map(() => void 0);
         }
-        log$E.warn("AnkiConnect multi failed; retrying solo", error);
+        log$D.warn("AnkiConnect multi failed; retrying solo", error);
         return Promise.all(actions.map(
           (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
         ));
@@ -31558,7 +31543,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$E.warn("Active video frame capture failed", error);
+      log$D.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -32925,7 +32910,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$D = Logger.scope("Audio");
+  const log$C = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -32965,7 +32950,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$D.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$C.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(
         request.sources,
         card,
@@ -33054,7 +33039,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$D.warn("No audio sources configured", { term: card.spelling });
+      log$C.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(
         request.settings,
         request.requestId,
@@ -33067,7 +33052,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$D.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$C.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture, playbackLifecycle);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio, playbackLifecycle) {
@@ -33307,7 +33292,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$D.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$C.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -33403,7 +33388,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const fallbackAudio = await this.createDirectMediaFallbackAfterBlobError(candidate, sourceType, reservedAudio).catch(() => void 0);
         if (fallbackAudio) {
           audio = fallbackAudio;
-          log$D.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
+          log$C.warn("Blob-prepared audio failed; retrying as direct media", { url: candidate.url, error: audioErrorMessage(error) });
         } else {
           errors.push(audioErrorMessage(error));
           if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
@@ -33606,7 +33591,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       try {
         playbackLifecycle?.onStart?.();
       } catch (error) {
-        log$D.warn("Audio playback start callback failed", void 0, error);
+        log$C.warn("Audio playback start callback failed", void 0, error);
       }
     }
     finishPlayback(requestId) {
@@ -33617,7 +33602,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       try {
         active.onEnd?.();
       } catch (error) {
-        log$D.warn("Audio playback end callback failed", void 0, error);
+        log$C.warn("Audio playback end callback failed", void 0, error);
       }
     }
     // Web Audio decoding is exempt from the page's media-src, so it is the only way
@@ -35050,7 +35035,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderReviewButtons: renderReviewButtons$1,
     reviewButtonGrades: reviewButtonGrades$1
   });
-  const log$C = Logger.scope("ReaderAudioActions");
+  const log$B = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -35105,7 +35090,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         });
         return played;
       } catch (error) {
-        log$C.warn("Term audio playback failed", { term: card.spelling }, error);
+        log$B.warn("Term audio playback failed", { term: card.spelling }, error);
         this.dependencies.toast(uiText(this.dependencies.getSettings().interfaceLanguage, "audioPlaybackFailed"));
         return false;
       } finally {
@@ -37644,7 +37629,7 @@ ${key}`] = { t: now, v: value };
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
   const PARSE_TERM_SEPARATOR = "。";
-  const log$B = Logger.scope("JitenPublicVocabulary");
+  const log$A = Logger.scope("JitenPublicVocabulary");
   const sharedParseGate = new ConcurrencyGate(1);
   let sharedRequestBackoffUntil = 0;
   let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
@@ -38193,7 +38178,7 @@ ${key}`] = { t: now, v: value };
     return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
   }
   function logPublicJitenFailure(message, context, error) {
-    log$B.warn(message, context, error);
+    log$A.warn(message, context, error);
   }
   function errorName(error) {
     return isNonNullObject(error) && typeof error.name === "string" ? error.name : "";
@@ -38559,7 +38544,7 @@ ${key}`] = { t: now, v: value };
     "parse",
     "ping"
   ]);
-  const log$A = Logger.scope("JpdbApi");
+  const log$z = Logger.scope("JpdbApi");
   class JpdbApiError extends Error {
     yomuJpdbFailureCode;
     yomuUiCopyKey;
@@ -38585,7 +38570,7 @@ ${key}`] = { t: now, v: value };
       const token = this.getApiKey();
       const endpoint = endpointLabel(url);
       this.assertCanRequest(token, endpoint);
-      const done = log$A.time("request", { endpoint, hasBody: Boolean(body) });
+      const done = log$z.time("request", { endpoint, hasBody: Boolean(body) });
       const response = await this.postJsonWithReadRetry(url, token, body, endpoint);
       done();
       this.assertSuccessfulResponse(response, endpoint, token);
@@ -38594,35 +38579,35 @@ ${key}`] = { t: now, v: value };
     }
     assertCanRequest(token, endpoint) {
       if (!token) {
-        log$A.warn("JPDB API key missing", { endpoint });
+        log$z.warn("JPDB API key missing", { endpoint });
         throw new JpdbApiError("missing-key", "JPDB API key is not set.");
       }
       if (this.rejectedToken === token) {
-        log$A.warn("JPDB API key was already rejected", { endpoint });
+        log$z.warn("JPDB API key was already rejected", { endpoint });
         throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
       }
       if (Date.now() < this.retryAfter) {
-        log$A.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
+        log$z.warn("JPDB rate-limit backoff", { endpoint, retryAfterMs: this.retryAfter - Date.now() });
         throw new JpdbApiError("rate-limited", "JPDB is rate limited. Try again in a moment.");
       }
       if (Date.now() < this.connectionRetryAfter) {
-        log$A.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
+        log$z.warn("JPDB connection backoff", { endpoint, retryAfterMs: this.connectionRetryAfter - Date.now() });
         throw new JpdbApiError("connection-cooldown", "JPDB connection is cooling down. Try again in a moment.");
       }
     }
     assertSuccessfulResponse(response, endpoint, token) {
       if (response.status === 429) {
         this.retryAfter = Date.now() + RATE_LIMIT_BACKOFF_MS;
-        log$A.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
+        log$z.warn("JPDB rate limit reached", { endpoint, backoffMs: RATE_LIMIT_BACKOFF_MS });
         throw new JpdbApiError("rate-limited", "JPDB rate limit reached.");
       }
       if (response.status === 403) {
         this.rejectedToken = token;
-        log$A.warn("JPDB rejected API key", { endpoint });
+        log$z.warn("JPDB rejected API key", { endpoint });
         throw new JpdbApiError("rejected-key", "JPDB rejected the API key.");
       }
       if (!response.ok) {
-        log$A.warn("JPDB request failed", { endpoint, status: response.status });
+        log$z.warn("JPDB request failed", { endpoint, status: response.status });
         throw new JpdbApiError("request-failed", `JPDB request failed (${response.status}).`);
       }
     }
@@ -38638,7 +38623,7 @@ ${key}`] = { t: now, v: value };
             if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
             throw normalizeJpdbTransportError(error);
           }
-          log$A.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
+          log$z.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
           await delay(retryableReadDelayMs());
         }
       }
@@ -38647,7 +38632,7 @@ ${key}`] = { t: now, v: value };
     }
     backOffAfterConnectionFailure(endpoint, error) {
       this.connectionRetryAfter = Date.now() + CONNECTION_FAILURE_BACKOFF_MS;
-      log$A.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
+      log$z.warn("JPDB connection failed; backing off", { endpoint, backoffMs: CONNECTION_FAILURE_BACKOFF_MS }, error);
     }
   }
   function parseJpdbApiResponse(response, endpoint, responseMode) {
@@ -38655,7 +38640,7 @@ ${key}`] = { t: now, v: value };
     const json = JSON.parse(response.text);
     const errorMessage2 = jpdbApplicationErrorMessage(json);
     if (errorMessage2) {
-      log$A.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
+      log$z.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
       throw new Error(errorMessage2);
     }
     return json;
@@ -38797,7 +38782,7 @@ ${key}`] = { t: now, v: value };
   const USER_DECK_POOL_CONCURRENCY = 4;
   const LISTED_DECK_VOCABULARY_REQUEST_GAP_MS = 300;
   const JPDB_ALL_DECKS_ID = "all";
-  const log$z = Logger.scope("JpdbClient");
+  const log$y = Logger.scope("JpdbClient");
   const utf8Encoder$1 = new TextEncoder();
   class JpdbClient {
     constructor(getApiKey, getProxyUrl = () => "") {
@@ -38836,13 +38821,13 @@ ${key}`] = { t: now, v: value };
     }
     // Used by review controllers to submit JPDB grades.
     async reviewCard(card, grade) {
-      log$z.info("Reviewing card", { term: card.spelling, grade });
+      log$y.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
       await this.refreshCard(card);
     }
     // Used by mining controls to add JPDB-backed cards to selected decks.
     async addToDeck(deckId, card, sentence) {
-      log$z.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
+      log$y.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
       this.clearUserDeckPoolCache();
       if (sentence) await this.setCardSentence(card, sentence);
@@ -38867,7 +38852,7 @@ ${key}`] = { t: now, v: value };
     async listDeckCards(deckId, limit = 80, options = {}) {
       const id = normalizeDeckRequestId(deckId);
       const maxCards = Math.max(1, Math.floor(limit));
-      const done = log$z.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
+      const done = log$y.time("listDeckCards", { deckId, limit: maxCards, scheduledOnly: options.scheduledOnly, scanLimit: options.scanLimit });
       try {
         if (id === JPDB_ALL_DECKS_ID) return await this.listCardsFromListedDecks(maxCards, options);
         const pairs = await this.listDeckVocabularyPairsByRequestId(id);
@@ -38884,7 +38869,7 @@ ${key}`] = { t: now, v: value };
     }
     // Used by mining controls to toggle JPDB deck membership.
     async removeFromDeck(deckId, card) {
-      log$z.info("Removing card from deck", { term: card.spelling, deckId });
+      log$y.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
         id: normalizeDeckRequestId(deckId),
         vocabulary: [[card.vid, card.sid]]
@@ -38925,7 +38910,7 @@ ${key}`] = { t: now, v: value };
         sid: card.sid,
         sentence
       }).catch((error) => {
-        log$z.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
+        log$y.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
     // Used by the new-tab live-bridge grade path through the client
@@ -38943,7 +38928,7 @@ ${key}`] = { t: now, v: value };
       });
       const fresh = jpdbVocabularyToCards(lookup.vocabulary_info ?? [])[0];
       if (!fresh) {
-        log$z.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
+        log$y.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
         return;
       }
       this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
@@ -39005,7 +38990,7 @@ ${key}`] = { t: now, v: value };
       const pacer = new JpdbRequestPacer(listedDeckVocabularyRequestGapMs());
       await runLimited(decks, USER_DECK_POOL_CONCURRENCY, async (deck, index) => {
         pairGroups[index] = await this.listDeckVocabularyPairs(deck.id, { pacer }).catch((error) => {
-          log$z.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
+          log$y.warn("JPDB listed deck skipped", { deckId: deck.id }, error);
           return [];
         });
       });
@@ -39041,7 +39026,7 @@ ${key}`] = { t: now, v: value };
       this.userDeckPoolCache = void 0;
     }
     async fetchParse(text2, cacheKey) {
-      const done = log$z.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
+      const done = log$y.time("parse request", { paragraphs: text2.length, chars: cacheKey.length });
       try {
         const raw = await this.api.request("parse", {
           text: text2,
@@ -39401,7 +39386,7 @@ ${key}`] = { t: now, v: value };
   const REQUEST_TIMEOUT_MS$2 = 6e3;
   const CACHE_TTL_MS = 10 * 60 * 1e3;
   const CACHE_LIMIT = 600;
-  const log$y = Logger.scope("JpdbPublicPitch");
+  const log$x = Logger.scope("JpdbPublicPitch");
   class JpdbPublicPitchClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -39458,7 +39443,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context, error) {
       this.requestBackoff.noteFailure(error);
-      log$y.warn(message, context, error);
+      log$x.warn(message, context, error);
     }
   }
   function requestText$6(url, proxyUrl = "") {
@@ -39718,7 +39703,7 @@ ${normalizedReading}`;
       preferFetch: true
     });
   }
-  const log$x = Logger.scope("JpdbVocabulary");
+  const log$w = Logger.scope("JpdbVocabulary");
   class JpdbVocabularyClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -39829,7 +39814,7 @@ ${normalizedReading}`;
     }
     noteRequestFailure(message, context, error) {
       this.requestBackoff.noteFailure(error);
-      log$x.warn(message, context, error);
+      log$w.warn(message, context, error);
     }
   }
   function parseJpdbVocabularyHtml(html, spelling = "", reading = "") {
@@ -40704,7 +40689,7 @@ ${normalizedReading}`;
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const KANJI_ALIVE_PRIMARY_GLOSSES_URL = "https://yomureader.com/data/kanji-alive-primary-glosses.json";
   const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$w = Logger.scope("KanjiOrigin");
+  const log$v = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     kanjiAliveGlosses;
@@ -40723,14 +40708,14 @@ ${normalizedReading}`;
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$w.time("Kanji origin lookup", { kanji });
+      const done = log$v.time("Kanji origin lookup", { kanji });
       const [kanjiMap, kanjiAliveKeyword] = settings.kanjiOriginKanjiMapEnabled ? await Promise.all([
         fetchKanjiMapInfo(kanji).catch((error) => {
-          log$w.warn("Kanji Map origin lookup failed", { kanji, error });
+          log$v.warn("Kanji Map origin lookup failed", { kanji, error });
           return void 0;
         }),
         this.lookupKanjiAliveKeyword(kanji).catch((error) => {
-          log$w.warn("Kanji Alive keyword lookup failed", { kanji, error });
+          log$v.warn("Kanji Alive keyword lookup failed", { kanji, error });
           return void 0;
         })
       ]) : [void 0, void 0];
@@ -40755,7 +40740,7 @@ ${normalizedReading}`;
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$w.time("Fetch Kanji Map info", { kanji });
+    const done = log$v.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson$1(await requestText$4(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -41177,7 +41162,7 @@ ${normalizedReading}`;
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$w.warn("Kanji origin request failed", { host: safeHost$1(url), error });
+      log$v.warn("Kanji origin request failed", { host: safeHost$1(url), error });
       throw error;
     });
   }
@@ -43027,7 +43012,7 @@ ${normalizedReading}`;
     return Math.max(min, Math.min(max2, Number(value.toFixed(2))));
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$v = Logger.scope("JpdbKanji");
+  const log$u = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -43048,7 +43033,7 @@ ${normalizedReading}`;
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$v.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$u.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$2(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -43061,7 +43046,7 @@ ${normalizedReading}`;
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$v.warn("Kanji page request failed", { kanji }, error);
+        log$u.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -43554,7 +43539,7 @@ ${normalizedReading}`;
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$u = Logger.scope("KanjiVG");
+  const log$t = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -43574,7 +43559,7 @@ ${normalizedReading}`;
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$1(url).catch((error) => {
-        log$u.warn("Stroke-order request failed", { kanji }, error);
+        log$t.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -43891,7 +43876,7 @@ ${normalizedReading}`;
   const NADESHIKO_SEARCH_LIMIT = 25;
   const MIN_LEARNING_SENTENCE_LENGTH = 8;
   const DEFAULT_EXAMPLE_SORT = "sentence_length:asc";
-  const log$t = Logger.scope("ImmersionKit");
+  const log$s = Logger.scope("ImmersionKit");
   const IMMERSION_KIT_TITLES = {
     your_lie_in_april: "Your Lie in April",
     princess_mononoke: "Princess Mononoke",
@@ -44006,7 +43991,7 @@ ${normalizedReading}`;
       if (inflight) {
         return options.signal ? raceSharedImmersionSearchAgainstAbort(inflight, options.signal) : inflight;
       }
-      const done = log$t.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
+      const done = log$s.time("search", { query, source: settings.immersionKitExampleSource, category: settings.immersionKitCategory, exact: settings.immersionKitExactMatch });
       const promise = this.searchEnabledSources(query, settings, options).then((examples) => {
         const result = applySearchExampleLimit(examples, settings, options);
         if (!options.signal?.aborted) {
@@ -44051,11 +44036,11 @@ ${normalizedReading}`;
     searchSource(source, query, settings, options) {
       return source === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
         if (isAbortError$1(error)) throw error;
-        log$t.warn("Nadeshiko examples failed", { query }, error);
+        log$s.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
         if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
-        log$t.warn("Immersion Kit examples failed", { query }, error);
+        log$s.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
     }
@@ -45277,7 +45262,7 @@ ${normalizedReading}`;
   const CONTEXT_PREFIX = "yomu-mining-context:";
   const CONTEXT_MAX_AGE_MS = 1e3 * 60 * 60 * 24 * 21;
   const MINING_SOURCE_KINDS = ["page", "video", "image", "immersion-kit", "jpdb"];
-  const log$s = Logger.scope("MiningContext");
+  const log$r = Logger.scope("MiningContext");
   function normalizeMiningSentence(sentence) {
     return (sentence ?? "").replace(/\s+/g, " ").trim();
   }
@@ -45330,7 +45315,7 @@ ${normalizedReading}`;
     fetchImageDataUrl,
     fetchAudioDataUrl: fetchAudioDataUrl2
   }) {
-    const done = log$s.time("Resolve mining context", {
+    const done = log$r.time("Resolve mining context", {
       term,
       hasSentence: Boolean(sentence?.trim()),
       activeKind: activeContext?.sourceKind,
@@ -45407,7 +45392,7 @@ ${normalizedReading}`;
     try {
       gmStorageSetSync(contextStorageKey(stored.term), stored);
     } catch (error) {
-      log$s.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
+      log$r.warn("Mining context save failed", { term: stored.term, sourceKind: stored.sourceKind, error });
     }
     return stored;
   }
@@ -45422,7 +45407,7 @@ ${normalizedReading}`;
       const context = parseStoredMiningContext(stored, normalized);
       return context;
     } catch (error) {
-      log$s.warn("Mining context load failed", { term: normalized, error });
+      log$r.warn("Mining context load failed", { term: normalized, error });
       return null;
     }
   }
@@ -47170,7 +47155,7 @@ ${normalizedReading}`;
   );
   const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, "u");
   const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, "u");
-  const log$r = Logger.scope("ReaderParser");
+  const log$q = Logger.scope("ReaderParser");
   const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -47202,7 +47187,7 @@ ${normalizedReading}`;
       const settings = getSettings();
       const target = activeLearningTarget();
       const targetGeneration = activeLearningTargetGeneration();
-      const done = log$r.time("parse", {
+      const done = log$q.time("parse", {
         paragraphs: paragraphs.length,
         hasApiKey: hasJpdbApiCredential(settings),
         hasJitenApiKey: hasJitenApiCredential(settings),
@@ -47224,7 +47209,7 @@ ${normalizedReading}`;
           );
           return isCurrentLearningTarget(target, targetGeneration) ? hydrated : emptyParseResult(paragraphs);
         } catch (error) {
-          log$r.warn("Academy SRS state hydration failed; keeping provider states", error);
+          log$q.warn("Academy SRS state hydration failed; keeping provider states", error);
           return isCurrentLearningTarget(target, targetGeneration) ? normalized : emptyParseResult(paragraphs);
         }
       } finally {
@@ -47243,7 +47228,7 @@ ${normalizedReading}`;
           () => new Error("Local parse reconciliation timed out.")
         );
       } catch (error) {
-        log$r.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
+        log$q.warn("Local parse reconciliation timed out or failed; keeping unreconciled parse", error);
         return parsed;
       }
     }
@@ -47325,7 +47310,7 @@ ${normalizedReading}`;
     }
     handleRemoteParseError(source, error, options) {
       const canFallback = this.canUseParseFallback(options);
-      log$r.warn(remoteParseErrorMessage(source, options, canFallback), error);
+      log$q.warn(remoteParseErrorMessage(source, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
     }
     async parseWithFallbackSource(paragraphs, options, target) {
@@ -47345,7 +47330,7 @@ ${normalizedReading}`;
         if (!parsed.some((tokens) => tokens.length)) return null;
         return this.withSegmentedFallbackGaps(paragraphs, parsed, options, target);
       } catch (error) {
-        log$r.warn("Jiten public parse failed; using local or segmented fallback", error);
+        log$q.warn("Jiten public parse failed; using local or segmented fallback", error);
         return null;
       }
     }
@@ -47463,7 +47448,7 @@ ${entry.reading}`);
           () => new Error("Local parse timed out.")
         );
       } catch (error) {
-        log$r.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
+        log$q.warn("Local parse timed out; using segmented fallback", { length: text2.length }, error);
         return this.localParseTimeoutFallback(text2, options, target);
       }
     }
@@ -47498,7 +47483,7 @@ ${entry.reading}`);
       if (!await this.hasLocalTermDictionaries()) return [];
       const settings = getSettings();
       const matches = await dictionaries2.findTermMatches(text2, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target).catch((error) => {
-        log$r.warn("Local dictionary parse failed", { length: text2.length }, error);
+        log$q.warn("Local dictionary parse failed", { length: text2.length }, error);
         return [];
       });
       return mapLimited(matches, LOCAL_ENRICHMENT_CONCURRENCY, (match) => this.localTokenFromMatch(text2, match, options, target));
@@ -47554,7 +47539,7 @@ ${entry.reading}`);
         target
       )).then((matches) => exactBoundaryMatch(surface, boundary, matches)).catch((error) => {
         if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-        log$r.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
+        log$q.warn("Local boundary evidence lookup failed", { length: surface.length }, error);
         return null;
       });
       this.localBoundaryEvidenceCache.set(key, promise);
@@ -47577,7 +47562,7 @@ ${entry.reading}`);
       if (typeof store.hasTermDictionaries !== "function") return Promise.resolve(void 0);
       this.localTermDictionaryAvailability ??= store.hasTermDictionaries().catch((error) => {
         this.localTermDictionaryAvailability = void 0;
-        log$r.warn("Local term dictionary availability check failed", { error });
+        log$q.warn("Local term dictionary availability check failed", { error });
         return void 0;
       });
       return this.localTermDictionaryAvailability;
@@ -47742,7 +47727,7 @@ ${entry.reading}`);
         card.reading,
         (expression) => lookupTermMeta.call(this.dependencies.dictionaries, expression, 12, settings.dictionaryPreferences)
       ).catch((error) => {
-        log$r.warn("Local pitch parse failed", { term: card.spelling }, error);
+        log$q.warn("Local pitch parse failed", { term: card.spelling }, error);
         return { patterns: [] };
       });
       this.rememberLocalPitchCacheEntry(key, promise);
@@ -48119,7 +48104,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const IMMERSION_CONTEXT_CACHE_LIMIT = 160;
   const IMMERSION_FALLBACK_SEARCH_CONCURRENCY = 2;
   const IMMERSION_PARSED_SENTENCE_CACHE_LIMIT = 160;
-  const log$q = Logger.scope("ImmersionPopover");
+  const log$p = Logger.scope("ImmersionPopover");
   class ImmersionPopoverController {
     constructor(options) {
       this.options = options;
@@ -48197,7 +48182,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         this.renderLoadedExamples(container, card, result);
       } catch (error) {
         if (this.shouldIgnoreAbortedExampleLoad(error, controller, container)) return;
-        log$q.warn("Immersion Kit examples failed", { term: card.spelling }, error);
+        log$p.warn("Immersion Kit examples failed", { term: card.spelling }, error);
         this.renderEmptyIfConnected(popover, container);
       } finally {
         if (this.loadAbortControllers.get(popover) === controller) this.loadAbortControllers.delete(popover);
@@ -48812,7 +48797,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       }
     }
     handleExampleAudioError(example, quiet, error) {
-      log$q.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
+      log$p.warn("Immersion example audio failed", { provider: immersionExampleProviderLabel(example, "en"), sourceTitle: example.sourceTitle, quiet }, error);
       if (!quiet) this.options.toast(uiText(this.options.getSettings().interfaceLanguage, "audioSourceReturnedNoAudio"));
     }
     exampleAudioSource(example, quiet) {
@@ -49994,7 +49979,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         </details>
     `;
   }
-  const log$p = Logger.scope("KanjiDoodle");
+  const log$o = Logger.scope("KanjiDoodle");
   const PEN_MIN_DISTANCE = 8e-4;
   const POINTER_MIN_DISTANCE = 16e-4;
   const GHOST_VIEWBOX_UNITS = 109;
@@ -50017,11 +50002,11 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     try {
       context = canvas.getContext("2d");
     } catch (error) {
-      log$p.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      log$o.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
       return;
     }
     if (!context) {
-      log$p.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      log$o.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
       return;
     }
     let dpr = 1;
@@ -50671,7 +50656,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-  const log$o = Logger.scope("RTK");
+  const log$n = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -50688,7 +50673,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
     }
     async fetchInfo(kanji) {
       const html = await requestText(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$o.warn("RTK request failed", { kanji }, error);
+        log$n.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -51066,7 +51051,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   const DEFAULT_TIMEOUT_MS = 8e3;
   const TRANSLATION_CACHE_LIMIT = 320;
   const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
-  const log$n = Logger.scope("GoogleTranslation");
+  const log$m = Logger.scope("GoogleTranslation");
   const translationCache = /* @__PURE__ */ new Map();
   const translationInFlight = /* @__PURE__ */ new Map();
   function normalizeTranslationLanguage(language2, options = {}) {
@@ -51151,7 +51136,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   }
   async function performTranslation(text2, options) {
     const url = googleTranslationUrl(text2, options);
-    const done = log$n.time("Translate text", {
+    const done = log$m.time("Translate text", {
       sourceLanguage: options.sourceLanguage,
       outputLanguage: options.outputLanguage,
       textLength: text2.length
@@ -51477,13 +51462,13 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
-  const log$m = Logger.scope("StudyRender");
+  const log$l = Logger.scope("StudyRender");
   async function renderStudyToolResult$1(button2, action, sentence, grammarHints, language2 = "en", options = {}) {
     const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language2);
-    const done = log$m.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$l.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence$1(sentence, options.outputLanguage ?? "en");
@@ -51495,7 +51480,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language2));
         return;
       } catch (error) {
-        log$m.warn("Study translation failed", { sentenceLength: sentence.length }, error);
+        log$l.warn("Study translation failed", { sentenceLength: sentence.length }, error);
         replaceStudyPanelHtml(panel, renderStudyEmpty(uiText(language2, "translationUnavailable")));
         return;
       } finally {
@@ -51513,7 +51498,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       panel.dataset.grammarAvailability = "loaded";
       replaceStudyPanelHtml(panel, await renderGrammarHints$1(hints, sentence, void 0, language2, { audioEnabled: options.audioEnabled }));
     } catch (error) {
-      log$m.warn("Study grammar check failed", { sentenceLength: sentence.length }, error);
+      log$l.warn("Study grammar check failed", { sentenceLength: sentence.length }, error);
       const availability = currentGrammarAvailability(language2, true);
       panel.dataset.grammarAvailability = availability.state;
       replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language2));
@@ -51680,7 +51665,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
   async function renderGrammarHints(hints, sentence, preferences, language2 = "en", options = {}) {
     return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language2, options) ?? Promise.resolve(""));
   }
-  const log$l = Logger.scope("StudySources");
+  const log$k = Logger.scope("StudySources");
   const STUDY_GRAMMAR_CACHE_LIMIT = 160;
   const STUDY_TRANSLATION_CACHE_LIMIT = 80;
   class StudySourceController {
@@ -51775,7 +51760,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
         delete popover.dataset.jpdbReaderParseLoadingKey;
         void this.dependencies.parsePopoverJapanese(popover);
       } catch (error) {
-        log$l.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
+        log$k.warn("Automatic grammar lookup failed", { sentenceLength: sentence.length }, error);
         if (!this.canRenderGrammar(popover, container)) return;
         const language2 = this.settings().interfaceLanguage;
         const availability = currentGrammarAvailability(language2, true);
@@ -51873,7 +51858,7 @@ ${match.entry.reading.normalize("NFKC").trim()}`;
       }).catch(() => void 0);
     }
     renderTranslationError(sentence, container, error) {
-      log$l.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
+      log$k.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
       if (!container.isConnected) return;
       const result = container.querySelector("[data-study-translation-result]");
       if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
@@ -54927,7 +54912,7 @@ ${spelling}`);
   function isOcrRequestTimeout(error) {
     return error instanceof Error && /timed out|timeout/i.test(error.message);
   }
-  const log$k = Logger.scope("OCR");
+  const log$j = Logger.scope("OCR");
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const OCR_RECOGNIZERS = {
@@ -54986,7 +54971,7 @@ ${spelling}`);
       Math.max(1, remainingGoogleLensTimeout(deadline))
     ).catch((error) => {
       protobufFailure = error;
-      log$k.warn("Google Lens protobuf failed", error);
+      log$j.warn("Google Lens protobuf failed", error);
       return void 0;
     });
     if (protobuf?.lines.length) return protobuf;
@@ -54998,7 +54983,7 @@ ${spelling}`);
     let uploadFailure;
     const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, uploadTimeout).catch((error) => {
       uploadFailure = error;
-      log$k.warn("Google Lens upload failed", error);
+      log$j.warn("Google Lens upload failed", error);
       return void 0;
     });
     if (upload === void 0 && isOcrRequestTimeout(uploadFailure)) {
@@ -55202,7 +55187,7 @@ ${spelling}`);
   function requestViaUserscript$1(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (!userscriptRequest) {
-      log$k.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
+      log$j.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
       return null;
     }
     return requestViaUserscriptManager(userscriptRequest, {
@@ -56408,7 +56393,7 @@ ${spelling}`);
   const MAX_CLEAN_MIRROR_IMAGE_CACHE_ITEMS = 48;
   const BOOKWALKER_SPREAD_MIN_ASPECT = 1.15;
   const bookwalkerAssetResolver = new BookwalkerAssetResolver();
-  const log$j = Logger.scope("OCR");
+  const log$i = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
   const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
   let ocrLayerCounter = 0;
@@ -56491,7 +56476,7 @@ ${spelling}`);
     const provider = inlineProviderLabel(settings);
     return {
       provider,
-      done: log$j.time("scanImage", { provider, image: imageSummary(image), manualRequested }),
+      done: log$i.time("scanImage", { provider, image: imageSummary(image), manualRequested }),
       token
     };
   }
@@ -56502,10 +56487,10 @@ ${spelling}`);
   function logOcrFailure(state2, provider, manualRequested, error) {
     state2.autoSkipped = !manualRequested;
     if (isLocalOcrUnavailableError(error)) {
-      log$j.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
+      log$i.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
       return;
     }
-    log$j.warn("OCR scan failed", { provider, manualRequested }, error);
+    log$i.warn("OCR scan failed", { provider, manualRequested }, error);
   }
   const OCR_NAVIGATION_EVENTS = ["yt-navigate-start", "yt-navigate-finish", "popstate"];
   const OCR_FULLSCREEN_CHANGE_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange"];
@@ -56888,7 +56873,7 @@ ${spelling}`);
         return;
       }
       images.forEach((image) => this.enqueue(image, true));
-      log$j.info("Manual OCR scan queued images", { images: images.length });
+      log$i.info("Manual OCR scan queued images", { images: images.length });
     }
     captureSourceImageForElement(element2) {
       const staleLine = element2?.closest?.(".jpdb-ocr-line");
@@ -57109,7 +57094,7 @@ ${spelling}`);
       const delay2 = this.cache.has(work.cacheKey) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
       void waitForIdle(delay2, delay2).then(() => this.scanImage(image, target)).catch((error) => {
         if (isStaleOcrState(error)) return;
-        log$j.warn("OCR scan task failed unexpectedly", {}, error);
+        log$i.warn("OCR scan task failed unexpectedly", {}, error);
       }).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         if (this.inFlightJobs.get(key) === job) this.inFlightJobs.delete(key);
@@ -57240,7 +57225,7 @@ ${spelling}`);
         return;
       }
       await this.renderResult(state2, result, false, work);
-      log$j.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+      log$i.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
       return !manualRequested && !state2.overlayRequested && !inlineFallback && !this.isReaderRasterOcrOptInFrame(state2.image) && this.options.shouldAutoScan?.() === false;
@@ -57254,7 +57239,7 @@ ${spelling}`);
       this.requireCurrentContentState(state2, work.contentKey);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
-        log$j.warn("OCR provider failed", { provider }, error);
+        log$i.warn("OCR provider failed", { provider }, error);
         this.readerRasterFailedScans.delete(work.workKey);
         this.clearReaderRasterProviderRetry(work.workKey);
         await this.renderResult(state2, fallback, false, work);
@@ -57396,7 +57381,7 @@ ${spelling}`);
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).catch((error) => {
         if (isStaleOcrState(error)) return;
-        log$j.warn("OCR rendered token enrichment failed", {}, error);
+        log$i.warn("OCR rendered token enrichment failed", {}, error);
       }).finally(() => this.schedulePosition());
     }
     shouldShowOcrTextOverlay(state2, settings, forceOverlay) {
@@ -57630,7 +57615,7 @@ ${spelling}`);
       this.readerRasterProviderFailures.set(work.workKey, attempts);
       if (attempts >= READER_RASTER_MAX_PROVIDER_ATTEMPTS + 1) return false;
       const delay2 = READER_RASTER_PROVIDER_RETRY_BASE_MS * 2 ** (attempts - 1);
-      log$j.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
+      log$i.warn("OCR provider failed transiently; retrying reader page", { attempt: attempts, delay: delay2 }, error);
       const previousTimer = this.readerRasterProviderRetryTimers.get(work.workKey);
       if (previousTimer) window.clearTimeout(previousTimer);
       const timer = window.setTimeout(() => {
@@ -58163,7 +58148,7 @@ ${spelling}`);
       } catch (error) {
         if (!this.wasCanvasSnapshotSuperseded(canvas, pendingSnapshot)) {
           const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
-          log$j.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
+          log$i.warnOnce(`canvas-capture:${surface}`, "Reader raster capture failed; retrying", { surface }, error);
           this.handleCanvasCaptureNotReady(canvas, rect, userRequested);
         }
       } finally {
@@ -58288,7 +58273,7 @@ ${spelling}`);
       this.canvasTapRecapture.delete(canvas);
       this.canvasFailureContentTokens.set(canvas, canvasStablePageContentToken(canvas));
       const surface = canvasReaderSurfaceId(canvas) || canvas.dataset.yomuMid || "unidentified";
-      log$j.warnOnce(
+      log$i.warnOnce(
         `canvas-commit-mismatch:${surface}:${reason}`,
         `Reader raster capture repeatedly changed ${reason}; automatic retries paused`,
         { surface, userRequested }
@@ -60089,14 +60074,14 @@ ${reading}`);
         blob = await requestBlob(refreshedUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
       }
     } catch (error) {
-      log$j.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
+      log$i.warnOnce(`mirror-image-fetch:${resource}`, "BookWalker mirror image fetch failed", { resource }, error);
       throw error;
     }
     const objectUrl = URL.createObjectURL(blob);
     try {
       return await loadImage(objectUrl, MIRROR_IMAGE_FETCH_TIMEOUT_MS);
     } catch (error) {
-      log$j.warnOnce(
+      log$i.warnOnce(
         `mirror-image-decode:${resource}`,
         "BookWalker mirror image decode failed",
         { bytes: blob.size, resource, type: blob.type },
@@ -60256,7 +60241,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.77".trim() ? "1.8.77".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.78".trim() ? "1.8.78".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -101575,7 +101560,7 @@ ${reading}`);
   function dictionaryTitleTokens(value) {
     return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
   }
-  const log$i = Logger.scope("SettingsFileIO");
+  const log$h = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -101624,7 +101609,7 @@ ${reading}`);
   function pickFiles(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$i.warn("File picker input missing", { type });
+      log$h.warn("File picker input missing", { type });
       return Promise.resolve([]);
     }
     return new Promise((resolve) => {
@@ -101713,111 +101698,18 @@ ${reading}`);
       timeoutMs: 15e3
     });
   }
-  const log$h = Logger.scope("DictionaryReplication");
-  const REPLICATION_STATE_KEY = "yomu-dictionary-replication-state";
-  const REPLICATION_STATE_VERSION = 2;
-  const RETRY_BACKOFF_MS = 6 * 60 * 60 * 1e3;
-  let replicationInFlight = false;
-  let replicationIdle = Promise.resolve();
-  let resolveReplicationIdle;
-  async function waitForLocalDictionaryReplicationIdle() {
-    await replicationIdle;
+  Logger.scope("DictionaryReplicaPurge");
+  const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
+  const PURGE_HONORED_KEY = "yomu:dictionary-replica-purged:v1";
+  async function requestDictionaryReplicaPurge(now = Date.now) {
+    await gmStorageSet(PURGE_REQUEST_KEY, now());
   }
-  async function ensureLocalDictionariesReplicated(options) {
-    if (replicationInFlight) return [];
-    replicationInFlight = true;
-    replicationIdle = new Promise((resolve) => {
-      resolveReplicationIdle = resolve;
-    });
+  async function markDictionaryReplicaFresh(now = Date.now) {
+    const requestedAt = await gmStorageGet(PURGE_REQUEST_KEY, 0);
+    if (!requestedAt) return;
+    await ensureManagedWebStorageCurrent();
     try {
-      await ensureManagedWebStorageCurrent();
-      return await replicateMissingDictionaries(options);
-    } catch (error) {
-      log$h.warn("Dictionary replication pass failed", error);
-      return [];
-    } finally {
-      replicationInFlight = false;
-      const resolve = resolveReplicationIdle;
-      resolveReplicationIdle = void 0;
-      resolve?.();
-    }
-  }
-  async function replicateMissingDictionaries(options) {
-    const settings = options.getSettings();
-    if (!settings.localDictionariesEnabled) return [];
-    const wanted = enabledPreferenceIdentities(settings);
-    if (!wanted.size) return [];
-    const missing = await missingArchives(options, wanted);
-    if (!missing.length) return [];
-    const now = options.now ?? Date.now;
-    const state2 = readAttemptState();
-    const imported = [];
-    for (const [identity, meta] of missing) {
-      const currentSettings = options.getSettings();
-      if (!currentSettings.localDictionariesEnabled) break;
-      if (!enabledPreferenceIdentities(currentSettings).has(identity)) continue;
-      if (!shouldAttempt(state2[identity], now())) continue;
-      try {
-        const summary = await importArchive(options.dictionaries, identity, meta);
-        if (summary) {
-          imported.push(...summary.dictionaries);
-          delete state2[identity];
-        }
-      } catch (error) {
-        state2[identity] = { attempts: (state2[identity]?.attempts ?? 0) + 1, lastAt: now() };
-        log$h.warn("Dictionary replication failed", { identity, title: meta.title, attempts: state2[identity].attempts }, error);
-      }
-    }
-    writeAttemptState(state2);
-    if (imported.length) {
-      log$h.info("Dictionaries replicated to this origin", { imported });
-      options.onReplicated(imported);
-    }
-    return imported;
-  }
-  function enabledPreferenceIdentities(settings) {
-    return new Set(settings.dictionaryPreferences.filter((preference) => preference.enabled).map((preference) => yomitanDictionaryIdentity(preference.name)));
-  }
-  async function missingArchives(options, wanted) {
-    const archives = await listDictionaryArchives();
-    const candidates = Object.entries(archives).filter(([identity]) => wanted.has(identity));
-    if (!candidates.length) return [];
-    const installed = new Set((await options.dictionaries.summary()).dictionaries.map((info) => yomitanDictionaryIdentity(info.title)));
-    return candidates.filter(([identity]) => !installed.has(identity));
-  }
-  async function importArchive(store, identity, meta) {
-    const file = await readDictionaryArchiveFile(identity);
-    const importOptions = replicationImportOptions(meta);
-    if (file) return store.importFile(file, void 0, meta.downloadUrl ?? "", importOptions);
-    if (meta.downloadUrl) return store.importFromUrl(meta.downloadUrl, meta.filename || void 0, void 0, importOptions);
-    return null;
-  }
-  function replicationImportOptions(meta) {
-    return {
-      persistArchive: false,
-      ...meta.sha256 && meta.size > 0 ? { integrity: { sha256: meta.sha256, bytes: meta.size } } : {}
-    };
-  }
-  function shouldAttempt(state2, now) {
-    if (!state2) return true;
-    return now - state2.lastAt >= RETRY_BACKOFF_MS;
-  }
-  function readAttemptState() {
-    try {
-      const raw = managedLocalStorage.getItem(REPLICATION_STATE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return parsed?.version === REPLICATION_STATE_VERSION && parsed.archives && typeof parsed.archives === "object" ? parsed.archives : {};
-    } catch {
-      return {};
-    }
-  }
-  function writeAttemptState(state2) {
-    try {
-      const persisted = {
-        version: REPLICATION_STATE_VERSION,
-        archives: state2
-      };
-      managedLocalStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(persisted));
+      managedLocalStorage.setItem(PURGE_HONORED_KEY, String(Math.max(now(), requestedAt)));
     } catch {
     }
   }
@@ -104730,7 +104622,7 @@ ${reading}`);
       const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
-      this.settings.dictionaryPreferences = merged;
+      this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
       await saveSettings(this.settings);
     }
     async enqueueDictionaryOperation(form, task) {
@@ -105453,7 +105345,7 @@ ${reading}`);
             await this.saveCurrentSettings(previousSettings);
             settingsSaved = true;
             if (enabled) enabled.checked = false;
-            await waitForLocalDictionaryReplicationIdle();
+            await requestDictionaryReplicaPurge();
             await this.dependencies.dictionaries.deleteDatabase();
             this.dictionaryRefreshId++;
             await this.dependencies.refreshDictionaryStyles();
@@ -105590,6 +105482,7 @@ ${reading}`);
         { ...this.settings, localDictionariesEnabled: true },
         dictionaryPreferences
       );
+      await markDictionaryReplicaFresh();
       await saveSettings(this.settings);
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
@@ -105688,7 +105581,8 @@ ${reading}`);
       const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
       const importedNames = importedSummary.dictionaries.map((item) => item.title);
       const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
+      const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
+      this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
     }
   }
   function isDictionarySourceOrderAction(action) {
@@ -107144,7 +107038,6 @@ ${reading}`);
   registerYomuCompanion("localDictionaries", {
     YomitanDictionaryStore,
     renderStructuredGlossaryHtml,
-    ensureLocalDictionariesReplicated,
     enumerateDictionaryArchiveStorageKeys
   });
   registerYomuCompanion("i18n", {
@@ -129727,7 +129620,7 @@ ${component.reading}`;
   const log$6 = Logger.scope("FactoryReset");
   const FACTORY_RESET_PREPARE_DELAY_MS = 80;
   const FACTORY_RESET_REMOTE_GUARD_TIMEOUT_MS = 3e4;
-  const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 750;
+  const FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS = 6e4;
   function resetFactoryResetDictionaryDatabase(dictionaries2) {
     return dictionaries2.deleteDatabase({ timeoutMs: FACTORY_RESET_DICTIONARY_DELETE_TIMEOUT_MS }).then(() => ({ deleted: true }));
   }

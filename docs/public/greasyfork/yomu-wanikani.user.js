@@ -2261,7 +2261,12 @@ const MANAGED_STATE_MANIFEST = [
   prefix: "yomu-dictionary-archive:",
   enumerate: enumerateDictionaryArchiveStorageKeys
   },
-  { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
+  // Replication was removed in 1.8.78 (dictionaries live only where they
+  // are imported); the state key stays registered so resets sweep what
+  // earlier releases left behind.
+  { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
+  { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
+  { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
   // OCR result cache.
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
@@ -7070,11 +7075,11 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   },
   jaSettings: {
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
-  localDictionarySiteStorageHelp: "インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。",
-  clearLocalDictionarySiteStorage: "すべてで無効にし、このサイトのコピーを削除",
-  clearLocalDictionarySiteStorageConfirm: "インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。",
+  localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+  clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
+  clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
   clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
-  clearLocalDictionarySiteStorageDone: "インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。"
+  clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
 function parseUiCopyTable(rows) {

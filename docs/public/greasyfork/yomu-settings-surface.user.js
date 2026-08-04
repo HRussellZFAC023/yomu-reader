@@ -6405,7 +6405,12 @@ const MANAGED_STATE_MANIFEST = [
   prefix: "yomu-dictionary-archive:",
   enumerate: enumerateDictionaryArchiveStorageKeys$1
   },
-  { owner: "dictionaries/replication", kind: "local", key: "yomu-dictionary-replication-state" },
+  // Replication was removed in 1.8.78 (dictionaries live only where they
+  // are imported); the state key stays registered so resets sweep what
+  // earlier releases left behind.
+  { owner: "dictionaries/replication (legacy)", kind: "local", key: "yomu-dictionary-replication-state" },
+  { owner: "dictionaries/replica-purge", kind: "gm", key: "yomu:dictionary-replica-purge:v1" },
+  { owner: "dictionaries/replica-purge", kind: "local", key: "yomu:dictionary-replica-purged:v1" },
   // OCR result cache.
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v1" },
   { owner: "ocr/ocr-cache-store", kind: "local", key: "yomu-ocr-cache-v2" },
@@ -9435,11 +9440,11 @@ const SUBTITLE_SETTINGS_COPY = {
 const LOCAL_DICTIONARY_STORAGE_COPY = {
   enSettings: {
   localDictionariesEnabled: "Show imported dictionary definitions",
-  localDictionarySiteStorageHelp: "Imported dictionaries are copied into each site's storage when needed. This switch applies everywhere; existing site copies remain until you clear them.",
-  clearLocalDictionarySiteStorage: "Disable everywhere and clear this site",
-  clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries everywhere and delete only this site's dictionary copy?\n\nThe shared archive is kept so you can re-enable and restore dictionaries later.",
+  localDictionarySiteStorageHelp: "Imported dictionaries are stored by the site where you import them. Other sites answer from Jiten and your online sources.",
+  clearLocalDictionarySiteStorage: "Disable and remove stored dictionaries",
+  clearLocalDictionarySiteStorageConfirm: "Disable imported dictionaries and delete this site's stored copy?\n\nSites that still hold a copy from earlier versions remove it the next time you visit them. You can re-import dictionaries at any time.",
   clearLocalDictionarySiteStorageClearing: "Disabling imported dictionaries and clearing this site's copy...",
-  clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled everywhere. This site's copy was deleted; the shared archive was kept."
+  clearLocalDictionarySiteStorageDone: "Imported dictionaries are disabled. This site's copy was deleted; other sites clean up as you visit them."
   },
   enImport: {
   dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
@@ -9451,11 +9456,11 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   },
   jaSettings: {
   localDictionariesEnabled: "インポート済み辞書の定義を表示",
-  localDictionarySiteStorageHelp: "インポート済み辞書は、必要に応じて各サイトのストレージにコピーされます。この切り替えはすべてのサイトに適用されます。既存のサイト別コピーは削除するまで残ります。",
-  clearLocalDictionarySiteStorage: "すべてで無効にし、このサイトのコピーを削除",
-  clearLocalDictionarySiteStorageConfirm: "インポート済み辞書をすべてのサイトで無効にし、このサイトだけの辞書コピーを削除しますか？\n\n共有アーカイブは保持されるため、後で再び有効にして辞書を復元できます。",
+  localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+  clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
+  clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
   clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
-  clearLocalDictionarySiteStorageDone: "インポート済み辞書をすべてのサイトで無効にしました。このサイトのコピーは削除され、共有アーカイブは保持されています。"
+  clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
 const COPY = {
@@ -13727,7 +13732,7 @@ const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-
 const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-const log$d = Logger.scope("Settings");
+const log$c = Logger.scope("Settings");
 const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
 const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
 const DEFAULT_OVERLAY_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
@@ -14422,7 +14427,7 @@ function migrateSentenceAudioFieldMappings(value) {
   if (!value.ankiFieldMappings) return migrated;
   const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
   if (!movedModels.length) return migrated;
-  log$d.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+  log$c.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
   return { ...migrated, ankiFieldMappings: mappings };
 }
 function migrateLegacyDefaultMobileSettings(value) {
@@ -15089,7 +15094,7 @@ async function saveSettings(settings, options = {}) {
   }
   await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
   } catch (error) {
-  log$d.warn("Settings save failed", { error });
+  log$c.warn("Settings save failed", { error });
   throw error;
   }
 }
@@ -15999,7 +16004,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.77".trim() ? "1.8.77".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.78".trim() ? "1.8.78".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -50631,7 +50636,7 @@ function pruneOldestCacheEntries(cache, limit) {
 const DEFAULT_TIMEOUT_MS = 8e3;
 const TRANSLATION_CACHE_LIMIT = 320;
 const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
-const log$c = Logger.scope("GoogleTranslation");
+const log$b = Logger.scope("GoogleTranslation");
 const translationCache = /* @__PURE__ */ new Map();
 const translationInFlight = /* @__PURE__ */ new Map();
 function normalizeTranslationLanguage(language2, options = {}) {
@@ -50716,7 +50721,7 @@ function requiredGoogleTranslationLanguage(language2) {
 }
 async function performTranslation(text2, options) {
   const url = googleTranslationUrl(text2, options);
-  const done = log$c.time("Translate text", {
+  const done = log$b.time("Translate text", {
   sourceLanguage: options.sourceLanguage,
   outputLanguage: options.outputLanguage,
   textLength: text2.length
@@ -58286,7 +58291,7 @@ function recommendedDictionaryMatchTokenSets(dictionary) {
 function dictionaryTitleTokens(value) {
   return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
 }
-const log$b = Logger.scope("SettingsFileIO");
+const log$a = Logger.scope("SettingsFileIO");
 function recommendedDictionaryFilename(dictionary) {
   if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
   try {
@@ -58335,7 +58340,7 @@ async function pickFile(root, type) {
 function pickFiles(root, type) {
   const inputEl = root.querySelector(`input[data-file="${type}"]`);
   if (!inputEl) {
-  log$b.warn("File picker input missing", { type });
+  log$a.warn("File picker input missing", { type });
   return Promise.resolve([]);
   }
   return new Promise((resolve) => {
@@ -58646,7 +58651,7 @@ function termMatchForPosition(position, entries2) {
   deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
   } : null;
 }
-const log$a = Logger.scope("DictionaryArchiveCache");
+const log$9 = Logger.scope("DictionaryArchiveCache");
 const ARCHIVE_INDEX_KEY = "yomu-dictionary-archives";
 const ARCHIVE_CHUNK_PREFIX = "yomu-dictionary-archive:";
 const ARCHIVE_CHUNK_BYTES = 4 * 1024 * 1024;
@@ -58680,24 +58685,10 @@ async function persistDictionaryArchive(input2) {
   if (previous && previous.chunkCount > meta.chunkCount) {
     await deleteArchiveChunks(identity, previous.chunkCount, meta.chunkCount);
   }
-  log$a.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
+  log$9.info("Dictionary archive persisted", { identity, title: input2.title, size: meta.size, chunkCount: meta.chunkCount, viaUrl: Boolean(meta.downloadUrl) });
   } catch (error) {
-  log$a.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
+  log$9.warn("Dictionary archive persist failed", { identity, title: input2.title }, error);
   }
-}
-async function readDictionaryArchiveFile(identity) {
-  const meta = (await listDictionaryArchives())[identity];
-  if (!meta || !meta.chunkCount) return null;
-  const parts = [];
-  for (let chunk = 0; chunk < meta.chunkCount; chunk++) {
-  const encoded = await gmStorageGet(archiveChunkKey(identity, chunk), "");
-  if (!encoded) {
-    log$a.warn("Dictionary archive chunk missing", { identity, chunk });
-    return null;
-  }
-  parts.push(base64ToBytes(encoded));
-  }
-  return new File(parts, meta.filename || `${identity}.zip`, { type: "application/zip" });
 }
 async function deleteDictionaryArchive(title) {
   const identity = yomitanDictionaryIdentity(title);
@@ -58709,7 +58700,7 @@ async function deleteDictionaryArchive(title) {
   return next;
   });
   await deleteArchiveChunks(identity, meta.chunkCount, 0);
-  log$a.info("Dictionary archive deleted", { identity });
+  log$9.info("Dictionary archive deleted", { identity });
 }
 async function writeArchivePayload(identity, input2) {
   if (input2.downloadUrl) {
@@ -58724,7 +58715,7 @@ async function writeArchivePayload(identity, input2) {
   }
   if (!input2.file) return null;
   if (input2.file.size > MAX_ARCHIVE_BYTES) {
-  log$a.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
+  log$9.warn("Dictionary archive too large to replicate across origins", { identity, size: input2.file.size, max: MAX_ARCHIVE_BYTES });
   return null;
   }
   const bytes = await blobBytes(input2.file);
@@ -58762,12 +58753,6 @@ function bytesToBase64(bytes) {
   binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
   }
   return btoa(binary);
-}
-function base64ToBytes(encoded) {
-  const binary = atob(encoded);
-  const bytes = new Uint8Array(binary.length);
-  for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
-  return bytes;
 }
 function readBlobWithFileReader(blob, read, result) {
   return new Promise((resolve, reject) => {
@@ -59067,7 +59052,7 @@ function findJsonStringEnd(value, quoteIndex) {
   }
   return -1;
 }
-const log$9 = Logger.scope("Yomitan");
+const log$8 = Logger.scope("Yomitan");
 function filenameFromUrl(url) {
   try {
   const parsed = new URL(url);
@@ -59115,7 +59100,7 @@ function formatBytes(value) {
   return `${size.toFixed(precision)} ${units[unit]}`;
 }
 async function requestBlob(url, proxyUrl, onProgress, language2 = "en") {
-  const done = log$9.time("Dictionary download", { host: safeHost(url) });
+  const done = log$8.time("Dictionary download", { host: safeHost(url) });
   const userscriptRequest = getUserscriptHttpRequest();
   if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language2);
   return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language2);
@@ -59136,26 +59121,26 @@ function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, lang
   },
   readResponse: (response) => {
     if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-      log$9.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
+      log$8.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
       done();
       return response.response;
     }
     if (response.status < 200 || response.status >= 300) {
-      log$9.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+      log$8.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
       done();
       throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, response.status) });
     }
-    log$9.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+    log$8.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
     done();
     throw userFacingError("dictionaryDownloadNotZip", { diagnostic: `Dictionary download payload was not a ZIP (status ${response.status}).` });
   },
   onError: () => {
-    log$9.warn("Dictionary download failed", { host: safeHost(url) });
+    log$8.warn("Dictionary download failed", { host: safeHost(url) });
     done();
     return userFacingError("dictionaryDownloadFailed", { diagnostic: "The userscript manager reported a request error." });
   },
   onTimeout: () => {
-    log$9.warn("Dictionary download timed out", { host: safeHost(url) });
+    log$8.warn("Dictionary download timed out", { host: safeHost(url) });
     done();
     return userFacingError("dictionaryDownloadTimedOut", { diagnostic: "The dictionary download exceeded its 120s budget." });
   }
@@ -59180,7 +59165,7 @@ async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress,
   const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
   if (!response.ok) throwDictionaryHttpError(url, response.status, language2);
   const blob = await responseBlobWithProgress(response, onProgress, language2);
-  log$9.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
+  log$8.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
   done();
   return blob;
 }
@@ -59213,17 +59198,17 @@ function formatDictionaryDownloadProgress(language2, loaded, total) {
   return `${label} ${formatBytes(loaded)}...`;
 }
 function throwDictionaryHttpError(url, status, language2) {
-  log$9.warn("Dictionary download HTTP error", { host: safeHost(url), status });
+  log$8.warn("Dictionary download HTTP error", { host: safeHost(url), status });
   throw userFacingError("dictionaryDownloadFailed", { diagnostic: formatDictionaryDownloadFailed(language2, status) });
 }
 function handleDictionaryFetchError(url, downloadUrl, error, done) {
   const host = safeHost(url);
   if (isDictionaryCorsError(error)) {
-  log$9.warn("Dictionary download CORS failed", { host, downloadUrl });
+  log$8.warn("Dictionary download CORS failed", { host, downloadUrl });
   done();
   throw userFacingError("dictionaryDownloadBlocked", { diagnostic: `Cross-origin dictionary download was blocked for ${host}.` });
   }
-  log$9.warn("Dictionary download fetch failed", { host, error });
+  log$8.warn("Dictionary download fetch failed", { host, error });
   done();
   throw userFacingError("dictionaryDownloadFailed", { cause: error, diagnostic: error instanceof Error ? error.message : String(error) });
 }
@@ -59794,7 +59779,7 @@ ${scopedInner}
             return;
           }
         }
-        if (storedToken !== void 0 || epoch.generation > 0) {
+        if (storedToken !== void 0) {
           for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
           for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
         }
@@ -60831,7 +60816,7 @@ ${entry.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
-  const log$8 = Logger.scope("YomitanSettingsImport");
+  const log$7 = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -60841,11 +60826,11 @@ ${entry.reading}`;
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language2 = "en") {
-    const done = log$8.time("Yomitan settings export parse");
+    const done = log$7.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$8.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$7.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language2, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -60860,7 +60845,7 @@ ${entry.reading}`;
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$8.info("Yomitan settings import parsed", {
+    log$7.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       theme: settings.theme
     });
@@ -61101,14 +61086,14 @@ ${entry.reading}`;
   const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
-  const log$7 = Logger.scope("Yomitan");
+  const log$6 = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$7.info("Persistent storage request", { granted });
+        log$6.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -61137,7 +61122,7 @@ ${entry.reading}`;
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$7.warn("Term search index preparation failed", { error });
+        log$6.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -61175,7 +61160,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [...expressionVariants, ...readingVariants, limit], preferences),
         async () => {
-          const done = log$7.time("Term lookup", {
+          const done = log$6.time("Term lookup", {
             expression: normalizedExpression,
             reading: normalizedReading,
             limit,
@@ -61206,7 +61191,7 @@ ${entry.reading}`;
             });
             return selectTermLookupResults(ranked, expressionVariants, readingVariants, limit);
           } catch (error) {
-            log$7.warn("Term lookup failed", {
+            log$6.warn("Term lookup failed", {
               expression: normalizedExpression,
               reading: normalizedReading,
               error
@@ -61220,7 +61205,7 @@ ${entry.reading}`;
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$7.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$6.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -61239,7 +61224,7 @@ ${entry.reading}`;
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$7.warn("Term search failed", { query: normalizedQuery, error });
+        log$6.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -61249,7 +61234,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$7.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$6.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -61258,7 +61243,7 @@ ${entry.reading}`;
             const results = rankedDictionaryEntries(entries2, rank, limit);
             return results;
           } catch (error) {
-            log$7.warn("Kanji lookup failed", { length: text2.length, error });
+            log$6.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -61269,14 +61254,14 @@ ${entry.reading}`;
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$7.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$6.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$7.warn("Kanji character list failed", { error });
+        log$6.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -61288,7 +61273,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [...expressionVariants, limit], preferences),
         async () => {
-          const done = log$7.time("Term metadata lookup", {
+          const done = log$6.time("Term metadata lookup", {
             expression: normalizedExpression,
             limit,
             dictionaries: preferences.length
@@ -61306,7 +61291,7 @@ ${entry.reading}`;
             const results = entries2.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$7.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
+            log$6.warn("Term metadata lookup failed", { expression: normalizedExpression, error });
             throw error;
           } finally {
             done();
@@ -61318,7 +61303,7 @@ ${entry.reading}`;
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$7.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$6.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -61328,7 +61313,7 @@ ${entry.reading}`;
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$7.warn("Similar terms by kanji lookup failed", { character, error });
+            log$6.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -61338,10 +61323,10 @@ ${entry.reading}`;
     }
     async findTermMatches(text2, limit = 32, preferences = [], target = activeLearningTarget()) {
       const targetGeneration = activeLearningTargetGeneration();
-      const done = log$7.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$6.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = codePointSafePrefix(text2, TERM_MATCH_SOURCE_LIMIT);
       if (source.length < text2.length) {
-        log$7.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
+        log$6.warn("Inline term match source trimmed", { length: text2.length, kept: source.length });
       }
       if (!source.trim()) {
         done();
@@ -61351,7 +61336,7 @@ ${entry.reading}`;
         const matches = await this.sweepTermMatchWindows(source, limit, preferences, target, targetGeneration);
         return isCurrentLookupTarget(target, targetGeneration) ? matches : [];
       } catch (error) {
-        log$7.warn("Inline term match search failed", { length: source.length, error });
+        log$6.warn("Inline term match search failed", { length: source.length, error });
         throw error;
       } finally {
         done();
@@ -61447,20 +61432,20 @@ ${entry.reading}`;
       return false;
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$7.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$6.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$7.warn("Random term listing failed", { limit, error });
+        log$6.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$7.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$6.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -61477,7 +61462,7 @@ ${entry.reading}`;
         }
         return results;
       } catch (error) {
-        log$7.warn("Random top term listing failed", { limit, error });
+        log$6.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -61560,16 +61545,16 @@ ${entry.reading}`;
     }
     async importFile(file, onProgress, sourceUrl = "", options = {}) {
       await assertManagedStateMutationAllowed();
-      const done = log$7.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$6.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$7.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$6.info("Dictionary file import started", fileSummary(file, sourceUrl));
         if (options.integrity && !/\.zip$/i.test(file.name)) await assertDictionaryObjectIntegrity(file, options.integrity);
         if (options.persistArchive !== false) requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl, options) : await this.importJson(file, onProgress);
-        log$7.info("Dictionary file import completed", summary);
+        log$6.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$7.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$6.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
@@ -61577,12 +61562,12 @@ ${entry.reading}`;
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress, options = {}) {
       await assertManagedStateMutationAllowed();
-      log$7.info("Dictionary URL import started", { filename, host: safeHost(url) });
+      log$6.info("Dictionary URL import started", { filename, host: safeHost(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url, options);
-      log$7.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
+      log$6.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "", options = {}) {
@@ -61679,7 +61664,7 @@ ${entry.reading}`;
           integrity: options.integrity
         });
       }
-      log$7.info("ZIP dictionary import parsed", summary);
+      log$6.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -61708,7 +61693,7 @@ ${entry.reading}`;
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$7.info("JSON dictionary import parsed", summary);
+      log$6.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -61811,13 +61796,13 @@ ${entry.reading}`;
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$7.info("Dexie dictionary import parsed", summary);
+      log$6.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$7.time("Dictionary export");
+      const done = log$6.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries2, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -61827,7 +61812,7 @@ ${entry.reading}`;
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$7.info("Dictionary export prepared", {
+        log$6.info("Dictionary export prepared", {
           dictionaries: dictionaries2.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -61845,7 +61830,7 @@ ${entry.reading}`;
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$7.warn("Dictionary export failed", { error });
+        log$6.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -61864,19 +61849,19 @@ ${entry.reading}`;
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$7.warn("Dictionary stylesheet render failed", { error });
+        log$6.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$7.time("Dictionary store clear");
+      const done = log$6.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$7.info("Dictionary store cleared");
+        log$6.info("Dictionary store cleared");
       } catch (error) {
-        log$7.warn("Dictionary store clear failed", { error });
+        log$6.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
@@ -61890,12 +61875,12 @@ ${entry.reading}`;
       try {
         const db = await dbPromise;
         db.close();
-        log$7.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$6.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$7.time("Dictionary database delete");
+      const done = log$6.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -61921,12 +61906,12 @@ ${entry.reading}`;
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$7.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$6.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$7.info("Dictionary database deleted", { name: DB_NAME });
+        log$6.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$7.warn("Dictionary database delete failed", { error });
+        log$6.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
@@ -61952,19 +61937,19 @@ ${entry.reading}`;
       return stale.filter((title) => title !== dictionary);
     }
     async deleteDictionary(dictionary) {
-      const done = log$7.time("Dictionary delete", { dictionary });
+      const done = log$6.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries2 = await this.getAllDictionaryInfo(db);
         if (!dictionaries2.some((item) => item.title === dictionary)) {
-          log$7.info("Dictionary delete skipped; not installed", { dictionary });
+          log$6.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries2.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
           await deleteDictionaryArchive(dictionary).catch(() => void 0);
-          log$7.info("Only installed dictionary cleared", { dictionary });
+          log$6.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -61977,9 +61962,9 @@ ${entry.reading}`;
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
         await deleteDictionaryArchive(dictionary).catch(() => void 0);
-        log$7.info("Dictionary deleted", { dictionary });
+        log$6.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$7.warn("Dictionary delete failed", { dictionary, error });
+        log$6.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -62273,9 +62258,9 @@ ${entry.reading}`;
         for (const title of stale) {
           try {
             await this.deleteDictionary(title);
-            log$7.info("Removed duplicate dictionary revision", { title });
+            log$6.info("Removed duplicate dictionary revision", { title });
           } catch (error) {
-            log$7.warn("Duplicate dictionary revision cleanup failed", { title, error });
+            log$6.warn("Duplicate dictionary revision cleanup failed", { title, error });
           }
         }
       })();
@@ -62346,7 +62331,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$7.time("Term search index rebuild");
+      const done = log$6.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termSearch", (tx) => tx.objectStore("termSearch").clear());
@@ -62363,13 +62348,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$7.info("Term search index rebuilt", { terms: indexedTerms });
+        log$6.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$7.time("Term kanji index rebuild");
+      const done = log$6.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await runYomitanManagedStateWrite(db, "termKanji", (tx) => tx.objectStore("termKanji").clear());
@@ -62386,7 +62371,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$7.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$6.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -62462,7 +62447,7 @@ ${entry.reading}`;
           if (settled) return;
           settled = true;
           if (this.dbPromise === promise) this.dbPromise = void 0;
-          log$7.warn("Dictionary database open failed", { reason, error });
+          log$6.warn("Dictionary database open failed", { reason, error });
           reject(error instanceof Error ? error : new Error(reason));
         };
         const openTimeout = setTimeout(() => failOpen(`Dictionary database open timed out after ${DB_OPEN_TIMEOUT_MS}ms`), DB_OPEN_TIMEOUT_MS);
@@ -62470,7 +62455,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$7.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$6.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -62535,7 +62520,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$7.info("Dictionary DB version change; closing", {
+        log$6.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -62864,111 +62849,18 @@ ${glossaryKey}`;
   function nextTask() {
     return new Promise((resolve) => window.setTimeout(resolve, 0));
   }
-  const log$6 = Logger.scope("DictionaryReplication");
-  const REPLICATION_STATE_KEY = "yomu-dictionary-replication-state";
-  const REPLICATION_STATE_VERSION = 2;
-  const RETRY_BACKOFF_MS = 6 * 60 * 60 * 1e3;
-  let replicationInFlight = false;
-  let replicationIdle = Promise.resolve();
-  let resolveReplicationIdle;
-  async function waitForLocalDictionaryReplicationIdle() {
-    await replicationIdle;
+  Logger.scope("DictionaryReplicaPurge");
+  const PURGE_REQUEST_KEY = "yomu:dictionary-replica-purge:v1";
+  const PURGE_HONORED_KEY = "yomu:dictionary-replica-purged:v1";
+  async function requestDictionaryReplicaPurge(now = Date.now) {
+    await gmStorageSet(PURGE_REQUEST_KEY, now());
   }
-  async function ensureLocalDictionariesReplicated(options) {
-    if (replicationInFlight) return [];
-    replicationInFlight = true;
-    replicationIdle = new Promise((resolve) => {
-      resolveReplicationIdle = resolve;
-    });
+  async function markDictionaryReplicaFresh(now = Date.now) {
+    const requestedAt = await gmStorageGet(PURGE_REQUEST_KEY, 0);
+    if (!requestedAt) return;
+    await ensureManagedWebStorageCurrent();
     try {
-      await ensureManagedWebStorageCurrent();
-      return await replicateMissingDictionaries(options);
-    } catch (error) {
-      log$6.warn("Dictionary replication pass failed", error);
-      return [];
-    } finally {
-      replicationInFlight = false;
-      const resolve = resolveReplicationIdle;
-      resolveReplicationIdle = void 0;
-      resolve?.();
-    }
-  }
-  async function replicateMissingDictionaries(options) {
-    const settings = options.getSettings();
-    if (!settings.localDictionariesEnabled) return [];
-    const wanted = enabledPreferenceIdentities(settings);
-    if (!wanted.size) return [];
-    const missing = await missingArchives(options, wanted);
-    if (!missing.length) return [];
-    const now = options.now ?? Date.now;
-    const state = readAttemptState();
-    const imported = [];
-    for (const [identity, meta] of missing) {
-      const currentSettings = options.getSettings();
-      if (!currentSettings.localDictionariesEnabled) break;
-      if (!enabledPreferenceIdentities(currentSettings).has(identity)) continue;
-      if (!shouldAttempt(state[identity], now())) continue;
-      try {
-        const summary = await importArchive(options.dictionaries, identity, meta);
-        if (summary) {
-          imported.push(...summary.dictionaries);
-          delete state[identity];
-        }
-      } catch (error) {
-        state[identity] = { attempts: (state[identity]?.attempts ?? 0) + 1, lastAt: now() };
-        log$6.warn("Dictionary replication failed", { identity, title: meta.title, attempts: state[identity].attempts }, error);
-      }
-    }
-    writeAttemptState(state);
-    if (imported.length) {
-      log$6.info("Dictionaries replicated to this origin", { imported });
-      options.onReplicated(imported);
-    }
-    return imported;
-  }
-  function enabledPreferenceIdentities(settings) {
-    return new Set(settings.dictionaryPreferences.filter((preference) => preference.enabled).map((preference) => yomitanDictionaryIdentity(preference.name)));
-  }
-  async function missingArchives(options, wanted) {
-    const archives = await listDictionaryArchives();
-    const candidates = Object.entries(archives).filter(([identity]) => wanted.has(identity));
-    if (!candidates.length) return [];
-    const installed = new Set((await options.dictionaries.summary()).dictionaries.map((info) => yomitanDictionaryIdentity(info.title)));
-    return candidates.filter(([identity]) => !installed.has(identity));
-  }
-  async function importArchive(store, identity, meta) {
-    const file = await readDictionaryArchiveFile(identity);
-    const importOptions = replicationImportOptions(meta);
-    if (file) return store.importFile(file, void 0, meta.downloadUrl ?? "", importOptions);
-    if (meta.downloadUrl) return store.importFromUrl(meta.downloadUrl, meta.filename || void 0, void 0, importOptions);
-    return null;
-  }
-  function replicationImportOptions(meta) {
-    return {
-      persistArchive: false,
-      ...meta.sha256 && meta.size > 0 ? { integrity: { sha256: meta.sha256, bytes: meta.size } } : {}
-    };
-  }
-  function shouldAttempt(state, now) {
-    if (!state) return true;
-    return now - state.lastAt >= RETRY_BACKOFF_MS;
-  }
-  function readAttemptState() {
-    try {
-      const raw = managedLocalStorage.getItem(REPLICATION_STATE_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      return parsed?.version === REPLICATION_STATE_VERSION && parsed.archives && typeof parsed.archives === "object" ? parsed.archives : {};
-    } catch {
-      return {};
-    }
-  }
-  function writeAttemptState(state) {
-    try {
-      const persisted = {
-        version: REPLICATION_STATE_VERSION,
-        archives: state
-      };
-      managedLocalStorage.setItem(REPLICATION_STATE_KEY, JSON.stringify(persisted));
+      managedLocalStorage.setItem(PURGE_HONORED_KEY, String(Math.max(now(), requestedAt)));
     } catch {
     }
   }
@@ -65890,7 +65782,7 @@ ${glossaryKey}`;
       const types = Object.fromEntries(summary.dictionaries.map((item) => [item.title, item.type]));
       const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
       if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
-      this.settings.dictionaryPreferences = merged;
+      this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
       await saveSettings(this.settings);
     }
     async enqueueDictionaryOperation(form, task) {
@@ -66613,7 +66505,7 @@ ${glossaryKey}`;
             await this.saveCurrentSettings(previousSettings);
             settingsSaved = true;
             if (enabled) enabled.checked = false;
-            await waitForLocalDictionaryReplicationIdle();
+            await requestDictionaryReplicaPurge();
             await this.dependencies.dictionaries.deleteDatabase();
             this.dictionaryRefreshId++;
             await this.dependencies.refreshDictionaryStyles();
@@ -66750,6 +66642,7 @@ ${glossaryKey}`;
         { ...this.settings, localDictionariesEnabled: true },
         dictionaryPreferences
       );
+      await markDictionaryReplicaFresh();
       await saveSettings(this.settings);
       await this.dependencies.refreshDictionaryStyles();
       this.dependencies.scheduleDictionaryRescan();
@@ -66848,7 +66741,8 @@ ${glossaryKey}`;
       const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
       const importedNames = importedSummary.dictionaries.map((item) => item.title);
       const importedTypes = Object.fromEntries(importedSummary.dictionaries.map((item) => [item.title, item.type]));
-      this.settings.dictionaryPreferences = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
+      const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
+      this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
     }
   }
   function isDictionarySourceOrderAction(action) {
@@ -68214,7 +68108,6 @@ ${reading}`);
   registerYomuCompanion("localDictionaries", {
     YomitanDictionaryStore,
     renderStructuredGlossaryHtml,
-    ensureLocalDictionariesReplicated,
     enumerateDictionaryArchiveStorageKeys
   });
 })();
