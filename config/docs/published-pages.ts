@@ -41,6 +41,16 @@ export const internalDocsExcludeGlobs = [
     // Dated session and review dumps at the docs root.
     'carryover-workstream-*.md',
     'nuclear-backlog-*.md',
+    // Release notes for 1.7.6 and earlier, split out of CHANGELOG.md on 2026-08-04
+    // because docs/changelog.md includes that file verbatim and it had reached
+    // 670,000 bytes across 995 releases. Kept in the repo, kept off the site: two
+    // gates independently object to routing it, and both are right. Old release
+    // notes still advertise a retired competitor-comparison route and third-party
+    // gaming OCR apps (scripts/check-public-docs.mjs), and they state language
+    // counts that were true when they shipped (the "N languages" claim test above).
+    // Publishing dated history as a live page re-exposes retired claims to
+    // crawlers, which is the exact problem this file exists to prevent.
+    'changelog-archive.md',
     // Written for browser-store reviewers, not for readers. It was removed from
     // the site once already and came back as an unlinked route.
     'store-review-notes.md',

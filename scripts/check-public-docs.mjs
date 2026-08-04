@@ -66,6 +66,18 @@ const ignoredSourceDirs = [
     path.join(appRoot, 'docs', '.vitepress', 'cache'),
     path.join(appRoot, 'docs', '.vitepress', 'dist'),
 ];
+// Files under docs/ that are versioned but never routed, so the rules below --
+// which are about what the SITE advertises -- do not apply. Keep this list short
+// and justified: it is an exemption from a publishing gate.
+const ignoredSourceFiles = [
+    // Release notes for 1.7.6 and earlier, unedited history. Old entries name a
+    // retired comparison route and third-party gaming OCR apps because those were
+    // what shipped at the time. config/docs/published-pages.ts srcExcludes the
+    // file, so VitePress produces no page, no search entry and no sitemap URL for
+    // it; rewriting the history to satisfy a present-tense rule would be the wrong
+    // fix.
+    path.join(appRoot, 'docs', 'changelog-archive.md'),
+];
 
 function isInsidePath(candidate, parent) {
     const relative = path.relative(parent, candidate);
@@ -90,6 +102,7 @@ function collectPublicDocsFiles() {
                 continue;
             }
             if (!entry.isFile() || !sourceDocExtensions.has(path.extname(entry.name))) continue;
+            if (ignoredSourceFiles.includes(entryPath)) continue;
             files.push(entryPath);
         }
     }
