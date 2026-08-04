@@ -298,7 +298,7 @@ import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReader
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
-import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, pickAuthoritativeTokenAt, type ReaderParserParseOptions } from '../lookup/parser';
+import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
@@ -5748,18 +5748,11 @@ export class ReaderApp {
     ): Promise<void> {
         const scope = this.cardLookup.captureTarget();
         try {
-            // Through the app-level parse wrapper: the pointer shares its
-            // 30-second parse cache with annotation, so hovering a sentence
-            // the page already parsed answers without another pipeline run.
-            const [tokens] = await this.parseJapanese(
-                [candidate.text],
-                { ...this.pointerTextJpdbParseOptions(), allowSegmentedFallback: true },
-            );
-            const token = pickAuthoritativeTokenAt(
-                tokens ?? [],
+            const token = await this.parser.lookupTokenAt(
                 candidate.text,
                 candidate.offset,
                 { start: candidate.start, end: candidate.end },
+                this.pointerTextJpdbParseOptions(),
             );
             if (!scope.isCurrent() || !token) return;
             await this.showPointerTextCard(token.card, sentence, candidate, token, trigger, options);
@@ -5949,11 +5942,12 @@ export class ReaderApp {
         const span = unconfirmedRenderedWordSpan(word, card, context);
         if (!span) return false;
         try {
-            const [tokens] = await this.parseJapanese(
-                [span.sentence],
-                { ...this.pointerTextJpdbParseOptions(), allowSegmentedFallback: true },
+            const token = await this.parser.lookupTokenAt(
+                span.sentence,
+                span.start,
+                { start: 0, end: span.sentence.length },
+                this.pointerTextJpdbParseOptions(),
             );
-            const token = pickAuthoritativeTokenAt(tokens ?? [], span.sentence, span.start);
             if (!scope.isCurrent()) return true;
             if (!token) return false;
             // Re-resolving an existing fallback card needs a strictly wider

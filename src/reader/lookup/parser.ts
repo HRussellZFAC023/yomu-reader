@@ -242,7 +242,9 @@ export class ReaderParser {
             maximumSourceLength: 18,
             lookup,
             fallback,
-            preconfirm: decorationAlignedSpanConfirmation(text, decorations, target),
+            preconfirm: decorationAlignedSpanConfirmation(text, decorations, target, {
+                trustLocalDecorations: this.localStoreOnlySweeps(),
+            }),
             // A span containing a standalone case particle can never be one
             // word — never plan it, so the dictionary is not even asked. The
             // same tell later vetoes glued confirmations that got in another
@@ -282,6 +284,20 @@ export class ReaderParser {
             confirmParserSpanRequests(pending, cards, target, confirmed);
         }
         return confirmed;
+    }
+
+    // A local decoration row comes from the broad findTermMatches sweep. When
+    // the store can answer exact term lookups (batched or single-term), that
+    // indexed answer is the authority and sweep rows may only SEED candidates.
+    // Only a sweep-only store (injected/legacy companion realm) has already
+    // said everything it knows, so its aligned rows are allowed to confirm.
+    private localStoreOnlySweeps(): boolean {
+        const store = this.dependencies.dictionaries as {
+            lookupExactTermCandidates?: unknown;
+            lookup?: unknown;
+        };
+        return typeof store.lookupExactTermCandidates !== 'function'
+            && typeof store.lookup !== 'function';
     }
 
     private async confirmLocalParserSpanRequests(
@@ -1281,10 +1297,12 @@ function decorationAlignedSpanConfirmation(
     text: string,
     decorations: readonly JPDBToken[],
     target: LearningTargetModule,
+    options: { trustLocalDecorations: boolean },
 ): (candidate: TermSpanPreconfirmCandidate) => ParserSpanMatch | null {
     const bySpan = new Map<string, JPDBToken>();
     for (const token of decorations) {
         if (token.card.source === 'fallback') continue;
+        if (token.card.source === 'local' && !options.trustLocalDecorations) continue;
         bySpan.set(`${token.start}:${token.end}`, token);
     }
     if (!bySpan.size) return () => null;
@@ -1325,6 +1343,12 @@ function rejectUntrustworthySpanShapes(
     segments: readonly { start: number; end: number }[],
     target: LearningTargetModule,
 ): (candidate: TermSpanPreconfirmCandidate, match: ParserSpanMatch, context: TermSpanAdmitContext) => boolean {
+    // The interior-end tell requires segments to be real word covers: the
+    // Japanese segmenter is grammar-aware and spaced languages segment on
+    // words, but unspaced non-Japanese text (Han, Korean) gets statistical
+    // ICU chunks — there a dictionary-confirmed span crossing a chunk edge
+    // is the dictionary correcting the guess, not a stem cut.
+    const segmentsAreWordCovers = target.language === 'ja' || target.lookupStartsAtSegmentBoundary;
     return (candidate, match, context) => {
         const term = target.normalizeText(candidate.lookupCandidate.term);
         const identity = term === target.normalizeText(candidate.surface);
@@ -1339,7 +1363,8 @@ function rejectUntrustworthySpanShapes(
                 || hasInternalKanaToKanjiTransition(text, candidate.start, candidate.end))) {
             return false;
         }
-        if (endsStrictlyInsideSegment(segments, candidate.end)
+        if (segmentsAreWordCovers
+            && endsStrictlyInsideSegment(segments, candidate.end)
             && !context.hasConfirmedSpanAt(candidate.end)
             && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
             return false;
