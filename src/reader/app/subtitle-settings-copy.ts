@@ -2,6 +2,12 @@ const EN_SUBTITLE_SETTINGS_COPY = {
     subtitlePlayerEnabled: 'Enable video subtitle player',
     subtitleAutoDetect: 'Auto-detect page subtitles',
     subtitleOverlayVisible: 'Show subtitle overlay',
+    // Not a control label: no checkbox writes this any more, the three-way
+    // `subtitleNativeDisplay` select does. It stays because a stored setting with
+    // no control of its own takes its wording in docs/reference/settings.md from
+    // the i18n entry keyed by its own name, and this sentence is what the stored
+    // boolean means.
+    subtitleSecondaryVisible: 'Show native subtitles',
     subtitleNativeBlurred: 'Blur native subtitles until hover',
     subtitleNativeDisplay: 'Translation',
     subtitleNativeDisplayBlurred: 'Blur until reveal (recommended)',
@@ -35,6 +41,7 @@ const JA_SUBTITLE_SETTINGS_COPY = {
     subtitlePlayerEnabled: '動画字幕プレイヤーを有効にする',
     subtitleAutoDetect: 'ページの字幕を自動検出',
     subtitleOverlayVisible: '字幕オーバーレイを表示',
+    subtitleSecondaryVisible: '利用可能ならネイティブ字幕を表示',
     subtitleNativeBlurred: 'ホバーするまでネイティブ字幕をぼかす',
     subtitleNativeDisplay: '母語訳',
     subtitleNativeDisplayBlurred: '表示するまでぼかす（おすすめ）',
