@@ -70,8 +70,25 @@ docs/.vitepress/.temp/
 /docs/*-research.md
 /docs/research/
 /docs/academy/provenance/private/
+# Dated one-off session reports. A report named for the day it was written gets
+# read later as current state, so keep them out of the tree the way
+# /docs/*-backlog.md above already does. Digit classes, not ?, so an ordinary
+# page like docs/getting-started.md cannot match.
+/docs/**/*-[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md
+/docs/**/*-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].md
+# Probes and repros, wherever they live. The scripts/manual/ ones were not
+# covered and 10 accumulated there, half of them alive only in a lint allowlist.
 /scripts/*-probe.mjs
 /scripts/*-repro.mjs
+/scripts/manual/*-probe.mjs
+/scripts/manual/*-repro.mjs
+!/scripts/manual/reddit-firefox-annotation-probe.mjs
+# QA screenshots are captures, not source. README's repository-layout section has
+# always said screenshots are local-only; 39 MB of them were tracked anyway.
+/docs/academy/evidence/**/*.png
+/docs/academy/evidence/**/*.jpg
+/docs/academy/evidence/**/*.jpeg
+/docs/academy/evidence/**/*.webp
 qa-audit-a3/
 .dev.vars
 .wrangler/

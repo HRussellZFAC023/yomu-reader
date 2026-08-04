@@ -1,6 +1,6 @@
 # Yomu Academy production backlog
 
-This is the sole backlog and checkbox source of truth for Academy product delivery. Story sequencing is a non-authoritative execution view in [`story/EXECUTION-LEDGER.md`](story/EXECUTION-LEDGER.md); the original Attempt 3 findings are preserved as dated evidence in [`history/ATTEMPT3-ADVERSARIAL-QA-20260716.md`](history/ATTEMPT3-ADVERSARIAL-QA-20260716.md). Neither document owns completion state.
+This is the sole backlog and checkbox source of truth for Academy product delivery. Story sequencing is a non-authoritative execution view in [`story/EXECUTION-LEDGER.md`](story/EXECUTION-LEDGER.md); the original Attempt 3 findings are preserved in git history at `git show 75644853b:docs/academy/history/ATTEMPT3-ADVERSARIAL-QA-20260716.md` (194 KB, untracked on 2026-08-04 — a dated one-off report that nothing but this sentence still consulted). Neither document owns completion state.
 
 Execution order is defined by [`discovery/MASTER-PLAN.md`](discovery/MASTER-PLAN.md). The plan delivers one complete chronological day at a time across Day 1 through Day `N`, with no arbitrary day cap. The 48 chapters are the finite core plot, not the calendar denominator. Progress comes from the dynamic evidence ledger `280 + (15 × N)` after the complete curriculum and activity map proves `N`; it does not create a second completion backlog.
 

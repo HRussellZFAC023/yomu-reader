@@ -1,5 +1,12 @@
 # Stage 1 executable evidence
 
+> **Screenshots are no longer tracked.** The PNGs named on this page were untracked on
+> 2026-08-04 (39 MB of tracked captures across `docs/academy/evidence/`, against a README
+> that has always said screenshots are local-only). The SHA-256 values below still identify
+> them, and the bytes are in git history: `git show 75644853b:<path>`. New captures under
+> `docs/academy/evidence/` are gitignored.
+
+
 This evidence was captured from the real hosted Academy at
 `http://127.0.0.1:4178/academy/` after the Reader annotation runtime injected.
 It is not a fixture page. The captured Browser build revision is

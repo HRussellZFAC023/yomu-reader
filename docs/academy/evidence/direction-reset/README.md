@@ -1,5 +1,12 @@
 # Direction-reset concept evidence
 
+> **Screenshots are no longer tracked.** The PNGs named on this page were untracked on
+> 2026-08-04 (39 MB of tracked captures across `docs/academy/evidence/`, against a README
+> that has always said screenshots are local-only). The SHA-256 values below still identify
+> them, and the bytes are in git history: `git show 75644853b:<path>`. New captures under
+> `docs/academy/evidence/` are gitignored.
+
+
 Generated on 2026-07-12 to establish the Academy experience before more implementation volume.
 
 | File | SHA-256 | Role |

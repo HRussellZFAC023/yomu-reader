@@ -20,9 +20,12 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-// The (a) set: headless-capable regression guards. Kept in sync with the NB-50
-// triage table in docs/nuclear-backlog-2026-07-16.md. Each name is an npm
-// script of the form `node scripts/<name>.mjs`.
+// The (a) set: headless-capable regression guards. Each name is an npm script of
+// the form `node scripts/<name>.mjs`. This list used to cite the NB-50 triage
+// table in docs/nuclear-backlog-2026-07-16.md, a dated one-off report untracked
+// on 2026-08-04; it is still readable at
+// `git show 75644853b:docs/nuclear-backlog-2026-07-16.md` if the provenance of an
+// entry is ever in question.
 export const NIGHTLY_SMOKES = [
     'smoke:anki',
     'smoke:anki-template',

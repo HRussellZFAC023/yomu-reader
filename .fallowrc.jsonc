@@ -62,7 +62,6 @@
     "scripts/generate-academy-voice-lines.mjs",
     // Manual Academy world/lesson QA browsers — run directly during content
     // review, never through the application graph.
-    "scripts/manual/academy-story-recovery-browser.mjs",
     "scripts/japan-centre-world-browser.mjs",
     "scripts/lesson-28-cafe-assets-browser.mjs",
     "scripts/lesson-35-presentation-browser.mjs",
@@ -73,16 +72,10 @@
     "scripts/placement-responsive-browser.mjs",
     "scripts/station-world-qa.mjs",
     // Manual YouTube-Music CTA regression repros (fixture + live).
-    "scripts/manual/ytm-cta-fixture-repro.mjs",
-    "scripts/manual/ytm-live-cta-repro.mjs",
     // Manual chrome-annotation repros against the REAL sites, run directly with
     // the built userscript when a fixture smoke passes but the owner's own page
     // still shows bare chrome. Nothing imports them by design.
-    "scripts/manual/real-youtube-chrome-annotation-probe.mjs",
     "scripts/manual/reddit-firefox-annotation-probe.mjs",
-    "scripts/manual/.reader-word-cascade-probe.mjs",
-    "scripts/manual/asmr-one-annotation-probe.mjs",
-    "scripts/manual/reader-css-presence-probe.mjs",
     "scripts/qa-audit.mjs",
     "scripts/build-gaming-electron.mjs",
     "scripts/dev-gaming-app.mjs",
