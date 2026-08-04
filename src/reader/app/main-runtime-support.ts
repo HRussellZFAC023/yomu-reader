@@ -344,7 +344,7 @@ const CONTENT_OVERLAY_READER_SURFACE_SELECTOR = [
  * A press landed on a Yomu content overlay but resolved to nothing operable, so it
  * carried no meaning other than "not the popup" — dismiss.
  */
-export function isPointerOnInertReaderSurface(element: Element | null | undefined): boolean {
+function isPointerOnInertReaderSurface(element: Element | null | undefined): boolean {
     const surface = element?.closest(CONTENT_OVERLAY_READER_SURFACE_SELECTOR);
     if (!surface) return false;
     const control = element?.closest(READER_SURFACE_INTERACTIVE_SELECTOR);

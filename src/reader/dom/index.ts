@@ -421,7 +421,7 @@ export function getSelectionText(): string {
  * touch — and this deliberately does not reach for it. That selection is the
  * reader's editing state in a field they are working in (a compose box, Yomu's own
  * search input); the popup was a side trip, and collapsing their range would move
- * their caret and lose their place. See tests/reader/selection-preservation.ts.
+ * their caret and lose their place. See tests/reader/selection-preservation.test.ts.
  */
 export function clearDocumentSelection(): void {
     const selection = window.getSelection();
