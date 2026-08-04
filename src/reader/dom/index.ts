@@ -87,6 +87,7 @@ import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './sh
 import { readerWordSurfaceText, sentenceAroundRange, sentenceAroundSurface, unwrapReaderWords } from './reader-word';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
 import { bareFallbackCardFromText } from '../lookup/japanese-segments';
+import { activeLearningTargetLanguage } from '../languages/target-runtime';
 import { uncoveredJapaneseRanges } from '../lookup/uncovered-japanese-ranges';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import {
@@ -2332,7 +2333,7 @@ function appendSegmentedHostFallbackTokens(
 ): void {
     for (const segment of segmentTargetLanguageText(hostText.slice(gapStart, gapEnd))) {
         additions.push({
-            card: bareFallbackCardFromText(segment.text),
+            card: bareFallbackCardFromText(segment.text, activeLearningTargetLanguage()),
             start: gapStart + segment.start,
             end: gapStart + segment.end,
             length: segment.end - segment.start,

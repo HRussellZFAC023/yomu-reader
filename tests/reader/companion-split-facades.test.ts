@@ -331,6 +331,19 @@ describe('Greasy Fork split manifest', () => {
         expect(viteConfigSource).toContain("alias['../../languages/target-runtime'] = targetRuntimeCompanion;");
     });
 
+    it('keeps Japanese segmentation below the learning-target runtime boundary', () => {
+        const targetRuntime = readFileSync(
+            path.join(repoRoot, 'src/reader/languages/target-runtime.ts'),
+            'utf8',
+        );
+        const japaneseSegments = readFileSync(
+            path.join(repoRoot, 'src/reader/lookup/japanese-segments.ts'),
+            'utf8',
+        );
+        expect(targetRuntime).not.toContain("from './registry';");
+        expect(japaneseSegments).not.toContain('languages/target-runtime');
+    });
+
     it('keeps structured glossary rendering real in companions and self-contained builds', () => {
         const facade = 'src/reader/dictionaries/yomitan/structured-content-companion.ts';
         expect(existsSync(path.join(repoRoot, facade))).toBe(true);

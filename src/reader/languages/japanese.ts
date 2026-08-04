@@ -7,6 +7,7 @@ import {
 } from '../lookup/japanese-segments';
 import { deinflectJapaneseTerm, termRulesMatch } from '../lookup/deinflect';
 import {
+    HALFWIDTH_KATAKANA,
     KANA,
     KANJI_LIKE_WITH_COUNTERS_PATTERN,
     PROLONGED_SOUND_MARK,
@@ -16,7 +17,7 @@ import { JAPANESE_GRAMMAR } from './japanese-grammar';
 import type { LanguageTextSegment, LearningTargetModule } from './types';
 
 const JAPANESE_POINTER_WORD_RE = new RegExp(
-    `(?:[${KANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
+    `(?:[${KANA}${HALFWIDTH_KATAKANA}${PROLONGED_SOUND_MARK}]|${KANJI_LIKE_WITH_COUNTERS_PATTERN})+`,
     'gu',
 );
 

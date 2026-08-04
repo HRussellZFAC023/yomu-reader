@@ -1298,7 +1298,7 @@ describe('reader helpers', () => {
         });
     });
 
-    it('repairs known Segmenter misses like 巨乳 without broad kanji merging', async () => {
+    it('leaves kanji compound ownership to dictionary lookup instead of hardcoded Segmenter overrides', async () => {
         await withFakeSegmenter([
             { segment: '巨', index: 0, isWordLike: true },
             { segment: '乳', index: 1, isWordLike: true },
@@ -1306,10 +1306,9 @@ describe('reader helpers', () => {
         ], async parser => {
             const [tokens] = await parser.parse(['巨乳エルフ'], { allowSegmentedFallback: true });
 
-            expect(tokens.map(token => token.card.spelling)).toEqual(['巨乳', 'エルフ']);
-            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 2], [2, 5]]);
-            expect(renderTokensToHtml('巨乳エルフ', tokens, DEFAULT_SETTINGS)).toContain('data-expression="巨乳"');
-            expect(fallbackLookupTermAtOffset('巨乳エルフ', 1)).toBe('巨乳');
+            expect(tokens.map(token => token.card.spelling)).toEqual(['巨', '乳', 'エルフ']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 2], [2, 5]]);
+            expect(fallbackLookupTermAtOffset('巨乳エルフ', 1)).toBe('乳');
         });
     });
 

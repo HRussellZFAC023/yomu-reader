@@ -3,8 +3,17 @@ import {
     defaultLearningTargetModule,
     learningTargetModuleFor,
     learningTargetRegistryRevision,
+    normalizeLearningTargetLanguage,
+    registeredLearningTargetModules,
 } from './registry';
 import type { LanguageTag, LearningTargetModule } from './types';
+
+export {
+    defaultLearningTargetModule,
+    learningTargetModuleFor,
+    normalizeLearningTargetLanguage,
+    registeredLearningTargetModules,
+};
 
 let requestedTargetLanguage: LanguageTag = DEFAULT_LEARNING_TARGET_LANGUAGE;
 let targetSelectionGeneration = 0;
