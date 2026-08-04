@@ -1121,10 +1121,30 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         expect(onSettingsChange).toHaveBeenCalled();
     });
 
-    it('reveals the native overlay again when the user picks the track themselves', async () => {
-        const { settings, internals } = setupSecondaryOverlaySelection({
+    // This asserted the opposite until v1.8.78, and that is the bug blurvy
+    // reported: "the show native subtitles toggle isn't saving... it turns
+    // itself back on". Picking a track says WHICH translation to load, not that
+    // an overlay the learner switched off should come back -- and the reveal
+    // re-persisted the setting, so the choice was gone for good. A learner who
+    // wants it back has the rail eye and the style popover's Translation
+    // select; nothing else may decide for them.
+    it('leaves a native overlay the learner hid hidden even when they pick the track by hand', async () => {
+        const { settings, internals, onSettingsChange } = setupSecondaryOverlaySelection({
             subtitleSecondaryVisible: false,
             subtitleSecondaryVisibleChosen: true,
+        });
+
+        await internals.selectSecondaryTrack('file-secondary');
+
+        expect(internals.secondaryTrackId).toBe('file-secondary');
+        expect(settings.subtitleSecondaryVisible).toBe(false);
+        expect(onSettingsChange).not.toHaveBeenCalled();
+    });
+
+    it('still reveals the native overlay on a hand-picked track before any visibility choice', async () => {
+        const { settings, internals } = setupSecondaryOverlaySelection({
+            subtitleSecondaryVisible: false,
+            subtitleSecondaryVisibleChosen: false,
         });
 
         await internals.selectSecondaryTrack('file-secondary');

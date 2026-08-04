@@ -185,6 +185,8 @@ const log = Logger.scope('SettingsDialog');
 const JPDB_SETTINGS_URL = 'https://jpdb.io/settings';
 const JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
 const AUTO_REPLACE_ANKI_DECK_NAMES = new Set(['', 'よむ', 'Yomu']);
+// The shipped note-type names. Anything else was named by the learner.
+const AUTO_REPLACE_ANKI_MODEL_NAMES = new Set(['', 'よむ Japanese', 'Yomu Japanese']);
 const ANKI_FIELD_MAPPING_ROLES = new Set<AnkiFieldMappingRole>(['expression', 'reading', 'meaning', 'sentence', 'audio', 'sentenceAudio', 'image']);
 const ANKI_SCAN_CONFIDENCE_VALUES = new Set<AnkiScanConfidence>(['high', 'medium', 'low']);
 const AUDIO_SUB_SOURCE_TYPING_DELAY_MS = 900;
@@ -313,6 +315,13 @@ function selectedAnkiScanDeck(deckNames: string[], currentDeck: string): string 
 function selectedAnkiScanModel(scan: AnkiLibraryScanResult, currentModel: string): string {
     const savedModel = currentModel.trim();
     if (savedModel && scan.models.some(model => model.modelName === savedModel)) return savedModel;
+    // A configured note type the scan does not list is not proof it is gone: the
+    // wrong Anki profile may be open, or AnkiConnect may have answered before the
+    // collection finished loading. Overwriting it with a suggestion threw away
+    // the learner's note type and its field mapping with it (GitHub #31
+    // residual). Only the shipped default gets replaced, which is the same rule
+    // the deck already follows.
+    if (savedModel && !AUTO_REPLACE_ANKI_MODEL_NAMES.has(savedModel)) return savedModel;
     return scan.suggestedModel?.modelName || savedModel;
 }
 

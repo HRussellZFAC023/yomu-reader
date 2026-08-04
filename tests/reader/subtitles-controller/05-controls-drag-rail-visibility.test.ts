@@ -18,6 +18,7 @@ import {
     withViewport,
     SubtitlePlayerController,
 } from './fixtures';
+import { loadSettings, NO_EXPLICIT_USER_CHOICE, saveSettings } from '../../../src/reader/settings/index';
 
 describe('SubtitlePlayerController — idle controls, overlay drag & rail visibility', () => {
     registerSubtitleControllerCleanup();
@@ -666,6 +667,59 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         } finally {
             controller.destroy();
             document.body.innerHTML = '';
+        }
+    });
+
+    // blurvy, v1.8.77: "the show native subtitles toggle isn't saving... it turns
+    // itself back on". Two causes, both here: the rail eye declared no intent
+    // (its keyboard twin always did), so the recorded pin replaced the fresh
+    // false before storage; and the *Chosen guard on the reveal applied only to
+    // AUTOMATIC track picks, so a track selection switched the overlay back on.
+    it('keeps a rail-toggled overlay off through storage and every later track reveal', async () => {
+        const store = new Map<string, unknown>();
+        const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+        vi.stubGlobal('GM_getValue', vi.fn(async (key: string, fallback: unknown) =>
+            clone(store.has(key) ? store.get(key) : fallback)));
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            store.set(key, clone(value));
+        }));
+        const { controller, settings } = createInstalledSubtitleController(
+            { subtitleOverlayVisible: true, subtitleOverlayVisibleChosen: false },
+            {
+                onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => {
+                    void saveSettings(settings, { explicitUserChoiceKeys, clearExplicitUserChoiceKeys });
+                },
+            },
+        );
+        try {
+            const eye = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="visibility"]')!;
+            eye.click();
+            expect(settings.subtitleOverlayVisible).toBe(false);
+            expect(settings.subtitleOverlayVisibleChosen).toBe(true);
+
+            // A stale context saves the whole settings object it read before the
+            // click. Nothing it carries may resurrect the overlay.
+            await vi.waitFor(() => expect(store.get('yomu:settings-intent:v2')).toBeTruthy());
+            await saveSettings({ ...settings, subtitleOverlayVisible: true, subtitleOverlayVisibleChosen: false }, {
+                explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE,
+            });
+            expect((await loadSettings()).subtitleOverlayVisible).toBe(false);
+
+            // Selecting a track reveals the overlay only for a learner who has
+            // not decided; auto or not, this one has.
+            const internals = controllerInternals<{
+                revealPrimarySubtitleOverlay(): void;
+                revealSecondarySubtitleOverlay(): void;
+            }>(controller);
+            internals.revealPrimarySubtitleOverlay();
+            expect(settings.subtitleOverlayVisible).toBe(false);
+
+            settings.subtitleSecondaryVisible = false;
+            settings.subtitleSecondaryVisibleChosen = true;
+            internals.revealSecondarySubtitleOverlay();
+            expect(settings.subtitleSecondaryVisible).toBe(false);
+        } finally {
+            controller.destroy();
         }
     });
 

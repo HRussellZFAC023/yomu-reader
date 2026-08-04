@@ -143,6 +143,30 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({ theme: DEFAULT_SETTINGS.theme });
     });
 
+    // GitHub #36 residual: shortcuts.hoverLookup. The dialog declares the whole
+    // `shortcuts` object when any hotkey changes, and a declared key is never a
+    // gap, so a legacy store can no longer replay the hotkey the learner cleared.
+    it('does not let a legacy settings key replay a cleared hover-lookup hotkey', async () => {
+        const store = new Map<string, unknown>();
+        store.set('yomu-reader-settings', {
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
+        });
+        store.set(SETTINGS_STORAGE_KEY, {
+            ...DEFAULT_SETTINGS,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: 'Shift' },
+        });
+        installSharedMessageBasedGm(store);
+
+        const settings = await loadSettings();
+        await saveSettings({
+            ...settings,
+            shortcuts: { ...settings.shortcuts, hoverLookup: '' },
+        }, { explicitUserChoiceKeys: ['shortcuts'] });
+
+        expect((await loadSettings()).shortcuts.hoverLookup).toBe('');
+        expect((await loadSettings()).shortcuts.hoverLookup).toBe('');
+    });
+
     it('still fills a field the current store has never stored at all', async () => {
         const store = new Map<string, unknown>();
         // The recovery has a real job: a genuinely absent key must still be adopted,

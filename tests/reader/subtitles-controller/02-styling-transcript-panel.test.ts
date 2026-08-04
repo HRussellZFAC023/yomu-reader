@@ -216,8 +216,25 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
 
             expect(mode.value).toBe('blurred');
             expect(settings.subtitleSecondaryVisible).toBe(true);
-            expect(settings.subtitleSecondaryVisibleChosen).toBe(true);
             expect(settings.subtitleNativeBlurred).toBe(true);
+            // Reset restores the default reveal mode but WITHDRAWS the choice
+            // instead of recording it: pinning `subtitleSecondaryVisible: true`
+            // as an explicit choice is what let Reset re-enable native
+            // subtitles and then revert the next attempt to turn them off.
+            expect(settings.subtitleSecondaryVisibleChosen).toBe(false);
+            expect(onSettingsChange).toHaveBeenLastCalledWith([], [
+                'subtitleSecondaryVisible',
+                'subtitleSecondaryVisibleChosen',
+                'subtitleNativeBlurred',
+                'subtitleNativeBlurStrength',
+                'subtitleFontSize',
+                'subtitleFontWeight',
+                'subtitleBottomOffset',
+                'subtitleBackgroundOpacity',
+                'subtitleFontFamily',
+                'subtitleMiningPause',
+                'subtitleHoverPause',
+            ]);
 
             expect(strength.hidden).toBe(false);
             expect(root.querySelector('.jpdb-subtitle-secondary-blurred')).not.toBeNull();
