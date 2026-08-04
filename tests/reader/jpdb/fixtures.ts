@@ -63,7 +63,7 @@ import { NewTabController } from '../../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../../src/reader/audio/actions';
-import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../../src/reader/lookup/parser';
+import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, jpdbFirstParseOptions, pickAuthoritativeTokenAt } from '../../../src/reader/lookup/parser';
 import { parseRtkSearchIndex } from '../../../src/reader/kanji/rtk';
 import { DEFAULT_AUDIO_SOURCES, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor, saveSettings } from '../../../src/reader/settings/index';
 import { testEnSettings } from '../helpers/settings-fixture';
@@ -2256,7 +2256,21 @@ export function configurePointerParseTest(app: ReaderApp, options: {
         showPitchAccent: true,
         ...options.settings,
     };
-    internals.parser = { parse: options.parse, isJpdbBackedCard: testIsJpdbBackedCard };
+    internals.parser = {
+        parse: options.parse,
+        // Mirrors ReaderParser.lookupTokenAt so pointer tests keep asserting
+        // the parse call while the app goes through the public seam.
+        lookupTokenAt: async (
+            text: string,
+            offset: number,
+            range: { start: number; end: number } = { start: 0, end: text.length },
+            parseOptions: Record<string, unknown> = {},
+        ) => {
+            const [tokens] = await options.parse([text], { ...parseOptions, allowSegmentedFallback: true });
+            return pickAuthoritativeTokenAt(tokens ?? [], text, offset, range);
+        },
+        isJpdbBackedCard: testIsJpdbBackedCard,
+    };
     internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
     internals.showPointerTextCard = showPointerTextCard;
     return { internals, showLocalPointerTextCandidate, showPointerTextCard };
