@@ -1601,7 +1601,13 @@ describe('hover lookup', () => {
         }
     });
 
-    it('dismisses a modal popover on outside pointerdown while preserving page selection', () => {
+    // The selection used to be preserved here on purpose (matching the backdrop's
+    // mousedown preventDefault). On touch that leaves the sentence highlighted with
+    // native selection handles and a system callout after the popup is gone, which
+    // reads as a half-failed dismissal — reported as "the popup remains and the text
+    // stays selected". preventDefault stays (it stops the press starting a fresh
+    // native selection on whatever it landed on); the highlight now goes with the popup.
+    it('dismisses a modal popover on outside pointerdown and clears the page selection', () => {
         const app = new ReaderApp();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
@@ -1625,7 +1631,7 @@ describe('hover lookup', () => {
             internals.dismissModalPopoverForOutsidePointer(event);
 
             expect(event.defaultPrevented).toBe(true);
-            expect(window.getSelection()?.toString()).toBe('ママがサンタにキッスした');
+            expect(window.getSelection()?.toString()).toBe('');
             expect(popover.isConnected).toBe(false);
             expect(internals.activePopover).toBeUndefined();
             expect(internals.activePopoverMode).toBeUndefined();
@@ -1689,17 +1695,24 @@ describe('hover lookup', () => {
         // INTERACTIVE panels hold the popover open while you use them. The OCR
         // overlay used to be the fixture here, which quietly made a manga page's
         // inert paint behave like a control — see the case below.
+        //
+        // The press must land on an actual CONTROL for that claim to mean anything.
+        // It used to land on the panel's bare text, so the test passed on the mere
+        // presence of a Yomu surface — the same confusion that made the popup
+        // untappable-away over every content overlay.
         const overlay = document.createElement('div');
         overlay.className = 'jpdb-subtitle-list';
         overlay.dataset.jpdbReaderRoot = 'true';
-        overlay.textContent = 'overlay';
+        const control = document.createElement('button');
+        control.textContent = 'overlay';
+        overlay.append(control);
         document.body.append(popover, overlay);
         const internals = app as unknown as HoverLookupInternals;
         internals.activePopover = popover;
         internals.activePopoverMode = 'modal';
 
         try {
-            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(overlay, 'mouse', 'pointerdown'));
+            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(control, 'mouse', 'pointerdown'));
 
             expect(popover.isConnected).toBe(true);
             expect(internals.activePopover).toBe(popover);
@@ -3389,6 +3402,18 @@ describe('hover lookup', () => {
             restorePoint = stubElementFromPoint(outside);
             restoreStack = stubElementsFromPoint([outside]);
             internals.lastPointerPosition = { x: 700, y: 500 };
+            // The negative control has to reproduce a real exit, not just move the
+            // stored point: the browser fires pointerleave on the popover when the
+            // cursor crosses out of it, and that event — not a geometry re-sample —
+            // is what releases the pointer latch.
+            popover.dispatchEvent(hoverPointerEvent(
+                popover,
+                'mouse',
+                'pointerleave',
+                {},
+                outside,
+                { x: 700, y: 500 },
+            ));
             vi.advanceTimersByTime(100);
             expect(internals.activePopover).toBeUndefined();
         } finally {

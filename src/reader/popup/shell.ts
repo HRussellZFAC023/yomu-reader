@@ -81,6 +81,50 @@ export function restorePopoverScrollFrameSoon(frame: PopoverScrollFrame): void {
     requestAnimationFrame(() => restorePopoverScrollFrame(frame));
 }
 
+export interface PopoverScrollOffset {
+    popover: HTMLElement;
+    scrollTop: number;
+}
+
+/**
+ * The read position across a re-render that REPLACES the scroll body.
+ *
+ * `capturePopoverScrollFrame` pins the body NODE, which is what you want when a
+ * re-render only swaps the body's children. A card popover is rebuilt with
+ * `setInnerHtml(popover, ...)` instead, so the pinned `.jpdb-reader-popover-body`
+ * is detached by the time the restore runs: the guard sees `isConnected === false`,
+ * gives up, and the fresh body keeps its default scrollTop of 0. That is the whole
+ * mechanism behind "the popup sent me back to the top" — a card hydrates from six
+ * independent late promises (Anki, local dictionary, Jiten, pitch, frequency,
+ * Bunpro) that settle seconds apart, and each one rebuilt the popover under a
+ * learner who had scrolled down to the examples.
+ *
+ * So capture the OFFSET against the popover and re-resolve the body by selector
+ * after the swap. Capture BEFORE the swap: capturing after reads the new body's
+ * zero and restores it faithfully.
+ */
+export function capturePopoverScrollOffset(popover: HTMLElement): PopoverScrollOffset {
+    return { popover, scrollTop: popoverScrollBody(popover).scrollTop };
+}
+
+function restorePopoverScrollOffset(offset: PopoverScrollOffset): void {
+    if (!offset.scrollTop || !offset.popover.isConnected) return;
+    const scrollBody = popoverScrollBody(offset.popover);
+    if (scrollBody.scrollTop !== offset.scrollTop) scrollBody.scrollTop = offset.scrollTop;
+}
+
+/**
+ * Restore twice: once now, once on the next frame. The immediate pass keeps the
+ * offset through the synchronous reposition that follows every card render, and
+ * the frame pass catches the case where the rebuilt body is still shorter than the
+ * old one at swap time (lazy sections, deferred immersion mounts) and clamped the
+ * assignment down.
+ */
+export function restorePopoverScrollOffsetSoon(offset: PopoverScrollOffset): void {
+    restorePopoverScrollOffset(offset);
+    requestAnimationFrame(() => restorePopoverScrollOffset(offset));
+}
+
 export function popoverBodyActionElement(target: HTMLElement, scrollBody: HTMLElement): HTMLElement | null {
     const action = target.closest<HTMLElement>(POPOVER_BODY_ACTION_SELECTOR);
     return action && scrollBody.contains(action) ? action : null;

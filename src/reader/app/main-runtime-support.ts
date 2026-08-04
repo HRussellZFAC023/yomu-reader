@@ -281,42 +281,74 @@ export function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => 
 }
 
 /**
- * What counts as a control inside the OCR overlay, and therefore keeps an open
- * popover alive. Everything else in that overlay is inert paint over a manga page
- * and must dismiss like any other outside tap — see isPointerOnInertOcrOverlay.
+ * What counts as a control inside a Yomu content overlay, and therefore keeps an
+ * open popover alive. Everything else on those surfaces is inert paint over
+ * somebody else's content and must dismiss like any other outside tap — see
+ * isPointerOnInertReaderSurface.
+ *
  * Deliberately does NOT list .jpdb-ocr-line: a line box is where the words are
- * drawn, and a press that actually hit a word never reaches the dismissal chain.
+ * drawn, and a press that actually hit an OCR word never reaches the dismissal
+ * chain. `.jpdb-reader-word` IS listed, because a press on a SUBTITLE or page-addon
+ * word does reach it, and that press is a lookup gesture whose own handler opens
+ * the next entry — dismissing it here would race that handler.
  */
-const OCR_OVERLAY_INTERACTIVE_SELECTOR = [
+const READER_SURFACE_INTERACTIVE_SELECTOR = [
     'button',
     'a[href]',
     'input',
     'select',
     'textarea',
+    'summary',
     '[role="button"]',
+    '[role="checkbox"]',
+    '[role="switch"]',
+    '[role="tab"]',
+    '[role="menuitem"]',
+    '[role="slider"]',
+    '[contenteditable=""]',
+    '[contenteditable="true"]',
+    '[contenteditable="plaintext-only"]',
+    '[data-action]',
+    '[data-immersion-action]',
+    '[data-yomu-immersion-action]',
+    '[data-uchisen-action]',
+    '.jpdb-reader-word',
     '.jpdb-reader-popover',
 ].join(',');
 
 /**
- * The OCR overlay is a Yomu surface, but almost none of it is a control.
+ * Yomu surfaces that paint OVER content the learner is trying to read, as opposed
+ * to Yomu's own chrome.
  *
- * Its line boxes tile a manga page's speech bubbles and are pointer-events:auto,
- * so a tap on the empty part of a bubble is "outside the popup" to the reader
- * and "my own surface, keep it open" to the allowlist — and on a phone there is
- * no backdrop (shouldUseSheet), so that allowlist is the ONLY way to dismiss.
- * Reported by blurvy on MangaFire: the popup could not be closed by tapping away
- * from it.
+ * The OCR overlay is the case that was reported (blurvy, MangaFire): its line boxes
+ * tile a manga page's speech bubbles and are pointer-events:auto, so a tap on the
+ * empty part of a bubble is "outside the popup" to the reader and "my own surface,
+ * keep it open" to the allowlist — and on a phone there is no backdrop
+ * (shouldUseSheet), so that allowlist is the ONLY dismissal route. It got a bespoke
+ * carve-out; the subtitle overlay, the transcript list, the injected page add-ons
+ * and toasts have exactly the same shape and never did, so the popup is still
+ * untappable-away over any of them.
  *
- * Presses that mean something never arrive here — handleOcrReaderWordPointerDown
- * returns before the dismissal chain runs and opens the new lookup itself — so a
- * press reaching this point over the overlay resolved nothing. The only thing
- * left worth protecting is a real control Yomu painted inside the overlay.
+ * Yomu's own panels — popover, settings dialog, onboarding, floating button, radial
+ * menu, mining drawer — are absent on purpose. A press on a panel's own padding is
+ * a press on the panel, and it should keep it open.
  */
-function isPointerOnInertOcrOverlay(element: Element | null | undefined): boolean {
-    const overlay = element?.closest('.jpdb-ocr-layer');
-    if (!overlay) return false;
-    const control = element?.closest(OCR_OVERLAY_INTERACTIVE_SELECTOR);
-    return !(control && overlay.contains(control));
+const CONTENT_OVERLAY_READER_SURFACE_SELECTOR = [
+    '.jpdb-ocr-layer',
+    SUBTITLE_SURFACE_SELECTOR,
+    '.yomu-jpdb-page-addon',
+    '.jpdb-reader-toast',
+].join(', ');
+
+/**
+ * A press landed on a Yomu content overlay but resolved to nothing operable, so it
+ * carried no meaning other than "not the popup" — dismiss.
+ */
+export function isPointerOnInertReaderSurface(element: Element | null | undefined): boolean {
+    const surface = element?.closest(CONTENT_OVERLAY_READER_SURFACE_SELECTOR);
+    if (!surface) return false;
+    const control = element?.closest(READER_SURFACE_INTERACTIVE_SELECTOR);
+    return !(control && surface.contains(control));
 }
 
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
@@ -342,7 +374,7 @@ const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
  * needs reader state (a lookup stacked over the settings dialog).
  */
 export function keepsModalPopoverForOwnedSurface(element: Element | null | undefined): boolean {
-    if (isPointerOnInertOcrOverlay(element)) return false;
+    if (isPointerOnInertReaderSurface(element)) return false;
     return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR)
         || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
 }

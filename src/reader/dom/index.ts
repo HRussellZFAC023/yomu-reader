@@ -408,6 +408,31 @@ export function getSelectionText(): string {
     return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
 }
 
+/**
+ * Drop whatever selection `getSelectionText` would have read.
+ *
+ * A lookup opened from selected text leaves that text highlighted, which is right
+ * while the popup is up (it is the popup's subject) and wrong the moment the popup
+ * is dismissed: on touch the highlight comes with native selection handles and a
+ * system callout, so "tapped away, popup gone, sentence still blue with grab
+ * handles on it" reads as the dismissal having half-failed. Clearing covers both
+ * places a selection can live — the document, and a focused input/textarea, which
+ * keeps its own selection that removeAllRanges does not touch.
+ */
+export function clearActiveSelection(): void {
+    const control = activeSelectableControl();
+    const range = control ? controlSelectionRange(control) : null;
+    if (control && range) {
+        try {
+            control.setSelectionRange(range.start, range.start);
+        } catch {
+            // Some hosts revoke setSelectionRange on their inputs.
+        }
+    }
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) selection.removeAllRanges();
+}
+
 export function getSelectionSentence(): string {
     const selected = getSelectionText();
     const fullText = activeControlSelectionHostText() || selectionHostText(window.getSelection());

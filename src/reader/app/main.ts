@@ -44,6 +44,7 @@ import {
 import {
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     appendToDocumentHead,
+    clearActiveSelection,
     clearProjectedReadingsWithin,
     documentHasJapaneseText,
     documentJapaneseTextProbe,
@@ -285,7 +286,7 @@ import {
     type ActivePointerTextLookup,
     type PointerTextLookup,
 } from '../lookup/pointer-text-lookup';
-import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, shouldUseSheet } from '../popup/shell';
+import { capturePopoverScrollOffset, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, restorePopoverScrollOffsetSoon, shouldUseSheet } from '../popup/shell';
 import { addViewportChangeListeners } from '../popup/handle-drag';
 import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS, isActiveHoverPopoverPointerContext, isHoverPopoverTransitActive, type HoverPopoverPointerState } from '../popup/hover-transit';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
@@ -829,6 +830,10 @@ export class ReaderApp {
     private readonly nativeTitleGuard = new NativeTitleGuard();
     private lastPointerPosition?: { x: number; y: number };
     private hoverPopoverPointerPosition?: { x: number; y: number };
+    // Set by the popover's own `pointerenter`, cleared only by a real exit event.
+    // See hasLatchedHoverPopoverPointer for why the watchdog must not re-derive
+    // this from geometry once the learner's cursor is genuinely inside the panel.
+    private hoverPopoverPointerLatched = false;
     private hoverPointerMoveFrame?: number;
     private pendingHoverPointerMove?: PointerEvent;
     private popoverRepositionFrame?: number;
@@ -1776,8 +1781,23 @@ export class ReaderApp {
         this.bunproWordStates?.clear();
     }
 
+    /**
+     * A dictionary rescan is a DESTRUCTIVE pass: reparseVisiblePage tears down the
+     * page enhancements and re-runs the visible-page scan, which unwraps and
+     * re-wraps every `.jpdb-reader-word`. Any word it replaces is a word some open
+     * popover is anchored to — so the lookup the learner is reading gets its anchor
+     * pulled out from under it and the hover watchdog closes the panel a beat later.
+     *
+     * Nothing that reaches here is the learner asking for it right now: a settings
+     * write from another tab, an offline-dictionary install finishing, an
+     * auto-discovery pass. They land seconds after the fact, which is why this read
+     * as "the popup closed on its own after about twenty seconds". Defer until no
+     * popover is open — dismiss() flushes the pending pass — instead of narrowing
+     * the guard to the settings dialog, which was only ever the one surface someone
+     * happened to notice this on.
+     */
     private scheduleDictionaryRescan(): void {
-        if (this.activePopover?.classList.contains('jpdb-reader-settings')) {
+        if (this.activePopover) {
             this.dictionaryRescanPending = true;
             return;
         }
@@ -3251,6 +3271,7 @@ export class ReaderApp {
 
         document.addEventListener('pointerdown', event => {
             this.primeLookupAudioFromFirstGesture();
+            this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             if (this.isMiningDrawerHandlePointerEvent(event)) return;
             if (this.isLookupInteractionIgnoredTarget(event.target)) {
                 this.cancelPendingHoverLookup();
@@ -3295,10 +3316,16 @@ export class ReaderApp {
         }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointerover', event => {
+            this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             this.handleHoverPointer(event);
         }, { capture: true, signal: abortSignal });
 
         document.addEventListener('pointermove', event => {
+            // Ahead of every hover gate on purpose: the latch must be released by
+            // any pointer event the browser routes outside the popover, even one
+            // that hover handling itself ignores (drag, wrong pointer type, no
+            // hover shortcut held).
+            this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target as Node | null);
             this.queueHoverPointerMove(event);
         }, { capture: true, signal: abortSignal });
 
@@ -4951,7 +4978,14 @@ export class ReaderApp {
         if (this.isDestroyed || this.activePopoverMode !== 'modal' || !this.activePopover) return;
         if (this.isInsideActivePopover(event.target as Node | null)) return;
         if (this.shouldKeepModalPopoverForOutsidePointer(event.target as Node | null)) return;
-        if (getSelectionText()) event.preventDefault();
+        // preventDefault keeps the press from starting a fresh native selection or
+        // caret drag on whatever it landed on; the explicit clear then retires the
+        // selection the popup was showing. Without the clear the highlight (and, on
+        // touch, its selection handles and system callout) outlives the popup.
+        if (getSelectionText()) {
+            event.preventDefault();
+            clearActiveSelection();
+        }
         this.dismiss({ suppressHoverTarget: true });
     }
 
@@ -5292,7 +5326,8 @@ export class ReaderApp {
         // Firefox can transiently clear CSS :hover while a scroll changes the
         // descendant under a stationary cursor. Exact hit-testing remains
         // trustworthy both for the frame itself and for its narrow travel path.
-        return this.isHoverPopoverResizeStickyActive()
+        return this.hasLatchedHoverPopoverPointer()
+            || this.isHoverPopoverResizeStickyActive()
             || this.isMiddlePressHoverContextActive()
             || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
     }
@@ -6662,6 +6697,7 @@ export class ReaderApp {
             if (!canRenderLoading()) return;
             renderedPitchKey = card.pitchAccent.join('|');
             const preservedImmersion = this.preserveImmersionMountForRerender(popover);
+            const scrollOffset = capturePopoverScrollOffset(popover);
             clearNestedParseState(popover);
             setInnerHtml(popover, this.cardPopoverRenderer.render(
                 card,
@@ -6678,6 +6714,7 @@ export class ReaderApp {
                 ),
             ));
             this.restorePreservedImmersionMount(popover, preservedImmersion);
+            restorePopoverScrollOffsetSoon(scrollOffset);
             refreshForcedReaderPopoverSurface(popover, this.settings);
             this.updateCardPopoverPosition(trigger);
             this.installDeferredCardPostRenderBehaviors(popover, card, sentence, trigger);
@@ -6808,10 +6845,17 @@ export class ReaderApp {
         });
         this.applyPitchAccentToRenderedWords(card, undefined, renderedRoots);
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
+        // Six late-hydration promises re-enter here seconds apart on the SAME
+        // popover element (Anki detail, local dictionary, Jiten vocabulary, pitch,
+        // provider frequency, Bunpro definition). Every navigation gets a freshly
+        // created popover, so a non-zero offset here can only be a scroll the
+        // learner performed on the entry they are still reading.
+        const scrollOffset = capturePopoverScrollOffset(popover);
         clearNestedParseState(popover);
         setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
         this.wanikaniSources.installDefinitionMounts(popover, card);
         this.restorePreservedImmersionMount(popover, preservedImmersion);
+        restorePopoverScrollOffsetSoon(scrollOffset);
         refreshForcedReaderPopoverSurface(popover, this.settings);
 
         this.updateCardPopoverPosition(trigger);
@@ -10063,10 +10107,16 @@ export class ReaderApp {
     private installHoverPopoverLifecycle(popover: HTMLElement): void {
         popover.addEventListener('pointerenter', event => {
             this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+            this.latchHoverPopoverPointer(popover);
             this.cancelHoverClose();
         });
         popover.addEventListener('pointerleave', event => {
             this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+            // A pointerleave whose relatedTarget is still inside the popover is the
+            // panel's own subtree churning under the cursor (a re-render swapping the
+            // node the pointer was over), not an exit — the latch must survive it.
+            if (this.isInsideActivePopover(event.relatedTarget as Node | null)) return;
+            this.hoverPopoverPointerLatched = false;
             if (this.activeHoverWord && this.isInsideNode(event.relatedTarget as Node | null, this.activeHoverWord)) return;
             this.scheduleHoverClose(undefined, { ignoreCssHover: true });
         });
@@ -10076,6 +10126,54 @@ export class ReaderApp {
             if (this.activePopoverMode !== 'hover') return;
             if (event.target instanceof HTMLDetailsElement) this.markHoverPopoverSelfResize();
         }, true);
+    }
+
+    /**
+     * The learner's cursor has entered the hover panel. Two things become true and
+     * must STAY true until a real exit event says otherwise.
+     *
+     * 1. The pointer is inside. The hover watchdog re-asks that question every
+     *    max(90, hoverCloseDelayMs) ms by hit-testing the last known pointer point,
+     *    which is a *sample* of a moving DOM: a re-render between two samples can
+     *    put a different element under a parked cursor, and Firefox transiently
+     *    clears CSS :hover while a scroll changes the descendant beneath it. Over a
+     *    20-second read that is ~220 chances to guess wrong once — which is exactly
+     *    the reported "the hover closed while I was scrolling inside it". A latch set
+     *    by `pointerenter` and cleared by `pointerleave` uses the browser's own
+     *    hit-test at event time instead of re-deriving it from stale geometry.
+     * 2. The panel must stop moving. A hover popover placed above the cursor is
+     *    bottom-pinned, so every hydration re-render moves its TOP edge by the full
+     *    height delta and can slide the frame out from under a stationary cursor.
+     *    Locking the position pins the top and lets growth extend downward instead,
+     *    capped by popoverMaxHeightAtTop so it cannot run off the viewport.
+     *
+     * Locking is deliberately deferred to first hover rather than done at mount:
+     * before the cursor arrives, following the anchor and flipping sides is the
+     * correct behaviour and is what keeps the panel reachable.
+     */
+    private latchHoverPopoverPointer(popover: HTMLElement): void {
+        if (this.activePopoverMode !== 'hover' || this.activePopover !== popover) return;
+        this.hoverPopoverPointerLatched = true;
+        if (this.activePopoverPositionLocked || popover.classList.contains('jpdb-reader-sheet')) return;
+        this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
+        this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? this.popoverOverlayRect(popover));
+    }
+
+    private hasLatchedHoverPopoverPointer(): boolean {
+        return this.hoverPopoverPointerLatched
+            && this.activePopoverMode === 'hover'
+            && Boolean(this.activePopover?.isConnected);
+    }
+
+    // A pointer event anywhere outside the popover is the browser telling us, from
+    // its own live hit-test, that the cursor left without the popover seeing a
+    // pointerleave (a re-render can detach the node the pointer was over before the
+    // exit event is dispatched). That is an event, not a geometry re-derivation, so
+    // it stays trustworthy — and it is what keeps the latch from wedging a hover
+    // popover open forever.
+    private clearLatchedHoverPopoverPointerForOutsideEvent(target: Node | null): void {
+        if (!this.hoverPopoverPointerLatched || this.isInsideActivePopover(target)) return;
+        this.hoverPopoverPointerLatched = false;
     }
 
     private startHoverWatch(): void {
@@ -10118,8 +10216,14 @@ export class ReaderApp {
             // shortcut reach here without going through the controller's own close,
             // and a stranded `inert` page swallows clicks until the user reloads.
             this.settingsDialog?.releaseModalBackground();
-            this.schedulePendingDictionaryRescan();
         }
+        // A rescan deferred by scheduleDictionaryRescan runs now that no popover is
+        // anchored to the words it will replace. `preserveNavigation` marks a
+        // RE-MOUNT (mountPopover dismisses the previous panel before appending the
+        // next one, and nested navigation drills through this path), where the next
+        // popover is about to claim an anchor — flushing there would reparse the page
+        // out from under it and reintroduce the very bug in a new disguise.
+        if (!options.preserveNavigation) this.schedulePendingDictionaryRescan();
     }
 
     private shouldDismissStackedLookupOnly(): boolean {
@@ -10176,6 +10280,7 @@ export class ReaderApp {
         this.hoverCloseTimer = undefined;
         this.hoverWatchTimer = undefined;
         this.clearHoverPopoverResizeSticky();
+        this.hoverPopoverPointerLatched = false;
         this.hoverPopoverPointerPosition = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
