@@ -519,7 +519,7 @@ describe('reader helpers', () => {
         expect(entries.map(entry => `${entry.expression}/${entry.reading}`)).toEqual(['戊/ぼ', '簿/ぼ']);
     });
 
-    it('sorts local frequency metadata with JPDB dictionaries first', async () => {
+    it('sorts local frequency metadata by the declared shelf order', async () => {
         const store = new YomitanDictionaryStore();
         await store.clear();
         const file = new File([JSON.stringify({
@@ -544,7 +544,12 @@ describe('reader helpers', () => {
             { name: 'JPDBv2㋕', alias: 'JPDBv2㋕', enabled: true, priority: 5 },
             { name: 'Pitch', alias: 'Pitch', enabled: true, priority: 1 },
         ]);
-        expect(entries.map(entry => entry.dictionary)).toEqual(['JPDBv2㋕', 'BCCWJ', 'Pitch']);
+        // A shelf order the learner arranged outranks Yomu's own preference
+        // for a JPDB frequency list (issue #43): BCCWJ at priority 0 beats
+        // JPDBv2 at priority 5. The JPDB default only breaks ties between
+        // dictionaries the learner never ordered, and frequency rows still
+        // sort ahead of pitch rows.
+        expect(entries.map(entry => entry.dictionary)).toEqual(['BCCWJ', 'JPDBv2㋕', 'Pitch']);
     });
 
     it('loads new-tab dictionary words from top frequency data or common JMdict-style tags', async () => {
