@@ -60888,7 +60888,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.79".trim() ? "1.8.79".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.80".trim() ? "1.8.80".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

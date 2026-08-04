@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.79
+// @version 1.8.80
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.865133719976.user.js#sha256=hlEzcZl24tlKejK0iZh+qJ1alLAgA3kjUiO8QGFwNyw=
+// @require https://yomureader.com/greasyfork/yomu-runtime.c1d9ce1c3757.user.js#sha256=wdnOHDdXVxZbaWRalFCwRe76icQSeh4wYDdr059pXng=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -10080,6 +10080,10 @@ const textMirrorHosts = new WeakMap();
 const canvasFallbackTextLayers = new WeakMap();
 function getSelectionText() {
 return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
+}
+function clearDocumentSelection() {
+const selection = window.getSelection();
+if (selection && selection.rangeCount > 0 && !selection.isCollapsed) selection.removeAllRanges();
 }
 function documentSelectionText() {
 return normalizedSelectedText(window.getSelection()?.toString() ?? "");
@@ -30662,6 +30666,18 @@ function restorePopoverScrollFrameSoon(frame) {
 restorePopoverScrollFrame(frame);
 requestAnimationFrame(() => restorePopoverScrollFrame(frame));
 }
+function capturePopoverScrollOffset(popover) {
+return { popover, scrollTop: popoverScrollBody$1(popover).scrollTop };
+}
+function restorePopoverScrollOffset(offset) {
+if (!offset.scrollTop || !offset.popover.isConnected) return;
+const scrollBody = popoverScrollBody$1(offset.popover);
+if (scrollBody.scrollTop !== offset.scrollTop) scrollBody.scrollTop = offset.scrollTop;
+}
+function restorePopoverScrollOffsetSoon(offset) {
+restorePopoverScrollOffset(offset);
+requestAnimationFrame(() => restorePopoverScrollOffset(offset));
+}
 function popoverBodyActionElement(target, scrollBody) {
 const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
 return action && scrollBody.contains(action) ? action : null;
@@ -34513,8 +34529,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.79"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.79"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.80"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.80"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34657,7 +34673,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.79"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.80"}`;
 } catch {
 return null;
 }
@@ -37019,20 +37035,40 @@ function noopKanjiPracticeDoodle() {
 const noop2 = () => void 0;
 return { reassess: noop2, clear: noop2 };
 }
-const OCR_OVERLAY_INTERACTIVE_SELECTOR = [
+const READER_SURFACE_INTERACTIVE_SELECTOR = [
 "button",
 "a[href]",
 "input",
 "select",
 "textarea",
+"summary",
 '[role="button"]',
+'[role="checkbox"]',
+'[role="switch"]',
+'[role="tab"]',
+'[role="menuitem"]',
+'[role="slider"]',
+'[contenteditable=""]',
+'[contenteditable="true"]',
+'[contenteditable="plaintext-only"]',
+"[data-action]",
+"[data-immersion-action]",
+"[data-yomu-immersion-action]",
+"[data-uchisen-action]",
+".jpdb-reader-word",
 ".jpdb-reader-popover"
 ].join(",");
-function isPointerOnInertOcrOverlay(element) {
-const overlay = element?.closest(".jpdb-ocr-layer");
-if (!overlay) return false;
-const control = element?.closest(OCR_OVERLAY_INTERACTIVE_SELECTOR);
-return !(control && overlay.contains(control));
+const CONTENT_OVERLAY_READER_SURFACE_SELECTOR = [
+".jpdb-ocr-layer",
+SUBTITLE_SURFACE_SELECTOR,
+".yomu-jpdb-page-addon",
+".jpdb-reader-toast"
+].join(", ");
+function isPointerOnInertReaderSurface(element) {
+const surface = element?.closest(CONTENT_OVERLAY_READER_SURFACE_SELECTOR);
+if (!surface) return false;
+const control = element?.closest(READER_SURFACE_INTERACTIVE_SELECTOR);
+return !(control && surface.contains(control));
 }
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
 "[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)",
@@ -37050,7 +37086,7 @@ const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
 'input[name="r"]'
 ].join(",");
 function keepsModalPopoverForOwnedSurface(element) {
-if (isPointerOnInertOcrOverlay(element)) return false;
+if (isPointerOnInertReaderSurface(element)) return false;
 return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
 }
 function fullscreenPopoverMountParent(anchor) {
@@ -37405,6 +37441,7 @@ activePopoverResizeObserver;
 nativeTitleGuard = new NativeTitleGuard();
 lastPointerPosition;
 hoverPopoverPointerPosition;
+hoverPopoverPointerLatched = false;
 hoverPointerMoveFrame;
 pendingHoverPointerMove;
 popoverRepositionFrame;
@@ -38194,8 +38231,23 @@ this.jitenPublicVocabulary.clear();
 this.cardRenderData.clear();
 this.bunproWordStates?.clear();
 }
+/**
+* A dictionary rescan is a DESTRUCTIVE pass: reparseVisiblePage tears down the
+* page enhancements and re-runs the visible-page scan, which unwraps and
+* re-wraps every `.jpdb-reader-word`. Any word it replaces is a word some open
+* popover is anchored to — so the lookup the learner is reading gets its anchor
+* pulled out from under it and the hover watchdog closes the panel a beat later.
+*
+* Nothing that reaches here is the learner asking for it right now: a settings
+* write from another tab, an offline-dictionary install finishing, an
+* auto-discovery pass. They land seconds after the fact, which is why this read
+* as "the popup closed on its own after about twenty seconds". Defer until no
+* popover is open — dismiss() flushes the pending pass — instead of narrowing
+* the guard to the settings dialog, which was only ever the one surface someone
+* happened to notice this on.
+*/
 scheduleDictionaryRescan() {
-if (this.activePopover?.classList.contains("jpdb-reader-settings")) {
+if (this.activePopover) {
 this.dictionaryRescanPending = true;
 return;
 }
@@ -39266,6 +39318,7 @@ event.stopPropagation();
 }, { capture: true, signal: abortSignal });
 document.addEventListener("pointerdown", (event) => {
 this.primeLookupAudioFromFirstGesture();
+this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target);
 if (this.isMiningDrawerHandlePointerEvent(event)) return;
 if (this.isLookupInteractionIgnoredTarget(event.target)) {
 this.cancelPendingHoverLookup();
@@ -39302,9 +39355,11 @@ event.preventDefault();
 event.stopPropagation();
 }, { capture: true, signal: abortSignal });
 document.addEventListener("pointerover", (event) => {
+this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target);
 this.handleHoverPointer(event);
 }, { capture: true, signal: abortSignal });
 document.addEventListener("pointermove", (event) => {
+this.clearLatchedHoverPopoverPointerForOutsideEvent(event.target);
 this.queueHoverPointerMove(event);
 }, { capture: true, signal: abortSignal });
 document.addEventListener("pointerout", (event) => {
@@ -40560,7 +40615,10 @@ dismissModalPopoverForOutsidePointer(event) {
 if (this.isDestroyed || this.activePopoverMode !== "modal" || !this.activePopover) return;
 if (this.isInsideActivePopover(event.target)) return;
 if (this.shouldKeepModalPopoverForOutsidePointer(event.target)) return;
-if (getSelectionText()) event.preventDefault();
+if (getSelectionText()) {
+event.preventDefault();
+clearDocumentSelection();
+}
 this.dismiss({ suppressHoverTarget: true });
 }
 shouldKeepModalPopoverForOutsidePointer(target) {
@@ -40827,7 +40885,7 @@ const target = this.currentHoverPointerTarget(options);
 return Boolean(target && this.isInsideActiveHoverContext(target));
 }
 hasDirectHoverContext() {
-return this.isHoverPopoverResizeStickyActive() || this.isMiddlePressHoverContextActive() || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
+return this.hasLatchedHoverPopoverPointer() || this.isHoverPopoverResizeStickyActive() || this.isMiddlePressHoverContextActive() || isActiveHoverPopoverPointerContext(this.activeHoverPopoverPointerState());
 }
 activeHoverPopoverPointerState() {
 return {
@@ -41776,6 +41834,7 @@ loadingRenderFrame = void 0;
 if (!canRenderLoading()) return;
 renderedPitchKey = card.pitchAccent.join("|");
 const preservedImmersion = this.preserveImmersionMountForRerender(popover);
+const scrollOffset = capturePopoverScrollOffset(popover);
 clearNestedParseState(popover);
 setInnerHtml(popover, this.cardPopoverRenderer.render(
 card,
@@ -41792,6 +41851,7 @@ frequencyRanksValue
 )
 ));
 this.restorePreservedImmersionMount(popover, preservedImmersion);
+restorePopoverScrollOffsetSoon(scrollOffset);
 refreshForcedReaderPopoverSurface(popover, this.settings);
 this.updateCardPopoverPosition(trigger);
 this.installDeferredCardPostRenderBehaviors(popover, card, sentence, trigger);
@@ -41896,10 +41956,12 @@ roots: renderedRoots
 });
 this.applyPitchAccentToRenderedWords(card, void 0, renderedRoots);
 const preservedImmersion = this.preserveImmersionMountForRerender(popover);
+const scrollOffset = capturePopoverScrollOffset(popover);
 clearNestedParseState(popover);
 setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
 this.wanikaniSources.installDefinitionMounts(popover, card);
 this.restorePreservedImmersionMount(popover, preservedImmersion);
+restorePopoverScrollOffsetSoon(scrollOffset);
 refreshForcedReaderPopoverSurface(popover, this.settings);
 this.updateCardPopoverPosition(trigger);
 this.installCardPostRenderBehaviors(popover, card, sentence, trigger, {
@@ -44420,10 +44482,13 @@ if (scrollBody.scrollTop !== scrollTop) scrollBody.scrollTop = scrollTop;
 installHoverPopoverLifecycle(popover) {
 popover.addEventListener("pointerenter", (event) => {
 this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+this.latchHoverPopoverPointer(popover);
 this.cancelHoverClose();
 });
 popover.addEventListener("pointerleave", (event) => {
 this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+if (this.isInsideActivePopover(event.relatedTarget)) return;
+this.hoverPopoverPointerLatched = false;
 if (this.activeHoverWord && this.isInsideNode(event.relatedTarget, this.activeHoverWord)) return;
 this.scheduleHoverClose(void 0, { ignoreCssHover: true });
 });
@@ -44431,6 +44496,43 @@ popover.addEventListener("toggle", (event) => {
 if (this.activePopoverMode !== "hover") return;
 if (event.target instanceof HTMLDetailsElement) this.markHoverPopoverSelfResize();
 }, true);
+}
+/**
+* The learner's cursor has entered the hover panel. Two things become true and
+* must STAY true until a real exit event says otherwise.
+*
+* 1. The pointer is inside. The hover watchdog re-asks that question every
+*    max(90, hoverCloseDelayMs) ms by hit-testing the last known pointer point,
+*    which is a *sample* of a moving DOM: a re-render between two samples can
+*    put a different element under a parked cursor, and Firefox transiently
+*    clears CSS :hover while a scroll changes the descendant beneath it. Over a
+*    20-second read that is ~220 chances to guess wrong once — which is exactly
+*    the reported "the hover closed while I was scrolling inside it". A latch set
+*    by `pointerenter` and cleared by `pointerleave` uses the browser's own
+*    hit-test at event time instead of re-deriving it from stale geometry.
+* 2. The panel must stop moving. A hover popover placed above the cursor is
+*    bottom-pinned, so every hydration re-render moves its TOP edge by the full
+*    height delta and can slide the frame out from under a stationary cursor.
+*    Locking the position pins the top and lets growth extend downward instead,
+*    capped by popoverMaxHeightAtTop so it cannot run off the viewport.
+*
+* Locking is deliberately deferred to first hover rather than done at mount:
+* before the cursor arrives, following the anchor and flipping sides is the
+* correct behaviour and is what keeps the panel reachable.
+*/
+latchHoverPopoverPointer(popover) {
+if (this.activePopoverMode !== "hover" || this.activePopover !== popover) return;
+this.hoverPopoverPointerLatched = true;
+if (this.activePopoverPositionLocked || popover.classList.contains("jpdb-reader-sheet")) return;
+this.lockActivePopoverPosition(this.popoverOverlayRect(popover));
+this.placeActivePopoverWithoutMoving(popover, this.activePopoverLockedPosition ?? this.popoverOverlayRect(popover));
+}
+hasLatchedHoverPopoverPointer() {
+return this.hoverPopoverPointerLatched && this.activePopoverMode === "hover" && Boolean(this.activePopover?.isConnected);
+}
+clearLatchedHoverPopoverPointerForOutsideEvent(target) {
+if (!this.hoverPopoverPointerLatched || this.isInsideActivePopover(target)) return;
+this.hoverPopoverPointerLatched = false;
 }
 startHoverWatch() {
 window.clearTimeout(this.hoverWatchTimer);
@@ -44467,8 +44569,8 @@ this.navigation.clearKanji();
 }
 if (hadSettingsDialog) {
 this.settingsDialog?.releaseModalBackground();
-this.schedulePendingDictionaryRescan();
 }
+if (!options.preserveNavigation) this.schedulePendingDictionaryRescan();
 }
 shouldDismissStackedLookupOnly() {
 return Boolean(this.stackedSettingsDialog && this.activePopover && this.activePopover !== this.stackedSettingsDialog.form);
@@ -44517,6 +44619,7 @@ this.hoverLookupTimer = void 0;
 this.hoverCloseTimer = void 0;
 this.hoverWatchTimer = void 0;
 this.clearHoverPopoverResizeSticky();
+this.hoverPopoverPointerLatched = false;
 this.hoverPopoverPointerPosition = void 0;
 this.hoverPendingWord = void 0;
 this.hoverPendingLookupKey = "";

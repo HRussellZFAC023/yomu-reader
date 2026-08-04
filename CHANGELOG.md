@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.80] - 2026-08-04
+
+### Fixed
+
+- The popup keeps your scroll position while late results arrive: Anki status, local and Jiten definitions, pitch, frequency, and Bunpro data used to rebuild the popup body and send you back to the top each time one landed.
+- Hover popups no longer close on their own while you read or scroll inside them. The panel locks its position once your pointer enters, growing content extends downward instead of moving the edge under your cursor, and only actually leaving the panel closes it.
+- Dictionary changes no longer tear annotated words out of the page while a popup is open on one of them; the re-annotation waits until the popup closes.
+- On phones, tapping outside the popup closes it even when the tap lands on よむ's own overlays (subtitles, OCR text, page add-ons), and the text selection is cleared instead of staying stuck.
+
 ## [1.8.79] - 2026-08-04
 
 ### Fixed
