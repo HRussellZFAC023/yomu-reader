@@ -109,7 +109,9 @@ function setupPointerKanaRunLookup({
         showPitchAccent: false,
         localDictionariesEnabled: false,
     };
-    internals.parseJapanese = vi.fn(async () => [parsedTokens]);
+    // parseJapanese stays real: the pointer resolves through the app's parse
+    // wrapper, and these tests assert the public kana-word upgrade riding it.
+    void parsedTokens;
     internals.jitenPublicVocabulary = {
         lookupMany: vi.fn(async terms => new Map(terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [])),
     };
@@ -211,7 +213,9 @@ describe('iPad pointer lookup', () => {
             showPitchAccent: false,
             localDictionariesEnabled: false,
         };
-        internals.parseJapanese = vi.fn(async () => [[token('よ', 0, 1), token('む', 1, 2)]]);
+        // The real parser owns fragment repair now: the segmenter's kana-run
+        // merge reconstructs よむ before the pointer ever sees tokens, so the
+        // pointer layer no longer second-guesses parse output.
         internals.showPointerTextCard = vi.fn(async card => {
             shownCards.push(card);
         });

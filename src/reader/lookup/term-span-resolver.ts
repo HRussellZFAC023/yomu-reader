@@ -90,6 +90,11 @@ export interface TermSpanPreconfirmCandidate {
     readonly lookupCandidate: LanguageLookupCandidate;
 }
 
+/** Neighborhood the admit filter may consult when judging a confirmed span. */
+export interface TermSpanAdmitContext {
+    hasConfirmedSpanAt(offset: number): boolean;
+}
+
 export interface TermSpanResolverOptions<TMatch, TFallback = never> {
     readonly target: TermSpanLookupTarget;
     readonly lookup: TermSpanCandidateLookup<TMatch>;
@@ -103,13 +108,27 @@ export interface TermSpanResolverOptions<TMatch, TFallback = never> {
      */
     readonly preconfirm?: (candidate: TermSpanPreconfirmCandidate) => TMatch | null | undefined;
     /**
+     * Planning filter: a span rejected here is never offered to preconfirm or
+     * to the lookup at all. This is where a source-language policy bounds the
+     * query fan-out — e.g. a span crossing a standalone particle can never be
+     * one word, so asking the dictionary about it is pure waste.
+     */
+    readonly plan?: (candidate: TermSpanPreconfirmCandidate) => boolean;
+    /**
      * Final say over a confirmed span before it is accepted. The lookup can
      * only judge a candidate in isolation; this filter sees it with the match
      * attached and may veto shapes the caller distrusts (a source-language
      * policy, not a lookup concern). A vetoed span loses to the next shorter
      * candidate at the same start, exactly as if it had not been confirmed.
+     * The context reports whether some confirmed span begins at an offset, so
+     * a policy can distinguish "this word ends where the next one starts"
+     * from "this word strands the rest of its segment".
      */
-    readonly admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch) => boolean;
+    readonly admit?: (
+        candidate: TermSpanPreconfirmCandidate,
+        match: TMatch,
+        context: TermSpanAdmitContext,
+    ) => boolean;
     /** Maximum original-source UTF-16 length considered from one start. */
     readonly maximumSourceLength?: number;
 }
@@ -139,7 +158,8 @@ export class TermSpanResolver<TMatch, TFallback = never> {
     readonly #lookup: TermSpanCandidateLookup<TMatch>;
     readonly #fallback?: TermSpanFallbackProvider<TFallback>;
     readonly #preconfirm?: (candidate: TermSpanPreconfirmCandidate) => TMatch | null | undefined;
-    readonly #admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch) => boolean;
+    readonly #plan?: (candidate: TermSpanPreconfirmCandidate) => boolean;
+    readonly #admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch, context: TermSpanAdmitContext) => boolean;
     readonly #maximumSourceLength: number;
 
     constructor(options: TermSpanResolverOptions<TMatch, TFallback>) {
@@ -147,6 +167,7 @@ export class TermSpanResolver<TMatch, TFallback = never> {
         this.#lookup = options.lookup;
         this.#fallback = options.fallback;
         this.#preconfirm = options.preconfirm;
+        this.#plan = options.plan;
         this.#admit = options.admit;
         this.#maximumSourceLength = Math.max(1, Math.floor(options.maximumSourceLength ?? 18));
     }
@@ -160,7 +181,13 @@ export class TermSpanResolver<TMatch, TFallback = never> {
         if (!planned.length) return null;
 
         const confirmations = await this.#confirm(planned);
-        return firstConfirmedSpan(range.text, planned, confirmations, this.#admit);
+        return firstConfirmedSpan(
+            range.text,
+            planned,
+            confirmations,
+            this.#admit,
+            singleStartAdmitContext(planned, confirmations),
+        );
     }
 
     /**
@@ -215,6 +242,17 @@ export class TermSpanResolver<TMatch, TFallback = never> {
         const maximumEnd = Math.min(range.end, start + this.#maximumSourceLength);
         for (const end of codePointEndsLongestFirst(range.text, start, maximumEnd)) {
             const surface = range.text.slice(start, end);
+            if (this.#plan && !this.#plan({
+                start,
+                end,
+                surface,
+                // The identity candidate stands in for the span at planning
+                // time; per-deinflection planning would re-ask the same
+                // span-shape question with the same answer.
+                lookupCandidate: { term: surface, rules: [], reasons: [], depth: 0 },
+            })) {
+                continue;
+            }
             const lookupCandidates = [...this.#target.lookupCandidates(surface)]
                 .map((lookupCandidate, order) => ({ lookupCandidate, order }))
                 .sort((a, b) => this.#target.compareLookupCandidates(
@@ -238,6 +276,10 @@ export class TermSpanResolver<TMatch, TFallback = never> {
         confirmations: ReadonlyMap<TermSpanLookupCandidate, TMatch>,
     ): ConfirmedTermSpan<TMatch>[] {
         const confirmed: ConfirmedTermSpan<TMatch>[] = [];
+        const admitContext: TermSpanAdmitContext = {
+            hasConfirmedSpanAt: offset => (plannedByStart.get(offset) ?? [])
+                .some(item => confirmations.has(item.request)),
+        };
         let cursor = range.start;
         while (cursor < range.end) {
             const winner = firstConfirmedSpan(
@@ -245,6 +287,7 @@ export class TermSpanResolver<TMatch, TFallback = never> {
                 plannedByStart.get(cursor) ?? [],
                 confirmations,
                 this.#admit,
+                admitContext,
             );
             if (winner) {
                 confirmed.push(winner);
@@ -273,11 +316,22 @@ export class TermSpanResolver<TMatch, TFallback = never> {
     }
 }
 
+function singleStartAdmitContext<TMatch>(
+    planned: readonly PlannedCandidate[],
+    confirmations: ReadonlyMap<TermSpanLookupCandidate, TMatch>,
+): TermSpanAdmitContext {
+    return {
+        hasConfirmedSpanAt: offset => planned
+            .some(item => item.start === offset && confirmations.has(item.request)),
+    };
+}
+
 function firstConfirmedSpan<TMatch>(
     text: string,
     planned: readonly PlannedCandidate[],
     confirmations: ReadonlyMap<TermSpanLookupCandidate, TMatch>,
-    admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch) => boolean,
+    admit?: (candidate: TermSpanPreconfirmCandidate, match: TMatch, context: TermSpanAdmitContext) => boolean,
+    admitContext: TermSpanAdmitContext = { hasConfirmedSpanAt: () => false },
 ): ConfirmedTermSpan<TMatch> | null {
     for (const item of planned) {
         if (!confirmations.has(item.request)) continue;
@@ -291,7 +345,7 @@ function firstConfirmedSpan<TMatch>(
             end: item.end,
             surface,
             lookupCandidate: item.request.lookupCandidate,
-        }, match)) continue;
+        }, match, admitContext)) continue;
         return {
             kind: 'confirmed',
             start: item.start,

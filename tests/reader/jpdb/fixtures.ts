@@ -1761,7 +1761,9 @@ export function stubLocalPointerTextInternals(
         localDictionariesEnabled: true,
         ...settings,
     };
-    internals.parseJapanese = vi.fn(async () => [[]]);
+    // parseJapanese deliberately stays real: the pointer path now resolves
+    // through the app's parse wrapper, and these tests assert what the
+    // injected store's answers turn into at the pointer.
     internals.publicLookupCard = vi.fn(async () => undefined);
     internals.dictionaries = { lookup };
     internals.showPointerTextCard = showPointerTextCard;
@@ -2105,13 +2107,19 @@ export function createFallbackShowCardBoundaryFixture(
 
 export function appendRenderedReaderWord(
     lookupCard: JPDBCard,
-    options: { className?: string; parent?: HTMLElement; text?: string } = {},
+    options: { className?: string; parent?: HTMLElement; text?: string; tokenStart?: number; tokenEnd?: number } = {},
 ): HTMLSpanElement {
     const word = document.createElement('span');
     word.className = options.className ?? 'jpdb-reader-word jpdb-pitch-unknown';
     word.dataset.vid = String(lookupCard.vid);
     word.dataset.sid = String(lookupCard.sid);
-    word.textContent = options.text ?? lookupCard.spelling;
+    const text = options.text ?? lookupCard.spelling;
+    word.textContent = text;
+    // Production words carry their token span (renderToken stamps it), and
+    // span-keyed repaints filter on it. Default to the span testTokenForCard
+    // derives for the same card so fixtures stay aligned with real markup.
+    word.dataset.tokenStart = String(options.tokenStart ?? 0);
+    word.dataset.tokenEnd = String(options.tokenEnd ?? (options.tokenStart ?? 0) + text.length);
     (options.parent ?? document.body).append(word);
     return word;
 }

@@ -10,6 +10,7 @@ import {
     TermSpanResolver,
     type ConfirmedTermSpan,
     type FallbackTermSpan,
+    type TermSpanAdmitContext,
     type TermSpanCandidateLookup,
     type TermSpanLookupCandidate,
     type TermSpanPreconfirmCandidate,
@@ -193,14 +194,8 @@ export class ReaderParser {
         range: { start: number; end: number } = { start: 0, end: text.length },
         options: ReaderParserParseOptions = {},
     ): Promise<JPDBToken | undefined> {
-        const start = Math.max(0, Math.min(range.start, text.length));
-        const end = Math.max(start, Math.min(range.end, text.length));
-        if (offset < start || offset >= end) return undefined;
         const [tokens] = await this.parse([text], { ...options, allowSegmentedFallback: true });
-        return (tokens ?? []).find(token => token.start >= start
-            && token.end <= end
-            && token.start <= offset
-            && offset < token.end);
+        return pickAuthoritativeTokenAt(tokens ?? [], text, offset, range);
     }
 
     private async withAuthoritativeTermSpans(
@@ -248,6 +243,11 @@ export class ReaderParser {
             lookup,
             fallback,
             preconfirm: decorationAlignedSpanConfirmation(text, decorations, target),
+            // A span containing a standalone case particle can never be one
+            // word — never plan it, so the dictionary is not even asked. The
+            // same tell later vetoes glued confirmations that got in another
+            // way (a provider echoing a whole clause back as one token).
+            plan: candidate => !segmentsContainInternalParticle(text, fallbackSegments, candidate.start, candidate.end),
             admit: rejectUntrustworthySpanShapes(text, fallbackSegments, target),
         });
         const spans = (await Promise.all(target.pointerWordSegments(text).map(run => (
@@ -1312,8 +1312,11 @@ function decorationAlignedSpanConfirmation(
  * Local stem cuts: our own dictionary happily confirms 読み inside 読み取る —
  * the entry exists — but a local match that stops strictly inside its
  * covering segment, with a continuation that is not a grammatical boundary,
- * has cut a compound. Remote tokenizers earn more trust: their span came
- * from analysing this sentence, not from an isolated entry hit.
+ * has cut a compound. When the continuation is itself a confirmed word
+ * (優しい followed by confirmed 言葉 inside one glued segment), the cut is
+ * two adjacent words, not a stranded stem, and both stand. Remote
+ * tokenizers earn more trust throughout: their span came from analysing
+ * this sentence, not from an isolated entry hit.
  *
  * Vetoed spans lose to the next shorter candidate or to segmented fallback.
  */
@@ -1321,16 +1324,14 @@ function rejectUntrustworthySpanShapes(
     text: string,
     segments: readonly { start: number; end: number }[],
     target: LearningTargetModule,
-): (candidate: TermSpanPreconfirmCandidate, match: ParserSpanMatch) => boolean {
-    return (candidate, match) => {
+): (candidate: TermSpanPreconfirmCandidate, match: ParserSpanMatch, context: TermSpanAdmitContext) => boolean {
+    return (candidate, match, context) => {
         const term = target.normalizeText(candidate.lookupCandidate.term);
         const identity = term === target.normalizeText(candidate.surface);
         if (identity
             && match.card.source !== 'local'
             && !match.card.pitchAccent?.length
-            && (segments.some(segment => segment.start > candidate.start
-                && segment.end < candidate.end
-                && KANA_CASE_PARTICLE_CONTINUATIONS.includes(text.slice(segment.start, segment.end)))
+            && (segmentsContainInternalParticle(text, segments, candidate.start, candidate.end)
                 // A kana→kanji transition inside the span is the other glue
                 // tell: inflection endings close a word (優しい|言葉), so no
                 // single lexeme resumes kanji after kana mid-span, while
@@ -1340,6 +1341,7 @@ function rejectUntrustworthySpanShapes(
         }
         if (match.card.source === 'local'
             && endsStrictlyInsideSegment(segments, candidate.end)
+            && !context.hasConfirmedSpanAt(candidate.end)
             && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
             return false;
         }
@@ -1352,6 +1354,18 @@ function endsStrictlyInsideSegment(
     end: number,
 ): boolean {
     return segments.some(segment => segment.start < end && end < segment.end);
+}
+
+function segmentsContainInternalParticle(
+    text: string,
+    segments: readonly { start: number; end: number }[],
+    start: number,
+    end: number,
+): boolean {
+    return segments.some(segment => segment.start >= start
+        && segment.end <= end
+        && !(segment.start === start && segment.end === end)
+        && SPAN_BOUNDARY_PARTICLES.includes(text.slice(segment.start, segment.end)));
 }
 
 const KANA_RUN_CHARACTER_RE = new RegExp(`^[${KANA}${PROLONGED_SOUND_MARK}]$`, 'u');
@@ -1377,6 +1391,56 @@ const KANA_CASE_PARTICLE_CONTINUATIONS = [
     'は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や',
 ];
 const KANA_FINAL_PARTICLE_CONTINUATIONS = ['かしら', 'かな', 'っけ', 'ね', 'な', 'か', 'よ', 'わ', 'ぞ', 'ぜ', 'さ'];
+// The grammar-boundary set for span shapes: the case particles plus な, whose
+// standalone segment marks an adjectival boundary (好き|な|もの). Membership
+// is judged on segments the target's own segmentation isolated, so a word
+// merely containing の or な as characters is never affected.
+const SPAN_BOUNDARY_PARTICLES = [...KANA_CASE_PARTICLE_CONTINUATIONS, 'な'];
+
+let standaloneGrammarParticleSet: Set<string> | undefined;
+
+function standaloneGrammarParticles(): Set<string> {
+    standaloneGrammarParticleSet ??= new Set([
+        ...SPAN_BOUNDARY_PARTICLES,
+        ...KANA_FINAL_PARTICLE_CONTINUATIONS,
+    ]);
+    return standaloneGrammarParticleSet;
+}
+
+/**
+ * The authoritative token under one source offset, from an already-parsed
+ * token list. Kept pure so the app can feed it its own cached parse: the
+ * pointer pipeline and the rendered-word upgrade both pick through here,
+ * which is what keeps hover, click, and tap answers identical.
+ *
+ * Annotation needs a token over every character, so segmented fallback covers
+ * standalone particles too. A pointer asking "what word is this?" over a bare
+ * は or を deserves silence, not an empty card — unless a dictionary actually
+ * confirmed something there.
+ */
+export function pickAuthoritativeTokenAt(
+    tokens: readonly JPDBToken[],
+    text: string,
+    offset: number,
+    range: { start: number; end: number } = { start: 0, end: text.length },
+): JPDBToken | undefined {
+    const start = Math.max(0, Math.min(range.start, text.length));
+    const end = Math.max(start, Math.min(range.end, text.length));
+    if (offset < start || offset >= end) return undefined;
+    const token = tokens.find(item => item.start >= start
+        && item.end <= end
+        && item.start <= offset
+        && offset < item.end);
+    if (!token) return undefined;
+    if (token.card.source !== 'fallback') return token;
+    const surface = text.slice(token.start, token.end);
+    if (standaloneGrammarParticles().has(surface)) return undefined;
+    // A lone kanji the parse could not attach to any word is a character, not
+    // a word: the kanji-card surfaces own that tap, and a reading-less
+    // one-character "word" card would only shadow them.
+    if (surface.length === 1 && KANJI_CHARACTER_RE.test(surface)) return undefined;
+    return token;
+}
 
 function endsInsideKanaRun(text: string, end: number): boolean {
     if (end <= 0 || end >= text.length) return false;

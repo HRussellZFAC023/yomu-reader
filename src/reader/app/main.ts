@@ -298,7 +298,7 @@ import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReader
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, updateRenderedPitch, wait } from './dom-helpers';
-import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
+import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, pickAuthoritativeTokenAt, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
@@ -374,6 +374,7 @@ import { VisiblePageScanner } from './visible-page-scanner';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 import type {
+    YomitanDictionaryStore,
     YomitanKanjiEntry,
     YomitanMetaEntry,
     YomitanTermEntry,
@@ -693,7 +694,20 @@ export class ReaderApp {
             parse: (paragraphs, options) => this.jitenPublicVocabulary.parse(paragraphs, options),
             lookupMany: (terms, options) => this.jitenPublicVocabulary.lookupMany(terms, options),
         },
-        dictionaries: this.dictionaries,
+        // Also late-bound: the store the app holds is replaceable — the inert
+        // placeholder upgrades when the settings-surface companion registers,
+        // and the extension build resolves its backend on first use — so the
+        // parser must read through to whatever the app currently holds. The
+        // proxy also keeps capability probes honest: a method absent on the
+        // current store stays absent here.
+        dictionaries: new Proxy({} as YomitanDictionaryStore, {
+            get: (_target, property) => {
+                const store = this.dictionaries as unknown as Record<PropertyKey, unknown>;
+                const value = store[property];
+                return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(this.dictionaries) : value;
+            },
+            has: (_target, property) => property in (this.dictionaries as object),
+        }),
         yomuLocalSrs: this.yomuLocalSrs,
     });
     private onboarding = this.createOnboardingController();
@@ -5716,11 +5730,18 @@ export class ReaderApp {
     ): Promise<void> {
         const scope = this.cardLookup.captureTarget();
         try {
-            const token = await this.parser.lookupTokenAt(
+            // Through the app-level parse wrapper: the pointer shares its
+            // 30-second parse cache with annotation, so hovering a sentence
+            // the page already parsed answers without another pipeline run.
+            const [tokens] = await this.parseJapanese(
+                [candidate.text],
+                { ...this.pointerTextJpdbParseOptions(), allowSegmentedFallback: true },
+            );
+            const token = pickAuthoritativeTokenAt(
+                tokens ?? [],
                 candidate.text,
                 candidate.offset,
                 { start: candidate.start, end: candidate.end },
-                this.pointerTextJpdbParseOptions(),
             );
             if (!scope.isCurrent() || !token) return;
             await this.showPointerTextCard(token.card, sentence, candidate, token, trigger, options);
@@ -5881,7 +5902,7 @@ export class ReaderApp {
      */
     private async showAuthoritativeSpanForRenderedWord(
         word: HTMLElement,
-        card: JPDBCard,
+        card: JPDBCard | undefined,
         context: RenderedWordDisplayContext,
         options: RenderedWordLookupOptions,
         stackOverSettings: boolean,
@@ -5890,16 +5911,19 @@ export class ReaderApp {
         const span = unconfirmedRenderedWordSpan(word, card, context);
         if (!span) return false;
         try {
-            const token = await this.parser.lookupTokenAt(
-                span.sentence,
-                span.start,
-                { start: 0, end: span.sentence.length },
-                this.pointerTextJpdbParseOptions(),
+            const [tokens] = await this.parseJapanese(
+                [span.sentence],
+                { ...this.pointerTextJpdbParseOptions(), allowSegmentedFallback: true },
             );
+            const token = pickAuthoritativeTokenAt(tokens ?? [], span.sentence, span.start);
             if (!scope.isCurrent()) return true;
-            // Only a strictly wider authoritative span is an upgrade; an equal
-            // or narrower one means the rendered span was already right.
-            if (!token || token.end - token.start <= span.end - span.start) return false;
+            if (!token) return false;
+            // Re-resolving an existing fallback card needs a strictly wider
+            // span to count as an upgrade; a cache miss has nothing on screen
+            // worth keeping, so any authoritative answer wins.
+            if (card && token.end - token.start <= span.end - span.start) return false;
+            if (!card && token.card.source === 'fallback'
+                && token.end - token.start <= span.end - span.start) return false;
             this.parser.cacheCards?.([token.card]);
             await this.showRenderedWordCard(
                 token.card,
@@ -5911,7 +5935,7 @@ export class ReaderApp {
             return true;
         } catch (error) {
             if (!scope.isCurrent()) return true;
-            log.warn('Authoritative rendered-word span lookup failed', { expression: card.spelling }, error);
+            log.warn('Authoritative rendered-word span lookup failed', { expression: card?.spelling ?? word.dataset.expression }, error);
             return false;
         }
     }
@@ -5932,6 +5956,12 @@ export class ReaderApp {
         if (!scope.isCurrent()) return;
         const vid = Number(word.dataset.vid);
         const sid = Number(word.dataset.sid);
+        // A cache miss is an unconfirmed span: give the authority the word's
+        // sentence first, so a stale fragment resolves to the real word it
+        // sits in instead of a text lookup for the fragment's surface.
+        const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
+        if (await this.showAuthoritativeSpanForRenderedWord(word, undefined, context, options, options.stackOverSettings ?? false, scope)) return;
+        if (!scope.isCurrent()) return;
         if (insideReaderPopup && await this.lookupUncachedPopupWord(word, options, scope)) return;
         if (!insideReaderPopup && await this.lookupUncachedPageWord(word, options, scope)) return;
         if (!scope.isCurrent()) return;

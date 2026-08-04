@@ -89,10 +89,13 @@ export interface UnconfirmedRenderedWordSpan {
  */
 export function unconfirmedRenderedWordSpan(
     word: HTMLElement,
-    card: JPDBCard,
+    card: JPDBCard | undefined,
     context: { sentence?: string },
 ): UnconfirmedRenderedWordSpan | null {
-    if (card.source && card.source !== 'fallback') return null;
+    // A card a dictionary or provider confirmed needs no re-resolution; a
+    // fallback card or a cache miss (no card at all) is a span nothing ever
+    // vouched for, and interaction is the moment to resolve it properly.
+    if (card?.source && card.source !== 'fallback') return null;
     const sentence = context.sentence || word.dataset.sentence || '';
     if (!sentence) return null;
     const start = Number(word.dataset.tokenStart);

@@ -8,7 +8,6 @@ import {
     computeSubtitleDrawerLayout,
     configurePointerParseTest,
     createSubtitleVideoInsetAdapter,
-    currentJapaneseLookupScopeMatcher,
     expectDefaultPointerParse,
     installVisualViewportFixture,
     isEnglishSubtitleTrack,
@@ -1646,8 +1645,11 @@ describe('reader helpers', () => {
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(lookup).toHaveBeenCalledWith('先生', '先生', 8, internals.settings.dictionaryPreferences);
-            expect(lookup).not.toHaveBeenCalledWith(sentence, sentence, expect.any(Number), expect.anything());
+            // The span authority may ask the store about wider candidates than
+            // the old funnel did (they are batched on real stores); what must
+            // hold is that the clicked word's own surface is queried and the
+            // whole comment run never becomes the shown word.
+            expect(lookup).toHaveBeenCalledWith('先生', '先生', expect.any(Number), internals.settings.dictionaryPreferences);
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 expect.objectContaining({ spelling: '先生', reading: 'せんせい', source: 'local' }),
                 sentence,
@@ -1694,7 +1696,7 @@ describe('reader helpers', () => {
                 lookupCard,
                 sentence,
                 candidate,
-                { start: 6, end: 9 },
+                expect.objectContaining({ start: 6, end: 9 }),
                 'modal',
                 { userGesture: true },
             );
@@ -1735,7 +1737,7 @@ describe('reader helpers', () => {
                 lookupCard,
                 sentence,
                 candidate,
-                { start: 0, end: 4 },
+                expect.objectContaining({ start: 0, end: 4 }),
                 'modal',
                 { userGesture: true },
             );
@@ -1795,7 +1797,7 @@ describe('reader helpers', () => {
                     expectedCard,
                     sentence,
                     candidate,
-                    range,
+                    expect.objectContaining(range),
                     'modal',
                     { userGesture: true },
                 );
@@ -1826,7 +1828,7 @@ describe('reader helpers', () => {
         });
         const parse = vi.fn(async () => [[fallbackToken]]);
         const candidate = pointerTextCandidate(sentence, paragraph, 6);
-        const { internals, showLocalPointerTextCandidate, showPointerTextCard } = configurePointerParseTest(app, {
+        const { internals, showPointerTextCard } = configurePointerParseTest(app, {
             parse,
             settings: { showPitchAccent: DEFAULT_SETTINGS.showPitchAccent },
         });
@@ -1835,21 +1837,11 @@ describe('reader helpers', () => {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
             expectDefaultPointerParse(parse, sentence);
-            expect(showPointerTextCard).not.toHaveBeenCalledWith(
-                fallbackToken.card,
-                expect.anything(),
-                expect.anything(),
-                expect.anything(),
-                expect.anything(),
-                expect.anything(),
-            );
-            expect(showLocalPointerTextCandidate).toHaveBeenCalledWith(
-                candidate,
-                sentence,
-                'modal',
-                { userGesture: true },
-                currentJapaneseLookupScopeMatcher(),
-            );
+            // A reading-less single-kanji fallback fragment is a character,
+            // not a word — the pointer stays silent so the kanji-card
+            // surfaces own that tap, instead of the old cascade that
+            // re-adjudicated parser output at the pointer layer.
+            expect(showPointerTextCard).not.toHaveBeenCalled();
         } finally {
             app.destroy();
         }

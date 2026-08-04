@@ -77,7 +77,13 @@ describe('reader helpers', () => {
         expect(findTermMatches).not.toHaveBeenCalled();
     });
 
-    it('never lets an inflected fallback span replace a narrower dictionary-confirmed match', async () => {
+    it('keeps an inflected word whole instead of surfacing a stranded stem match', async () => {
+        // The local dictionary knows 分 ("minute") but not 分かる. Confirming
+        // the lone 分 would show the wrong word and strand かりません; the
+        // whole inflected span stays together and carries the dictionary form
+        // the learner actually needs. Adjacent CONFIRMED words are the
+        // exception — see the neighbouring test — because there the cut ends
+        // where another confirmed word begins.
         const findTermMatches = vi.fn().mockResolvedValue([{
             entry: {
                 id: 1,
@@ -100,10 +106,10 @@ describe('reader helpers', () => {
         ], async parser => {
             const [tokens] = await parser.parse(['分かりません'], { allowSegmentedFallback: true });
 
-            expect(tokens.map(token => token.card.spelling)).toEqual(['分', 'かりません']);
-            expect(tokens[0]?.card.source).toBe('local');
-            expect(tokens[0]).toMatchObject({ start: 0, end: 1 });
-            expect(tokens[1]).toMatchObject({ start: 1, end: 6 });
+            expect(tokens.map(token => token.card.spelling)).toEqual(['分かりません']);
+            expect(tokens[0]).toMatchObject({ start: 0, end: 6 });
+            expect(tokens[0]?.card.source).toBe('fallback');
+            expect(tokens[0]?.card.fallbackLookupTerms).toContain('分かる');
         }, {
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
             jpdb: {} as never,
