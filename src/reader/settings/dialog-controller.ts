@@ -1554,7 +1554,10 @@ export class SettingsDialogController {
         const types = Object.fromEntries(summary.dictionaries.map(item => [item.title, item.type]));
         const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, names), names, types);
         if (JSON.stringify(merged) === JSON.stringify(this.settings.dictionaryPreferences)) return;
-        this.settings.dictionaryPreferences = merged;
+        // The active profile owns the authoritative enabled/order snapshot, so
+        // saving only the root rows lets profile normalization disable the rows
+        // discovered here and push them behind every profile-known dictionary.
+        this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
         await saveSettings(this.settings);
     }
 
@@ -2700,7 +2703,8 @@ export class SettingsDialogController {
         const importedSummary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
         const importedNames = importedSummary.dictionaries.map(item => item.title);
         const importedTypes = Object.fromEntries(importedSummary.dictionaries.map(item => [item.title, item.type]));
-        this.settings.dictionaryPreferences = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
+        const merged = mergeDictionaryPreferences(retireStaleDictionaryPreferences(this.settings.dictionaryPreferences, importedNames), importedNames, importedTypes);
+        this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
     }
 }
 
