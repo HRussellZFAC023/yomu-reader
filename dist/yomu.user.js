@@ -10081,10 +10081,6 @@ const canvasFallbackTextLayers = new WeakMap();
 function getSelectionText() {
 return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
 }
-function clearDocumentSelection() {
-const selection = window.getSelection();
-if (selection && selection.rangeCount > 0 && !selection.isCollapsed) selection.removeAllRanges();
-}
 function documentSelectionText() {
 return normalizedSelectedText(window.getSelection()?.toString() ?? "");
 }
@@ -31147,6 +31143,10 @@ function storeHeightRatio(storageKey, height, viewportHeight) {
 if (viewportHeight <= 0) return;
 const ratio = Math.max(0, Math.min(1, height / viewportHeight));
 gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
+}
+function clearDocumentSelection() {
+const selection = window.getSelection();
+if (selection && selection.rangeCount > 0 && !selection.isCollapsed) selection.removeAllRanges();
 }
 function popoverScrollBody(popover) {
 return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
