@@ -7,6 +7,7 @@ import type { ReaderHttpOptions } from '../network/http-options';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import type { CardState, JPDBCard, JPDBGrade, JPDBRuby, JPDBToken, ReviewGradeInterval, ReviewGradeIntervals } from '../app/types';
+import { attempt, parseJson } from '../core/attempt';
 
 export const JITEN_API_BASE_URL = 'https://api.jiten.moe/api';
 
@@ -681,11 +682,7 @@ export class JitenApiClient {
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
     async batchReviewCards(cards: JPDBCard[], grade: JPDBGrade): Promise<number> {
         const reviews = cards.flatMap(card => {
-            try {
-                return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
-            } catch {
-                return [];
-            }
+            return attempt(() => [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }], [], 'jiten.batchReviewCards');
         });
         if (!reviews.length) return 0;
         await this.request('srs/batch-review', { reviews });
@@ -711,11 +708,7 @@ export class JitenApiClient {
     async refreshCardStates(cards: JPDBCard[]): Promise<number> {
         const entries = cards
             .map(card => {
-                try {
-                    return { card, ref: jitenCardReference(card) };
-                } catch {
-                    return null;
-                }
+                return attempt(() => ({ card, ref: jitenCardReference(card) }), null, 'jiten.refreshCardStates');
             })
             .filter((entry): entry is { card: JPDBCard; ref: JitenCardReference } => entry !== null);
         if (!entries.length) return 0;
@@ -1818,7 +1811,7 @@ async function fetchWithTimeout(fetchImpl: JitenFetch, url: string, init: Reques
 
 async function parseJitenResponse<T>(response: Response, authenticated: boolean): Promise<T> {
     const text = await response.text();
-    const json = parseJson(text);
+    const json = parseJson<unknown>(text, undefined, 'jiten.parseJitenResponse');
     const errorMessage = jitenApplicationErrorMessage(json);
     const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
 
@@ -1853,15 +1846,6 @@ function jitenStatusMessage(status: number, authenticated: boolean): string {
 function statusFromMessage(message: string): number | undefined {
     const match = /\((\d{3})\)/.exec(message);
     return match ? Number(match[1]) : undefined;
-}
-
-function parseJson(text: string): unknown {
-    if (!text) return undefined;
-    try {
-        return JSON.parse(text);
-    } catch {
-        return undefined;
-    }
 }
 
 function jitenApplicationErrorMessage(value: unknown): string | undefined {

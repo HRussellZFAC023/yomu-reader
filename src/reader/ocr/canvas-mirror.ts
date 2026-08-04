@@ -4,6 +4,7 @@
 
 import { isBookwalkerViewerHost } from './canvas-hosts';
 import { managedSessionStorage } from '../app/storage';
+import { attempt, attemptVoid } from '../core/attempt';
 
 export interface MirrorOp {
     seq: number;
@@ -54,7 +55,7 @@ function recorderReloadLoopDetected(): boolean {
         const next = prev && now - prev.at < RELOAD_GUARD_WINDOW_MS ? { n: prev.n + 1, at: prev.at } : { n: 1, at: now };
         managedSessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
         recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
-        if (recorderLoopBroken) { try { console.warn('[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.'); } catch { /* */ } }
+        if (recorderLoopBroken) { attemptVoid(() => console.warn('[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.'), 'canvas-mirror.recorderReloadLoopDetected'); }
     } catch {
         recorderLoopBroken = false;
     }
@@ -337,12 +338,12 @@ function rebuildById(
         }
         else if (op.url) source = images.get(op.url) ?? null;
         if (!source) continue;
-        try {
+        attemptVoid(() => {
             if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
             else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
             else ctx.drawImage(source, op.dx, op.dy);
             drew++;
-        } catch { /* a stale source — skip this tile */ }
+        }, 'canvas-mirror.rebuildById');
     }
     return drew ? out : null;
 }
@@ -381,12 +382,12 @@ function rebuildSnapshotSource(
             source = images.get(op.url) ?? null;
         }
         if (!source) continue;
-        try {
+        attemptVoid(() => {
             if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
             else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
             else ctx.drawImage(source, op.dx, op.dy);
             drew++;
-        } catch { /* a stale or clipped source — skip this tile */ }
+        }, 'canvas-mirror.rebuildSnapshotSource');
     }
     return drew ? out : null;
 }
@@ -498,7 +499,7 @@ function hasMirrorRecords(target: MirrorGlobalState): boolean {
 // full clear, so a turn changes this value even with no unsafeWindow and an
 // unchanged/absent page counter. '' when no recorder has run yet.
 export function canvasMirrorTurnToken(): string {
-    try { return document.documentElement?.getAttribute(EPOCH_ATTR) ?? ''; } catch { return ''; }
+    return attempt(() => document.documentElement?.getAttribute(EPOCH_ATTR) ?? '', '', 'canvas-mirror.canvasMirrorTurnToken');
 }
 
 // Per-canvas page identity for a tainted DRM canvas: a fingerprint of the source
@@ -708,14 +709,14 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
     const bumpEpoch = (el: { nodeType?: number; isConnected?: boolean }): void => {
         if (el && el.nodeType && !el.isConnected) return;
         S.epoch = (S.epoch || 0) + 1;
-        if (root) { try { root.setAttribute(opts.e, String(S.epoch)); } catch { /* */ } }
+        if (root) { attemptVoid(() => root.setAttribute(opts.e, String(S.epoch)), 'canvas-mirror.bumpEpoch'); }
     };
     const isCanvas = (o: unknown): boolean => Boolean(o) && ((HC != null && o instanceof HC) || (OC != null && o instanceof OC));
     const srcUrl = (o: unknown): string => { const m = o as { currentSrc?: string; src?: string } | null; return m ? ((typeof m.currentSrc === 'string' && m.currentSrc) || (typeof m.src === 'string' && m.src) || '') : ''; };
     const idOf = (c: unknown, create: boolean): string | null => {
         const el = c as { getAttribute?: (n: string) => string | null; setAttribute?: (n: string, v: string) => void; __yomuMid?: string };
         if (el && typeof el.getAttribute === 'function' && typeof el.setAttribute === 'function') { let i = el.getAttribute(ATTR); if (!i && create) { i = 'm' + (S.nextId++); try { el.setAttribute(ATTR, i); } catch { return null; } } return i; }
-        if (el && el.__yomuMid) return el.__yomuMid; if (el && create) { try { return (el.__yomuMid = 'm' + (S.nextId++)); } catch { return null; } } return null;
+        if (el && el.__yomuMid) return el.__yomuMid; if (el && create) { return attempt(() => (el.__yomuMid = 'm' + (S.nextId++)), null, 'canvas-mirror.idOf'); } return null;
     };
     const rec = (id: string, w: number, h: number): MirrorRecord => { let r = S.records[id]; if (!r) { r = { w, h, ops: [] }; S.records[id] = r; } if (w) r.w = w; if (h) r.h = h; if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP); return r; };
     const dKey = (op: MirrorOp): string => op.dx + ',' + op.dy + ',' + op.dw + ',' + op.dh;
@@ -917,7 +918,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         p.__yomuMirrorPatched = true;
         const draw = p.drawImage;
         p.drawImage = function (this: Context2DPrototype, src: unknown) {
-            if (!this.__yomuMirrorSkip) { try {
+            if (!this.__yomuMirrorSkip) { attemptVoid(() => {
                 const cid = idOf(this.canvas, true);
                 if (cid) {
                     const r = rec(cid, this.canvas.width, this.canvas.height); const a = arguments as unknown as ArrayLike<number>;
@@ -948,12 +949,14 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
                     if (o.srcId) bumpEpoch(this.canvas);
                     else if (o.url && o.url !== lastDrawUrl) { lastDrawUrl = o.url; bumpEpoch(this.canvas); }
                 }
-            } catch { /* */ } }
+ }, 'canvas-mirror.patch'); }
             return draw.apply(this, arguments as unknown as unknown[]);
         } as typeof p.drawImage;
         const clr = p.clearRect;
         p.clearRect = function (this: Context2DPrototype, x: number, y: number, w: number, h: number) {
-            if (!this.__yomuMirrorSkip) { try { if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) { rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); bumpEpoch(this.canvas); } } } catch { /* */ } }
+            if (!this.__yomuMirrorSkip) { attemptVoid(() => {
+ if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) { rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); bumpEpoch(this.canvas); } } 
+ }, 'canvas-mirror.patch'); }
             return clr.apply(this, arguments as unknown as [number, number, number, number]);
         } as typeof p.clearRect;
         return true;
@@ -965,8 +968,8 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
     win.__yomuCanvasMirrorRecorder = true;
     S.installed = true;
     if (doc && root) {
-        try { root.setAttribute(opts.r, '1'); } catch { /* */ }
-        try {
+        attemptVoid(() => root.setAttribute(opts.r, '1'), 'canvas-mirror.patch');
+        attemptVoid(() => {
             root.addEventListener(opts.p, () => {
                 try {
                     let node = root.querySelector('[' + opts.d + ']');
@@ -980,7 +983,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
                     }
                 } catch { /* */ }
             });
-        } catch { /* */ }
+        }, 'canvas-mirror.patch');
     }
 }
 
@@ -1076,7 +1079,7 @@ function scheduleRecorderInstallRetry(hostname: string): void {
 // The page-world recorder sets MARKER_ATTR on documentElement; the DOM is shared
 // across realms so the content-world reader can see it without unsafeWindow.
 function recorderMarkerPresent(): boolean {
-    try { return document.documentElement?.getAttribute(MARKER_ATTR) === '1'; } catch { return false; }
+    return attempt(() => document.documentElement?.getAttribute(MARKER_ATTR) === '1', false, 'canvas-mirror.recorderMarkerPresent');
 }
 
 function recorderAlreadyInstalled(): boolean {
@@ -1087,7 +1090,7 @@ function recorderAlreadyInstalled(): boolean {
 }
 
 function recorderWindowInstalled(win: PageWindowLike): boolean {
-    try { return Boolean(win.__yomuCanvasMirror?.installed); } catch { return false; }
+    return attempt(() => Boolean(win.__yomuCanvasMirror?.installed), false, 'canvas-mirror.recorderWindowInstalled');
 }
 
 function likelyUserscriptContentSandbox(): boolean {
@@ -1097,7 +1100,7 @@ function likelyUserscriptContentSandbox(): boolean {
 }
 
 function markRecorderMethod(method: string): void {
-    try { document.documentElement?.setAttribute(METHOD_ATTR, method); } catch { /* */ }
+    attemptVoid(() => document.documentElement?.setAttribute(METHOD_ATTR, method), 'canvas-mirror.markRecorderMethod');
 }
 
 function createTrustedMirrorScript(code: string): unknown {

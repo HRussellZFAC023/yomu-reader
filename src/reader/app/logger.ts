@@ -1,5 +1,6 @@
 import { BRAND_COLOR_TOKENS, CORE_COLOR_TOKENS, LOGGER_COLOR_TOKENS } from '../theme/color-tokens';
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from './storage';
+import { setAttemptRecorder } from '../core/attempt';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { ReaderSettings } from './types';
 
@@ -115,6 +116,11 @@ class LoggerImpl {
 }
 
 export const Logger = new LoggerImpl();
+
+// core/attempt cannot import this module (app/logger -> app/storage ->
+// userscript/storage-bridge -> platform/window-events, which calls attempt
+// during its own module evaluation), so the logger registers itself instead.
+setAttemptRecorder((label, error) => Logger.scope('Attempt').debug(`${label} failed`, error));
 
 export function configureLogger(options: LoggerOptions): void {
     Logger.configure(options);

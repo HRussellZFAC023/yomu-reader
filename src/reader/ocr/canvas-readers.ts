@@ -5,6 +5,7 @@
 
 import { isBookwalkerViewerHost } from './canvas-hosts';
 import { canvasMirrorContentToken, canvasMirrorTurnToken, markCanvasMirrorSkip } from './canvas-mirror';
+import { attempt, attemptVoid } from '../core/attempt';
 
 export { isBookwalkerViewerHost } from './canvas-hosts';
 
@@ -575,11 +576,7 @@ function bookwalkerVerticalSurface(canvas: HTMLCanvasElement): HTMLElement | nul
 
 function canvasReaderContentTokens(canvases: HTMLCanvasElement[]): string[] {
     const tokens = canvases.map(canvas => {
-        try {
-            return canvasPageContentToken(canvas);
-        } catch {
-            return '';
-        }
+        return attempt(() => canvasPageContentToken(canvas), '', 'canvas-readers.canvasReaderContentTokens');
     });
     return [...new Set(tokens)].filter(Boolean);
 }
@@ -616,12 +613,11 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
 // is exactly the shape of the isolated 1-2 s main-thread freeze seen while reading.
 // Setting either dimension reallocates the buffer to nothing, which is deterministic.
 function releaseTransientCanvas(canvas: HTMLCanvasElement): void {
-    try {
+    // A canvas that refuses to resize simply waits for GC, as before.
+    attemptVoid(() => {
         canvas.width = 0;
         canvas.height = 0;
-    } catch {
-        // A canvas that refuses to resize simply waits for GC, as before.
-    }
+    }, 'canvas-readers.releaseTransientCanvas');
 }
 
 export function captureCanvasRegionDataUrl(

@@ -2,6 +2,7 @@ import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
 import { clampNumber } from '../core/number-utils';
 import { setStylePropertyIfChanged } from './subtitle-surface';
 import type { ReaderSettings } from '../app/types';
+import { attemptVoid } from '../core/attempt';
 
 export interface TranscriptPanelLayout {
     placement: ReaderSettings['subtitleTranscriptPlacement'];
@@ -185,11 +186,8 @@ export function loadTranscriptPanelSize(): TranscriptPanelSize {
 }
 
 export function saveTranscriptPanelSize(size: TranscriptPanelSize): void {
-    try {
-        gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size);
-    } catch {
-        // Best-effort preference only.
-    }
+    // Best-effort preference only.
+    attemptVoid(() => gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size), 'subtitle-layout.saveTranscriptPanelSize');
 }
 
 export function loadSubtitleDragOffsetFraction(): number {
@@ -202,11 +200,8 @@ export function loadSubtitleDragOffsetFraction(): number {
 }
 
 export function saveSubtitleDragOffsetFraction(fraction: number): void {
-    try {
-        gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
-    } catch {
-        // Best-effort preference only.
-    }
+    // Best-effort preference only.
+    attemptVoid(() => gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) }), 'subtitle-layout.saveSubtitleDragOffsetFraction');
 }
 
 export function loadSubtitleControlRailPosition(): SubtitleControlRailPosition | null {
@@ -220,14 +215,13 @@ export function loadSubtitleControlRailPosition(): SubtitleControlRailPosition |
 }
 
 export function saveSubtitleControlRailPosition(position: SubtitleControlRailPosition): void {
-    try {
+    // Best-effort preference only.
+    attemptVoid(() => {
         gmStorageSetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {
             x: clampRailFraction(position.x),
             y: clampRailFraction(position.y),
         });
-    } catch {
-        // Best-effort preference only.
-    }
+    }, 'subtitle-layout.saveSubtitleControlRailPosition');
 }
 
 function clampRailFraction(value: number): number {

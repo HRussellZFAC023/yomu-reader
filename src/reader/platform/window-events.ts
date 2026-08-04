@@ -1,3 +1,4 @@
+import { attempt, attemptVoid } from '../core/attempt';
 // Captured at module load so a page that later shadows window.dispatchEvent /
 // addEventListener / removeEventListener can't defeat our own dispatch/detach.
 // These are `let` only so tests can re-capture them from a fresh jsdom realm
@@ -243,11 +244,7 @@ function readOwnMethod<T>(source: unknown, key: string): T | undefined {
 
 function readProperty(source: unknown, key: string): unknown {
     if (!source || (typeof source !== 'object' && typeof source !== 'function')) return undefined;
-    try {
-        return (source as Record<string, unknown>)[key];
-    } catch {
-        return undefined;
-    }
+    return attempt(() => (source as Record<string, unknown>)[key], undefined, 'window-events.readProperty');
 }
 
 type DispatchCallResult = { called: true; result: boolean } | { called: false; error?: unknown };
@@ -349,11 +346,10 @@ function callWithUnshadowedWindowRemoveEventListener(
 }
 
 function restoreWindowProperty(key: 'dispatchEvent' | 'addEventListener' | 'removeEventListener', descriptor: PropertyDescriptor): void {
-    try {
+    attemptVoid(() => {
         const target = (window as any).wrappedJSObject || window;
         Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-    } catch {
-    }
+    }, 'window-events.restoreWindowProperty');
 }
 
 // Firefox content scripts may not define sandbox-created objects onto the
@@ -372,11 +368,7 @@ export function pageCompartmentDescriptor(descriptor: PropertyDescriptor, _targe
 export function pageCompartmentDescriptorOrNull(descriptor: PropertyDescriptor): PropertyDescriptor | null {
     const cloneInto = readMethod<FirefoxCloneInto>(globalThis, 'cloneInto');
     if (!cloneInto || typeof window === 'undefined') return descriptor;
-    try {
-        return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }) as PropertyDescriptor;
-    } catch {
-        return null;
-    }
+    return attempt(() => cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }) as PropertyDescriptor, null, 'window-events.pageCompartmentDescriptorOrNull');
 }
 
 export function pageCompartmentValue<T>(value: T, options: { cloneFunctions?: boolean; wrapReflectors?: boolean } = {}): T {
@@ -400,11 +392,7 @@ export function safeWindowPropertyDescriptor(key: 'dispatchEvent' | 'addEventLis
 
 export function shouldTemporarilyUnshadowWindowProperty(descriptor: PropertyDescriptor | undefined): descriptor is PropertyDescriptor {
     if (!descriptor) return false;
-    try {
-        return typeof descriptor.value !== 'function';
-    } catch {
-        return false;
-    }
+    return attempt(() => typeof descriptor.value !== 'function', false, 'window-events.shouldTemporarilyUnshadowWindowProperty');
 }
 
 export function normalizedPropertyDescriptor(descriptor: PropertyDescriptor): PropertyDescriptor {

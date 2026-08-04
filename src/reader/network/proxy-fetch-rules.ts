@@ -1,6 +1,7 @@
 import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
 import { isAppleTouchBrowser } from '../platform/browser';
 import { isPrivateOrLocalHostname } from './private-host';
+import { attempt } from '../core/attempt';
 
 interface ProxyRuleOptions {
     method?: RequestInit['method'];
@@ -213,11 +214,7 @@ function isJpdbApiUrl(url: string): boolean {
 
 function isCrossOriginJpdbApiPage(): boolean {
     if (typeof location === 'undefined') return false;
-    try {
-        return new URL(location.href).origin !== 'https://jpdb.io';
-    } catch {
-        return false;
-    }
+    return attempt(() => new URL(location.href).origin !== 'https://jpdb.io', false, 'proxy-fetch-rules.isCrossOriginJpdbApiPage');
 }
 
 function isHostedGithubPagesApp(): boolean {

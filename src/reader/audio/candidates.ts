@@ -17,6 +17,7 @@ import { escapeRegExp, uniqueStrings } from '../core/string-utils';
 import { getUserscriptHttpRequest } from '../userscript/index';
 import { jitenTtsVoicesForValue, jitenWordTtsUrl } from './jiten-tts';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
+import { attempt, parseJson } from '../core/attempt';
 
 const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
 const JAPANESE_POD_101_UNAVAILABLE_SHA256 = 'ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906';
@@ -390,11 +391,7 @@ export function resetAudioSubSourceDiscoveryForTests(): void {
 }
 
 function parseJsonValue(text: string): unknown {
-    try {
-        return JSON.parse(text);
-    } catch {
-        return null;
-    }
+    return parseJson<unknown>(text, null, 'candidates.parseJsonValue');
 }
 
 // The local audio server (yomidevs / Yomitan "Ultimate" source) requires
@@ -619,11 +616,7 @@ function isJpdbAliasLookup(card: JPDBCard, sourceUrl: string): boolean {
 }
 
 function jpdbSearchQuery(value: string): string {
-    try {
-        return new URL(value, 'https://jpdb.io').searchParams.get('q')?.trim() ?? '';
-    } catch {
-        return '';
-    }
+    return attempt(() => new URL(value, 'https://jpdb.io').searchParams.get('q')?.trim() ?? '', '', 'candidates.jpdbSearchQuery');
 }
 
 function jpdbVocabularyBlockMatchesCard(html: string, card: JPDBCard): boolean {
@@ -1018,11 +1011,7 @@ function extractAudioSourceUrls(html: string, baseUrl: string): string[] {
 }
 
 function resolveAudioSourceUrl(src: string, baseUrl: string): string {
-    try {
-        return new URL(src, baseUrl).href;
-    } catch {
-        return '';
-    }
+    return attempt(() => new URL(src, baseUrl).href, '', 'candidates.resolveAudioSourceUrl');
 }
 
 function getHtmlAttribute(attributes: string, name: string): string | null {
@@ -1153,11 +1142,7 @@ export function preconnectAudioUrl(value: string): void {
 }
 
 function audioPreconnectOrigin(value: string): string | null {
-    try {
-        return new URL(value, location.href).origin;
-    } catch {
-        return null;
-    }
+    return attempt(() => new URL(value, location.href).origin, null, 'candidates.audioPreconnectOrigin');
 }
 
 function appendAudioPreconnectLinks(origin: string): void {
