@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
 import { keepsModalPopoverForOwnedSurface } from '../../src/reader/app/main-runtime-support';
-import { clearActiveSelection } from '../../src/reader/dom/index';
+import { clearDocumentSelection } from '../../src/reader/dom/index';
 import {
     capturePopoverScrollOffset,
     capturePopoverScrollFrame,
@@ -466,7 +466,7 @@ describe('popup lifecycle: tapping an inert Yomu surface', () => {
         try {
             expect(window.getSelection()?.toString()).toBe('ママがサンタにキッスした');
 
-            clearActiveSelection();
+            clearDocumentSelection();
 
             expect(window.getSelection()?.toString()).toBe('');
         } finally {
@@ -475,7 +475,11 @@ describe('popup lifecycle: tapping an inert Yomu surface', () => {
         }
     });
 
-    it('collapses a focused control selection the document selection never sees', () => {
+    // The boundary, kept explicit: a focused field's own selection is the reader's
+    // editing state, not the popup's subject. Collapsing it would move their caret in
+    // a compose box they were working in. tests/reader/selection-preservation.ts owns
+    // the same guarantee through the dismissal path.
+    it('leaves a focused control selection alone', () => {
         const input = document.createElement('textarea');
         input.value = '本を読む';
         document.body.append(input);
@@ -483,11 +487,9 @@ describe('popup lifecycle: tapping an inert Yomu surface', () => {
         input.setSelectionRange(0, 4);
 
         try {
+            clearDocumentSelection();
+
             expect(input.selectionEnd - input.selectionStart).toBe(4);
-
-            clearActiveSelection();
-
-            expect(input.selectionEnd - input.selectionStart).toBe(0);
         } finally {
             input.remove();
         }

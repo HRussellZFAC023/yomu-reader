@@ -44,7 +44,7 @@ import {
 import {
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     appendToDocumentHead,
-    clearActiveSelection,
+    clearDocumentSelection,
     clearProjectedReadingsWithin,
     documentHasJapaneseText,
     documentJapaneseTextProbe,
@@ -4984,7 +4984,7 @@ export class ReaderApp {
         // touch, its selection handles and system callout) outlives the popup.
         if (getSelectionText()) {
             event.preventDefault();
-            clearActiveSelection();
+            clearDocumentSelection();
         }
         this.dismiss({ suppressHoverTarget: true });
     }
