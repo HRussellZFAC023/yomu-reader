@@ -9,7 +9,10 @@ export interface ReaderMenuCommandHandlers {
     getSettings: () => ReaderSettings;
     installFloatingButton: () => void;
     logInfo: (message: string, details?: Record<string, unknown>) => void;
-    saveSettings: (settings: ReaderSettings) => Promise<unknown>;
+    saveSettings: (
+        settings: ReaderSettings,
+        explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
+    ) => Promise<unknown>;
     showSettings: () => void;
     toggleAnnotations: () => void | Promise<void>;
     toggleAudio: () => void | Promise<void>;
@@ -31,7 +34,7 @@ export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers):
     register(`${APP_NAME} toggle puck`, () => {
         const settings = handlers.getSettings();
         settings.showFloatingButton = !settings.showFloatingButton;
-        void handlers.saveSettings(settings).then(() => handlers.installFloatingButton());
+        void handlers.saveSettings(settings, ['showFloatingButton']).then(() => handlers.installFloatingButton());
     });
     register(`${APP_NAME} Factory Reset`, () => handlers.factoryReset());
 }

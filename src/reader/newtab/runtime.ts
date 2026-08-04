@@ -101,6 +101,7 @@ import { ReaderParser } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
+    NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shouldLookupAnkiStatus,
     subscribeToSettingsStorageChanges,
@@ -440,7 +441,7 @@ export class NewTabRuntime {
         invalidateCardData: () => this.cardRenderData.clear(),
         setApiGradingProvider: provider => {
             this.settings.apiGradingProvider = provider;
-            void saveSettings(this.settings);
+            void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
         },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => this.handleApiCardStateChanged(card),
@@ -592,7 +593,7 @@ export class NewTabRuntime {
                 getSettings: () => this.settings,
                 applySettings: async settings => {
                     this.settings = settings;
-                    await saveSettings(settings);
+                    await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
                 },
                 onProgress: message => this.toast(message),
             });
@@ -843,7 +844,7 @@ export class NewTabRuntime {
             dictionarySourceAttributes: (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             isDictionarySourceOpen: (key, initiallyExpanded) => this.dictionarySourceState.isOpen(key, initiallyExpanded),
             installDictionarySourceTracking: root => this.dictionarySourceState.installTracking(root),
-            onSettingsChange: () => saveSettings(this.settings),
+            onSettingsChange: explicitUserChoiceKeys => saveSettings(this.settings, { explicitUserChoiceKeys }),
             applyTheme: () => this.applyTheme(),
             showSettings: panel => this.showSettings(panel),
             dismissLookup: () => this.dismissLookupPopover(),
@@ -859,7 +860,7 @@ export class NewTabRuntime {
     private setImmersionTranslationBlurred(blurred: boolean): void {
         if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
         this.settings = { ...this.settings, immersionKitRevealTranslationOnClick: blurred };
-        void saveSettings(this.settings);
+        void saveSettings(this.settings, { explicitUserChoiceKeys: ['immersionKitRevealTranslationOnClick'] });
     }
 
     private showSettings(panel?: string): void {

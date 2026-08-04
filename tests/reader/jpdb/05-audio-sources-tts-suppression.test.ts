@@ -34,6 +34,7 @@ import {
     renderGrammarHints,
     renderSettingsForm,
     restoreInheritedButtonRectLookup,
+    NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     stubFloatingButtonActions,
     syncStickyBottomSheetAvailability,
@@ -1307,7 +1308,11 @@ describe('reader helpers', () => {
 
         try {
             withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
-                controller.install(settings, () => void saveSettings(settings), stubFloatingButtonActions());
+                controller.install(
+                    settings,
+                    () => void saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
+                    stubFloatingButtonActions(),
+                );
             }));
             const button = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
             expect(button).not.toBeNull();

@@ -1416,7 +1416,9 @@ describe('reader theme', () => {
             ...DEFAULT_SETTINGS,
             wordHighlightMode: 'off',
             wordHighlightColorSource: 'pitch',
-        } as ReaderSettings & { wordHighlightMode: 'off' });
+        } as ReaderSettings & { wordHighlightMode: 'off' }, {
+            explicitUserChoiceKeys: ['wordHighlightColorSource'],
+        });
 
         const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}');
 

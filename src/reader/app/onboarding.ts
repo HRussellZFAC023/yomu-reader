@@ -4,7 +4,7 @@ import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
 import { jpOnlyOn, languageFamilyIncludes } from '../settings/language-gating';
 import { settingsText } from '../settings/settings-text';
-import { changedAutomationProtectedSettingsKeys, defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
+import { changedSettingsKeys, defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { applyOverlayPageScale } from '../ui/page-scale';
@@ -492,7 +492,10 @@ export class OnboardingController {
             await saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-                explicitUserChoiceKeys: changedAutomationProtectedSettingsKeys(previousSettings, settings),
+                // Every field the onboarding panel's own controls moved. It used to
+                // declare only the 17 allowlisted keys, so a theme or hotkey chosen
+                // here was not intent and a legacy store could replay the old one.
+                explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
             });
             this.close();
             await this.options.onComplete?.(settings);

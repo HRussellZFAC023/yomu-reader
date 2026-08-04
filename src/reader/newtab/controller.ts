@@ -445,7 +445,9 @@ export interface NewTabControllerDependencies {
     dictionarySourceAttributes?: (sourceStateKey: string, initiallyExpanded?: boolean) => string;
     isDictionarySourceOpen?: (sourceStateKey: string, initiallyExpanded?: boolean) => boolean;
     installDictionarySourceTracking?: (root: HTMLElement) => void;
-    onSettingsChange: () => Promise<void> | void;
+    onSettingsChange: (
+        explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
+    ) => Promise<void> | void;
     applyTheme: () => void;
     showSettings: (tab?: string) => void;
     dismissLookup?: () => void;
@@ -2128,7 +2130,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         if (!settings.newTabStudyTourSeen) {
             settings.newTabStudyTourSeen = true;
-            await this.dependencies.onSettingsChange();
+            await this.dependencies.onSettingsChange(['newTabStudyTourSeen']);
         }
         const card = this.visibleWords[this.index];
         if (card) this.renderWord(root, card);
@@ -2643,7 +2645,7 @@ export class NewTabController {
             this.dependencies.setImmersionTranslationBlurred(shouldBlur);
         } else {
             settings.immersionKitRevealTranslationOnClick = shouldBlur;
-            void this.dependencies.onSettingsChange();
+            void this.dependencies.onSettingsChange(['immersionKitRevealTranslationOnClick']);
         }
         root.querySelectorAll<HTMLElement>('.jpdb-reader-example-translation').forEach(translation => {
             setNewTabImmersionTranslationBlurred(translation, shouldBlur, settings.interfaceLanguage);
@@ -4046,7 +4048,7 @@ export class NewTabController {
 
     private persistSourceSettingChange(source: ConcreteNewTabWordSource): Promise<void> {
         return Promise.resolve()
-            .then(() => this.dependencies.onSettingsChange())
+            .then(() => this.dependencies.onSettingsChange(['newTabSource']))
             .catch(error => {
                 log.warn('New-tab source update failed', { source }, error);
             });
@@ -6659,7 +6661,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         if (settings.newTabTypeWordInputMode === mode) return;
         settings.newTabTypeWordInputMode = mode;
-        void this.dependencies.onSettingsChange();
+        void this.dependencies.onSettingsChange(['newTabTypeWordInputMode']);
         const card = this.visibleWords[this.index];
         if (card) this.renderWord(root, card);
     }
@@ -10382,7 +10384,7 @@ export class NewTabController {
         const settings = this.dependencies.getSettings();
         const current = this.effectiveTheme(settings.theme);
         settings.theme = current === 'dark' ? 'light' : 'dark';
-        await this.dependencies.onSettingsChange();
+        await this.dependencies.onSettingsChange(['theme']);
         this.dependencies.applyTheme();
         this.syncThemeToggle(root);
     }
@@ -10390,7 +10392,7 @@ export class NewTabController {
     private async toggleInterfaceLanguage(_root: HTMLElement): Promise<void> {
         const settings = this.dependencies.getSettings();
         settings.interfaceLanguage = nextExplicitUiLanguage(settings.interfaceLanguage);
-        await this.dependencies.onSettingsChange();
+        await this.dependencies.onSettingsChange(['interfaceLanguage']);
         await this.renderPage();
     }
 

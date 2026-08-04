@@ -18,8 +18,7 @@ import {
 } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
-import { changedSettingsKeys, mergeDictionaryPreferences, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
-import { coupledExplicitUserChoiceKeys } from './explicit-user-choice';
+import { changedSettingsKeys, mergeDictionaryPreferences, NO_EXPLICIT_USER_CHOICE, normalizeAudioSubSources, normalizeReaderSettings, retireStaleDictionaryPreferences, saveSettings } from './index';
 import { readAudioSources, readAudioSubSources } from './form-read';
 import { detectCustomJsonAudioSubSources, knownAudioSubSourceNames } from '../audio/candidates';
 import { captureActiveLanguageProfileDictionaries } from './dictionary';
@@ -562,9 +561,7 @@ export class SettingsDialogController {
             await saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
-                explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
-                    changedSettingsKeys(previousSettings, settings),
-                ),
+                explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
             });
             this.dependencies.onSettingsPersisted?.(settings);
         } catch (error) {
@@ -1558,7 +1555,7 @@ export class SettingsDialogController {
         // saving only the root rows lets profile normalization disable the rows
         // discovered here and push them behind every profile-known dictionary.
         this.settings = captureActiveLanguageProfileDictionaries(this.settings, merged);
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
     }
 
     private async enqueueDictionaryOperation<T>(form: HTMLFormElement, task: () => Promise<T>): Promise<T> {
@@ -2479,7 +2476,7 @@ export class SettingsDialogController {
         this.dictionaryRefreshId++;
         await clearNewTabOfflineCache().catch(() => undefined);
         this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
         await this.refreshDictionaryStatus(form);
@@ -2575,7 +2572,7 @@ export class SettingsDialogController {
             dictionaryPreferences,
         );
         await markDictionaryReplicaFresh();
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['dictionaryPreferences', 'localDictionariesEnabled'] });
         await this.dependencies.refreshDictionaryStyles();
         this.dependencies.scheduleDictionaryRescan();
     }

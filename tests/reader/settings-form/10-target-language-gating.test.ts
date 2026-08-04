@@ -6,7 +6,7 @@ import { targetLanguageDisplayName } from '../../../src/reader/app/target-langua
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
-import { coupledExplicitUserChoiceKeys, changedSettingsKeys } from '../../../src/reader/settings/index';
+import { changedSettingsKeys } from '../../../src/reader/settings/index';
 import { syncYoutubeImmersionTarget } from '../../../src/reader/settings/youtube-panel';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import { DEFAULT_SETTINGS, renderSettingsTestForm } from './fixtures';
@@ -226,7 +226,9 @@ describe('target-language settings', () => {
             const optedIn = readFormSettings(new FormData(form), russianSettings);
             expect(optedIn.youtubeImmersionEnabled).toBe(true);
             expect(optedIn.youtubeImmersionEnabledChosen).toBe(true);
-            expect(coupledExplicitUserChoiceKeys(changedSettingsKeys(russianSettings, optedIn)))
+            // Both halves of the opt-in are declared by the form read itself, so
+             // the intent ledger records the pair without a coupling allowlist.
+            expect(changedSettingsKeys(russianSettings, optedIn))
                 .toEqual(expect.arrayContaining([
                     'youtubeImmersionEnabled',
                     'youtubeImmersionEnabledChosen',

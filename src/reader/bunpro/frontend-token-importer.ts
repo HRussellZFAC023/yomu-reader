@@ -28,7 +28,10 @@ export interface BunproFrontendToken {
 export interface BunproFrontendTokenImporterOptions {
     getSettings: () => ReaderSettings;
     setSettings: (settings: ReaderSettings) => void;
-    saveSettings: (settings: ReaderSettings) => Promise<void>;
+    saveSettings: (
+        settings: ReaderSettings,
+        options: { explicitUserChoiceKeys: readonly (keyof ReaderSettings)[] },
+    ) => Promise<void>;
     toast?: (message: string) => void;
     language?: () => InterfaceLanguage;
     href?: string | (() => string);
@@ -133,7 +136,13 @@ async function importBunproToken(
     if (status) status.textContent = ui.saving;
     try {
         options.setSettings(nextSettings);
-        await options.saveSettings(nextSettings);
+        await options.saveSettings(nextSettings, {
+            explicitUserChoiceKeys: [
+                'bunproFrontendApiToken',
+                'bunproFrontendApiTokenExpiresAt',
+                'bunproMiningEnabled',
+            ],
+        });
         if (status) status.textContent = ui.saved;
         options.toast?.(ui.saved);
     } catch {

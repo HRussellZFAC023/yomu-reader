@@ -4,8 +4,8 @@ import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
     changedSettingsKeys,
-    coupledExplicitUserChoiceKeys,
     loadSettings,
+    NO_EXPLICIT_USER_CHOICE,
     normalizeReaderSettings,
     promoteStrandedHostedSettingsToGmStorage,
     saveSettings,
@@ -61,7 +61,9 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         // Site A: complete onboarding, turn furigana off.
         const onSiteA = await loadSettings();
-        await saveSettings({ ...onSiteA, onboardingSeen: true, showFurigana: false, furiganaMode: 'off' });
+        await saveSettings({ ...onSiteA, onboardingSeen: true, showFurigana: false, furiganaMode: 'off' }, {
+            explicitUserChoiceKeys: ['onboardingSeen', 'showFurigana', 'furiganaMode'],
+        });
 
         // Site B: fresh page load reads the shared GM store.
         const onSiteB = await loadSettings();
@@ -89,17 +91,22 @@ describe('settings persist across sites (message-based GM store)', () => {
         const staleSettings = await loadSettings();
         await saveSettings(
             { ...staleSettings, preferJapaneseSiteLanguage: false },
-            { persistPreferredJapaneseSiteLanguage: true },
+            {
+                persistPreferredJapaneseSiteLanguage: true,
+                explicitUserChoiceKeys: ['preferJapaneseSiteLanguage'],
+            },
         );
 
         // A second context still holds the pre-opt-out settings object and
-        // saves an unrelated field. Its stale true remains in the blob, but
-        // must never overwrite the explicit scalar user intent.
-        await saveSettings({ ...staleSettings, theme: 'dark' });
+        // saves an unrelated field. Its stale true must never overwrite the
+        // explicit user intent -- and now that the intent ledger records the
+        // opt-out for the blob as well, the blob no longer disagrees with the
+        // authoritative scalar while the reader is running.
+        await saveSettings({ ...staleSettings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
         expect(store.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
         expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
-            preferJapaneseSiteLanguage: true,
+            preferJapaneseSiteLanguage: false,
             theme: 'dark',
         });
         expect((await loadSettings()).preferJapaneseSiteLanguage).toBe(false);
@@ -161,7 +168,11 @@ describe('settings persist across sites (message-based GM store)', () => {
             } as Parameters<typeof saveSettings>[1],
         );
 
-        await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' });
+        // The stale tab carries annotationsPaused along; it declares only the
+        // field it actually changed.
+        await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' }, {
+            explicitUserChoiceKeys: ['theme'],
+        });
 
         expect((await loadSettings()).annotationsPaused).toBe(false);
     });
@@ -186,7 +197,7 @@ describe('settings persist across sites (message-based GM store)', () => {
             ],
         });
 
-        await saveSettings({ ...staleSettings, theme: 'dark' });
+        await saveSettings({ ...staleSettings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
         expect(await loadSettings()).toMatchObject({
             subtitleSecondaryVisible: true,
@@ -203,10 +214,10 @@ describe('settings persist across sites (message-based GM store)', () => {
 
         const staleSettings = await loadSettings();
         const optedIn = { ...staleSettings, youtubeImmersionEnabledChosen: true };
+        // Only the flag is declared. The ledger couples it to the value it
+        // qualifies from the key NAME, so no allowlist of pairs is needed.
         await saveSettings(optedIn, {
-            explicitUserChoiceKeys: coupledExplicitUserChoiceKeys(
-                changedSettingsKeys(staleSettings, optedIn),
-            ),
+            explicitUserChoiceKeys: changedSettingsKeys(staleSettings, optedIn),
         });
 
         // Another page still holds an older raw value. The chosen flag without
@@ -215,12 +226,140 @@ describe('settings persist across sites (message-based GM store)', () => {
             ...staleSettings,
             youtubeImmersionEnabled: false,
             theme: 'dark',
-        });
+        }, { explicitUserChoiceKeys: ['theme'] });
 
         expect(await loadSettings()).toMatchObject({
             youtubeImmersionEnabled: true,
             youtubeImmersionEnabledChosen: true,
         });
+    });
+
+    // blurvy, v1.8.77: "the subtitle size slider reverts". subtitleFontSize was
+    // declared by the style popover and WRITTEN to the pin store, but the pin was
+    // only ever read back for 17 allowlisted keys, so the next stale
+    // whole-settings save replaced the slider value in storage and the popover
+    // showed the old size again after a reload. The ledger has no allowlist:
+    // whatever a surface declares is what comes back.
+    it('keeps a declared non-allowlisted choice through a stale whole-settings save', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings({ ...staleSettings, subtitleFontSize: 48 }, {
+            explicitUserChoiceKeys: ['subtitleFontSize'],
+        });
+
+        await saveSettings({ ...staleSettings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
+
+        expect(await loadSettings()).toMatchObject({ subtitleFontSize: 48, theme: 'dark' });
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({ subtitleFontSize: 48 });
+    });
+
+    // The reason the fix is a ledger and not a wider allowlist: protecting every
+    // key freezes all 265 fields against the very save carrying the next edit.
+    it('leaves a key nobody declared free to change', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings({ ...staleSettings, subtitleFontSize: 48 }, {
+            explicitUserChoiceKeys: ['subtitleFontSize'],
+        });
+
+        // Same neighbourhood, never declared: a later save still owns it.
+        await saveSettings({ ...staleSettings, subtitleFontSize: 48, subtitleFontWeight: 700 }, {
+            explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE,
+        });
+
+        expect(await loadSettings()).toMatchObject({ subtitleFontSize: 48, subtitleFontWeight: 700 });
+    });
+
+    it('lets a later declared write supersede an earlier one, but not a machine write', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings({ ...staleSettings, subtitleFontSize: 48 }, {
+            explicitUserChoiceKeys: ['subtitleFontSize'],
+        });
+        await saveSettings({ ...staleSettings, subtitleFontSize: 24 }, {
+            explicitUserChoiceKeys: ['subtitleFontSize'],
+        });
+        expect((await loadSettings()).subtitleFontSize).toBe(24);
+
+        await saveSettings({ ...staleSettings, subtitleFontSize: 64 }, {
+            explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE,
+        });
+        expect((await loadSettings()).subtitleFontSize).toBe(24);
+    });
+
+    it('withdraws intent when a Reset control puts the defaults back', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const staleSettings = await loadSettings();
+        await saveSettings({ ...staleSettings, subtitleFontSize: 48 }, {
+            explicitUserChoiceKeys: ['subtitleFontSize'],
+        });
+
+        // Reset writes the default and WITHDRAWS the choice: declaring the
+        // default instead would pin it, which is how the style panel's Reset
+        // pinned native subtitles ON as a user choice.
+        await saveSettings({ ...staleSettings, subtitleFontSize: DEFAULT_SETTINGS.subtitleFontSize }, {
+            explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE,
+            clearExplicitUserChoiceKeys: ['subtitleFontSize'],
+        });
+        expect((await loadSettings()).subtitleFontSize).toBe(DEFAULT_SETTINGS.subtitleFontSize);
+
+        // Nothing is pinned any more, so an ordinary save owns the field again.
+        await saveSettings({ ...staleSettings, subtitleFontSize: 32 }, {
+            explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE,
+        });
+        expect((await loadSettings()).subtitleFontSize).toBe(32);
+    });
+
+    it('adopts the choices an older install pinned in the pre-ledger store', async () => {
+        const store = new Map<string, unknown>();
+        // What 1.8.22 through 1.8.78 wrote: a flat key -> value map, no ordering.
+        store.set('yomu:explicit-user-settings:v1', { annotationsPaused: false });
+        store.set(SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, annotationsPaused: true });
+        installSharedMessageBasedGm(store);
+
+        expect((await loadSettings()).annotationsPaused).toBe(false);
+
+        // And a fresh declaration outranks the migrated pin.
+        await saveSettings({ ...DEFAULT_SETTINGS, annotationsPaused: true }, {
+            explicitUserChoiceKeys: ['annotationsPaused'],
+        });
+        expect((await loadSettings()).annotationsPaused).toBe(true);
+    });
+
+    // A container is reconciled by its editor, never substituted: recording the
+    // whole array would drop a dictionary a later import legitimately added.
+    it('records a declared dictionary order without freezing later imports out', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+
+        const settings = await loadSettings();
+        await saveSettings({
+            ...settings,
+            dictionaryPreferences: [
+                { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 0, type: 'frequency' },
+                { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 1, type: 'terms' },
+            ],
+        }, { explicitUserChoiceKeys: ['dictionaryPreferences'] });
+
+        await saveSettings({
+            ...settings,
+            dictionaryPreferences: [
+                { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 0, type: 'frequency' },
+                { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 1, type: 'terms' },
+                { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 2, type: 'kanji' },
+            ],
+        }, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
+
+        expect((await loadSettings()).dictionaryPreferences.map(item => item.name))
+            .toEqual(['BCCWJ', 'JMdict', 'KANJIDIC']);
     });
 
     it('normalizes malformed Japanese-sites preferences without truthy coercion', async () => {
@@ -295,7 +434,8 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect(onSettings.mock.calls[1]?.[0].preferJapaneseSiteLanguage).toBe(true);
 
         unsubscribe();
-        expect(removeListener).toHaveBeenCalledTimes(3);
+        // Blob, Japanese-sites scalar, pre-ledger pin store, intent ledger.
+        expect(removeListener).toHaveBeenCalledTimes(4);
     });
 });
 
@@ -314,7 +454,9 @@ describe('settings persist in packaged-extension storage', () => {
             { ...staleSettings, annotationsPaused: false },
             { explicitUserChoiceKeys: ['annotationsPaused'] },
         );
-        await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' });
+        await saveSettings({ ...staleSettings, annotationsPaused: true, theme: 'dark' }, {
+            explicitUserChoiceKeys: ['theme'],
+        });
 
         expect((await loadSettings()).annotationsPaused).toBe(false);
     });
@@ -427,8 +569,9 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         }));
         // A rejected shared write is now reported rather than swallowed, so the
         // save throws while still leaving the origin-local recovery copy behind.
-        await expect(saveSettings({ ...beforeToggle, annotationsPaused: false }))
-            .rejects.toThrow(/GM storage write failed/);
+        await expect(saveSettings({ ...beforeToggle, annotationsPaused: false }, {
+            explicitUserChoiceKeys: ['annotationsPaused'],
+        })).rejects.toThrow(/GM storage write failed/);
         expect(store.get('jpdb-popup-reader-settings')).toEqual({ annotationsPaused: true });
 
         // Reload with the shared store readable again: the choice must survive
@@ -485,7 +628,9 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
     it('promotes a hosted save made before a late GM bridge and then clears the pending marker', async () => {
         vi.stubGlobal('location', hostedLocation);
         const standalone = await loadSettings();
-        await saveSettings({ ...standalone, theme: 'dark', lookupOnHover: false, jitenApiKey: 'local-choice' });
+        await saveSettings({ ...standalone, theme: 'dark', lookupOnHover: false, jitenApiKey: 'local-choice' }, {
+            explicitUserChoiceKeys: ['theme', 'lookupOnHover', 'jitenApiKey'],
+        });
 
         const localBeforeBridge = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') ?? '{}');
         expect(localBeforeBridge.__yomuHostedPendingGmPatch).toMatchObject({
@@ -531,7 +676,7 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         vi.stubGlobal('location', hostedLocation);
 
         const local = await loadSettings();
-        await saveSettings({ ...local, theme: 'dark' });
+        await saveSettings({ ...local, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
 
         const currentStore = new Map<string, unknown>([[
             'jpdb-popup-reader-settings',
@@ -550,7 +695,9 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
         const settings = await loadSettings();
-        await saveSettings({ ...settings, theme: 'dark', lookupOnHover: false, jitenApiKey: 'durable-key' });
+        await saveSettings({ ...settings, theme: 'dark', lookupOnHover: false, jitenApiKey: 'durable-key' }, {
+            explicitUserChoiceKeys: ['theme', 'lookupOnHover', 'jitenApiKey'],
+        });
 
         localStorage.clear();
         const reloaded = await loadSettings();
@@ -578,7 +725,7 @@ describe('default light theme migration', () => {
 
         // Choosing light AFTER the migration is a real choice and must stick.
         migrated.theme = 'light';
-        await saveSettings(migrated);
+        await saveSettings(migrated, { explicitUserChoiceKeys: ['theme'] });
         expect((await loadSettings()).theme).toBe('light');
     });
 
@@ -606,7 +753,7 @@ describe('hidden filter notice restore migration', () => {
 
         // A post-migration deliberate opt-out sticks across loads.
         migrated.youtubeShowFilterNotice = false;
-        await saveSettings(migrated);
+        await saveSettings(migrated, { explicitUserChoiceKeys: ['youtubeShowFilterNotice'] });
         const reloaded = await loadSettings();
         expect(reloaded.youtubeShowFilterNotice).toBe(false);
     });

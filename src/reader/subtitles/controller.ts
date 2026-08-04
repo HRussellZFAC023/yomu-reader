@@ -190,7 +190,7 @@ import {
 import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
-import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut } from '../settings/index';
+import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut, NO_EXPLICIT_USER_CHOICE } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { primaryCardState } from '../cards/state';
 import {
@@ -286,7 +286,10 @@ interface SubtitlePlayerOptions {
     mineBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[]) => Promise<number>;
     gradeBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[], grade: JPDBGrade) => Promise<number>;
     toast?: (message: string) => void;
-    onSettingsChange: (explicitUserChoiceKeys?: readonly (keyof ReaderSettings)[]) => void;
+    onSettingsChange: (
+        explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
+        clearExplicitUserChoiceKeys?: readonly (keyof ReaderSettings)[],
+    ) => void;
 }
 
 interface TranscriptPanelOptions {
@@ -3745,7 +3748,7 @@ export class SubtitlePlayerController {
         if (placement === this.plannedTranscriptPlacement()) return;
         settings.subtitleTranscriptPlacement = placement;
         if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['subtitleTranscriptPlacement']);
         if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderOpenSubtitlePanel();
         else {
             this.lastTranscriptSignature = '';
@@ -3763,7 +3766,12 @@ export class SubtitlePlayerController {
         this.syncRootStyleSettings(settings);
         this.syncSubtitleStyleControls();
         this.render();
-        if (explicitUserChoiceKeys) this.options.onSettingsChange(explicitUserChoiceKeys);
+        if (explicitUserChoiceKeys) {
+            // Reset WITHDRAWS the style choices instead of declaring the
+            // defaults it just wrote: pinning them made "restore defaults" pin
+            // native subtitles ON as though the learner had asked for them.
+            this.options.onSettingsChange(NO_EXPLICIT_USER_CHOICE, explicitUserChoiceKeys);
+        }
         this.showControlsTemporarily();
     }
 
@@ -4094,7 +4102,7 @@ export class SubtitlePlayerController {
         settings.subtitleBottomOffset = next;
         this.applyEffectiveSubtitleBottom();
         this.syncSubtitleStyleControls();
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['subtitleBottomOffset']);
     }
 
     private resetSubtitleBottomOffset(): void {
@@ -4662,7 +4670,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         if (settings.ocrVideoPauseFrames) {
             settings.ocrVideoPauseFrames = false;
-            this.options.onSettingsChange();
+            this.options.onSettingsChange(['ocrVideoPauseFrames']);
             return;
         }
 
@@ -4670,7 +4678,7 @@ export class SubtitlePlayerController {
         // click cannot also enter the automatic pause path for the same frame.
         this.requestVideoFrameOcr();
         settings.ocrVideoPauseFrames = true;
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['ocrVideoPauseFrames']);
     }
 
     private requestVideoFrameOcr(): void {
@@ -4954,7 +4962,7 @@ export class SubtitlePlayerController {
         const loaded = await this.loadPrimaryTrackSelection(id, requestId);
         if (!loaded) return;
         if (options.auto && this.revertSingleCueAutoSelection('primary', loaded)) return;
-        if (options.auto) this.revealPrimarySubtitleOverlay({ auto: true });
+        if (options.auto) this.revealPrimarySubtitleOverlay();
         if (!await this.prewarmPrimaryTrackFirstPaint(loaded, requestId)) return;
         this.applyPrimaryTrackSelection(loaded);
         this.finishTrackSelection();
@@ -5023,26 +5031,28 @@ export class SubtitlePlayerController {
         this.secondaryCue = undefined;
     }
 
-    private revealPrimarySubtitleOverlay(options: { auto?: boolean } = {}): void {
-        this.revealSubtitleOverlay('subtitleOverlayVisible', 'subtitleOverlayVisibleChosen', Boolean(options.auto));
+    private revealPrimarySubtitleOverlay(): void {
+        this.revealSubtitleOverlay('subtitleOverlayVisible', 'subtitleOverlayVisibleChosen');
         if (!this.options.getSettings().subtitleOverlayVisible) return;
         this.root?.classList.remove('jpdb-subtitle-hidden');
     }
 
-    // Selecting a track shows its overlay, but an automatic pick must never
-    // overrule a visibility the user chose: writing the setting back to true
-    // from here is what made an unchecked overlay switch itself on again on
-    // the next page load.
+    // Selecting a track shows its overlay, but no track pick may overrule a
+    // visibility the learner chose. The guard used to apply only to AUTOMATIC
+    // picks, so choosing a track by hand switched a hidden overlay back on and
+    // re-persisted it -- "the show native subtitles toggle turns itself back
+    // on". Picking a track says which track to watch, not that the overlay the
+    // learner switched off should come back; the rail eye and the style
+    // popover are how it comes back. Nothing is declared here either way: this
+    // is a consequence of loading a track, not a choice about visibility.
     private revealSubtitleOverlay(
         visibleKey: 'subtitleOverlayVisible' | 'subtitleSecondaryVisible',
         chosenKey: 'subtitleOverlayVisibleChosen' | 'subtitleSecondaryVisibleChosen',
-        auto: boolean,
     ): void {
         const settings = this.options.getSettings();
-        if (settings[visibleKey]) return;
-        if (auto && settings[chosenKey]) return;
+        if (settings[visibleKey] || settings[chosenKey]) return;
         settings[visibleKey] = true;
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(NO_EXPLICIT_USER_CHOICE);
     }
 
     private async loadPrimaryTrackSelection(id: string, requestId: number): Promise<LoadedSubtitleTrackSelection | null> {
@@ -5126,7 +5136,7 @@ export class SubtitlePlayerController {
         const loaded = await this.loadSecondaryTrackSelection(id, requestId);
         if (!loaded) return;
         if (options.auto && this.revertSingleCueAutoSelection('secondary', loaded)) return;
-        if (options.auto) this.revealSecondarySubtitleOverlay({ auto: true });
+        if (options.auto) this.revealSecondarySubtitleOverlay();
         this.applySecondaryTrackSelection(loaded);
         this.finishTrackSelection();
     }
@@ -5153,8 +5163,8 @@ export class SubtitlePlayerController {
         return requestId;
     }
 
-    private revealSecondarySubtitleOverlay(options: { auto?: boolean } = {}): void {
-        this.revealSubtitleOverlay('subtitleSecondaryVisible', 'subtitleSecondaryVisibleChosen', Boolean(options.auto));
+    private revealSecondarySubtitleOverlay(): void {
+        this.revealSubtitleOverlay('subtitleSecondaryVisible', 'subtitleSecondaryVisibleChosen');
     }
 
     private async loadSecondaryTrackSelection(id: string, requestId: number): Promise<LoadedSubtitleTrackSelection | null> {
@@ -5401,7 +5411,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         settings.subtitleOverlayVisible = !settings.subtitleOverlayVisible;
         settings.subtitleOverlayVisibleChosen = true;
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['subtitleOverlayVisible', 'subtitleOverlayVisibleChosen']);
         this.refresh();
     }
 
@@ -5424,7 +5434,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         const expanded = settings.subtitleControlsMode === 'always';
         settings.subtitleControlsMode = expanded ? 'auto' : 'always';
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['subtitleControlsMode']);
         this.syncRootVisibility(settings);
         if (expanded) this.hideControlsImmediately();
         else this.showControlsTemporarily({ independentOfPlayerChrome: true });
@@ -5726,7 +5736,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         settings.subtitleShadowAutoPause = !settings.subtitleShadowAutoPause;
         this.shadowAutoPausedCueSignature = '';
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['subtitleShadowAutoPause']);
         this.renderShadowPanel(true);
     }
 
@@ -5944,7 +5954,7 @@ export class SubtitlePlayerController {
         } else {
             this.pausePanelOpen = false;
         }
-        this.options.onSettingsChange();
+        this.options.onSettingsChange(['subtitlePausePanel', 'subtitleTranscriptVisible']);
         this.renderOpenSubtitlePanel();
         this.syncControls();
     }

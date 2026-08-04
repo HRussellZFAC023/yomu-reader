@@ -27,7 +27,16 @@ const NATIVE_DISPLAY_EXPLICIT_KEYS = [
     'subtitleNativeBlurred',
 ] as const satisfies readonly (keyof ReaderSettings)[];
 
-const RESET_EXPLICIT_KEYS = [
+/**
+ * The keys Reset WITHDRAWS intent for.
+ *
+ * Reset puts the shipped defaults back, which is the opposite of choosing them:
+ * declaring these as choices pinned `subtitleSecondaryVisible: true` (the
+ * default native-display mode is "blurred", i.e. visible) as though the learner
+ * had asked for native subtitles, and that pin then reverted the next attempt to
+ * turn them off.
+ */
+const RESET_WITHDRAWN_KEYS = [
     ...NATIVE_DISPLAY_EXPLICIT_KEYS,
     'subtitleNativeBlurStrength',
     'subtitleFontSize',
@@ -101,16 +110,22 @@ export function applySubtitleStyleControl(
     return undefined;
 }
 
-/** Resets the persisted style model; the controller remains responsible for render side effects. */
+/**
+ * Resets the persisted style model and returns the keys whose recorded intent
+ * must be withdrawn; the controller remains responsible for render side effects.
+ */
 export function resetSubtitleStyleSettings(
     settings: ReaderSettings,
 ): readonly (keyof ReaderSettings)[] | undefined {
-    let changed = applyNativeSubtitleDisplayMode(settings, 'blurred');
+    // markVisibilityChosen: false — restoring the default reveal mode is not the
+    // learner deciding they want native subtitles.
+    let changed = applyNativeSubtitleDisplayMode(settings, 'blurred', { markVisibilityChosen: false });
     const reset = <Key extends keyof ReaderSettings>(key: Key): void => {
         if (settings[key] === DEFAULT_SETTINGS[key]) return;
         settings[key] = DEFAULT_SETTINGS[key];
         changed = true;
     };
+    reset('subtitleSecondaryVisibleChosen');
     reset('subtitleNativeBlurStrength');
     reset('subtitleFontSize');
     reset('subtitleFontWeight');
@@ -119,7 +134,7 @@ export function resetSubtitleStyleSettings(
     reset('subtitleFontFamily');
     reset('subtitleMiningPause');
     reset('subtitleHoverPause');
-    return changed ? RESET_EXPLICIT_KEYS : undefined;
+    return changed ? RESET_WITHDRAWN_KEYS : undefined;
 }
 
 export function syncNativeSubtitleBlurVariables(

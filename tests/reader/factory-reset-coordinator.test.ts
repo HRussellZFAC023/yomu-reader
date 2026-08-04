@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FactoryResetCoordinator } from '../../src/reader/app/factory-reset-coordinator';
-import { DEFAULT_SETTINGS, endSettingsResetGuard, saveSettings } from '../../src/reader/settings/index';
+import { DEFAULT_SETTINGS, endSettingsResetGuard, NO_EXPLICIT_USER_CHOICE, saveSettings } from '../../src/reader/settings/index';
 
 describe('FactoryResetCoordinator', () => {
     afterEach(() => {
@@ -46,7 +46,10 @@ describe('FactoryResetCoordinator', () => {
                 ['jpdb-popup-reader-settings', { apiKey: 'still-here' }],
             ]),
             resetDictionaryDatabase: vi.fn(async () => {
-                await saveSettings({ ...DEFAULT_SETTINGS, apiKey: 'rewritten-during-reset' });
+                await saveSettings(
+                    { ...DEFAULT_SETTINGS, apiKey: 'rewritten-during-reset' },
+                    { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE },
+                );
                 throw new Error('indexedDB blocked');
             }),
         });

@@ -63,7 +63,9 @@ describe('shouldShowReaderOnboarding — browser-extension gating', () => {
             },
         });
 
-        await saveSettings({ ...DEFAULT_SETTINGS, onboardingSeen: true });
+        await saveSettings({ ...DEFAULT_SETTINGS, onboardingSeen: true }, {
+            explicitUserChoiceKeys: ['onboardingSeen'],
+        });
 
         expect(values.get(SETTINGS_STORAGE_KEY)).toMatchObject({ onboardingSeen: true });
         expect((await loadSettings()).onboardingSeen).toBe(true);

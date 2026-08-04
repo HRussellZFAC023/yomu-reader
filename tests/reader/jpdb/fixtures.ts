@@ -65,7 +65,7 @@ import { NewTabRuntime } from '../../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../../src/reader/audio/actions';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, jpdbFirstParseOptions, pickAuthoritativeTokenAt } from '../../../src/reader/lookup/parser';
 import { parseRtkSearchIndex } from '../../../src/reader/kanji/rtk';
-import { DEFAULT_AUDIO_SOURCES, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor, saveSettings } from '../../../src/reader/settings/index';
+import { DEFAULT_AUDIO_SOURCES, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, NO_EXPLICIT_USER_CHOICE, sanitizeAccentColor, saveSettings } from '../../../src/reader/settings/index';
 import { testEnSettings } from '../helpers/settings-fixture';
 
 // These tests assert English UI copy; pin the interface language for
@@ -3319,6 +3319,7 @@ export {
     resolveNewTabBrandAssets,
     restoreWindowDescriptor,
     sanitizeAccentColor,
+    NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     searchWordDetailHtml,
     shouldReplaceWaitingNativeTrack,

@@ -318,6 +318,7 @@ import {
     DEFAULT_SETTINGS,
     loadSettings,
     matchesShortcut,
+    NO_EXPLICIT_USER_CHOICE,
     saveSettings,
     shortcutIsPressed,
     shouldLookupAnkiStatus,
@@ -469,7 +470,7 @@ export class ReaderApp {
         document.querySelectorAll<HTMLInputElement>('input[name="immersionKitRevealTranslationOnClick"]').forEach(input => {
             input.checked = blurred;
         });
-        void saveSettings(this.settings);
+        void saveSettings(this.settings, { explicitUserChoiceKeys: ['immersionKitRevealTranslationOnClick'] });
     };
     private jpdb = new JpdbClient(() => effectiveJpdbApiKey(this.settings), () => this.settings.corsProxyUrl);
     private jiten = new JitenApiClient(() => effectiveJitenApiKey(this.settings), { proxyUrl: () => this.settings.corsProxyUrl });
@@ -642,7 +643,7 @@ export class ReaderApp {
         invalidateCardData: () => this.cardRenderData.clear(),
         setApiGradingProvider: provider => {
             this.settings.apiGradingProvider = provider;
-            void saveSettings(this.settings);
+            void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
         },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => {
@@ -1021,7 +1022,10 @@ export class ReaderApp {
             mineBatchMiningCandidates: candidates => this.cardActions.addBatchMiningCards(candidates),
             gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
             toast: message => this.toast(message),
-            onSettingsChange: explicitUserChoiceKeys => void saveSettings(this.settings, { explicitUserChoiceKeys }),
+            onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void saveSettings(this.settings, {
+                explicitUserChoiceKeys,
+                clearExplicitUserChoiceKeys,
+            }),
         });
     }
 
@@ -1405,7 +1409,7 @@ export class ReaderApp {
         registerReaderMenuCommands({
             cycleOcr: () => this.cycleOcrMode(),
             getSettings: () => this.settings,
-            saveSettings: settings => saveSettings(settings),
+            saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
             installFloatingButton: () => this.installFab(),
             showSettings: () => this.showSettings(),
             toggleAnnotations: () => this.toggleAnnotationsPaused(),
@@ -1456,7 +1460,7 @@ export class ReaderApp {
 
     private async setYoutubeFilterNoticeVisible(visible: boolean): Promise<void> {
         this.settings.youtubeShowFilterNotice = visible;
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['youtubeShowFilterNotice'] });
         this.youtube.refresh();
     }
 
@@ -1468,7 +1472,10 @@ export class ReaderApp {
         const previous = this.settings.preferJapaneseSiteLanguage;
         if (previous === enabled) return;
         this.settings.preferJapaneseSiteLanguage = enabled;
-        const save = saveSettings(this.settings, { persistPreferredJapaneseSiteLanguage: true });
+        const save = saveSettings(this.settings, {
+            persistPreferredJapaneseSiteLanguage: true,
+            explicitUserChoiceKeys: ['preferJapaneseSiteLanguage'],
+        });
         // Cancel an already-armed redirect synchronously. The navigation back
         // to the site's default waits for the canonical preference write, so a
         // slow userscript manager cannot unload the page before saving "off".
@@ -1498,7 +1505,7 @@ export class ReaderApp {
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
         if (this.settings.interfaceLanguage === language) return;
         this.settings.interfaceLanguage = language;
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['interfaceLanguage'] });
         this.settingsDialog?.refreshLanguage(language);
         this.clearHostedPageReaderWords();
         this.installFab();
@@ -1622,7 +1629,7 @@ export class ReaderApp {
             this.applyReaderThemeClasses(hostTheme);
             if (settings !== this.settings || this.settings.theme === 'auto' || this.settings.theme === hostTheme) return;
             this.settings = { ...this.settings, theme: hostTheme };
-            void saveSettings(this.settings);
+            void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
             this.publishThemeSettingsChange();
             return;
         }
@@ -1677,7 +1684,7 @@ export class ReaderApp {
             return;
         }
         this.settings = { ...this.settings, theme: hostTheme };
-        void saveSettings(this.settings);
+        void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
         applyReaderTheme(this.settings);
         refreshReaderWordContrast(document);
         this.publishThemeSettingsChange();
@@ -1755,7 +1762,7 @@ export class ReaderApp {
                 getSettings: () => this.settings,
                 applySettings: async settings => {
                     this.settings = settings;
-                    await saveSettings(settings);
+                    await saveSettings(settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE });
                 },
                 onProgress: message => this.toast(message),
             });
@@ -2406,7 +2413,7 @@ export class ReaderApp {
     private installFab(): void {
         this.floatingButton.install(
             this.settings,
-            () => void saveSettings(this.settings),
+            () => void saveSettings(this.settings, { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE }),
             {
                 openSettings: () => this.showSettings(),
                 openStudyPage: () => this.openStudyPage(),
@@ -2432,7 +2439,7 @@ export class ReaderApp {
     // Re-init so disabling detaches an already-bound video.
     private async toggleAutoSubtitles(): Promise<void> {
         this.settings.subtitleAutoDetect = !this.settings.subtitleAutoDetect;
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['subtitleAutoDetect'] });
         this.subtitles.destroy();
         this.subtitles.init();
     }
@@ -2505,7 +2512,7 @@ export class ReaderApp {
         // Unmuting from a fully-off mode needs a playing mode again, otherwise
         // settings normalization forces autoPlayAudio back to false.
         if (!enabled && this.settings.audioAutoPlayMode === 'off') this.settings.audioAutoPlayMode = 'all';
-        await saveSettings(this.settings);
+        await saveSettings(this.settings, { explicitUserChoiceKeys: ['autoPlayAudio', 'audioAutoPlayMode'] });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
     }
 
@@ -3113,7 +3120,7 @@ export class ReaderApp {
             showSettings: panel => this.showSettings(panel),
             setInterfaceLanguage: language => this.setInterfaceLanguage(language),
             applyTheme: () => this.applyTheme(),
-            saveSettings: settings => saveSettings(settings),
+            saveSettings: (settings, explicitUserChoiceKeys) => saveSettings(settings, { explicitUserChoiceKeys }),
             clearBridgeCaches: () => this.clearBridgeBackedCaches(),
         }, this.abortController.signal);
         addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {

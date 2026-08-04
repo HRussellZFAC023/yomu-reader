@@ -17,7 +17,10 @@ export interface ReaderRuntimeEventHandlers {
     clearBridgeCaches: () => void;
     getSettings: () => ReaderSettings;
     isDestroyed: () => boolean;
-    saveSettings: (settings: ReaderSettings) => Promise<unknown>;
+    saveSettings: (
+        settings: ReaderSettings,
+        explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
+    ) => Promise<unknown>;
     setInterfaceLanguage: (language: InterfaceLanguage) => void | Promise<void>;
     setSettings: (settings: ReaderSettings) => void;
     showSettings: (panel?: string) => void;
@@ -53,7 +56,9 @@ export function bindReaderRuntimeEvents(
         settings.theme = theme;
         handlers.setSettings(settings);
         handlers.applyTheme();
-        if (detail?.preview !== true) void handlers.saveSettings(settings);
+        // The theme arrived in the event from whichever surface the learner
+        // switched it on; mirroring it here is that same choice, not a guess.
+        if (detail?.preview !== true) void handlers.saveSettings(settings, ['theme']);
     }, { signal });
 
     addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {

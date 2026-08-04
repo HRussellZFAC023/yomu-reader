@@ -30,7 +30,9 @@ describe('settings reset guard', () => {
         vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
 
         beginSettingsResetGuard();
-        await expect(saveSettings({ ...stored, theme: 'dark' })).rejects.toMatchObject({
+        await expect(saveSettings({ ...stored, theme: 'dark' }, {
+            explicitUserChoiceKeys: ['theme'],
+        })).rejects.toMatchObject({
             message: '',
         });
 

@@ -6,7 +6,17 @@ import { migrateAnkiSentenceAudioMappings, normalizeAnkiFieldMappings } from './
 import { combinedApiCredentialLabel, hasBunproFrontendCredential, hasJitenApiCredential, hasJpdbApiCredential, isBunproFrontendCredentialExpired, isJitenApiCredential } from './api-credential';
 import { accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, DEFAULT_ACCENT_COLOR, DEFAULT_OCR_BACKGROUND_COLOR, DEFAULT_OCR_BACKGROUND_OPACITY, DEFAULT_OCR_OUTLINE_COLOR, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor } from './color-settings';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
-import { AUTOMATION_PROTECTED_SETTINGS_KEYS } from './explicit-user-choice';
+import {
+    applySettingsIntent,
+    clearSettingsIntent,
+    coupledIntentKeys,
+    NO_EXPLICIT_USER_CHOICE,
+    recordSettingsIntent,
+    SETTINGS_INTENT_LEDGER_STORAGE_KEY,
+    settingsIntentKeys,
+    settingsIntentLedgerFromStorage,
+    type SettingsIntentLedger,
+} from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
@@ -27,10 +37,11 @@ import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSour
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
 export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
-export { changedAutomationProtectedSettingsKeys, coupledExplicitUserChoiceKeys } from './explicit-user-choice';
+export { NO_EXPLICIT_USER_CHOICE, SETTINGS_INTENT_LEDGER_STORAGE_KEY } from './intent-ledger';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
+/** Superseded by the intent ledger; still read once so upgrades keep their pins. */
 export const EXPLICIT_USER_SETTINGS_STORAGE_KEY = 'yomu:explicit-user-settings:v1';
 const LEGACY_SETTINGS_STORAGE_KEYS = [
     'jpdb-reader-settings',
@@ -1879,10 +1890,7 @@ export async function loadSettings(): Promise<ReaderSettings> {
             PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
             undefined,
         );
-        const explicitUserSettings = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(
-            EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-            null,
-        ));
+        const intentLedger = await readSettingsIntentLedger();
         const cacheStandaloneBaseline = isHostedYomuOrigin()
             && !hasAsyncGmStorageBackend()
             && localFallbackStoredValue<Partial<ReaderSettings> | null>(SETTINGS_STORAGE_KEY, null) === null;
@@ -1898,7 +1906,7 @@ export async function loadSettings(): Promise<ReaderSettings> {
         // this a donor store replayed the old value and re-persisted it (GitHub #36).
         // Keys recovered from an earlier donor join the set too, so the first donor
         // still wins, exactly as the bare equality test used to arrange.
-        const settledKeys = new Set<string>(explicitUserSettings ? Object.keys(explicitUserSettings) : []);
+        const settledKeys = new Set<string>(settingsIntentKeys(intentLedger));
 
         for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
             const legacyRecord = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(key, null));
@@ -1923,9 +1931,9 @@ export async function loadSettings(): Promise<ReaderSettings> {
                 settings.preferJapaneseSiteLanguage,
             ),
         };
-        settings = applyExplicitUserSettings(settings, explicitUserSettings);
+        settings = mergeSettings(applySettingsIntent(settings, intentLedger) as LegacyReaderSettings);
 
-        if (recoveredLegacySettings) await persistSettings(settings);
+        if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
         else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
             cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
         }
@@ -2006,7 +2014,7 @@ export async function promoteStrandedHostedSettingsToGmStorage(): Promise<boolea
             new Set<string>(gmRecord ? Object.keys(gmRecord) : []),
             DEFAULT_SETTINGS,
         );
-        if (recovery.changed) await persistSettings(recovery.settings);
+        if (recovery.changed) await persistSettings(recovery.settings, NO_EXPLICIT_USER_CHOICE);
         return true;
     } catch (error) {
         log.warn('Stranded hosted settings promotion failed', { error });
@@ -2033,6 +2041,7 @@ export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderS
         subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
         subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
         subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
+        subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh),
     ];
     return () => {
         active = false;
@@ -2048,16 +2057,28 @@ export interface SaveSettingsOptions {
      */
     readonly persistPreferredJapaneseSiteLanguage?: boolean;
     /**
-     * Fields changed by a direct user action. Their values are stored outside
-     * the whole-settings blob so stale listeners, onboarding defaults, and
-     * auto-discovery passes cannot silently overwrite the user's intent.
+     * Fields this write changed because a human moved the control that owns
+     * them. Recorded in the intent ledger, so a later stale whole-settings save
+     * cannot replace them.
+     *
+     * REQUIRED, and `NO_EXPLICIT_USER_CHOICE` for a machine write. Optional, it
+     * was skipped by surface after surface — a rail toggle that declared
+     * nothing while the keyboard shortcut for the same action declared
+     * correctly is how "the show-native-subtitles toggle turns itself back on"
+     * shipped. A required field makes a new surface state which kind of write
+     * it is instead of defaulting into the silent one.
      */
-    readonly explicitUserChoiceKeys?: readonly (keyof ReaderSettings)[];
+    readonly explicitUserChoiceKeys: readonly (keyof ReaderSettings)[];
+    /**
+     * Fields whose recorded intent this write WITHDRAWS: a Reset control puts
+     * defaults back, which is the opposite of choosing them.
+     */
+    readonly clearExplicitUserChoiceKeys?: readonly (keyof ReaderSettings)[];
 }
 
 export async function saveSettings(
     settings: ReaderSettings,
-    options: SaveSettingsOptions = {},
+    options: SaveSettingsOptions,
 ): Promise<void> {
     if (settingsResetInProgress) {
         log.warn('Rejected save during reset');
@@ -2072,60 +2093,52 @@ export async function saveSettings(
         if (options.persistPreferredJapaneseSiteLanguage) {
             await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
         }
-        await persistSettings(normalizedSettings, options.explicitUserChoiceKeys);
+        await persistSettings(
+            normalizedSettings,
+            options.explicitUserChoiceKeys,
+            options.clearExplicitUserChoiceKeys,
+        );
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
     }
 }
 
+async function readSettingsIntentLedger(): Promise<SettingsIntentLedger> {
+    return settingsIntentLedgerFromStorage(
+        await gmStorageGet<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+        await gmStorageGet<unknown>(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null),
+    );
+}
+
 async function persistSettings(
     settings: ReaderSettings,
-    explicitUserChoiceKeys: readonly (keyof ReaderSettings)[] = [],
+    explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
+    clearExplicitUserChoiceKeys: readonly (keyof ReaderSettings)[] = [],
 ): Promise<void> {
     const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
     let storedSettings: Partial<ReaderSettings> = normalizedSettings;
     await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-        const existingExplicitSettings = settingsRecord(await gmStorageGet<Partial<ReaderSettings> | null>(
-            EXPLICIT_USER_SETTINGS_STORAGE_KEY,
-            null,
-        ));
-        const nextExplicitSettings: Partial<ReaderSettings> = { ...existingExplicitSettings };
         // Only the CALLER can say what the learner touched. A save may carry a stale
         // whole-object snapshot, so differences against the stored record are not
         // intent -- inferring them here clobbers another context's explicit choice.
-        for (const key of explicitUserChoiceKeys) {
-            assignSetting(nextExplicitSettings, key, normalizedSettings[key]);
-        }
-        if (explicitUserChoiceKeys.length > 0) {
-            await gmStorageSet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, nextExplicitSettings);
-        }
-        storedSettings = applyExplicitUserSettings(normalizedSettings, nextExplicitSettings);
+        const ledger = await readSettingsIntentLedger();
+        const known = (key: string): boolean => hasOwn(DEFAULT_SETTINGS, key);
+        const withdrawn = clearSettingsIntent(ledger, coupledIntentKeys(clearExplicitUserChoiceKeys, known));
+        const nextLedger = recordSettingsIntent(
+            withdrawn,
+            coupledIntentKeys(explicitUserChoiceKeys, known),
+            normalizedSettings,
+        );
+        if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+        storedSettings = mergeSettings(
+            applySettingsIntent(normalizedSettings, nextLedger) as LegacyReaderSettings,
+        );
         const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
         await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
         storedSettings = supportedSettings;
     });
     dispatchSettingsChange(storedSettings);
-}
-
-function assignSetting<K extends keyof ReaderSettings>(
-    settings: Partial<ReaderSettings>,
-    key: K,
-    value: ReaderSettings[K],
-): void {
-    settings[key] = value;
-}
-
-function applyExplicitUserSettings(
-    settings: ReaderSettings,
-    explicitSettings: Partial<ReaderSettings> | null,
-): ReaderSettings {
-    if (!explicitSettings) return settings;
-    const candidate: Partial<ReaderSettings> = { ...settings };
-    for (const key of AUTOMATION_PROTECTED_SETTINGS_KEYS) {
-        if (hasOwn(explicitSettings, key)) assignSetting(candidate, key, explicitSettings[key] as ReaderSettings[typeof key]);
-    }
-    return mergeSettings(candidate as LegacyReaderSettings);
 }
 
 function dispatchSettingsChange(settings: Partial<ReaderSettings>): void {
@@ -2153,6 +2166,7 @@ export async function deleteSettingsStorage(): Promise<void> {
     for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
     await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
     await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
+    await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
 }
 
 export async function settingsStorageKeysStillPresent(): Promise<string[]> {
@@ -2161,6 +2175,7 @@ export async function settingsStorageKeysStillPresent(): Promise<string[]> {
         ...SETTINGS_STORAGE_KEYS,
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+        SETTINGS_INTENT_LEDGER_STORAGE_KEY,
     ]) {
         if (await storedValueExists(key)) keys.push(key);
     }
