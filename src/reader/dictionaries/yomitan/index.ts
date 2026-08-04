@@ -542,6 +542,9 @@ export class YomitanDictionaryStore {
         targetGeneration: number,
     ): Promise<YomitanTermMatch[]> {
         const selected: YomitanTermMatch[] = [];
+        // The learner's dictionary order decides which entry answers for a span
+        // once the span itself is settled, so the sweep carries the rank.
+        const rank = dictionaryRank(preferences);
         // Windows are swept in reading order and every match starts inside its
         // own window, so the furthest end selected so far is all a later window
         // needs to stay non-overlapping across the boundary.
@@ -556,8 +559,8 @@ export class YomitanDictionaryStore {
             const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
             const free = matches.filter(match => match.start >= coveredUntil);
             const windowMatches = target.lookupSweepMode === 'left-to-right-longest-exact'
-                ? leftToRightLongestMatches(free, limit)
-                : nonOverlappingMatches(free, limit);
+                ? leftToRightLongestMatches(free, limit, rank)
+                : nonOverlappingMatches(free, limit, rank);
             for (const match of windowMatches) {
                 selected.push(match);
                 coveredUntil = Math.max(coveredUntil, match.end);

@@ -119,12 +119,30 @@ describe('settings form localization', () => {
             JITEN_DEFINITION_SOURCE_ID,
             JPDB_DEFINITION_SOURCE_ID,
         ]);
+        // {jpdb: 0, jiten: 1} in a record that PREDATES bunproDefinitionsPriority
+        // is the pre-1.4.215 shipped default, and the one-shot migration that put
+        // Jiten in front still applies to it.
         expect(orderedDefinitionSourceIds(normalizeReaderSettings({
             jpdbDefinitionsPriority: 0,
             jitenDefinitionsPriority: 1,
         }), []).slice(0, 2)).toEqual([
             JITEN_DEFINITION_SOURCE_ID,
             JPDB_DEFINITION_SOURCE_ID,
+        ]);
+        // The same two numbers in a CURRENT record are what dragging JPDB to the
+        // top of the definition-source editor produces, and this test asserted
+        // that they were reverted -- the drag was undone by the very save that
+        // stored it (GitHub #43: "it still jams jiten to the top of the
+        // dictionary array even though claiming otherwise in the changelog").
+        // Every record written since bunproDefinitionsPriority shipped carries
+        // it, because the whole settings object is persisted on every save.
+        expect(orderedDefinitionSourceIds(normalizeReaderSettings({
+            jpdbDefinitionsPriority: 0,
+            jitenDefinitionsPriority: 1,
+            bunproDefinitionsPriority: 2,
+        }), []).slice(0, 2)).toEqual([
+            JPDB_DEFINITION_SOURCE_ID,
+            JITEN_DEFINITION_SOURCE_ID,
         ]);
         expect(orderedDefinitionSourceIds(normalizeReaderSettings({
             jpdbDefinitionsPriority: 0,

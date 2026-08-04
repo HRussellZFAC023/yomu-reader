@@ -989,6 +989,11 @@ function readDictionaryLookupLinkRow(
     get: (key: string) => string,
     index: number,
 ): DictionaryLookupLink | null {
+    // `Number(...) || index` read a submitted priority of 0 -- the FIRST row --
+    // as "absent" and replaced it with the row index. Harmless while the two
+    // agreed, wrong the moment they did not, which is every row order the editor
+    // renumbers.
+    const priority = readSubmittedRowPriority(get(`dictionaryLookupLinks.${index}.priority`), index);
     const label = get(`dictionaryLookupLinks.${index}.label`).trim();
     const urlTemplate = get(`dictionaryLookupLinks.${index}.urlTemplate`).trim();
     const action = dictionaryLookupLinkAction(get(`dictionaryLookupLinks.${index}.action`));
@@ -999,8 +1004,14 @@ function readDictionaryLookupLinkRow(
         urlTemplate: dictionaryLookupLinkUrlTemplate(urlTemplate, action),
         enabled: data.has(`dictionaryLookupLinks.${index}.enabled`),
         action,
-        priority: Number(get(`dictionaryLookupLinks.${index}.priority`)) || index,
+        priority,
     };
+}
+
+function readSubmittedRowPriority(value: string, index: number): number {
+    if (!value.trim()) return index;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : index;
 }
 
 function dictionaryLookupLinkAction(value: string): DictionaryLookupLink['action'] {

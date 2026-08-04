@@ -6,7 +6,7 @@ import { targetLanguageDisplayName } from '../../../src/reader/app/target-langua
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
-import { changedSettingsKeys } from '../../../src/reader/settings/index';
+import { changedSettingsKeys, coupledSettingsIntentKeys } from '../../../src/reader/settings/index';
 import { syncYoutubeImmersionTarget } from '../../../src/reader/settings/youtube-panel';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import { DEFAULT_SETTINGS, renderSettingsTestForm } from './fixtures';
@@ -226,9 +226,13 @@ describe('target-language settings', () => {
             const optedIn = readFormSettings(new FormData(form), russianSettings);
             expect(optedIn.youtubeImmersionEnabled).toBe(true);
             expect(optedIn.youtubeImmersionEnabledChosen).toBe(true);
-            // Both halves of the opt-in are declared by the form read itself, so
-             // the intent ledger records the pair without a coupling allowlist.
+            // The form read declares the flag it changed; the intent ledger
+            // couples it to the value it qualifies from the key NAME, so the
+            // stale raw value cannot be replayed underneath the flag. No
+            // hand-maintained list of pairs is involved any more.
             expect(changedSettingsKeys(russianSettings, optedIn))
+                .toEqual(expect.arrayContaining(['youtubeImmersionEnabledChosen']));
+            expect(coupledSettingsIntentKeys(changedSettingsKeys(russianSettings, optedIn)))
                 .toEqual(expect.arrayContaining([
                     'youtubeImmersionEnabled',
                     'youtubeImmersionEnabledChosen',

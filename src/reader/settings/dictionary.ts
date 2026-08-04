@@ -255,6 +255,20 @@ export function normalizeDictionaryLookupLinkSettings(
         : links;
 }
 
+/**
+ * Where a dictionary nobody has ordered yet sits.
+ *
+ * The definition-source editor numbers its rows from 0, and the built-in
+ * sources (Jiten 0, JPDB 1, Bunpro 2, WaniKani 3, ... Anki 90) live in that
+ * same space. An imported dictionary that fell back to its ARRAY INDEX
+ * therefore landed on 0 and tied with Jiten, and the tie was broken
+ * alphabetically -- which is why "Jiten" sat above Jitendex, JMdict and
+ * JMnedict however the shelf was arranged (GitHub #43). Unordered means last,
+ * and 1000 is already what `orderedDefinitionSourceIds` uses for a dictionary
+ * with no preference row at all.
+ */
+export const UNORDERED_DICTIONARY_PRIORITY_BASE = 1000;
+
 export function normalizeDictionaryPreferences(value: unknown): DictionaryPreference[] {
     if (!Array.isArray(value)) return [];
     return value
@@ -273,7 +287,7 @@ function normalizeDictionaryPreference(item: unknown, index: number): Dictionary
         name,
         alias: alias.trim() ? alias : name,
         enabled: booleanValue(record.enabled, true),
-        priority: finiteNumber(record.priority, index),
+        priority: finiteNumber(record.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
         allowSecondarySearches: booleanValue(record.allowSecondarySearches, false),
         type: normalizeDictionaryType(record.type, name),
     };
@@ -437,7 +451,7 @@ export function normalizeDictionaryLookupLinks(
 
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
 
-    return withLookupLinkPriorities(ensureJitenBeforeJpdb(normalized));
+    return withLookupLinkPriorities(normalized);
 }
 
 function isRemovedBuiltInLookupLink(link: DictionaryLookupLink): boolean {
@@ -464,16 +478,11 @@ function withLookupLinkPriorities(links: DictionaryLookupLink[]): DictionaryLook
     }));
 }
 
-function ensureJitenBeforeJpdb(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
-    const jitenIndex = links.findIndex(link => link.id === JITEN_LOOKUP_LINK.id);
-    const jpdbIndex = links.findIndex(link => link.id === JPDB_LOOKUP_LINK.id);
-    if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
-    const reordered = [...links];
-    const [jiten] = reordered.splice(jitenIndex, 1);
-    const insertAt = reordered.findIndex(link => link.id === JPDB_LOOKUP_LINK.id);
-    reordered.splice(Math.max(0, insertAt), 0, jiten);
-    return reordered;
-}
+// A jiten-above-jpdb splice used to run on EVERY normalize, so a learner who
+// dragged the JPDB pill above Jiten had it put back on the next save. The
+// shipped default already lists Jiten first, so the order it enforced is the
+// order a fresh install gets anyway; nothing but a deliberate drag was ever
+// changed by it.
 
 function appendMissingBuiltInLookupLinks(builtIns: DictionaryLookupLink[], seen: Set<string>, add: (link: DictionaryLookupLink) => void): void {
     for (const builtIn of builtIns) {
@@ -627,7 +636,7 @@ function retireReplacedDictionaryPreferences(
 function mergeDictionaryPreference(merged: Map<string, DictionaryPreference>, name: string, type: DictionaryPreference['type'], inherit?: DictionaryPreference): void {
     const existing = merged.get(name);
     if (!existing) {
-        const defaults = defaultDictionaryPreference(name, type, merged.size);
+        const defaults = defaultDictionaryPreference(name, type, UNORDERED_DICTIONARY_PRIORITY_BASE + merged.size);
         merged.set(name, inherit
             ? {
                 ...defaults,

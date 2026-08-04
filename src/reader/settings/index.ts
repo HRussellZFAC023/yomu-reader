@@ -1072,9 +1072,22 @@ function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pi
     return aliases;
 }
 
+/**
+ * The one-shot 1.4.215 migration that moved Jiten in front of JPDB.
+ *
+ * {jpdb: 0, jiten: 1} is also EXACTLY what dragging JPDB to the top of the
+ * definition-source editor produces, so applying this on every normalize
+ * force-reverted that drag inside the same save -- "it still jams jiten to the
+ * top of the dictionary array" (GitHub #43). The migration is therefore gated on
+ * the record predating it: `bunproDefinitionsPriority` arrived after the
+ * migration shipped, so a record without it was written before the migration
+ * could have run, and every record written since carries it (the whole settings
+ * object is persisted on every save).
+ */
 function isLegacyDefaultDefinitionSourceOrder(value: Partial<ReaderSettings> | null | undefined): boolean {
     return hasOwn(value, 'jpdbDefinitionsPriority')
         && hasOwn(value, 'jitenDefinitionsPriority')
+        && !hasOwn(value, 'bunproDefinitionsPriority')
         && value?.jpdbDefinitionsPriority === 0
         && value?.jitenDefinitionsPriority === 1;
 }
@@ -2104,6 +2117,16 @@ export async function saveSettings(
     }
 }
 
+/**
+ * The keys a declaration really covers: a `*Chosen` flag and the value it
+ * qualifies are one preference, derived from the key name rather than listed.
+ */
+export function coupledSettingsIntentKeys(
+    keys: readonly (keyof ReaderSettings)[],
+): Array<keyof ReaderSettings> {
+    return coupledIntentKeys(keys, key => hasOwn(DEFAULT_SETTINGS, key));
+}
+
 async function readSettingsIntentLedger(): Promise<SettingsIntentLedger> {
     return settingsIntentLedgerFromStorage(
         await gmStorageGet<unknown>(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
@@ -2123,11 +2146,10 @@ async function persistSettings(
         // whole-object snapshot, so differences against the stored record are not
         // intent -- inferring them here clobbers another context's explicit choice.
         const ledger = await readSettingsIntentLedger();
-        const known = (key: string): boolean => hasOwn(DEFAULT_SETTINGS, key);
-        const withdrawn = clearSettingsIntent(ledger, coupledIntentKeys(clearExplicitUserChoiceKeys, known));
+        const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
         const nextLedger = recordSettingsIntent(
             withdrawn,
-            coupledIntentKeys(explicitUserChoiceKeys, known),
+            coupledSettingsIntentKeys(explicitUserChoiceKeys),
             normalizedSettings,
         );
         if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);

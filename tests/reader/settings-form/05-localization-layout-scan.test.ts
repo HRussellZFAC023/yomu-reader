@@ -474,7 +474,7 @@ describe('settings form localization', () => {
         expect(readFormSettings(new FormData(form), defaults).newTabShortcutHintsEnabled).toBe(false);
     });
 
-    it('normalizes saved lookup links so Jiten stays before JPDB', () => {
+    it('migrates a stale default lookup-link row without re-sorting an arranged one', () => {
         const defaultIds = normalizeReaderSettings({}).dictionaryLookupLinks.map(link => link.id);
         expect(defaultIds.slice(0, 5)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
 
@@ -510,6 +510,10 @@ describe('settings form localization', () => {
         expect(migratedFromPriorDefault.dictionaryLookupLinks.slice(0, 5).map(link => link.id)).toEqual(['yomu-search', 'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency']);
         expect(migratedFromPriorDefault.dictionaryLookupLinks.map(link => link.id).slice(-4)).toEqual(['immersion-kit', 'nadeshiko', 'uchisen', 'copy']);
 
+        // A row that is nobody's default is a row somebody arranged. Until
+        // v1.8.78 normalization spliced Jiten back above JPDB on EVERY load, so
+        // dragging the JPDB pill to the front was undone by the same save that
+        // stored it -- the pill half of "it still jams jiten to the top".
         const custom = normalizeReaderSettings({
             dictionaryLookupLinks: [
                 { ...defaultLinks.get('jpdb')! },
@@ -517,9 +521,9 @@ describe('settings form localization', () => {
                 { ...defaultLinks.get('jiten')! },
             ],
         });
-        expect(custom.dictionaryLookupLinks.map(link => link.id).indexOf('jiten')).toBeLessThan(
-            custom.dictionaryLookupLinks.map(link => link.id).indexOf('jpdb'),
-        );
+        const customIds = custom.dictionaryLookupLinks.map(link => link.id);
+        expect(customIds.indexOf('jpdb')).toBeLessThan(customIds.indexOf('jiten'));
+        expect(customIds.slice(0, 3)).toEqual(['jpdb', 'custom-search', 'jiten']);
     });
 
     it('expands the old untouched three-example Immersion Kit default while preserving deliberate limits', () => {

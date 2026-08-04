@@ -3,8 +3,16 @@ import { renderLookupPillsEditor } from '../../../src/reader/settings/form';
 import { updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/form-editors';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS } from '../../../src/reader/settings/dictionary';
 import { renderWordPills } from '../../../src/reader/sources/word-pills';
-import type { JPDBCard } from '../../../src/reader/app/types';
+import type { JPDBCard, ReaderSettings } from '../../../src/reader/app/types';
+import { UNORDERED_DICTIONARY_PRIORITY_BASE } from '../../../src/reader/settings/dictionary';
+import { mergeDictionaryPreferences } from '../../../src/reader/settings/index';
+import { updateSourceRowEditor } from '../../../src/reader/settings/form-order';
 import {
+    DEFAULT_SETTINGS,
+    JITEN_DEFINITION_SOURCE_ID,
+    JPDB_DEFINITION_SOURCE_ID,
+    normalizeReaderSettings,
+    orderedDefinitionSourceIds,
     frequencySettings,
     localizeSettingsForm,
     readFormSettings,
@@ -194,6 +202,109 @@ describe('frequency dictionary preferences', () => {
         expect(Array.from(result.querySelectorAll<HTMLElement>('[data-frequency-source="local"]'))
             .map(pill => pill.dataset.dictionary))
             .toEqual(['BCCWJ', 'Jiten']);
+    });
+
+    // GitHub #43, the half no existing test could see: the fixture above has no
+    // imported TERMS or KANJI dictionary competing with the built-in rows, so the
+    // numbering the editor writes was never compared against the numbering the
+    // hidden frequency rows submitted. They were two different spaces, and a
+    // no-op open-and-save re-sorted dictionaryPreferences on every pass.
+    const shelfSettings = {
+        ...DEFAULT_SETTINGS,
+        dictionaryPreferences: [
+            { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' as const },
+            { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 1, type: 'terms' as const },
+            { name: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 2, type: 'kanji' as const },
+            { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 3, type: 'frequency' as const },
+        ],
+    };
+
+    it('leaves the dictionary shelf byte-identical through a no-op open and save', () => {
+        const form = renderSettingsTestForm(shelfSettings);
+
+        const saved = readFormSettings(new FormData(form), shelfSettings);
+        const resaved = readFormSettings(new FormData(renderSettingsTestForm(saved)), saved);
+        const rerendered = readFormSettings(new FormData(renderSettingsTestForm(resaved)), resaved);
+
+        // Opening and saving renumbers the shelf into the editor's single space
+        // exactly once; every pass after that is a fixed point. KANJIDIC used to
+        // teleport to the end of the array here.
+        expect(saved.dictionaryPreferences.map(item => item.name))
+            .toEqual(['Jitendex', 'JMdict', 'KANJIDIC', 'BCCWJ']);
+        expect(JSON.stringify(resaved.dictionaryPreferences)).toBe(JSON.stringify(saved.dictionaryPreferences));
+        expect(JSON.stringify(rerendered.dictionaryPreferences)).toBe(JSON.stringify(saved.dictionaryPreferences));
+    });
+
+    it('keeps an imported dictionary dragged above Jiten in front across re-renders', () => {
+        const form = renderSettingsTestForm(shelfSettings);
+        const editor = form.querySelector<HTMLElement>('[data-definition-source-editor]')!;
+        const rowIds = () => Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'))
+            .map(row => row.dataset.sourceId);
+        const jitendexRow = () => editor.querySelector<HTMLElement>('[data-source-id="Jitendex"]')!;
+
+        // Drag Jitendex to the very top, past the built-in Jiten row.
+        while (rowIds().indexOf('Jitendex') > 0) {
+            updateSourceRowEditor('dictionary-source-up', jitendexRow());
+        }
+        expect(rowIds()[0]).toBe('Jitendex');
+
+        const saved = readFormSettings(new FormData(form), shelfSettings);
+        const normalized = normalizeReaderSettings(saved);
+        const rerendered = renderSettingsTestForm(normalized);
+        const resaved = readFormSettings(new FormData(rerendered), normalized);
+        const twiceRendered = renderSettingsTestForm(normalizeReaderSettings(resaved));
+
+        const orderedIds = (settings: ReaderSettings) => orderedDefinitionSourceIds(settings, ['Jitendex', 'JMdict']);
+        expect(orderedIds(normalized)[0]).toBe('Jitendex');
+        expect(orderedIds(normalizeReaderSettings(resaved))[0]).toBe('Jitendex');
+        expect(Array.from(twiceRendered
+            .querySelector<HTMLElement>('[data-definition-source-editor]')!
+            .querySelectorAll<HTMLElement>('[data-source-row]'))[0]?.dataset.sourceId).toBe('Jitendex');
+        expect(normalized.dictionaryPreferences.find(item => item.name === 'Jitendex')!.priority)
+            .toBeLessThan(normalized.jitenDefinitionsPriority);
+    });
+
+    // mirrormc, v1.8.77: "it also still jams jiten to the top of the dictionary
+    // array even though claiming otherwise in the changelog". Dragging JPDB to the
+    // top produces {jpdb: 0, jiten: 1}, which is byte-for-byte the pre-1.4.215
+    // shipped default, so the one-shot migration for that default fired on the
+    // same save and put Jiten back -- every time, forever.
+    it('keeps JPDB in front once the learner drags it above Jiten', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const editor = form.querySelector<HTMLElement>('[data-definition-source-editor]')!;
+        const rowIds = () => Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'))
+            .map(row => row.dataset.sourceId);
+        const jpdbRow = () => editor.querySelector<HTMLElement>(`[data-source-id="${JPDB_DEFINITION_SOURCE_ID}"]`)!;
+
+        while (rowIds().indexOf(JPDB_DEFINITION_SOURCE_ID) > 0) {
+            updateSourceRowEditor('dictionary-source-up', jpdbRow());
+        }
+
+        const saved = normalizeReaderSettings(readFormSettings(new FormData(form), DEFAULT_SETTINGS));
+        expect(saved.jpdbDefinitionsPriority).toBe(0);
+        expect(saved.jitenDefinitionsPriority).toBe(1);
+        expect(orderedDefinitionSourceIds(saved, []).slice(0, 2))
+            .toEqual([JPDB_DEFINITION_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID]);
+
+        // And it survives reopening the dialog and saving again unchanged.
+        const reopened = normalizeReaderSettings(readFormSettings(new FormData(renderSettingsTestForm(saved)), saved));
+        expect(orderedDefinitionSourceIds(reopened, []).slice(0, 2))
+            .toEqual([JPDB_DEFINITION_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID]);
+    });
+
+    // An imported dictionary nobody has ordered yet used to fall back to its
+    // ARRAY INDEX, which put the first one on 0 -- tied with the built-in Jiten
+    // row, and the tie was broken alphabetically, so "Jiten" sat above Jitendex,
+    // JMdict and JMnedict whatever the shelf said.
+    it('places a freshly discovered dictionary after the built-in sources, not tied with them', () => {
+        const discovered = mergeDictionaryPreferences([], ['Jitendex', 'JMnedict'], {});
+
+        expect(discovered.map(item => item.priority))
+            .toEqual([UNORDERED_DICTIONARY_PRIORITY_BASE, UNORDERED_DICTIONARY_PRIORITY_BASE + 1]);
+        expect(discovered.every(item => item.priority > DEFAULT_SETTINGS.jitenDefinitionsPriority)).toBe(true);
+        expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, dictionaryPreferences: discovered }, ['Jitendex', 'JMnedict'])
+            .filter(id => id === 'Jitendex' || id === JITEN_DEFINITION_SOURCE_ID))
+            .toEqual([JITEN_DEFINITION_SOURCE_ID, 'Jitendex']);
     });
 
     it('localizes combined lookup pill settings', () => {

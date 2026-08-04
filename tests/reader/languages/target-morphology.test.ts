@@ -307,6 +307,37 @@ describe('the generic Yomitan layer consumes contract output unchanged', () => {
         // order proves the ordering is the comparator's doing, not input order.
         expect(nonOverlappingMatches([...matches].reverse(), 5)).toEqual([shallow]);
     });
+
+    // GitHub #43, the part no amount of reordering in Settings could fix: the
+    // shelf order decided how sections were LISTED, but the parse-time comparator
+    // never looked at priority at all -- it broke a tie between two dictionaries
+    // ALPHABETICALLY, so which dictionary actually answered was decided by name.
+    it('lets the dictionary order the learner arranged decide which entry answers', () => {
+        const shelf = (...names: string[]): Map<string, DictionaryPreference> => new Map(names.map((name, index) => [
+            name,
+            { name, alias: name, enabled: true, priority: index, type: 'terms' as const },
+        ]));
+        const match = (dictionary: string): YomitanTermMatch => ({
+            ...termMatchesForEntries('読む', [entry({ dictionary })], candidatesFor('読む'), rank)[0]!,
+        });
+        const alphabeticallyFirst = match('AAA Dictionary');
+        const arrangedFirst = match('Zzz Dictionary');
+
+        expect(nonOverlappingMatches(
+            [alphabeticallyFirst, arrangedFirst],
+            1,
+            shelf('Zzz Dictionary', 'AAA Dictionary'),
+        )).toEqual([arrangedFirst]);
+
+        // Reverse the shelf and the other one answers; with no shelf at all the
+        // historical alphabetical tiebreak still applies.
+        expect(nonOverlappingMatches(
+            [alphabeticallyFirst, arrangedFirst],
+            1,
+            shelf('AAA Dictionary', 'Zzz Dictionary'),
+        )).toEqual([alphabeticallyFirst]);
+        expect(nonOverlappingMatches([arrangedFirst, alphabeticallyFirst], 1)).toEqual([alphabeticallyFirst]);
+    });
 });
 
 describe('the pitch fallback deconjugates through the contract too', () => {
