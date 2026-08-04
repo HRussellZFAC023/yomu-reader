@@ -5882,6 +5882,51 @@ function installHostedHomepageInteractions(): void {
     bindHostedYouTubeLiteEmbeds();
     bindHostedDemoVideos();
     watchHostedFoldRuntime();
+    installHostedHeroLanguageRotator();
+}
+
+// The headline rotator, restored by owner decision 2026-08-04. The SSR
+// headline stays "…learning 日本語." so crawlers, social unfurls and the no-JS
+// page never see a language chosen by a timer; only a booted client rotates,
+// and it starts from the same 日本語 the static page shows. Japanese word order
+// puts the study target first (日本語を学ぶための…), so the rotator owns the
+// WHOLE headline per interface language instead of swapping a word at a fixed
+// position inside a translated template.
+const HOSTED_HERO_HEADLINES: Record<InterfaceLanguage, readonly [string, string]> = {
+    en: ['A complete system for learning ', '.'],
+    ja: ['', 'を学ぶための、すべてがそろう。'],
+};
+const HOSTED_HERO_ROTATION_MS = 2800;
+
+function installHostedHeroLanguageRotator(): void {
+    const heading = document.querySelector<HTMLElement>('#yomu-home-title:not([data-yomu-hero-rotator])');
+    if (!heading) return;
+    const languages = __YOMU_HERO_LANGUAGES__;
+    if (languages.length < 2) return;
+    heading.dataset.yomuHeroRotator = 'on';
+    // The rotator owns the headline from here on; without the localize opt-out
+    // the docs localizer would rewrite the same text on every language toggle.
+    heading.dataset.yomuLocalize = 'off';
+    let index = 0;
+    const render = () => {
+        if (!heading.isConnected) return;
+        const [before, after] = HOSTED_HERO_HEADLINES[effectiveInterfaceLanguage()];
+        const language = languages[index];
+        // A fresh span every tick so the entry animation replays.
+        const word = document.createElement('span');
+        word.className = 'yomu-fold-h1-lang';
+        word.lang = language.locale;
+        word.dir = language.direction;
+        word.textContent = language.nativeName;
+        heading.replaceChildren(document.createTextNode(before), word, document.createTextNode(after));
+    };
+    render();
+    window.addEventListener(LANGUAGE_EVENT, () => window.requestAnimationFrame(render));
+    window.setInterval(() => {
+        if (document.hidden || !heading.isConnected) return;
+        index = (index + 1) % languages.length;
+        render();
+    }, HOSTED_HERO_ROTATION_MS);
 }
 
 // The fold's live line is pre-annotated static markup, so it still looks
@@ -6452,30 +6497,6 @@ function clearLocalHostedRuntimeCaches(): void {
     }
 }
 
-/**
- * The count of study targets Yomu reads, beyond Japanese.
- *
- * This replaces a rotator that cycled all 33 target names through the H1 itself.
- * The headline is the one line that has to be true at every instant, and on any
- * given tick it read "A complete system for learning Shqip." — a real product's
- * first sentence naming a language chosen by a 2-second timer. Screenshots and
- * social unfurls inherited whichever word happened to be showing.
- *
- * The number still comes from the same asserted roster the rotator used
- * (`heroStudyLanguages()`, which throws if a listed target's readiness does not
- * meet the claim), so demoting the claim did not weaken its verification: it is
- * measured at build time, minus Japanese, which the headline already names.
- */
-const YomuStudyTargetCount = defineComponent({
-    name: 'YomuStudyTargetCount',
-    setup() {
-        const beyondJapanese = __YOMU_HERO_LANGUAGES__
-            .filter(language => !language.id.startsWith('ja')).length;
-        if (beyondJapanese < 1) throw new Error('The homepage claims other study targets but the roster has none.');
-        return () => h('span', { class: 'yomu-target-count', 'data-yomu-localize': 'off' }, String(beyondJapanese));
-    },
-});
-
 const YomuLayout = defineComponent({
     name: 'YomuLayout',
     setup(_, { slots }) {
@@ -6494,7 +6515,6 @@ export default {
     Layout: YomuLayout,
     enhanceApp(ctx) {
         DefaultTheme.enhanceApp?.(ctx);
-        ctx.app.component('YomuStudyTargetCount', YomuStudyTargetCount);
         // Delegated from document, so it survives VitePress's client-side route
         // changes without re-binding per page. Guarded because enhanceApp also
         // runs during SSR, where there is no document to listen on.

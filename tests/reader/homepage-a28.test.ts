@@ -20,22 +20,34 @@ describe('A28 homepage contract', () => {
         expect(homepage).not.toContain('<figcaption');
     });
 
-    it('names Japanese in the headline and never a language chosen by a timer', () => {
-        // The owner asked for this sentence verbatim. A rotator that cycled all 33
-        // study targets through the H1 meant the product's own first line read "A
-        // complete system for learning Shqip." to whoever arrived on that tick, and
-        // every screenshot and social unfurl inherited whichever word was showing.
+    it('ships 日本語 in the SSR headline whatever the client rotator shows', () => {
+        // The owner restored the headline rotator (2026-08-04), but the SSR
+        // sentence must stay 日本語 verbatim: crawlers, social unfurls and the
+        // no-JS page all read the static markup, and a first line naming a
+        // language chosen by a timer is the failure mode that got the previous
+        // rotator removed. Rotation happens only in the booted client.
         expect(homepage).toContain('>A complete system for learning 日本語.</h1>');
         expect(homepage).not.toContain('YomuLanguageRotator');
         expect(homepageStyles).not.toContain('.yomu-language-cycle');
     });
 
-    it('keeps the multilingual claim on the page, demoted and still measured', () => {
-        // Demoting it must not delete it: 32 other targets really are supported, and
-        // the count is rendered from the same asserted roster the rotator read, so a
-        // roster change still cannot leave a stale number in the copy.
-        expect(homepage).toContain('<YomuStudyTargetCount />');
-        expect(homepage).toContain('yomu-fold-also');
+    it('moves the multilingual claim into the headline rotator', () => {
+        // The demoted "same loop works in N other languages" line is gone
+        // (owner decision 2026-08-04); the claim now lives in the rotator,
+        // which reads the same asserted roster (__YOMU_HERO_LANGUAGES__), so a
+        // roster change still cannot leave a stale language in the copy.
+        expect(homepage).not.toContain('<YomuStudyTargetCount />');
+        expect(homepage).not.toContain('yomu-fold-also');
+        const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        expect(theme).toContain('installHostedHeroLanguageRotator');
+        expect(theme).toContain('__YOMU_HERO_LANGUAGES__');
+    });
+
+    it('drops the "nothing installed" duplicate CTA section', () => {
+        // Its four links each live in their own proof section already; the
+        // owner removed the second copy (2026-08-04).
+        expect(homepage).not.toContain('yomu-no-install');
+        expect(homepageStyles).not.toContain('.yomu-no-install');
     });
 
     it('keeps one live OCR image and all other images opted out', () => {

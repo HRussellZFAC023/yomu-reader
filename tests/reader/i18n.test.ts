@@ -50,20 +50,10 @@ describe('interface language resolution', () => {
         expectCopyKeysSynced(englishKeys, japaneseKeys, japaneseCopySource);
     });
 
-    it('keeps hosted homepage link cards covered by Japanese docs copy', () => {
-        // The homepage carried two identical link grids (the no-install block and
-        // a trailing "Already installed?" grid). The duplicate is gone; the
-        // surviving one sits beside the live OCR panel, and its label/blurb pairs
-        // are what a Japanese reader still has to be shown.
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        const homeSource = readFileSync('docs/index.md', 'utf8');
-        const nextSteps = between(homeSource, '<div class="yomu-no-install-links">', '</div>');
-        const cardCopy = [...nextSteps.matchAll(/<(?:strong|span)>(.*?)<\/(?:strong|span)>/g)]
-            .map(match => decodeMarkdownHtml(match[1].trim()))
-            .filter(Boolean);
-
-        expect(cardCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-    });
+    // The homepage's last link-card grid (.yomu-no-install-links) was removed
+    // 2026-08-04 — each of its four links lives in its own proof section — so
+    // the link-card ja-coverage check went with it; the hero/media chrome
+    // check below still walks the whole homepage.
 
     it('keeps hosted homepage hero and media chrome covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');

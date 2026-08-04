@@ -1,6 +1,6 @@
 :root {
-  --vp-c-brand-1: #25573d;
-  --vp-c-brand-2: #3f7659;
+  --vp-c-brand-1: #5ea780;
+  --vp-c-brand-2: #6fb28f;
   --vp-c-brand-3: #5ea780;
   --vp-c-brand-soft: rgba(94, 167, 128, 0.16);
   --vp-c-bg: #ffffff;
@@ -11,15 +11,15 @@
   --vp-c-divider: rgba(20, 30, 45, 0.16);
   --vp-font-family-base:
     system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --vp-button-brand-border: #25573d;
-  --vp-button-brand-text: #ffffff;
-  --vp-button-brand-bg: #25573d;
-  --vp-button-brand-hover-border: #3f7659;
-  --vp-button-brand-hover-text: #ffffff;
-  --vp-button-brand-hover-bg: #3f7659;
-  --vp-button-brand-active-border: #1f4933;
-  --vp-button-brand-active-text: #ffffff;
-  --vp-button-brand-active-bg: #1f4933;
+  --vp-button-brand-border: #5ea780;
+  --vp-button-brand-text: #11161d;
+  --vp-button-brand-bg: #5ea780;
+  --vp-button-brand-hover-border: #6fb28f;
+  --vp-button-brand-hover-text: #11161d;
+  --vp-button-brand-hover-bg: #6fb28f;
+  --vp-button-brand-active-border: #549770;
+  --vp-button-brand-active-text: #11161d;
+  --vp-button-brand-active-bg: #549770;
   --vp-button-alt-border: rgba(20, 30, 45, 0.18);
   --vp-button-alt-bg: #eef1f4;
   --vp-button-alt-hover-bg: #e3e8ed;
@@ -39,10 +39,12 @@
   --yomu-doc-caption: var(--vp-c-text-2);
   /* Match syncHostedAccent's readableTextOn(default accent) result before
      hydration, so the native CTA and any early Reader mirror never traverse
-     an inaccessible white-to-ink colour transition. */
+     an inaccessible white-to-ink colour transition. White ink belonged to the
+     old forest-green fallbacks; on the #5ea780 accent family the runtime
+     computes #11161d, and white measures 2.87:1 there. */
   --yomu-doc-accent-ink: #11161d;
-  --yomu-doc-brand-ink: #ffffff;
-  --yomu-doc-brand-hover-ink: #ffffff;
+  --yomu-doc-brand-ink: #11161d;
+  --yomu-doc-brand-hover-ink: #11161d;
 }
 
 .dark {
@@ -55,15 +57,15 @@
   --vp-c-text-1: #f2f4f8;
   --vp-c-text-2: #aab2c0;
   --vp-c-divider: rgba(255, 255, 255, 0.12);
-  --vp-button-brand-border: #25573d;
-  --vp-button-brand-text: #ffffff;
-  --vp-button-brand-bg: #25573d;
-  --vp-button-brand-hover-border: #3f7659;
-  --vp-button-brand-hover-text: #ffffff;
-  --vp-button-brand-hover-bg: #3f7659;
-  --vp-button-brand-active-border: #1f4933;
-  --vp-button-brand-active-text: #ffffff;
-  --vp-button-brand-active-bg: #1f4933;
+  --vp-button-brand-border: #5ea780;
+  --vp-button-brand-text: #11161d;
+  --vp-button-brand-bg: #5ea780;
+  --vp-button-brand-hover-border: #6fb28f;
+  --vp-button-brand-hover-text: #11161d;
+  --vp-button-brand-hover-bg: #6fb28f;
+  --vp-button-brand-active-border: #549770;
+  --vp-button-brand-active-text: #11161d;
+  --vp-button-brand-active-bg: #549770;
   --vp-button-alt-border: rgba(255, 255, 255, 0.14);
   --vp-button-alt-bg: #282e37;
   --vp-button-alt-hover-bg: #323946;
@@ -294,15 +296,15 @@
 }
 
 .VPButton.brand {
-  border-color: var(--yomu-accent-readable, #25573d) !important;
-  background-color: var(--yomu-accent-readable, #25573d) !important;
+  border-color: var(--yomu-accent-readable, #5ea780) !important;
+  background-color: var(--yomu-accent-readable, #5ea780) !important;
   color: #fff !important;
 }
 
 .VPButton.brand:hover,
 .VPButton.brand:focus-visible {
-  border-color: var(--vp-button-brand-hover-border, #3f7659) !important;
-  background-color: var(--vp-button-brand-hover-bg, #3f7659) !important;
+  border-color: var(--vp-button-brand-hover-border, #6fb28f) !important;
+  background-color: var(--vp-button-brand-hover-bg, #6fb28f) !important;
   color: #fff !important;
 }
 
@@ -1382,10 +1384,10 @@ body:has(.yomu-home) .jpdb-reader-fab {
    ONE token layer, TWO palettes. Every colour on this page resolves
    through the semantic tokens below, so night is a designed palette
    rather than an inversion. The dark grounds are stepped up from the
-   world ink #181b18 (warm, green-leaning charcoal — never cold navy,
-   never pure black, and never the four olive greys the earlier pass used,
-   which made the whole page read as one green wash. Those four hexes are
-   banned outright: a grep of this file must not find any of them.
+   world ink #141824 (deep indigo ink — owner rule 2026-08-04: no browns,
+   no greys, no dark greens anywhere on this page. That bans the earlier
+   warm charcoal family as well as the four olive greys the restyle pass
+   used: a grep of this file must find none of them.
 
    The page GROUND and the object PAPER are two different materials:
    #fbf9f4 is the warm near-white the page sits on, #f1ead9 is the
@@ -1402,32 +1404,28 @@ body:has(.yomu-home) .jpdb-reader-fab {
 .yomu-home {
   /* --- The grammar --- */
   --ink: #0b0e14;
-  --world-ink: #181b18;
+  --world-ink: #141824;
   /* Warm night surfaces. These are the three the visual system allows;
      the olive set they replaced is banned outright. */
-  --night-1: #181b18;
-  --night-2: #24221d;
-  --night-3: #2b2822;
+  --night-1: #141824;
+  --night-2: #1c2130;
+  --night-3: #242a3d;
   --paper: #f1ead9;
   --paper-ground: #fbf9f4;
-  --paper-folded: #ddd0b7;
-  --paper-ink: #29271f;
-  --pencil: #655f51;
+  --paper-folded: #e5dcc4;
+  --paper-ink: #20242f;
+  --pencil: #4f566d;
   --accent: var(--jpdb-reader-accent, #5ea780);
   /* Lamplight. Deliberately NOT the accent: the accent is reserved for the
      primary action and is learner-configurable, so guidance drawn in it
      vanishes whenever someone picks a green. --lamp is the night value,
      --guide the darkened one that clears 4.5:1 on cream paper. */
   --lamp: #e8a33d;
-  /* DEVIATION FROM THE APPROVED TOKEN — NEEDS OWNER SIGN-OFF.
-     The brief specifies --guide: #9a6512. That value measured 4.12:1 for the
-     13px bold kicker it is used on, i.e. under AA for text at that size, so
-     this ships #8f5c0e instead: 4.7:1, same ochre, one step darker. It is the
-     only owner-approved token this pass alters. If the owner would rather keep
-     #9a6512 exactly, the contrast has to be bought somewhere else — a larger
-     or heavier kicker, or the kicker moved off cream — not by reverting this
-     line on its own. */
-  --guide: #8f5c0e;
+  /* Guide is vermillion, not the brief's #9a6512 ochre: dark ambers are
+     browns, which the owner's 2026-08-04 palette rule bans, and #9a6512
+     also measured 4.12:1 on cream — under AA for the 13px bold kicker.
+     #b23a2a measures 4.96:1 on --paper and 5.65:1 on --paper-ground. */
+  --guide: #b23a2a;
   /* Guidance drawn on the page GROUND rather than on a paper card: the ground
      flips with the theme, the cards do not, so the two cannot share a token. */
   --guide-on-ground: var(--guide);
@@ -1444,9 +1442,15 @@ body:has(.yomu-home) .jpdb-reader-fab {
   --surface-slab: var(--paper);
   --surface-plate: var(--world-ink);
   --ink-strong: var(--paper-ink);
-  --ink-body: #514c40;
-  --ink-quiet: #5d5849;
+  --ink-body: #3a4050;
+  --ink-quiet: #4d5468;
   --keyline: var(--ink);
+  /* Border for objects with LIGHT fills (cream chip, green button, the
+     popover card). On paper it is the same ink as every keyline; at night
+     the periwinkle keyline is for dark slabs coming up out of the ground,
+     and on a cream or green fill it read as a glow — these objects keep a
+     printed near-black edge instead. */
+  --keyline-object: var(--ink);
   --rule: var(--keyline);
   --rule-w: var(--keyline-w);
   --shadow-ink: var(--ink);
@@ -1457,9 +1461,9 @@ body:has(.yomu-home) .jpdb-reader-fab {
      learner chose, and fall back to the world ink only when none is stamped.
      Hardcoding a dark literal assumed a light accent: against a dark custom
      accent the band buttons and the Discord call to action measured 1.04:1. */
-  --on-accent: var(--yomu-accent-ink, var(--yomu-doc-accent-ink, #181b18));
+  --on-accent: var(--yomu-accent-ink, var(--yomu-doc-accent-ink, #141824));
   --on-plate: var(--paper);
-  --on-plate-quiet: #cfc8b5;
+  --on-plate-quiet: #ddd5bf;
   --scrim-ink: 24, 27, 24;
   --focus-ring: var(--guide);
 
@@ -1492,21 +1496,22 @@ body:has(.yomu-home) .jpdb-reader-fab {
        overridden. Both directions, one token list. */
 .dark .yomu-home {
   --surface-page: var(--night-1);
-  --surface-sunk: #121411;
+  --surface-sunk: #0f1320;
   --surface-slab: var(--night-2);
   --surface-plate: var(--night-3);
   --ink-strong: #f1ead9;
-  --ink-body: #c9c2ae;
-  --ink-quiet: #a8a191;
+  --ink-body: #ded7c2;
+  --ink-quiet: #bfb69f;
   /* The slabs are dark at night, so their keyline has to come UP out of the
      ground rather than down into it. The live sample slab must stay dark: the
      reader paints its own word and furigana colours into that paragraph from
      the reader theme, and on a cream card they measured 1.28:1. */
-  --keyline: #7b7365;
-  --shadow-ink: #0d0f0d;
+  --keyline: #6a739c;
+  --keyline-object: #080a12;
+  --shadow-ink: #080a12;
   --accent-ink: #7cc39c;
   --on-plate: #f1ead9;
-  --on-plate-quiet: #cfc8b5;
+  --on-plate-quiet: #ddd5bf;
   --guide-on-ground: var(--lamp);
   --focus-ring: var(--lamp);
 }
@@ -1517,45 +1522,46 @@ body:has(.yomu-home) .jpdb-reader-fab {
    redefined on <html> — a token declared on the page class can never reach
    them. Scoped with :has() so only the homepage repaints the chrome. */
 html.dark:has(.yomu-home) {
-  --vp-c-bg: #181b18;
-  --vp-c-bg-alt: #121411;
-  --vp-c-bg-elv: #24221d;
-  --vp-c-bg-soft: #24221d;
+  --vp-c-bg: #141824;
+  --vp-c-bg-alt: #0f1320;
+  --vp-c-bg-elv: #1c2130;
+  --vp-c-bg-soft: #1c2130;
   --vp-c-text-1: #f1ead9;
-  --vp-c-text-2: #c9c2ae;
-  --vp-c-text-3: #a8a191;
-  --vp-c-divider: #35322b;
-  --vp-c-gutter: #35322b;
+  --vp-c-text-2: #ded7c2;
+  --vp-c-text-3: #bfb69f;
+  --vp-c-divider: #2c3347;
+  --vp-c-gutter: #2c3347;
 }
 
 @media (prefers-color-scheme: dark) {
   html:not(.yomu-theme-resolved) .yomu-home {
-    --surface-page: #181b18;
-    --surface-sunk: #121411;
-    --surface-slab: #24221d;
-    --surface-plate: #2b2822;
+    --surface-page: #141824;
+    --surface-sunk: #0f1320;
+    --surface-slab: #1c2130;
+    --surface-plate: #242a3d;
     --ink-strong: #f1ead9;
-    --ink-body: #c9c2ae;
-    --ink-quiet: #a8a191;
-    --keyline: #7b7365;
-    --shadow-ink: #0d0f0d;
+    --ink-body: #ded7c2;
+    --ink-quiet: #bfb69f;
+    --keyline: #6a739c;
+    --keyline-object: #080a12;
+    --shadow-ink: #080a12;
     --accent-ink: #7cc39c;
     --on-plate: #f1ead9;
-    --on-plate-quiet: #cfc8b5;
+    --on-plate-quiet: #ddd5bf;
     --guide-on-ground: var(--lamp);
     --focus-ring: var(--lamp);
   }
 
   html:not(.yomu-theme-resolved):has(.yomu-home) {
-    --vp-c-bg: #181b18;
-    --vp-c-bg-alt: #121411;
-    --vp-c-bg-elv: #24221d;
-    --vp-c-bg-soft: #24221d;
+    --vp-c-bg: #141824;
+    --vp-c-bg-alt: #0f1320;
+    --vp-c-bg-elv: #1c2130;
+    --vp-c-bg-soft: #1c2130;
     --vp-c-text-1: #f1ead9;
-    --vp-c-text-2: #c9c2ae;
-    --vp-c-text-3: #a8a191;
-    --vp-c-divider: #35322b;
-    --vp-c-gutter: #35322b;
+    --vp-c-text-2: #ded7c2;
+    --vp-c-text-3: #bfb69f;
+    --vp-c-divider: #2c3347;
+    --vp-c-gutter: #2c3347;
   }
 }
 
@@ -1697,7 +1703,7 @@ html.dark:has(.yomu-home) {
   display: inline-block;
   margin: -10px 0 0 40px;
   padding: 5px 12px;
-  border: var(--keyline-w) solid var(--keyline);
+  border: var(--keyline-w) solid var(--keyline-object);
   border-radius: 8px 3px 10px 4px;
   background: var(--ink-strong);
   color: var(--surface-page);
@@ -1708,11 +1714,12 @@ html.dark:has(.yomu-home) {
 }
 
 .yomu-fold-h1 {
-  /* One text node, not a wrapped span: Japanese puts the object first
-     (日本語を学ぶための…), so the sentence can only be translated naturally as a
-     whole — a span would pin 日本語 to the English word order. Per-glyph
-     fallback does the typography instead: Latin from the base face, 日本語 from
-     the Japanese face, which is what a font stack is for. */
+  /* The SSR headline is ONE text node naming 日本語, so crawlers, social
+     unfurls and the no-JS page always read the same sentence. The client
+     rotator (owner decision 2026-08-04) then owns the whole headline and
+     re-renders it per interface language — Japanese puts the object first
+     (日本語を学ぶための…), so the rotating word cannot be a fixed-position span
+     in a translated template; the rotator composes the full sentence. */
   font-family: var(--vp-font-family-base), var(--ja-font);
   max-width: 18ch;
   margin: 0;
@@ -1724,25 +1731,32 @@ html.dark:has(.yomu-home) {
   word-break: keep-all;
 }
 
-/* The multilingual claim, at the weight a secondary fact deserves. It used to be
-   the SUBJECT of the headline via a rotator; it is true, it is worth stating, and
-   it is not what Yomu is. */
-.yomu-fold-also {
-  /* Wide enough to hold the sentence and its link on one line at the fold's
-     column width: at 46ch "Which ones" dropped to a line of its own and read as
-     a stray orphan under the routes. */
-  max-width: 62ch;
-  margin: var(--s-4) 0 0;
-  color: var(--ink-body);
-  font-size: 14px;
-  line-height: 1.55;
+/* The rotating study target. Amber/vermillion is the page's guidance colour,
+   so the one word that changes carries it; the entry nudge follows the page's
+   rotation grammar. dir comes from the roster so RTL names (العربية) isolate
+   correctly inside the LTR sentence. */
+.yomu-home .yomu-fold-h1-lang {
+  display: inline-block;
+  color: var(--guide-on-ground);
+  animation: yomu-hero-lang-in 420ms cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
-.yomu-fold-also a {
-  color: var(--accent-ink);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+@keyframes yomu-hero-lang-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.16em) rotate(-1.2deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yomu-home .yomu-fold-h1-lang {
+    animation: none;
+  }
 }
 
 .yomu-fold-live {
@@ -1822,7 +1836,7 @@ html.dark:has(.yomu-home) {
   z-index: 2;
   width: min(42vw, 460px);
   margin: 0;
-  border: var(--keyline-w) solid var(--keyline);
+  border: var(--keyline-w) solid var(--keyline-object);
   border-radius: 5px 15px 4px 12px;
   background: var(--surface-slab);
   box-shadow: 10px 10px 0 var(--shadow-ink);
@@ -1904,7 +1918,7 @@ html.dark:has(.yomu-home) {
   min-height: 58px;
   margin: 0;
   padding: 0 26px;
-  border: var(--keyline-w) solid var(--keyline);
+  border: var(--keyline-w) solid var(--keyline-object);
   border-radius: 4px 13px 5px 11px;
   background: var(--accent-fill);
   box-shadow: 8px 8px 0 var(--shadow-ink);
@@ -2339,7 +2353,7 @@ html.dark:has(.yomu-home) {
 
 /* Both the keyline and the shadow have to read against the PLATE, not against
    the card: they are the edge between a cream sheet and a near-black ground.
-   #29271f ink on #181b18 plate measured 1.14:1 and a black offset shadow on it
+   #20242f ink on #141824 plate measured 1.14:1 and a black offset shadow on it
    measured nothing at all, which left these three cards as bare cream
    rectangles pasted on black — no keyline, no lift. Folded paper for the
    keyline and pencil for the offset are the two warm tones that clear the
@@ -2490,65 +2504,6 @@ html.dark:has(.yomu-home) {
   text-decoration: underline;
   text-decoration-thickness: 2px;
   text-underline-offset: 3px;
-}
-
-/* --- Nothing installed ---------------------------------------------- */
-.yomu-no-install {
-  padding: var(--band-y) var(--gutter);
-  background: var(--surface-sunk);
-  color: var(--ink-strong);
-}
-
-.yomu-home .yomu-no-install-copy {
-  width: min(100%, 1040px);
-  margin: 0 auto;
-  padding: clamp(26px, 4vw, 48px);
-  transform: rotate(-0.3deg);
-}
-
-.yomu-no-install h2 {
-  max-width: 24ch;
-  margin: 0;
-  color: var(--ink-strong);
-  font-size: clamp(26px, 3vw, 38px);
-  font-weight: 800;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-}
-
-.yomu-no-install-links {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--s-3);
-  margin-top: var(--s-5);
-}
-
-.yomu-no-install-links a {
-  display: grid;
-  align-content: center;
-  gap: var(--s-1);
-  min-height: 72px;
-  padding: 12px 15px;
-  border: 2px solid color-mix(in srgb, var(--keyline) 54%, transparent);
-  border-radius: 3px 12px 4px 9px;
-  background: color-mix(in srgb, var(--accent-fill) 7%, var(--surface-slab));
-  color: var(--ink-strong);
-  text-decoration: none;
-}
-
-.yomu-no-install-links a:hover,
-.yomu-no-install-links a:focus-visible {
-  border-color: var(--accent-fill);
-}
-
-.yomu-no-install-links strong {
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.yomu-no-install-links span {
-  color: var(--ink-body);
-  font-size: 13px;
 }
 
 /* The live OCR panel, now a band frame in #manga: it keeps the frame grammar
@@ -2820,10 +2775,6 @@ html.dark:has(.yomu-home) {
      the right) and outrank these generic ones at every width, so stacking keeps
      the edge instead of losing it — the tablet half of the same defect. */
 
-  .yomu-no-install-links {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .yomu-fold-card {
     width: min(46vw, 390px);
   }
@@ -2915,10 +2866,6 @@ html.dark:has(.yomu-home) {
   .yomu-band-devices .yomu-device-phone {
     width: 34%;
   }
-
-  .yomu-no-install-links {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 420px) {
@@ -2930,7 +2877,7 @@ html.dark:has(.yomu-home) {
 /* --- Membership: a support letter, in the living-paper grammar ---------------
    Tokens and geometry come from docs/academy/VISUAL-SYSTEM.md, not from this
    page's flat-ink fold: warm charcoal ink (never cold navy or pure black),
-   #f1ead9 paper over #ddd0b7 folded paper, pencil-grey secondary copy, 3-15px
+   #f1ead9 paper over #e5dcc4 folded paper, pencil-grey secondary copy, 3-15px
    ASYMMETRIC corners, a slightly offset shadow, and exactly one folded corner
    plus one tape strip. Accent inherits the reader's own accent so a learner who
    has set theirs sees it here, with the system's #5ea780 fallback.
@@ -2938,10 +2885,10 @@ html.dark:has(.yomu-home) {
    membership-popover.ts. Motion uses the bible's 150ms response step. */
 :root {
   --paper-letter: #f1ead9;
-  --paper-folded: #ddd0b7;
-  --paper-ink: #29271f;
-  --paper-pencil: #655f51;
-  --world-ink: #181b18;
+  --paper-folded: #e5dcc4;
+  --paper-ink: #20242f;
+  --paper-pencil: #4f566d;
+  --world-ink: #141824;
   --letter-accent: var(--jpdb-reader-accent, #5ea780);
 }
 

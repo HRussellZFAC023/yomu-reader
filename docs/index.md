@@ -36,13 +36,11 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
       <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
-    <!-- The multilingual fact belongs HERE, not in the headline. A rotator cycled
-         every study target through the H1, so the product's own first line read "A
-         complete system for learning Shqip." to whoever arrived on that tick — and
-         every screenshot and social unfurl inherited whichever word was showing.
-         The count is still asserted against the same target roster the reader
-         ships, so demoting the claim did not weaken its verification. -->
-    <p class="yomu-fold-also">The same loop works in <YomuStudyTargetCount /> other languages, from Spanish to Korean. <a href="/faq#is-it-only-for-japanese">Which ones</a></p>
+    <!-- The multilingual claim lives in the HEADLINE: the client rotator cycles
+         the study-target roster through the H1 (owner decision 2026-08-04,
+         restoring the rotator this comment's predecessor removed). The SSR text
+         above stays 日本語 so crawlers, social unfurls and the no-JS page always
+         read the same sentence; only a booted client ever sees another name. -->
   </div>
   <figure class="yomu-fold-card" data-yomu-ocr="ignore">
     <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />
@@ -188,21 +186,6 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <h2 id="yomu-band-academy">Academy opens by invitation while it is built</h2>
     <p class="yomu-band-lead">A story-driven course from the first sounds to N1, taught through places and conversations, with Yomu's reading and review underneath.</p>
     <a class="yomu-band-action" href="/academy/">Visit the Academy</a>
-  </div>
-</section>
-
-<!-- The live OCR panel this section's fourth link points at is the #manga band
-     above: it is the one image on the page the reader really reads, and it
-     belongs beside the claim it proves rather than as a second copy here. -->
-<section class="yomu-no-install" id="try-ocr" aria-labelledby="yomu-no-install-title">
-  <div class="yomu-paper yomu-no-install-copy">
-    <h2 id="yomu-no-install-title">Everything here runs in this tab, with nothing installed</h2>
-    <div class="yomu-no-install-links">
-      <a href="/study/"><strong>Study</strong><span>Open a review card.</span></a>
-      <a href="/video-player/"><strong>Watch</strong><span>Open a video and subtitles.</span></a>
-      <a href="/pdf-reader/"><strong>Read</strong><span>Open a PDF.</span></a>
-      <a href="#yomu-live-ocr"><strong>OCR</strong><span>Press a word in the panel.</span></a>
-    </div>
   </div>
 </section>
 

@@ -16,8 +16,9 @@ afterEach(() => {
 // ordinary scanning.
 //
 // The chrome fixture below mirrors what docs/index.md actually ships: the
-// install band is .yomu-install-inner and the app links are
-// .yomu-no-install-links. It used to assert against .yomu-install-panel and
+// install band is .yomu-install-inner and the fold's install links are
+// .yomu-install-routes (the "nothing installed" link row was removed
+// 2026-08-04). It used to assert against .yomu-install-panel and
 // .yomu-link-grid.yomu-next-grid, neither of which has existed on the homepage
 // since the landing page was rebuilt — a boundary test whose fixture is not the
 // page proves nothing about the page.
@@ -55,11 +56,9 @@ describe('hosted docs homepage chrome scan boundary', () => {
                     <h2>数ステップで準備完了</h2>
                     <p class="yomu-install-lead">ユーザースクリプトマネージャーを選んでインストールしてください。</p>
                 </div>
-                <div class="yomu-no-install-links">
-                    <a href="/study/">
-                        <strong>学習</strong>
-                        <span>保存した単語や統計を確認します。</span>
-                    </a>
+                <div class="yomu-install-routes">
+                    <a class="yomu-install-route" href="https://chromewebstore.google.com/detail/x">よむをChromeに追加</a>
+                    <p class="yomu-install-routes-note">ほかの方法：</p>
                 </div>
                 <article class="vp-doc">
                     <p>今日は静かな喫茶店で新しい本を読みました。</p>
@@ -70,7 +69,7 @@ describe('hosted docs homepage chrome scan boundary', () => {
         try {
             const targets = collectScanTargets(80, YOMU_HOMEPAGE_URL);
             const texts = targets.map(target => target.text);
-            const chromeSamples = ['はじめる', '更新履歴', 'よむ', 'ページを離れずに', '準備完了', '学習', '今日は静かな喫茶店'];
+            const chromeSamples = ['はじめる', '更新履歴', 'よむ', 'ページを離れずに', '準備完了', 'Chromeに追加', '今日は静かな喫茶店'];
             for (const sample of chromeSamples) {
                 expect(texts.some(text => text.includes(sample)), `site copy "${sample}" must not be scanned`).toBe(false);
             }
