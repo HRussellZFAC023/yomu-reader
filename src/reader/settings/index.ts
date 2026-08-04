@@ -20,6 +20,7 @@ import {
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
+import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguage, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
 export { changedSettingsKeys } from './store-reconciliation';
 import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
@@ -37,10 +38,10 @@ import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSour
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
 export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
-export { NO_EXPLICIT_USER_CHOICE, SETTINGS_INTENT_LEDGER_STORAGE_KEY } from './intent-ledger';
+export { NO_EXPLICIT_USER_CHOICE } from './intent-ledger';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
-export const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = 'yomu:prefer-japanese-site-language:v1';
+export { PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY };
 /** Superseded by the intent ledger; still read once so upgrades keep their pins. */
 export const EXPLICIT_USER_SETTINGS_STORAGE_KEY = 'yomu:explicit-user-settings:v1';
 const LEGACY_SETTINGS_STORAGE_KEYS = [
@@ -52,7 +53,6 @@ export const SETTINGS_STORAGE_KEYS = [
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS,
 ] as const;
-const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = 'prefer-japanese-site-language-setting';
 const SETTINGS_PERSISTENCE_STORAGE_LEASE = 'reader-settings-persistence';
 
 const log = Logger.scope('Settings');
@@ -1957,29 +1957,6 @@ export async function loadSettings(): Promise<ReaderSettings> {
     }
 }
 
-async function authoritativePreferredJapaneseSiteLanguage(
-    storedValue: unknown,
-    migrationFallback: boolean,
-): Promise<boolean> {
-    if (typeof storedValue === 'boolean') return storedValue;
-    return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-        // Re-read inside the lease so an explicit change that raced this
-        // one-time migration always wins.
-        const currentValue = await gmStorageGet<unknown>(
-            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-            undefined,
-        );
-        if (typeof currentValue === 'boolean') return currentValue;
-        await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-        return migrationFallback;
-    });
-}
-
-async function persistPreferredJapaneseSiteLanguage(value: boolean): Promise<void> {
-    await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-        await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-    });
-}
 
 // Hosted pages (yomureader.com and friends) historically had no GM backend, so
 // settings edited there fell back to that origin's localStorage and never

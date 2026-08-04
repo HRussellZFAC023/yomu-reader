@@ -22,7 +22,7 @@ import type { ReaderSettings } from '../app/types';
  * would close an import cycle.
  */
 
-export function settingsValueEquals(left: unknown, right: unknown): boolean {
+function settingsValueEquals(left: unknown, right: unknown): boolean {
     return left === right || JSON.stringify(left) === JSON.stringify(right);
 }
 

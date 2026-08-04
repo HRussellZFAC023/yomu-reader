@@ -58,7 +58,7 @@ export interface SettingsIntentLedger {
     readonly records: Readonly<Record<string, SettingsIntentRecord>>;
 }
 
-export const EMPTY_SETTINGS_INTENT_LEDGER: SettingsIntentLedger = { revision: 0, records: {} };
+const EMPTY_SETTINGS_INTENT_LEDGER: SettingsIntentLedger = { revision: 0, records: {} };
 
 /**
  * The declaration a write with no human behind it makes: normalization,
