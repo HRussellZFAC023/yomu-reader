@@ -9,14 +9,11 @@ import {
 } from '../../languages/lookup-normalization';
 import type { LearningTargetModule } from '../../languages/types';
 import {
-    createTermMatchEntryCollector,
+    collectTermMatchCandidates,
     exactTermCandidateMatches,
     exactTermMatchCandidates,
     rankedDictionaryEntries,
     readIndexRequestValues,
-    requestTermMatchIndex,
-    sortedTermMatchExpressions,
-    targetTermMatchQueriesReadingIndex,
     type TermMatchCandidates,
 } from './term-match';
 import { uiText } from '../../app/i18n';
@@ -586,47 +583,7 @@ export class YomitanDictionaryStore {
         candidates: TermMatchCandidates,
         preferences: DictionaryPreference[],
     ): Promise<YomitanTermMatch[]> {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        return await new Promise<YomitanTermMatch[]>((resolve, reject) => {
-            const tx = db.transaction('terms', 'readonly');
-            const store = tx.objectStore('terms');
-            const expressionIndex = store.index('expression');
-            const readingIndex = store.index('reading');
-            const expressions = sortedTermMatchExpressions(candidates);
-            const collectors = new Map(expressions.map(expression => [
-                expression,
-                createTermMatchEntryCollector(
-                    expression,
-                    candidates,
-                    rank,
-                    (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules),
-                ),
-            ]));
-            const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
-            let pending = expressions.length * (queriesReadingIndex ? 2 : 1);
-            const finish = () => {
-                if (--pending <= 0) {
-                    resolve(expressions.flatMap(expression => collectors.get(expression)?.matches() ?? []));
-                }
-            };
-            const visit = (expression: string, entry: YomitanTermEntry) => {
-                collectors.get(expression)?.add(entry);
-            };
-            for (const expression of expressions) {
-                requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
-                if (queriesReadingIndex) {
-                    requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
-                }
-            }
-            tx.onerror = () => reject(tx.error);
-            // A conforming abort fires an error at every unfinished request, so
-            // this is usually redundant. It is the only signal left in the iPad
-            // WebKit failure mode this codebase already fights, where a request
-            // settles neither way: without it the callers waiting on this parse
-            // wait for a completion that is never coming.
-            tx.onabort = () => reject(transactionError(tx, 'Could not read dictionary term matches.'));
-        });
+        return collectTermMatchCandidates(await this.db(), target, candidates, dictionaryRank(preferences));
     }
 
     async summary(): Promise<DictionarySummary> {
@@ -2415,10 +2372,6 @@ async function deleteDictionaryBatch(db: IDBDatabase, storeName: InternalStoreNa
         };
     }, { durability: 'relaxed' });
     return deleted;
-}
-
-function transactionError(tx: IDBTransaction, fallback: string): Error {
-    return tx.error ?? new Error(fallback);
 }
 
 function isCurrentLookupTarget(target: LearningTargetModule, generation: number): boolean {
