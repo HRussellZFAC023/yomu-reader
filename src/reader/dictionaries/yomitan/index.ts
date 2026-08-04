@@ -111,7 +111,7 @@ import type {
 import { formatDexieImportProgress, formatDexieStoreImportProgress, formatUiTemplate } from './import-progress';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const DB_OPEN_TIMEOUT_MS = 10_000;
 const DEXIE_IMPORT_BATCH_SIZE = 5000;
 const DICTIONARY_DELETE_BATCH_SIZE = 5000;
@@ -156,12 +156,23 @@ interface TermSearchCandidate {
     rank: number;
 }
 
-interface YomitanTermSearchEntry extends YomitanTermEntry {
+// termSearch and termKanji are derived indexes over `terms`. Their rows are
+// postings — a search key plus the id of the term row that owns it — never
+// copies of the term. Earlier schemas cloned the entire term row (glossary,
+// inlined images and all) into every posting, multiplying each imported
+// term's bytes by up to TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM.
+interface YomitanTermSearchPosting {
+    id?: number;
     token: string;
+    dictionary: string;
+    termId: number;
 }
 
-interface YomitanTermKanjiEntry extends YomitanTermEntry {
+interface YomitanTermKanjiPosting {
+    id?: number;
     character: string;
+    dictionary: string;
+    termId: number;
 }
 
 interface TermIndexQuery {
@@ -1389,9 +1400,13 @@ export class YomitanDictionaryStore {
         candidateLimit: number,
         rank: Map<string, DictionaryPreference>,
     ): Promise<YomitanTermEntry[]> {
-        return new Promise((resolve, reject) => {
-            const entries: YomitanTermEntry[] = [];
-            const seen = new Set<string>();
+        // Two postings can hydrate to the same expression/reading pair across
+        // dictionaries; collect extra ids so the post-hydration dedupe can
+        // still fill the caller's limit.
+        const termIds = await new Promise<number[]>((resolve, reject) => {
+            const ids: number[] = [];
+            const seenIds = new Set<number>();
+            const budget = candidateLimit * 2;
             const request = db.transaction('termKanji', 'readonly')
                 .objectStore('termKanji')
                 .index('character')
@@ -1399,21 +1414,57 @@ export class YomitanDictionaryStore {
             request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary kanji index.'));
             request.onsuccess = () => {
                 const cursor = request.result;
-                if (!cursor || entries.length >= candidateLimit) {
-                    resolve(entries);
+                if (!cursor || ids.length >= budget) {
+                    resolve(ids);
                     return;
                 }
-                const row = cursor.value as YomitanTermKanjiEntry;
-                if (dictionaryEnabled(row.dictionary, rank)) {
-                    const entry = termEntryFromKanjiEntry(row);
-                    const key = `${entry.expression}\n${entry.reading}`;
-                    if (!seen.has(key)) {
-                        seen.add(key);
-                        entries.push(entry);
-                    }
+                const posting = cursor.value as YomitanTermKanjiPosting;
+                if (dictionaryEnabled(posting.dictionary, rank)
+                    && typeof posting.termId === 'number'
+                    && !seenIds.has(posting.termId)) {
+                    seenIds.add(posting.termId);
+                    ids.push(posting.termId);
                 }
                 cursor.continue();
             };
+        });
+        const terms = await this.getTermsByIds(db, termIds);
+        const entries: YomitanTermEntry[] = [];
+        const seen = new Set<string>();
+        for (const termId of termIds) {
+            if (entries.length >= candidateLimit) break;
+            const entry = terms.get(termId);
+            if (!entry) continue;
+            const key = `${entry.expression}\n${entry.reading}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            entries.push(entry);
+        }
+        return entries;
+    }
+
+    private getTermsByIds(db: IDBDatabase, ids: number[]): Promise<Map<number, YomitanTermEntry>> {
+        return new Promise((resolve, reject) => {
+            const result = new Map<number, YomitanTermEntry>();
+            if (!ids.length) {
+                resolve(result);
+                return;
+            }
+            const store = db.transaction('terms', 'readonly').objectStore('terms');
+            let pending = ids.length;
+            const settleOne = () => {
+                pending -= 1;
+                if (pending === 0) resolve(result);
+            };
+            for (const id of ids) {
+                const request = store.get(id);
+                request.onsuccess = () => {
+                    const value = request.result as YomitanTermEntry | undefined;
+                    if (value) result.set(id, value);
+                    settleOne();
+                };
+                request.onerror = () => reject(request.error ?? new Error('Could not load local dictionary terms by id.'));
+            }
         });
     }
 
@@ -1553,21 +1604,64 @@ export class YomitanDictionaryStore {
     ): Promise<TermSearchCandidate[]> {
         const token = termSearchIndexToken(query);
         if (!token) return [];
-        const request = db.transaction('termSearch', 'readonly')
-            .objectStore('termSearch')
-            .index('token')
-            .openCursor(termSearchPrefixRange(token));
-        return this.collectGlossaryTermSearchCandidates(
-            request,
-            query,
-            candidateLimit,
+        // A token-prefix posting is a candidate, not a match: the query is
+        // re-ranked against the hydrated glossary below and some postings
+        // fall out. Collect with headroom so the survivors can still fill
+        // the caller's limit.
+        const postings = await this.collectTermSearchPostings(
+            db,
+            termSearchPrefixRange(token),
+            Math.max(candidateLimit * 4, 32),
             rank,
             options,
-            'Could not search local dictionary glossary index.',
-            undefined,
-            true,
-            entry => termEntryFromSearchEntry(entry as YomitanTermSearchEntry),
         );
+        if (!postings.length) return [];
+        const terms = await this.getTermsByIds(db, postings.map(posting => posting.termId));
+        const candidates: TermSearchCandidate[] = [];
+        for (const posting of postings) {
+            const entry = terms.get(posting.termId);
+            if (!entry) continue;
+            const searchRank = glossaryTermSearchRank(entry.glossary, query);
+            if (searchRank < Number.POSITIVE_INFINITY) candidates.push({ entry, rank: searchRank });
+        }
+        trimTermSearchCandidates(candidates, candidateLimit, query, rank);
+        return candidates.slice(0, candidateLimit);
+    }
+
+    private collectTermSearchPostings(
+        db: IDBDatabase,
+        range: IDBKeyRange,
+        budget: number,
+        rank: Map<string, DictionaryPreference>,
+        options: GlossaryCursorSearchOptions,
+    ): Promise<YomitanTermSearchPosting[]> {
+        return new Promise((resolve, reject) => {
+            const postings: YomitanTermSearchPosting[] = [];
+            const seenTermIds = new Set<number>();
+            const startedAt = performance.now();
+            let visited = 0;
+            const request = db.transaction('termSearch', 'readonly')
+                .objectStore('termSearch')
+                .index('token')
+                .openCursor(range);
+            request.onerror = () => reject(request.error ?? new Error('Could not search local dictionary glossary index.'));
+            request.onsuccess = () => {
+                const cursor = request.result;
+                if (!cursor || postings.length >= budget || glossaryCursorSearchExpired(options, visited, startedAt)) {
+                    resolve(postings);
+                    return;
+                }
+                visited++;
+                const posting = cursor.value as YomitanTermSearchPosting;
+                if (dictionaryEnabled(posting.dictionary, rank)
+                    && typeof posting.termId === 'number'
+                    && !seenTermIds.has(posting.termId)) {
+                    seenTermIds.add(posting.termId);
+                    postings.push(posting);
+                }
+                cursor.continue();
+            };
+        });
     }
 
     private async collectGlossaryTermSearchCandidates(
@@ -1579,7 +1673,6 @@ export class YomitanDictionaryStore {
         errorMessage: string,
         afterPush?: (state: { candidates: TermSearchCandidate[] }) => void,
         stopAtCandidateLimit = true,
-        entryFromCursorValue: (entry: YomitanTermEntry | YomitanTermSearchEntry) => YomitanTermEntry = entry => entry,
     ): Promise<TermSearchCandidate[]> {
         return new Promise((resolve, reject) => {
             const candidates: TermSearchCandidate[] = [];
@@ -1595,11 +1688,11 @@ export class YomitanDictionaryStore {
                     return;
                 }
                 visited++;
-                const entry = cursor.value as YomitanTermEntry | YomitanTermSearchEntry;
+                const entry = cursor.value as YomitanTermEntry;
                 if (dictionaryEnabled(entry.dictionary, rank)) {
                     const searchRank = glossaryTermSearchRank(entry.glossary, query);
                     if (searchRank < Number.POSITIVE_INFINITY) {
-                        candidates.push({ entry: entryFromCursorValue(entry), rank: searchRank });
+                        candidates.push({ entry, rank: searchRank });
                         afterPush?.({ candidates });
                     }
                 }
@@ -1897,6 +1990,14 @@ export class YomitanDictionaryStore {
                 const termKanji = ensureStore(db, tx, 'termKanji');
                 ensureIndex(termKanji, 'character', 'character');
                 ensureIndex(termKanji, 'dictionary', 'dictionary');
+
+                if (event.oldVersion > 0 && event.oldVersion < 7) {
+                    // v7 replaced the derived rows with id postings. Both
+                    // stores rebuild lazily from `terms`, so clearing the old
+                    // full-row clones loses nothing and reclaims their bytes.
+                    termSearch.clear();
+                    termKanji.clear();
+                }
 
                 if (event.oldVersion > 0 && event.oldVersion < 5) {
                     // v4 stored importer spellings verbatim while generic query
@@ -2196,30 +2297,24 @@ function glossaryWords(text: string): string[] {
     return text.split(/\s+/u).filter(Boolean);
 }
 
-function termSearchEntries(entry: YomitanTermEntry): YomitanTermSearchEntry[] {
-    const { id: _id, ...entryWithoutId } = entry;
+function termSearchEntries(entry: YomitanTermEntry): YomitanTermSearchPosting[] {
+    const termId = entry.id;
+    if (typeof termId !== 'number') return [];
     return glossarySearchTokens(entry.glossary).map(token => ({
-        ...entryWithoutId,
         token,
+        dictionary: entry.dictionary,
+        termId,
     }));
 }
 
-function termEntryFromSearchEntry(entry: YomitanTermSearchEntry): YomitanTermEntry {
-    const { id: _id, token: _token, ...term } = entry;
-    return term;
-}
-
-function termKanjiEntries(entry: YomitanTermEntry): YomitanTermKanjiEntry[] {
-    const { id: _id, ...entryWithoutId } = entry;
+function termKanjiEntries(entry: YomitanTermEntry): YomitanTermKanjiPosting[] {
+    const termId = entry.id;
+    if (typeof termId !== 'number') return [];
     return uniqueExpressionKanji(entry.expression).map(character => ({
-        ...entryWithoutId,
         character,
+        dictionary: entry.dictionary,
+        termId,
     }));
-}
-
-function termEntryFromKanjiEntry(entry: YomitanTermKanjiEntry): YomitanTermEntry {
-    const { id: _id, character: _character, ...term } = entry;
-    return term;
 }
 
 function uniqueExpressionKanji(expression: string): string[] {

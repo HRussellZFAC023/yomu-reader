@@ -5,7 +5,7 @@ import { sha256Hex } from '../../src/reader/dictionaries/catalog';
 import { yomitanZipBlob } from './zip-fixture';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const activeStores: YomitanDictionaryStore[] = [];
 
 describe('Yomitan ZIP import performance path', () => {
@@ -240,6 +240,32 @@ describe('Yomitan ZIP import performance path', () => {
         expect((await storeCounts(['termSearch'])).termSearch).toBeGreaterThan(0);
         expect((await store.lookupSimilarTermsByKanji('猫', 5)).map(entry => entry.expression)).toEqual(['山猫', '猫舌']);
         expect((await storeCounts(['termKanji'])).termKanji).toBeGreaterThan(0);
+
+        // The derived rows are id postings, never copies of the term. Earlier
+        // schemas cloned the whole row (glossary, inlined images and all) into
+        // every posting — up to 40 copies per imported term, the dominant
+        // driver of multi-gigabyte dictionary databases.
+        const derivedRows = await new Promise<{ termSearch: Record<string, unknown>[]; termKanji: Record<string, unknown>[] }>((resolve, reject) => {
+            const request = indexedDB.open('jpdb-popup-reader-yomitan');
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                const db = request.result;
+                const tx = db.transaction(['termSearch', 'termKanji'], 'readonly');
+                const search = tx.objectStore('termSearch').getAll();
+                const kanji = tx.objectStore('termKanji').getAll();
+                tx.oncomplete = () => {
+                    db.close();
+                    resolve({ termSearch: search.result, termKanji: kanji.result });
+                };
+                tx.onerror = () => { db.close(); reject(tx.error); };
+            };
+        });
+        for (const row of [...derivedRows.termSearch, ...derivedRows.termKanji]) {
+            expect(row).not.toHaveProperty('glossary');
+            expect(row).not.toHaveProperty('expression');
+            expect(typeof row.termId).toBe('number');
+            expect(typeof row.dictionary).toBe('string');
+        }
     });
 
     it('falls back to cursors for bounded IndexedDB index reads when getAll is unavailable', async () => {

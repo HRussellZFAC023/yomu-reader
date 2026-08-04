@@ -258,7 +258,7 @@ function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 
 function countDatabaseStore(storeName: 'termSearch' | 'termKanji'): Promise<number> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 6);
+        const request = indexedDB.open(DB_NAME, 7);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
             const db = request.result;
@@ -277,7 +277,7 @@ function countDatabaseStore(storeName: 'termSearch' | 'termKanji'): Promise<numb
 
 function readDatabaseStoreValue(storeName: string, key: IDBValidKey): Promise<unknown> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, 6);
+        const request = indexedDB.open(DB_NAME, 7);
         request.onerror = () => reject(request.error);
         request.onsuccess = () => {
             const db = request.result;
