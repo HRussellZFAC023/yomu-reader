@@ -61,7 +61,15 @@ export async function reconcileManagedStateIdbEpoch(
                     return;
                 }
             }
-            if (storedToken !== undefined || epoch.generation > 0) {
+            // A missing marker is a schema adoption, never a wipe. Databases
+            // written before the marker store existed carry data the learner
+            // may have imported long after their last factory reset — clearing
+            // them on `generation > 0` silently destroyed every dictionary for
+            // anyone who had ever reset. Reset does not rely on this marker for
+            // the origin it runs on (it deletes the database outright), and
+            // databases written since the marker shipped carry one, so a stale
+            // post-reset copy still clears through the stored-token branch.
+            if (storedToken !== undefined) {
                 for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
                 for (const record of options.deletedRecords ?? []) tx.objectStore(record.storeName).delete(record.key);
             }

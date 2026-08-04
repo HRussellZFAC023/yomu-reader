@@ -186,7 +186,57 @@ describe('Yomitan managed-state epoch', () => {
             token: '1:factory-reset',
         });
     });
+
+    it('adopts a populated pre-marker database instead of clearing it', async () => {
+        // A database written before the managedState marker store existed
+        // (schema < v6) holds whatever the learner last imported — possibly
+        // long after their most recent factory reset. Opening it under
+        // generation ≥ 1 must adopt it into the current epoch, not wipe it:
+        // clearing on a missing marker silently destroyed every dictionary
+        // for anyone who had ever reset ("had to reimport jitendex").
+        const values = new Map<string, unknown>();
+        installGmStore(values);
+        values.set(EPOCH_KEY, { version: 1, generation: 3, resetId: 'factory-reset', committedAt: 1_000 });
+        await createPreMarkerDatabase('Adopted Dictionary');
+        installFreshManagedStateEpochSessionForTests();
+        vi.resetModules();
+        const module = await import('../../src/reader/dictionaries/yomitan');
+        const store = new module.YomitanDictionaryStore();
+        activeStores.push(store);
+        await expect(store.summary()).resolves.toMatchObject({
+            dictionaries: [expect.objectContaining({ title: 'Adopted Dictionary' })],
+            terms: 1,
+        });
+        // Adoption stamps the current epoch so later writes reconcile normally.
+        await expect(readDatabaseStoreValue('managedState', 'epoch')).resolves.toMatchObject({
+            token: '3:factory-reset',
+        });
+    });
 });
+
+// A version-5 database: the content stores exist and are populated, but the
+// managedState store (and therefore the epoch marker) does not exist yet.
+function createPreMarkerDatabase(title: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 5);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            for (const name of ['terms', 'kanji', 'termMeta', 'kanjiMeta', 'termSearch', 'termKanji']) {
+                db.createObjectStore(name, { keyPath: 'id', autoIncrement: true });
+            }
+            db.createObjectStore('dictionaryInfo', { keyPath: 'title' });
+        };
+        request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction(['terms', 'dictionaryInfo'], 'readwrite');
+            tx.objectStore('terms').add({ expression: '読む', reading: 'よむ', dictionary: title, glossary: ['to read'] });
+            tx.objectStore('dictionaryInfo').put({ title, counts: { terms: 1 } });
+            tx.oncomplete = () => { db.close(); resolve(); };
+            tx.onerror = () => { db.close(); reject(tx.error ?? new Error('Could not seed pre-marker database.')); };
+        };
+        request.onerror = () => reject(request.error ?? new Error('Could not create pre-marker database.'));
+    });
+}
 
 function deleteDatabase(name: string): Promise<void> {
     return new Promise(resolve => {
