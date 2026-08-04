@@ -1,4 +1,5 @@
 import type { DeinflectedTerm } from '../../lookup/deinflect';
+import type { LanguageLookupCandidate } from '../../languages/types';
 import type { ReaderSettings } from '../../app/types';
 import type { uiText } from '../../app/i18n';
 
@@ -20,6 +21,21 @@ export interface YomitanTermEntry {
     termTags?: string;
     dictionary: string;
     jpdbFrequency?: number;
+}
+
+/** One already-enumerated source surface and target-owned lookup analysis. */
+export interface YomitanExactTermCandidateRequest {
+    readonly surface: string;
+    readonly lookupCandidate: LanguageLookupCandidate;
+}
+
+/** The single preferred dictionary row confirming an exact candidate request. */
+export interface YomitanExactTermCandidateMatch<
+    TRequest extends YomitanExactTermCandidateRequest = YomitanExactTermCandidateRequest,
+> {
+    readonly request: TRequest;
+    readonly requestIndex: number;
+    readonly entry: YomitanTermEntry;
 }
 
 export interface YomitanKanjiEntry {

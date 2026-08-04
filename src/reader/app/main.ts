@@ -120,16 +120,12 @@ import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { KanjiVGInfo } from '../kanji/vg';
 import {
     boundedPublicPitchLookupReservation,
-    canExpandLocalPointerRange,
     isLookupableJapaneseText,
     isLowValuePitchEnrichmentToken,
-    isLowValuePointerTextToken,
-    isOverbroadLocalPointerRange,
     lookupCandidateSentence,
     normalizedLookupText,
     pitchEnrichmentPriority,
     pitchEnrichmentTokenForCard,
-    pointerTokenAtOffset,
     preferredRenderedWordSentence,
 } from '../lookup/text-helpers';
 import { isTargetLanguageText } from '../lookup/target-text';
@@ -139,15 +135,9 @@ import { configureLogger, Logger } from './logger';
 import {
     cardMatchesRenderedLookupValue,
     jitenWordCardForMassReview,
-    publicJpdbRenderedWordLookup,
-    kanaRunRenderedWordsForSurface,
     visibleJitenReviewableWords,
-    renderedKanaFragmentExpansionLookup,
     renderedWordCardForLookup,
-    renderedWordExpansionLookup,
     renderedWordLookupText,
-    type RenderedWordExpansionLookup,
-    type RenderedWordKanaFragmentExpansionLookup,
 } from '../main/rendered-word-lookup';
 import {
     installTokenListHandlers as installTokenListClickHandlers,
@@ -174,7 +164,6 @@ import {
     FIVE_BUTTON_REVIEW_SHORTCUTS,
     HOVER_ANKI_HYDRATION_DELAY_MS,
     HOVER_POINTER_TEXT_LOOKUP_OPTIONS,
-    KANA_ONLY_LOOKUP_RUN_RE,
     NEARBY_TERM_AUDIO_PRELOAD_LIMIT,
     NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS,
     NESTED_PARSE_CONTENT_CACHE_LIMIT,
@@ -185,7 +174,6 @@ import {
     PITCH_LOCAL_META_LIMIT,
     POINTER_TEXT_JPDB_TIMEOUT_MS,
     PRELOADED_TERM_AUDIO_KEY_LIMIT,
-    RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS,
     RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
     SUBTITLE_SURFACE_SELECTOR,
     TERM_AUDIO_PRELOAD_LIMIT,
@@ -234,7 +222,6 @@ import {
     visibleAutoScanMutationDelay,
     type CardDisplayOptions,
     type KanjiDetailPromises,
-    type LocalPointerTextEntryMatch,
     type MountPopoverOptions,
     type MountedCardShell,
     type NestedParseContentCacheEntry,
@@ -269,7 +256,6 @@ import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
-import { normalizedJitenLookupKey } from '../lookup/public-fallback-cards';
 import { resolveUiLanguage, uiText } from '../app/i18n';
 import { userFacingErrorText } from './user-facing-errors';
 import { translateJapaneseSentence } from '../study/tools';
@@ -291,13 +277,11 @@ import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFrom
 import { isApiMiningEnabled } from '../cards/srs-providers';
 import {
     caretTextPositionFromPoint,
-    pointerTextRunAt,
-    jpdbPointerLookupCandidates,
     pointerTextCharacterOffset,
     pointerTextLookupFromTextNode,
     pointerTextLookupFromRenderedWord,
+    pointerTextLookupFromRenderedWordStart,
     type ActivePointerTextLookup,
-    type PointerTextSpanCandidate,
     type PointerTextLookup,
 } from '../lookup/pointer-text-lookup';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, shouldUseSheet } from '../popup/shell';
@@ -312,12 +296,12 @@ import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
-import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
-import { ReaderParser, cardWithPreservedCachedEvidence, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
-import { normalizeFallbackTerm } from '../lookup/japanese-segments';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, updateRenderedPitch, wait } from './dom-helpers';
+import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
+    fallbackVocabularySpanCacheKey,
     renderedFallbackVocabularyCacheKey,
     renderedWordCardKey,
     renderedWordElementKey,
@@ -404,8 +388,6 @@ import {
     mergePitchPatterns,
     normalizedNestedParseOptions,
     pitchEnrichmentQueueOptions,
-    pointerSpanForResolvedCard,
-    uniquePointerTextSpans,
     uniqueTokensByCard,
     waitForHoverCardInitialPaint,
 } from './main-lookup-helpers';
@@ -414,7 +396,6 @@ import {
     DeferredPublicJitenReadingCoordinator,
     resolvePublicFallbackPitchTokens as resolvePublicFallbackPitchTokensWithPublicJiten,
 } from './deferred-public-jiten-readings';
-import { KANA_ONLY_RUN_RE as POINTER_TEXT_KANA_SURFACE_RE } from '../lookup/japanese-script';
 import {
     READER_ROOT_GESTURE_EVENTS,
     READER_ROOT_SELECTOR,
@@ -458,7 +439,6 @@ import {
     firstLocalPitchPattern,
     japaneseSiteLanguageDisabled,
     pageAddonKeysMatch,
-    renderedWordSubwordRange,
     type KanjiStudyCompanionSlot,
     type ReaderLifecycleSurface,
     type ActivePopoverDismissOptions,
@@ -705,7 +685,13 @@ export class ReaderApp {
         getSettings: () => this.settings,
         jpdb: this.jpdb,
         jiten: this.jiten,
-        jitenPublicVocabulary: this.jitenPublicVocabulary,
+        // Late-bound like getSettings: the public client is swappable state
+        // (tests replace it; a future account sign-in may too), and the parser
+        // must always consult the app's current one.
+        jitenPublicVocabulary: {
+            parse: (paragraphs, options) => this.jitenPublicVocabulary.parse(paragraphs, options),
+            lookupMany: (terms, options) => this.jitenPublicVocabulary.lookupMany(terms, options),
+        },
         dictionaries: this.dictionaries,
         yomuLocalSrs: this.yomuLocalSrs,
     });
@@ -3490,8 +3476,13 @@ export class ReaderApp {
         this.cancelHoverClose();
         this.pinOcrLineForModalLookup(press.word);
         if (this.shouldPauseForLookupAnchor(press.word)) this.pauseVideoForSubtitleMining();
-        void this.showWord(press.word, { trigger: 'click', userGesture: true, fastInitialRender: true })
-            .finally(() => this.releaseOrphanedModalOcrPin());
+        const candidate = this.renderedWordPointerLookupCandidate(press.word, press.x, press.y, press.word);
+        if (candidate) {
+            void this.showLookupCandidate(candidate, 'modal', { userGesture: true })
+                .finally(() => this.releaseOrphanedModalOcrPin());
+            return;
+        }
+        this.releaseOrphanedModalOcrPin();
     }
 
     private openReaderWordFromPointer(
@@ -3506,17 +3497,16 @@ export class ReaderApp {
         this.prepareModalLookupFromPointer(event);
         this.pinOcrLineForModalLookup(word);
         if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
-        // The touch fast-fallback shows a single-sense placeholder card first and only
-        // fills in the full entry after a background reparse — so the FIRST tap on OCR
-        // text showed partial results and you had to tap again. OCR overlay words are
-        // already tokenized Japanese, so the full lookup (cached card or jiten) returns
-        // the complete entry on the first tap; skip the fast-fallback for them.
-        const fastInitialRender = (surfaces.s || this.shouldFastRenderReaderWordPointerLookup(event))
-            && !word.closest('.jpdb-ocr-line');
-        void this.showWord(word, surfaces.r
-            ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
-            : { trigger: 'click', userGesture: true, fastInitialRender })
-            .finally(() => this.releaseOrphanedModalOcrPin());
+        const candidate = this.renderedWordLookupCandidateForActivation(word, event);
+        if (candidate) {
+            void this.showLookupCandidate(candidate, 'modal', {
+                navigation: surfaces.r ? 'push-current' : 'reset',
+                preservePosition: surfaces.r,
+                userGesture: true,
+            }).finally(() => this.releaseOrphanedModalOcrPin());
+            return;
+        }
+        this.releaseOrphanedModalOcrPin();
     }
 
     private handleOcrReaderWordPointerDown(event: PointerEvent): boolean {
@@ -3529,12 +3519,16 @@ export class ReaderApp {
         const now = Date.now();
         this.suppressWordClickUntil = now + 700;
         this.pinOcrLineForModalLookup(word);
-        // Full entry on the first tap for OCR overlay text (see openReaderWordFromPointer).
-        const fastInitialRender = !word.closest('.jpdb-ocr-line');
-        void this.showWord(word, surfaces.r
-            ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
-            : { trigger: 'click', userGesture: true, fastInitialRender })
-            .finally(() => this.releaseOrphanedModalOcrPin());
+        const candidate = this.renderedWordLookupCandidateForActivation(word, event);
+        if (candidate) {
+            void this.showLookupCandidate(candidate, 'modal', {
+                navigation: surfaces.r ? 'push-current' : 'reset',
+                preservePosition: surfaces.r,
+                userGesture: true,
+            }).finally(() => this.releaseOrphanedModalOcrPin());
+            return true;
+        }
+        this.releaseOrphanedModalOcrPin();
         return true;
     }
 
@@ -3579,11 +3573,6 @@ export class ReaderApp {
         event.preventDefault();
         event.stopPropagation();
         return true;
-    }
-
-    private shouldFastRenderReaderWordPointerLookup(event: MouseEvent): boolean {
-        const pointerType = (event as PointerEvent).pointerType;
-        return event.type.startsWith('pointer') && (pointerType === 'touch' || pointerType === 'pen');
     }
 
     // The subtitle controller's bound <video>, when present and still attached.
@@ -4110,7 +4099,8 @@ export class ReaderApp {
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
-        void this.showWord(word, { trigger: 'hover', hoverLookupGeneration });
+        const candidate = this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
+        if (candidate) void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration });
     }
 
     private activatePressLookupIfNeeded(pressLookup: PressLookupState, event: PointerEvent): boolean {
@@ -4449,35 +4439,37 @@ export class ReaderApp {
         const insideActivePopover = this.handleActivePopoverHover(event);
         if (insideActivePopover) return;
         const word = this.hoverReaderWordForEvent(event);
-        const subword = this.renderedWordSubwordCandidateAtPointer(word, event);
+        const candidate = this.renderedWordPointerLookupCandidateAtPointer(word, event);
         if (isHoverPopoverTransitActive(this.activeHoverPopoverPointerState())) {
-            this.handleHoverPopoverTransit(word, subword, event);
+            this.handleHoverPopoverTransit(word, candidate, event);
             return;
         }
         if (!word) {
             this.handlePointerTextHover(event);
             return;
         }
-        if (subword) {
-            this.handlePointerTextHoverCandidate(event, subword);
+        if (candidate) {
+            this.keepSubtitleMiningPauseForPendingHover(word);
+            this.preloadHoverWordAudio(word);
+            this.handlePointerTextHoverCandidate(event, candidate);
             return;
         }
         this.handleReaderWordHover(word, event);
     }
 
-    private renderedWordSubwordCandidateAtPointer(word: HTMLElement | null, event: PointerEvent): PointerTextLookup | null {
+    private renderedWordPointerLookupCandidateAtPointer(word: HTMLElement | null, event: PointerEvent): PointerTextLookup | null {
         if (!word) return null;
-        return this.renderedWordSubwordHoverCandidate(word, event.clientX, event.clientY, event.target);
+        return this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
     }
 
-    private handleHoverPopoverTransit(word: HTMLElement | null, subword: PointerTextLookup | null, event: PointerEvent): void {
+    private handleHoverPopoverTransit(word: HTMLElement | null, candidate: PointerTextLookup | null, event: PointerEvent): void {
         this.cancelHoverClose();
         // Transit is movement, not dwell. Re-arm the settle delay from the
         // latest pointer sample so a slow trip to the frame cannot accidentally
         // switch to page text underneath the deliberate layout gap.
         this.cancelPendingHoverLookup();
-        if (subword) {
-            this.handlePointerTextHoverCandidate(event, subword, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
+        if (candidate) {
+            this.handlePointerTextHoverCandidate(event, candidate, { minimumDelayMs: HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS });
             return;
         }
         if (word) {
@@ -4706,18 +4698,24 @@ export class ReaderApp {
         if (minimumDelayMs === undefined) this.rememberHoverPopoverPointer(event);
     }
 
-    private renderedWordSubwordHoverCandidate(
+    private renderedWordPointerLookupCandidate(
         word: HTMLElement,
         x: number,
         y: number,
         eventTarget: EventTarget | null,
     ): PointerTextLookup | null {
-        const candidate = this.lookupCandidateFromPoint(x, y, eventTarget, HOVER_POINTER_TEXT_LOOKUP_OPTIONS)
-            ?? pointerTextLookupFromRenderedWord(word, x, y);
-        if (!candidate) return null;
-        const subword = renderedWordSubwordRange(word, candidate);
-        if (!subword) return null;
-        return { ...candidate, start: subword.start, end: subword.end };
+        // Rendered annotations and native page text share the same exact-point
+        // candidate shape. The parser now owns the lexical span; this layer
+        // contributes geometry only and never narrows via ICU segmentation or
+        // card metadata.
+        return pointerTextLookupFromRenderedWord(word, x, y)
+            ?? this.lookupCandidateFromPoint(x, y, eventTarget, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+    }
+
+    private renderedWordLookupCandidateForActivation(word: HTMLElement, event: MouseEvent): PointerTextLookup | null {
+        const candidate = this.renderedWordPointerLookupCandidate(word, event.clientX, event.clientY, event.target);
+        if (candidate || this.eventHasPointTarget(event)) return candidate;
+        return pointerTextLookupFromRenderedWordStart(word);
     }
 
     private refreshActivePointerTextHover(candidate: PointerTextLookup, event: PointerEvent): boolean {
@@ -5108,8 +5106,13 @@ export class ReaderApp {
 
     private startScheduledHoverWordLookup(activeWord: HTMLElement, hoverLookupGeneration: number): void {
         const activeHoverLookupKey = this.hoverLookupKeyForWord(activeWord);
+        const pointer = this.lastPointerPosition;
+        if (!pointer) return;
+        const target = document.elementFromPoint(pointer.x, pointer.y);
+        const candidate = this.renderedWordPointerLookupCandidate(activeWord, pointer.x, pointer.y, target);
+        if (!candidate) return;
         if (activeHoverLookupKey) this.hoverLookupInFlightKey = activeHoverLookupKey;
-        void this.showWord(activeWord, { trigger: 'hover', hoverLookupGeneration }).finally(() => {
+        void this.showLookupCandidate(candidate, 'hover', { hoverLookupGeneration }).finally(() => {
             if (this.hoverLookupInFlightKey === activeHoverLookupKey) this.hoverLookupInFlightKey = '';
         });
     }
@@ -5436,8 +5439,8 @@ export class ReaderApp {
 
     private currentPointerTextHoverCandidateAtPoint(x: number, y: number, target: EventTarget | null): PointerTextLookup | null {
         const word = this.liveReaderWordAtPointer(x, y);
-        const subword = word ? this.renderedWordSubwordHoverCandidate(word, x, y, target) : null;
-        return subword ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+        const candidate = word ? this.renderedWordPointerLookupCandidate(word, x, y, target) : null;
+        return candidate ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
     }
 
     private hasActiveHoverPopover(): boolean {
@@ -5490,10 +5493,6 @@ export class ReaderApp {
         return this.parser.isJpdbBackedCard(card);
     }
 
-    private isParserBackedLookupCard(card: JPDBCard): boolean {
-        return this.isJpdbBackedCard(card) || card.source === 'jiten';
-    }
-
     private lookupText(text: string, sentence = text, options: TextLookupOptions = {}, scope: CardLookupTargetSnapshot = this.cardLookup.captureTarget()): Promise<void> {
         return this.cardLookup.lookupText(text, sentence, options, scope);
     }
@@ -5521,10 +5520,6 @@ export class ReaderApp {
         scope = this.cardLookup.captureTarget(),
     ): Promise<Map<string, JPDBCard>> {
         return this.cardLookup.publicLookupFallbackCards(cards, options, scope);
-    }
-
-    private publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined> {
-        return this.cardLookup.publicLookupFirstCandidateTerm(terms);
     }
 
     private lookupFallbackApiCard(
@@ -5568,12 +5563,14 @@ export class ReaderApp {
         trigger: 'modal' | 'hover',
     ): boolean {
         if (!nestedWord || !this.shouldLookupNestedDictionaryWord(nestedWord, query)) return false;
+        const candidate = this.renderedWordLookupCandidateForActivation(nestedWord, event);
+        if (!candidate) return false;
         event.preventDefault();
         event.stopPropagation();
         this.primeLookupAudioFromGesture();
-        void this.showWord(nestedWord, {
-            trigger: 'click',
+        void this.showLookupCandidate(candidate, trigger, {
             navigation: trigger === 'modal' ? 'push-current' : 'reset',
+            preservePosition: trigger === 'modal',
             userGesture: true,
         });
         return true;
@@ -5717,35 +5714,17 @@ export class ReaderApp {
         options: PointerTextDisplayOptions,
     ): Promise<void> {
         const scope = this.cardLookup.captureTarget();
-        if (await this.showParsedPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-        if (!scope.isCurrent()) return;
-        if (await this.showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-        if (!scope.isCurrent()) return;
-        if (await this.showLocalPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-        if (!scope.isCurrent()) return;
-        if (await this.showFallbackPointerTextCandidate(candidate, sentence, trigger, options, scope)) return;
-    }
-
-    private async showParsedPointerTextCandidate(
-        candidate: PointerTextLookup,
-        sentence: string,
-        trigger: 'modal' | 'hover',
-        options: PointerTextDisplayOptions,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
         try {
-            const [tokens] = await this.parseJapanese([candidate.text], this.pointerTextJpdbParseOptions());
-            if (!scope.isCurrent()) return true;
-            const token = pointerTokenAtOffset(tokens ?? [], candidate.offset);
-            if (!token || this.shouldSkipPointerTextToken(candidate, token)) return false;
-            if (!this.isParserBackedLookupCard(token.card)) return false;
-            if (!scope.isCurrent()) return true;
-            await this.showPointerTextCard(token.card, sentence, candidate, { start: token.start, end: token.end }, trigger, options);
-            return true;
+            const token = await this.parser.lookupTokenAt(
+                candidate.text,
+                candidate.offset,
+                { start: candidate.start, end: candidate.end },
+                this.pointerTextJpdbParseOptions(),
+            );
+            if (!scope.isCurrent() || !token) return;
+            await this.showPointerTextCard(token.card, sentence, candidate, token, trigger, options);
         } catch (error) {
-            if (!scope.isCurrent()) return true;
-            log.warn('Pointer parse failed', { offset: candidate.offset }, error);
-            return false;
+            if (scope.isCurrent()) log.warn('Authoritative pointer lookup failed', { offset: candidate.offset }, error);
         }
     }
 
@@ -5756,139 +5735,6 @@ export class ReaderApp {
             jpdbTimeoutMs: POINTER_TEXT_JPDB_TIMEOUT_MS,
             allowJpdbTimeoutFallback: true,
         });
-    }
-
-    private shouldSkipPointerTextToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
-        // Rendered-word sublookups intentionally narrow candidate.start/end to
-        // the segment under the pointer. A parser response spanning outside
-        // that boundary is the larger token the learner is trying to look
-        // inside, not a valid result for this exact-point request.
-        if (token.start < candidate.start || token.end > candidate.end) return true;
-        const tokenLength = token.end - token.start;
-        const run = pointerTextRunAt(candidate.text, candidate.offset);
-        const surroundingLength = run ? run.end - run.start : candidate.end - candidate.start;
-        if (surroundingLength <= tokenLength) return false;
-        if (isLowValuePointerTextToken(token)) return true;
-        if (!KANA_ONLY_LOOKUP_RUN_RE.test(token.card.spelling.trim())) return false;
-        return !this.isCoveredParsedKanaPointerToken(candidate, token);
-    }
-
-    private isCoveredParsedKanaPointerToken(candidate: PointerTextLookup, token: JPDBToken): boolean {
-        if (token.end - token.start <= 1) return false;
-        const surface = normalizedLookupText(candidate.text.slice(token.start, token.end));
-        if (!KANA_ONLY_LOOKUP_RUN_RE.test(surface)) return false;
-        const spelling = normalizedLookupText(token.card.spelling);
-        const reading = normalizedLookupText(token.card.reading);
-        return surface === spelling || surface === reading;
-    }
-
-    private async showPublicJpdbPointerTextCandidate(
-        candidate: PointerTextLookup,
-        sentence: string,
-        trigger: 'modal' | 'hover',
-        options: PointerTextDisplayOptions,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return true;
-        if (!this.canUsePublicJpdbPointerLookup()) return false;
-        const spans = this.publicJpdbPointerLookupCandidates(candidate);
-        if (!this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
-        const jitenCards = await this.cardLookup.publicJitenLookupCandidateCards(spans.map(span => span.term));
-        if (!scope.isCurrent()) return true;
-        for (const span of spans) {
-            const card = jitenCards.get(normalizedJitenLookupKey(span.term));
-            if (!card) continue;
-            const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
-            if (!scope.isCurrent()) return true;
-            this.parser.cacheCards?.([card]);
-            await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
-            return true;
-        }
-        for (const span of spans) {
-            const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
-            if (!scope.isCurrent()) return true;
-            if (card) {
-                const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
-                this.parser.cacheCards?.([card]);
-                await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private publicJpdbPointerLookupCandidates(candidate: PointerTextLookup): PointerTextSpanCandidate[] {
-        const spans = jpdbPointerLookupCandidates(candidate.text, candidate.offset)
-            .filter(span => span.start >= candidate.start && span.end <= candidate.end);
-        const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
-        if (!fallbackRange) return spans;
-        const fallbackSurface = candidate.text.slice(fallbackRange.start, fallbackRange.end);
-        const fallbackSurfaceKey = normalizedLookupText(fallbackSurface);
-        const deinflectedSpans = fallbackDictionaryLookupTermsForText(fallbackSurface)
-            .filter(term => normalizedLookupText(term) !== fallbackSurfaceKey)
-            .map(term => ({ term, start: fallbackRange.start, end: fallbackRange.end }));
-        return uniquePointerTextSpans([...deinflectedSpans, ...spans]);
-    }
-
-    private canUsePublicJpdbPointerLookup(): boolean {
-        return activeLearningTarget().language === 'ja'
-            && !hasJpdbApiCredential(this.settings);
-    }
-
-    private canUsePublicJpdbPointerTextLookup(candidate: PointerTextLookup, spans: PointerTextSpanCandidate[]): boolean {
-        return this.settings.jpdbDefinitionsEnabled
-            || this.settings.showPitchAccent
-            || this.hasKanaRunIdentityPublicLookupCandidate(candidate, spans);
-    }
-
-    private hasKanaRunIdentityPublicLookupCandidate(candidate: PointerTextLookup, spans: PointerTextSpanCandidate[]): boolean {
-        if (spans.length <= 1) return false;
-        const fallbackTerm = normalizedLookupText(fallbackLookupTermAtOffset(candidate.text, candidate.offset));
-        const candidateLength = candidate.end - candidate.start;
-        return spans.some(span => {
-            const term = normalizedLookupText(span.term);
-            if (term.length <= 1 || !KANA_ONLY_LOOKUP_RUN_RE.test(term)) return false;
-            if (candidateLength > term.length) return true;
-            return Boolean(fallbackTerm && fallbackTerm !== term && term.includes(fallbackTerm));
-        });
-    }
-
-    private async showLocalPointerTextCandidate(
-        candidate: PointerTextLookup,
-        sentence: string,
-        trigger: 'modal' | 'hover',
-        options: PointerTextDisplayOptions,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        const localMatch = await this.lookupLocalEntryAtOffset(candidate.text, candidate.offset);
-        if (!scope.isCurrent()
-            || !localMatch
-            || localMatch.start < candidate.start
-            || localMatch.end > candidate.end
-            || this.isWeakPointerLocalMatch(candidate, localMatch)) return false;
-        const card = this.parser.localCardFromEntry(localMatch.entry, scope.target);
-        if (!scope.isCurrent()) return true;
-        await this.showPointerTextCard(card, sentence, candidate, localMatch, trigger, options);
-        return true;
-    }
-
-    private async showFallbackPointerTextCandidate(
-        candidate: PointerTextLookup,
-        sentence: string,
-        trigger: 'modal' | 'hover',
-        options: PointerTextDisplayOptions,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return false;
-        const fallbackRange = fallbackLookupRangeAtOffset(candidate.text, candidate.offset) ?? candidate;
-        const fallbackTerm = this.pointerFallbackDisplayTerm(candidate, fallbackRange);
-        if (!fallbackTerm
-            || this.isWeakPointerFallbackTerm(candidate, fallbackTerm)
-            || this.isOverbroadPointerFallback(candidate, fallbackRange)) return false;
-        const card = this.parser.fallbackCardFromText(fallbackTerm, scope.target);
-        if (!scope.isCurrent()) return true;
-        await this.showPointerTextCard(card, sentence, candidate, fallbackRange, trigger, options);
-        return true;
     }
 
     private async showPointerTextCard(
@@ -5910,18 +5756,9 @@ export class ReaderApp {
             previousNavigationEntry: this.textLookupPreviousNavigationEntry(trigger, navigation),
             hoverLookupKey: trigger === 'hover' ? this.activePointerTextLookupKey(candidate, range.start, range.end, card) : undefined,
             hoverLookupGeneration: options.hoverLookupGeneration,
-            pointerTextLookup: trigger === 'hover' ? pointerTextLookup : undefined,
+            pointerTextLookup,
             userGesture: options.userGesture,
         });
-    }
-
-    private async lookupLocalEntryAtOffset(text: string, offset: number): Promise<LocalPointerTextEntryMatch | undefined> {
-        if (!this.settings.localDictionariesEnabled) return undefined;
-        const run = pointerTextRunAt(text, offset);
-        if (!run) return undefined;
-        const pointerRange = fallbackLookupRangeAtOffset(text, run.offset) ?? { start: run.start, end: run.end };
-
-        return await this.lookupLocalEntryInRun(text, run, pointerRange);
     }
 
     private isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean {
@@ -5965,149 +5802,6 @@ export class ReaderApp {
             || (this.hoverLookupInFlightKey && this.hoverLookupInFlightKey !== hoverLookupKey));
     }
 
-    private async lookupLocalEntryInRun(
-        text: string,
-        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
-        pointerRange: { start: number; end: number },
-    ): Promise<LocalPointerTextEntryMatch | undefined> {
-        const target = activeLearningTarget();
-        if (target.lookupStartsAtSegmentBoundary) {
-            const surface = text.slice(pointerRange.start, pointerRange.end);
-            const entry = await this.lookupSingleLocalSurface(surface);
-            return entry ? { entry, start: pointerRange.start, end: pointerRange.end } : undefined;
-        }
-        if (target.lookupSubsegments) {
-            return await this.lookupSuffixStrippedLocalEntry(target, text, run);
-        }
-        if (target.lookupSweepMode === 'left-to-right-longest-exact') {
-            for (const span of jpdbPointerLookupCandidates(text, run.offset)) {
-                const entry = await this.lookupSingleLocalSurface(span.term);
-                if (entry) return { entry, start: span.start, end: span.end };
-            }
-            return undefined;
-        }
-        if (isOverbroadLocalPointerRange(run, pointerRange)) {
-            return await this.lookupContainingLocalEntryInRun(text, run, pointerRange, { preferShorter: true });
-        }
-        const exactSurface = text.slice(pointerRange.start, pointerRange.end);
-        const exactEntry = await this.lookupSingleLocalSurface(exactSurface);
-        if (exactEntry) return { entry: exactEntry, start: pointerRange.start, end: pointerRange.end };
-        if (!canExpandLocalPointerRange(exactSurface)) return undefined;
-
-        return await this.lookupContainingLocalEntryInRun(text, run, pointerRange);
-    }
-
-    private async lookupSuffixStrippedLocalEntry(
-        target: ReturnType<typeof activeLearningTarget>,
-        text: string,
-        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
-    ): Promise<LocalPointerTextEntryMatch | undefined> {
-        const runText = text.slice(run.start, run.end);
-        const relativeOffset = run.offset - run.start;
-        for (const surface of target.lookupSubsegments!(runText, 18)) {
-            if (relativeOffset >= surface.length) continue;
-            const entry = await this.lookupSingleLocalSurface(surface);
-            if (entry) return { entry, start: run.start, end: run.start + surface.length };
-        }
-        return undefined;
-    }
-
-    private async lookupContainingLocalEntryInRun(
-        text: string,
-        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
-        pointerRange: { start: number; end: number },
-        options: { preferShorter?: boolean } = {},
-    ): Promise<LocalPointerTextEntryMatch | undefined> {
-        const minStart = Math.max(run.start, run.offset - 8);
-        const maxEnd = Math.min(run.end, Math.max(pointerRange.end, run.offset + 18));
-        if (options.preferShorter) return await this.lookupContainingLocalEntryShortestFirst(text, run, minStart, maxEnd);
-        for (let start = Math.min(pointerRange.start, run.offset); start >= minStart; start--) {
-            const longestEnd = Math.min(maxEnd, start + 18);
-            for (let end = longestEnd; end > run.offset; end--) {
-                const surface = text.slice(start, end);
-                const entry = await this.lookupSingleLocalSurface(surface);
-                if (entry) return { entry, start, end };
-            }
-        }
-        return undefined;
-    }
-
-    private async lookupContainingLocalEntryShortestFirst(
-        text: string,
-        run: NonNullable<ReturnType<typeof pointerTextRunAt>>,
-        minStart: number,
-        maxEnd: number,
-    ): Promise<LocalPointerTextEntryMatch | undefined> {
-        const maxLength = Math.min(18, maxEnd - minStart);
-        for (let length = 2; length <= maxLength; length++) {
-            const firstStart = Math.max(minStart, run.offset - length + 1);
-            const lastStart = Math.min(run.offset, maxEnd - length);
-            for (let start = lastStart; start >= firstStart; start--) {
-                const end = start + length;
-                const surface = text.slice(start, end);
-                const entry = await this.lookupSingleLocalSurface(surface);
-                if (entry) return { entry, start, end };
-            }
-        }
-        return undefined;
-    }
-
-    private async lookupSingleLocalSurface(surface: string): Promise<YomitanTermEntry | undefined> {
-        const target = activeLearningTarget();
-        for (const candidate of target.lookupCandidates(surface)) {
-            const entries = await this.dictionaries
-                .lookup(candidate.term, candidate.term, 8, this.settings.dictionaryPreferences)
-                .catch(() => []);
-            const match = entries.find(entry =>
-                (
-                    target.lookupSweepMode !== 'left-to-right-longest-exact'
-                    || target.normalizeText(entry.expression) === target.normalizeText(candidate.term)
-                )
-                && target.matchesLookupCandidateRules(entry.rules, candidate.rules),
-            );
-            if (match) return match;
-        }
-        return undefined;
-    }
-
-    private isWeakPointerLocalMatch(candidate: PointerTextLookup, match: LocalPointerTextEntryMatch): boolean {
-        return this.isWeakPointerTextRange(candidate, match.start, match.end);
-    }
-
-    private isWeakPointerFallbackTerm(candidate: PointerTextLookup, term: string): boolean {
-        return term.length <= 1 && candidate.end - candidate.start > 1;
-    }
-
-    private pointerFallbackDisplayTerm(candidate: PointerTextLookup, range: { start: number; end: number }): string {
-        const surface = normalizeFallbackTerm(candidate.text.slice(range.start, range.end));
-        if (this.shouldPreferPointerFallbackSurface(candidate, range, surface)) return surface;
-        return fallbackLookupTermAtOffset(candidate.text, candidate.offset);
-    }
-
-    private shouldPreferPointerFallbackSurface(candidate: PointerTextLookup, range: { start: number; end: number }, surface: string): boolean {
-        return surface.length > 1
-            && range.start === candidate.start
-            && range.end === candidate.end
-            && POINTER_TEXT_KANA_SURFACE_RE.test(surface);
-    }
-
-    private isOverbroadPointerFallback(candidate: PointerTextLookup, range: { start: number; end: number }): boolean {
-        const target = activeLearningTarget();
-        if (
-            target.lookupStartsAtSegmentBoundary
-            || target.lookupSubsegments
-        ) return false;
-        const fallbackLength = range.end - range.start;
-        const candidateLength = candidate.end - candidate.start;
-        return fallbackLength >= candidateLength
-            && candidateLength > 6
-            && fallbackLength > 4;
-    }
-
-    private isWeakPointerTextRange(candidate: PointerTextLookup, start: number, end: number): boolean {
-        return end - start <= 1 && candidate.end - candidate.start > 1;
-    }
-
     private async showWord(word: HTMLElement, options: RenderedWordLookupOptions = {}): Promise<void> {
         const scope = this.cardLookup.captureTarget();
         if (this.shouldIgnoreRenderedWordLookup(word, options)) return;
@@ -6130,76 +5824,12 @@ export class ReaderApp {
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
         if (this.refreshActiveRenderedWordHover(word, context)) return;
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
-        if (this.shouldShowRenderedWordCardImmediately(context, options)) {
-            this.preloadHoverWordAudio(word);
-            await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
-            return;
-        }
-        if (await this.showAlternativeRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return;
-        if (!scope.isCurrent()) return;
         this.preloadHoverWordAudio(word);
         await this.showRenderedWordCard(card, context, options, stackOverSettings, scope);
     }
 
-    private async showAlternativeRenderedWordCandidate(
-        word: HTMLElement,
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-        options: RenderedWordLookupOptions,
-        stackOverSettings: boolean,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return true;
-        if (await this.showParsedRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return true;
-        if (!scope.isCurrent()) return true;
-        if (await this.showLocalRenderedWordCandidate(card, context, options, stackOverSettings, scope)) return true;
-        if (!scope.isCurrent()) return true;
-        if (await this.showPublicJpdbRenderedWordCandidate(word, card, context, options, stackOverSettings, scope)) return true;
-        if (!scope.isCurrent()) return true;
-        if (this.shouldSuppressRenderedKanaFragmentFallback(word, card, context)) return true;
-        return this.showOcrKanjiRenderedWord(word, card, context, scope);
-    }
-
-    private async showLocalRenderedWordCandidate(
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-        options: RenderedWordLookupOptions,
-        stackOverSettings: boolean,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!this.settings.localDictionariesEnabled || card.source !== 'fallback') return false;
-        for (const term of fallbackLookupTermsForCard(card)) {
-            const entries = await this.dictionaries.lookup(
-                term,
-                term,
-                this.settings.localDictionaryMaxResults,
-                this.settings.dictionaryPreferences,
-            ).catch(() => [] as YomitanTermEntry[]);
-            if (!scope.isCurrent()) return true;
-            const entry = entries[0];
-            if (!entry) continue;
-            await this.showRenderedWordCard(
-                this.parser.localCardFromEntry(entry, scope.target),
-                context,
-                options,
-                stackOverSettings,
-                scope,
-            );
-            return true;
-        }
-        return false;
-    }
-
     private shouldIgnoreRenderedWordLookup(word: HTMLElement, options: RenderedWordLookupOptions): boolean {
         return options.trigger === 'click' && this.shouldIgnoreCurrentImmersionExampleTargetClick(word);
-    }
-
-    private shouldShowRenderedWordCardImmediately(
-        context: RenderedWordDisplayContext,
-        options: RenderedWordLookupOptions,
-    ): boolean {
-        return context.trigger === 'hover'
-            || (context.trigger === 'modal' && options.fastInitialRender === true);
     }
 
     private refreshActiveRenderedWordHover(word: HTMLElement, context: RenderedWordDisplayContext): boolean {
@@ -6210,23 +5840,6 @@ export class ReaderApp {
 
     private isStaleRenderedWordHover(word: HTMLElement, context: RenderedWordDisplayContext, hoverLookupGeneration?: number): boolean {
         return context.trigger === 'hover' && !this.isCurrentRenderedWordHover(word, context.hoverLookupKey ?? '', hoverLookupGeneration);
-    }
-
-    private async showOcrKanjiRenderedWord(
-        word: HTMLElement,
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return true;
-        const ocrKanji = singleKanjiOcrLookupCharacter(word);
-        if (!ocrKanji || context.trigger !== 'modal') return false;
-        if (!scope.isCurrent()) return true;
-        await this.showKanjiCard(card, ocrKanji, ocrKanji, context.anchor, {
-            navigation: context.navigation,
-            preservePosition: context.insideReaderPopup,
-        });
-        return true;
     }
 
     private showRenderedWordCard(
@@ -6247,7 +5860,9 @@ export class ReaderApp {
             insideReaderPopup: context.insideReaderPopup,
             userGesture: options.userGesture,
             stackOverSettings,
-            skipInitialCardResolution: this.shouldShowRenderedWordCardImmediately(context, options),
+            // A rendered word's cached card decorates the span already chosen by
+            // TermSpanResolver. Never rerun lexical candidate selection here.
+            skipInitialCardResolution: true,
         });
     }
 
@@ -6256,133 +5871,6 @@ export class ReaderApp {
         const sid = Number(word.dataset.sid);
         const card = this.getCachedCard(vid, sid);
         return renderedWordCardForLookup(word, card);
-    }
-
-    private async showPublicJpdbRenderedWordCandidate(
-        word: HTMLElement,
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-        options: RenderedWordLookupOptions,
-        stackOverSettings: boolean,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return true;
-        const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
-        if (!lookup) return false;
-        const resolved = await this.resolvePublicJpdbRenderedWordCandidate(lookup.terms, this.isExactRenderedWordCardMatch(word, card));
-        if (!scope.isCurrent()) return true;
-        if (!resolved) return false;
-        this.parser.cacheCards?.([resolved]);
-        await this.showRenderedWordCard(resolved, { ...context, sentence: lookup.sentence }, options, stackOverSettings, scope);
-        return true;
-    }
-
-    private isExactRenderedWordCardMatch(word: HTMLElement, card: JPDBCard): boolean {
-        return renderedWordLookupText(word) === normalizedLookupText(card.spelling);
-    }
-
-    private async showParsedRenderedWordCandidate(
-        word: HTMLElement,
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-        options: RenderedWordLookupOptions,
-        stackOverSettings: boolean,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return true;
-        if (!this.canUseParserBackedRenderedWordLookup()) return false;
-        const lookup = renderedKanaFragmentExpansionLookup(word, card, context);
-        if (!lookup) return false;
-        try {
-            const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
-            if (!scope.isCurrent()) return true;
-            const token = this.parsedRenderedWordCandidateToken(tokens ?? [], lookup, word);
-            if (!token) return false;
-            this.parser.cacheCards?.([token.card]);
-            this.restampKanaRunRenderedWords(word, token, lookup.sentence);
-            await this.showRenderedWordCard(token.card, { ...context, sentence: lookup.sentence }, options, stackOverSettings, scope);
-            return true;
-        } catch (error) {
-            if (!scope.isCurrent()) return true;
-            log.warn('Rendered JPDB parse failed', { expression: card.spelling }, error);
-            return false;
-        }
-    }
-
-    // P0 kana-run identity: re-stamp the rendered fragment run with the
-    // resolved word's identity so grades/mining/cross-tab signals recolor the
-    // WHOLE word, not just the tapped fragment.
-    private restampKanaRunRenderedWords(word: HTMLElement, token: JPDBToken, sentence: string): void {
-        const surface = sentence.slice(token.start, token.end);
-        const run = kanaRunRenderedWordsForSurface(word, surface);
-        if (run.length < 2) return;
-        const pitchClass = getPitchClass(token.card.pitchAccent, token.card.reading || token.card.spelling) || 'unknown';
-        this.pauseAutoScanObserver(() => {
-            for (const fragment of run) {
-                fragment.dataset.vid = String(token.card.vid);
-                fragment.dataset.sid = String(token.card.sid);
-                this.applyPublicVocabularyToRenderedWord(fragment, token.card, pitchClass);
-            }
-            refreshReaderWordContrast(word.parentElement ?? word);
-        });
-    }
-
-    private parsedRenderedWordCandidateToken(
-        tokens: JPDBToken[],
-        lookup: RenderedWordKanaFragmentExpansionLookup,
-        word: HTMLElement,
-    ): JPDBToken | undefined {
-        const token = pointerTokenAtOffset(tokens, lookup.offset);
-        const candidate = { text: lookup.sentence, offset: lookup.offset, start: 0, end: lookup.sentence.length, anchor: word };
-        return this.canUseParsedRenderedWordToken(token, lookup, candidate) ? token : undefined;
-    }
-
-    private canUseParsedRenderedWordToken(
-        token: JPDBToken | undefined,
-        lookup: RenderedWordKanaFragmentExpansionLookup,
-        candidate: PointerTextLookup,
-    ): token is JPDBToken {
-        if (!token) return false;
-        if (token.end - token.start <= lookup.surfaceLength) return false;
-        if (this.shouldSkipPointerTextToken(candidate, token)) return false;
-        return this.isParserBackedLookupCard(token.card);
-    }
-
-    private canUseParserBackedRenderedWordLookup(): boolean {
-        return Boolean(hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings));
-    }
-
-    private shouldSuppressRenderedKanaFragmentFallback(
-        word: HTMLElement,
-        card: JPDBCard,
-        context: RenderedWordDisplayContext,
-    ): boolean {
-        const lookup = publicJpdbRenderedWordLookup(word, card, context, this.canUsePublicJpdbPointerLookup());
-        if (!lookup?.terms.length) return false;
-        if (this.isExactRenderedWordCardMatch(word, card)) return false;
-        const surface = renderedWordLookupText(word);
-        const spelling = normalizedLookupText(card.spelling);
-        const reading = normalizedLookupText(card.reading);
-        const isRenderedKanaFragment = KANA_ONLY_LOOKUP_RUN_RE.test(surface)
-            && surface.length < Math.max(spelling.length, reading.length, lookup.terms[0]?.length ?? 0);
-        return isRenderedKanaFragment;
-    }
-
-    private resolvePublicJpdbRenderedWordCandidate(terms: string[], boundWait: boolean): Promise<JPDBCard | undefined> {
-        const resolved = this.resolvePublicJpdbRenderedWordCandidateTerms(terms);
-        if (!boundWait) return resolved;
-        // The clicked surface already matches its cached card, so the expansion
-        // lookup is only a best-effort upgrade: don't hold the popover hostage
-        // to a slow or offline public lookup.
-        void resolved.catch(() => undefined);
-        return Promise.race([
-            resolved,
-            wait(RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS).then(() => undefined),
-        ]);
-    }
-
-    private async resolvePublicJpdbRenderedWordCandidateTerms(terms: string[]): Promise<JPDBCard | undefined> {
-        return this.publicLookupFirstCandidateTerm(terms);
     }
 
     private async handleMissingRenderedWordCard(
@@ -6412,13 +5900,6 @@ export class ReaderApp {
         if (!isLookupableJapaneseText(expression)) return false;
         const trigger = this.renderedWordTrigger(options.trigger, false);
         const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
-        const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
-        if (options.fastInitialRender) {
-            await this.showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation, scope);
-            return true;
-        }
-        if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation, scope)) return true;
-        if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation, scope)) return true;
         if (!scope.isCurrent()) return true;
         await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
             anchor: renderedWordAnchor(word, false, this.activePopoverAnchor),
@@ -6431,101 +5912,6 @@ export class ReaderApp {
             stackOverSettings: options.stackOverSettings,
         }, scope);
         return true;
-    }
-
-    private async showFastFallbackUncachedPageWord(
-        word: HTMLElement,
-        expression: string,
-        options: RenderedWordLookupOptions,
-        trigger: 'modal' | 'hover',
-        navigation: CardNavigationMode,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<void> {
-        if (!scope.isCurrent()) return;
-        const sentence = this.renderedWordSentence(word) ?? expression;
-        const card = this.parser.fallbackCardFromText(expression, scope.target);
-        if (!scope.isCurrent()) return;
-        await this.showCard(card, sentence, renderedWordAnchor(word, false, this.activePopoverAnchor), {
-            trigger,
-            navigation,
-            preservePosition: trigger === 'hover',
-            previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
-            userGesture: options.userGesture,
-            hoverLookupGeneration: options.hoverLookupGeneration,
-            stackOverSettings: options.stackOverSettings,
-            skipInitialCardResolution: true,
-        });
-        if (!scope.isCurrent()) return;
-        this.scheduleVisiblePageReparse();
-    }
-
-    private async lookupUncachedPageWordViaParsedJpdb(
-        word: HTMLElement,
-        lookup: RenderedWordExpansionLookup,
-        expression: string,
-        options: RenderedWordLookupOptions,
-        trigger: 'modal' | 'hover',
-        navigation: CardNavigationMode,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        try {
-            const [tokens] = await this.parseJapanese([lookup.sentence], this.pointerTextJpdbParseOptions());
-            if (!scope.isCurrent()) return true;
-            const token = pointerTokenAtOffset(tokens ?? [], lookup.offset);
-            const candidate = { text: lookup.sentence, offset: lookup.offset, start: 0, end: lookup.sentence.length, anchor: word };
-            if (!token
-                || token.end - token.start <= lookup.surfaceLength
-                || this.shouldSkipPointerTextToken(candidate, token)
-                || !this.isParserBackedLookupCard(token.card)) return false;
-            await this.showRenderedWordExpansionCard(token.card, lookup.sentence, word, options, trigger, navigation, scope);
-            return true;
-        } catch (error) {
-            if (!scope.isCurrent()) return true;
-            log.warn('Uncached JPDB parse failed', { expression }, error);
-            return false;
-        }
-    }
-
-    private async lookupUncachedPageWordViaPublicJpdb(
-        word: HTMLElement,
-        lookup: RenderedWordExpansionLookup,
-        options: RenderedWordLookupOptions,
-        trigger: 'modal' | 'hover',
-        navigation: CardNavigationMode,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<boolean> {
-        if (!scope.isCurrent()) return true;
-        const terms = jpdbPointerLookupCandidates(lookup.sentence, lookup.offset)
-            .filter(span => span.end - span.start > lookup.surfaceLength)
-            .map(span => span.term);
-        if (!terms.length || !this.canUsePublicJpdbPointerLookup()) return false;
-        const resolved = await this.resolvePublicJpdbRenderedWordCandidate(terms, false);
-        if (!scope.isCurrent()) return true;
-        if (!resolved) return false;
-        await this.showRenderedWordExpansionCard(resolved, lookup.sentence, word, options, trigger, navigation, scope);
-        return true;
-    }
-
-    private async showRenderedWordExpansionCard(
-        card: JPDBCard,
-        sentence: string,
-        word: HTMLElement,
-        options: RenderedWordLookupOptions,
-        trigger: 'modal' | 'hover',
-        navigation: CardNavigationMode,
-        scope: CardLookupTargetSnapshot,
-    ): Promise<void> {
-        if (!scope.isCurrent()) return;
-        this.parser.cacheCards?.([card]);
-        await this.showCard(card, sentence, word, {
-            trigger,
-            navigation,
-            preservePosition: trigger === 'hover',
-            previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
-            userGesture: options.userGesture,
-            hoverLookupGeneration: options.hoverLookupGeneration,
-            stackOverSettings: options.stackOverSettings,
-        });
     }
 
     private async lookupUncachedPopupWord(
@@ -8604,7 +7990,7 @@ export class ReaderApp {
         }
         await runLimited(fallbackTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async token => {
             const fallback = token.card;
-            const resolved = await this.resolveFallbackVocabularyForPriorityRender(fallback);
+            const resolved = await this.resolveFallbackVocabularyForPriorityRender(token);
             if (resolved === fallback || resolved.source === 'fallback') return;
             this.applyResolvedFallbackVocabularyToToken(token, fallback, resolved);
         });
@@ -8614,7 +8000,7 @@ export class ReaderApp {
         const pending = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
         for (const token of tokens) {
             const fallback = token.card;
-            const key = cardKey(fallback);
+            const key = fallbackVocabularySpanCacheKey(fallback, token);
             const cached = this.resolvedFallbackVocabularyCache.get(key);
             if (cached && cached !== fallback && cached.source !== 'fallback') {
                 this.applyResolvedFallbackVocabularyToToken(token, fallback, cached);
@@ -8626,18 +8012,19 @@ export class ReaderApp {
         }
         if (!pending.size) return;
         const resolved = await this.publicLookupFallbackCards([...pending.values()].map(group => group.card), { jpdbPublicLookup: false });
-        for (const [key, group] of pending) {
-            const card = resolved.get(key);
+        for (const group of pending.values()) {
+            const card = resolved.get(cardKey(group.card));
             if (!card || card.source === 'fallback') continue;
             for (const token of group.tokens) this.applyResolvedFallbackVocabularyToToken(token, group.card, card);
         }
     }
 
-    private async resolveFallbackVocabularyForPriorityRender(fallback: JPDBCard): Promise<JPDBCard> {
+    private async resolveFallbackVocabularyForPriorityRender(token: JPDBToken): Promise<JPDBCard> {
+        const fallback = token.card;
         if (fallback.source !== 'fallback') return fallback;
-        const cached = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
+        const key = fallbackVocabularySpanCacheKey(fallback, token);
+        const cached = this.resolvedFallbackVocabularyCache.get(key);
         if (cached) return cached;
-        const key = cardKey(fallback);
         const existing = this.fallbackVocabularyResolutionCache.get(key);
         if (existing) return existing;
         const lookup = this.resolveLookupCard(fallback)
@@ -8650,7 +8037,7 @@ export class ReaderApp {
     }
 
     private applyResolvedFallbackVocabularyToToken(token: JPDBToken, fallback: JPDBCard, resolved: JPDBCard): void {
-        this.rememberResolvedFallbackVocabulary(fallback, resolved);
+        this.rememberResolvedFallbackVocabulary(token, fallback, resolved);
         token.card = resolved;
         token.pitchClass = getPitchClass(resolved.pitchAccent, resolved.reading || resolved.spelling) || token.pitchClass;
     }
@@ -8773,7 +8160,9 @@ export class ReaderApp {
             this.registerRenderedWord(word);
             const token = this.renderedWordTokenForRecolor(word);
             if (!token) continue;
-            const key = cardKey(token.card);
+            const key = token.card.source === 'fallback'
+                ? fallbackVocabularySpanCacheKey(token.card, token)
+                : cardKey(token.card);
             if (seen.has(key)) continue;
             seen.add(key);
             tokens.push(token);
@@ -8786,11 +8175,19 @@ export class ReaderApp {
         const card = this.getCachedCard(Number(word.dataset.vid), Number(word.dataset.sid));
         if (!card) return null;
         const surface = readerWordSurfaceText(word);
+        const recordedStart = Number(word.dataset.tokenStart);
+        const recordedEnd = Number(word.dataset.tokenEnd);
+        const hasRecordedSpan = Number.isInteger(recordedStart)
+            && Number.isInteger(recordedEnd)
+            && recordedStart >= 0
+            && recordedEnd > recordedStart;
+        const start = hasRecordedSpan ? recordedStart : 0;
+        const end = hasRecordedSpan ? recordedEnd : surface.length;
         return {
             card,
-            start: 0,
-            end: surface.length,
-            length: surface.length,
+            start,
+            end,
+            length: end - start,
             rubies: [],
             pitchClass: word.dataset.pitchClass ?? '',
             sentence: word.dataset.sentence,
@@ -8969,7 +8366,7 @@ export class ReaderApp {
             lookupJitenCards: (cards, scope) => this.cardLookup.publicLookupHydratableJitenCards(cards, scope),
             noteFallbackMiss: (key, missedTokens) => this.noteFallbackVocabularyMiss(key, missedTokens),
             showPitchAccent: () => this.settings.showPitchAccent,
-            rememberResolvedFallback: (fallback, card) => this.rememberResolvedFallbackVocabulary(fallback, card),
+            rememberResolvedFallback: (token, fallback, card) => this.rememberResolvedFallbackVocabulary(token, fallback, card),
             applyResolvedCard: (token, fallback, card, pitchClass) =>
                 this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass),
             shouldQueueResolvedPublicPitch: (card, publicLookup) =>
@@ -9101,12 +8498,12 @@ export class ReaderApp {
     private applyCachedPublicVocabularyToToken(token: JPDBToken): boolean {
         if (token.card.source !== 'fallback') return false;
         const fallback = token.card;
-        const card = this.resolvedFallbackVocabularyCache.get(cardKey(fallback));
+        const card = this.resolvedFallbackVocabularyCache.get(fallbackVocabularySpanCacheKey(fallback, token));
         if (!card) return false;
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
         token.card = card;
         token.pitchClass = isParticleCard(card) ? 'particle' : pitchClass;
-        const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass);
+        const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass, token);
         this.queueResolvedWordEffects([token], changedRoots);
         this.queueSubtitleParsedHtmlRefresh(token.sentence);
         return true;
@@ -9243,7 +8640,7 @@ export class ReaderApp {
         if (isParticleCard(token.card)) return;
         const fallback = token.card;
         const previousPitchClass = token.pitchClass ?? '';
-        const card = await this.pitchEnrichedRenderedCard(fallback, options);
+        const card = await this.pitchEnrichedRenderedCard(token, options);
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling);
         if (card !== fallback) {
             await this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
@@ -9262,18 +8659,20 @@ export class ReaderApp {
         if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
 
-    private async pitchEnrichedRenderedCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+    private async pitchEnrichedRenderedCard(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+        const fallback = token.card;
         if (!cardUsesPitchAccentPronunciation(fallback)) return fallback;
         await this.fillCardPitchFromLocalDictionary(fallback);
-        const card = await this.resolvePitchFallbackCard(fallback, options);
+        const card = await this.resolvePitchFallbackCard(token, options);
         if (card !== fallback) await this.fillCardPitchFromLocalDictionary(card);
         await this.ensureCardPitchAccent(card, options);
         return card;
     }
 
-    private async resolvePitchFallbackCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+    private async resolvePitchFallbackCard(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'>): Promise<JPDBCard> {
+        const fallback = token.card;
         if (cardHasContextPitch(fallback) || hasResolvedPitchComponents(fallback) || options.publicLookup === false) return fallback;
-        return await this.resolveRenderedFallbackVocabulary(fallback, options) ?? fallback;
+        return await this.resolveRenderedFallbackVocabulary(token, options) ?? fallback;
     }
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'jpdbPublicLookup'>): Promise<void> {
@@ -9353,7 +8752,7 @@ export class ReaderApp {
         token.pitchClass = isParticleCard(card)
             ? 'particle'
             : getPitchClass(card.pitchAccent, card.reading || card.spelling) || pitchClass;
-        const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass || 'unknown');
+        const changedRoots = this.applyPublicVocabularyToRenderedWords(fallback, card, token.pitchClass || 'unknown', token);
         this.queueResolvedWordEffects([token], changedRoots);
         await this.invalidateActivePopoverPitch(card, fallback);
     }
@@ -9474,10 +8873,11 @@ export class ReaderApp {
         evictOldestStringKeysWhileOverLimit(this.pitchEnrichmentLocalCache, PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT);
     }
 
-    private async resolveRenderedFallbackVocabulary(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
+    private async resolveRenderedFallbackVocabulary(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'jpdbPublicLookup' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
+        const card = token.card;
         if (card.source !== 'fallback') return undefined;
         const scope = this.cardLookup.captureTarget();
-        const key = cardKey(card);
+        const key = fallbackVocabularySpanCacheKey(card, token);
         if (!options.urgent && this.hasUnresolvedFallbackVocabulary(key)) return undefined;
         const publicCard = await this.lookupFallbackApiCard(card, options, scope);
         if (!scope.isCurrent()) return undefined;
@@ -9492,19 +8892,19 @@ export class ReaderApp {
             if (!scope.isCurrent()) return undefined;
             publicCard.pitchAccent = pitchAccent;
         }
-        this.rememberResolvedFallbackVocabulary(card, publicCard);
+        this.rememberResolvedFallbackVocabulary(token, card, publicCard);
         this.parser.cacheCards?.([publicCard]);
         return publicCard;
     }
 
-    private rememberResolvedFallbackVocabulary(fallback: JPDBCard, card: JPDBCard): void {
+    private rememberResolvedFallbackVocabulary(token: JPDBToken, fallback: JPDBCard, card: JPDBCard): void {
         if (fallback.source !== 'fallback') return;
-        const key = cardKey(fallback);
+        const key = fallbackVocabularySpanCacheKey(fallback, token);
         this.unresolvedFallbackVocabularyCache.delete(key);
         this.resolvedFallbackVocabularyCache.delete(key);
         this.resolvedFallbackVocabularyCache.set(key, card);
         evictOldestStringKeysWhileOverLimit(this.resolvedFallbackVocabularyCache, RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
-        this.scheduleCachedPublicVocabularyHydration(document, { fallback, card });
+        this.scheduleCachedPublicVocabularyHydration(document, { fallback, card, span: token });
     }
 
     private rememberUnresolvedFallbackVocabulary(key: string): void {
@@ -9752,8 +9152,13 @@ export class ReaderApp {
         });
     }
 
-    private applyPublicVocabularyToRenderedWords(fallback: JPDBCard, card: JPDBCard, pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown'): ParentNode[] {
-        return this.lateCardReconciliation.repaint(fallback, card, pitchClass);
+    private applyPublicVocabularyToRenderedWords(
+        fallback: JPDBCard,
+        card: JPDBCard,
+        pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown',
+        span?: Pick<JPDBToken, 'start' | 'end'>,
+    ): ParentNode[] {
+        return this.lateCardReconciliation.repaint(fallback, card, pitchClass, span);
     }
 
     private lateAnnotationRootForRenderedWord(word: HTMLElement): ParentNode {
@@ -9962,7 +9367,10 @@ export class ReaderApp {
         if (changedRoots.size) this.queueResolvedWordEffects([...effectTokens.values()], [...changedRoots]);
     }
 
-    private scheduleCachedPublicVocabularyHydration(root: ParentNode, resolved?: { fallback: JPDBCard; card: JPDBCard }): void {
+    private scheduleCachedPublicVocabularyHydration(
+        root: ParentNode,
+        resolved?: { fallback: JPDBCard; card: JPDBCard; span: Pick<JPDBToken, 'start' | 'end'> },
+    ): void {
         if (resolved) {
             // A single card just resolved: patch only its own rendered spans
             // instead of re-scanning the whole document. On a keyless transcript
@@ -9971,7 +9379,12 @@ export class ReaderApp {
             // task. The selector is vid/sid-scoped, so this is
             // O(occurrences-of-this-card); the cascade below still backfills
             // words that render after their card resolved.
-            const changedRoots = this.applyPublicVocabularyToRenderedWords(resolved.fallback, resolved.card);
+            const changedRoots = this.applyPublicVocabularyToRenderedWords(
+                resolved.fallback,
+                resolved.card,
+                undefined,
+                resolved.span,
+            );
             if (changedRoots.length) {
                 this.queueResolvedWordEffects([this.resolvedWordEffectsToken(resolved.card)], changedRoots);
             }

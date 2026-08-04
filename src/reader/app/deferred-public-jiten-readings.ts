@@ -5,6 +5,7 @@ import {
     publicJitenBackoffRemainingMs,
 } from '../dictionaries/jiten-public-vocabulary';
 import { readerWordSurfaceText } from '../dom';
+import { fallbackVocabularySpanCacheKey } from '../dom/rendered-word-state';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import { jitenWordCardForMassReview } from '../main/rendered-word-lookup';
 import { isKanjiCharacter } from '../popup/pitch';
@@ -79,7 +80,7 @@ export interface PublicFallbackPitchResolutionDependencies {
     ) => Promise<Map<string, JPDBCard>>;
     noteFallbackMiss: (key: string, tokens: JPDBToken[]) => void;
     showPitchAccent: () => boolean;
-    rememberResolvedFallback: (fallback: JPDBCard, card: JPDBCard) => void;
+    rememberResolvedFallback: (token: JPDBToken, fallback: JPDBCard, card: JPDBCard) => void;
     applyResolvedCard: (
         token: JPDBToken,
         fallback: JPDBCard,
@@ -181,7 +182,7 @@ export class DeferredPublicJitenReadingCoordinator {
     }
 
     queueToken(token: JPDBToken, urgent = false): QueueResult {
-        if (this.dependencies.hasUnresolvedFallback(cardKey(token.card))) return 'retained';
+        if (this.dependencies.hasUnresolvedFallback(fallbackResolutionCacheKey(token))) return 'retained';
         const key = parsedCardHydrationKey(token.card);
         const existing = this.work.get(key);
         if (existing) {
@@ -437,7 +438,9 @@ export class DeferredPublicJitenReadingCoordinator {
             }
             if (attempt === 'background-budget' || attempt === 'url-budget') this.stopVisibleRefill();
             if (queuedWork.attempts > 0) {
-                this.dependencies.rememberUnresolvedFallback(cardKey(queuedWork.card));
+                queuedWork.tokens.forEach(token => {
+                    this.dependencies.rememberUnresolvedFallback(fallbackResolutionCacheKey(token));
+                });
             }
             this.work.delete(key);
         }
@@ -500,7 +503,9 @@ export class DeferredPublicJitenReadingCoordinator {
             else this.queue.push(key);
             return;
         }
-        this.dependencies.rememberUnresolvedFallback(cardKey(queuedWork.card));
+        queuedWork.tokens.forEach(token => {
+            this.dependencies.rememberUnresolvedFallback(fallbackResolutionCacheKey(token));
+        });
         this.work.delete(key);
     }
 
@@ -509,7 +514,9 @@ export class DeferredPublicJitenReadingCoordinator {
         queuedWork: DeferredPublicJitenReadingWork,
         card: JPDBCard,
     ): Promise<JPDBToken[]> {
-        this.dependencies.forgetUnresolvedFallback(cardKey(queuedWork.card));
+        queuedWork.tokens.forEach(token => {
+            this.dependencies.forgetUnresolvedFallback(fallbackResolutionCacheKey(token));
+        });
         this.resolvedCards.set(key, card);
         const hydratedTokens: JPDBToken[] = [];
         for (const token of queuedWork.tokens) {
@@ -572,11 +579,19 @@ export class DeferredPublicJitenReadingCoordinator {
         const card = jitenWordCardForMassReview(word);
         if (!Number.isFinite(card.vid) || !Number.isFinite(card.sid)) return null;
         const surface = readerWordSurfaceText(word);
+        const recordedStart = Number(word.dataset.tokenStart);
+        const recordedEnd = Number(word.dataset.tokenEnd);
+        const hasRecordedSpan = Number.isInteger(recordedStart)
+            && Number.isInteger(recordedEnd)
+            && recordedStart >= 0
+            && recordedEnd > recordedStart;
+        const start = hasRecordedSpan ? recordedStart : 0;
+        const end = hasRecordedSpan ? recordedEnd : surface.length;
         return {
             card,
-            start: 0,
-            end: surface.length,
-            length: surface.length,
+            start,
+            end,
+            length: end - start,
             rubies: [],
             pitchClass: word.dataset.pitchClass ?? '',
             sentence: word.dataset.sentence || surface,
@@ -634,11 +649,19 @@ function addPublicFallbackGroup(
     options: PublicFallbackPitchResolutionOptions,
     dependencies: PublicFallbackPitchResolutionDependencies,
 ): void {
-    const key = cardKey(token.card);
+    const key = token.card.source === 'fallback'
+        ? fallbackVocabularySpanCacheKey(token.card, token)
+        : cardKey(token.card);
     if (!options.urgent && dependencies.hasUnresolvedFallback(key)) return;
     const group = groups.get(key) ?? { card: token.card, tokens: [] };
     group.tokens.push(token);
     groups.set(key, group);
+}
+
+function fallbackResolutionCacheKey(token: JPDBToken): string {
+    return token.card.source === 'fallback'
+        ? fallbackVocabularySpanCacheKey(token.card, token)
+        : cardKey(token.card);
 }
 
 async function resolvedFallbackAndJitenCards(
@@ -656,7 +679,15 @@ async function resolvedFallbackAndJitenCards(
             ? dependencies.lookupJitenCards([...jitenGroups.values()].map(group => group.card), scope)
             : Promise.resolve(new Map<string, JPDBCard>()),
     ]);
-    const resolved = new Map(fallbackCards);
+    const resolved = new Map<string, JPDBCard>();
+    // Public fallback lookup is keyed by card identity. The caller groups
+    // occurrences by source span, so re-key each result to the occurrence that
+    // requested it; identical surfaces at different spans must not share paint
+    // authority even when they can share the underlying network response.
+    for (const [key, group] of fallbackGroups) {
+        const card = fallbackCards.get(cardKey(group.card));
+        if (card) resolved.set(key, card);
+    }
     // hydrateCards keys results by vid:sid rather than cardKey, so re-key each
     // result against its original sparse group before applying it.
     for (const [key, group] of jitenGroups) {
@@ -676,7 +707,7 @@ function applyResolvedFallbackGroup(
     for (const token of group.tokens) {
         const fallback = token.card;
         const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-        if (fallback.source === 'fallback') dependencies.rememberResolvedFallback(fallback, card);
+        if (fallback.source === 'fallback') dependencies.rememberResolvedFallback(token, fallback, card);
         void dependencies.applyResolvedCard(token, fallback, card, pitchClass);
         // Reading hydration may resolve without pitch; retain that token in the
         // independent public-pitch lane when the caller permits it.

@@ -9,12 +9,14 @@ import {
 } from '../../languages/lookup-normalization';
 import type { LearningTargetModule } from '../../languages/types';
 import {
+    createTermMatchEntryCollector,
+    exactTermCandidateMatches,
+    exactTermMatchCandidates,
     rankedDictionaryEntries,
     readIndexRequestValues,
     requestTermMatchIndex,
     sortedTermMatchExpressions,
     targetTermMatchQueriesReadingIndex,
-    termMatchesForEntries,
     type TermMatchCandidates,
 } from './term-match';
 import { uiText } from '../../app/i18n';
@@ -101,6 +103,8 @@ import type {
     StoreName,
     TermSearchOptions,
     UiTextKey,
+    YomitanExactTermCandidateMatch,
+    YomitanExactTermCandidateRequest,
     YomitanDictionaryInfo,
     YomitanKanjiEntry,
     YomitanMetaEntry,
@@ -185,6 +189,8 @@ export type {
     DictionaryImportOptions,
     DictionarySummary,
     ImportSummary,
+    YomitanExactTermCandidateMatch,
+    YomitanExactTermCandidateRequest,
     YomitanDictionaryInfo,
     YomitanKanjiEntry,
     YomitanMetaEntry,
@@ -510,6 +516,27 @@ export class YomitanDictionaryStore {
         }
     }
 
+    /**
+     * Confirms target-owned candidates exactly, without collecting substrings
+     * or deriving a second morphology ladder inside the dictionary store.
+     */
+    // Public companion seam; the core caller is wired independently of this
+    // settings-surface implementation during the parser-unification slice.
+    // fallow-ignore-next-line unused-class-member
+    async lookupExactTermCandidates<
+        TRequest extends YomitanExactTermCandidateRequest,
+    >(
+        requests: readonly TRequest[],
+        preferences: DictionaryPreference[] = [],
+        target: LearningTargetModule = activeLearningTarget(),
+    ): Promise<Array<YomitanExactTermCandidateMatch<TRequest>>> {
+        if (!requests.length) return [];
+        const candidates = exactTermMatchCandidates(target, requests);
+        if (!candidates.size) return [];
+        const matches = await this.lookupTermMatchCandidates(target, candidates, preferences);
+        return exactTermCandidateMatches(requests, matches, dictionaryRank(preferences));
+    }
+
     private async sweepTermMatchWindows(
         source: string,
         limit: number,
@@ -566,20 +593,30 @@ export class YomitanDictionaryStore {
             const store = tx.objectStore('terms');
             const expressionIndex = store.index('expression');
             const readingIndex = store.index('reading');
-            const results: YomitanTermMatch[] = [];
             const expressions = sortedTermMatchExpressions(candidates);
+            const collectors = new Map(expressions.map(expression => [
+                expression,
+                createTermMatchEntryCollector(
+                    expression,
+                    candidates,
+                    rank,
+                    (entryRules, candidateRules) => target.matchesLookupCandidateRules(entryRules, candidateRules),
+                ),
+            ]));
             const queriesReadingIndex = targetTermMatchQueriesReadingIndex(target);
             let pending = expressions.length * (queriesReadingIndex ? 2 : 1);
             const finish = () => {
-                if (--pending <= 0) resolve(results);
+                if (--pending <= 0) {
+                    resolve(expressions.flatMap(expression => collectors.get(expression)?.matches() ?? []));
+                }
             };
-            const addMatches = (expression: string, foundEntries: YomitanTermEntry[]) => {
-                results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank));
+            const visit = (expression: string, entry: YomitanTermEntry) => {
+                collectors.get(expression)?.add(entry);
             };
             for (const expression of expressions) {
-                requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
+                requestTermMatchIndex(expressionIndex, expression, visit, finish, reject);
                 if (queriesReadingIndex) {
-                    requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+                    requestTermMatchIndex(readingIndex, expression, visit, finish, reject);
                 }
             }
             tx.onerror = () => reject(tx.error);

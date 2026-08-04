@@ -6,7 +6,6 @@ import { readerWordSurfaceText } from '../dom/index';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
-import { normalizedLookupText } from '../lookup/text-helpers';
 import { isTargetLanguageText } from '../lookup/target-text';
 import {
     SUBTITLE_SURFACE_SELECTOR,
@@ -18,12 +17,6 @@ import type { UiCopyKey } from './i18n';
 import type { LocalPitchResolution } from '../lookup/pitch-meta';
 import type { ImageOcrController } from '../ocr/controller';
 import type { OcrInteractionMode } from '../ocr/mode';
-import {
-    renderedWordTokenRange,
-    type PointerTextLookup,
-    type RenderedWordTokenRange,
-} from '../lookup/pointer-text-lookup';
-import { fallbackLookupRangeAtOffset } from '../lookup/parser';
 import type { JPDBCard, JPDBToken, ReaderSettings } from './types';
 
 export type KanjiStudyCompanionSlot = NonNullable<ReturnType<typeof yomuKanjiStudyCompanion>>;
@@ -420,53 +413,4 @@ export function pageAddonKeysMatch(expected: string, mounted: string): boolean {
     if (expectedParts.length < 3) return true;
     const [, spelling, expectedReading] = expectedParts;
     return expectedReading === spelling;
-}
-
-export function renderedWordSubwordRange(
-    word: HTMLElement,
-    candidate: PointerTextLookup,
-): RenderedWordTokenRange | null {
-    const token = renderedWordTokenRange(word);
-    if (!token || !pointerCandidateBelongsToRenderedWord(word, token, candidate)) return null;
-    if (!renderedWordNeedsSubwordRecovery(word, candidate.text.slice(token.start, token.end))) return null;
-    const subword = fallbackLookupRangeAtOffset(candidate.text, candidate.offset);
-    if (!subword) return null;
-    return isProperRenderedWordSubword(token, subword) ? subword : null;
-}
-
-function renderedWordNeedsSubwordRecovery(word: HTMLElement, surface: string): boolean {
-    // ICU segmentation is useful for recovering from an over-broad rendered
-    // card, but it is not dictionary evidence. A trusted compound such as
-    // 東京都立大学 must keep its whole-card lookup even if Segmenter can
-    // divide it. Narrow only unstamped/fallback cards or a card whose own
-    // expression / reading is visibly a strict component of the surface.
-    const source = word.dataset.cardSource;
-    // An unstamped OCR/legacy wrapper has no authoritative dictionary identity,
-    // even when its provisional expression merely repeats the whole surface.
-    // Resolve that surface from the exact glyph just like an explicit fallback;
-    // source-backed exact-identity compounds keep their whole-card lookup.
-    if (!source || source === 'fallback') return true;
-    const normalizedSurface = normalizedLookupText(surface);
-    if (!normalizedSurface) return false;
-    return [word.dataset.expression, word.dataset.reading].some(value => {
-        const identity = normalizedLookupText(value ?? '');
-        return identity.length > 0
-            && identity.length < normalizedSurface.length
-            && normalizedSurface.includes(identity);
-    });
-}
-
-function pointerCandidateBelongsToRenderedWord(
-    word: HTMLElement,
-    token: RenderedWordTokenRange,
-    candidate: PointerTextLookup,
-): boolean {
-    if (candidate.text !== word.dataset.sentence) return false;
-    return candidate.offset >= token.start && candidate.offset < token.end;
-}
-
-function isProperRenderedWordSubword(token: RenderedWordTokenRange, subword: RenderedWordTokenRange): boolean {
-    if (subword.start < token.start) return false;
-    if (subword.end > token.end) return false;
-    return subword.start !== token.start || subword.end !== token.end;
 }

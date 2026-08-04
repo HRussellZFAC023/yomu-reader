@@ -5,8 +5,13 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
+import type { LearningTargetModule } from '../../src/reader/languages/types';
 import type { ReaderSettings } from '../../src/reader/app/types';
-import type { YomitanTermMatch } from '../../src/reader/dictionaries/yomitan';
+import type {
+    YomitanExactTermCandidateRequest,
+    YomitanTermEntry,
+    YomitanTermMatch,
+} from '../../src/reader/dictionaries/yomitan';
 
 /**
  * Local-first parsing (parserProvider: 'local'): with term dictionaries
@@ -31,6 +36,23 @@ function termMatch(surface: string, reading: string, start: number): YomitanTerm
     };
 }
 
+function exactCandidateLookup(entries: readonly YomitanTermEntry[]) {
+    return vi.fn(async (
+        requests: readonly YomitanExactTermCandidateRequest[],
+        _preferences: unknown,
+        target: LearningTargetModule,
+    ) => requests.flatMap((request, requestIndex) => {
+        const term = target.normalizeText(request.lookupCandidate.term);
+        const entry = entries.find(candidate => (
+            [candidate.expression, candidate.reading]
+                .some(value => target.normalizeText(value) === term)
+            && (!request.lookupCandidate.rules.length
+                || target.matchesLookupCandidateRules(candidate.rules ?? '', request.lookupCandidate.rules))
+        ));
+        return entry ? [{ request, requestIndex, entry }] : [];
+    }));
+}
+
 interface HarnessOverrides {
     settings?: Partial<ReaderSettings>;
     hasTermDictionaries?: boolean;
@@ -40,7 +62,18 @@ function parserHarness({ settings = {}, hasTermDictionaries = true }: HarnessOve
     const jpdbParse = vi.fn(async (paragraphs: string[]) => paragraphs.map(() => []));
     const jitenParse = vi.fn(async (paragraphs: string[]) => paragraphs.map(() => []));
     const publicJitenParse = vi.fn(async (paragraphs: readonly string[]) => paragraphs.map(() => []));
-    const findTermMatches = vi.fn(async (text: string) => (text.includes('日本語') ? [termMatch('日本語', 'にほんご', text.indexOf('日本語'))] : []));
+    const localEntry: YomitanTermEntry = {
+        expression: '日本語',
+        reading: 'にほんご',
+        glossary: ['Japanese language'],
+        dictionary: 'Jitendex',
+    };
+    const findTermMatches = vi.fn(async (text: string) => (
+        text.includes(localEntry.expression)
+            ? [termMatch(localEntry.expression, localEntry.reading, text.indexOf(localEntry.expression))]
+            : []
+    ));
+    const lookupExactTermCandidates = exactCandidateLookup([localEntry]);
     const parser = new ReaderParser({
         getSettings: () => ({
             ...DEFAULT_SETTINGS,
@@ -55,11 +88,19 @@ function parserHarness({ settings = {}, hasTermDictionaries = true }: HarnessOve
         dictionaries: {
             hasTermDictionaries: vi.fn(async () => hasTermDictionaries),
             findTermMatches,
+            lookupExactTermCandidates,
             lookupTermMeta: vi.fn(async () => []),
             lookupKanji: vi.fn(async () => []),
         } as never,
     });
-    return { parser, jpdbParse, jitenParse, publicJitenParse, findTermMatches };
+    return {
+        parser,
+        jpdbParse,
+        jitenParse,
+        publicJitenParse,
+        findTermMatches,
+        lookupExactTermCandidates,
+    };
 }
 
 afterEach(() => {
@@ -72,13 +113,14 @@ beforeEach(() => {
 
 describe('local-first parsing', () => {
     it('parses with local dictionaries and never calls Jiten/JPDB when term dictionaries are installed', async () => {
-        const { parser, jpdbParse, jitenParse, findTermMatches } = parserHarness();
+        const { parser, jpdbParse, jitenParse, findTermMatches, lookupExactTermCandidates } = parserHarness();
 
         const [tokens] = await parser.parse(['日本語を学ぶ']);
 
         expect(jitenParse).not.toHaveBeenCalled();
         expect(jpdbParse).not.toHaveBeenCalled();
         expect(findTermMatches).toHaveBeenCalled();
+        expect(lookupExactTermCandidates).toHaveBeenCalledTimes(1);
         expect(tokens?.[0]?.card).toMatchObject({ spelling: '日本語', source: 'local' });
     });
 
@@ -96,7 +138,8 @@ describe('local-first parsing', () => {
 
         await parser.parse(['日本語を学ぶ']);
 
-        expect(jitenParse).toHaveBeenCalledTimes(1);
+        expect(jitenParse).toHaveBeenCalledTimes(2);
+        expect(jitenParse.mock.calls[0]?.[0]).toEqual(['日本語を学ぶ']);
     });
 
     it('keeps the API-first order for parserProvider auto', async () => {
@@ -104,7 +147,8 @@ describe('local-first parsing', () => {
 
         await parser.parse(['日本語を学ぶ']);
 
-        expect(jitenParse).toHaveBeenCalledTimes(1);
+        expect(jitenParse).toHaveBeenCalledTimes(2);
+        expect(jitenParse.mock.calls[0]?.[0]).toEqual(['日本語を学ぶ']);
         expect(findTermMatches).not.toHaveBeenCalled();
     });
 });
@@ -150,7 +194,8 @@ describe('jiten short-batch length gate', () => {
 
         await parser.parse(['日本語日本語日本語日本語日本語日本語日本語日本語']); // 24 chars >= 24
 
-        expect(jitenParse).toHaveBeenCalledTimes(1);
+        expect(jitenParse).toHaveBeenCalledTimes(2);
+        expect(jitenParse.mock.calls[0]?.[0]).toEqual(['日本語日本語日本語日本語日本語日本語日本語日本語']);
     });
 
     it('still uses Jiten for short text when no local dictionaries are installed', async () => {
@@ -158,7 +203,8 @@ describe('jiten short-batch length gate', () => {
 
         await parser.parse(['日本語']);
 
-        expect(jitenParse).toHaveBeenCalledTimes(1);
+        expect(jitenParse).toHaveBeenCalledTimes(2);
+        expect(jitenParse.mock.calls[0]?.[0]).toEqual(['日本語']);
     });
 
     it('does not gate the auto provider (API-first order preserved)', async () => {
@@ -166,18 +212,20 @@ describe('jiten short-batch length gate', () => {
 
         await parser.parse(['日本語']); // short, but auto is never gated
 
-        expect(jitenParse).toHaveBeenCalledTimes(1);
+        expect(jitenParse).toHaveBeenCalledTimes(2);
+        expect(jitenParse.mock.calls[0]?.[0]).toEqual(['日本語']);
     });
 });
 
 describe('keyless offline first paint', () => {
     function keylessParser({ onLine }: { onLine: boolean }) {
         const publicParse = vi.fn(async (paragraphs: readonly string[]) => paragraphs.map(() => []));
+        const publicLookupMany = vi.fn(async () => new Map());
         const parser = new ReaderParser({
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '', parserProvider: 'local' }),
             jpdb: { parse: vi.fn(async () => []) } as never,
             jiten: { parse: vi.fn(async () => []) } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: { parse: publicParse, lookupMany: publicLookupMany },
             dictionaries: {
                 hasTermDictionaries: vi.fn(async () => false),
                 findTermMatches: vi.fn(async () => []),
@@ -186,7 +234,7 @@ describe('keyless offline first paint', () => {
             } as never,
         });
         vi.stubGlobal('navigator', { onLine });
-        return { parser, publicParse };
+        return { parser, publicParse, publicLookupMany };
     }
 
     afterEach(() => {
@@ -203,11 +251,12 @@ describe('keyless offline first paint', () => {
     });
 
     it('still attempts public jiten online so dictionary-correct boundaries win', async () => {
-        const { parser, publicParse } = keylessParser({ onLine: true });
+        const { parser, publicParse, publicLookupMany } = keylessParser({ onLine: true });
 
         await parser.parse(['日本語を学ぶ'], { allowSegmentedFallback: true });
 
         expect(publicParse).toHaveBeenCalledTimes(1);
+        expect(publicLookupMany).toHaveBeenCalledTimes(1);
     });
 });
 

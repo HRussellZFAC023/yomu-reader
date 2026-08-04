@@ -5,24 +5,29 @@ import {
     setActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import { createLearningTargetModule } from '../../src/reader/languages/module';
+import type { LearningTargetModule } from '../../src/reader/languages/types';
 import {
     registerLearningTargetModule,
     unregisterLearningTargetModule,
 } from '../../src/reader/languages/registry';
+import type {
+    YomitanExactTermCandidateRequest,
+    YomitanTermEntry,
+} from '../../src/reader/dictionaries/yomitan';
 
 // Core call sites, imported exactly as core ships them. None of these files
 // knows that any target other than Japanese exists.
 import { collectFragmentTextTargetsIn, documentHasJapaneseText } from '../../src/reader/dom/index';
 import { isCompactInteractiveChromeText } from '../../src/reader/dom/decoration-policy';
-import { fallbackLookupRangeAtOffset } from '../../src/reader/lookup/parser';
+import { fallbackLookupRangeAtOffset, ReaderParser } from '../../src/reader/lookup/parser';
 import {
-    jpdbPointerLookupCandidates,
     pointerTextLookupFromTextNode,
     pointerTextRunAt,
 } from '../../src/reader/lookup/pointer-text-lookup';
 import { pushTargetLanguageOcrLine } from '../../src/reader/ocr/response-shared';
 import { isTargetLanguageText, segmentTargetLanguageText } from '../../src/reader/lookup/target-text';
 import type { OcrLine, OcrRect } from '../../src/reader/ocr/response-shared';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 const AD_HOC_LANGUAGE = 'sv';
 
@@ -53,6 +58,41 @@ function activateLatinTarget() {
     }));
     expect(setActiveLearningTargetLanguage(AD_HOC_LANGUAGE)).toBe(target);
     return target;
+}
+
+function exactLookupParser(term: string): ReaderParser {
+    const entry: YomitanTermEntry = {
+        expression: term,
+        reading: term,
+        glossary: [`definition of ${term}`],
+        dictionary: 'Target detection fixture',
+    };
+    return new ReaderParser({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            parserProvider: 'local',
+            localDictionariesEnabled: true,
+            showPitchAccent: false,
+        }),
+        jpdb: {} as never,
+        dictionaries: {
+            hasTermDictionaries: async () => true,
+            findTermMatches: async () => [],
+            lookupExactTermCandidates: async (
+                requests: readonly YomitanExactTermCandidateRequest[],
+                _preferences: unknown,
+                target: LearningTargetModule,
+            ) => requests.flatMap((request, requestIndex) => (
+                target.normalizeText(request.lookupCandidate.term) === target.normalizeText(entry.expression)
+                    ? [{ request, requestIndex, entry }]
+                    : []
+            )),
+            lookupTermMeta: async () => [],
+            lookupKanji: async () => [],
+        } as never,
+    });
 }
 
 function box(): OcrRect {
@@ -167,7 +207,7 @@ describe('pointer lookup resolves through the active learning target', () => {
         { language: 'el', text: 'Διαβάζω ελληνικά κάθε μέρα', runTerm: 'ελληνικά', term: 'ελληνικά', offset: 9 },
     ] as const;
 
-    it.each(cases)('$language opens the active profile word under the pointer', ({ language, text, runTerm, term, offset }) => {
+    it.each(cases)('$language opens the active profile word under the pointer', async ({ language, text, runTerm, term, offset }) => {
         expect(setActiveLearningTargetLanguage(language)).not.toBeNull();
         document.body.innerHTML = `<p>${text}</p>`;
         const node = document.querySelector('p')?.firstChild;
@@ -176,10 +216,15 @@ describe('pointer lookup resolves through the active learning target', () => {
         const lookup = pointerTextLookupFromTextNode(node as Text, offset);
         expect(lookup).not.toBeNull();
         expect(lookup && lookup.text.slice(lookup.start, lookup.end)).toBe(runTerm);
-        expect(jpdbPointerLookupCandidates(text, offset)[0]).toMatchObject({
-            term,
+        const token = await exactLookupParser(term).lookupTokenAt(
+            lookup!.text,
+            lookup!.offset,
+            { start: lookup!.start, end: lookup!.end },
+        );
+        expect(token).toMatchObject({
             start: text.indexOf(term),
             end: text.indexOf(term) + term.length,
+            card: { spelling: term },
         });
     });
 

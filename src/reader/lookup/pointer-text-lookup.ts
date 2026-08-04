@@ -1,37 +1,9 @@
 import { coordinateInRange, hasPositiveRectArea } from '../dom/rect';
 import { readerWordSurfaceText } from '../dom/reader-word';
-import { isUnifiedIdeograph } from '../languages/han';
-import { lookupSpansContainingOffset } from '../languages/lookup-spans';
-import { activeLearningTarget } from '../languages/target-runtime';
-import type { LearningTargetModule } from '../languages/types';
 import {
     hasTargetPointerWord,
     targetPointerWordAt,
-    type TargetPointerWord,
 } from './target-text';
-const JPDB_POINTER_CANDIDATE_MAX_LENGTH = 18;
-const JPDB_POINTER_CANDIDATE_START_WINDOW = 8;
-const JPDB_POINTER_CANDIDATE_LIMIT = 24;
-export const JPDB_POINTER_BOUNDARY_SEGMENTS = [
-    'から',
-    'まで',
-    'より',
-    'だけ',
-    'しか',
-    'など',
-    'には',
-    'では',
-    'とは',
-    'は',
-    'が',
-    'を',
-    'に',
-    'へ',
-    'と',
-    'で',
-    'の',
-    'や',
-];
 const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 // Structural skips can never host a lookup; interactive skips are real page
 // text that hover lookups may read (a hover popover does not steal the click),
@@ -135,12 +107,6 @@ export interface ActivePointerTextLookup {
     anchor: HTMLElement;
 }
 
-export interface PointerTextSpanCandidate {
-    term: string;
-    start: number;
-    end: number;
-}
-
 export function caretTextPositionFromPoint(x: number, y: number): { node: Text; offset: number } | null {
     const doc = document as Document & {
         caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
@@ -160,114 +126,6 @@ export function caretTextPositionFromPoint(x: number, y: number): { node: Text; 
 
 export const pointerTextRunAt = targetPointerWordAt;
 
-export function jpdbPointerLookupCandidates(text: string, offset: number): PointerTextSpanCandidate[] {
-    const target = activeLearningTarget();
-    const run = pointerTextRunAt(text, offset);
-    if (!run) return [];
-    if (target.lookupStartsAtSegmentBoundary) {
-        const term = text.slice(run.start, run.end).trim();
-        return term ? [{ term, start: run.start, end: run.end }] : [];
-    }
-    if (target.lookupSubsegments) {
-        return pointerSuffixStrippedCandidates(text, run, target);
-    }
-    if (target.lookupSweepMode === 'left-to-right-longest-exact') {
-        return lookupSpansContainingOffset(
-            text,
-            run,
-            run.offset,
-            JPDB_POINTER_CANDIDATE_MAX_LENGTH,
-            JPDB_POINTER_CANDIDATE_START_WINDOW,
-        )
-            .map(span => pointerCandidate(text, span.start, span.end))
-            .filter((candidate): candidate is PointerTextSpanCandidate => Boolean(candidate));
-    }
-    const candidates: PointerTextSpanCandidate[] = [];
-    pushPointerCandidate(candidates, pointerBoundaryCandidate(text, run));
-    const minStart = Math.max(run.start, run.offset - JPDB_POINTER_CANDIDATE_START_WINDOW);
-    const maxEnd = Math.min(run.end, run.offset + JPDB_POINTER_CANDIDATE_MAX_LENGTH);
-    const maxLength = Math.min(JPDB_POINTER_CANDIDATE_MAX_LENGTH, maxEnd - minStart);
-    for (let length = maxLength; length >= 2; length--) {
-        const firstStart = Math.max(minStart, run.offset - length + 1);
-        const lastStart = Math.min(run.offset, maxEnd - length);
-        for (let start = firstStart; start <= lastStart; start++) {
-            pushPointerCandidate(candidates, pointerCandidate(text, start, start + length));
-            if (candidates.length >= JPDB_POINTER_CANDIDATE_LIMIT) return candidates;
-        }
-    }
-    return candidates;
-}
-
-function pointerSuffixStrippedCandidates(
-    text: string,
-    run: TargetPointerWord,
-    target: LearningTargetModule,
-): PointerTextSpanCandidate[] {
-    const runText = text.slice(run.start, run.end);
-    const relativeOffset = run.offset - run.start;
-    return target.lookupSubsegments!(runText, JPDB_POINTER_CANDIDATE_MAX_LENGTH)
-        .filter(term => relativeOffset < term.length)
-        .map(term => ({ term, start: run.start, end: run.start + term.length }));
-}
-
-function pointerBoundaryCandidate(text: string, run: TargetPointerWord): PointerTextSpanCandidate | null {
-    const relativeOffset = run.offset - run.start;
-    const runText = text.slice(run.start, run.end);
-    const boundaries = pointerBoundarySegments(runText);
-    let start = 0;
-    let end = runText.length;
-    for (const boundary of boundaries) {
-        if (relativeOffset >= boundary.start && relativeOffset < boundary.end) {
-            return pointerCandidate(text, run.start + boundary.start, run.start + boundary.end);
-        }
-        if (boundary.end <= relativeOffset) start = boundary.end;
-        if (boundary.start > relativeOffset) {
-            end = boundary.start;
-            break;
-        }
-    }
-    return pointerCandidate(text, run.start + start, run.start + end);
-}
-
-function pointerBoundarySegments(text: string): Array<{ start: number; end: number }> {
-    const boundaries: Array<{ start: number; end: number }> = [];
-    for (let index = 0; index < text.length;) {
-        const boundary = boundarySegmentAt(text, index);
-        if (!boundary) {
-            index++;
-            continue;
-        }
-        if (index > 0 && index + boundary.length < text.length) {
-            boundaries.push({ start: index, end: index + boundary.length });
-        }
-        index += boundary.length;
-    }
-    return boundaries;
-}
-
-function boundarySegmentAt(text: string, index: number): string {
-    return JPDB_POINTER_BOUNDARY_SEGMENTS.find(segment => text.startsWith(segment, index)) ?? '';
-}
-
-function pointerCandidate(text: string, start: number, end: number): PointerTextSpanCandidate | null {
-    if (end <= start) return null;
-    const term = text.slice(start, end).trim();
-    if (!isUsefulPointerCandidateTerm(term)) return null;
-    return { term, start, end };
-}
-
-function isUsefulPointerCandidateTerm(term: string): boolean {
-    const characters = Array.from(term);
-    return (characters.length > 1 || isUnifiedIdeograph(characters[0] ?? ''))
-        && hasTargetPointerWord(term);
-}
-
-function pushPointerCandidate(candidates: PointerTextSpanCandidate[], candidate: PointerTextSpanCandidate | null): void {
-    if (!candidate) return;
-    if (candidates.some(existing => existing.term === candidate.term && existing.start === candidate.start && existing.end === candidate.end)) return;
-    candidates.push(candidate);
-}
-
 export function pointerTextCharacterOffset(node: Text, caretOffset: number, x: number, y: number): number | null {
     const parent = node.parentElement;
     if (!parent || !isPointerTextParentEligible(parent)) return null;
@@ -281,7 +139,7 @@ export interface PointerTextLookupNodeOptions {
     allowInteractiveText?: boolean;
 }
 
-export interface RenderedWordTokenRange {
+interface RenderedWordTokenRange {
     start: number;
     end: number;
 }
@@ -293,13 +151,13 @@ interface RenderedWordLookupContext {
 }
 
 /**
- * Recover the exact sentence offset underneath a rendered reader word.
+ * Recover only the sentence offset underneath a rendered reader word.
  *
  * Normal page text can use caretPositionFromPoint directly, but OCR and other
  * reader-owned surfaces put the caret inside `.jpdb-reader-word`, which the
- * generic native-text path deliberately excludes. Keeping this conversion at
- * the pointer-text boundary lets an overbroad rendered token expose a smaller
- * valid dictionary word without changing parser output or DOM token identity.
+ * generic native-text path deliberately excludes. This boundary contributes
+ * point-to-glyph geometry; ReaderParser.lookupTokenAt remains the sole owner of
+ * the lexical span and card identity.
  */
 export function pointerTextLookupFromRenderedWord(word: HTMLElement, x: number, y: number): PointerTextLookup | null {
     const context = renderedWordLookupContext(word);
@@ -308,6 +166,25 @@ export function pointerTextLookupFromRenderedWord(word: HTMLElement, x: number, 
     if (surfaceOffset === null) return null;
     const offset = context.tokenStart + surfaceOffset;
     const run = pointerTextRunAt(context.sentence, offset);
+    if (!run) return null;
+    return {
+        text: context.sentence,
+        offset: run.offset,
+        start: run.start,
+        end: run.end,
+        anchor: word,
+    };
+}
+
+/**
+ * Resolve a semantic, coordinate-free activation (keyboard/programmatic click)
+ * from the rendered token's authoritative source start. Real pointer events
+ * must use `pointerTextLookupFromRenderedWord` so the exact glyph stays intact.
+ */
+export function pointerTextLookupFromRenderedWordStart(word: HTMLElement): PointerTextLookup | null {
+    const context = renderedWordLookupContext(word);
+    if (!context) return null;
+    const run = pointerTextRunAt(context.sentence, context.tokenStart);
     if (!run) return null;
     return {
         text: context.sentence,
@@ -327,7 +204,7 @@ function renderedWordLookupContext(word: HTMLElement): RenderedWordLookupContext
     return { sentence, surface, tokenStart: range.start };
 }
 
-export function renderedWordTokenRange(word: HTMLElement): RenderedWordTokenRange | null {
+function renderedWordTokenRange(word: HTMLElement): RenderedWordTokenRange | null {
     const start = Number.parseInt(word.dataset.tokenStart ?? '', 10);
     const end = Number.parseInt(word.dataset.tokenEnd ?? '', 10);
     if (![start, end].every(Number.isFinite)) return null;

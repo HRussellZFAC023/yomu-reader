@@ -31,7 +31,10 @@ type AppInternals = {
     shouldRunBunproWordStateWork(): boolean;
     applyBunproWordStatesToRoots(roots: ParentNode[]): Promise<void>;
     applyResolvedPitchCardToToken(token: JPDBToken, fallback: JPDBCard, card: JPDBCard, pitchClass: string): Promise<void>;
-    scheduleCachedPublicVocabularyHydration(root: ParentNode, resolved: { fallback: JPDBCard; card: JPDBCard }): void;
+    scheduleCachedPublicVocabularyHydration(
+        root: ParentNode,
+        resolved: { fallback: JPDBCard; card: JPDBCard; span: Pick<JPDBToken, 'start' | 'end'> },
+    ): void;
     beginAnkiWordEnrichment(tokens: JPDBToken[]): (roots: ParentNode[]) => void;
     enrichAnkiWords(tokens: JPDBToken[], roots: ParentNode[]): Promise<void>;
     enrichOcrRenderedTokens(tokens: JPDBToken[], root: ParentNode): Promise<void>;
@@ -89,6 +92,9 @@ function appendWord(
     word.className = 'jpdb-reader-word jpdb-pitch-unknown';
     word.dataset.sentence = sentence;
     word.dataset.surface = card.spelling;
+    const tokenStart = Math.max(0, sentence.indexOf(card.spelling));
+    word.dataset.tokenStart = String(tokenStart);
+    word.dataset.tokenEnd = String(tokenStart + card.spelling.length);
     word.textContent = card.spelling;
     setRenderedWordCardIdentity(word, card);
     wrapper.append(word);
@@ -385,7 +391,7 @@ describe('late canonical card reconciliation', () => {
         const root = document.createElement('p');
         document.body.append(root);
         const canonicalCards: JPDBCard[] = [];
-        const resolutions: Array<{ fallback: JPDBCard; card: JPDBCard }> = [];
+        const resolutions: Array<{ fallback: JPDBCard; card: JPDBCard; span: Pick<JPDBToken, 'start' | 'end'> }> = [];
 
         try {
             for (let index = 0; index < 12; index += 1) {
@@ -399,9 +405,10 @@ describe('late canonical card reconciliation', () => {
                     reading: `ご${index}`,
                     provisionalState: true,
                 });
-                appendWord(fallback, root, `語${index}を読む。`);
+                const sentence = `語${index}を読む。`;
+                appendWord(fallback, root, sentence);
                 canonicalCards.push(canonical);
-                resolutions.push({ fallback, card: canonical });
+                resolutions.push({ fallback, card: canonical, span: tokenFor(fallback, sentence) });
             }
             const querySelectorAll = vi.spyOn(document, 'querySelectorAll');
             const getComputedStyle = vi.spyOn(window, 'getComputedStyle');
@@ -449,16 +456,47 @@ describe('late canonical card reconciliation', () => {
         const first = appendWord(fallback, root, '名古屋城を見る。');
 
         try {
-            internals.scheduleCachedPublicVocabularyHydration(root, { fallback, card: firstCanonical });
+            const span = tokenFor(fallback, '名古屋城を見る。');
+            internals.scheduleCachedPublicVocabularyHydration(root, { fallback, card: firstCanonical, span });
             expect(first.dataset.vid).toBe('70');
 
             // A framework recycler paints the old sparse identity later in the
             // same task, after the repaint index has already been primed.
             const recycled = appendWord(fallback, root, '名古屋城を見る。');
-            internals.scheduleCachedPublicVocabularyHydration(root, { fallback, card: secondCanonical });
+            internals.scheduleCachedPublicVocabularyHydration(root, { fallback, card: secondCanonical, span });
 
             expect(recycled.dataset.vid).toBe('71');
             expect(recycled.dataset.reading).toBe('なごやじょう');
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('repaints only the resolved fallback occurrence when identical surfaces have different spans', () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const internals = app as unknown as AppInternals;
+        internals.settings = settings();
+        const root = document.createElement('p');
+        document.body.append(root);
+        const sentence = '優しい言葉と優しい言葉';
+        const fallback = lookupCard(-72, '優しい言葉', { reading: '', source: 'fallback', provisionalState: true });
+        const canonical = lookupCard(72, '優しい', { reading: 'やさしい', provisionalState: true });
+        const first = appendWord(fallback, root, sentence);
+        const second = appendWord(fallback, root, sentence);
+        second.dataset.tokenStart = '6';
+        second.dataset.tokenEnd = '11';
+
+        try {
+            internals.scheduleCachedPublicVocabularyHydration(root, {
+                fallback,
+                card: canonical,
+                span: { start: 0, end: 5 },
+            });
+
+            expect(first.dataset.vid).toBe('72');
+            expect(second.dataset.vid).toBe('-72');
+            expect(second.dataset.expression).toBe('優しい言葉');
         } finally {
             app.destroy();
         }

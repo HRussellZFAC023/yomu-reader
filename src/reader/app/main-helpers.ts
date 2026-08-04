@@ -16,7 +16,6 @@ import { collectSiteScanTargets, isBookWalkerReaderPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { isYouTubeAppHostname } from './youtube-host';
-import { KANA_ONLY_RUN_RE } from '../lookup/japanese-script';
 
 export const TERM_AUDIO_PRELOAD_LIMIT = 4;
 export const NEARBY_TERM_AUDIO_PRELOAD_LIMIT = 3;
@@ -25,7 +24,6 @@ export const PRELOADED_TERM_AUDIO_KEY_LIMIT = 500;
 export const FALLBACK_LOOKUP_INITIAL_WAIT_MS = 180;
 export const TEXT_LOOKUP_JPDB_TIMEOUT_MS = 650;
 export const POINTER_TEXT_JPDB_TIMEOUT_MS = 450;
-export const RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS = 450;
 export const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 export const PITCH_ENRICHMENT_LIMIT = 12;
 export const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
@@ -93,7 +91,6 @@ export const SUBTITLE_SURFACE_SELECTOR = [
     '.asbplayer-offscreen',
     '.jpdb-reader-subtitle-surface',
 ].join(', ');
-export const KANA_ONLY_LOOKUP_RUN_RE = KANA_ONLY_RUN_RE;
 export const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
 
 type ReviewShortcutKey = keyof ReaderSettings['shortcuts'];
@@ -410,7 +407,6 @@ export interface CardDisplayOptions {
 
 export type PointerTextDisplayOptions = Pick<CardDisplayOptions, 'navigation' | 'preservePosition' | 'hoverLookupGeneration' | 'userGesture'>;
 export type PointerTextLookupOptions = { allowPassiveInteractionText?: boolean };
-export type LocalPointerTextEntryMatch = { entry: YomitanTermEntry; start: number; end: number };
 export const HOVER_POINTER_TEXT_LOOKUP_OPTIONS: PointerTextLookupOptions = { allowPassiveInteractionText: true };
 
 export function canSchedulePointerTextHoverLookup(hoverEnabled: boolean, candidate: PointerTextLookup | null): candidate is PointerTextLookup {
@@ -440,7 +436,6 @@ export interface RenderedWordLookupOptions {
     navigation?: CardNavigationMode;
     previousNavigationEntry?: PopupNavigationEntry;
     userGesture?: boolean;
-    fastInitialRender?: boolean;
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
 }

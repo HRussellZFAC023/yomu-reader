@@ -1,13 +1,18 @@
 import { JpdbClient } from '../jpdb/jpdb';
 import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import {
-    JAPANESE_CHARACTER_RE,
     JAPANESE_SCRIPT_GROUP_RE,
     bareFallbackCardFromText,
-    isBoundarySegment,
     normalizeFallbackTerm,
 } from './japanese-segments';
 import { segmentTargetLanguageText } from './target-text';
+import {
+    TermSpanResolver,
+    type ConfirmedTermSpan,
+    type FallbackTermSpan,
+    type TermSpanCandidateLookup,
+    type TermSpanLookupCandidate,
+} from './term-span-resolver';
 import { activeLearningTarget, activeLearningTargetGeneration } from '../languages';
 import type { LearningTargetModule } from '../languages/types';
 import { splitReadingAcrossKanji } from './kanji-ruby-split';
@@ -43,10 +48,6 @@ const LOCAL_MATCH_LIMIT = 40;
 const LOCAL_ENRICHMENT_CONCURRENCY = 12;
 const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
-const LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT = 800;
-const LOCAL_BOUNDARY_MATCH_LIMIT = 8;
-const LOCAL_BOUNDARY_CANDIDATE_LIMIT = 8;
-const LOCAL_BOUNDARY_LOOKUP_CONCURRENCY = 4;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 // Hard ceiling for a SINGLE paragraph's local (IndexedDB-backed) parse. The
 // remote JPDB/Jiten calls are already time-bounded, but the local path — term
@@ -79,9 +80,6 @@ const LOCAL_RUBY_SPLIT_BASE_RE = new RegExp(
 const LOCAL_RUBY_SPLIT_KANJI_RE = new RegExp(`(?:${KANJI_PATTERN}|[${ITERATION_MARK}])`, 'u');
 const LOCAL_RUBY_SPLIT_KANJI_CHAR_RE = new RegExp(`^(?:${KANJI_PATTERN}|[${ITERATION_MARK}])$`, 'u');
 const log = Logger.scope('ReaderParser');
-// Boundary evidence is IndexedDB-backed and parser instances can overlap
-// during reactive rescans, so the gate must be shared at module scope.
-const sharedBoundaryEvidenceGate = new ConcurrencyGate(LOCAL_BOUNDARY_LOOKUP_CONCURRENCY);
 
 export interface ReaderParserParseOptions {
     apiTimeoutMs?: number;
@@ -101,7 +99,10 @@ export interface ReaderParserDependencies {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
-    jitenPublicVocabulary?: { parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]> };
+    jitenPublicVocabulary?: {
+        parse: (paragraphs: readonly string[], options?: { detailLimit?: number }) => Promise<JPDBToken[][]>;
+        lookupMany?: (terms: readonly string[], options?: { detailLimit?: number }) => Promise<Map<string, JPDBCard>>;
+    };
     dictionaries: YomitanDictionaryStore;
     yomuLocalSrs?: Pick<YomuSrsAdapter, 'lookupCards'>;
 }
@@ -126,7 +127,6 @@ export class ReaderParser {
     private localCardEvidenceCache = new Map<string, JPDBCard>();
     private localParseCache = new Map<string, Promise<JPDBToken[]>>();
     private localPitchCache = new Map<string, Promise<LocalPitchResolution>>();
-    private localBoundaryEvidenceCache = new Map<string, Promise<YomitanTermMatch | null>>();
     private localTermDictionaryAvailability?: Promise<boolean | undefined>;
     private readonly enrichmentGate = new ConcurrencyGate(LOCAL_ENRICHMENT_CONCURRENCY);
     private kanjiReadingCache = new Map<string, Promise<string[]>>();
@@ -147,6 +147,8 @@ export class ReaderParser {
         try {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings, target);
             if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
+            const authoritative = await this.withAuthoritativeTermSpans(paragraphs, parsed, options, target);
+            if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             // Public/detail enrichment and page scanning can overlap. Once a
             // card has acquired a real reading or pitch pattern, a later
             // sparse parse of the same provider id must not replace that
@@ -154,7 +156,7 @@ export class ReaderParser {
             // click path resolves the same canonical id, so letting an empty
             // parse record win here produced the visible "pitch disappears,
             // but returns when pressed" split.
-            const evidenceReconciled = this.withCachedCardEvidence(paragraphs, parsed);
+            const evidenceReconciled = this.withCachedCardEvidence(paragraphs, authoritative);
             const rubyAligned = await this.reconcileLocalParse(paragraphs, evidenceReconciled, options, target);
             if (!isCurrentLearningTarget(target, targetGeneration)) return emptyParseResult(paragraphs);
             const normalized = this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
@@ -178,6 +180,233 @@ export class ReaderParser {
         } finally {
             done();
         }
+    }
+
+    /**
+     * Resolve the authoritative token underneath one source offset through the
+     * exact same span pipeline used for passive annotation.
+     */
+    async lookupTokenAt(
+        text: string,
+        offset: number,
+        range: { start: number; end: number } = { start: 0, end: text.length },
+        options: ReaderParserParseOptions = {},
+    ): Promise<JPDBToken | undefined> {
+        const start = Math.max(0, Math.min(range.start, text.length));
+        const end = Math.max(start, Math.min(range.end, text.length));
+        if (offset < start || offset >= end) return undefined;
+        const [tokens] = await this.parse([text], { ...options, allowSegmentedFallback: true });
+        return (tokens ?? []).find(token => token.start >= start
+            && token.end <= end
+            && token.start <= offset
+            && offset < token.end);
+    }
+
+    private async withAuthoritativeTermSpans(
+        paragraphs: string[],
+        parsed: JPDBToken[][],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<JPDBToken[][]> {
+        const sources = await this.authoritativeSpanSources(paragraphs, options, target);
+        const lookup = new BatchedParserSpanLookup(requests => (
+            this.authoritativeSpanConfirmations(requests, sources, options, target)
+        ));
+        const resolved = await Promise.all(paragraphs.map((text, index) => (
+            this.authoritativeTermSpans(text, parsed[index] ?? [], options, target, lookup)
+        )));
+        return resolved.every((tokens, index) => tokens === parsed[index]) ? parsed : resolved;
+    }
+
+    private async authoritativeTermSpans(
+        text: string,
+        decorations: JPDBToken[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+        lookup: TermSpanCandidateLookup<ParserSpanMatch>,
+    ): Promise<JPDBToken[]> {
+        const fallbackSegments = target.segment(text);
+        const fallback = options.allowSegmentedFallback === true ? {
+            spanAt: (request: { text: string; start: number; end: number }) => {
+                const segment = fallbackSegments.find(item => item.start <= request.start && request.start < item.end);
+                if (!segment) return null;
+                const end = Math.min(segment.end, request.end);
+                if (end <= request.start) return null;
+                const surface = text.slice(request.start, end);
+                if (!target.isLookupableText(surface)) return null;
+                return {
+                    start: request.start,
+                    end,
+                    value: this.fallbackCardFromText(surface, target),
+                };
+            },
+        } : undefined;
+        const resolver = new TermSpanResolver<ParserSpanMatch, JPDBCard>({
+            target,
+            maximumSourceLength: 18,
+            lookup,
+            fallback,
+        });
+        const spans = (await Promise.all(target.pointerWordSegments(text).map(run => (
+            resolver.resolveAll({ text, start: run.start, end: run.end })
+        )))).flat().sort((first, second) => first.start - second.start || second.end - first.end);
+        const tokens = spans.map(span => authoritativeTokenFromSpan(text, span, decorations));
+        return tokens.length === decorations.length && tokens.every((token, index) => token === decorations[index])
+            ? decorations
+            : tokens;
+    }
+
+    /**
+     * Confirm candidates through exact term lookups. Paragraph parser tokens
+     * are intentionally absent from this method: they may decorate a winning
+     * card later, but their offsets and lexical choices cannot establish a
+     * source span.
+     */
+    private async authoritativeSpanConfirmations(
+        requests: readonly TermSpanLookupCandidate[],
+        sources: readonly ParserSpanLookupSource[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<ReadonlyMap<TermSpanLookupCandidate, ParserSpanMatch>> {
+        const confirmed = new Map<TermSpanLookupCandidate, ParserSpanMatch>();
+        for (const source of sources) {
+            const pending = requests.filter(request => !confirmed.has(request));
+            if (!pending.length) break;
+            if (source === 'local' && await this.confirmLocalParserSpanRequests(pending, target, confirmed)) continue;
+            const terms = authoritativeLookupTerms(pending, target);
+            if (!terms.length) continue;
+            const cards = await this.authoritativeCardsForSource(source, terms, options, target);
+            confirmParserSpanRequests(pending, cards, target, confirmed);
+        }
+        return confirmed;
+    }
+
+    private async confirmLocalParserSpanRequests(
+        requests: readonly TermSpanLookupCandidate[],
+        target: LearningTargetModule,
+        confirmed: Map<TermSpanLookupCandidate, ParserSpanMatch>,
+    ): Promise<boolean> {
+        const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
+            lookupExactTermCandidates?: YomitanDictionaryStore['lookupExactTermCandidates'];
+        };
+        if (typeof store.lookupExactTermCandidates !== 'function') return false;
+        try {
+            const matches = await store.lookupExactTermCandidates(
+                requests,
+                this.dependencies.getSettings().dictionaryPreferences,
+                target,
+            );
+            for (const match of matches) {
+                const card = this.localCardFromEntry(match.entry, target);
+                const term = target.normalizeText(match.request.lookupCandidate.term);
+                if (cardMatchesLookupTerm(card, term, target)
+                    && parserSpanRulesMatch(card, match.request, target)) {
+                    confirmed.set(match.request, { card });
+                }
+            }
+            return true;
+        } catch (error) {
+            log.warn('Exact local term span lookup failed', { requests: requests.length }, error);
+            return true;
+        }
+    }
+
+    private async authoritativeSpanSources(
+        paragraphs: readonly string[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<ParserSpanLookupSource[]> {
+        const settings = this.dependencies.getSettings();
+        // Authority lookups are allowed to probe an injected/legacy store
+        // which cannot report catalogue availability; an empty exact lookup is
+        // a safe miss. Only replacing a whole remote parse up front requires a
+        // positive availability report.
+        const hasLocal = await this.hasLocalTermDictionaries();
+        const local = hasLocal ? ['local' as const] : [];
+        if (target.language !== 'ja' || shouldSkipApiParser(options)) return local;
+        if (settings.parserProvider === 'local' && hasLocal) return local;
+        if (this.shouldRouteShortBatchToLocal([...paragraphs], options, settings) && hasLocal) return local;
+
+        const jpdb = hasJpdbApiCredential(settings) ? ['jpdb' as const] : [];
+        const jiten = shouldUseJitenParser(settings, options, this.dependencies.jiten) ? ['jiten' as const] : [];
+        const publicJiten = options.allowSegmentedFallback === true
+            && this.dependencies.jitenPublicVocabulary
+            && (typeof navigator === 'undefined' || navigator.onLine !== false)
+            ? ['public-jiten' as const]
+            : [];
+        if (options.requireJpdb === true) return [...jpdb, ...local, ...publicJiten];
+        if (settings.parserProvider === 'jiten') return [...jiten, ...local, ...publicJiten];
+        if (settings.parserProvider === 'jpdb') return [...jpdb, ...local, ...publicJiten];
+        return shouldPreferJitenParser(settings, options, this.dependencies.jiten)
+            ? [...jiten, ...jpdb, ...local, ...publicJiten]
+            : [...jpdb, ...jiten, ...local, ...publicJiten];
+    }
+
+    private async authoritativeCardsForSource(
+        source: ParserSpanLookupSource,
+        terms: readonly string[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<Map<string, JPDBCard[]>> {
+        try {
+            if (source === 'local') return await this.localAuthoritativeCards(terms, target);
+            if (source === 'public-jiten') return await this.publicJitenAuthoritativeCards(terms, options, target);
+            const parsed = source === 'jpdb'
+                ? await this.parseWithJpdb([...terms], options)
+                : await this.parseWithJiten([...terms], options);
+            return authoritativeCardsFromParsedTerms(terms, parsed, target);
+        } catch (error) {
+            log.warn('Exact term span lookup failed', { source, terms: terms.length }, error);
+            return new Map();
+        }
+    }
+
+    private async localAuthoritativeCards(
+        terms: readonly string[],
+        target: LearningTargetModule,
+    ): Promise<Map<string, JPDBCard[]>> {
+        const settings = this.dependencies.getSettings();
+        const store = this.dependencies.dictionaries as YomitanDictionaryStore & {
+            lookup?: YomitanDictionaryStore['lookup'];
+            findTermMatches?: YomitanDictionaryStore['findTermMatches'];
+        };
+        const rows = await mapLimited(terms, LOCAL_ENRICHMENT_CONCURRENCY, async term => {
+            const entries = typeof store.lookup === 'function'
+                ? await store.lookup(term, term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences)
+                : typeof store.findTermMatches === 'function'
+                    ? (await store.findTermMatches(term, LOCAL_MATCH_LIMIT, settings.dictionaryPreferences, target)).map(match => match.entry)
+                    : [];
+            return [term, entries] as const;
+        });
+        const cards = new Map<string, JPDBCard[]>();
+        for (const [term, entries] of rows) {
+            const key = target.normalizeText(term);
+            cards.set(key, entries
+                .filter(entry => localEntryMatchesLookupTerm(entry, key, target))
+                .map(entry => this.localCardFromEntry(entry, target)));
+        }
+        return cards;
+    }
+
+    private async publicJitenAuthoritativeCards(
+        terms: readonly string[],
+        options: ReaderParserParseOptions,
+        target: LearningTargetModule,
+    ): Promise<Map<string, JPDBCard[]>> {
+        const client = this.dependencies.jitenPublicVocabulary;
+        if (!client) return new Map();
+        if (typeof client.lookupMany === 'function') {
+            const found = await client.lookupMany(terms, {
+                detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length),
+            });
+            const cards = new Map<string, JPDBCard[]>();
+            found.forEach((card, term) => cards.set(target.normalizeText(term), [card]));
+            return cards;
+        }
+        const parsed = await client.parse(terms, {
+            detailLimit: Math.max(options.publicJitenDetailLimit ?? 0, terms.length),
+        });
+        return authoritativeCardsFromParsedTerms(terms, parsed, target);
     }
 
     // The boundary + kanji-ruby reconciliation both read IndexedDB. Like the
@@ -205,11 +434,13 @@ export class ReaderParser {
     private async reconcileLocalParseResolved(
         paragraphs: string[],
         parsed: JPDBToken[][],
-        options: ReaderParserParseOptions,
+        _options: ReaderParserParseOptions,
         target: LearningTargetModule,
     ): Promise<JPDBToken[][]> {
-        const boundaryReconciled = await this.withExactLocalBoundaryEvidence(paragraphs, parsed, options, target);
-        return this.withLocallySplitKanjiRubies(paragraphs, boundaryReconciled, target);
+        // Lexical boundaries are already final: parser/provider output can only
+        // decorate the spans emitted by TermSpanResolver. Ruby alignment is a
+        // downstream visual refinement and is therefore safe to retain here.
+        return this.withLocallySplitKanjiRubies(paragraphs, parsed, target);
     }
 
     private async parseWithPreferredSource(
@@ -418,12 +649,12 @@ export class ReaderParser {
         this.localCardEvidenceCache.clear();
         this.localParseCache.clear();
         this.localPitchCache.clear();
-        this.localBoundaryEvidenceCache.clear();
         this.localTermDictionaryAvailability = undefined;
     }
 
     localCardFromEntry(entry: YomitanTermEntry, target = activeLearningTarget()): JPDBCard {
         const id = -stablePositiveHashId(`${target.language}\n${entry.dictionary}\n${entry.expression}\n${entry.reading}`);
+        const partOfSpeech = (entry.rules ?? '').split(/\s+/).filter(Boolean);
         const card: JPDBCard = {
             vid: id,
             sid: id,
@@ -432,10 +663,10 @@ export class ReaderParser {
             reading: entry.reading || entry.expression,
             language: target.language,
             frequencyRank: entry.jpdbFrequency ?? null,
-            partOfSpeech: [],
+            partOfSpeech,
             meanings: [{
                 glosses: entry.glossary.map(glossaryToText).filter(Boolean).slice(0, 8),
-                partOfSpeech: [],
+                partOfSpeech,
             }],
             cardState: ['not-in-deck'],
             // Local dictionary carries no SRS state: not-in-deck is a default,
@@ -595,61 +826,6 @@ export class ReaderParser {
         };
     }
 
-    private async withExactLocalBoundaryEvidence(
-        paragraphs: string[],
-        parsed: JPDBToken[][],
-        options: ReaderParserParseOptions,
-        target: LearningTargetModule,
-    ): Promise<JPDBToken[][]> {
-        if (!this.canUseLocalDictionaryFallback()) return parsed;
-        const candidates = parsed.map((tokens, index) => boundaryEvidenceCandidates(paragraphs[index] ?? '', tokens));
-        if (!candidates.some(items => items.length)) return parsed;
-        if (!await this.hasLocalTermDictionaries(true)) return parsed;
-
-        const reconciled = await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
-            const text = paragraphs[paragraphIndex] ?? '';
-            const replacements = await Promise.all(candidates[paragraphIndex].map(async candidate => {
-                const relative = await this.exactLocalBoundaryMatch(candidate, target);
-                if (!relative) return null;
-                const match = offsetTermMatch(relative, candidate.start);
-                if (!exactMatchSafelyCrossesRemoteBoundary(text, match, tokens)) return null;
-                return this.localTokenFromMatch(text, match, options, target);
-            }));
-            return replaceRemoteFragments(tokens, replacements.filter((token): token is JPDBToken => Boolean(token)));
-        }));
-        return reconciled.some((tokens, index) => tokens !== parsed[index]) ? reconciled : parsed;
-    }
-
-    private exactLocalBoundaryMatch(
-        candidate: BoundaryEvidenceCandidate,
-        target: LearningTargetModule,
-    ): Promise<YomitanTermMatch | null> {
-        const settings = this.dependencies.getSettings();
-        const { surface, boundary } = candidate;
-        const key = localBoundaryEvidenceCacheKey(surface, boundary, settings, target);
-        const cached = this.localBoundaryEvidenceCache.get(key);
-        if (cached) return cached;
-        const promise = sharedBoundaryEvidenceGate.run(() => this.dependencies.dictionaries.findTermMatches(
-            surface,
-            LOCAL_BOUNDARY_MATCH_LIMIT,
-            settings.dictionaryPreferences,
-            target,
-        ))
-            .then(matches => exactBoundaryMatch(surface, boundary, matches))
-            .catch(error => {
-                if (this.localBoundaryEvidenceCache.get(key) === promise) this.localBoundaryEvidenceCache.delete(key);
-                log.warn('Local boundary evidence lookup failed', { length: surface.length }, error);
-                return null;
-            });
-        this.localBoundaryEvidenceCache.set(key, promise);
-        while (this.localBoundaryEvidenceCache.size > LOCAL_BOUNDARY_EVIDENCE_CACHE_LIMIT) {
-            const oldest = this.localBoundaryEvidenceCache.keys().next().value;
-            if (typeof oldest !== 'string') break;
-            this.localBoundaryEvidenceCache.delete(oldest);
-        }
-        return promise;
-    }
-
     // A store that cannot report availability still gets a chance in the
     // fallback path (it tolerates empty lookups), but local-first replaces
     // remote parsing outright, so `confirmed` demands a positive report.
@@ -723,8 +899,8 @@ export class ReaderParser {
         if (!this.canUseLocalDictionaryFallback()) return tokens;
         if (!await this.hasLocalTermDictionaries()) return tokens;
         const localTokens = await this.parseLocalDictionaryText(text, options, target).catch(() => [] as JPDBToken[]);
-        // Only fill ranges no provider token touches; fillSegmentedFallbackGaps
-        // afterwards sorts and prunes any residual overlap among the merge.
+        // Only fill ranges no provider token touches; segmented fallback is
+        // allowed to cover the remaining gaps but never replace either source.
         const additions = localTokens.filter(local =>
             !tokens.some(token => rangesOverlap(local.start, local.end, token.start, token.end)));
         return additions.length ? [...tokens, ...additions].sort(compareTokensByOffset) : tokens;
@@ -738,22 +914,62 @@ export class ReaderParser {
         tokens = nonOverlappingTokens([...tokens].sort((first, second) => first.start - second.start
             || (second.end - second.start) - (first.end - first.start)), text);
         const fallbackTokens = this.parseSegmentedText(text, target);
-        const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
-        const broad = tokens.filter(token => isBroadPublic(token)
-            && fallbackTokens.some(fallback => tokenInsideRange(fallback, token.start, token.end)
-                && (fallback.start !== token.start || fallback.end !== token.end)
-                && isBoundarySegment(fallback.card.spelling)));
-        const replacements = [
-            ...fallbackTokens.filter(fallback => preferInflectedFallback(fallback, tokens)),
-            ...fallbackTokens.filter(fallback => broad.some(token => tokenInsideRange(fallback, token.start, token.end))),
-        ];
-        const extras = fallbackTokens.filter(fallback => replacements.includes(fallback)
-            || repaired.includes(fallback)
-            || !tokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
-        const keptTokens = extras.length
-            ? tokens.filter(token => !extras.some(fallback => rangesOverlap(fallback.start, fallback.end, token.start, token.end)))
-            : tokens;
-        return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
+        const extras = this.segmentedFallbackGapTokens(text, fallbackTokens, tokens, target);
+        return extras.length ? [...tokens, ...extras].sort(compareTokensByOffset) : tokens;
+    }
+
+    /**
+     * Segmentation is gap coverage, never lexical evidence. A fallback span may
+     * carry wider lookup terms for a later dictionary request, but it must not
+     * replace or resize a span which a provider or local dictionary confirmed.
+     *
+     * ICU boundaries can cross a confirmed token. Subtract those ranges and
+     * mint fallback cards only for the uncovered source slices, preserving the
+     * confirmed token verbatim. This makes dictionary evidence monotonic and
+     * prevents a broad segmented token from repainting a narrower real word.
+     */
+    private segmentedFallbackGapTokens(
+        text: string,
+        fallbackTokens: JPDBToken[],
+        confirmedTokens: JPDBToken[],
+        target: LearningTargetModule,
+    ): JPDBToken[] {
+        const extras: JPDBToken[] = [];
+        for (const fallback of fallbackTokens) {
+            const blockers = confirmedTokens
+                .filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end))
+                .sort(compareTokensByOffset);
+            let start = fallback.start;
+            for (const blocker of blockers) {
+                this.pushSegmentedFallbackGap(extras, text, start, Math.min(blocker.start, fallback.end), target);
+                start = Math.max(start, blocker.end);
+                if (start >= fallback.end) break;
+            }
+            this.pushSegmentedFallbackGap(extras, text, start, fallback.end, target);
+        }
+        return extras;
+    }
+
+    private pushSegmentedFallbackGap(
+        tokens: JPDBToken[],
+        text: string,
+        start: number,
+        end: number,
+        target: LearningTargetModule,
+    ): void {
+        if (end <= start) return;
+        const surface = text.slice(start, end);
+        if (!target.isLookupableText(surface)) return;
+        const card = this.fallbackCardFromText(surface, target);
+        tokens.push({
+            card,
+            start,
+            end,
+            length: end - start,
+            rubies: [],
+            pitchClass: '',
+            sentence: text,
+        });
     }
 
     // All-kanji compounds get their reading split per kanji when the user's
@@ -949,6 +1165,206 @@ export class ReaderParser {
     }
 }
 
+type ParserSpanLookupSource = 'jpdb' | 'jiten' | 'local' | 'public-jiten';
+
+interface ParserSpanMatch {
+    card: JPDBCard;
+}
+
+interface PendingParserSpanLookup {
+    requests: readonly TermSpanLookupCandidate[];
+    resolve(matches: ReadonlyMap<TermSpanLookupCandidate, ParserSpanMatch>): void;
+    reject(error: unknown): void;
+}
+
+/** Coalesce every paragraph/run in one parse turn into one provider batch. */
+class BatchedParserSpanLookup implements TermSpanCandidateLookup<ParserSpanMatch> {
+    private pending: PendingParserSpanLookup[] = [];
+    private flushScheduled = false;
+
+    constructor(
+        private readonly load: (
+            requests: readonly TermSpanLookupCandidate[],
+        ) => Promise<ReadonlyMap<TermSpanLookupCandidate, ParserSpanMatch>>,
+    ) {}
+
+    lookup(requests: readonly TermSpanLookupCandidate[]): Promise<ReadonlyMap<TermSpanLookupCandidate, ParserSpanMatch>> {
+        return new Promise((resolve, reject) => {
+            this.pending.push({ requests, resolve, reject });
+            if (this.flushScheduled) return;
+            this.flushScheduled = true;
+            queueMicrotask(() => { void this.flush(); });
+        });
+    }
+
+    private async flush(): Promise<void> {
+        this.flushScheduled = false;
+        const pending = this.pending;
+        this.pending = [];
+        try {
+            const matches = await this.load(pending.flatMap(item => [...item.requests]));
+            for (const item of pending) {
+                const result = new Map<TermSpanLookupCandidate, ParserSpanMatch>();
+                for (const request of item.requests) {
+                    const match = matches.get(request);
+                    if (match) result.set(request, match);
+                }
+                item.resolve(result);
+            }
+        } catch (error) {
+            pending.forEach(item => item.reject(error));
+        }
+    }
+}
+
+function authoritativeLookupTerms(
+    requests: readonly TermSpanLookupCandidate[],
+    target: LearningTargetModule,
+): string[] {
+    const terms = new Map<string, string>();
+    for (const request of requests) {
+        const term = request.lookupCandidate.term.trim();
+        const key = target.normalizeText(term);
+        if (key && !terms.has(key)) terms.set(key, term);
+    }
+    return [...terms.values()];
+}
+
+function confirmParserSpanRequests(
+    requests: readonly TermSpanLookupCandidate[],
+    cardsByTerm: ReadonlyMap<string, readonly JPDBCard[]>,
+    target: LearningTargetModule,
+    confirmed: Map<TermSpanLookupCandidate, ParserSpanMatch>,
+): void {
+    for (const request of requests) {
+        if (confirmed.has(request)) continue;
+        if (!target.isLookupableText(request.surface)) continue;
+        const term = target.normalizeText(request.lookupCandidate.term);
+        if (!term) continue;
+        const card = cardsByTerm.get(term)?.find(candidate => (
+            cardMatchesLookupTerm(candidate, term, target)
+            && parserSpanRulesMatch(candidate, request, target)
+        ));
+        if (card) confirmed.set(request, { card });
+    }
+}
+
+function authoritativeCardsFromParsedTerms(
+    terms: readonly string[],
+    parsed: readonly JPDBToken[][],
+    target: LearningTargetModule,
+): Map<string, JPDBCard[]> {
+    const result = new Map<string, JPDBCard[]>();
+    terms.forEach((term, index) => {
+        const key = target.normalizeText(term);
+        const cards = (parsed[index] ?? [])
+            .map(token => token.card)
+            .filter(card => card.source !== 'fallback' && cardMatchesLookupTerm(card, key, target));
+        if (cards.length) result.set(key, cards);
+    });
+    return result;
+}
+
+function localEntryMatchesLookupTerm(
+    entry: YomitanTermEntry,
+    term: string,
+    target: LearningTargetModule,
+): boolean {
+    return [entry.expression, entry.reading].some(value => target.normalizeText(value) === term);
+}
+
+function cardMatchesLookupTerm(
+    card: JPDBCard,
+    term: string,
+    target: LearningTargetModule,
+): boolean {
+    return [card.spelling, card.reading].some(value => target.normalizeText(value) === term);
+}
+
+function parserSpanRulesMatch(
+    card: JPDBCard,
+    request: TermSpanLookupCandidate,
+    target: LearningTargetModule,
+): boolean {
+    if (!request.lookupCandidate.rules.length) return true;
+    const rules = [
+        ...card.partOfSpeech,
+        ...card.meanings.flatMap(meaning => meaning.partOfSpeech),
+    ].filter(Boolean).join(' ');
+    return target.matchesLookupCandidateRules(rules, request.lookupCandidate.rules);
+}
+
+function authoritativeTokenFromSpan(
+    text: string,
+    span: ConfirmedTermSpan<ParserSpanMatch> | FallbackTermSpan<JPDBCard>,
+    decorations: readonly JPDBToken[],
+): JPDBToken {
+    if (span.kind === 'fallback') {
+        return {
+            card: span.fallback,
+            start: span.start,
+            end: span.end,
+            length: span.end - span.start,
+            rubies: [],
+            pitchClass: '',
+            sentence: text,
+        };
+    }
+    const card = span.match.card;
+    const decoration = decorations.find(token => cardsShareEvidenceIdentity(token.card, card));
+    if (decoration?.card === card
+        && decoration.start === span.start
+        && decoration.end === span.end
+        && decoration.length === span.end - span.start
+        && (decoration.sentence ?? text) === text
+        && text.slice(decoration.start, decoration.end) === span.surface) {
+        return decoration;
+    }
+    const rubies = decoration
+        ? authoritativeDecorationRubies(text, span, decoration)
+        : [];
+    return {
+        ...(decoration ?? {}),
+        card,
+        start: span.start,
+        end: span.end,
+        length: span.end - span.start,
+        rubies: rubies.length ? rubies : authoritativeCardRubies(span, card),
+        pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling),
+        sentence: text,
+    };
+}
+
+function authoritativeDecorationRubies(
+    text: string,
+    span: ConfirmedTermSpan<ParserSpanMatch>,
+    decoration: JPDBToken,
+): JPDBToken['rubies'] {
+    const decorationSurface = text.slice(decoration.start, decoration.end);
+    if (decorationSurface !== span.surface) return [];
+    return decoration.rubies.flatMap(ruby => {
+        const relativeStart = ruby.start - decoration.start;
+        const relativeEnd = ruby.end - decoration.start;
+        if (relativeStart < 0 || relativeEnd <= relativeStart || relativeEnd > span.end - span.start) return [];
+        const start = span.start + relativeStart;
+        const end = span.start + relativeEnd;
+        return [{ ...ruby, start, end, length: end - start }];
+    });
+}
+
+function authoritativeCardRubies(
+    span: ConfirmedTermSpan<ParserSpanMatch>,
+    card: JPDBCard,
+): JPDBToken['rubies'] {
+    const reading = card.reading.trim();
+    if (!reading || reading === span.surface) return [];
+    return inferredInflectedSurfaceRubies(span.surface, card.spelling, reading).map(ruby => ({
+        ...ruby,
+        start: span.start + ruby.start,
+        end: span.start + ruby.end,
+    }));
+}
+
 function firstLocalPitchPattern(resolution: LocalPitchResolution): string {
     return resolution.patterns[0] ?? '';
 }
@@ -1017,152 +1433,6 @@ function localPitchCacheKey(card: JPDBCard, settings: ReaderSettings): string {
     });
 }
 
-interface BoundaryEvidenceCandidate {
-    surface: string;
-    start: number;
-    boundary: number;
-}
-
-function boundaryEvidenceCandidates(text: string, tokens: JPDBToken[]): BoundaryEvidenceCandidate[] {
-    const sorted = [...tokens].sort(compareTokensByOffset);
-    const candidates: BoundaryEvidenceCandidate[] = [];
-    const seen = new Set<string>();
-    for (let index = 1; index < sorted.length; index += 1) {
-        const candidate = boundaryEvidenceCandidate(text, sorted[index - 1], sorted[index]);
-        if (!candidate) continue;
-        const key = `${candidate.start}:${candidate.surface}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        candidates.push(candidate);
-        if (candidates.length >= LOCAL_BOUNDARY_CANDIDATE_LIMIT) break;
-    }
-    return candidates;
-}
-
-function boundaryEvidenceCandidate(text: string, first: JPDBToken, second: JPDBToken): BoundaryEvidenceCandidate | null {
-    if (first.end !== second.start) return null;
-    if (!isReconciliableParseToken(first) || !isReconciliableParseToken(second)) return null;
-    const left = codePointBeforeUtf16Offset(text, first.end);
-    const right = codePointAtUtf16Offset(text, second.start);
-    if (!JAPANESE_CHARACTER_RE.test(left) || !JAPANESE_CHARACTER_RE.test(right)) return null;
-    const firstSurface = text.slice(first.start, first.end);
-    const secondSurface = text.slice(second.start, second.end);
-    if (!isSingleJapaneseCharacter(firstSurface) && !isSingleJapaneseCharacter(secondSurface)) return null;
-    return {
-        surface: text.slice(first.start, second.end),
-        start: first.start,
-        boundary: first.end - first.start,
-    };
-}
-
-function isReconciliableParseToken(token: JPDBToken): boolean {
-    return !token.card.source
-        || token.card.source === 'jpdb'
-        || token.card.source === 'jiten'
-        || token.card.source === 'fallback';
-}
-
-function isSingleJapaneseCharacter(surface: string): boolean {
-    const characters = Array.from(surface);
-    return characters.length === 1 && JAPANESE_CHARACTER_RE.test(characters[0]);
-}
-
-function codePointBeforeUtf16Offset(text: string, offset: number): string {
-    if (offset <= 0) return '';
-    const trailingCodeUnit = text.charCodeAt(offset - 1);
-    const start = isLowSurrogate(trailingCodeUnit)
-        && offset > 1
-        && isHighSurrogate(text.charCodeAt(offset - 2))
-        ? offset - 2
-        : offset - 1;
-    return text.slice(start, offset);
-}
-
-function codePointAtUtf16Offset(text: string, offset: number): string {
-    const codePoint = text.codePointAt(offset);
-    return codePoint === undefined ? '' : String.fromCodePoint(codePoint);
-}
-
-function isHighSurrogate(value: number): boolean {
-    return value >= 0xd800 && value <= 0xdbff;
-}
-
-function isLowSurrogate(value: number): boolean {
-    return value >= 0xdc00 && value <= 0xdfff;
-}
-
-function exactBoundaryMatch(surface: string, boundary: number, matches: YomitanTermMatch[]): YomitanTermMatch | null {
-    const accepted = matches.filter(match => !match.deinflected
-            && match.start >= 0
-            && match.end <= surface.length
-            && match.end - match.start >= 2
-            && match.start < boundary
-            && match.end > boundary
-            && match.surface === surface.slice(match.start, match.end)
-            && match.entry.expression === match.surface
-            && Boolean(match.entry.reading.trim()));
-    const identities = new Set(accepted.map(match => boundaryMatchIdentity(match)));
-    if (identities.size !== 1) return null;
-    return accepted
-        .sort((first, second) => (second.end - second.start) - (first.end - first.start) || first.start - second.start)[0]
-        ?? null;
-}
-
-function boundaryMatchIdentity(match: YomitanTermMatch): string {
-    return `${match.entry.expression.normalize('NFKC').trim()}\n${match.entry.reading.normalize('NFKC').trim()}`;
-}
-
-function offsetTermMatch(match: YomitanTermMatch, offset: number): YomitanTermMatch {
-    return {
-        ...match,
-        start: match.start + offset,
-        end: match.end + offset,
-    };
-}
-
-function exactMatchSafelyCrossesRemoteBoundary(text: string, match: YomitanTermMatch, tokens: JPDBToken[]): boolean {
-    const overlapping = tokens.filter(token => rangesOverlap(match.start, match.end, token.start, token.end));
-    if (overlapping.filter(isReconciliableParseToken).length < 2) return false;
-    return overlapping.every(token => {
-        const prefix = text.slice(token.start, Math.min(token.end, match.start));
-        const suffix = text.slice(Math.max(token.start, match.end), token.end);
-        return !JAPANESE_CHARACTER_RE.test(`${prefix}${suffix}`);
-    });
-}
-
-function replaceRemoteFragments(tokens: JPDBToken[], candidates: JPDBToken[]): JPDBToken[] {
-    if (!candidates.length) return tokens;
-    const accepted: JPDBToken[] = [];
-    for (const candidate of [...candidates].sort((first, second) => second.length - first.length || first.start - second.start)) {
-        if (accepted.some(token => rangesOverlap(candidate.start, candidate.end, token.start, token.end))) continue;
-        accepted.push(candidate);
-    }
-    if (!accepted.length) return tokens;
-    return [
-        ...tokens.filter(token => !accepted.some(candidate => rangesOverlap(candidate.start, candidate.end, token.start, token.end))),
-        ...accepted,
-    ].sort(compareTokensByOffset);
-}
-
-function localBoundaryEvidenceCacheKey(
-    surface: string,
-    boundary: number,
-    settings: ReaderSettings,
-    target: LearningTargetModule,
-): string {
-    return JSON.stringify({
-        surface,
-        boundary,
-        target: target.id,
-        language: target.language,
-        dictionaries: settings.dictionaryPreferences.map(preference => ({
-            name: preference.name,
-            enabled: preference.enabled,
-            priority: preference.priority,
-        })),
-    });
-}
-
 function localParseCacheKey(
     text: string,
     options: ReaderParserParseOptions,
@@ -1211,71 +1481,6 @@ function offsetInsideFallbackMatch(start: number, end: number, offset: number): 
 
 function rangesOverlap(start: number, end: number, otherStart: number, otherEnd: number): boolean {
     return start < otherEnd && otherStart < end;
-}
-
-function tokenInsideRange(token: JPDBToken, start: number, end: number): boolean {
-    return token.start >= start && token.end <= end;
-}
-
-function preferInflectedFallback(fallback: JPDBToken, tokens: JPDBToken[]): boolean {
-    if (!fallback.card.fallbackLookupTerms?.length) return false;
-    const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
-    return overlapping.length === 1
-        && overlapping.every(token => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
-}
-
-function isBroadPublic(token: JPDBToken): boolean {
-    return token.card.source === 'jiten'
-        && !token.card.pitchAccent.length
-        && !token.pitchClass;
-}
-
-function fallbackRepairTokens(text: string, fallbackTokens: JPDBToken[], tokens: JPDBToken[]): JPDBToken[] {
-    const repaired = new Set<JPDBToken>();
-    for (const fallback of fallbackTokens) {
-        const group = fallbackRepairGroupForToken(text, fallback, fallbackTokens, tokens);
-        group?.forEach(token => repaired.add(token));
-    }
-    return [...repaired].sort(compareTokensByOffset);
-}
-
-function fallbackRepairGroupForToken(
-    text: string,
-    fallback: JPDBToken,
-    fallbackTokens: JPDBToken[],
-    tokens: JPDBToken[],
-): JPDBToken[] | null {
-    if (!rangeHasUncoveredJapaneseText(text, fallback.start, fallback.end, tokens)) return null;
-    const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
-    if (!overlapping.length) return null;
-    const start = Math.min(fallback.start, ...overlapping.map(token => token.start));
-    const end = Math.max(fallback.end, ...overlapping.map(token => token.end));
-    if (!tokens.every(token => !rangesOverlap(start, end, token.start, token.end) || tokenInsideRange(token, start, end))) return null;
-    return fallbackTokensCoveringRange(text, fallbackTokens, start, end);
-}
-
-function rangeHasUncoveredJapaneseText(text: string, start: number, end: number, tokens: JPDBToken[]): boolean {
-    for (let index = start; index < end;) {
-        const character = codePointAtUtf16Offset(text, index);
-        if (!character) break;
-        const characterEnd = index + character.length;
-        if (
-            JAPANESE_CHARACTER_RE.test(character)
-            && !tokens.some(token => token.start <= index && characterEnd <= token.end)
-        ) return true;
-        index = characterEnd;
-    }
-    return false;
-}
-
-function fallbackTokensCoveringRange(text: string, fallbackTokens: JPDBToken[], start: number, end: number): JPDBToken[] | null {
-    const group = fallbackTokens.filter(token => token.start >= start && token.end <= end);
-    if (!group.length) return null;
-    group.sort(compareTokensByOffset);
-    // Provider spans can drift across a Latin prefix or punctuation
-    // (r/日本 -> r/日). Replacement only needs to cover every JAPANESE
-    // character in the expanded range; non-Japanese gaps stay plain text.
-    return rangeHasUncoveredJapaneseText(text, start, end, group) ? null : group;
 }
 
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {

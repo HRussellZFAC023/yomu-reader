@@ -26,6 +26,7 @@ type InertLocalDictionaryStore = Pick<
     | 'lookupKanji'
     | 'lookupTermMeta'
     | 'findTermMatches'
+    | 'lookupExactTermCandidates'
     | 'listRandomTerms'
     | 'listRandomTopTerms'
     | 'hasDictionaries'
@@ -48,6 +49,7 @@ function inertLocalDictionaryStore(): YomitanDictionaryStore {
         lookupKanji: async () => [],
         lookupTermMeta: async () => [],
         findTermMatches: async () => [],
+        lookupExactTermCandidates: async () => [],
         listRandomTerms: async () => [],
         listRandomTopTerms: async () => [],
         hasDictionaries: async () => false,

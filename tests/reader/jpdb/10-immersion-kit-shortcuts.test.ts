@@ -15,7 +15,6 @@ import {
     isJapaneseSubtitleTrack,
     isUnavailableJapanesePod101Audio,
     jitenTestCard,
-    jpdbPointerLookupCandidates,
     lookupCandidateFromPoint,
     matchesShortcut,
     pointerTextCandidate,
@@ -1854,16 +1853,6 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
         }
-    });
-
-    it('generates JPDB pointer candidates that keep all-kana words together', () => {
-        const sentence = 'にほんごのじかん';
-
-        expect(jpdbPointerLookupCandidates(sentence, 0)[0]).toEqual({ term: 'にほんご', start: 0, end: 4 });
-        expect(jpdbPointerLookupCandidates(sentence, 1)[0]).toEqual({ term: 'にほんご', start: 0, end: 4 });
-        expect(jpdbPointerLookupCandidates(sentence, 2)[0]).toEqual({ term: 'にほんご', start: 0, end: 4 });
-        expect(jpdbPointerLookupCandidates(sentence, 3)[0]).toEqual({ term: 'にほんご', start: 0, end: 4 });
-        expect(jpdbPointerLookupCandidates(sentence, 5)[0]).toEqual({ term: 'じかん', start: 5, end: 8 });
     });
 
 });

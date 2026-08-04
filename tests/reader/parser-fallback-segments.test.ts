@@ -8,7 +8,13 @@ import {
 import { renderTokensToHtml } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { deinflectJapaneseTerm } from '../../src/reader/lookup/deinflect';
-import type { JPDBToken } from '../../src/reader/app/types';
+import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
+import type {
+    YomitanExactTermCandidateRequest,
+    YomitanTermEntry,
+    YomitanTermMatch,
+} from '../../src/reader/dictionaries/yomitan';
+import type { LearningTargetModule } from '../../src/reader/languages/types';
 
 function deinflected(surface: string, lemma: string) {
     const candidate = deinflectJapaneseTerm(surface).find(item => item.term === lemma);
@@ -53,18 +59,51 @@ function publicProviderToken(text: string, spelling: string, start: number, end:
     };
 }
 
-function parserWithPublicVocabulary(parse: (paragraphs: readonly string[]) => Promise<JPDBToken[][]>): ReaderParser {
-    return new ReaderParser({
-        getSettings: () => ({
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            jitenApiKey: '',
-            localDictionariesEnabled: false,
-        }),
-        jpdb: {} as never,
-        jitenPublicVocabulary: { parse },
-        dictionaries: {} as never,
+function exactCandidateLookup(entries: readonly YomitanTermEntry[]) {
+    return vi.fn(async (
+        requests: readonly YomitanExactTermCandidateRequest[],
+        _preferences: unknown,
+        target: LearningTargetModule,
+    ) => requests.flatMap((request, requestIndex) => {
+        const term = target.normalizeText(request.lookupCandidate.term);
+        const entry = entries.find(candidate => (
+            [candidate.expression, candidate.reading]
+                .some(value => target.normalizeText(value) === term)
+            && (!request.lookupCandidate.rules.length
+                || target.matchesLookupCandidateRules(candidate.rules ?? '', request.lookupCandidate.rules))
+        ));
+        return entry ? [{ request, requestIndex, entry }] : [];
+    }));
+}
+
+function exactCardLookup(currentCards: () => readonly JPDBCard[]) {
+    return vi.fn(async (terms: readonly string[]) => {
+        const result = new Map<string, JPDBCard>();
+        for (const term of terms) {
+            const card = currentCards().find(candidate => (
+                candidate.spelling === term || candidate.reading === term
+            ));
+            if (card) result.set(term, card);
+        }
+        return result;
     });
+}
+
+function sequencedPublicVocabulary(
+    parsedResults: readonly (readonly JPDBToken[])[],
+    exactResults: readonly (readonly JPDBCard[])[] = parsedResults.map(tokens => tokens.map(token => token.card)),
+) {
+    let callIndex = 0;
+    let currentExactCards: readonly JPDBCard[] = [];
+    const parse = vi.fn(async (paragraphs: readonly string[]): Promise<JPDBToken[][]> => {
+        const index = callIndex;
+        callIndex += 1;
+        currentExactCards = exactResults[index] ?? [];
+        return paragraphs.map((_, paragraphIndex) => (
+            paragraphIndex === 0 ? [...(parsedResults[index] ?? [])] : []
+        ));
+    });
+    return { parse, lookupMany: exactCardLookup(() => currentExactCards) };
 }
 
 describe('fallback Japanese segmentation coherence (P0-02)', () => {
@@ -134,34 +173,17 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
     });
 
     it('uses public Jiten parsing for no-key full-page batches before segmented fallback', async () => {
+        const seeingText = '猫を見る。';
+        const seeingToken = publicProviderToken(seeingText, '見る', 2, 4);
+        seeingToken.card.vid = 1259290;
+        seeingToken.card.jitenWordId = 1259290;
+        seeingToken.card.jitenReadingIndex = 0;
         const publicParse = vi.fn(async (paragraphs: readonly string[]): Promise<JPDBToken[][]> => paragraphs.map(text => text.includes('猫')
-            ? [{
-                card: {
-                    vid: 1259290,
-                    sid: 0,
-                    rid: 0,
-                    spelling: '見る',
-                    reading: '',
-                    frequencyRank: null,
-                    partOfSpeech: [],
-                    meanings: [],
-                    cardState: ['not-in-deck'],
-                    pitchAccent: [],
-                    wordWithReading: null,
-                    source: 'jiten',
-                    jitenWordId: 1259290,
-                    jitenReadingIndex: 0,
-                },
-                start: 2,
-                end: 4,
-                length: 2,
-                rubies: [],
-                pitchClass: '',
-                sentence: text,
-            }]
+            ? [seeingToken]
             : []));
         const jpdbParse = vi.fn();
         const findTermMatches = vi.fn();
+        const publicLookupMany = exactCardLookup(() => [seeingToken.card]);
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -170,7 +192,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: { parse: jpdbParse } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: { parse: publicParse, lookupMany: publicLookupMany },
             dictionaries: { findTermMatches } as never,
         });
 
@@ -178,6 +200,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
 
         expect(publicParse).toHaveBeenCalledTimes(1);
         expect(publicParse).toHaveBeenCalledWith(['本を読む。', '猫を見る。']);
+        expect(publicLookupMany).toHaveBeenCalledTimes(1);
         expect(jpdbParse).not.toHaveBeenCalled();
         expect(findTermMatches).not.toHaveBeenCalled();
         expect(parsed[1]?.find(token => token.card.source === 'jiten')?.card).toMatchObject({ source: 'jiten', jitenWordId: 1259290 });
@@ -203,7 +226,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         sparse.card.sid = 0;
         sparse.card.jitenWordId = 90360;
         sparse.card.jitenReadingIndex = 0;
-        const publicParse = vi.fn().mockResolvedValueOnce([[sparse]]);
+        const publicVocabulary = sequencedPublicVocabulary([[sparse]]);
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -212,7 +235,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: { getCard: vi.fn(() => undefined) } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: publicVocabulary,
             dictionaries: {} as never,
         });
 
@@ -263,9 +286,15 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         // The cached canonical spelling is still needed to align that reading
         // against the inflected DOM slice rather than ruby the whole surface.
         sparseInflection.card.reading = 'はなす';
-        const publicParse = vi.fn()
-            .mockResolvedValueOnce([[complete]])
-            .mockResolvedValueOnce([[sparseInflection]]);
+        const sparseCanonicalCard: JPDBCard = {
+            ...sparseInflection.card,
+            spelling: canonicalText,
+            partOfSpeech: ['v5s'],
+        };
+        const publicVocabulary = sequencedPublicVocabulary(
+            [[complete], [sparseInflection]],
+            [[complete.card], [sparseCanonicalCard]],
+        );
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -274,7 +303,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: { getCard: vi.fn(() => undefined) } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: publicVocabulary,
             dictionaries: {} as never,
         });
 
@@ -320,9 +349,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         incompatibleReading.card.vid = 882;
         incompatibleReading.card.sid = 0;
         incompatibleReading.card.reading = 'きょう';
-        const publicParse = vi.fn()
-            .mockResolvedValueOnce([[complete]])
-            .mockResolvedValueOnce([[incompatibleReading]]);
+        const publicVocabulary = sequencedPublicVocabulary([[complete], [incompatibleReading]]);
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -331,7 +358,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: { getCard: vi.fn(() => undefined) } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: publicVocabulary,
             dictionaries: {} as never,
         });
 
@@ -359,9 +386,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         compound.card.vid = 883;
         compound.card.sid = 0;
         compound.card.reading = 'せつぞく';
-        const publicParse = vi.fn()
-            .mockResolvedValueOnce([[complete]])
-            .mockResolvedValueOnce([[compound]]);
+        const publicVocabulary = sequencedPublicVocabulary([[complete], [compound]]);
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -370,7 +395,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: { getCard: vi.fn(() => undefined) } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: publicVocabulary,
             dictionaries: {} as never,
         });
 
@@ -407,11 +432,12 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         sparseJapaneseJiten.card.vid = 991;
         sparseJapaneseJiten.card.sid = 0;
         sparseJapaneseJiten.card.language = 'ja';
-        const publicParse = vi.fn()
-            .mockResolvedValueOnce([[japaneseJiten]])
-            .mockResolvedValueOnce([[fallbackCollision]])
-            .mockResolvedValueOnce([[englishJitenCollision]])
-            .mockResolvedValueOnce([[sparseJapaneseJiten]]);
+        const publicVocabulary = sequencedPublicVocabulary([
+            [japaneseJiten],
+            [fallbackCollision],
+            [englishJitenCollision],
+            [sparseJapaneseJiten],
+        ]);
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -420,7 +446,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: { getCard: vi.fn(() => undefined) } as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: publicVocabulary,
             dictionaries: {} as never,
         });
 
@@ -443,98 +469,6 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(parser.getCachedCard(991, 0)).toBe(japaneseAgain?.[0]?.card);
     });
 
-    it('repairs a credentialed remote surname fragment to the whole inflected verb span', async () => {
-        const sentence = '訪れたのかもしれない。';
-        const surname: JPDBToken = {
-            card: {
-                vid: 5639848,
-                sid: 0,
-                rid: 0,
-                spelling: '訪',
-                reading: 'ほう',
-                frequencyRank: null,
-                partOfSpeech: ['name'],
-                meanings: [{ glosses: ['Hou'], partOfSpeech: ['surname'] }],
-                cardState: ['not-in-deck'],
-                pitchAccent: ['HL'],
-                wordWithReading: '訪[ほう]',
-                source: 'jpdb',
-            },
-            start: 0,
-            end: 1,
-            length: 1,
-            rubies: [{ text: 'ほう', start: 0, end: 1, length: 1 }],
-            pitchClass: 'atamadaka',
-            sentence,
-        };
-        const parser = new ReaderParser({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                apiKey: 'test-key',
-                jitenApiKey: '',
-                localDictionariesEnabled: false,
-                parserProvider: 'jpdb',
-            }),
-            jpdb: { parse: vi.fn(async () => [[surname]]) } as never,
-            dictionaries: {} as never,
-        });
-
-        const [tokens] = await parser.parse([sentence], { requireJpdb: true, allowSegmentedFallback: true });
-
-        expect(tokens.find(token => token.start === 0)).toMatchObject({
-            start: 0,
-            end: 3,
-            card: {
-                spelling: '訪れた',
-                source: 'fallback',
-                fallbackLookupTerms: expect.arrayContaining(['訪れる']),
-            },
-        });
-        expect(tokens.some(token => token.card.spelling === '訪' && token.card.reading === 'ほう')).toBe(false);
-    });
-
-    it('keeps complete authoritative lexical and auxiliary tokens instead of merging them heuristically', async () => {
-        const sentence = '食べた。';
-        const lexical: JPDBToken = {
-            card: {
-                vid: 1001, sid: 0, rid: 0,
-                spelling: '食べる', reading: 'たべる',
-                frequencyRank: null, partOfSpeech: ['v1'], meanings: [],
-                cardState: ['not-in-deck'], pitchAccent: ['LHHH'], wordWithReading: '食[た]べる',
-                source: 'jpdb',
-            },
-            start: 0, end: 2, length: 2,
-            rubies: [{ text: 'た', start: 0, end: 1, length: 1 }],
-            pitchClass: 'heiban', sentence,
-        };
-        const auxiliary: JPDBToken = {
-            card: {
-                vid: 1002, sid: 0, rid: 0,
-                spelling: 'た', reading: 'た',
-                frequencyRank: null, partOfSpeech: ['aux'], meanings: [],
-                cardState: ['not-in-deck'], pitchAccent: [], wordWithReading: null,
-                source: 'jpdb',
-            },
-            start: 2, end: 3, length: 1,
-            rubies: [], pitchClass: '', sentence,
-        };
-        const parser = new ReaderParser({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                apiKey: 'test-key',
-                localDictionariesEnabled: false,
-                parserProvider: 'jpdb',
-            }),
-            jpdb: { parse: vi.fn(async () => [[lexical, auxiliary]]) } as never,
-            dictionaries: {} as never,
-        });
-
-        const [tokens] = await parser.parse([sentence], { requireJpdb: true, allowSegmentedFallback: true });
-
-        expect(tokens).toEqual([lexical, auxiliary]);
-        expect(tokens.some(token => token.card.source === 'fallback')).toBe(false);
-    });
-
     it('preserves one parse result per input when a provider returns a short response', async () => {
         const firstText = '日本語';
         const publicToken: JPDBToken = {
@@ -551,6 +485,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
             sentence: firstText,
         };
         const publicParse = vi.fn(async (): Promise<JPDBToken[][]> => [[publicToken]]);
+        const publicLookupMany = exactCardLookup(() => [publicToken.card]);
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -559,7 +494,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 localDictionariesEnabled: false,
             }),
             jpdb: {} as never,
-            jitenPublicVocabulary: { parse: publicParse },
+            jitenPublicVocabulary: { parse: publicParse, lookupMany: publicLookupMany },
             dictionaries: {} as never,
         });
 
@@ -570,141 +505,6 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(parsed[0]?.[0]).toBe(publicToken);
         expect(parsed[1]?.map(token => token.card.spelling)).toEqual(['フィード']);
         expect(parsed[2]?.map(token => token.card.spelling)).toEqual(['参加']);
-    });
-
-    it('repairs Japanese hidden behind a provider span the renderer must reject', async () => {
-        const text = '参加フィード';
-        const card = (spelling: string): JPDBToken['card'] => ({
-            vid: 1,
-            sid: 1,
-            rid: 0,
-            spelling,
-            reading: '',
-            frequencyRank: null,
-            partOfSpeech: [],
-            meanings: [],
-            cardState: ['not-in-deck'],
-            pitchAccent: [],
-            wordWithReading: null,
-            source: 'jiten',
-        });
-        const publicParse = vi.fn(async (): Promise<JPDBToken[][]> => [[
-            {
-                card: card('参加'),
-                start: 0,
-                end: 2,
-                length: 2,
-                rubies: [],
-                pitchClass: '',
-                sentence: text,
-            },
-            {
-                card: card('参加フィード'),
-                start: 1,
-                end: text.length,
-                length: text.length - 1,
-                rubies: [],
-                pitchClass: '',
-                sentence: text,
-            },
-        ]]);
-        const parser = new ReaderParser({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                jitenApiKey: '',
-                localDictionariesEnabled: false,
-            }),
-            jpdb: {} as never,
-            jitenPublicVocabulary: { parse: publicParse },
-            dictionaries: {} as never,
-        });
-
-        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
-
-        expect(tokens.map(token => text.slice(token.start, token.end))).toEqual(['参加', 'フィード']);
-        expect(tokens.every((token, index) => index === 0 || token.start >= tokens[index - 1]!.end)).toBe(true);
-    });
-
-    it('repairs a provider span that drifts across a non-Japanese prefix', async () => {
-        const text = 'r/日本';
-        const publicParse = vi.fn(async (): Promise<JPDBToken[][]> => [[{
-            card: {
-                vid: 1,
-                sid: 1,
-                rid: 0,
-                spelling: 'r/日',
-                reading: '',
-                frequencyRank: null,
-                partOfSpeech: [],
-                meanings: [],
-                cardState: ['not-in-deck'],
-                pitchAccent: [],
-                wordWithReading: null,
-                source: 'jiten',
-            },
-            start: 0,
-            end: 3,
-            length: 3,
-            rubies: [],
-            pitchClass: '',
-            sentence: text,
-        }]]);
-        const parser = new ReaderParser({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                jitenApiKey: '',
-                localDictionariesEnabled: false,
-            }),
-            jpdb: {} as never,
-            jitenPublicVocabulary: { parse: publicParse },
-            dictionaries: {} as never,
-        });
-
-        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
-
-        expect(tokens.map(token => ({ start: token.start, end: token.end, surface: text.slice(token.start, token.end) })))
-            .toEqual([{ start: 2, end: 4, surface: '日本' }]);
-    });
-
-    it('preserves valid halfwidth-katakana provider coverage in a mixed paragraph', async () => {
-        const text = '日本 ｶﾀｶﾅ';
-        const providerTokens = [
-            publicProviderToken(text, '日本', 0, 2),
-            publicProviderToken(text, 'ｶﾀｶﾅ', 3, 7),
-        ];
-        const parser = parserWithPublicVocabulary(vi.fn(async () => [providerTokens]));
-
-        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
-
-        expect(tokens).toEqual(providerTokens);
-    });
-
-    it('fills a halfwidth-katakana tail omitted by the provider', async () => {
-        const text = '日本 ｶﾀｶﾅ';
-        const parser = parserWithPublicVocabulary(vi.fn(async () => [[
-            publicProviderToken(text, '日本', 0, 2),
-        ]]));
-
-        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
-
-        expect(tokens.map(token => text.slice(token.start, token.end))).toEqual(['日本', 'ｶﾀｶﾅ']);
-    });
-
-    it('repairs overlapping provider coverage without leaving halfwidth kana raw', async () => {
-        const text = '日本ｶﾀ';
-        const parser = parserWithPublicVocabulary(vi.fn(async () => [[
-            publicProviderToken(text, '本ｶﾀ', 1, 4),
-        ]]));
-
-        const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
-
-        expect(tokens.map(token => ({ start: token.start, end: token.end, surface: text.slice(token.start, token.end) })))
-            .toEqual([
-                { start: 0, end: 2, surface: '日本' },
-                { start: 2, end: 4, surface: 'ｶﾀ' },
-            ]);
     });
 
     it('parses 好きなものを読む coherently', () => {
@@ -764,7 +564,8 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
     // reading table. The parser only emits a reading the dictionary actually
     // returns; it must never invent one. See https://jpdb.io/search?q=紫音 for
     // why a single hard-coded reading is wrong.
-    function nameAwareParser(matches: unknown[]): ReaderParser {
+    function nameAwareParser(matches: readonly YomitanTermMatch[]): ReaderParser {
+        const lookupExactTermCandidates = exactCandidateLookup(matches.map(match => match.entry));
         return new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -774,21 +575,25 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 showPitchAccent: false,
             }),
             jpdb: {} as never,
-            dictionaries: { findTermMatches: vi.fn(async () => matches) } as never,
+            dictionaries: {
+                hasTermDictionaries: vi.fn(async () => true),
+                findTermMatches: vi.fn(async () => [...matches]),
+                lookupExactTermCandidates,
+                lookupTermMeta: vi.fn(async () => []),
+                lookupKanji: vi.fn(async () => []),
+            } as never,
         });
     }
 
     it('resolves 紫音 as one token using the reading a name dictionary supplies', async () => {
-        // When a name dictionary (e.g. JMnedict) is loaded, findTermMatches /
-        // nonOverlappingMatches surface the whole compound, so the parser keeps
-        // it together with the dictionary's verified reading.
+        // The paragraph parse may decorate the match, but the exact candidate
+        // query is what keeps the compound together with its verified reading.
         const parser = nameAwareParser([
             {
                 entry: { expression: '紫音', reading: 'しおん', glossary: ['Shion (name)'], dictionary: 'JMnedict' },
                 start: 0,
                 end: 2,
                 surface: '紫音',
-                deinflected: false,
             },
         ]);
 
@@ -809,14 +614,12 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 start: 0,
                 end: 1,
                 surface: '紫',
-                deinflected: false,
             },
             {
                 entry: { expression: '音', reading: 'おと', glossary: ['sound'], dictionary: 'JMdict' },
                 start: 1,
                 end: 2,
                 surface: '音',
-                deinflected: false,
             },
         ]);
 
@@ -830,7 +633,7 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
 
     it('fills remote coverage gaps with deinflected local-dictionary tokens, not bare segments', async () => {
         const sentence = 'パスキーを使って本人確認を行います';
-        const findTermMatches = vi.fn().mockResolvedValue([
+        const localMatches: YomitanTermMatch[] = [
             {
                 entry: { expression: '使う', reading: 'つかう', rules: 'v5u', glossary: ['to use'], dictionary: 'Jitendex' },
                 start: 5,
@@ -845,12 +648,32 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 surface: '行います',
                 deinflected: deinflected('行います', '行う'),
             },
-        ]);
+        ];
+        const findTermMatches = vi.fn(async (text: string) => text === sentence ? localMatches : []);
+        const lookupExactTermCandidates = exactCandidateLookup(localMatches.map(match => match.entry));
         const lookupTermMeta = vi.fn(async () => []);
-        const jpdbParse = vi.fn(async (): Promise<JPDBToken[][]> => [[
+        const providerTokens = [
             publicProviderToken(sentence, 'パスキー', 0, 4),
             publicProviderToken(sentence, '本人確認', 8, 12),
-        ]]);
+        ];
+        let paragraphParsePending = true;
+        const jpdbParse = vi.fn(async (paragraphs: string[]): Promise<JPDBToken[][]> => {
+            if (paragraphParsePending) {
+                paragraphParsePending = false;
+                return [providerTokens];
+            }
+            return paragraphs.map(term => {
+                const token = providerTokens.find(candidate => candidate.card.spelling === term);
+                return token ? [{
+                    ...token,
+                    start: 0,
+                    end: term.length,
+                    length: term.length,
+                    rubies: [],
+                    sentence: term,
+                }] : [];
+            });
+        });
         const parser = new ReaderParser({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -860,7 +683,13 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
                 parserProvider: 'jpdb',
             }),
             jpdb: { parse: jpdbParse } as never,
-            dictionaries: { findTermMatches, lookupTermMeta } as never,
+            dictionaries: {
+                hasTermDictionaries: vi.fn(async () => true),
+                findTermMatches,
+                lookupExactTermCandidates,
+                lookupTermMeta,
+                lookupKanji: vi.fn(async () => []),
+            } as never,
         });
 
         const [tokens] = await parser.parse([sentence], { requireJpdb: true, allowSegmentedFallback: true });

@@ -41,7 +41,7 @@ import { createPageMediaUrl } from '../../../src/reader/app/page-media-url';
 import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../../src/reader/ocr/controller';
 import { normalizeOcrRenderedText } from '../../../src/reader/ocr/rendered-text';
 import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../../src/reader/popup/shell';
-import { jpdbPointerLookupCandidates, pointerTextLookupFromTextNode } from '../../../src/reader/lookup/pointer-text-lookup';
+import { pointerTextLookupFromTextNode } from '../../../src/reader/lookup/pointer-text-lookup';
 import { formatPartOfSpeech } from '../../../src/reader/lookup/pos';
 import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../../src/reader/network/proxy-fetch';
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../../src/reader/popup/render';
@@ -3217,7 +3217,6 @@ export {
     jpdbAudioRequest,
     jpdbFirstParseOptions,
     jpdbParseResultToTokens,
-    jpdbPointerLookupCandidates,
     jpdbVocabularyToCards,
     kanjiSourceRows,
     loadSettings,

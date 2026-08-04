@@ -10,12 +10,96 @@ import type { LanguageLookupCandidate } from '../languages/types';
  */
 export type DeinflectedTerm = LanguageLookupCandidate;
 
-interface DeinflectionRule {
+interface DeinflectionRuleSpec {
     from: string;
     to: string;
     rules: string[];
     reason: string;
 }
+
+interface DeinflectionRule extends DeinflectionRuleSpec {
+    conditionsIn: number;
+    conditionsOut: number;
+}
+
+interface DeinflectionState extends DeinflectedTerm {
+    /** Private grammar state used only while expanding a transformation chain. */
+    conditions: number;
+}
+
+const DEINFLECTION_CONDITION = {
+    Ichidan: 1 << 0,
+    GodanU: 1 << 1,
+    GodanK: 1 << 2,
+    GodanG: 1 << 3,
+    GodanS: 1 << 4,
+    GodanT: 1 << 5,
+    GodanN: 1 << 6,
+    GodanB: 1 << 7,
+    GodanM: 1 << 8,
+    GodanR: 1 << 9,
+    Suru: 1 << 10,
+    Kuru: 1 << 11,
+    IAdjective: 1 << 12,
+    Masu: 1 << 13,
+    Te: 1 << 14,
+    Ta: 1 << 15,
+    Conditional: 1 << 16,
+    Adverbial: 1 << 17,
+} as const;
+
+const GODAN_CONDITIONS = DEINFLECTION_CONDITION.GodanU
+    | DEINFLECTION_CONDITION.GodanK
+    | DEINFLECTION_CONDITION.GodanG
+    | DEINFLECTION_CONDITION.GodanS
+    | DEINFLECTION_CONDITION.GodanT
+    | DEINFLECTION_CONDITION.GodanN
+    | DEINFLECTION_CONDITION.GodanB
+    | DEINFLECTION_CONDITION.GodanM
+    | DEINFLECTION_CONDITION.GodanR;
+
+const INPUT_CONDITIONS_BY_REASON: Readonly<Record<string, number>> = {
+    negative: DEINFLECTION_CONDITION.IAdjective,
+    desiderative: DEINFLECTION_CONDITION.IAdjective,
+    potential: DEINFLECTION_CONDITION.Ichidan,
+    'potential/passive': DEINFLECTION_CONDITION.Ichidan,
+    passive: DEINFLECTION_CONDITION.Ichidan,
+    causative: DEINFLECTION_CONDITION.Ichidan,
+    'causative passive': DEINFLECTION_CONDITION.Ichidan,
+    excessive: DEINFLECTION_CONDITION.Ichidan,
+    progressive: DEINFLECTION_CONDITION.Ichidan,
+    'contracted progressive': DEINFLECTION_CONDITION.Ichidan,
+    completion: DEINFLECTION_CONDITION.GodanU,
+    'contracted completion': DEINFLECTION_CONDITION.GodanU,
+    polite: DEINFLECTION_CONDITION.Masu,
+    'te-form': DEINFLECTION_CONDITION.Te,
+    past: DEINFLECTION_CONDITION.Ta,
+    conditional: DEINFLECTION_CONDITION.Conditional,
+    adverbial: DEINFLECTION_CONDITION.Adverbial,
+};
+
+const CONDITION_FLAG_BY_RULE: Readonly<Record<string, number>> = {
+    v1: DEINFLECTION_CONDITION.Ichidan,
+    v5u: DEINFLECTION_CONDITION.GodanU,
+    v5k: DEINFLECTION_CONDITION.GodanK,
+    v5g: DEINFLECTION_CONDITION.GodanG,
+    v5s: DEINFLECTION_CONDITION.GodanS,
+    v5t: DEINFLECTION_CONDITION.GodanT,
+    v5n: DEINFLECTION_CONDITION.GodanN,
+    v5b: DEINFLECTION_CONDITION.GodanB,
+    v5m: DEINFLECTION_CONDITION.GodanM,
+    v5r: DEINFLECTION_CONDITION.GodanR,
+    v5: GODAN_CONDITIONS,
+    vs: DEINFLECTION_CONDITION.Suru,
+    'vs-s': DEINFLECTION_CONDITION.Suru,
+    suru: DEINFLECTION_CONDITION.Suru,
+    vk: DEINFLECTION_CONDITION.Kuru,
+    kuru: DEINFLECTION_CONDITION.Kuru,
+    'adj-i': DEINFLECTION_CONDITION.IAdjective,
+    'i-adj': DEINFLECTION_CONDITION.IAdjective,
+};
+
+const GODAN_R_SPECIAL_RULES = new Set(['v5aru']);
 
 const GODAN_ROWS = [
     { ending: 'う', a: 'わ', i: 'い', e: 'え', o: 'お', te: 'って', ta: 'った', rules: ['v5u', 'v5'] },
@@ -189,7 +273,7 @@ const CONTRACTED_COMPLETION_SUFFIXES = [
     ['いました', 'contracted polite completion past'],
 ] satisfies Array<[string, string]>;
 
-const RULES: DeinflectionRule[] = [
+const RULES: DeinflectionRule[] = ([
     ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ['v1'] })),
     ...teCompoundRules('て', 'る', ['v1']),
     ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ['adj-i', 'i-adj'] })),
@@ -203,7 +287,7 @@ const RULES: DeinflectionRule[] = [
     { from: '行った', to: '行く', reason: 'past', rules: ['v5k', 'v5'] },
     { from: '行っちゃう', to: '行く', reason: 'contracted completion', rules: ['v5k', 'v5'] },
     { from: '行っちゃった', to: '行く', reason: 'contracted completion past', rules: ['v5k', 'v5'] },
-];
+] satisfies DeinflectionRuleSpec[]).map(conditionDeinflectionRule);
 
 // deinflectJapaneseTerm is a pure, deterministic function of `source`, but the
 // term-match candidate sweep calls it hundreds of times per line on heavily
@@ -218,12 +302,12 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
     const cached = deinflectionCache.get(source);
     if (cached) return cached;
 
-    const results: DeinflectedTerm[] = [{ term: source, rules: [], reasons: [], depth: 0 }];
+    const results: DeinflectionState[] = [{ term: source, rules: [], reasons: [], depth: 0, conditions: 0 }];
     const seen = new Set([candidateKey(results[0])]);
     const queue = [results[0]];
     expandDeinflectionQueue(queue, results, seen);
 
-    const sorted = sortDeinflectedTerms(results);
+    const sorted = sortDeinflectedTerms(results).map(publicDeinflectionCandidate);
     if (deinflectionCache.size >= DEINFLECTION_CACHE_MAX) {
         const oldest = deinflectionCache.keys().next().value;
         if (oldest !== undefined) deinflectionCache.delete(oldest);
@@ -232,24 +316,19 @@ export function deinflectJapaneseTerm(source: string): DeinflectedTerm[] {
     return sorted;
 }
 
-function expandDeinflectionQueue(queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
+function expandDeinflectionQueue(queue: DeinflectionState[], results: DeinflectionState[], seen: Set<string>): void {
     for (let index = 0; index < queue.length; index++) {
         expandDeinflectedTerm(queue[index], queue, results, seen);
     }
 }
 
-function expandDeinflectedTerm(current: DeinflectedTerm, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
-    if (isTerminalDeinflection(current)) return;
+function expandDeinflectedTerm(current: DeinflectionState, queue: DeinflectionState[], results: DeinflectionState[], seen: Set<string>): void {
     for (const rule of RULES) {
         rememberExpandedDeinflection(current, rule, queue, results, seen);
     }
 }
 
-function isTerminalDeinflection(current: DeinflectedTerm): boolean {
-    return current.depth >= 2 || current.reasons.at(-1) === 'simultaneous action';
-}
-
-function rememberExpandedDeinflection(current: DeinflectedTerm, rule: DeinflectionRule, queue: DeinflectedTerm[], results: DeinflectedTerm[], seen: Set<string>): void {
+function rememberExpandedDeinflection(current: DeinflectionState, rule: DeinflectionRule, queue: DeinflectionState[], results: DeinflectionState[], seen: Set<string>): void {
     const next = deinflectedCandidate(current, rule);
     if (!next) return;
     if (!rememberDeinflectedCandidate(next, seen)) return;
@@ -257,28 +336,33 @@ function rememberExpandedDeinflection(current: DeinflectedTerm, rule: Deinflecti
     queue.push(next);
 }
 
-function sortDeinflectedTerms(results: DeinflectedTerm[]): DeinflectedTerm[] {
+function sortDeinflectedTerms(results: DeinflectionState[]): DeinflectionState[] {
     return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
 }
 
-function deinflectedCandidate(current: DeinflectedTerm, rule: DeinflectionRule): DeinflectedTerm | null {
-    if (!canApplyDeinflectionRule(current.term, rule)) return null;
-    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-    if (!term || term === current.term) return null;
+function deinflectedCandidate(current: DeinflectionState, rule: DeinflectionRule): DeinflectionState | null {
+    if (!ruleMatchesDeinflectionState(current, rule)) return null;
+    const term = transformedDeinflectionTerm(current.term, rule);
+    if (!term) return null;
     return {
         term,
         rules: rule.rules,
         reasons: [...current.reasons, rule.reason],
         depth: current.depth + 1,
+        conditions: rule.conditionsOut,
     };
 }
 
-function canApplyDeinflectionRule(term: string, rule: DeinflectionRule): boolean {
-    return term.endsWith(rule.from)
-        && (term.length > rule.from.length || rule.to.length > 0);
+function ruleMatchesDeinflectionState(current: DeinflectionState, rule: DeinflectionRule): boolean {
+    return conditionsMatch(current.conditions, rule.conditionsIn) && current.term.endsWith(rule.from);
 }
 
-function rememberDeinflectedCandidate(candidate: DeinflectedTerm, seen: Set<string>): boolean {
+function transformedDeinflectionTerm(term: string, rule: DeinflectionRule): string | null {
+    const transformed = `${term.slice(0, -rule.from.length)}${rule.to}`;
+    return transformed && transformed !== term ? transformed : null;
+}
+
+function rememberDeinflectedCandidate(candidate: DeinflectionState, seen: Set<string>): boolean {
     const key = candidateKey(candidate);
     if (seen.has(key)) return false;
     seen.add(key);
@@ -294,26 +378,71 @@ function rememberDeinflectedCandidate(candidate: DeinflectedTerm, seen: Set<stri
 export function termRulesMatch(entryRules: string | undefined, candidateRules: readonly string[]): boolean {
     if (!candidateRules.length) return true;
     const entryRuleSet = entryRulesSet(entryRules);
-    return entryRuleSet.size > 0 && candidateRules.some(rule => termRuleMatches(rule, entryRuleSet));
+    if (!entryRuleSet.size) return false;
+    const candidateGodanClasses = godanRuleClasses(candidateRules);
+    return candidateRules.some(rule => termRuleMatches(rule, entryRuleSet, candidateGodanClasses));
 }
 
 function entryRulesSet(entryRules: string | undefined): Set<string> {
     return new Set((entryRules ?? '').split(/\s+/).filter(Boolean));
 }
 
-function termRuleMatches(rule: string, entryRuleSet: Set<string>): boolean {
+function termRuleMatches(
+    rule: string,
+    entryRuleSet: Set<string>,
+    candidateGodanClasses: ReadonlySet<string>,
+): boolean {
+    if (entryRuleSet.has(rule)) return true;
+    const candidateGodanClass = godanRuleClass(rule);
+    if (candidateGodanClass) {
+        return entryHasGodanClass(entryRuleSet, candidateGodanClass);
+    }
+    if (rule === 'v5') {
+        return entryHasGenericGodanMatch(entryRuleSet, candidateGodanClasses);
+    }
     return TERM_RULE_MATCHERS.some(matches => matches(rule, entryRuleSet));
 }
 
+function entryHasGodanClass(entryRuleSet: ReadonlySet<string>, candidateGodanClass: string): boolean {
+    if (entryRuleSet.has('v5')) return true;
+    return [...entryRuleSet].some(entryRule => godanRuleClass(entryRule) === candidateGodanClass);
+}
+
+function entryHasGenericGodanMatch(
+    entryRuleSet: ReadonlySet<string>,
+    candidateGodanClasses: ReadonlySet<string>,
+): boolean {
+    if (!candidateGodanClasses.size) return [...entryRuleSet].some(isGodanRule);
+    return [...entryRuleSet].some(entryRule => {
+        const entryGodanClass = godanRuleClass(entryRule);
+        return entryGodanClass !== undefined && candidateGodanClasses.has(entryGodanClass);
+    });
+}
+
+function isGodanRule(rule: string): boolean {
+    return rule === 'v5' || godanRuleClass(rule) !== undefined;
+}
+
 const TERM_RULE_MATCHERS: Array<(rule: string, entryRuleSet: Set<string>) => boolean> = [
-    (rule, entryRuleSet) => entryRuleSet.has(rule),
-    (rule, entryRuleSet) => rule.startsWith('v5') && entryRuleSet.has('v5'),
-    (rule, entryRuleSet) => rule === 'v5' && [...entryRuleSet].some(entryRule => entryRule.startsWith('v5')),
     (rule, entryRuleSet) => rule === 'i-adj' && entryRuleSet.has('adj-i'),
     (rule, entryRuleSet) => rule === 'adj-i' && entryRuleSet.has('i-adj'),
 ];
 
-function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
+function godanRuleClasses(rules: Iterable<string>): Set<string> {
+    const result = new Set<string>();
+    for (const rule of rules) {
+        const ruleClass = godanRuleClass(rule);
+        if (ruleClass) result.add(ruleClass);
+    }
+    return result;
+}
+
+function godanRuleClass(rule: string): string | undefined {
+    if (GODAN_R_SPECIAL_RULES.has(rule)) return 'r';
+    return /^v5([ukgstnbmr])(?:-|$)/u.exec(rule)?.[1];
+}
+
+function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRuleSpec[] {
     const rules = row.rules;
     return [
         ...teCompoundRules(row.te, row.ending, rules),
@@ -357,7 +486,7 @@ function godanRules(row: typeof GODAN_ROWS[number]): DeinflectionRule[] {
     ];
 }
 
-function teCompoundRules(te: string, to: string, rules: string[]): DeinflectionRule[] {
+function teCompoundRules(te: string, to: string, rules: string[]): DeinflectionRuleSpec[] {
     return [
         ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
         ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
@@ -365,7 +494,7 @@ function teCompoundRules(te: string, to: string, rules: string[]): DeinflectionR
     ];
 }
 
-function contractedCompletionRules(te: string, to: string, rules: string[]): DeinflectionRule[] {
+function contractedCompletionRules(te: string, to: string, rules: string[]): DeinflectionRuleSpec[] {
     const stem = contractedCompletionStem(te);
     return stem
         ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules }))
@@ -378,6 +507,53 @@ function contractedCompletionStem(te: string): string {
     return '';
 }
 
-function candidateKey(candidate: DeinflectedTerm): string {
-    return `${candidate.term}\n${candidate.rules.join(' ')}\n${candidate.depth}`;
+function conditionDeinflectionRule(rule: DeinflectionRuleSpec): DeinflectionRule {
+    return {
+        ...rule,
+        conditionsIn: inputConditionsForReason(rule.reason),
+        conditionsOut: conditionFlagsForRules(rule.rules),
+    };
+}
+
+/**
+ * A root surface has conditions=0 and may try every suffix interpretation.
+ * Once one interpretation has been made, the next rule must accept the
+ * grammatical shape produced by the previous step. This is what prevents an
+ * adjective result from being reinterpreted as a godan stem, or a v5s result
+ * from being reinterpreted as a polite ichidan form.
+ */
+function conditionsMatch(currentConditions: number, nextConditions: number): boolean {
+    return currentConditions === 0 || (currentConditions & nextConditions) !== 0;
+}
+
+function inputConditionsForReason(reason: string): number {
+    // A missing condition is intentionally root-only: once a chain has
+    // grammar state, conditionsMatch refuses an unclassified hop.
+    return INPUT_CONDITIONS_BY_REASON[reason] ?? 0;
+}
+
+function conditionFlagsForRules(rules: readonly string[]): number {
+    const specificGodanConditions = unionConditionFlags(rules.filter(isSpecificGodanConditionRule));
+    return specificGodanConditions || unionConditionFlags(rules);
+}
+
+function isSpecificGodanConditionRule(rule: string): boolean {
+    return /^v5[ukgstnbmr]$/u.test(rule);
+}
+
+function unionConditionFlags(rules: readonly string[]): number {
+    return rules.reduce((conditions, rule) => conditions | conditionFlagForRule(rule), 0);
+}
+
+function conditionFlagForRule(rule: string): number {
+    return CONDITION_FLAG_BY_RULE[rule] ?? 0;
+}
+
+function publicDeinflectionCandidate(state: DeinflectionState): DeinflectedTerm {
+    const { conditions: _conditions, ...candidate } = state;
+    return candidate;
+}
+
+function candidateKey(candidate: DeinflectionState): string {
+    return `${candidate.term}\n${candidate.conditions}`;
 }

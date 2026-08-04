@@ -3,9 +3,16 @@ import { genericLookupTextVariants } from '../../languages/lookup-normalization'
 import { dictionaryEnabled, dictionaryPriority } from './ranking';
 import type { DictionaryPreference } from '../../app/types';
 import type { LanguageLookupCandidate, LearningTargetModule } from '../../languages/types';
-import type { YomitanTermEntry, YomitanTermMatch } from './types';
+import type {
+    YomitanExactTermCandidateMatch,
+    YomitanExactTermCandidateRequest,
+    YomitanTermEntry,
+    YomitanTermMatch,
+} from './types';
 
 const WHITESPACE_RE = /\s/u;
+const TERM_MATCH_INDEX_FAST_ROWS = 8;
+const TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS = TERM_MATCH_INDEX_FAST_ROWS + 1;
 
 export interface TermMatchCandidatePosition {
     start: number;
@@ -19,6 +26,16 @@ export type TermMatchCandidates = Map<string, TermMatchCandidatePosition[]>;
 export interface TargetTermMatchLookupCandidate {
     key: string;
     deinflected: LanguageLookupCandidate;
+}
+
+type LookupCandidateRuleMatcher = (
+    entryRules: string | undefined,
+    candidateRules: readonly string[],
+) => boolean;
+
+export interface TermMatchEntryCollector {
+    add(entry: YomitanTermEntry): void;
+    matches(): YomitanTermMatch[];
 }
 
 /**
@@ -99,19 +116,157 @@ export function sortedTermMatchExpressions(candidates: TermMatchCandidates): str
     return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
 }
 
+/**
+ * Adapts already-enumerated candidate requests to the term-match engine.
+ * `start` is an internal request slot here, never a source-text offset; the
+ * public exact API converts every match back to its original request object.
+ */
+export function exactTermMatchCandidates(
+    target: LearningTargetModule,
+    requests: readonly YomitanExactTermCandidateRequest[],
+): TermMatchCandidates {
+    const candidates: TermMatchCandidates = new Map();
+    requests.forEach((request, requestIndex) => {
+        if (!target.isLookupableText(request.lookupCandidate.term)) return;
+        const position: TermMatchCandidatePosition = {
+            start: requestIndex,
+            end: requestIndex + 1,
+            surface: request.surface,
+            deinflected: request.lookupCandidate,
+        };
+        for (const key of genericLookupTextVariants(request.lookupCandidate.term)) {
+            const positions = candidates.get(key) ?? [];
+            positions.push(position);
+            candidates.set(key, positions);
+        }
+    });
+    return candidates;
+}
+
+/** Select one preference/rule-aware entry per exact request, in request order. */
+export function exactTermCandidateMatches<
+    TRequest extends YomitanExactTermCandidateRequest,
+>(
+    requests: readonly TRequest[],
+    matches: readonly YomitanTermMatch[],
+    rank: Map<string, DictionaryPreference>,
+): Array<YomitanExactTermCandidateMatch<TRequest>> {
+    const entryByRequestIndex = new Map<number, YomitanTermEntry>();
+    for (const match of matches) {
+        const requestIndex = exactRequestIndex(match, requests);
+        if (requestIndex === undefined) continue;
+        retainExactTermCandidateEntry(requestIndex, match.entry, entryByRequestIndex, rank);
+    }
+    return requests.flatMap((request, requestIndex) => {
+        const entry = entryByRequestIndex.get(requestIndex);
+        return entry ? [{ request, requestIndex, entry }] : [];
+    });
+}
+
+function retainExactTermCandidateEntry(
+    requestIndex: number,
+    entry: YomitanTermEntry,
+    entryByRequestIndex: Map<number, YomitanTermEntry>,
+    rank: Map<string, DictionaryPreference>,
+): void {
+    const current = entryByRequestIndex.get(requestIndex);
+    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    entryByRequestIndex.set(requestIndex, entry);
+}
+
+function exactRequestIndex(
+    match: YomitanTermMatch,
+    requests: readonly YomitanExactTermCandidateRequest[],
+): number | undefined {
+    const requestIndex = match.start;
+    const request = requests[requestIndex];
+    if (!request || match.end !== requestIndex + 1 || match.surface !== request.surface) return undefined;
+    return requestIndex;
+}
+
 export function requestTermMatchIndex(
     index: IDBIndex,
     expression: string,
-    addMatches: (expression: string, entries: YomitanTermEntry[]) => void,
+    visit: (expression: string, entry: YomitanTermEntry) => void,
     finish: () => void,
     reject: (reason?: unknown) => void,
 ): void {
-    const request = index.getAll(IDBKeyRange.only(expression), 8);
+    const query = IDBKeyRange.only(expression);
+    const request = index.getAll(query, TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS);
     request.onsuccess = () => {
-        addMatches(expression, request.result as YomitanTermEntry[]);
-        finish();
+        const entries = request.result as YomitanTermEntry[];
+        if (entries.length < TERM_MATCH_INDEX_OVERFLOW_PROBE_ROWS) {
+            for (const entry of entries) visit(expression, entry);
+            finish();
+            return;
+        }
+
+        // Most lookup keys have only a handful of rows, so keep their single
+        // getAll request. A common kana key can have dozens or hundreds: the
+        // ninth row is proof that the old eight-row result was truncated. Scan
+        // that exact key and let the candidate-aware collector retain only the
+        // best compatible rows instead of materialising the whole fan-out.
+        const cursorRequest = index.openCursor(query);
+        cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result;
+            if (!cursor) {
+                finish();
+                return;
+            }
+            visit(expression, cursor.value as YomitanTermEntry);
+            cursor.continue();
+        };
+        cursorRequest.onerror = () => reject(cursorRequest.error);
     };
     request.onerror = () => reject(request.error);
+}
+
+export function createTermMatchEntryCollector(
+    expression: string,
+    candidates: TermMatchCandidates,
+    rank: Map<string, DictionaryPreference>,
+    matchesRules: LookupCandidateRuleMatcher = targetLookupCandidateRulesMatch,
+): TermMatchEntryCollector {
+    const positions = candidates.get(expression) ?? [];
+    const candidateRules = distinctCandidateRules(positions);
+    const bestEntryByRules = new Map<string, YomitanTermEntry>();
+
+    return {
+        add(entry) {
+            if (!dictionaryEnabled(entry.dictionary, rank)) return;
+            collectCompatibleTermEntry(entry, candidateRules, bestEntryByRules, rank, matchesRules);
+        },
+        matches() {
+            return positions.flatMap(position => {
+                const entry = bestEntryByRules.get(candidateRulesKey(position.deinflected.rules));
+                return entry ? [termMatchForEntry(position, entry)] : [];
+            });
+        },
+    };
+}
+
+function collectCompatibleTermEntry(
+    entry: YomitanTermEntry,
+    candidateRules: ReadonlyMap<string, readonly string[]>,
+    bestEntryByRules: Map<string, YomitanTermEntry>,
+    rank: Map<string, DictionaryPreference>,
+    matchesRules: LookupCandidateRuleMatcher,
+): void {
+    for (const [rulesKey, rules] of candidateRules) {
+        if (!matchesRules(entry.rules, rules)) continue;
+        retainBetterTermEntry(rulesKey, entry, bestEntryByRules, rank);
+    }
+}
+
+function retainBetterTermEntry(
+    rulesKey: string,
+    entry: YomitanTermEntry,
+    bestEntryByRules: Map<string, YomitanTermEntry>,
+    rank: Map<string, DictionaryPreference>,
+): void {
+    const current = bestEntryByRules.get(rulesKey);
+    if (current && compareTermMatchEntries(entry, current, rank) >= 0) return;
+    bestEntryByRules.set(rulesKey, entry);
 }
 
 export function termMatchesForEntries(
@@ -120,27 +275,34 @@ export function termMatchesForEntries(
     candidates: TermMatchCandidates,
     rank: Map<string, DictionaryPreference>,
 ): YomitanTermMatch[] {
-    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
-    if (!entries.length) return [];
-    return (candidates.get(expression) ?? [])
-        .map(position => termMatchForPosition(position, entries))
-        .filter((match): match is YomitanTermMatch => Boolean(match));
+    const collector = createTermMatchEntryCollector(expression, candidates, rank);
+    for (const entry of foundEntries) collector.add(entry);
+    return collector.matches();
 }
 
-function deduplicateTermMatchEntries(entries: YomitanTermEntry[]): YomitanTermEntry[] {
-    const seen = new Set<string>();
-    return entries.filter(item => {
-        const key = `${item.id ?? ''}\n${item.dictionary}\n${item.expression}\n${item.reading}\n${item.sequence ?? ''}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
+function distinctCandidateRules(
+    positions: readonly TermMatchCandidatePosition[],
+): Map<string, readonly string[]> {
+    const result = new Map<string, readonly string[]>();
+    for (const position of positions) {
+        const rules = position.deinflected.rules;
+        const key = candidateRulesKey(rules);
+        if (!result.has(key)) result.set(key, rules);
+    }
+    return result;
 }
 
-function sortTermMatchEntries(entries: YomitanTermEntry[], rank: Map<string, DictionaryPreference>): YomitanTermEntry[] {
-    return entries
-        .filter(item => dictionaryEnabled(item.dictionary, rank))
-        .sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+function candidateRulesKey(rules: readonly string[]): string {
+    return rules.join('\u0000');
+}
+
+function compareTermMatchEntries(
+    a: YomitanTermEntry,
+    b: YomitanTermEntry,
+    rank: Map<string, DictionaryPreference>,
+): number {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)
+        || (b.score ?? 0) - (a.score ?? 0);
 }
 
 export function rankedDictionaryEntries<T extends RankedDictionaryEntry>(
@@ -155,16 +317,10 @@ export function rankedDictionaryEntries<T extends RankedDictionaryEntry>(
     return limit === undefined ? ranked : ranked.slice(0, limit);
 }
 
-function termMatchForPosition(position: TermMatchCandidatePosition, entries: YomitanTermEntry[]): YomitanTermMatch | null {
-    // Rule tags are the target's own vocabulary — Japanese knows `v5m` is a
-    // kind of `v5`, and nothing else does — so the engine asks the target
-    // whether an entry answers a candidate instead of comparing tags itself.
-    const entry = entries.find(item => targetLookupCandidateRulesMatch(item.rules, position.deinflected.rules));
-    return entry
-        ? {
-            entry,
-            ...position,
-            deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
-        }
-        : null;
+function termMatchForEntry(position: TermMatchCandidatePosition, entry: YomitanTermEntry): YomitanTermMatch {
+    return {
+        entry,
+        ...position,
+        deinflected: position.deinflected.depth > 0 ? position.deinflected : undefined,
+    };
 }

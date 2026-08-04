@@ -27,6 +27,13 @@ describe('smoke script wiring', () => {
             .toContain('npm run smoke:subtitle-furigana-outline');
     });
 
+    it('gates releases on the cross-engine parser glyph identity sweep', () => {
+        expect(PACKAGE.scripts['smoke:parser-glyph-identity'])
+            .toBe('node scripts/parser-glyph-identity-smoke.mjs');
+        expect(PACKAGE.scripts['smoke:release'])
+            .toContain('npm run smoke:parser-glyph-identity');
+    });
+
     it('keeps every link of the CI chain a self-contained scripts/ entry point', () => {
         const chain = PACKAGE.scripts['smoke:layout-regressions'].split('&&')
             .map(part => part.trim().replace(/^npm run /, ''));

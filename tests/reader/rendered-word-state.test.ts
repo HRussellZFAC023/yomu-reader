@@ -1,15 +1,37 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import { kanaRunRenderedWordsForSurface } from '../../src/reader/main/rendered-word-lookup';
 import type { JPDBCard } from '../../src/reader/app/types';
 import { renderTokensToHtml } from '../../src/reader/dom/index';
 import {
     applyLocalYomuSrsStateToRenderedWord,
+    fallbackVocabularySpanCacheKey,
     refreshRenderedMiningInsights,
+    renderedFallbackVocabularyCacheKey,
     setRenderedWordCardIdentity,
 } from '../../src/reader/dom/rendered-word-state';
 
 describe('rendered word card identity', () => {
+    it('keeps fallback resolution cache identities occurrence-scoped', () => {
+        const card = renderedWordCard({
+            vid: -7,
+            sid: -7,
+            spelling: '優しい言葉',
+            reading: '',
+            source: 'fallback',
+        });
+        const first = fallbackVocabularySpanCacheKey(card, { start: 0, end: 5 });
+        const second = fallbackVocabularySpanCacheKey(card, { start: 8, end: 13 });
+        expect(first).not.toBe(second);
+
+        const word = document.createElement('span');
+        word.dataset.vid = String(card.vid);
+        word.dataset.sid = String(card.sid);
+        word.dataset.expression = card.spelling;
+        word.dataset.tokenStart = '8';
+        word.dataset.tokenEnd = '13';
+        expect(renderedFallbackVocabularyCacheKey(word)).toBe(second);
+    });
+
     it('replaces stale fallback metadata when a word resolves to a Jiten card', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-not-in-deck fallback-not-in-deck jpdb-pitch-atamadaka';
@@ -373,55 +395,3 @@ function renderedWordCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         ...overrides,
     };
 }
-
-describe('kana-run rendered-word identity (P0 parity)', () => {
-    function renderRun(parts: string[]): HTMLElement[] {
-        document.body.innerHTML = '';
-        return parts.map(text => {
-            const span = document.createElement('span');
-            span.className = 'jpdb-reader-word';
-            span.textContent = text;
-            document.body.append(span);
-            return span;
-        });
-    }
-
-    it('finds the contiguous fragment run covering the resolved surface around the anchor', () => {
-        const [ni, hon, go] = renderRun(['に', 'ほん', 'ご']);
-        expect(kanaRunRenderedWordsForSurface(hon!, 'にほんご')).toEqual([ni, hon, go]);
-        expect(kanaRunRenderedWordsForSurface(go!, 'ほんご')).toEqual([hon, go]);
-    });
-
-    it('finds isolated OCR kana runs from their rendered surface metadata', () => {
-        const [ni, hon, go] = renderRun(['に', 'ほん', 'ご']);
-        [ni, hon, go].forEach(word => {
-            word.dataset.surface = word.textContent ?? '';
-            word.replaceChildren();
-        });
-
-        expect(ni.textContent).toBe('');
-        expect(hon.textContent).toBe('');
-        expect(go.textContent).toBe('');
-        expect(kanaRunRenderedWordsForSurface(hon!, 'にほんご')).toEqual([ni, hon, go]);
-    });
-
-    it('fails closed when the surface does not match or excludes the anchor', () => {
-        const [ni, , go] = renderRun(['に', 'ほん', 'ご']);
-        expect(kanaRunRenderedWordsForSurface(ni!, 'ほんご')).toEqual([]);
-        expect(kanaRunRenderedWordsForSurface(go!, 'にほmost')).toEqual([]);
-    });
-
-    it('stops at non-word siblings and strips ruby annotations', () => {
-        document.body.innerHTML = '';
-        const plain = document.createElement('b');
-        plain.textContent = 'x';
-        const word = document.createElement('span');
-        word.className = 'jpdb-reader-word';
-        word.innerHTML = '<ruby>ほん<rt>ホン</rt></ruby>';
-        const tail = document.createElement('span');
-        tail.className = 'jpdb-reader-word';
-        tail.textContent = 'ご';
-        document.body.append(plain, word, tail);
-        expect(kanaRunRenderedWordsForSurface(word, 'ほんご')).toEqual([word, tail]);
-    });
-});

@@ -79,11 +79,19 @@ export class LateCardReconciliation {
         };
     }
 
-    repaint(fallback: JPDBCard, card: JPDBCard, pitchClass: string): ParentNode[] {
+    repaint(
+        fallback: JPDBCard,
+        card: JPDBCard,
+        pitchClass: string,
+        span?: Pick<JPDBToken, 'start' | 'end'>,
+    ): ParentNode[] {
         const changedRoots = new Set<ParentNode>();
         const geometryRoots = new Set<ParentNode>();
         // Resolve every sentence scope before mutating identity or ruby geometry.
         const targets = this.dependencies.renderedWordsForCardStateRepaint(fallback)
+            .filter(word => !span
+                || (Number(word.dataset.tokenStart) === span.start
+                    && Number(word.dataset.tokenEnd) === span.end))
             .map(word => ({ word, root: this.dependencies.annotationRoot(word) }));
         this.dependencies.pauseMutationObserver(() => {
             targets.forEach(({ word, root }) => {

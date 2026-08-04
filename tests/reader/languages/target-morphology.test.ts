@@ -115,12 +115,45 @@ describe('morphology is a contract member, not a Japanese import', () => {
         expect(lemma?.rules).toContain('v1');
     });
 
+    it('carries grammatical conditions across every deinflection step', () => {
+        const impossibleVerbChain = deinflectJapaneseTerm('食べましたい');
+        expect(impossibleVerbChain.map(candidate => candidate.term)).not.toContain('食べる');
+
+        const impossibleAdjectiveChain = deinflectJapaneseTerm('高かった');
+        expect(impossibleAdjectiveChain.map(candidate => candidate.term)).toContain('高い');
+        expect(impossibleAdjectiveChain.map(candidate => candidate.term)).not.toContain('高う');
+
+        const shallow = deinflectJapaneseTerm('読みました')
+            .filter(candidate => candidate.term === '読む');
+        expect(shallow).toHaveLength(1);
+        expect(shallow[0]).toMatchObject({
+            rules: ['v5m', 'v5'],
+            reasons: ['polite past'],
+            depth: 1,
+        });
+
+        // With the intermediate conditions sound, a real chain is no longer
+        // cut off at the old arbitrary depth of two.
+        expect(deinflectJapaneseTerm('読ませられました'))
+            .toContainEqual(expect.objectContaining({
+                term: '読む',
+                rules: ['v5m', 'v5'],
+                reasons: ['polite past', 'potential/passive', 'causative'],
+                depth: 3,
+            }));
+    });
+
     it('exposes the JMdict rule-tag semantics through the target, not the engine', () => {
         expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('v5m vt', ['v5m', 'v5'])).toBe(true);
         expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('', ['v5m', 'v5'])).toBe(false);
         // The Japanese-only families: v5m is a kind of v5, adj-i and i-adj are one tag.
         expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('v5', ['v5m'])).toBe(true);
         expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('adj-i', ['i-adj'])).toBe(true);
+        // A candidate's generic v5 fallback may answer a generic dictionary
+        // tag, but it must not erase a contradictory specific godan class.
+        expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('v5s', ['v5m', 'v5'])).toBe(false);
+        expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('v5k-s', ['v5k', 'v5'])).toBe(true);
+        expect(JAPANESE_LEARNING_TARGET.matchesLookupCandidateRules('v5aru', ['v5r', 'v5'])).toBe(true);
 
         // Byte-for-byte the primitive the engine used to call directly.
         const cases: Array<[string | undefined, string[]]> = [
@@ -220,10 +253,9 @@ describe('the generic Yomitan layer consumes contract output unchanged', () => {
     it('matches a contract candidate against a JMdict entry and keeps its depth', () => {
         const matches = termMatchesForEntries('読む', [entry()], candidatesFor('読みました'), rank);
 
-        // 読みました reaches 読む by two routes — one polite-past step, or past
-        // then polite — and the engine sees both, each carrying the depth the
-        // contract gave it.
-        expect(matches.map(match => match.deinflected?.depth)).toEqual([1, 2]);
+        // The direct polite-past rule is valid. The old past-then-polite route
+        // reinterpreted a v5s intermediate as v5m and must not survive.
+        expect(matches.map(match => match.deinflected?.depth)).toEqual([1]);
         expect(matches.every(match => match.surface === '読みました')).toBe(true);
         expect(matches.every(match => match.deinflected?.term === '読む')).toBe(true);
         expect(matches[0]?.deinflected?.reasons).toEqual(['polite past']);
@@ -236,11 +268,34 @@ describe('the generic Yomitan layer consumes contract output unchanged', () => {
         expect(matches).toEqual([]);
     });
 
+    it('does not collapse distinct id-less rows before checking their rules', () => {
+        const matches = termMatchesForEntries(
+            '読む',
+            [entry({ rules: 'v1' }), entry({ rules: 'v5m', glossary: ['to read, compatible row'] })],
+            candidatesFor('読みました'),
+            rank,
+        );
+
+        expect(matches).toHaveLength(1);
+        expect(matches[0]?.entry).toMatchObject({ rules: 'v5m', glossary: ['to read, compatible row'] });
+    });
+
     it('lets the engine rank on the depth the contract supplied', () => {
+        const candidates = candidatesFor('読みました');
+        const shallowPosition = candidates.get('読む')?.[0];
+        expect(shallowPosition).toBeDefined();
+        candidates.get('読む')?.push({
+            ...shallowPosition!,
+            deinflected: {
+                ...shallowPosition!.deinflected,
+                reasons: [...shallowPosition!.deinflected.reasons, 'test outer form'],
+                depth: 3,
+            },
+        });
         const matches: YomitanTermMatch[] = termMatchesForEntries(
             '読む',
             [entry()],
-            candidatesFor('読みました'),
+            candidates,
             rank,
         );
         const shallow = matches.find(match => match.deinflected?.depth === 1);

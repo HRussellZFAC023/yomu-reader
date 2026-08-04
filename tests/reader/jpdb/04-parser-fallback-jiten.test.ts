@@ -77,7 +77,7 @@ describe('reader helpers', () => {
         expect(findTermMatches).not.toHaveBeenCalled();
     });
 
-    it('prefers an inflected fallback span over a shorter overlapping local match', async () => {
+    it('never lets an inflected fallback span replace a narrower dictionary-confirmed match', async () => {
         const findTermMatches = vi.fn().mockResolvedValue([{
             entry: {
                 id: 1,
@@ -100,9 +100,65 @@ describe('reader helpers', () => {
         ], async parser => {
             const [tokens] = await parser.parse(['分かりません'], { allowSegmentedFallback: true });
 
-            expect(tokens.map(token => token.card.spelling)).toEqual(['分かりません']);
-            expect(tokens[0]?.card.source).toBe('fallback');
-            expect(tokens[0]?.card.fallbackLookupTerms).toContain('分かる');
+            expect(tokens.map(token => token.card.spelling)).toEqual(['分', 'かりません']);
+            expect(tokens[0]?.card.source).toBe('local');
+            expect(tokens[0]).toMatchObject({ start: 0, end: 1 });
+            expect(tokens[1]).toMatchObject({ start: 1, end: 6 });
+        }, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches } as never,
+        });
+    });
+
+    it('keeps adjacent dictionary spans when a broader fallback crosses both', async () => {
+        const findTermMatches = vi.fn().mockResolvedValue([
+            {
+                entry: {
+                    id: 1,
+                    sequence: 1,
+                    expression: '優しい',
+                    reading: 'やさしい',
+                    rules: 'adj-i',
+                    glossary: ['kind'],
+                    dictionary: 'Local',
+                },
+                start: 0,
+                end: 3,
+                surface: '優しい',
+            },
+            {
+                entry: {
+                    id: 2,
+                    sequence: 2,
+                    expression: '言葉',
+                    reading: 'ことば',
+                    rules: 'n',
+                    glossary: ['word'],
+                    dictionary: 'Local',
+                },
+                start: 3,
+                end: 5,
+                surface: '言葉',
+            },
+        ]);
+        await withFakeSegmenter([
+            { segment: '優しい言葉', index: 0, isWordLike: true },
+            { segment: 'を', index: 5, isWordLike: true },
+            { segment: 'かけた', index: 6, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse(['優しい言葉をかけた'], { allowSegmentedFallback: true });
+
+            expect(tokens.slice(0, 2).map(token => ({
+                spelling: token.card.spelling,
+                source: token.card.source,
+                start: token.start,
+                end: token.end,
+            }))).toEqual([
+                { spelling: '優しい', source: 'local', start: 0, end: 3 },
+                { spelling: '言葉', source: 'local', start: 3, end: 5 },
+            ]);
+            expect(tokens.every((token, index) => index === 0 || tokens[index - 1].end <= token.start)).toBe(true);
         }, {
             getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true }),
             jpdb: {} as never,

@@ -1,4 +1,4 @@
-import type { JPDBCard } from '../app/types';
+import type { JPDBCard, JPDBToken } from '../app/types';
 import { cardDeckMembership, cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { primaryCardState } from '../cards/state';
 import { pitchComponentUnderlineGradient } from '../lookup/pitch-components';
@@ -113,7 +113,30 @@ export function renderedFallbackVocabularyCacheKey(word: HTMLElement): string {
     const vid = Number(word.dataset.vid);
     const sid = Number(word.dataset.sid);
     const spelling = word.dataset.expression?.trim() ?? '';
-    return Number.isFinite(vid) && Number.isFinite(sid) && spelling ? `${vid}:${sid}:${spelling}:` : '';
+    const start = Number(word.dataset.tokenStart);
+    const end = Number(word.dataset.tokenEnd);
+    return Number.isFinite(vid) && Number.isFinite(sid) && spelling
+        && Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end > start
+        ? fallbackVocabularySpanCacheKeyParts(vid, sid, spelling, '', start, end)
+        : '';
+}
+
+export function fallbackVocabularySpanCacheKey(
+    card: Pick<JPDBCard, 'vid' | 'sid' | 'spelling' | 'reading'>,
+    span: Pick<JPDBToken, 'start' | 'end'>,
+): string {
+    return fallbackVocabularySpanCacheKeyParts(card.vid, card.sid, card.spelling, card.reading, span.start, span.end);
+}
+
+function fallbackVocabularySpanCacheKeyParts(
+    vid: number,
+    sid: number,
+    spelling: string,
+    reading: string,
+    start: number,
+    end: number,
+): string {
+    return `${vid}:${sid}:${spelling}:${reading}:${start}:${end}`;
 }
 
 export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string): void {

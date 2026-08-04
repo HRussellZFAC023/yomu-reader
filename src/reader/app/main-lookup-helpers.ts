@@ -3,8 +3,6 @@
 import { cardKey } from '../cards/utils';
 import { type ReaderParserParseOptions } from '../lookup/parser';
 import { contextPitchPattern } from '../lookup/pitch-accent';
-import { type PointerTextSpanCandidate } from '../lookup/pointer-text-lookup';
-import { normalizedLookupText } from '../lookup/text-helpers';
 import { cardPronunciationReading } from '../popup/pitch';
 import { PITCH_ENRICHMENT_LIMIT, isYouTubeHostname, type PitchEnrichmentOptions } from './main-helpers';
 import { JPDBCard, JPDBToken, ReaderSettings } from './types';
@@ -133,32 +131,6 @@ export function isHydratablePublicJitenCard(card: JPDBCard): boolean {
         && Number.isFinite(card.jitenWordId ?? card.vid)
         && Number.isFinite(card.jitenReadingIndex ?? card.sid)
         && (!card.reading || !card.pitchAccent.length || !card.wordWithReading || !card.meanings.length);
-}
-
-export function uniquePointerTextSpans(spans: PointerTextSpanCandidate[]): PointerTextSpanCandidate[] {
-    const seen = new Set<string>();
-    return spans.filter(span => {
-        const key = `${span.term}\n${span.start}\n${span.end}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-    });
-}
-
-export function pointerSpanForResolvedCard(text: string, offset: number, span: PointerTextSpanCandidate, card: JPDBCard): PointerTextSpanCandidate {
-    const surface = normalizedLookupText(text.slice(span.start, span.end));
-    if (!surface) return span;
-    const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText).filter(Boolean))]
-        .sort((first, second) => second.length - first.length);
-    for (const value of values) {
-        const relativeStart = surface.indexOf(value);
-        if (relativeStart < 0) continue;
-        const start = span.start + relativeStart;
-        const end = start + value.length;
-        if (offset < start || offset >= end) continue;
-        return { ...span, start, end };
-    }
-    return span;
 }
 
 // "Has pitch" for enrichment means a pattern that actually fits the card's

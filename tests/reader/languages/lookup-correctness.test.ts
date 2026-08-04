@@ -20,7 +20,13 @@ import {
     normalizeImportedLookupTerm,
 } from '../../../src/reader/languages/lookup-normalization';
 import { learningTargetModuleFor } from '../../../src/reader/languages/registry';
-import { jpdbPointerLookupCandidates } from '../../../src/reader/lookup/pointer-text-lookup';
+import type { LearningTargetModule } from '../../../src/reader/languages/types';
+import type {
+    YomitanExactTermCandidateRequest,
+    YomitanTermEntry,
+} from '../../../src/reader/dictionaries/yomitan';
+import { ReaderParser } from '../../../src/reader/lookup/parser';
+import { DEFAULT_SETTINGS } from '../../../src/reader/settings';
 
 afterEach(() => {
     resetActiveLearningTargetLanguage();
@@ -37,6 +43,44 @@ function genericTarget(language: string) {
             readingAnnotation: 'none',
         },
         detectsText: /\S/u,
+    });
+}
+
+function exactLookupParser(terms: readonly string[]): ReaderParser {
+    const entries: YomitanTermEntry[] = terms.map(term => ({
+        expression: term,
+        reading: term,
+        glossary: [`definition of ${term}`],
+        dictionary: 'Lookup correctness fixture',
+    }));
+    return new ReaderParser({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            parserProvider: 'local',
+            localDictionariesEnabled: true,
+            showPitchAccent: false,
+        }),
+        jpdb: {} as never,
+        dictionaries: {
+            hasTermDictionaries: async () => true,
+            findTermMatches: async () => [],
+            lookupExactTermCandidates: async (
+                requests: readonly YomitanExactTermCandidateRequest[],
+                _preferences: unknown,
+                target: LearningTargetModule,
+            ) => requests.flatMap((request, requestIndex) => {
+                const term = target.normalizeText(request.lookupCandidate.term);
+                const entry = entries.find(candidate => (
+                    target.normalizeText(candidate.expression) === term
+                    || target.normalizeText(candidate.reading) === term
+                ));
+                return entry ? [{ request, requestIndex, entry }] : [];
+            }),
+            lookupTermMeta: async () => [],
+            lookupKanji: async () => [],
+        } as never,
     });
 }
 
@@ -136,39 +180,34 @@ describe('bounded generic lookup candidates', () => {
         }
     });
 
-    it('enables a bounded subsegment sweep only for the Korean target', () => {
+    it('keeps target boundary policy while the parser chooses the longest dictionary-confirmed Korean span', async () => {
         expect(learningTargetModuleFor('ko')?.lookupStartsAtSegmentBoundary).toBe(false);
         expect(learningTargetModuleFor('es')?.lookupStartsAtSegmentBoundary).toBe(true);
         expect(learningTargetModuleFor('ru')?.lookupStartsAtSegmentBoundary).toBe(true);
 
         setActiveLearningTargetLanguage('ko');
-        expect(jpdbPointerLookupCandidates('학생이', 0).map(candidate => candidate.term))
-            .toEqual(['학생이', '학생']);
-        expect(jpdbPointerLookupCandidates('학생이', 2).map(candidate => candidate.term))
-            .toEqual(['학생이']);
-        expect(jpdbPointerLookupCandidates('학생', 0).map(candidate => candidate.term))
-            .toEqual(['학생']);
+        const parser = exactLookupParser(['학생이', '학생']);
+        const leading = await parser.lookupTokenAt('학생이', 0);
+        const particleGlyph = await parser.lookupTokenAt('학생이', 2);
+        const shorter = await parser.lookupTokenAt('학생', 0);
+
+        expect(leading).toMatchObject({ start: 0, end: 3, card: { spelling: '학생이' } });
+        expect(particleGlyph).toMatchObject({ start: 0, end: 3, card: { spelling: '학생이' } });
+        expect(shorter).toMatchObject({ start: 0, end: 2, card: { spelling: '학생' } });
     });
 
-    it('builds longest-first Han pointer candidates on code-point boundaries', () => {
+    it('resolves Han dictionary spans on code-point boundaries at the pointed glyph', async () => {
         setActiveLearningTargetLanguage('yue');
-        const candidates = jpdbPointerLookupCandidates('我鍾意𡃁', 1);
-
-        expect(candidates[0]).toEqual({ term: '我鍾意𡃁', start: 0, end: 5 });
-        expect(candidates).toContainEqual({ term: '鍾意', start: 1, end: 3 });
-        expect(candidates.every(candidate => Array.from(candidate.term).every(character => {
-            const codePoint = character.codePointAt(0) ?? 0;
-            return codePoint < 0xd800 || codePoint > 0xdfff;
-        }))).toBe(true);
-
-        const supplementary = jpdbPointerLookupCandidates('我𡃁好', 2);
-        expect(supplementary[0]).toEqual({ term: '我𡃁好', start: 0, end: 4 });
-        expect(supplementary).toContainEqual({ term: '𡃁', start: 1, end: 3 });
+        const parser = exactLookupParser(['鍾意', '𡃁', '地玄']);
+        const love = await parser.lookupTokenAt('我鍾意𡃁', 1);
+        const supplementary = await parser.lookupTokenAt('我𡃁好', 2);
 
         const longRun = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
-        const exhaustive = jpdbPointerLookupCandidates(longRun, 1);
-        expect(exhaustive.length).toBeGreaterThan(24);
-        expect(exhaustive).toContainEqual({ term: '地玄', start: 1, end: 3 });
-        expect(exhaustive).toContainEqual({ term: '地', start: 1, end: 2 });
+        const middle = await parser.lookupTokenAt(longRun, 1);
+
+        expect(love).toMatchObject({ start: 1, end: 3, card: { spelling: '鍾意' } });
+        expect(supplementary).toMatchObject({ start: 1, end: 3, card: { spelling: '𡃁' } });
+        expect('我𡃁好'.slice(supplementary!.start, supplementary!.end)).toBe('𡃁');
+        expect(middle).toMatchObject({ start: 1, end: 3, card: { spelling: '地玄' } });
     });
 });

@@ -122,7 +122,10 @@ function setupPointerKanaRunLookup({
 }
 
 function expectPublicKanaLookupShown(internals: PointerLookupInternals, shownCards: JPDBCard[], jpdbCard: JPDBCard): void {
-    expect(internals.jitenPublicVocabulary.lookupMany).toHaveBeenCalledWith(expect.arrayContaining(['にほんご']));
+    expect(internals.jitenPublicVocabulary.lookupMany).toHaveBeenCalledWith(
+        expect.arrayContaining(['にほんご']),
+        expect.anything(),
+    );
     expect(internals.publicLookupCard).not.toHaveBeenCalled();
     expect(shownCards).toEqual([jpdbCard]);
 }

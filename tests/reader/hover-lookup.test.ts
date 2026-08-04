@@ -33,7 +33,15 @@ interface HoverLookupInternals {
     };
     lastPointerPosition?: { x: number; y: number };
     hoverPopoverPointerPosition?: { x: number; y: number };
-    parser: { cacheCards(cards: JPDBCard[]): void };
+    parser: {
+        cacheCards(cards: JPDBCard[]): void;
+        lookupTokenAt?(
+            text: string,
+            offset: number,
+            range: { start: number; end: number },
+            options?: unknown,
+        ): Promise<JPDBToken | undefined>;
+    };
     stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
     pressLookup?: {
         pointerId: number;
@@ -53,6 +61,19 @@ interface HoverLookupInternals {
     pauseForSubtitleSurfaceTap(event: MouseEvent): boolean;
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent, options?: { minimumDelayMs?: number }): void;
     schedulePointerTextLookup(candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement }, event: PointerEvent, options?: { minimumDelayMs?: number }): void;
+    showPointerTextCard(
+        card: JPDBCard,
+        sentence: string,
+        candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
+        range: { start: number; end: number },
+        trigger: 'modal' | 'hover',
+        options: Record<string, unknown>,
+    ): Promise<void>;
+    showLookupCandidate(
+        candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
+        trigger: 'modal' | 'hover',
+        options?: Record<string, unknown>,
+    ): Promise<void>;
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     pinHoverPopoverForInsidePointer(event: PointerEvent): void;
@@ -1008,7 +1029,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('uses fast initial render for clicked subtitle words on desktop', () => {
+    it('routes the clicked subtitle glyph through parser-owned pointer geometry', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;
         const overlay = document.createElement('div');
@@ -1016,10 +1037,13 @@ describe('hover lookup', () => {
         overlay.innerHTML = '<div class="jpdb-subtitle-text"><span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span></div>';
         document.body.append(overlay);
         const word = overlay.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        word.dataset.tokenStart = '3';
+        word.dataset.tokenEnd = '5';
+        word.getBoundingClientRect = () => new DOMRect(0, 0, 48, 48);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const controller = new AbortController();
         internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         document.addEventListener('click', event => internals.handleDocumentClick(event), { capture: true, signal: controller.signal });
 
         try {
@@ -1030,11 +1054,17 @@ describe('hover lookup', () => {
                 clientY: 24,
             }));
 
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-                fastInitialRender: true,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: '今日は読む',
+                    offset: 4,
+                    start: 0,
+                    end: 5,
+                    anchor: word,
+                }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
         } finally {
             controller.abort();
             cleanupReaderApp(app);
@@ -1849,8 +1879,11 @@ describe('hover lookup', () => {
         const secondWord = readerWordFixture('静かな喫茶店', '静か');
         secondWord.dataset.vid = '3';
         secondWord.dataset.sid = '4';
+        secondWord.dataset.tokenStart = '0';
+        secondWord.dataset.tokenEnd = '2';
+        secondWord.getBoundingClientRect = () => new DOMRect(0, 0, 80, 48);
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const restorePoint = stubElementFromPoint(secondWord);
         const restoreStack = stubElementsFromPoint([secondWord]);
 
@@ -1860,7 +1893,7 @@ describe('hover lookup', () => {
             hoverOpenDelayMs: 80,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.lastPointerPosition = { x: 40, y: 24 };
 
         try {
@@ -1869,14 +1902,21 @@ describe('hover lookup', () => {
             internals.handleHoverPointerOut(hoverPointerEvent(firstWord, 'mouse', 'pointerout', {}, secondWord));
             internals.scheduleHoverLookup(secondWord, hoverPointerEvent(secondWord, 'mouse', 'pointermove'));
             await vi.advanceTimersByTimeAsync(49);
-            expect(showWord).not.toHaveBeenCalled();
+            expect(showLookupCandidate).not.toHaveBeenCalled();
 
             await vi.advanceTimersByTimeAsync(1);
 
-            expect(showWord).toHaveBeenCalledTimes(1);
-            expect(showWord).toHaveBeenCalledWith(
-                secondWord,
-                expect.objectContaining({ trigger: 'hover', hoverLookupGeneration: 1 }),
+            expect(showLookupCandidate).toHaveBeenCalledTimes(1);
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: '静かな喫茶店',
+                    offset: 1,
+                    start: 0,
+                    end: 6,
+                    anchor: secondWord,
+                }),
+                'hover',
+                expect.objectContaining({ hoverLookupGeneration: 1 }),
             );
         } finally {
             restorePoint();
@@ -1898,9 +1938,11 @@ describe('hover lookup', () => {
         const liveWord = readerWordFixture(NHK_ISSUE_48_SENTENCE, liveSurface);
         liveWord.dataset.vid = '9';
         liveWord.dataset.sid = '9';
+        const liveStart = NHK_ISSUE_48_SENTENCE.indexOf(liveSurface);
+        liveWord.getBoundingClientRect = () => new DOMRect(0, 0, 220, 48);
         document.body.append(source);
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         let wordAtPoint = staleWord;
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -1908,7 +1950,7 @@ describe('hover lookup', () => {
             hoverOpenDelayMs: 80,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.readerWordFromRenderedGeometry = vi.fn(() => wordAtPoint);
         const restorePoint = stubElementFromPoint(source);
         const restoreStack = stubElementsFromPoint([source]);
@@ -1918,14 +1960,19 @@ describe('hover lookup', () => {
             await vi.advanceTimersByTimeAsync(30);
             wordAtPoint = liveWord;
             internals.handleHoverPointer(hoverPointerEvent(source, 'mouse', 'pointermove', {}, null, { x: 180, y: 24 }));
+            // The scheduled hover owns timing; lexical geometry is recovered from
+            // the word that is actually under the pointer when that timer fires.
+            liveWord.dataset.tokenStart = String(liveStart);
+            liveWord.dataset.tokenEnd = String(liveStart + liveSurface.length);
             await vi.advanceTimersByTimeAsync(50);
 
-            expect(showWord).toHaveBeenCalledTimes(1);
-            expect(showWord).toHaveBeenCalledWith(
-                liveWord,
-                expect.objectContaining({ trigger: 'hover' }),
+            expect(showLookupCandidate).toHaveBeenCalledTimes(1);
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ anchor: liveWord }),
+                'hover',
+                expect.any(Object),
             );
-            expect(showWord).not.toHaveBeenCalledWith(staleWord, expect.anything());
+            expect(showLookupCandidate.mock.calls.some(([candidate]) => candidate.anchor === staleWord)).toBe(false);
         } finally {
             restoreStack();
             restorePoint();
@@ -1934,7 +1981,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('selects each exact word inside an unstamped overbroad OCR token', () => {
+    it('passes each exact glyph and the full geometry run for an unstamped OCR token', () => {
         const app = new ReaderApp();
         const layer = document.createElement('div');
         layer.className = 'jpdb-ocr-layer';
@@ -1979,10 +2026,10 @@ describe('hover lookup', () => {
             expect(line.querySelectorAll('.jpdb-reader-word')).toHaveLength(1);
             expect(broadWord.dataset.cardSource).toBeUndefined();
             for (const target of [
-                { characterOffset: 1, start: 4, end: 8 },
-                { characterOffset: 5, start: 8, end: 11 },
-                { characterOffset: 6, start: 8, end: 11 },
-                { characterOffset: 9, start: 11, end: 15 },
+                { characterOffset: 1 },
+                { characterOffset: 5 },
+                { characterOffset: 6 },
+                { characterOffset: 9 },
             ]) {
                 restoreCaret();
                 restoreCaret = stubCaretPositionFromPoint(broadText, target.characterOffset);
@@ -1998,8 +2045,8 @@ describe('hover lookup', () => {
                     expect.objectContaining({
                         text: NHK_ISSUE_48_SENTENCE,
                         offset: 4 + target.characterOffset,
-                        start: target.start,
-                        end: target.end,
+                        start: 4,
+                        end: 15,
                         anchor: broadWord,
                     }),
                     expect.any(Event),
@@ -2017,11 +2064,11 @@ describe('hover lookup', () => {
     });
 
     it.each([
-        { name: 'やさしい', characterOffset: 1, expectedStart: 4, expectedEnd: 8 },
-        { name: 'ことば middle', characterOffset: 5, expectedStart: 8, expectedEnd: 11 },
-        { name: 'ことば final ば', characterOffset: 6, expectedStart: 8, expectedEnd: 11 },
-        { name: 'ニュース', characterOffset: 9, expectedStart: 11, expectedEnd: 15 },
-    ])('uses the exact subtitle glyph for $name inside an overbroad rendered token', ({ characterOffset, expectedStart, expectedEnd }) => {
+        { name: 'やさしい', characterOffset: 1 },
+        { name: 'ことば middle', characterOffset: 5 },
+        { name: 'ことば final ば', characterOffset: 6 },
+        { name: 'ニュース', characterOffset: 9 },
+    ])('passes the exact subtitle glyph and full rendered run for $name', ({ characterOffset }) => {
         const app = new ReaderApp();
         const subtitleRoot = document.createElement('div');
         subtitleRoot.className = 'jpdb-subtitle-player';
@@ -2069,8 +2116,8 @@ describe('hover lookup', () => {
                 expect.objectContaining({
                     text: NHK_ISSUE_48_SENTENCE,
                     offset: 4 + characterOffset,
-                    start: expectedStart,
-                    end: expectedEnd,
+                    start: 4,
+                    end: 15,
                     anchor: broadWord,
                 }),
                 expect.any(Event),
@@ -2084,7 +2131,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('uses the exact normal-text point to split an overbroad やさしいことば mirror', () => {
+    it('passes the exact normal-text point without narrowing the geometry run', () => {
         const app = new ReaderApp();
         const source = document.createElement('p');
         source.textContent = NHK_ISSUE_48_SENTENCE;
@@ -2123,8 +2170,8 @@ describe('hover lookup', () => {
                 expect.objectContaining({
                     text: NHK_ISSUE_48_SENTENCE,
                     offset: 10,
-                    start: 8,
-                    end: 11,
+                    start: 4,
+                    end: 15,
                     anchor: source,
                 }),
                 expect.any(Event),
@@ -2138,7 +2185,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('keeps a trusted compound card whole when display segmentation finds smaller words', () => {
+    it('passes a trusted compound card through the same parser-owned pointer path', () => {
         const app = new ReaderApp();
         const compound = readerWordFixture('東京都立大学');
         compound.dataset.tokenStart = '0';
@@ -2171,8 +2218,18 @@ describe('hover lookup', () => {
                 { x: 110, y: 32 },
             ));
 
-            expect(scheduleHoverLookup).toHaveBeenCalledWith(compound, expect.any(Event));
-            expect(schedulePointerTextLookup).not.toHaveBeenCalled();
+            expect(schedulePointerTextLookup).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: '東京都立大学',
+                    offset: 4,
+                    start: 0,
+                    end: 6,
+                    anchor: compound,
+                }),
+                expect.any(Event),
+                expect.any(Object),
+            );
+            expect(scheduleHoverLookup).not.toHaveBeenCalled();
         } finally {
             restoreCaret();
             restoreStack();
@@ -2181,12 +2238,14 @@ describe('hover lookup', () => {
         }
     });
 
-    it('treats a hovered single-word OCR line frame as the parsed OCR word', () => {
+    it('routes a hovered single-word OCR line through parser-owned geometry', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '2';
         word.getBoundingClientRect = () => ({ left: 30, top: 20, right: 50, bottom: 30, width: 20, height: 10 } as DOMRect);
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const restoreElementFromPoint = stubElementFromPoint(line);
 
         internals.settings = {
@@ -2195,12 +2254,16 @@ describe('hover lookup', () => {
             lookupOnHover: true,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(line));
 
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '読む', offset: 1, start: 0, end: 2, anchor: word }),
+                'hover',
+                expect.any(Object),
+            );
         } finally {
             restoreElementFromPoint();
             cleanupReaderApp(app);
@@ -2210,12 +2273,20 @@ describe('hover lookup', () => {
     it('auto-plays hover audio for OCR image words resolved from line geometry', async () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '2';
         word.getBoundingClientRect = () => ({ left: 30, top: 20, right: 50, bottom: 30, width: 20, height: 10 } as DOMRect);
         const internals = app as unknown as HoverLookupInternals;
-        const parser = internals.parser as typeof internals.parser & {
-            getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+        const token: JPDBToken = {
+            card: HOVER_LOOKUP_CARD,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '読む',
         };
-        const getCachedCard = vi.spyOn(parser, 'getCachedCard').mockReturnValue(HOVER_LOOKUP_CARD);
+        const lookupTokenAt = vi.fn(async () => token);
         const playTermAudio = vi.fn();
         const showCard = vi.fn(async (
             card: JPDBCard,
@@ -2252,22 +2323,27 @@ describe('hover lookup', () => {
         };
         internals.audioActions = { playTermAudio };
         internals.preloadHoverWordAudio = vi.fn();
+        internals.parser = { cacheCards: vi.fn(), lookupTokenAt };
         internals.showCard = showCard;
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(line));
-            await Promise.resolve();
+            await vi.waitFor(() => expect(lookupTokenAt).toHaveBeenCalledWith(
+                '読む',
+                1,
+                { start: 0, end: 2 },
+                expect.any(Object),
+            ));
 
-            expect(getCachedCard).toHaveBeenCalledWith(1, 2);
-            expect(showCard).toHaveBeenCalledWith(
+            await vi.waitFor(() => expect(showCard).toHaveBeenCalledWith(
                 HOVER_LOOKUP_CARD,
                 '読む',
                 word,
                 expect.objectContaining({
                     trigger: 'hover',
-                    hoverLookupKey: 'word:1:2:読む',
+                    pointerTextLookup: expect.objectContaining({ text: '読む', start: 0, end: 2 }),
                 }),
-            );
+            ));
             expect(playTermAudio).toHaveBeenCalledWith(
                 HOVER_LOOKUP_CARD,
                 expect.objectContaining({
@@ -2322,8 +2398,10 @@ describe('hover lookup', () => {
         });
         const app = new ReaderApp();
         const { overlay, word } = passiveButtonWordFixture();
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '3';
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const restoreElementFromPoint = stubElementFromPoint(overlay);
         const restoreElementsFromPoint = stubElementsFromPoint([overlay, word]);
 
@@ -2333,12 +2411,16 @@ describe('hover lookup', () => {
             lookupOnHover: true,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(overlay));
 
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: 'もっと見る', offset: 1, start: 0, end: 5, anchor: word }),
+                'hover',
+                expect.any(Object),
+            );
         } finally {
             restoreElementFromPoint();
             restoreElementsFromPoint();
@@ -2387,8 +2469,10 @@ describe('hover lookup', () => {
         });
         const app = new ReaderApp();
         const { link, word } = passiveJpdbLinkWordFixture();
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '1';
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const restoreElementFromPoint = stubElementFromPoint(link);
         const restoreElementsFromPoint = stubElementsFromPoint([link]);
 
@@ -2398,12 +2482,16 @@ describe('hover lookup', () => {
             lookupOnHover: true,
             shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(link));
 
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '一', offset: 0, start: 0, end: 1, anchor: word }),
+                'hover',
+                expect.any(Object),
+            );
         } finally {
             restoreElementFromPoint();
             restoreElementsFromPoint();
@@ -2422,13 +2510,14 @@ describe('hover lookup', () => {
         const app = new ReaderApp();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const linkClick = vi.fn();
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
+        const restoreCaret = stubCaretPositionFromPoint(word.firstChild as Text, 0);
         const internals = app as unknown as HoverLookupInternals;
         internals.settings = {
             ...DEFAULT_SETTINGS,
             lookupOnClick: true,
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
         document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
 
@@ -2438,8 +2527,9 @@ describe('hover lookup', () => {
 
             expect(click.defaultPrevented).toBe(false);
             expect(linkClick).toHaveBeenCalledTimes(1);
-            expect(showWord).not.toHaveBeenCalled();
+            expect(showLookupCandidate).not.toHaveBeenCalled();
         } finally {
+            restoreCaret();
             cleanupReaderApp(app);
             vi.unstubAllGlobals();
         }
@@ -2456,13 +2546,14 @@ describe('hover lookup', () => {
         const app = new ReaderApp();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const linkClick = vi.fn();
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
+        const restoreCaret = stubCaretPositionFromPoint(word.firstChild as Text, 0);
         const internals = app as unknown as HoverLookupInternals;
         internals.settings = {
             ...DEFAULT_SETTINGS,
             lookupOnClick: true,
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
         document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
 
@@ -2470,10 +2561,11 @@ describe('hover lookup', () => {
             word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerdown'));
             vi.advanceTimersByTime(460);
 
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '【初見】', offset: 1, start: 1, end: 3, anchor: word }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
 
             word.dispatchEvent(hoverPointerEvent(word, 'touch', 'pointerup'));
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
@@ -2482,6 +2574,7 @@ describe('hover lookup', () => {
             expect(click.defaultPrevented).toBe(true);
             expect(linkClick).not.toHaveBeenCalled();
         } finally {
+            restoreCaret();
             vi.useRealTimers();
             cleanupReaderApp(app);
             vi.unstubAllGlobals();
@@ -2527,7 +2620,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('opens chatbot text-mirror words when the click target is the message host', () => {
+    it('resolves chatbot text-mirror clicks through parser-owned pointer geometry', async () => {
         document.body.innerHTML = `
             <section>
                 <div data-message-author-role="assistant">
@@ -2552,14 +2645,31 @@ describe('hover lookup', () => {
                 value: () => new DOMRect(36, 12, 48, 20),
             },
         });
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const sentence = '今日は日本語を勉強しました';
+        const lookupCard: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            spelling: '日本語',
+            reading: 'にほんご',
+        };
+        const token: JPDBToken = {
+            card: lookupCard,
+            start: 3,
+            end: 6,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence,
+        };
+        const lookupTokenAt = vi.fn(async () => token);
+        const showPointerTextCard = vi.fn(async () => undefined);
         const restoreElementsFromPoint = stubElementsFromPoint([host]);
         const internals = app as unknown as HoverLookupInternals;
         internals.settings = {
             ...DEFAULT_SETTINGS,
             lookupOnClick: true,
         };
-        internals.showWord = showWord;
+        internals.parser = { cacheCards: vi.fn(), lookupTokenAt };
+        internals.showPointerTextCard = showPointerTextCard;
         internals.bindEvents();
 
         try {
@@ -2567,10 +2677,26 @@ describe('hover lookup', () => {
             host.dispatchEvent(click);
 
             expect(click.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            await vi.waitFor(() => expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                3,
+                { start: 0, end: sentence.length },
+                expect.any(Object),
+            ));
+            await vi.waitFor(() => expect(showPointerTextCard).toHaveBeenCalledWith(
+                lookupCard,
+                sentence,
+                expect.objectContaining({
+                    text: sentence,
+                    offset: 3,
+                    start: 0,
+                    end: sentence.length,
+                    anchor: word,
+                }),
+                token,
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            ));
         } finally {
             restoreElementsFromPoint();
             cleanupReaderApp(app);
@@ -2585,13 +2711,15 @@ describe('hover lookup', () => {
         `;
         const app = new ReaderApp();
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        word.dataset.tokenEnd = '3';
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
+        const restoreCaret = stubCaretPositionFromPoint(word.firstChild as Text, 1);
         const internals = app as unknown as HoverLookupInternals;
         internals.settings = {
             ...DEFAULT_SETTINGS,
             lookupOnClick: true,
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
@@ -2599,11 +2727,13 @@ describe('hover lookup', () => {
             word.dispatchEvent(click);
 
             expect(click.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '日本語', offset: 1, start: 0, end: 3, anchor: word }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
         } finally {
+            restoreCaret();
             cleanupReaderApp(app);
         }
     });
@@ -2790,15 +2920,17 @@ describe('hover lookup', () => {
     it('treats a clicked single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '2';
         word.getBoundingClientRect = () => ({ left: 30, top: 20, right: 50, bottom: 30, width: 20, height: 10 } as DOMRect);
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
 
         internals.settings = {
             ...DEFAULT_SETTINGS,
             lookupOnClick: true,
         };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
@@ -2811,10 +2943,11 @@ describe('hover lookup', () => {
             line.dispatchEvent(event);
 
             expect(event.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '読む', offset: 1, start: 0, end: 2, anchor: word }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
         } finally {
             cleanupReaderApp(app);
         }
@@ -2991,7 +3124,7 @@ describe('hover lookup', () => {
         }
     });
 
-    it('opens the next word immediately while an existing hover card is active', () => {
+    it('routes the next parser-owned span while an existing hover card is active', () => {
         const app = new ReaderApp();
         const { firstWord, nextWord } = appendParsedWordPair();
         const popover = document.createElement('div');
@@ -2999,7 +3132,10 @@ describe('hover lookup', () => {
         document.body.append(popover);
 
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        nextWord.dataset.tokenStart = '0';
+        nextWord.dataset.tokenEnd = '1';
+        const schedulePointerTextLookup = vi.fn();
+        const restoreCaret = stubCaretPositionFromPoint(nextWord.firstChild as Text, 0);
         const restoreElementFromPoint = stubElementFromPoint(nextWord);
 
         internals.settings = {
@@ -3011,13 +3147,18 @@ describe('hover lookup', () => {
         internals.activePopover = popover;
         internals.activePopoverMode = 'hover';
         internals.activeHoverWord = firstWord;
-        internals.showWord = showWord;
+        internals.schedulePointerTextLookup = schedulePointerTextLookup;
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(nextWord));
 
-            expect(showWord).toHaveBeenCalledWith(nextWord, expect.objectContaining({ trigger: 'hover' }));
+            expect(schedulePointerTextLookup).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '犬を見る', offset: 0, start: 0, end: 4, anchor: nextWord }),
+                expect.any(Event),
+                expect.any(Object),
+            );
         } finally {
+            restoreCaret();
             restoreElementFromPoint();
             cleanupReaderApp(app);
         }
@@ -3368,10 +3509,13 @@ describe('hover lookup', () => {
         const nextWord = readerWordFixture(NHK_ISSUE_48_SENTENCE, 'ニュース');
         nextWord.dataset.vid = '9';
         nextWord.dataset.sid = '9';
+        nextWord.dataset.tokenStart = '11';
+        nextWord.dataset.tokenEnd = '15';
         const popover = appendActivePopoverBody().popover;
         popover.getBoundingClientRect = () => new DOMRect(50, 50, 200, 126);
         const internals = app as unknown as HoverLookupInternals;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
+        const restoreCaret = stubCaretPositionFromPoint(nextWord.firstChild as Text, 1);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             lookupOnHover: true,
@@ -3382,17 +3526,28 @@ describe('hover lookup', () => {
         internals.activeHoverWord = activeWord;
         internals.activePopoverAnchor = activeWord;
         internals.hoverPopoverPointerPosition = { x: 100, y: 200 };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         const restorePoint = stubElementFromPoint(nextWord);
         const restoreStack = stubElementsFromPoint([nextWord]);
 
         try {
             internals.handleHoverPointer(hoverPointerEvent(nextWord, 'mouse', 'pointermove', {}, null, { x: 100, y: 188 }));
             await vi.advanceTimersByTimeAsync(HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS - 1);
-            expect(showWord).not.toHaveBeenCalled();
+            expect(showLookupCandidate).not.toHaveBeenCalled();
             await vi.advanceTimersByTimeAsync(1);
-            expect(showWord).toHaveBeenCalledWith(nextWord, expect.objectContaining({ trigger: 'hover' }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: NHK_ISSUE_48_SENTENCE,
+                    offset: 12,
+                    start: 4,
+                    end: 15,
+                    anchor: nextWord,
+                }),
+                'hover',
+                expect.any(Object),
+            );
         } finally {
+            restoreCaret();
             restoreStack();
             restorePoint();
             vi.useRealTimers();

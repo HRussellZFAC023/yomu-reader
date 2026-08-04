@@ -3,7 +3,6 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../../src/reader/languages/active';
-import { RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS } from '../../../src/reader/app/main-helpers';
 import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
@@ -14,17 +13,13 @@ import {
     createPointerEvent,
     currentJapaneseLookupScopeMatcher,
     defaultDictionaryLookupLinks,
-    expectParserBackedRenderedKanaWord,
     jitenTestCard,
-    jpdbPointerLookupCandidates,
     japaneseLearningTargetMatcher,
     lookupCandidateFromPoint,
     pointerTextCandidate,
-    pointerTextInternals,
     pointerTextLookupFromTextNode,
     renderTokensToHtml,
     testFallbackCard,
-    testIsJpdbBackedCard,
     testPublicCard,
     waitForExpect,
     withElementsFromPointMock,
@@ -37,10 +32,56 @@ import type {
     TestPointerTextOptions,
     TestPointerTextTrigger,
     TestRenderedWordOptions,
-    YomitanTermEntry,
 } from './fixtures';
 
 registerReaderHelpersCleanup();
+
+type ParserOwnedPointerInternals = {
+    settings: typeof DEFAULT_SETTINGS;
+    parser: {
+        lookupTokenAt(
+            text: string,
+            offset: number,
+            range: { start: number; end: number },
+            options?: unknown,
+        ): Promise<JPDBToken | undefined>;
+    };
+    showPointerTextCard(
+        lookupCard: JPDBCard,
+        sentence: string,
+        candidate: TestPointerTextCandidate,
+        range: { start: number; end: number },
+        trigger: TestPointerTextTrigger,
+        options: TestPointerTextOptions,
+    ): Promise<void>;
+    showFirstPointerTextCandidate(
+        candidate: TestPointerTextCandidate,
+        sentence: string,
+        trigger: TestPointerTextTrigger,
+        options: TestPointerTextOptions,
+    ): Promise<void>;
+};
+
+function parserOwnedPointerInternals(app: ReaderApp): ParserOwnedPointerInternals {
+    return app as unknown as ParserOwnedPointerInternals;
+}
+
+function parserOwnedPointerToken(
+    lookupCard: JPDBCard,
+    sentence: string,
+    start: number,
+    end: number,
+): JPDBToken {
+    return {
+        card: lookupCard,
+        start,
+        end,
+        length: end - start,
+        rubies: [],
+        pitchClass: '',
+        sentence,
+    };
+}
 
 describe('reader helpers', () => {
     it('builds pointer lookup context across split inline kana text', () => {
@@ -54,10 +95,9 @@ describe('reader helpers', () => {
         expect(first).toMatchObject({ text: 'にほんごのじかん', offset: 0, start: 0, end: 8 });
         expect(middle).toMatchObject({ text: 'にほんごのじかん', offset: 1, start: 0, end: 8 });
         expect(last).toMatchObject({ text: 'にほんごのじかん', offset: 3, start: 0, end: 8 });
-        expect(jpdbPointerLookupCandidates(middle!.text, middle!.offset)[0]).toEqual({ term: 'にほんご', start: 0, end: 4 });
     });
 
-    it('uses public JPDB span lookup before local fallback for all-kana pointer text without an API key', async () => {
+    it('passes the full all-kana geometry run to the parser-owned span resolver', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>にほんごのじかん</p>';
         const paragraph = document.querySelector<HTMLElement>('p')!;
@@ -72,79 +112,35 @@ describe('reader helpers', () => {
             cardState: ['not-in-deck'],
             pitchAccent: ['LHHH'],
         };
-        const lowValueParsedCard: JPDBCard = {
-            ...card,
-            vid: 100,
-            sid: 0,
-            spelling: 'に',
-            reading: 'に',
-            source: 'jpdb',
-            cardState: ['not-in-deck'],
-        };
-        const parse = vi.fn(async () => [[{
-            card: lowValueParsedCard,
-            start: 0,
-            end: 1,
-            length: 1,
-            rubies: [],
-            pitchClass: '',
-        }]]);
-        const cacheCards = vi.fn();
-        const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
-        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
-            terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
-        ));
-        const showLocalPointerTextCandidate = vi.fn(async () => true);
+        const token = parserOwnedPointerToken(jpdbCard, sentence, 0, 4);
+        const lookupTokenAt = vi.fn(async () => token);
         const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = {
-            text: sentence,
-            offset: 1,
-            start: 0,
-            end: sentence.length,
-            anchor: paragraph,
-        };
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean; cacheCards(cards: JPDBCard[]): void };
-            publicLookupCard: typeof publicLookupCard;
-            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
-            showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement },
-                sentence: string,
-                trigger: 'modal' | 'hover',
-                options: { userGesture?: boolean },
-            ): Promise<void>;
-        };
+        const candidate = pointerTextCandidate(sentence, paragraph, 1);
+        const internals = parserOwnedPointerInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: true,
         };
-        internals.parser = {
-            parse,
-            cacheCards,
-            isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
-        };
-        internals.publicLookupCard = publicLookupCard;
-        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
-        internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
+        internals.parser = { lookupTokenAt };
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
-            expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(cacheCards).toHaveBeenCalledWith([jpdbCard]);
-            expect(showLocalPointerTextCandidate).not.toHaveBeenCalled();
+            expect(lookupTokenAt).toHaveBeenCalledOnce();
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                1,
+                { start: 0, end: sentence.length },
+                expect.objectContaining({ includeLocalPitch: false, requireApi: true, requireJpdb: true }),
+            );
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 jpdbCard,
                 sentence,
                 candidate,
-                { term: 'にほんご', start: 0, end: 4 },
+                token,
                 'modal',
                 { userGesture: true },
             );
@@ -153,50 +149,63 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps non-Japanese pointer lookup off public Jiten and JPDB', async () => {
+    it('delegates non-Japanese pointer text to the same parser-owned resolver', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>我去市場</p>';
         const paragraph = document.querySelector<HTMLElement>('p')!;
         const sentence = paragraph.textContent!;
-        const parseJapanese = vi.fn(async () => [[]]);
-        const publicLookupCard = vi.fn(async () => undefined);
-        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
-        const showLocalPointerTextCandidate = vi.fn(async () => true);
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: -501,
+            sid: 0,
+            spelling: '去',
+            reading: '去',
+            source: 'local',
+        };
+        const token = parserOwnedPointerToken(lookupCard, sentence, 1, 2);
+        const lookupTokenAt = vi.fn(async () => token);
         const showPointerTextCard = vi.fn(async () => undefined);
-        const internals = pointerTextInternals(app);
+        const candidate = pointerTextCandidate(sentence, paragraph, 1);
+        const internals = parserOwnedPointerInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: true,
         };
-        internals.parseJapanese = parseJapanese;
-        internals.publicLookupCard = publicLookupCard;
-        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
-        internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
+        internals.parser = { lookupTokenAt };
         internals.showPointerTextCard = showPointerTextCard;
         setActiveLearningTargetLanguage('zh');
 
         try {
             await internals.showFirstPointerTextCandidate(
-                pointerTextCandidate(sentence, paragraph, 1),
+                candidate,
                 sentence,
                 'modal',
                 { userGesture: true },
             );
 
-            expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(jitenLookupMany).not.toHaveBeenCalled();
-            expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(showLocalPointerTextCandidate).toHaveBeenCalledTimes(1);
-            expect(showPointerTextCard).not.toHaveBeenCalled();
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                1,
+                { start: 0, end: sentence.length },
+                expect.any(Object),
+            );
+            expect(showPointerTextCard).toHaveBeenCalledWith(
+                lookupCard,
+                sentence,
+                candidate,
+                token,
+                'modal',
+                { userGesture: true },
+            );
         } finally {
             resetActiveLearningTargetLanguage();
             app.destroy();
         }
     });
 
-    it('tries deinflected public JPDB pointer terms before falling back to surface text', async () => {
+    it('uses the deinflected span returned by the parser-owned resolver', async () => {
         const app = new ReaderApp();
         document.body.innerHTML = '<p>異世界転生疑ってたわけじゃないけどこれは実際に</p>';
         const paragraph = document.querySelector<HTMLElement>('p')!;
@@ -207,56 +216,34 @@ describe('reader helpers', () => {
             reading: 'うたがう',
             pitchAccent: ['LHLL'],
         });
-        const parse = vi.fn(async () => [[]]);
-        const publicLookupCard = vi.fn(async (term: string) => term === '疑う' ? lookupCard : undefined);
-        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
-            terms.includes('疑う') ? [['疑う', lookupCard]] : [],
-        ));
-        const showLocalPointerTextCandidate = vi.fn(async () => true);
+        const token = parserOwnedPointerToken(lookupCard, sentence, 5, 9);
+        const lookupTokenAt = vi.fn(async () => token);
         const showPointerTextCard = vi.fn(async () => undefined);
         const candidate = pointerTextCandidate(sentence, paragraph, sentence.indexOf('疑'));
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean; cacheCards(cards: JPDBCard[]): void };
-            publicLookupCard: typeof publicLookupCard;
-            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
-            showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
-            showPointerTextCard: typeof showPointerTextCard;
-            showFirstPointerTextCandidate(
-                candidate: TestPointerTextCandidate,
-                sentence: string,
-                trigger: TestPointerTextTrigger,
-                options: TestPointerTextOptions,
-            ): Promise<void>;
-        };
+        const internals = parserOwnedPointerInternals(app);
         internals.settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: true,
         };
-        internals.parser = {
-            parse,
-            cacheCards: vi.fn(),
-            isJpdbBackedCard: testIsJpdbBackedCard,
-        };
-        internals.publicLookupCard = publicLookupCard;
-        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
-        internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
+        internals.parser = { lookupTokenAt };
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('疑う');
-            expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(internals.parser.cacheCards).toHaveBeenCalledWith([lookupCard]);
-            expect(showLocalPointerTextCandidate).not.toHaveBeenCalled();
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                sentence.indexOf('疑'),
+                { start: 0, end: sentence.length },
+                expect.any(Object),
+            );
             expect(showPointerTextCard).toHaveBeenCalledWith(
                 lookupCard,
                 sentence,
                 candidate,
-                { term: '疑う', start: 5, end: 9 },
+                token,
                 'modal',
                 { userGesture: true },
             );
@@ -266,99 +253,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('resolves kana-only rendered word fragments through public JPDB before showing the cached fragment card', async () => {
-        for (const fragment of ['に', 'ほん', 'ご']) {
-            const app = new ReaderApp();
-            const fragmentCard = testPublicCard({
-                vid: 10,
-                sid: 0,
-                spelling: fragment,
-                reading: fragment,
-            });
-            const jpdbCard = testPublicCard({
-                vid: 1464530,
-                spelling: '日本語',
-                reading: 'にほんご',
-            });
-            const word = appendRenderedReaderWord(fragmentCard, { text: fragment });
-            word.dataset.sentence = 'にほんごのじかん';
-            const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
-            const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
-                terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
-            ));
-            const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
-                cachedCards: [fragmentCard],
-                publicLookupCard,
-                jitenLookupMany,
-                settings: {
-                    jpdbDefinitionsEnabled: false,
-                    showPitchAccent: false,
-                    localDictionariesEnabled: true,
-                },
-            });
-
-            try {
-                await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-                expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
-                expect(publicLookupCard).not.toHaveBeenCalled();
-                expect(showRenderedWordCard).toHaveBeenCalledWith(
-                    jpdbCard,
-                    expect.objectContaining({ sentence: 'にほんごのじかん', anchor: word }),
-                    expect.objectContaining({ trigger: 'click', userGesture: true }),
-                    false,
-                    currentJapaneseLookupScopeMatcher(),
-                );
-            } finally {
-                app.destroy();
-                document.body.replaceChildren();
-            }
-        }
-    });
-
-    it('uses an authored inflection lemma when opening an installed dictionary entry', async () => {
-        const app = new ReaderApp();
-        const inflected = testFallbackCard({
-            vid: -1505800,
-            sid: -1505800,
-            spelling: '聞き取れませんでした',
-            reading: 'ききとれませんでした',
-            fallbackLookupTerms: ['聞き取る'],
-        });
-        const word = appendRenderedReaderWord(inflected, { text: '聞き取れませんでした' });
-        word.dataset.sentence = '聞き取れませんでしたか。';
-        const entry: YomitanTermEntry = {
-            expression: '聞き取る',
-            reading: 'ききとる',
-            glossary: ['to catch; to make out'],
-            dictionary: 'Installed terms',
-        };
-        const lookup = vi.fn(async (term: string) => term === '聞き取る' ? [entry] : []);
-        const { internals, publicLookupCard, showRenderedWordCard } = configureRenderedWordTest(app, {
-            cachedCards: [inflected],
-            settings: { localDictionariesEnabled: true },
-        });
-        internals.dictionaries = { lookup };
-
-        try {
-            await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-            expect(lookup).toHaveBeenCalledWith('聞き取る', '聞き取る', expect.any(Number), expect.any(Array));
-            expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(showRenderedWordCard).toHaveBeenCalledWith(
-                expect.objectContaining({ spelling: '聞き取る', reading: 'ききとる', source: 'local' }),
-                expect.objectContaining({ sentence: '聞き取れませんでしたか。', anchor: word }),
-                expect.objectContaining({ trigger: 'click', userGesture: true }),
-                false,
-                currentJapaneseLookupScopeMatcher(),
-            );
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('shows an uncached fast tap word immediately with a fallback card', async () => {
+    it('resolves an uncached rendered word through the shared text lookup', async () => {
         const app = new ReaderApp();
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-pitch-unknown';
@@ -373,7 +268,6 @@ describe('reader helpers', () => {
         const fallbackCardFromText = vi.fn(() => fallbackCard);
         const parseJapanese = vi.fn(async () => []);
         const publicLookupCard = vi.fn(async () => undefined);
-        const scheduleVisiblePageReparse = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             parser: {
@@ -384,7 +278,6 @@ describe('reader helpers', () => {
             publicLookupCard: typeof publicLookupCard;
             jitenPublicVocabulary: { lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
             showCard: typeof showCard;
-            scheduleVisiblePageReparse: typeof scheduleVisiblePageReparse;
             showWord(word: HTMLElement, options?: TestRenderedWordOptions): Promise<void>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' };
@@ -396,7 +289,6 @@ describe('reader helpers', () => {
         internals.publicLookupCard = publicLookupCard;
         internals.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map<string, JPDBCard>()) };
         internals.showCard = showCard;
-        internals.scheduleVisiblePageReparse = scheduleVisiblePageReparse;
 
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true, fastInitialRender: true });
@@ -412,10 +304,8 @@ describe('reader helpers', () => {
                     trigger: 'modal',
                     navigation: 'reset',
                     userGesture: true,
-                    skipInitialCardResolution: true,
                 }),
             );
-            expect(scheduleVisiblePageReparse).toHaveBeenCalled();
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -441,51 +331,6 @@ describe('reader helpers', () => {
             expect(word.dataset.tokenStart).toBe('2');
             expect(word.dataset.tokenEnd).toBe('3');
         } finally {
-            document.body.replaceChildren();
-        }
-    });
-
-    it('uses stored token offsets for later kana fragments in public JPDB lookup', async () => {
-        const app = new ReaderApp();
-        const sentence = '先ににほんごのじかん';
-        const fragmentCard = testFallbackCard({
-            vid: -31,
-            sid: -31,
-            spelling: 'に',
-        });
-        const jpdbCard = testPublicCard({
-            vid: 1464530,
-            spelling: '日本語',
-            reading: 'にほんご',
-        });
-        const word = appendRenderedReaderWord(fragmentCard, { text: 'に' });
-        word.dataset.sentence = sentence;
-        word.dataset.tokenStart = '2';
-        word.dataset.tokenEnd = '3';
-        const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
-        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
-            terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
-        ));
-        const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
-            cachedCards: [fragmentCard],
-            publicLookupCard,
-            jitenLookupMany,
-        });
-
-        try {
-            await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
-            expect(publicLookupCard).not.toHaveBeenCalled();
-            expect(showRenderedWordCard).toHaveBeenCalledWith(
-                jpdbCard,
-                expect.objectContaining({ sentence, anchor: word }),
-                expect.objectContaining({ trigger: 'click', userGesture: true }),
-                false,
-                currentJapaneseLookupScopeMatcher(),
-            );
-        } finally {
-            app.destroy();
             document.body.replaceChildren();
         }
     });
@@ -602,159 +447,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses parser-backed tokens before showing cached rendered kana fragments when API parsing is available', async () => {
-        const app = new ReaderApp();
-        const bookCard = testPublicCard({
-            vid: 1000,
-            spelling: '本',
-            reading: 'ほん',
-        });
-        const jpdbCard = testPublicCard({
-            vid: 1464530,
-            spelling: '日本語',
-            reading: 'にほんご',
-        });
-
-        try {
-            await expectParserBackedRenderedKanaWord({
-                app,
-                cachedCard: bookCard,
-                renderedText: 'ほん',
-                jpdbCard,
-                tokenOptions: { end: 4 },
-            });
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('uses parsed JPDB kana tokens before showing cached rendered kana fragments', async () => {
-        for (const [index, fragment] of ['に', 'ほん', 'ご'].entries()) {
-            const app = new ReaderApp();
-            const fragmentCard = testPublicCard({
-                vid: 1000 + index,
-                spelling: fragment,
-                reading: fragment,
-            });
-            const jpdbCard = testPublicCard({
-                vid: 1464530,
-                spelling: 'にほんご',
-                reading: 'にほんご',
-            });
-
-            try {
-                await expectParserBackedRenderedKanaWord({
-                    app,
-                    cachedCard: fragmentCard,
-                    renderedText: fragment,
-                    jpdbCard,
-                });
-            } finally {
-                app.destroy();
-                document.body.replaceChildren();
-            }
-        }
-    });
-
-    it('does not show a misleading rendered kana fragment when a larger JPDB candidate is unresolved', async () => {
-        const app = new ReaderApp();
-        const bookCard = testPublicCard({
-            vid: 1000,
-            spelling: '本',
-            reading: 'ほん',
-        });
-        const word = appendRenderedReaderWord(bookCard, { text: 'ほん' });
-        word.dataset.sentence = 'にほんごのじかん';
-        const { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard } = configureRenderedWordTest(app, {
-            cachedCards: [bookCard],
-        });
-
-        try {
-            await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
-            expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
-            expect(showRenderedWordCard).not.toHaveBeenCalled();
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('shows the cached card for an exact kana word when larger JPDB expansion candidates are unresolved', async () => {
-        const app = new ReaderApp();
-        const tapCard = testPublicCard({
-            vid: 1076340,
-            spelling: 'タップ',
-            reading: 'タップ',
-        });
-        const word = appendRenderedReaderWord(tapCard, { text: 'タップ' });
-        word.dataset.sentence = 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。';
-        word.dataset.expression = 'タップ';
-        word.dataset.reading = 'タップ';
-        word.dataset.tokenStart = '7';
-        word.dataset.tokenEnd = '10';
-        const { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard } = configureRenderedWordTest(app, {
-            cachedCards: [tapCard],
-        });
-
-        try {
-            await internals.showWord(word, { trigger: 'click', userGesture: true });
-
-            expect(jitenLookupMany).toHaveBeenCalled();
-            expect(publicLookupCard).toHaveBeenCalled();
-            expect(showRenderedWordCard).toHaveBeenCalledWith(
-                tapCard,
-                expect.objectContaining({ anchor: word }),
-                expect.objectContaining({ trigger: 'click', userGesture: true }),
-                false,
-                currentJapaneseLookupScopeMatcher(),
-            );
-        } finally {
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('does not hold an exact kana word popover hostage to a hung JPDB expansion lookup', async () => {
-        const app = new ReaderApp();
-        const tapCard = testPublicCard({
-            vid: 1076340,
-            spelling: 'タップ',
-            reading: 'タップ',
-        });
-        const word = appendRenderedReaderWord(tapCard, { text: 'タップ' });
-        word.dataset.sentence = 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。';
-        word.dataset.expression = 'タップ';
-        word.dataset.reading = 'タップ';
-        const publicLookupCard = vi.fn(() => new Promise<undefined>(() => undefined));
-        const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
-            cachedCards: [tapCard],
-            publicLookupCard,
-        });
-
-        vi.useFakeTimers();
-        try {
-            const lookup = internals.showWord(word, { trigger: 'click', userGesture: true });
-            await vi.advanceTimersByTimeAsync(RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS);
-            await lookup;
-
-            expect(publicLookupCard).toHaveBeenCalled();
-            expect(showRenderedWordCard).toHaveBeenCalledWith(
-                tapCard,
-                expect.objectContaining({ anchor: word }),
-                expect.objectContaining({ trigger: 'click', userGesture: true }),
-                false,
-                currentJapaneseLookupScopeMatcher(),
-            );
-        } finally {
-            vi.useRealTimers();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
     it('keeps genuine standalone rendered kana lookups on the cached card', async () => {
         const app = new ReaderApp();
         const kanaCard = testPublicCard({
@@ -819,132 +511,176 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not turn the previous hiragana run into a local pointer term at a kanji boundary', async () => {
+    it('does not invent a UI span when the parser finds no token at a kanji boundary', async () => {
         const app = new ReaderApp();
         const sentence = '好きなものを読んで日本語を学ぶ';
-        const bogusEntry: YomitanTermEntry = {
-            expression: 'きなものを',
-            reading: 'きなものを',
-            glossary: ['not a real target'],
-            dictionary: 'Local',
-        };
-        const lookup = vi.fn(async (surface: string) => surface === 'きなものを' ? [bogusEntry] : []);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            dictionaries: { lookup: typeof lookup };
-            lookupLocalEntryAtOffset(text: string, offset: number): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
-        internals.dictionaries = { lookup };
-
-        try {
-            await expect(internals.lookupLocalEntryAtOffset(sentence, 6)).resolves.toBeUndefined();
-            expect(lookup).not.toHaveBeenCalledWith('きなものを', 'きなものを', 1, expect.anything());
-        } finally {
-            app.destroy();
-        }
-    });
-
-    it('uses the target candidate ladder for raw local pointer lookup', async () => {
-        const app = new ReaderApp();
-        const entry: YomitanTermEntry = {
-            expression: 'paella',
-            reading: 'paella',
-            rules: 'n',
-            glossary: ['paella'],
-            dictionary: 'Local Spanish',
-        };
-        const lookup = vi.fn(async (surface: string) => surface === 'paella' ? [entry] : []);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            dictionaries: { lookup: typeof lookup };
-            lookupLocalEntryAtOffset(text: string, offset: number): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
-        internals.dictionaries = { lookup };
-        setActiveLearningTargetLanguage('es');
-
-        try {
-            await expect(internals.lookupLocalEntryAtOffset('Paellas', 2)).resolves.toEqual({
-                entry,
-                start: 0,
-                end: 7,
-            });
-            expect(lookup.mock.calls.map(([surface]) => surface)).toEqual(['Paellas', 'paellas', 'paella']);
-        } finally {
-            resetActiveLearningTargetLanguage();
-            app.destroy();
-        }
-    });
-
-    it('finds short exact Han dictionary entries beyond the former pointer candidate cap', async () => {
-        const app = new ReaderApp();
-        const sentence = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
-        const entry: YomitanTermEntry = {
-            expression: '地玄',
-            reading: '地玄',
-            glossary: ['fixture'],
-            dictionary: 'Local Chinese',
-        };
-        const lookup = vi.fn(async (surface: string) => surface === entry.expression ? [entry] : []);
-        const internals = app as unknown as {
-            settings: typeof DEFAULT_SETTINGS;
-            dictionaries: { lookup: typeof lookup };
-            lookupLocalEntryAtOffset(text: string, offset: number): Promise<{ entry: YomitanTermEntry; start: number; end: number } | undefined>;
-        };
-        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
-        internals.dictionaries = { lookup };
-        setActiveLearningTargetLanguage('zh');
-
-        try {
-            await expect(internals.lookupLocalEntryAtOffset(sentence, 1)).resolves.toEqual({
-                entry,
-                start: 1,
-                end: 3,
-            });
-            expect(lookup.mock.calls.map(([surface]) => surface)).toContain('地玄');
-            expect(lookup.mock.calls.length).toBeGreaterThan(24);
-        } finally {
-            resetActiveLearningTargetLanguage();
-            app.destroy();
-        }
-    });
-
-    it('uses an inflected fallback pointer card instead of a single-kanji fragment when JPDB is unavailable', async () => {
-        const app = new ReaderApp();
-        document.body.innerHTML = '<p>好きなものを読んで日本語を学ぶ</p>';
-        const paragraph = document.querySelector<HTMLElement>('p')!;
-        const sentence = paragraph.textContent!;
-        const parse = vi.fn(async () => { throw new Error('jpdb down'); });
-        const fallbackCardFromText = vi.fn((text: string): JPDBCard => ({
-            ...card,
-            vid: -900,
-            sid: -900,
-            spelling: text,
-            reading: '',
-            source: 'fallback',
-            fallbackLookupTerms: text === '読んで' ? ['読む'] : [],
-        }));
+        const anchor = document.createElement('p');
+        anchor.textContent = sentence;
+        document.body.append(anchor);
+        const candidate = pointerTextCandidate(sentence, anchor, 6);
+        const lookupTokenAt = vi.fn(async () => undefined);
         const showPointerTextCard = vi.fn(async () => undefined);
-        const candidate = pointerTextCandidate(sentence, paragraph, 6);
-        const internals = pointerTextInternals(app);
-        internals.settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: 'api-key',
-            localDictionariesEnabled: false,
-        };
-        internals.parser = { parse, fallbackCardFromText };
+        const internals = parserOwnedPointerInternals(app);
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        internals.parser = { lookupTokenAt };
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(fallbackCardFromText).toHaveBeenCalledWith('読んで', japaneseLearningTargetMatcher());
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                6,
+                { start: 0, end: sentence.length },
+                expect.any(Object),
+            );
+            expect(showPointerTextCard).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('renders the target parser span for a raw Spanish pointer lookup', async () => {
+        const app = new ReaderApp();
+        const sentence = 'Paellas';
+        const anchor = document.createElement('p');
+        anchor.textContent = sentence;
+        document.body.append(anchor);
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: -601,
+            sid: 0,
+            spelling: 'paella',
+            reading: 'paella',
+            source: 'local',
+            partOfSpeech: ['n'],
+        };
+        const token = parserOwnedPointerToken(lookupCard, sentence, 0, sentence.length);
+        const lookupTokenAt = vi.fn(async () => token);
+        const showPointerTextCard = vi.fn(async () => undefined);
+        const candidate = pointerTextCandidate(sentence, anchor, 2);
+        const internals = parserOwnedPointerInternals(app);
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        internals.parser = { lookupTokenAt };
+        internals.showPointerTextCard = showPointerTextCard;
+        setActiveLearningTargetLanguage('es');
+
+        try {
+            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
+
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                2,
+                { start: 0, end: sentence.length },
+                expect.any(Object),
+            );
             expect(showPointerTextCard).toHaveBeenCalledWith(
-                expect.objectContaining({ spelling: '読んで', fallbackLookupTerms: ['読む'] }),
+                lookupCard,
                 sentence,
                 candidate,
-                { start: 6, end: 9 },
+                token,
+                'modal',
+                { userGesture: true },
+            );
+        } finally {
+            resetActiveLearningTargetLanguage();
+            app.destroy();
+        }
+    });
+
+    it('renders a short parser-owned Han span from a long geometry run', async () => {
+        const app = new ReaderApp();
+        const sentence = '天地玄黃宇宙洪荒日月盈昃辰宿列張寒來';
+        const anchor = document.createElement('p');
+        anchor.textContent = sentence;
+        document.body.append(anchor);
+        const lookupCard: JPDBCard = {
+            ...card,
+            vid: -701,
+            sid: 0,
+            spelling: '地玄',
+            reading: '地玄',
+            source: 'local',
+        };
+        const token = parserOwnedPointerToken(lookupCard, sentence, 1, 3);
+        const lookupTokenAt = vi.fn(async () => token);
+        const showPointerTextCard = vi.fn(async () => undefined);
+        const candidate = pointerTextCandidate(sentence, anchor, 1);
+        const internals = parserOwnedPointerInternals(app);
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true };
+        internals.parser = { lookupTokenAt };
+        internals.showPointerTextCard = showPointerTextCard;
+        setActiveLearningTargetLanguage('zh');
+
+        try {
+            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
+
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                1,
+                { start: 0, end: sentence.length },
+                expect.any(Object),
+            );
+            expect(showPointerTextCard).toHaveBeenCalledWith(
+                lookupCard,
+                sentence,
+                candidate,
+                token,
+                'modal',
+                { userGesture: true },
+            );
+        } finally {
+            resetActiveLearningTargetLanguage();
+            app.destroy();
+        }
+    });
+
+    it('renders the parser-selected inflected fallback span without narrowing it in the UI', async () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = '<p>好きなものを読んで日本語を学ぶ</p>';
+        const paragraph = document.querySelector<HTMLElement>('p')!;
+        const sentence = paragraph.textContent!;
+        const fallbackCard: JPDBCard = {
+            ...card,
+            vid: -900,
+            sid: -900,
+            spelling: '読んで',
+            reading: '',
+            source: 'fallback',
+            fallbackLookupTerms: ['読む'],
+        };
+        const token = parserOwnedPointerToken(fallbackCard, sentence, 6, 9);
+        const lookupTokenAt = vi.fn(async () => token);
+        const showPointerTextCard = vi.fn(async () => undefined);
+        const candidate = pointerTextCandidate(sentence, paragraph, 6);
+        const internals = parserOwnedPointerInternals(app);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'api-key',
+            localDictionariesEnabled: false,
+        };
+        internals.parser = { lookupTokenAt };
+        internals.showPointerTextCard = showPointerTextCard;
+
+        try {
+            await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
+
+            expect(lookupTokenAt).toHaveBeenCalledWith(
+                sentence,
+                6,
+                { start: 0, end: sentence.length },
+                expect.objectContaining({
+                    includeLocalPitch: false,
+                    requireApi: false,
+                    requireJpdb: false,
+                    allowJpdbTimeoutFallback: true,
+                }),
+            );
+            expect(showPointerTextCard).toHaveBeenCalledWith(
+                fallbackCard,
+                sentence,
+                candidate,
+                token,
                 'modal',
                 { userGesture: true },
             );
@@ -1424,13 +1160,15 @@ describe('reader helpers', () => {
         word.dataset.vid = '501';
         word.dataset.sid = '501';
         word.dataset.sentence = '日本語を読む';
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '3';
         word.textContent = '日本語';
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         popover.dataset.jpdbReaderRoot = 'true';
         popover.innerHTML = '<div class="jpdb-reader-popover-body">日本語</div>';
         document.body.append(word, popover);
-        const showWord = vi.fn(async () => undefined);
+        const showLookupCandidate = vi.fn(async () => undefined);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             activePopover: HTMLElement;
@@ -1438,7 +1176,7 @@ describe('reader helpers', () => {
             activePopoverAnchor?: HTMLElement;
             activeHoverWord?: HTMLElement;
             activeHoverLookupKey: string;
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
@@ -1447,21 +1185,30 @@ describe('reader helpers', () => {
         internals.activePopoverAnchor = word;
         internals.activeHoverWord = word;
         internals.activeHoverLookupKey = 'word:501:501';
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
-            word.dispatchEvent(click);
+            withPointerTextLookupMock(word.firstChild as Text, 1, [{ left: 20, top: 10, width: 64, height: 28 }], () => {
+                word.dispatchEvent(click);
+            });
 
             expect(click.defaultPrevented).toBe(true);
             expect(internals.activePopoverMode).toBe('modal');
             expect(internals.activeHoverWord).toBeUndefined();
             expect(internals.activeHoverLookupKey).toBe('');
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    text: '日本語を読む',
+                    offset: 1,
+                    start: 0,
+                    end: 6,
+                    anchor: word,
+                }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
 
             const out = createPointerEvent('pointerout', { clientX: 240, clientY: 240 });
             Object.defineProperty(out, 'relatedTarget', { configurable: true, value: document.body });
@@ -1611,10 +1358,10 @@ describe('reader helpers', () => {
     it('opens page words on touch pointerup and consumes the synthetic click', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
-            <p><span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span></p>
+            <p><span class="jpdb-reader-word" data-vid="501" data-sid="501" data-token-start="0" data-token-end="3" data-sentence="日本語">日本語</span></p>
         `;
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const pinLineForElement = vi.fn();
         const destroyOcr = vi.fn();
         const prepareModalLookupFromPointer = vi.fn();
@@ -1622,35 +1369,38 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
             prepareModalLookupFromPointer: typeof prepareModalLookupFromPointer;
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
         internals.ocr = { pinLineForElement, destroy: destroyOcr };
         internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
             const down = createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 });
             const up = createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 41, clientX: 25, clientY: 25, button: 0 });
-            word.dispatchEvent(down);
-            word.dispatchEvent(up);
+            withPointerTextLookupMock(word.firstChild as Text, 1, [{ left: 10, top: 10, width: 48, height: 28 }], () => {
+                word.dispatchEvent(down);
+                word.dispatchEvent(up);
+            });
 
             expect(down.defaultPrevented).toBe(false);
             expect(up.defaultPrevented).toBe(true);
             expect(pinLineForElement).not.toHaveBeenCalled();
             expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(up);
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '日本語', offset: 1, start: 0, end: 3, anchor: word }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
 
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 25, clientY: 25 });
             word.dispatchEvent(click);
 
             expect(click.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledTimes(1);
+            expect(showLookupCandidate).toHaveBeenCalledTimes(1);
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -1661,39 +1411,52 @@ describe('reader helpers', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
             <p>
-                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span>
-                <span class="jpdb-reader-word" data-vid="502" data-sid="502" data-sentence="読む">読む</span>
+                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-token-start="0" data-token-end="3" data-sentence="日本語">日本語</span>
+                <span class="jpdb-reader-word" data-vid="502" data-sid="502" data-token-start="0" data-token-end="2" data-sentence="読む">読む</span>
             </p>
         `;
         const [first, second] = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const pinLineForElement = vi.fn();
         const destroyOcr = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
         internals.ocr = { pinLineForElement, destroy: destroyOcr };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
-            first.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 }));
-            first.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 }));
             const syntheticClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
-            first.dispatchEvent(syntheticClick);
-
-            second.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 42, clientX: 72, clientY: 24, button: 0 }));
             const secondUp = createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 42, clientX: 72, clientY: 24, button: 0 });
-            second.dispatchEvent(secondUp);
+            withPointerTextLookupMock(first.firstChild as Text, 1, [{ left: 10, top: 10, width: 48, height: 28 }], () => {
+                first.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 }));
+                first.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 }));
+                first.dispatchEvent(syntheticClick);
+            });
+            withPointerTextLookupMock(second.firstChild as Text, 0, [{ left: 56, top: 10, width: 48, height: 28 }], () => {
+                second.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 42, clientX: 72, clientY: 24, button: 0 }));
+                second.dispatchEvent(secondUp);
+            });
 
             expect(syntheticClick.defaultPrevented).toBe(true);
             expect(secondUp.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenNthCalledWith(1, first, expect.objectContaining({ trigger: 'click', userGesture: true }));
-            expect(showWord).toHaveBeenNthCalledWith(2, second, expect.objectContaining({ trigger: 'click', userGesture: true }));
+            expect(showLookupCandidate).toHaveBeenNthCalledWith(
+                1,
+                expect.objectContaining({ text: '日本語', offset: 1, start: 0, end: 3, anchor: first }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
+            expect(showLookupCandidate).toHaveBeenNthCalledWith(
+                2,
+                expect.objectContaining({ text: '読む', offset: 0, start: 0, end: 2, anchor: second }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -1740,32 +1503,38 @@ describe('reader helpers', () => {
         // resolving at pointerup recovers it instantly with the fast-render path.
         const app = new ReaderApp();
         document.body.innerHTML = `
-            <p><span class="jpdb-reader-word" data-vid="601" data-sid="601" data-sentence="日本語">日本語</span></p>
+            <p><span class="jpdb-reader-word" data-vid="601" data-sid="601" data-token-start="0" data-token-end="3" data-sentence="日本語">日本語</span></p>
         `;
         const para = document.querySelector<HTMLElement>('p')!;
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const pinLineForElement = vi.fn();
         const destroyOcr = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
         internals.ocr = { pinLineForElement, destroy: destroyOcr };
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
             // pointerdown misses (lands on the paragraph gap, no word resolved) ...
-            para.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 51, clientX: 10, clientY: 10, button: 0 }));
-            // ... but pointerup lands on the word — its geometry is authoritative.
-            word.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 51, clientX: 12, clientY: 12, button: 0 }));
+            withPointerTextLookupMock(word.firstChild as Text, 1, [{ left: 8, top: 8, width: 48, height: 28 }], () => {
+                para.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 51, clientX: 10, clientY: 10, button: 0 }));
+                // ... but pointerup lands on the word — its geometry is authoritative.
+                word.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 51, clientX: 12, clientY: 12, button: 0 }));
+            });
 
-            expect(showWord).toHaveBeenCalledTimes(1);
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'click', userGesture: true, fastInitialRender: true }));
+            expect(showLookupCandidate).toHaveBeenCalledTimes(1);
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: '日本語', offset: 1, start: 0, end: 3, anchor: word }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -1776,11 +1545,11 @@ describe('reader helpers', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
             <div class="jpdb-ocr-line">
-                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="秘密" data-surface="秘密" data-sentence="ずっと秘密にしていた">秘密</span>
+                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="秘密" data-surface="秘密" data-token-start="3" data-token-end="5" data-sentence="ずっと秘密にしていた">秘密</span>
             </div>
         `;
         const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        const showWord = vi.fn().mockResolvedValue(undefined);
+        const showLookupCandidate = vi.fn().mockResolvedValue(undefined);
         const pinLineForElement = vi.fn();
         const destroyOcr = vi.fn();
         const prepareModalLookupFromPointer = vi.fn();
@@ -1788,33 +1557,35 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
             prepareModalLookupFromPointer: typeof prepareModalLookupFromPointer;
-            showWord: typeof showWord;
+            showLookupCandidate: typeof showLookupCandidate;
             bindEvents(): void;
         };
         internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
         internals.ocr = { pinLineForElement, destroy: destroyOcr };
         internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
-        internals.showWord = showWord;
+        internals.showLookupCandidate = showLookupCandidate;
         internals.bindEvents();
 
         try {
             const down = createPointerEvent('pointerdown', { pointerType: 'touch', clientX: 24, clientY: 24, button: 0 });
-            word.dispatchEvent(down);
+            withPointerTextLookupMock(word.firstChild as Text, 0, [{ left: 10, top: 10, width: 48, height: 28 }], () => {
+                word.dispatchEvent(down);
+            });
 
             expect(down.defaultPrevented).toBe(true);
             expect(pinLineForElement).toHaveBeenCalledWith(word);
             expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(down);
-            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
-                trigger: 'click',
-                userGesture: true,
-                fastInitialRender: false,
-            }));
+            expect(showLookupCandidate).toHaveBeenCalledWith(
+                expect.objectContaining({ text: 'ずっと秘密にしていた', offset: 3, start: 0, end: 10, anchor: word }),
+                'modal',
+                expect.objectContaining({ userGesture: true }),
+            );
 
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
             word.dispatchEvent(click);
 
             expect(click.defaultPrevented).toBe(true);
-            expect(showWord).toHaveBeenCalledTimes(1);
+            expect(showLookupCandidate).toHaveBeenCalledTimes(1);
         } finally {
             app.destroy();
             document.body.replaceChildren();
