@@ -1,6 +1,16 @@
 # Yomu Backlog
 
-**Reconciled 2026-07-27 against `origin/main` @ `19088398f` (1.8.18).**
+**Reconciled 2026-07-27 against `origin/main` @ `19088398f` (1.8.18); store-distribution claims
+re-verified 2026-08-04 against `origin/main` @ `71f050a1b` (1.8.78).** Everything else on this page is
+still only as fresh as the 1.8.18 pass — re-verify before you act on it.
+
+**Store distribution, measured 2026-08-04.** AMO serves **1.8.72** (`addons.mozilla.org/api/v5/addons/addon/yomu-reader/`,
+`current_version.version` = 1.8.72, last updated 2026-08-02). The Chrome Web Store serves **1.8.71**
+(recorded from the manual publish run; the public listing could not be re-read because
+`chromewebstore.google.com` redirects to a Google consent wall). Both stores were published through the
+`Release` workflow's `publish_browser_stores` input (`MANUAL_STORE_PUBLISH`), which is why there is no
+`v1.9.0` tag. **The "stores are frozen at 1.8.2" claim that used to appear four times on this page was
+false** — it survived roughly 70 patch releases past the ruling that created it.
 
 Everything below the "ARCHIVE" divider is the pre-reconciliation document, preserved verbatim.
 Everything above it is the honest state of the work.
@@ -35,7 +45,9 @@ learner's first ten minutes.
    interface as three persisted axes, with the revision-1 → revision-2 profile migration), and it closed
    the `A37.3` DOM-gating and `A37.4` Burmese leftovers with re-measured evidence. A37's active-profile
    pointer lookup and capability-bound hero shipped in v1.8.38 and are proven. **The owner declined
-   cutting 1.9.0 early**, so the Chrome and Firefox stores stay on 1.8.2 by choice until this ships.
+   cutting 1.9.0 early**. That no longer holds the stores back: `MANUAL_STORE_PUBLISH` publishes a patch
+   build to both stores without a minor tag, and both are current (AMO 1.8.72, Chrome 1.8.71, verified
+   2026-08-04). 1.9.0 buys the honest multilingual claim and the listing rewrite, **not** a store unfreeze.
 0a. **P0 URGENT — money and false claims:** A35.1 no backup/restore for either D1 or R2 (the donation
    ledger is a single unbacked copy) · A35.5 + A35.6 the homepage and docs claim study-target and
    definition coverage the reader does not have · A35.9 extension installs never reach onboarding ·
@@ -68,7 +80,8 @@ overlap) · **`U44`/`U97` language-aware card identity (`eb1271571`)** — the 1
 picker, raw pointer lookup, honest homepage claim, and `U79` DOM gating are complete. What remains is
 classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per the plan in
 `scratchpad/ml-tiers-localisation-sources-plan.md` (11 sequenced slices; slices 0 and 1, `U105`, landed
-2026-07-30). Until 1.9.0 ships, the Chrome and Firefox stores stay on **1.8.2** — owner ruling, `A27.3`.
+2026-07-30). The stores do **not** wait on 1.9.0: AMO serves 1.8.72 and Chrome 1.8.71 as of 2026-08-04,
+both shipped via `MANUAL_STORE_PUBLISH` — see the header and `A27.3`.
 
 - [ ] **A1 — Bunpro-style IA for the signed-in surfaces (owner: "Bunpro is the best reference").**
       Navbar carries learner VERBS with due-count badges (`Review [23]`-style, fed by the local deck),
@@ -216,14 +229,16 @@ classifying/migrating the other `U61` Japanese-only seams, then `D43`/`U46` per 
       only two status-source predicates and no local-SRS branch, so a learner with no API key sees no
       status colour and no explanation — the same class of defect as A11's furigana default. Verified by
       hand at v1.8.23.
-- [x] **A27.3 — CLOSED 2026-07-31 as an owner decision, not a defect.** The ticket's own text records the
-      ruling ("OWNER RULING 2026-07-28: no store dispatch") and it was reaffirmed this session: asked directly
-      whether to cut 1.9.0 and submit to the stores, the owner chose **"Keep patching for now"**. So Chrome Web
-      Store and AMO serving 1.8.2 while Greasyfork serves current is a deliberate state, not staleness to
-      chase — and only a `v*.*.0` tag publishes to the stores anyway (memory
-      `yomu-browser-store-publishing`). Kept in memory as `yomu-stores-frozen-at-1-8-2` because it changes how
-      to read a store user's bug report: what they describe may be a fix they simply do not have.
-      Reopen when the owner decides to cut the minor. ORIGINAL: Extension-store builds are stale.** Verified 2026-07-28 from the official distribution
+- [x] **A27.3 — CLOSED. The stores are CURRENT, and the "frozen at 1.8.2" reading of this ticket was wrong.**
+      Re-verified 2026-08-04: AMO serves **1.8.72** (`addons.mozilla.org/api/v5/addons/addon/yomu-reader/`
+      reports `current_version.version` 1.8.72, updated 2026-08-02) and the Chrome Web Store serves **1.8.71**
+      (recorded from the manual publish run; the listing itself now sits behind a Google consent redirect and
+      could not be re-read). The load-bearing error was the claim that "only a `v*.*.0` tag publishes to the
+      stores": `.github/workflows/release.yml:226-229` also publishes when the `publish_browser_stores` input
+      is true (`MANUAL_STORE_PUBLISH`), which is how both patch builds shipped. **Do not treat a store user's
+      report as a fix-they-do-not-have unless the fix landed after 1.8.71.** 1.9.0 is still worth cutting for
+      the honest multilingual claim and the listing rewrite — not to unfreeze anything.
+      ORIGINAL (2026-07-28, superseded): Extension-store builds are stale.** Verified 2026-07-28 from the official distribution
       endpoints: Greasy Fork serves 1.8.25 and its executable body matches `dist/yomu.user.js`; the
       Chrome Web Store update endpoint and AMO API both serve 1.8.2. The A27 verification brief said
       the stores served 1.8.15, which is wrong. This is a distribution defect, not five reopened core
@@ -549,9 +564,10 @@ Raised by the D43 review 2026-07-30 and reproduced here. `tests/reader/gaming-fi
 file**, but fails intermittently inside the sharded CI suite — observed failing in one `check:release` run
 and passing in the runs either side, on this commit and on its parent. It is not D43's bug.
 
-Why this outranks a normal flake: **a minor tag is what publishes to the Chrome and Firefox stores**, frozen
-at 1.8.2, so an intermittent red stands between ~37 releases of accumulated fixes and every store user. A
-release that fails one run in four is a release nobody can schedule.
+Why this outranks a normal flake: **a store publish rides the `Release` workflow** — either a `v*.*.0` tag or
+the `publish_browser_stores` input — so an intermittent red stands between accumulated fixes and every store
+user. A release that fails one run in four is a release nobody can schedule. (Written when the stores were
+believed frozen at 1.8.2; they are not — AMO 1.8.72, Chrome 1.8.71 as of 2026-08-04.)
 
 - [x] **A40.1 — FIXED by the mechanism the repo already has for this.** `scripts/run-ci-tests.mjs` keeps an
       `ISOLATED_PASS_FILES` list whose own comment describes exactly this signature: files that "pass alone
@@ -775,10 +791,10 @@ raw unannotated Wikipedia heading (`rawReaderWords: 0`, so the text was not pre-
 in the correct active language; screenshots in `scratchpad/a37-after-*.png`.
 
 **OWNER RULING 2026-07-30 — 1.9.0 waits for `D43` + `U105` + `U46`.** The owner was offered cutting 1.9.0
-immediately to unfreeze the Chrome and Firefox stores, still on **1.8.2** with none of the ~37 releases of
-fixes since, and chose the fuller multilingual story instead. **The store freeze therefore continues on
-purpose**, and patch releases carry fixes to the userscript and Greasyfork channels in the meantime
-(see `A27.3`). Do not offer the trade again unless the owner asks.
+immediately and chose the fuller multilingual story instead. **The premise of that offer — that only a minor
+tag can reach the stores — was wrong.** `MANUAL_STORE_PUBLISH` shipped patch builds to both stores instead:
+AMO 1.8.72 and Chrome 1.8.71, verified 2026-08-04. So there is no store freeze to trade against; 1.9.0 buys
+the honest multilingual claim and the listing rewrite (see `A27.3`, `B4`/`U40`). Do not offer the trade again unless the owner asks.
 
 The remaining gate, precisely:
 
@@ -1443,7 +1459,9 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       Do: keep the last N releases plus anything referenced by a still-supported header, prune the rest in
       one commit, and put the retention window in the sync script next to that comment.
       **Closed in `cx-weight-20260730` and released in v1.8.46:** sync now keeps current built/hosted headers, 40 release tags and
-      hosted-header revisions (7.68 days at the measured cadence), plus the frozen v1.8.2 store header.
+      hosted-header revisions (7.68 days at the measured cadence), plus the published store headers.
+      The store pin was `v1.8.2` until 2026-08-04, when it was corrected to the measured store floor
+      (`v1.8.71` Chrome, `v1.8.72` AMO) in `scripts/lib/content-addressed-retention.mjs`.
       The pruning gate fails on either an unreferenced committed hash or a missing supported pin.
 
 **Polish**
@@ -1665,7 +1683,8 @@ false claim on a live page, then a defect a learner hits, then engineering risk,
       "is missing 1 artifact(s) that history still pins, so a shallow checkout could prune them". Two tests
       in `tests/reader/content-addressed-retention.test.ts` pin the asymmetry using a real fixture repo and a
       real shallow clone. ORIGINAL: `config/ci/content-addressed-retention.json` records a window derived from git history
-      (latest 40 release tags, 40 recent hosted headers, plus v1.8.2 for the frozen store builds). Every
+      (latest 40 release tags, 40 recent hosted headers, plus the published store builds — v1.8.2 until
+      2026-08-04, now the measured store floor v1.8.71/v1.8.72). Every
       release moves that window, so the committed file stops matching and
       `node scripts/prune-content-addressed-assets.mjs --check` fails the SECOND stage of `check:release`
       for everyone. Measured twice on 2026-07-31: it was already failing on a clean detached worktree at
@@ -1999,7 +2018,7 @@ memory records as FIXED — check the reporter's version before assuming a regre
       28/07; 1.8.22 landed later at 10:26. This was the report that prompted the fix, not a regression
       after it. Greasy Fork 1.8.25 has the same executable body as the checked build, and all four
       focused visibility-choice tests pass, including disable, save and automatic track discovery.
-      Store build 1.8.2 still predates the fix; tracked by A27.3.
+      Shipped to both stores (AMO 1.8.72 / Chrome 1.8.71, verified 2026-08-04).
 - [ ] **A21.2 — Words carrying furigana do not look up.** blurvy, 27/07 23:26–23:27: *"I think the
       problem is the words that have furigana"* / *"I turned off annotations and all lookups are
       working."* That isolates it cleanly: the ruby markup Yomu itself adds blocks the lookup path. High
@@ -2009,12 +2028,12 @@ memory records as FIXED — check the reporter's version before assuming a regre
 - [x] **A21.4 — NOT REPRODUCIBLE on the current userscript.** blurvy reported it at 07:42–07:51 on
       27/07; the fix landed later at 09:40. The Chromium subtitle E2E held the selected 60px through
       short and long cues, a landscape resize, a tab return and portrait restoration. All 24 focused
-      subtitle styling tests pass. Store build 1.8.2 predates the fix; tracked by A27.3.
+      subtitle styling tests pass. Shipped to both stores (AMO 1.8.72 / Chrome 1.8.71, verified 2026-08-04).
 - [x] **A21.5 — NOT REPRODUCIBLE after the shipped MangaFire fix.** blurvy reported it at 09:18 and
       10:16 on 27/07; the fix landed later at 17:15. The release was proved on real MangaFire with
       Yomitan 26.6.15.0: Yomu owned taps on its OCR text, while disabling Yomu lookup restored native
       text for Yomitan. The current 1.8.25 OCR ownership suite passes all 32 tests, including 秘密.
-      Store build 1.8.2 predates the fix; tracked by A27.3.
+      Shipped to both stores (AMO 1.8.72 / Chrome 1.8.71, verified 2026-08-04).
 - [ ] **A21.6 — Userscript does not boot on YouTube in Edge Canary.** blurvy, 27/07 07:15: no puck
       bottom-right; then *"I loaded yt a couple mins later and the popup showed up"* after disable /
       re-enable did nothing. A boot that succeeds only after minutes is a race, not a fix.
@@ -2022,7 +2041,7 @@ memory records as FIXED — check the reporter's version before assuming a regre
       the fix landed later at 10:58. The real Chromium register smoke measured 100% vertical overlap
       and 0px centre offset for a burned-in subtitle in YouTube's bottom band; the middle and
       frame-edge controls also passed. The reporter's follow-up said it was not happening on YouTube.
-      Store build 1.8.2 predates the fix; tracked by A27.3.
+      Shipped to both stores (AMO 1.8.72 / Chrome 1.8.71, verified 2026-08-04).
 - [ ] **A21.8 — Local/faster OCR on Android.** blurvy, 28/07 00:09 wants something faster than Google
       Lens; owner's read is that Lens is currently the fastest. Deliverable is a measured comparison, not
       a guess: candidate on-device engines, latency, and whether the local-service provider path already
@@ -2044,8 +2063,8 @@ memory records as FIXED — check the reporter's version before assuming a regre
       25/07; automatic provider discovery landed later at 21:01. From a normal review screen the
       controls are two presses away: **Connect**, then **Media**. Provider checkboxes appear without a
       detect button after an ordinary lookup or the Media panel's one background check. All 17 focused
-      provider-discovery and settings-dialog tests pass. Store build 1.8.2 predates the feature;
-      tracked by A27.3.
+      provider-discovery and settings-dialog tests pass. Shipped to both stores
+      (AMO 1.8.72 / Chrome 1.8.71, verified 2026-08-04).
 - [ ] **A21.14 — Use your own local audio files.** noteliana runs downloaded audio via AnkiConnect on
       phone and wants it inside the review loop. Ties to the existing Local Audio surface.
 - [ ] **A21.15 — Offline SRS app for iPhone/iPad and Android.** Owner's stated intent: React Native, one

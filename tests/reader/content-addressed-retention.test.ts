@@ -93,9 +93,19 @@ describe('content-addressed artifact retention', () => {
         ]);
     });
 
-    it('documents a week-sized release window and the frozen store version', () => {
+    // This used to assert `toContain('v1.8.2')`, which froze a measurement into a
+    // test: the pin stayed on 1.8.2 for ~70 patch releases because the repo believed
+    // only a `v*.*.0` tag can publish to a browser store. `release.yml`'s
+    // `publish_browser_stores` input publishes patch builds too, and it did — AMO
+    // serves 1.8.72 and the Chrome Web Store 1.8.71 (measured 2026-08-04). So assert
+    // the SHAPE of the pin plus the floor we measured, and name the debunked value so
+    // it cannot come back silently.
+    it('documents a week-sized release window and pins the published store builds', () => {
         expect(RELEASE_RETENTION_COUNT).toBe(40);
-        expect(SUPPORTED_RELEASE_REFS).toContain('v1.8.2');
+        expect(SUPPORTED_RELEASE_REFS.length).toBeGreaterThan(0);
+        for (const ref of SUPPORTED_RELEASE_REFS) expect(ref).toMatch(/^v\d+\.\d+\.\d+$/);
+        expect(SUPPORTED_RELEASE_REFS).not.toContain('v1.8.2');
+        expect(SUPPORTED_RELEASE_REFS).toContain('v1.8.71');
     });
 
     // The gate used to demand byte equality with a freshly computed manifest, so every
