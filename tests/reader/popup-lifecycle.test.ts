@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
 import { keepsModalPopoverForOwnedSurface } from '../../src/reader/app/main-runtime-support';
-import { clearDocumentSelection } from '../../src/reader/dom/index';
+import { clearDocumentSelection } from '../../src/reader/popup/shell';
 import {
     capturePopoverScrollOffset,
     capturePopoverScrollFrame,

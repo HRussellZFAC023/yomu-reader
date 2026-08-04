@@ -853,3 +853,23 @@ function storeHeightRatio(storageKey: string, height: number, viewportHeight: nu
     const ratio = Math.max(0, Math.min(1, height / viewportHeight));
     gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
 }
+
+/**
+ * Drop a DOCUMENT selection — page or article text the reader highlighted.
+ *
+ * A lookup opened from selected text leaves that text highlighted, which is right
+ * while the popup is up (it is the popup's subject) and wrong the moment the popup
+ * is dismissed: on touch the highlight comes with native selection handles and a
+ * system callout, so "tapped away, popup gone, sentence still blue with grab handles
+ * on it" reads as the dismissal having half-failed.
+ *
+ * A focused input/textarea keeps its OWN selection, which removeAllRanges does not
+ * touch — and this deliberately does not reach for it. That selection is the
+ * reader's editing state in a field they are working in (a compose box, Yomu's own
+ * search input); the popup was a side trip, and collapsing their range would move
+ * their caret and lose their place. See tests/reader/selection-preservation.test.ts.
+ */
+export function clearDocumentSelection(): void {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0 && !selection.isCollapsed) selection.removeAllRanges();
+}
