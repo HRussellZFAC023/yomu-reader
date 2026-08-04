@@ -9,6 +9,7 @@ import { firstCardMeaning } from './index';
 import { primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
+import { newTabAction } from './actions';
 
 export type BrowseFilter = 'all' | CardState;
 export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
@@ -107,7 +108,7 @@ export function renderBrowseSourceChips(
     const chip = (filter: BrowseSourceChip, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
         type: 'button',
         class: 'jpdb-reader-newtab-browse-chip jpdb-reader-newtab-browse-source-chip',
-        dataset: { newtabAction: 'browse-source-filter', browseSourceFilter: filter },
+        dataset: { newtabAction: newTabAction('browse-source-filter'), browseSourceFilter: filter },
         'aria-pressed': String(pressed),
     }, `${label} ${count}`);
     return el('div', { class: 'jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips', role: 'group' },
@@ -164,7 +165,7 @@ export function renderBrowseChips(
     const chip = (filter: BrowseFilter, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
         type: 'button',
         class: 'jpdb-reader-newtab-browse-chip',
-        dataset: { newtabAction: 'browse-filter', browseFilter: filter },
+        dataset: { newtabAction: newTabAction('browse-filter'), browseFilter: filter },
         'aria-pressed': String(pressed),
     }, `${label} ${count}`);
     return el('div', { class: 'jpdb-reader-newtab-browse-chips', role: 'group' },
@@ -199,7 +200,7 @@ export function renderBrowseControls(
     return el('div', { class: 'jpdb-reader-newtab-browse-controls' },
         el('label', { class: 'jpdb-reader-newtab-browse-sort' },
             el('span', { class: 'jpdb-reader-newtab-sr-only' }, copy.sortLabel),
-            el('select', { dataset: { newtabAction: 'browse-sort' }, 'aria-label': copy.sortLabel },
+            el('select', { dataset: { newtabAction: newTabAction('browse-sort') }, 'aria-label': copy.sortLabel },
                 el('option', { value: 'queue', selected: sort === 'queue' }, copy.sortQueue),
                 el('option', { value: 'alpha', selected: sort === 'alpha' }, copy.sortAlpha),
                 el('option', { value: 'frequency', selected: sort === 'frequency' }, copy.sortFrequency),
@@ -209,7 +210,7 @@ export function renderBrowseControls(
         el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-browse-direction',
-            dataset: { newtabAction: 'browse-sort-direction' },
+            dataset: { newtabAction: newTabAction('browse-sort-direction') },
             'aria-label': directionLabel,
             title: directionLabel,
             'aria-pressed': String(descending),
@@ -217,7 +218,7 @@ export function renderBrowseControls(
         el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-browse-select-toggle',
-            dataset: { newtabAction: 'browse-select-mode' },
+            dataset: { newtabAction: newTabAction('browse-select-mode') },
             'aria-pressed': String(selectMode),
         }, copy.select),
     );
@@ -255,12 +256,12 @@ export function renderBrowseList(
             ? el('div', { class: 'jpdb-reader-newtab-browse-pager' },
                 el('button', {
                     type: 'button',
-                    dataset: { newtabAction: 'browse-page', browsePage: String(currentPage - 1) },
+                    dataset: { newtabAction: newTabAction('browse-page'), browsePage: String(currentPage - 1) },
                     disabled: currentPage === 0,
                 }, copy.previous),
                 el('button', {
                     type: 'button',
-                    dataset: { newtabAction: 'browse-page', browsePage: String(currentPage + 1) },
+                    dataset: { newtabAction: newTabAction('browse-page'), browsePage: String(currentPage + 1) },
                     disabled: currentPage >= pageCount - 1,
                 }, copy.next),
             )
@@ -275,7 +276,7 @@ export function renderBrowseList(
 function renderBrowseBulkBar(copy: BrowseBulkCopy): HTMLElement {
     const action = (bulkAction: string, label: string): HTMLElement => el('button', {
         type: 'button',
-        dataset: { newtabAction: 'browse-bulk', bulkAction },
+        dataset: { newtabAction: newTabAction('browse-bulk'), bulkAction },
         disabled: true,
     }, label);
     return el('div', { class: 'jpdb-reader-newtab-browse-bulk' },
@@ -309,7 +310,7 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
             type: 'button',
             class: 'jpdb-reader-newtab-browse-row',
             dataset: {
-                newtabAction: 'browse-card',
+                newtabAction: newTabAction('browse-card'),
                 browseCardKey: cardKey(card),
                 expression: card.spelling,
                 reading: card.reading,

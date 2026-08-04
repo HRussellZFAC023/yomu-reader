@@ -28,6 +28,7 @@ import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
+import { newTabAction } from './actions';
 
 export interface NewTabSearchKanjiResult {
     character: string;
@@ -92,7 +93,7 @@ function renderSearchWordResult(card: JPDBCard, context: NewTabSearchViewContext
         el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-search-card jpdb-reader-newtab-search-word',
-            dataset: { newtabAction: 'search-result-word', newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
+            dataset: { newtabAction: newTabAction('search-result-word'), newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
             'aria-expanded': 'false',
         },
         renderSearchWordTerm(card, context),
@@ -152,7 +153,7 @@ function renderSearchKanjiResult(result: NewTabSearchKanjiResult, context: NewTa
         el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-search-card jpdb-reader-newtab-search-kanji-card',
-            dataset: { newtabAction: 'search-result-kanji', kanji: result.character },
+            dataset: { newtabAction: newTabAction('search-result-kanji'), kanji: result.character },
             'aria-expanded': 'false',
         },
         el('span', { class: 'jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable', lang: 'ja' }, result.character),

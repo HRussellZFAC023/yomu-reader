@@ -40,6 +40,7 @@ import {
     type StatsSourceId,
     type StatsSourceSnapshot,
 } from '../app/stats';
+import { nearestNewTabAction, newTabActionSelector, type NewTabAction } from './actions';
 
 const log = Logger.scope('NewTab');
 
@@ -90,8 +91,18 @@ function statsSourceIdFromValue(value: string | undefined): StatsSourceId {
     return 'combined';
 }
 
+/**
+ * The stats page owns the `stats-`-prefixed slice of the Study action
+ * vocabulary; the router hands every other action elsewhere.
+ */
+type NewTabStatsAction = Extract<NewTabAction, `stats-${string}`>;
+
+function isNewTabStatsAction(action: NewTabAction | undefined): action is NewTabStatsAction {
+    return action !== undefined && action.startsWith('stats-');
+}
+
 interface StatsClickRequest {
-    action: string;
+    action: NewTabStatsAction;
     chartDayTarget: HTMLElement | null;
     target: HTMLElement;
 }
@@ -145,7 +156,7 @@ export class NewTabStatsController {
     // Latest-wins guard for in-flight loads (the 1.6.173 'stats' scope).
     private readonly operations = new OperationTracker();
 
-    private readonly clickHandlers: Record<string, StatsClickHandler> = {
+    private readonly clickHandlers: Partial<Record<NewTabStatsAction, StatsClickHandler>> = {
         'stats-source': (root, target) => this.selectSource(root, target),
         'stats-activity-metric': (root, target) => this.selectActivityMetric(root, target),
         'stats-select-day': (root, target, request) => this.selectDay(root, target, request.chartDayTarget),
@@ -240,17 +251,17 @@ export class NewTabStatsController {
 
     // --- click handling ---
 
-    handleClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action?: string): boolean {
+    handleClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action?: NewTabAction): boolean {
         const request = this.clickRequest(root, target, action, event);
         if (!request) return false;
         event.preventDefault();
         return this.performClick(root, request);
     }
 
-    private clickRequest(root: HTMLElement, target: HTMLElement, action: string | undefined, event: MouseEvent): StatsClickRequest | null {
+    private clickRequest(root: HTMLElement, target: HTMLElement, action: NewTabAction | undefined, event: MouseEvent): StatsClickRequest | null {
         const chartDayTarget = action ? null : this.nearestChartDayTarget(root, target, event);
-        const resolvedAction = action ?? chartDayTarget?.dataset.newtabAction;
-        return resolvedAction?.startsWith('stats-')
+        const resolvedAction = action ?? nearestNewTabAction(chartDayTarget);
+        return isNewTabStatsAction(resolvedAction)
             ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target }
             : null;
     }
@@ -291,7 +302,7 @@ export class NewTabStatsController {
     private nearbyChartDayTargets(root: HTMLElement, target: HTMLElement): HTMLElement[] {
         const chart = target.closest<HTMLElement>('.jpdb-reader-stats-bars, .jpdb-reader-stats-heatmap-grid');
         if (!chart || !root.contains(chart)) return [];
-        return Array.from(chart.querySelectorAll<HTMLElement>('[data-newtab-action="stats-select-day"][data-stats-day]'));
+        return Array.from(chart.querySelectorAll<HTMLElement>(newTabActionSelector('stats-select-day', '[data-stats-day]')));
     }
 
     // --- per-source data loading ---

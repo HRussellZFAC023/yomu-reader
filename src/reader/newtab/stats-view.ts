@@ -21,6 +21,7 @@ import {
 } from '../app/stats';
 import type { NewTabCopyKey } from './i18n';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
+import { newTabAction } from './actions';
 
 type NewTabStatsTextKey = UiCopyKey | NewTabCopyKey;
 type NewTabStatsText = (key: NewTabStatsTextKey) => string;
@@ -56,7 +57,7 @@ export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HT
             el('button', {
                 type: 'button',
                 class: 'jpdb-reader-stats-refresh',
-                dataset: { newtabAction: 'stats-refresh' },
+                dataset: { newtabAction: newTabAction('stats-refresh') },
                 'aria-label': text('statsRefresh'),
                 title: text('statsRefresh'),
             }, '↻'),
@@ -91,7 +92,7 @@ function renderStatsSourceTabs(context: NewTabStatsRenderContext): HTMLElement {
         tabs.map(([source, label]) => el('button', {
             type: 'button',
             dataset: {
-                newtabAction: 'stats-source',
+                newtabAction: newTabAction('stats-source'),
                 statsSource: source,
                 active: source === selectedSource,
             },
@@ -164,7 +165,7 @@ function renderStatsActivityMetricTabs(context: NewTabStatsRenderContext): HTMLE
         metrics.map(([metric, label]) => el('button', {
             type: 'button',
             dataset: {
-                newtabAction: 'stats-activity-metric',
+                newtabAction: newTabAction('stats-activity-metric'),
                 statsActivityMetric: metric,
                 active: metric === activityMetric,
             },
@@ -184,7 +185,7 @@ function renderStatsActivityBar(point: StatsDailyPoint, maxValue: number, metric
         'aria-label': label,
         style: `--stats-bar-height:${height}%`,
         dataset: {
-            newtabAction: 'stats-select-day',
+            newtabAction: newTabAction('stats-select-day'),
             statsDay: point.date,
             tooltip: label,
             active: value > 0,
@@ -232,7 +233,7 @@ function renderStatsHeatmapDay(point: StatsDailyPoint, maxValue: number, metric:
         title: label,
         'aria-label': label,
         dataset: {
-            newtabAction: 'stats-select-day',
+            newtabAction: newTabAction('stats-select-day'),
             statsDay: point.date,
             day: String(Number(point.date.slice(-2))),
             tooltip: label,
@@ -297,7 +298,7 @@ function renderStatsDistribution(context: NewTabStatsRenderContext): HTMLElement
                 el('button', {
                     type: 'button',
                     class: 'jpdb-reader-stats-panel-button',
-                    dataset: { newtabAction: 'stats-study-trouble' },
+                    dataset: { newtabAction: newTabAction('stats-study-trouble') },
                     disabled: troubleCount <= 0,
                     title: text('statsStudyTroubleHint'),
                 }, text('statsStudyTroubleCards')),
@@ -353,17 +354,17 @@ function statsConnectionActions(source: StatsSourceSnapshot, context: NewTabStat
     const { text } = context;
     if (source.id === 'jpdb') {
         const actions: Array<HTMLElement | null> = [
-            el('button', { type: 'button', dataset: { newtabAction: 'stats-open-jpdb-settings' } }, text('statsOpenJpdbSettings')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-open-jpdb-settings') } }, text('statsOpenJpdbSettings')),
         ];
-        actions.push(el('button', { type: 'button', dataset: { newtabAction: 'stats-import-jpdb' } }, text('statsChooseJpdbFile')));
+        actions.push(el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-import-jpdb') } }, text('statsChooseJpdbFile')));
         return actions;
     }
     if (source.id === 'jiten') return [
-        el('button', { type: 'button', dataset: { newtabAction: 'stats-open-jpdb-settings' } }, text('statsOpenApiSettings')),
+        el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-open-jpdb-settings') } }, text('statsOpenApiSettings')),
     ];
     return [
-        isStatsSourceConnected(source) ? null : el('button', { type: 'button', dataset: { newtabAction: 'stats-connect-anki' } }, text('statsConnectAnki')),
-        el('button', { type: 'button', dataset: { newtabAction: 'stats-open-anki-settings' } }, text('statsOpenAnkiSettings')),
+        isStatsSourceConnected(source) ? null : el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-connect-anki') } }, text('statsConnectAnki')),
+        el('button', { type: 'button', dataset: { newtabAction: newTabAction('stats-open-anki-settings') } }, text('statsOpenAnkiSettings')),
     ];
 }
 
@@ -417,7 +418,7 @@ function renderStatsAnkiDeckToggles(source: StatsSourceSnapshot, text: NewTabSta
                 el('input', {
                     type: 'checkbox',
                     checked: active,
-                    dataset: { newtabAction: 'stats-toggle-anki-deck', statsAnkiDeck: deck },
+                    dataset: { newtabAction: newTabAction('stats-toggle-anki-deck'), statsAnkiDeck: deck },
                 }),
                 el('span', {}, deck),
             );

@@ -2,6 +2,7 @@ import { el } from '../dom/builder';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import type { JPDBGrade } from '../app/types';
 import type { NewTabReviewTarget } from './review-targets';
+import { newTabAction, newTabActionSelector } from './actions';
 
 export interface NewTabLookupReviewTarget {
     id: string;
@@ -233,7 +234,7 @@ function renderNewTabGradeButton(
     const title = [targetLabel, interval?.label || intervalLabel].filter(Boolean).join(' · ');
     return el('button', {
         type: 'button',
-        dataset: { newtabAction: 'grade', grade, ...(intervalLabel ? { gradeInterval: intervalLabel } : {}) },
+        dataset: { newtabAction: newTabAction('grade'), grade, ...(intervalLabel ? { gradeInterval: intervalLabel } : {}) },
         title,
         'aria-label': `${aria}: ${targetLabel}`,
     },
@@ -266,7 +267,7 @@ function visibleGradeTargetLabel(label: string): string {
 }
 
 function updateMainGradeButtonLabels(root: HTMLElement, label: string): void {
-    root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"][data-grade]').forEach(gradeButton => {
+    root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade', '[data-grade]')).forEach(gradeButton => {
         const gradeLabel = [
             gradeButton.querySelector<HTMLElement>('.jpdb-reader-newtab-grade-label')?.textContent?.trim(),
             gradeButton.dataset.gradeInterval,

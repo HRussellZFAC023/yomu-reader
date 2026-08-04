@@ -79,6 +79,7 @@ import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { ReaderParser } from '../lookup/parser';
 import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import type { NewTabControllerDependencies } from './controller';
+import { newTabAction, newTabActionSelector, type NewTabAction } from './actions';
 
 const log = Logger.scope('NewTab');
 const NEW_TAB_HANDWRITING_SHAPE_CACHE_LIMIT = 160;
@@ -232,7 +233,7 @@ export class NewTabSearchController {
     // Handles the search-owned root-click actions. Returns undefined for
     // actions the controller must route elsewhere (browse), so the controller
     // stays the single click router.
-    handleSearchClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean | undefined {
+    handleSearchClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean | undefined {
         switch (action) {
             case 'search-clear':
                 event.preventDefault();
@@ -411,7 +412,7 @@ export class NewTabSearchController {
     }
 
     private searchSuggestionButtons(root: HTMLElement): HTMLButtonElement[] {
-        return Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-search-autocomplete] [data-newtab-action="search-suggestion"]'));
+        return Array.from(root.querySelectorAll<HTMLButtonElement>(`[data-newtab-search-autocomplete] ${newTabActionSelector('search-suggestion')}`));
     }
 
     private setSearchActiveSuggestion(root: HTMLElement, index: number): boolean {
@@ -452,8 +453,8 @@ export class NewTabSearchController {
 
     private focusFirstSearchResult(root: HTMLElement): boolean {
         const target = root.querySelector<HTMLElement>(
-            '[data-newtab-search-results] [data-newtab-action="search-result-kanji"], '
-            + '[data-newtab-search-results] [data-newtab-action="search-result-word"], '
+            `[data-newtab-search-results] ${newTabActionSelector('search-result-kanji')}, `
+            + `[data-newtab-search-results] ${newTabActionSelector('search-result-word')}, `
             + '[data-newtab-search-results] a, '
             + '[data-newtab-search-results] button',
         );
@@ -467,7 +468,7 @@ export class NewTabSearchController {
         if (!input || input === document.activeElement) return;
         window.setTimeout(() => {
             const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            const canFocus = !active || active === document.body || Boolean(active.closest('[data-newtab-action="mode"]'));
+            const canFocus = !active || active === document.body || Boolean(active.closest(newTabActionSelector('mode')));
             if (this.currentRoute() === 'search' && input.isConnected && canFocus) input.focus();
         }, 0);
     }
@@ -585,7 +586,7 @@ export class NewTabSearchController {
 
     private syncSearchHandwritingToggle(root: HTMLElement): void {
         const panel = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]');
-        const toggle = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-handwriting-toggle"]');
+        const toggle = root.querySelector<HTMLButtonElement>(newTabActionSelector('search-handwriting-toggle'));
         if (!toggle) return;
         const enabled = usesJapaneseCharacterStudy();
         toggle.hidden = !enabled;
@@ -684,7 +685,7 @@ export class NewTabSearchController {
             candidates.map(candidate => el('button', {
                 class: 'jpdb-reader-parseable',
                 type: 'button',
-                dataset: { newtabAction: 'handwriting-candidate', query: candidate },
+                dataset: { newtabAction: newTabAction('handwriting-candidate'), query: candidate },
                 lang: 'ja',
             }, candidate)),
             message ? el('span', { class: 'jpdb-reader-newtab-handwriting-message jpdb-reader-parseable', lang: resolveUiLanguage(this.deps.language()) === 'ja' ? 'ja' : 'en' }, message) : null,
@@ -1334,7 +1335,7 @@ export class NewTabSearchController {
             id: `jpdb-reader-newtab-suggestion-${index}`,
             type: 'button',
             role: 'option',
-            dataset: { newtabAction: 'search-suggestion', query: suggestion.query, newtabSearchSuggestionIndex: index },
+            dataset: { newtabAction: newTabAction('search-suggestion'), query: suggestion.query, newtabSearchSuggestionIndex: index },
             lang: 'ja',
             'aria-label': detail ? `${suggestion.query}, ${detail}` : suggestion.query,
             'aria-selected': 'false',
@@ -1524,7 +1525,7 @@ function renderSearchHandwritingManualAction(language: ReaderSettings['interface
     return el('button', {
         class: 'jpdb-reader-newtab-handwriting-manual-action jpdb-reader-parseable',
         type: 'button',
-        dataset: { newtabAction: 'search-focus' },
+        dataset: { newtabAction: newTabAction('search-focus') },
         lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
     }, newTabText(language, 'typeOrPasteKanji'));
 }

@@ -11,6 +11,7 @@ import type { NewTabCopyKey } from './i18n';
 import type { PitchSrsItem } from './pitch-srs';
 import type { SpeakingPitchScore, SpeakingPitchVerdict } from './speaking-score';
 import { speakerIcon } from '../ui/icons';
+import { newTabAction, newTabActionAttr, type NewTabAction } from './actions';
 
 export type ListenOutcome = 'correct' | 'wrong';
 export type ListenCardSubMode = 'perceive' | 'recall' | 'shadow';
@@ -55,13 +56,13 @@ function pitchClassLabel(className: PitchClassName | '', t: Translate): string {
     return className ? t(PITCH_CLASS_LABEL_KEYS[className]) : '';
 }
 
-function iconButton(action: string, label: string, extraAttrs = ''): string {
+function iconButton(action: NewTabAction, label: string, extraAttrs = ''): string {
     const isPlayAction = action.startsWith('listen-play');
     const content = isPlayAction ? speakerIcon() : escapeHtml(label);
     const className = isPlayAction
         ? 'jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio jpdb-reader-newtab-listen-btn jpdb-reader-newtab-listen-icon-btn'
         : 'jpdb-reader-newtab-listen-btn';
-    return `<button type="button" class="${className}" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;
+    return `<button type="button" class="${className}" ${newTabActionAttr(action)} ${extraAttrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;
 }
 
 // The downstep-position picker: N+1 buttons (0=heiban … N=odaka) each previewing
@@ -84,7 +85,7 @@ function renderPositionPicker(item: PitchSrsItem, selectedPosition: number | nul
             ? `${isAnswer ? ' jpdb-reader-newtab-listen-pos-correct' : isSelected ? ' jpdb-reader-newtab-listen-pos-wrong' : ''}${isSelected ? ' jpdb-reader-newtab-listen-pos-selected' : ''}`
             : (isSelected ? ' jpdb-reader-newtab-listen-pos-selected' : '');
         buttons.push(`
-            <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || 'unknown'}${stateClass}" data-newtab-action="listen-pick" data-listen-pos="${position}" data-pitch-class="${className || 'unknown'}" aria-pressed="${isSelected}">
+            <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || 'unknown'}${stateClass}" ${newTabActionAttr('listen-pick')} data-listen-pos="${position}" data-pitch-class="${className || 'unknown'}" aria-pressed="${isSelected}">
                 <span class="jpdb-reader-newtab-listen-pos-num">${position}</span>
                 <span class="jpdb-reader-newtab-listen-pos-graph">${graph}</span>
                 <span class="jpdb-reader-newtab-listen-pos-name">${escapeHtml(pitchClassLabel(className, t))}</span>
@@ -99,8 +100,8 @@ function renderRecordRow(view: ListenCardView, t: Translate): string {
     const recordLabel = view.recording ? t('listenMicRecording') : t('listenMicListenBack');
     return `
         <div class="jpdb-reader-newtab-listen-record">
-            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? ' jpdb-reader-newtab-listen-recording' : ''}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml(recordLabel)}</button>
-            ${view.hasRecording ? iconButton('listen-play-recording', t('listenMicYou')) : ''}
+            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? ' jpdb-reader-newtab-listen-recording' : ''}" ${newTabActionAttr('listen-record')} aria-pressed="${view.recording}">${escapeHtml(recordLabel)}</button>
+            ${view.hasRecording ? iconButton(newTabAction('listen-play-recording'), t('listenMicYou')) : ''}
             ${renderSpeakingScore(view, t)}
         </div>`;
 }
@@ -168,7 +169,7 @@ export function renderListenCard(view: ListenCardView, t: Translate): string {
     // Audio control (perceive + shadow lead with sound; recall hides it until reveal).
     if (view.subMode !== 'recall' || view.revealed) {
         sections.push(`<div class="jpdb-reader-newtab-listen-audio">
-            ${view.hasAudio ? iconButton('listen-play', t('listenReplay')) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml(t('listenNoAudio'))}</span>`}
+            ${view.hasAudio ? iconButton(newTabAction('listen-play'), t('listenReplay')) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml(t('listenNoAudio'))}</span>`}
         </div>`);
     }
 

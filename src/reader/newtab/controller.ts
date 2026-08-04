@@ -331,6 +331,7 @@ import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../di
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { NewTabTargetResources } from './target-resources';
 import { captureActiveTarget, isCurrentActiveTarget, type ActiveTargetSnapshot } from './target-scope';
+import { nearestNewTabAction, newTabAction, newTabActionSelector, type NewTabAction } from './actions';
 
 export { selectNewTabStudyPool } from './study-queue';
 export { newTabKanjiSourceTitle } from './kanji-helpers';
@@ -504,7 +505,7 @@ type PointerNavigationDirection = 'next' | 'previous';
 
 interface RootClickRequest {
     target: HTMLElement;
-    action: string | undefined;
+    action: NewTabAction | undefined;
 }
 
 interface BeforeInstallPromptChoice {
@@ -516,7 +517,7 @@ type BeforeInstallPromptEvent = Event & {
     userChoice?: Promise<BeforeInstallPromptChoice>;
 };
 
-type RootClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined) => boolean;
+type RootClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent, action: NewTabAction | undefined) => boolean;
 
 type StudyClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent) => void;
 
@@ -834,13 +835,15 @@ export class NewTabController {
         (root, target, event, action) => this.handleSearchClick(root, target, event, action),
         (root, target, event, action) => this.handleRootModeClick(root, target, event, action),
     ];
-    private readonly studyClickHandlers: Record<string, StudyClickHandler> = {
+    // Keyed by the closed action vocabulary, so an entry for a name no render
+    // site emits fails typecheck. That is how five permanently-unreachable
+    // entries (skip / undo-review / listen-play-both / listen-grade /
+    // listen-next) were found and removed — nothing in src rendered them.
+    private readonly studyClickHandlers: Partial<Record<NewTabAction, StudyClickHandler>> = {
         next: (_root, _target, event) => this.navigateFromPointer('next', event),
-        skip: (_root, _target, event) => this.navigateFromPointer('next', event),
         previous: (_root, _target, event) => this.navigateFromPointer('previous', event),
         reveal: root => this.toggleReveal(root),
         'empty-fallback': root => { void this.startStarterWordStudy(root); },
-        'undo-review': root => { void this.undoLastReview(root); },
         'continue-batch': root => { void this.continueAfterBatch(root); },
         'study-step': (root, target) => this.activateStudyStepFromClick(root, target),
         'study-hint': (root, target) => this.revealStudyHint(root, target),
@@ -851,11 +854,8 @@ export class NewTabController {
         'type-word-mode': (root, target) => this.handleTypeWordModeClick(root, target),
         'listen-pick': (root, target) => this.handleListenPick(root, target),
         'listen-play': () => { void this.playListenModelAudio(); },
-        'listen-play-both': () => { void this.playListenContrast(); },
         'listen-record': () => { void this.toggleListenRecording(); },
         'listen-play-recording': () => this.playListenRecording(),
-        'listen-grade': (root, target) => this.handleListenGrade(root, target),
-        'listen-next': root => this.advanceListen(root),
         grade: (root, target) => this.gradeFromStudyClick(root, target),
         'jpdb-kanji-action': (root, target) => {
             void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -1093,7 +1093,7 @@ export class NewTabController {
         // Another Study tab may have consumed any session id in this queue.
         // Make every local Bunpro control inert synchronously, remove all stale
         // obligations, then trust only a fresh live queue response.
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"], button[data-action="grade"][data-grade]')
+        root.querySelectorAll<HTMLButtonElement>(`${newTabActionSelector('grade')}, button[data-action="grade"][data-grade]`)
             .forEach(button => { button.disabled = true; });
         this.lastUndoableReview = undefined;
         this.invalidateSourceResultCache('bunpro');
@@ -1259,9 +1259,9 @@ export class NewTabController {
                         ),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': newTabText(language, 'newTabMode') },
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'word' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'study')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'library')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'word' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'study')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'library')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
                     ),
                     this.options.surface === 'academy' ? null : el('div', { class: 'jpdb-reader-newtab-theme-controls' },
                         el('span', {
@@ -1330,18 +1330,18 @@ export class NewTabController {
                                 'aria-controls': 'jpdb-reader-newtab-autocomplete',
                                 'aria-expanded': 'false',
                             }),
-                            el('button', { class: 'jpdb-reader-parseable', type: 'submit', dataset: { newtabAction: 'search-submit' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
+                            el('button', { class: 'jpdb-reader-parseable', type: 'submit', dataset: { newtabAction: newTabAction('search-submit') }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
                             el('button', {
                                 class: 'jpdb-reader-parseable',
                                 type: 'button',
-                                dataset: { newtabAction: 'search-handwriting-toggle' },
+                                dataset: { newtabAction: newTabAction('search-handwriting-toggle') },
                                 lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
                                 'aria-controls': 'jpdb-reader-newtab-handwriting',
                                 'aria-expanded': 'false',
                                 hidden: !usesJapaneseCharacterStudy(),
                                 disabled: !usesJapaneseCharacterStudy(),
                             }, newTabText(language, 'draw')),
-                            el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'search-clear' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en', 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
+                            el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('search-clear') }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en', 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
                         ),
                         el('div', {
                             id: 'jpdb-reader-newtab-autocomplete',
@@ -1354,9 +1354,9 @@ export class NewTabController {
                     ),
                 ),
                 el('nav', { class: 'jpdb-reader-newtab-controls', dataset: { newtabControls: true }, 'aria-label': newTabText(language, 'studyNavigation') },
-                    el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': newTabText(language, 'previousWord') }, newTabText(language, 'previousWord')),
-                    el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, uiText(language, 'reveal')),
-                    el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': newTabText(language, 'nextWord') }, newTabText(language, 'nextWord')),
+                    el('button', { type: 'button', dataset: { newtabAction: newTabAction('previous') }, 'aria-label': newTabText(language, 'previousWord') }, newTabText(language, 'previousWord')),
+                    el('button', { type: 'button', dataset: { newtabAction: newTabAction('reveal') } }, uiText(language, 'reveal')),
+                    el('button', { type: 'button', dataset: { newtabAction: newTabAction('next') }, 'aria-label': newTabText(language, 'nextWord') }, newTabText(language, 'nextWord')),
                 ),
                 this.options.surface === 'academy' ? null : this.renderAppNavigation(language),
                 el('aside', { class: 'jpdb-reader-newtab-support-banner', dataset: { newtabSupportBanner: true }, hidden: true, 'aria-label': newTabText(language, 'supportBannerLabel') }),
@@ -1367,7 +1367,7 @@ export class NewTabController {
     private renderOverflowMenu(language: ReaderSettings['interfaceLanguage']): HTMLElement {
         const nextLanguage = nextExplicitUiLanguage(language);
         return el('div', { class: 'jpdb-reader-newtab-more-menu', role: 'menu' },
-            this.renderOverflowMenuButton(newTabText(language, 'connectionsAndSettings'), 'settings', language, {
+            this.renderOverflowMenuButton(newTabText(language, 'connectionsAndSettings'), newTabAction('settings'), language, {
                 description: newTabText(language, 'connectionsDescription'),
             }),
             // One route list, shared with the docs nav and the PDF Reader and
@@ -1375,16 +1375,16 @@ export class NewTabController {
             // Japanese label here; the two static shells localize stamped
             // data-nav-ja attributes in their applyInterfaceLanguage loops.
             ...studyShellNavRoutes(DOCS_BASE_URL, location.href).map(link => this.renderSiteNavLink(link, language)),
-            this.renderOverflowMenuButton(newTabText(language, 'installStudyApp'), 'install-app', language, {
+            this.renderOverflowMenuButton(newTabText(language, 'installStudyApp'), newTabAction('install-app'), language, {
                 className: 'jpdb-reader-newtab-install-app',
                 dataset: { newtabInstallApp: true, installPromptAvailable: false },
                 description: newTabText(language, 'installStudyAppManual'),
             }),
             el('hr', { class: 'jpdb-reader-newtab-more-divider' }),
-            this.renderOverflowMenuButton(uiText(language, 'theme'), 'theme', language, {
+            this.renderOverflowMenuButton(uiText(language, 'theme'), newTabAction('theme'), language, {
                 className: 'jpdb-reader-newtab-menu-appearance',
             }),
-            this.renderOverflowMenuButton(uiText(language, nextLanguage === 'ja' ? 'japanese' : 'english'), 'language', language, {
+            this.renderOverflowMenuButton(uiText(language, nextLanguage === 'ja' ? 'japanese' : 'english'), newTabAction('language'), language, {
                 className: 'jpdb-reader-newtab-menu-appearance',
                 dataset: { nextLanguage },
             }),
@@ -1409,14 +1409,14 @@ export class NewTabController {
             class: 'jpdb-reader-newtab-menu-item jpdb-reader-parseable',
             href: link.href,
             ...(link.target ? { target: link.target } : {}),
-            dataset: { newtabAction: 'site-nav' },
+            dataset: { newtabAction: newTabAction('site-nav') },
             role: 'menuitem',
             lang: japanese ? 'ja' : 'en',
         }, japanese ? link.ja : link.text);
     }
 
     private renderAppNavigation(language: ReaderSettings['interfaceLanguage']): HTMLElement {
-        const item = (label: string, mark: string, action: string, mode?: string) => el('button', {
+        const item = (label: string, mark: string, action: NewTabAction, mode?: string) => el('button', {
             class: 'jpdb-reader-newtab-app-nav-item jpdb-reader-parseable',
             type: 'button',
             dataset: { newtabAction: action, ...(mode ? { mode } : {}) },
@@ -1429,15 +1429,15 @@ export class NewTabController {
             dataset: { newtabAppNavigation: true },
             'aria-label': newTabText(language, 'appNavigation'),
         },
-        item(newTabText(language, 'study'), '学', 'mode', 'word'),
-        item(newTabText(language, 'library'), '辞', 'mode', 'search'),
-        item(newTabText(language, 'stats'), '統', 'mode', 'stats'),
-        item(newTabText(language, 'connections'), '連', 'settings'));
+        item(newTabText(language, 'study'), '学', newTabAction('mode'), 'word'),
+        item(newTabText(language, 'library'), '辞', newTabAction('mode'), 'search'),
+        item(newTabText(language, 'stats'), '統', newTabAction('mode'), 'stats'),
+        item(newTabText(language, 'connections'), '連', newTabAction('settings')));
     }
 
     private renderOverflowMenuButton(
         label: string,
-        action: string,
+        action: NewTabAction,
         language: ReaderSettings['interfaceLanguage'],
         options: { className?: string; dataset?: Record<string, string | boolean | number>; description?: string } = {},
     ): HTMLButtonElement {
@@ -1462,196 +1462,31 @@ export class NewTabController {
             href,
             target: '_blank',
             rel: 'noopener',
-            dataset: { newtabAction: 'external-link' },
+            dataset: { newtabAction: newTabAction('external-link') },
             role: 'menuitem',
             lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
         }, label);
     }
 
+    /**
+     * Root event wiring, as two declarative tables: delegated listeners on the
+     * study root, then the page-level listeners (document/window) the surface
+     * needs. Each body lives in its own named method, so this reads as the
+     * surface's event contract instead of 200 lines of inline closures.
+     */
     private bindRootEvents(root: HTMLElement): void {
         this.migrateLegacyState(this.visibleWords[this.index]);
         this.rootEventController?.abort();
         const controller = new AbortController();
+        const options = { signal: controller.signal };
 
         installReaderControlPointerActivation(root);
-        root.addEventListener('click', event => this.handleRootClick(root, event), { signal: controller.signal });
-
-        root.addEventListener('submit', event => {
-            const form = (event.target as HTMLElement | null)?.closest<HTMLFormElement>('form');
-            if (!form || !root.contains(form)) return;
-            if (form.matches('[data-newtab-type-form]')) {
-                event.preventDefault();
-                this.submitTypeWordAnswer(root);
-                return;
-            }
-            if (form.matches('[data-newtab-recall-form]')) {
-                event.preventDefault();
-                this.submitRecallAnswer(root);
-                return;
-            }
-            if (!form.matches('[data-newtab-search]')) return;
-            event.preventDefault();
-            this.searchController.performSearchFromInput(root);
-        }, { signal: controller.signal });
-
-        root.addEventListener('input', event => {
-            const typeInput = event.target instanceof HTMLInputElement
-                ? event.target.closest<HTMLInputElement>('[data-newtab-type-input]')
-                : null;
-            if (typeInput && root.contains(typeInput)) {
-                const card = this.visibleWords[this.index];
-                if (card) {
-                    const state = this.ensureStepState(cardKey(card));
-                    state.type = { ...state.type, answer: typeInput.value, feedback: undefined };
-                    const answer = typeInput.closest<HTMLElement>('[data-newtab-answer]');
-                    if (answer) answer.dataset.typeWordOutcome = 'pending';
-                    answer?.querySelector<HTMLElement>('[data-newtab-type-result]')?.remove();
-                }
-                return;
-            }
-            const recallInput = event.target instanceof HTMLInputElement
-                ? event.target.closest<HTMLInputElement>('[data-newtab-recall-input]')
-                : null;
-            if (recallInput && root.contains(recallInput)) {
-                this.updateRecallAnswer(root, recallInput.value, false);
-                return;
-            }
-            const input = event.target instanceof HTMLInputElement
-                ? event.target.closest<HTMLInputElement>('[data-newtab-search-input]')
-                : null;
-            if (!input || !root.contains(input)) return;
-            this.searchController.onSearchInput(root, input.value);
-        }, { signal: controller.signal });
-
-        root.addEventListener('change', event => {
-            const target = eventTargetElement(event.target);
-            const sourceSelect = target?.closest<HTMLSelectElement>('[data-newtab-source-select]');
-            if (sourceSelect && root.contains(sourceSelect)) {
-                const source = concreteNewTabSourceFromValue(sourceSelect.value);
-                if (source) void this.switchReviewSource(root, source);
-                return;
-            }
-            const targetSelect = target?.closest<HTMLSelectElement>('[data-newtab-grade-target-select]');
-            if (targetSelect && root.contains(targetSelect)) {
-                this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
-                targetSelect.closest<HTMLDetailsElement>('[data-newtab-grade-target]')?.removeAttribute('open');
-                return;
-            }
-            const selectPage = target?.closest<HTMLInputElement>('[data-browse-select-page]');
-            if (selectPage && root.contains(selectPage)) {
-                root.querySelectorAll<HTMLInputElement>('[data-browse-select]').forEach(box => { box.checked = selectPage.checked; });
-                this.syncBrowseBulkControls(root);
-                return;
-            }
-            if (target?.closest('[data-browse-select]')) {
-                this.syncBrowseBulkControls(root);
-                return;
-            }
-            const browseSort = target?.closest<HTMLSelectElement>('[data-newtab-action="browse-sort"]');
-            if (browseSort && root.contains(browseSort)) {
-                const value = browseSort.value;
-                const previousSort = this.browseSort;
-                this.browseSort = value === 'alpha' || value === 'frequency' || value === 'history' ? value : 'queue';
-                if (this.browseSort === 'history' && previousSort !== 'history') this.browseSortDescending = true;
-                this.browsePage = 0;
-                const mount = this.searchResultsMount(root);
-                if (mount && this.state.route === 'search') this.renderBrowseResults(mount);
-                return;
-            }
-            const filterSelect = target?.closest<HTMLSelectElement>('[data-newtab-filter-select]');
-            if (filterSelect && root.contains(filterSelect)) {
-                const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value as NewTabUiState['filter'] }).filter;
-                if (filter === 'study') {
-                    this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-                    return;
-                }
-                // Non-study filters browse the FULL pool (the scheduled-queue
-                // loader drops known/blacklisted cards), so merge the browse
-                // pool in before applying — same data the My Cards browser uses.
-                void this.loadBrowsePool().then(cards => {
-                    this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
-                    this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-                });
-                return;
-            }
-            const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
-            if (deckSelect && root.contains(deckSelect) && this.state.route === 'search') {
-                this.state = { ...this.state, jpdbDeck: deckSelect.value };
-                this.persistState();
-                this.invalidateBrowsePool();
-                this.browsePage = 0;
-                void this.renderBrowseInto(root);
-                return;
-            }
-            if (deckSelect && root.contains(deckSelect)) {
-                const pickedDeck = deckSelect.value === 'all' && this.state.source === 'anki' ? '' : deckSelect.value;
-                this.state = this.state.source === 'anki'
-                    ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false }
-                    : { ...this.state, jpdbDeck: deckSelect.value, revealAnswer: false };
-                this.persistState();
-                this.invalidateSourceResultCache(this.state.source === 'anki' ? 'anki' : 'jpdb');
-                this.allWords = [];
-                this.visibleWords = [];
-                this.visiblePoolSignature = '';
-                this.index = 0;
-                this.setStatus(root, this.text('loading'));
-                void this.loadWordsInto(root, false, { useOfflineCache: false });
-                return;
-            }
-            const input = event.target instanceof HTMLInputElement
-                ? event.target.closest<HTMLInputElement>('[data-stats-jpdb-file]')
-                : null;
-            if (!input || !root.contains(input)) return;
-            const file = input.files?.[0];
-            if (file) void this.statsController.importJpdbFile(root, file);
-            input.value = '';
-        }, { signal: controller.signal });
-
-        root.addEventListener('keydown', event => {
-            if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
-            const input = event.target instanceof HTMLInputElement ? event.target : null;
-            if (!input || !root.contains(input)) return;
-            const typeInput = input.closest<HTMLInputElement>('[data-newtab-type-input]');
-            if (typeInput) {
-                event.preventDefault();
-                this.submitTypeWordAnswer(root);
-                return;
-            }
-            const recallInput = input.closest<HTMLInputElement>('[data-newtab-recall-input]');
-            if (!recallInput) return;
-            event.preventDefault();
-            this.submitRecallAnswer(root);
-        }, { signal: controller.signal });
-
-        root.addEventListener('dragover', event => {
-            const dropzone = this.statsDropzoneTarget(root, event);
-            if (!dropzone) return;
-            event.preventDefault();
-            dropzone.dataset.dragging = 'true';
-        }, { signal: controller.signal });
-
-        root.addEventListener('dragleave', event => {
-            const dropzone = this.statsDropzoneTarget(root, event);
-            if (!dropzone) return;
-            dropzone.dataset.dragging = 'false';
-        }, { signal: controller.signal });
-
-        root.addEventListener('drop', event => {
-            const dropzone = this.statsDropzoneTarget(root, event);
-            if (!dropzone) return;
-            event.preventDefault();
-            dropzone.dataset.dragging = 'false';
-            const file = event.dataTransfer?.files?.[0];
-            if (file) void this.statsController.importJpdbFile(root, file);
-        }, { signal: controller.signal });
-
-        // Study shortcuts listen at document level: focus sits on body after
-        // load and falls back there after every re-render (button clicks
-        // replace the controls), so a root-scoped listener left keyboard
-        // reviewing dead most of the time. This page is always Yomu's own
-        // (renderPage gates on isYomuNewTabUrl), and input/search/settings
-        // targets are filtered in handleRootKeydown.
-        document.addEventListener('keydown', event => this.handleRootKeydown(root, event), { signal: controller.signal });
+        for (const [type, handle] of this.rootEventBindings(root)) {
+            root.addEventListener(type, handle, options);
+        }
+        for (const [target, type, handle] of this.pageEventBindings(root)) {
+            target.addEventListener(type, handle, options);
+        }
 
         installNewTabSwipeGesture({
             root,
@@ -1662,31 +1497,235 @@ export class NewTabController {
             onSwipe: (action, direction) => this.handleNewTabSwipe(root, action, direction),
         });
 
-        window.addEventListener('popstate', () => this.handleLocationPopstate(root), { signal: controller.signal });
-
-        const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
-        window.addEventListener('online', () => {
-            this.offlineReviewingAccepted = false;
-            this.syncConnectivityIndicator(root);
-            syncQueuedGrades();
-        }, { signal: controller.signal });
-        window.addEventListener('offline', () => this.syncConnectivityIndicator(root), { signal: controller.signal });
-        window.addEventListener('focus', syncQueuedGrades, { signal: controller.signal });
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) syncQueuedGrades();
-        }, { signal: controller.signal });
-        window.addEventListener('beforeinstallprompt', event => {
-            event.preventDefault();
-            this.installPrompt = event as BeforeInstallPromptEvent;
-            this.syncInstallAppButton(root);
-        }, { signal: controller.signal });
-        window.addEventListener('appinstalled', () => {
-            this.installPrompt = null;
-            this.syncInstallAppButton(root);
-            this.dependencies.toast?.(this.text('installStudyAppInstalled'));
-        }, { signal: controller.signal });
         this.syncConnectivityIndicator(root);
         this.rootEventController = controller;
+    }
+
+    private rootEventBindings(root: HTMLElement): Array<[string, (event: Event) => void]> {
+        return [
+            ['click', event => this.handleRootClick(root, event as MouseEvent)],
+            ['submit', event => this.handleRootSubmit(root, event)],
+            ['input', event => this.handleRootInput(root, event)],
+            ['change', event => this.handleRootChange(root, event)],
+            ['keydown', event => this.handleRootEnterKeydown(root, event as KeyboardEvent)],
+            ['dragover', event => this.handleStatsDragOver(root, event)],
+            ['dragleave', event => this.handleStatsDragLeave(root, event)],
+            ['drop', event => this.handleStatsDrop(root, event as DragEvent)],
+        ];
+    }
+
+    private pageEventBindings(root: HTMLElement): Array<[EventTarget, string, (event: Event) => void]> {
+        const syncQueuedGrades = () => { void this.flushQueuedGrades(); };
+        return [
+            // Study shortcuts listen at document level: focus sits on body after
+            // load and falls back there after every re-render (button clicks
+            // replace the controls), so a root-scoped listener left keyboard
+            // reviewing dead most of the time. This page is always Yomu's own
+            // (renderPage gates on isYomuNewTabUrl), and input/search/settings
+            // targets are filtered in handleRootKeydown.
+            [document, 'keydown', event => this.handleRootKeydown(root, event as KeyboardEvent)],
+            [window, 'popstate', () => this.handleLocationPopstate(root)],
+            [window, 'online', () => {
+                this.offlineReviewingAccepted = false;
+                this.syncConnectivityIndicator(root);
+                syncQueuedGrades();
+            }],
+            [window, 'offline', () => this.syncConnectivityIndicator(root)],
+            [window, 'focus', syncQueuedGrades],
+            [document, 'visibilitychange', () => {
+                if (!document.hidden) syncQueuedGrades();
+            }],
+            [window, 'beforeinstallprompt', event => {
+                event.preventDefault();
+                this.installPrompt = event as BeforeInstallPromptEvent;
+                this.syncInstallAppButton(root);
+            }],
+            [window, 'appinstalled', () => {
+                this.installPrompt = null;
+                this.syncInstallAppButton(root);
+                this.dependencies.toast?.(this.text('installStudyAppInstalled'));
+            }],
+        ];
+    }
+
+    private handleRootSubmit(root: HTMLElement, event: Event): void {
+        const form = (event.target as HTMLElement | null)?.closest<HTMLFormElement>('form');
+        if (!form || !root.contains(form)) return;
+        if (form.matches('[data-newtab-type-form]')) {
+            event.preventDefault();
+            this.submitTypeWordAnswer(root);
+            return;
+        }
+        if (form.matches('[data-newtab-recall-form]')) {
+            event.preventDefault();
+            this.submitRecallAnswer(root);
+            return;
+        }
+        if (!form.matches('[data-newtab-search]')) return;
+        event.preventDefault();
+        this.searchController.performSearchFromInput(root);
+    }
+
+    private handleRootInput(root: HTMLElement, event: Event): void {
+        const typeInput = event.target instanceof HTMLInputElement
+            ? event.target.closest<HTMLInputElement>('[data-newtab-type-input]')
+            : null;
+        if (typeInput && root.contains(typeInput)) {
+            const card = this.visibleWords[this.index];
+            if (card) {
+                const state = this.ensureStepState(cardKey(card));
+                state.type = { ...state.type, answer: typeInput.value, feedback: undefined };
+                const answer = typeInput.closest<HTMLElement>('[data-newtab-answer]');
+                if (answer) answer.dataset.typeWordOutcome = 'pending';
+                answer?.querySelector<HTMLElement>('[data-newtab-type-result]')?.remove();
+            }
+            return;
+        }
+        const recallInput = event.target instanceof HTMLInputElement
+            ? event.target.closest<HTMLInputElement>('[data-newtab-recall-input]')
+            : null;
+        if (recallInput && root.contains(recallInput)) {
+            this.updateRecallAnswer(root, recallInput.value, false);
+            return;
+        }
+        const input = event.target instanceof HTMLInputElement
+            ? event.target.closest<HTMLInputElement>('[data-newtab-search-input]')
+            : null;
+        if (!input || !root.contains(input)) return;
+        this.searchController.onSearchInput(root, input.value);
+    }
+
+    private handleRootChange(root: HTMLElement, event: Event): void {
+        const target = eventTargetElement(event.target);
+        const sourceSelect = target?.closest<HTMLSelectElement>('[data-newtab-source-select]');
+        if (sourceSelect && root.contains(sourceSelect)) {
+            const source = concreteNewTabSourceFromValue(sourceSelect.value);
+            if (source) void this.switchReviewSource(root, source);
+            return;
+        }
+        const targetSelect = target?.closest<HTMLSelectElement>('[data-newtab-grade-target-select]');
+        if (targetSelect && root.contains(targetSelect)) {
+            this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+            targetSelect.closest<HTMLDetailsElement>('[data-newtab-grade-target]')?.removeAttribute('open');
+            return;
+        }
+        const selectPage = target?.closest<HTMLInputElement>('[data-browse-select-page]');
+        if (selectPage && root.contains(selectPage)) {
+            root.querySelectorAll<HTMLInputElement>('[data-browse-select]').forEach(box => { box.checked = selectPage.checked; });
+            this.syncBrowseBulkControls(root);
+            return;
+        }
+        if (target?.closest('[data-browse-select]')) {
+            this.syncBrowseBulkControls(root);
+            return;
+        }
+        const browseSort = target?.closest<HTMLSelectElement>(newTabActionSelector('browse-sort'));
+        if (browseSort && root.contains(browseSort)) {
+            this.applyBrowseSortChange(root, browseSort.value);
+            return;
+        }
+        const filterSelect = target?.closest<HTMLSelectElement>('[data-newtab-filter-select]');
+        if (filterSelect && root.contains(filterSelect)) {
+            this.applyBrowseFilterChange(root, filterSelect.value);
+            return;
+        }
+        const deckSelect = target?.closest<HTMLSelectElement>('[data-newtab-deck-select]');
+        if (deckSelect && root.contains(deckSelect)) {
+            this.applyDeckSelectChange(root, deckSelect);
+            return;
+        }
+        const input = event.target instanceof HTMLInputElement
+            ? event.target.closest<HTMLInputElement>('[data-stats-jpdb-file]')
+            : null;
+        if (!input || !root.contains(input)) return;
+        const file = input.files?.[0];
+        if (file) void this.statsController.importJpdbFile(root, file);
+        input.value = '';
+    }
+
+    private applyBrowseSortChange(root: HTMLElement, value: string): void {
+        const previousSort = this.browseSort;
+        this.browseSort = value === 'alpha' || value === 'frequency' || value === 'history' ? value : 'queue';
+        if (this.browseSort === 'history' && previousSort !== 'history') this.browseSortDescending = true;
+        this.browsePage = 0;
+        const mount = this.searchResultsMount(root);
+        if (mount && this.state.route === 'search') this.renderBrowseResults(mount);
+    }
+
+    private applyBrowseFilterChange(root: HTMLElement, value: string): void {
+        const filter = normalizeNewTabUiState({ ...this.state, filter: value as NewTabUiState['filter'] }).filter;
+        if (filter === 'study') {
+            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+            return;
+        }
+        // Non-study filters browse the FULL pool (the scheduled-queue
+        // loader drops known/blacklisted cards), so merge the browse
+        // pool in before applying — same data the My Cards browser uses.
+        void this.loadBrowsePool().then(cards => {
+            this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
+            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+        });
+    }
+
+    private applyDeckSelectChange(root: HTMLElement, deckSelect: HTMLSelectElement): void {
+        if (this.state.route === 'search') {
+            this.state = { ...this.state, jpdbDeck: deckSelect.value };
+            this.persistState();
+            this.invalidateBrowsePool();
+            this.browsePage = 0;
+            void this.renderBrowseInto(root);
+            return;
+        }
+        const pickedDeck = deckSelect.value === 'all' && this.state.source === 'anki' ? '' : deckSelect.value;
+        this.state = this.state.source === 'anki'
+            ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false }
+            : { ...this.state, jpdbDeck: deckSelect.value, revealAnswer: false };
+        this.persistState();
+        this.invalidateSourceResultCache(this.state.source === 'anki' ? 'anki' : 'jpdb');
+        this.allWords = [];
+        this.visibleWords = [];
+        this.visiblePoolSignature = '';
+        this.index = 0;
+        this.setStatus(root, this.text('loading'));
+        void this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
+
+    private handleRootEnterKeydown(root: HTMLElement, event: KeyboardEvent): void {
+        if (event.key !== 'Enter' || event.isComposing || event.keyCode === 229) return;
+        const input = event.target instanceof HTMLInputElement ? event.target : null;
+        if (!input || !root.contains(input)) return;
+        const typeInput = input.closest<HTMLInputElement>('[data-newtab-type-input]');
+        if (typeInput) {
+            event.preventDefault();
+            this.submitTypeWordAnswer(root);
+            return;
+        }
+        const recallInput = input.closest<HTMLInputElement>('[data-newtab-recall-input]');
+        if (!recallInput) return;
+        event.preventDefault();
+        this.submitRecallAnswer(root);
+    }
+
+    private handleStatsDragOver(root: HTMLElement, event: Event): void {
+        const dropzone = this.statsDropzoneTarget(root, event);
+        if (!dropzone) return;
+        event.preventDefault();
+        dropzone.dataset.dragging = 'true';
+    }
+
+    private handleStatsDragLeave(root: HTMLElement, event: Event): void {
+        const dropzone = this.statsDropzoneTarget(root, event);
+        if (!dropzone) return;
+        dropzone.dataset.dragging = 'false';
+    }
+
+    private handleStatsDrop(root: HTMLElement, event: DragEvent): void {
+        const dropzone = this.statsDropzoneTarget(root, event);
+        if (!dropzone) return;
+        event.preventDefault();
+        dropzone.dataset.dragging = 'false';
+        const file = event.dataTransfer?.files?.[0];
+        if (file) void this.statsController.importJpdbFile(root, file);
     }
 
     private syncConnectivityIndicator(root: HTMLElement): void {
@@ -1729,11 +1768,10 @@ export class NewTabController {
     private rootClickRequest(event: MouseEvent): RootClickRequest | null {
         const target = eventTargetElement(event.target);
         if (!target) return null;
-        const action = target.closest<HTMLElement>('[data-newtab-action]')?.dataset.newtabAction;
-        return { target, action };
+        return { target, action: nearestNewTabAction(target) };
     }
 
-    private handleRootClickActions(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+    private handleRootClickActions(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
         return this.rootClickHandlers.some(handler => handler(root, target, event, action));
     }
 
@@ -1844,7 +1882,7 @@ export class NewTabController {
                 : FIVE_BUTTON_REVIEW_SHORTCUTS;
         const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
         if (!grade) return;
-        const button = root.querySelector<HTMLButtonElement>(`[data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
+        const button = root.querySelector<HTMLButtonElement>(newTabActionSelector('grade', `[data-grade="${grade}"]:not([disabled])`));
         if (!button) return;
         event.preventDefault();
         this.dismissKeyHints(root);
@@ -1857,7 +1895,7 @@ export class NewTabController {
         // live queue refresh can replace the backing array while the revealed
         // card is still on screen; keep keyboard/swipe input aligned with the
         // visible Hard/Good row until that render is replaced.
-        return Boolean(root.querySelector('[data-newtab-study] [data-newtab-action="grade"][data-grade="pass"]'));
+        return Boolean(root.querySelector(`[data-newtab-study] ${newTabActionSelector('grade', '[data-grade="pass"]')}`));
     }
 
     private canRevealFromEnterTarget(root: HTMLElement, target: HTMLElement | null): boolean {
@@ -1887,7 +1925,7 @@ export class NewTabController {
         return false;
     }
 
-    private handleRootUtilityClick(root: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+    private handleRootUtilityClick(root: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
         if (action === 'settings') {
             event.preventDefault();
             this.dependencies.showSettings('api');
@@ -2032,7 +2070,7 @@ export class NewTabController {
                 el('button', {
                     class: 'jpdb-reader-newtab-support-close',
                     type: 'button',
-                    dataset: { newtabAction: 'dismiss-support-banner' },
+                    dataset: { newtabAction: newTabAction('dismiss-support-banner') },
                     'aria-label': this.text('supportBannerDismiss'),
                 }, '×'),
             ),
@@ -2060,10 +2098,8 @@ export class NewTabController {
             || (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches);
     }
 
-    private handleRootModeClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
-        if (action === 'mode') return this.activateRouteFromClick(root, target, event);
-        if (action === 'listen-submode') return this.activateListenStepFromClick(root, target, event);
-        return false;
+    private handleRootModeClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
+        return action === 'mode' ? this.activateRouteFromClick(root, target, event) : false;
     }
 
     private activateRouteFromClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): true {
@@ -2078,18 +2114,7 @@ export class NewTabController {
         return true;
     }
 
-    private activateListenStepFromClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): true {
-        event.preventDefault();
-        const requested = target.closest<HTMLElement>('[data-listen-submode]')?.dataset.listenSubmode;
-        const mode: ListenInteractionMode = requested === 'recall' || requested === 'shadow' ? requested : 'perceive';
-        if (mode !== 'shadow') this.listenInteractionMode = mode;
-        const step = this.studyStepForKind(mode === 'shadow' ? 'speaking' : 'listen-pitch');
-        this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
-        this.setState({ route: 'study', revealAnswer: false }, root, { preserveWord: true });
-        return true;
-    }
-
-    private handleRootStudyActionClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+    private handleRootStudyActionClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
         const handler = action ? this.studyClickHandlers[action] : undefined;
         if (!handler) return false;
         event.preventDefault();
@@ -2246,7 +2271,7 @@ export class NewTabController {
 
     // Thin forwarder to the stats surface (rootClickHandlers + handleRootClick
     // dispatch stats-* actions and chart-day taps through here).
-    private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action?: string): boolean {
+    private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action?: NewTabAction): boolean {
         return this.statsController.handleClick(root, target, event, action);
     }
 
@@ -4688,7 +4713,7 @@ export class NewTabController {
             type: 'button',
             class: 'jpdb-reader-newtab-study-step',
             dataset: {
-                newtabAction: 'study-step',
+                newtabAction: newTabAction('study-step'),
                 studyStepId: step.id,
                 studyStepKind: step.kind,
                 active: String(active),
@@ -4729,7 +4754,7 @@ export class NewTabController {
                         session.steps.map((step, index) => this.studyTourStep(step, index))),
                     audioAvailability,
                 ),
-                el('button', { type: 'button', dataset: { newtabAction: 'dismiss-study-tour' } }, this.text('studyTourStart')),
+                el('button', { type: 'button', dataset: { newtabAction: newTabAction('dismiss-study-tour') } }, this.text('studyTourStart')),
             );
             return;
         }
@@ -4942,12 +4967,6 @@ export class NewTabController {
         if (card) this.ensureStepState(cardKey(card)).pitch = { position, outcome: this.listenOutcome };
         this.rerenderActiveListen();
         void this.playListenModelAudio();
-    }
-
-    private handleListenGrade(root: HTMLElement, target: HTMLElement): void {
-        const grade = target.closest<HTMLElement>('[data-grade]')?.dataset.grade as JPDBGrade | undefined;
-        if (!grade || !this.listenItem) return;
-        this.advanceListen(root);
     }
 
     private advanceListen(_root: HTMLElement): void {
@@ -5902,7 +5921,7 @@ export class NewTabController {
         countSlot.append(el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-connect-cta',
-            dataset: { newtabAction: 'settings' },
+            dataset: { newtabAction: newTabAction('settings') },
         }, this.text('connectSrsCta')));
     }
 
@@ -5936,7 +5955,7 @@ export class NewTabController {
             meaning: root.querySelector<HTMLElement>('[data-newtab-meaning]'),
             count: root.querySelector<HTMLElement>('[data-newtab-count]'),
             status: root.querySelector<HTMLElement>('[data-newtab-status]'),
-            reveal: root.querySelector<HTMLButtonElement>('[data-newtab-action="reveal"]'),
+            reveal: root.querySelector<HTMLButtonElement>(newTabActionSelector('reveal')),
             controls: root.querySelector<HTMLElement>('[data-newtab-controls]'),
         };
     }
@@ -6080,7 +6099,7 @@ export class NewTabController {
             more ? el('button', {
                 type: 'button',
                 class: 'jpdb-reader-newtab-study-hint-btn',
-                dataset: { newtabAction: 'study-hint' },
+                dataset: { newtabAction: newTabAction('study-hint') },
             }, depth === 0 ? this.text('studyHintReveal') : this.text('studyHintMore')) : null,
         );
     }
@@ -6283,7 +6302,7 @@ export class NewTabController {
                 el('button', {
                     class: 'jpdb-reader-newtab-recall-check',
                     type: 'button',
-                    dataset: { newtabAction: 'recall-submit' },
+                    dataset: { newtabAction: newTabAction('recall-submit') },
                 }, this.text('recallCheck')),
             ),
             outcome ? el('div', {
@@ -6499,7 +6518,7 @@ export class NewTabController {
                 el('button', {
                     class: 'jpdb-reader-newtab-type-skip',
                     type: 'button',
-                    dataset: { newtabAction: 'type-word-skip' },
+                    dataset: { newtabAction: newTabAction('type-word-skip') },
                 }, this.text('typeWordSkip'))),
         );
         if (mode === 'handwriting') this.installTypeWordDoodle(answer, card);
@@ -6511,7 +6530,7 @@ export class NewTabController {
         const button = (value: NewTabTypeWordInputMode, label: string) => el('button', {
             class: 'jpdb-reader-newtab-type-mode',
             type: 'button',
-            dataset: { newtabAction: 'type-word-mode', typeWordMode: value, active: String(mode === value) },
+            dataset: { newtabAction: newTabAction('type-word-mode'), typeWordMode: value, active: String(mode === value) },
             'aria-pressed': String(mode === value),
             disabled: value === 'handwriting' && !supportsHandwriting,
             title: value === 'handwriting' && !supportsHandwriting ? this.text('typeWordHandwritingUnavailable') : undefined,
@@ -6547,7 +6566,7 @@ export class NewTabController {
             el('button', {
                 class: 'jpdb-reader-newtab-recall-check',
                 type: 'button',
-                dataset: { newtabAction: 'type-word-submit' },
+                dataset: { newtabAction: newTabAction('type-word-submit') },
                 'aria-label': this.text(readyToContinue ? 'continueStudying' : 'recallCheck'),
             }, readyToContinue ? `${this.text('continueStudying')} →` : `${this.text('recallCheck')} →`),
         );
@@ -8456,7 +8475,7 @@ export class NewTabController {
             actions.map(action => el('button', {
                 type: 'button',
                 class: `jpdb-reader-newtab-mini-action ${jpdbKanjiActionClass(action)}`,
-                dataset: { newtabAction: 'jpdb-kanji-action', kanjiActionId: action.id },
+                dataset: { newtabAction: newTabAction('jpdb-kanji-action'), kanjiActionId: action.id },
                 title: action.label,
             }, action.label)),
         );
@@ -8591,9 +8610,9 @@ export class NewTabController {
         if (!controls) return;
         controls.hidden = false;
         replaceChildrenWith(controls,
-            el('button', { type: 'button', dataset: { newtabAction: 'empty-fallback' } }, this.text('starterWords')),
-            el('button', { type: 'button', dataset: { newtabAction: 'settings' } }, uiText(this.language(), 'settings')),
-            el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'search' } }, this.text('search')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('empty-fallback') } }, this.text('starterWords')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('settings') } }, uiText(this.language(), 'settings')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'search' } }, this.text('search')),
         );
     }
 
@@ -8626,7 +8645,7 @@ export class NewTabController {
     }
 
     // fallow-ignore-next-line complexity
-    private handleSearchClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+    private handleSearchClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: NewTabAction | undefined): boolean {
         const handled = this.searchController.handleSearchClick(root, target, event, action);
         if (handled !== undefined) return handled;
         switch (action) {
@@ -8879,7 +8898,7 @@ export class NewTabController {
 
     private syncBrowseBulkControls(root: HTMLElement): void {
         const selected = root.querySelectorAll('[data-browse-select]:checked').length;
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="browse-bulk"]').forEach(button => { button.disabled = selected === 0; });
+        root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('browse-bulk')).forEach(button => { button.disabled = selected === 0; });
         const count = root.querySelector<HTMLElement>('[data-browse-bulk-count]');
         if (count) count.textContent = selected ? String(selected) : '';
     }
@@ -8897,7 +8916,7 @@ export class NewTabController {
             .map(box => cardsByKey.get(box.dataset.browseCardKey ?? ''))
             .filter((card): card is JPDBCard => Boolean(card));
         if (!selected.length) return;
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="browse-bulk"]').forEach(button => { button.disabled = true; });
+        root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('browse-bulk')).forEach(button => { button.disabled = true; });
         for (const card of selected) {
             if (isJitenBulkAction(action) && !(isJitenBackedCard(card) || browseSourceForCard(card) === 'jiten')) continue;
             const button = el('button', { type: 'button', dataset: { action } }) as HTMLButtonElement;
@@ -9042,10 +9061,10 @@ export class NewTabController {
         const revealShortcut = this.studyShortcutHint(['studyReveal', 'studyRevealAlternate']);
         const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
         return [
-            el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
-            el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, revealLabel,
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('previous') }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('reveal') } }, revealLabel,
                 revealShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, revealShortcut) : null),
-            el('button', { type: 'button', dataset: { newtabAction: 'next' }, 'aria-label': this.text('nextWord') }, this.text('nextWord')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('next') }, 'aria-label': this.text('nextWord') }, this.text('nextWord')),
         ];
     }
 
@@ -9053,8 +9072,8 @@ export class NewTabController {
         const continueShortcut = this.studyShortcutHint(['studyReveal', 'studyRevealAlternate']);
         const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
         return [
-            el('button', { type: 'button', dataset: { newtabAction: 'previous' }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
-            el('button', { type: 'button', dataset: { newtabAction: 'next' } }, this.text('continueStudying'),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('previous') }, 'aria-label': this.text('previousWord') }, this.text('previousWord')),
+            el('button', { type: 'button', dataset: { newtabAction: newTabAction('next') } }, this.text('continueStudying'),
                 continueShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el('kbd', { class: 'jpdb-reader-newtab-key-hint', 'aria-hidden': 'true' }, continueShortcut) : null),
         ];
     }
@@ -9286,7 +9305,7 @@ export class NewTabController {
         if (this.gradeSubmissionInFlight) return false;
         this.gradeSubmissionInFlight = true;
         const gradeButtons = [
-            ...Array.from(this.currentRoot()?.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]') ?? []),
+            ...Array.from(this.currentRoot()?.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade')) ?? []),
             ...Array.from(document.querySelectorAll<HTMLButtonElement>('button[data-action="grade"][data-grade]')),
         ];
         gradeButtons.forEach(button => { button.disabled = true; });
@@ -9513,7 +9532,7 @@ export class NewTabController {
         this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
         this.state.revealAnswer = false;
         this.persistState();
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="grade"]').forEach(button => { button.disabled = true; });
+        root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('grade')).forEach(button => { button.disabled = true; });
         this.setStatus(root, this.text('couldNotSubmitGrade'));
         // The provider outcome is unknown, so other Study tabs must retire
         // their copies just as they would after a confirmed grade.
@@ -9665,7 +9684,7 @@ export class NewTabController {
             delete slots.controls.dataset.newtabGradeCount;
             delete slots.controls.dataset.newtabGradeScale;
             replaceChildrenWith(slots.controls,
-                el('button', { type: 'button', dataset: { newtabAction: 'continue-batch' } }, this.text('continueStudying')),
+                el('button', { type: 'button', dataset: { newtabAction: newTabAction('continue-batch') } }, this.text('continueStudying')),
             );
         }
     }
@@ -10185,27 +10204,14 @@ export class NewTabController {
         const controls = root.querySelector<HTMLElement>('[data-newtab-controls]');
         if (controls) controls.hidden = this.state.route === 'stats';
         if (this.state.route !== 'search') root.querySelector<HTMLElement>('[data-newtab-handwriting]')?.remove();
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="mode"]').forEach(button => {
+        root.querySelectorAll<HTMLButtonElement>(newTabActionSelector('mode')).forEach(button => {
             const active = button.dataset.mode === this.state.route
                 || (button.dataset.mode === 'word' && this.state.route === 'study');
             button.dataset.active = String(active);
             button.setAttribute('aria-pressed', String(active));
         });
-        this.syncListenSubModeSwitcher(root);
         this.syncDeckSelector(root);
         this.syncStateFilterSelector(root);
-    }
-
-    // The Listen sub-mode switcher (Perceive / Recall / Shadow) is only relevant in
-    // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
-    private syncListenSubModeSwitcher(root: HTMLElement): void {
-        const switcher = root.querySelector<HTMLElement>('[data-newtab-listen-submodes]');
-        if (switcher) switcher.hidden = !this.activeStudyStepIsListen();
-        root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="listen-submode"]').forEach(button => {
-            const active = button.dataset.listenSubmode === this.activeListenInteractionMode();
-            button.dataset.active = String(active);
-            button.setAttribute('aria-pressed', String(active));
-        });
     }
 
     // JPDB deck-browse "Show only" parity: the persisted state filter for the
@@ -10399,7 +10405,7 @@ export class NewTabController {
     private syncThemeToggle(root: HTMLElement): void {
         const theme = this.effectiveTheme(this.dependencies.getSettings().theme);
         root.dataset.newtabTheme = theme;
-        const button = root.querySelector<HTMLButtonElement>('[data-newtab-action="theme"]');
+        const button = root.querySelector<HTMLButtonElement>(newTabActionSelector('theme'));
         if (!button) return;
         const label = this.text(theme === 'dark' ? 'switchToLightTheme' : 'switchToDarkTheme');
         button.setAttribute('aria-label', label);
