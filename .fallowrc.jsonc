@@ -20,9 +20,10 @@
     "workers/yomu-academy/src/index.ts",
     "scripts/academy-baseline-inventory.mjs",
     "scripts/build-openapi.mjs",
-    // Release gate launched by package/run-check rather than imported by the
+    // Release gates launched by run-check/ci.yml rather than imported by the
     // application graph.
     "scripts/check-userscript-weight.cjs",
+    "scripts/check-smoke-workflow-coverage.mjs",
     // Standalone, documented Academy operations/authoring CLIs. They are
     // intentionally run directly rather than through the application graph.
     "scripts/academy-account-lifecycle-live-proof.mjs",

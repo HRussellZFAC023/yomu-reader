@@ -68,6 +68,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:test-workflows
+      - run: node scripts/check-smoke-workflow-coverage.mjs
 
   test-academy:
     runs-on: ubuntu-latest

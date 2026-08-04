@@ -109,6 +109,12 @@ try {
     await runStage(stage('repository-hygiene', 'npm run -s check:repository'));
     await runStage(stage('content-addressed-retention', 'node scripts/prune-content-addressed-assets.mjs --check'));
     await runStage(stage('committed-artifacts', 'npm run -s check:artifacts'));
+    // Invoked by path, not through a package script, on purpose: package.json is
+    // one of the files hashed into the multilingual-parity lookup contract
+    // (scripts/lib/multilingual-parity-contract.ts), so adding a script name
+    // invalidates the recorded evidence for all 33 targets and demands a fresh
+    // published-archive measurement. A new gate is not worth that.
+    await runStage(stage('smoke-workflow-coverage', 'node scripts/check-smoke-workflow-coverage.mjs'));
 } catch {
     printSummary(false);
     process.exit(1);
@@ -153,11 +159,11 @@ const lanes = [
         // may only shrink. ~2s of static analysis, no browser, no network.
         //
         // The browser-bound half of the release gate is NOT here:
-        // `npm run check:release:smokes` (smoke:layout-regressions) needs
-        // chromium + firefox + webkit installed, which check:release deliberately
-        // does not require. ci.yml runs it in the `layout-smoke` job and
-        // release.yml runs it through smoke:release immediately after
-        // check:release, so it is gated — just not in this process.
+        // smoke:layout-regressions launches chromium + firefox + webkit for all
+        // 14 of its members, which check:release deliberately does not require
+        // locally. ci.yml runs it in the `layout-smoke` job and release.yml runs
+        // it through smoke:release immediately after check:release, so it is
+        // gated — just not in this process.
         stage('dead-code-ratchet', 'npm run -s quality:dead-code'),
     ),
     lane(testStage('test:ci', 'npm run -s test:ci')),
