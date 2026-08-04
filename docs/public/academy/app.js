@@ -1071,7 +1071,7 @@
     }
     resumeExpiredSession(epoch) {
       if (this.sessionResume) return this.sessionResume;
-      const attempt = (async () => {
+      const attempt2 = (async () => {
         try {
           const rotated = await this.request("/academy/api/session/resume", {
             method: "POST",
@@ -1086,11 +1086,11 @@
           return false;
         }
       })();
-      this.sessionResume = attempt;
-      void attempt.finally(() => {
-        if (this.sessionResume === attempt) this.sessionResume = null;
+      this.sessionResume = attempt2;
+      void attempt2.finally(() => {
+        if (this.sessionResume === attempt2) this.sessionResume = null;
       });
-      return attempt;
+      return attempt2;
     }
     requireState() {
       if (!this.state) throw new Error("Turn on encrypted sync before using this action.");
@@ -4292,13 +4292,13 @@
     return [...new Set(values.map((value) => requireText$3(value, "id")))].sort();
   }
   function parseAuthoredWeekPackage(value) {
-    const root = record$18(value, "package");
+    const root = record$19(value, "package");
     if (root.schema !== "yomu-academy.week.v1") fail$4("package.schema", "must be yomu-academy.week.v1");
     const id2 = text$p(root.id, "package.id");
     const sourceItemIds = /* @__PURE__ */ new Set();
     const rawComponents = array$17(root.components, "package.components");
     const components2 = rawComponents.map((candidate2, index) => {
-      const component = record$18(candidate2, `package.components[${index}]`);
+      const component = record$19(candidate2, `package.components[${index}]`);
       const path = `package.components[${index}]`;
       const exercises = component.exercises === void 0 ? void 0 : array$17(component.exercises, `${path}.exercises`);
       return {
@@ -4313,8 +4313,8 @@
     return {
       schema: "yomu-academy.week.v1",
       id: id2,
-      identity: record$18(root.identity, "package.identity"),
-      provenance: record$18(root.provenance, "package.provenance"),
+      identity: record$19(root.identity, "package.identity"),
+      provenance: record$19(root.provenance, "package.provenance"),
       components: components2,
       preAssessment: parsePreAssessmentExposure(root, rawComponents)
     };
@@ -4356,7 +4356,7 @@
       });
     }
     components2.forEach((candidate2, index) => {
-      const component = record$18(candidate2, `package.components[${index}]`);
+      const component = record$19(candidate2, `package.components[${index}]`);
       const order2 = finiteNumber$3(component.order, `package.components[${index}].order`);
       const title2 = exposureText(component.title) ?? {
         en: component.type === "speaking" ? "Speaking prompt" : component.type === "writing" ? "Writing prompt" : "Passage"
@@ -4393,7 +4393,7 @@
         exposures.push({
           id: "mission",
           kind: "mission",
-          order: Math.max(5, ...components2.map((candidate2, index) => finiteNumber$3(record$18(candidate2, `package.components[${index}]`).order, `package.components[${index}].order`))) + 1,
+          order: Math.max(5, ...components2.map((candidate2, index) => finiteNumber$3(record$19(candidate2, `package.components[${index}]`).order, `package.components[${index}].order`))) + 1,
           title: exposureText(mission2.title) ?? { en: "Mission", ja: "ミッション" },
           entries: [prompt2],
           sourceIndex: components2.length
@@ -4502,15 +4502,15 @@
     return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
   }
   function parseSourceVocabularySheet(component, path, sourceItemIds) {
-    const provenance2 = record$18(component.provenance, `${path}.provenance`);
+    const provenance2 = record$19(component.provenance, `${path}.provenance`);
     const payloadSha256 = sha256(provenance2.payloadSha256, `${path}.provenance.payloadSha256`);
     const sourceTitle = text$p(provenance2.title, `${path}.provenance.title`);
     let previousPage = 0;
     let previousRow = 0;
     const items = array$17(component.items, `${path}.items`).map((candidate2, index) => {
       const itemPath = `${path}.items[${index}]`;
-      const item2 = record$18(candidate2, itemPath);
-      const source2 = record$18(item2.source, `${itemPath}.source`);
+      const item2 = record$19(candidate2, itemPath);
+      const source2 = record$19(item2.source, `${itemPath}.source`);
       const itemId = text$p(source2.itemId, `${itemPath}.source.itemId`);
       if (sourceItemIds.has(itemId)) fail$4(`${itemPath}.source.itemId`, "must be unique in the package");
       sourceItemIds.add(itemId);
@@ -4520,7 +4520,7 @@
       if (text$p(source2.title, `${itemPath}.source.title`) !== sourceTitle) {
         fail$4(`${itemPath}.source.title`, "must match the component source title");
       }
-      const locus = record$18(source2.locus, `${itemPath}.source.locus`);
+      const locus = record$19(source2.locus, `${itemPath}.source.locus`);
       const page = positiveInteger$a(locus.page, `${itemPath}.source.locus.page`);
       const row2 = positiveInteger$a(locus.row, `${itemPath}.source.locus.row`);
       if (page < previousPage || page === previousPage && row2 <= previousRow) {
@@ -4528,8 +4528,8 @@
       }
       previousPage = page;
       previousRow = row2;
-      const exact2 = record$18(source2.exact, `${itemPath}.source.exact`);
-      const fieldProvenance = record$18(source2.fieldProvenance, `${itemPath}.source.fieldProvenance`);
+      const exact2 = record$19(source2.exact, `${itemPath}.source.exact`);
+      const fieldProvenance = record$19(source2.fieldProvenance, `${itemPath}.source.fieldProvenance`);
       if (source2.answerVisibility !== "after-attempt") {
         fail$4(`${itemPath}.source.answerVisibility`, "must be after-attempt");
       }
@@ -4570,14 +4570,14 @@
     };
   }
   function parseChoiceExercise(value, path) {
-    const exercise = record$18(value, path);
+    const exercise = record$19(value, path);
     if (exercise.kind !== "choice") return void 0;
     if (!isLocalized(exercise.prompt)) return void 0;
     const rawOptions = array$17(exercise.options, `${path}.options`);
-    if (!rawOptions.every((candidate2) => isChoiceLabel(record$18(candidate2, `${path}.options[]`).label))) return void 0;
+    if (!rawOptions.every((candidate2) => isChoiceLabel(record$19(candidate2, `${path}.options[]`).label))) return void 0;
     if (exercise.autoGraded !== true) fail$4(`${path}.autoGraded`, "must be true");
     const options = rawOptions.map((candidate2, index) => {
-      const option2 = record$18(candidate2, `${path}.options[${index}]`);
+      const option2 = record$19(candidate2, `${path}.options[${index}]`);
       if (typeof option2.correct !== "boolean") fail$4(`${path}.options[${index}].correct`, "must be boolean");
       return {
         id: text$p(option2.id, `${path}.options[${index}].id`),
@@ -4597,14 +4597,14 @@
     };
   }
   function parseMultiChoiceExercise(value, path) {
-    const exercise = record$18(value, path);
+    const exercise = record$19(value, path);
     if (exercise.kind !== "multi-choice") return void 0;
     if (!isLocalized(exercise.prompt)) return void 0;
     const rawOptions = array$17(exercise.options, `${path}.options`);
-    if (!rawOptions.every((candidate2) => isChoiceLabel(record$18(candidate2, `${path}.options[]`).label))) return void 0;
+    if (!rawOptions.every((candidate2) => isChoiceLabel(record$19(candidate2, `${path}.options[]`).label))) return void 0;
     if (exercise.autoGraded !== true) fail$4(`${path}.autoGraded`, "must be true");
     const options = rawOptions.map((candidate2, index) => {
-      const option2 = record$18(candidate2, `${path}.options[${index}]`);
+      const option2 = record$19(candidate2, `${path}.options[${index}]`);
       if (typeof option2.correct !== "boolean") fail$4(`${path}.options[${index}].correct`, "must be boolean");
       return {
         id: text$p(option2.id, `${path}.options[${index}].id`),
@@ -4625,11 +4625,11 @@
     };
   }
   function parseExactExercise(value, path) {
-    const exercise = record$18(value, path);
+    const exercise = record$19(value, path);
     if (exercise.kind !== "exact") return void 0;
     if (!isLocalized(exercise.prompt)) return void 0;
     if (exercise.autoGraded !== true) fail$4(`${path}.autoGraded`, "must be true");
-    const answer2 = record$18(exercise.answer, `${path}.answer`);
+    const answer2 = record$19(exercise.answer, `${path}.answer`);
     const alternatives = answer2.alternatives === void 0 ? [] : array$17(answer2.alternatives, `${path}.answer.alternatives`).map((candidate2, index) => text$p(candidate2, `${path}.answer.alternatives[${index}]`));
     return {
       id: text$p(exercise.id, `${path}.id`),
@@ -4646,7 +4646,7 @@
     };
   }
   function parseClozeExercise(value, path) {
-    const exercise = record$18(value, path);
+    const exercise = record$19(value, path);
     if (exercise.kind !== "cloze") return void 0;
     if (exercise.autoGraded !== true) {
       if (exercise.autoGraded === false) return void 0;
@@ -4657,7 +4657,7 @@
     const wrongAnswers = wrongAnswerTriggers(exercise.wrongAnswerExplanations, `${path}.wrongAnswerExplanations`);
     const blanks = array$17(exercise.blanks, `${path}.blanks`).map((candidate2, index) => {
       const blankPath = `${path}.blanks[${index}]`;
-      const blank = record$18(candidate2, blankPath);
+      const blank = record$19(candidate2, blankPath);
       const id2 = text$p(blank.id, `${blankPath}.id`);
       if (ids2.has(id2)) fail$4(`${blankPath}.id`, "is a duplicate cloze blank id");
       ids2.add(id2);
@@ -4673,7 +4673,7 @@
     };
   }
   function parseMatchingExercise(value, path) {
-    const exercise = record$18(value, path);
+    const exercise = record$19(value, path);
     if (exercise.kind !== "matching") return void 0;
     if (exercise.autoGraded !== true) {
       if (exercise.autoGraded === false) return void 0;
@@ -4684,7 +4684,7 @@
     }
     assertAfterAttemptVisibility(exercise.answerVisibility, `${path}.answerVisibility`);
     const sourceItemsExact = stringArray$8(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
-    const answers = record$18(exercise.answers, `${path}.answers`);
+    const answers = record$19(exercise.answers, `${path}.answers`);
     assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
     const values = stringArray$8(answers.values, `${path}.answers.values`);
     if (sourceItemsExact.length < 2 || sourceItemsExact.length !== values.length) {
@@ -4703,7 +4703,7 @@
     };
   }
   function parseOrderingExercise(value, path) {
-    const exercise = record$18(value, path);
+    const exercise = record$19(value, path);
     if (exercise.kind !== "ordering") return void 0;
     if (exercise.autoGraded !== true) {
       if (exercise.autoGraded === false) return void 0;
@@ -4733,7 +4733,7 @@
       };
     }
     const sourceItemsExact = stringArray$8(exercise.sourceItemsExact, `${path}.sourceItemsExact`);
-    const answers = record$18(exercise.answers, `${path}.answers`);
+    const answers = record$19(exercise.answers, `${path}.answers`);
     assertAfterAttemptVisibility(answers.visibility, `${path}.answers.visibility`);
     const values = stringArray$8(answers.values, `${path}.answers.values`);
     if (!sourceItemsExact.length || sourceItemsExact.length !== values.length) {
@@ -4760,7 +4760,7 @@
     };
   }
   function parseExactAnswer(value, path, rejected = /* @__PURE__ */ new Set()) {
-    const answer2 = record$18(value, path);
+    const answer2 = record$19(value, path);
     const primary = text$p(answer2.primary, `${path}.primary`);
     const alternatives = answer2.alternatives === void 0 ? [] : stringArray$8(answer2.alternatives, `${path}.alternatives`);
     return {
@@ -4771,7 +4771,7 @@
   function wrongAnswerTriggers(value, path) {
     if (value === void 0) return /* @__PURE__ */ new Set();
     return new Set(array$17(value, path).map((candidate2, index) => {
-      const item2 = record$18(candidate2, `${path}[${index}]`);
+      const item2 = record$19(candidate2, `${path}[${index}]`);
       return normalizeAnswer(text$p(item2.trigger, `${path}[${index}].trigger`));
     }));
   }
@@ -4796,7 +4796,7 @@
     return typeof item2.en === "string" && item2.en.trim().length > 0 || typeof item2.ja === "string" && item2.ja.trim().length > 0;
   }
   function parseAudio$1(value, path) {
-    const audio2 = record$18(value, path);
+    const audio2 = record$19(value, path);
     return {
       assetId: text$p(audio2.assetId, `${path}.assetId`),
       locator: text$p(audio2.locator, `${path}.locator`),
@@ -4805,7 +4805,7 @@
     };
   }
   function localized$q(value, path) {
-    const item2 = record$18(value, path);
+    const item2 = record$19(value, path);
     const en = nonEmptyText$1(item2.en) ?? text$p(item2.ja, `${path}.ja`);
     const ja = nonEmptyText$1(item2.ja) ?? text$p(item2.en, `${path}.en`);
     return { en, ja };
@@ -4813,7 +4813,7 @@
   function nonEmptyText$1(value) {
     return typeof value === "string" && value.trim() ? value : void 0;
   }
-  function record$18(value, path) {
+  function record$19(value, path) {
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$4(path, "must be an object");
     return value;
   }
@@ -10141,7 +10141,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateLessonZeroClassroomExpressions(value) {
     rejectForbiddenInteractionKeys(value);
-    const definition2 = record$17(value, "classroom-expression session");
+    const definition2 = record$18(value, "classroom-expression session");
     if (definition2.schemaVersion !== 1) fail$3("Classroom-expression session must use schemaVersion 1.");
     if (definition2.id !== "session:lesson-zero-classroom-expressions") fail$3("Classroom-expression session has the wrong id.");
     text$m(definition2.contentVersion, "contentVersion");
@@ -10219,7 +10219,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     text$m(block.conceptId, `teaching block ${block.id} conceptId`);
     nonEmpty$5(block.expressionIds, `teaching block ${block.id} expressionIds`);
     localized$o(block.explanation, `teaching block ${block.id} explanation`);
-    const example = record$17(block.workedExample, `teaching block ${block.id} workedExample`);
+    const example = record$18(block.workedExample, `teaching block ${block.id} workedExample`);
     localized$o(example.context, `teaching block ${block.id} workedExample.context`);
     const japanese2 = text$m(example.japanese, `teaching block ${block.id} workedExample.japanese`);
     text$m(example.reading, `teaching block ${block.id} workedExample.reading`);
@@ -10312,7 +10312,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function localized$o(value, label) {
-    const candidate2 = record$17(value, label);
+    const candidate2 = record$18(value, label);
     text$m(candidate2.en, `${label}.en`);
     text$m(candidate2.ja, `${label}.ja`);
   }
@@ -10323,7 +10323,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!Array.isArray(value)) fail$3(`${label} must be an array.`);
     return value;
   }
-  function record$17(value, label) {
+  function record$18(value, label) {
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$3(`${label} must be an object.`);
     return value;
   }
@@ -10414,7 +10414,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         conceptActivities.set(conceptId, [...conceptActivities.get(conceptId) ?? [], activity2.id]);
       }
     }
-    const concepts = [...conceptActivities].map(([id2, activityIds]) => record$16(
+    const concepts = [...conceptActivities].map(([id2, activityIds]) => record$17(
       id2,
       "concept",
       LESSON_CONTENT_ID,
@@ -10423,7 +10423,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       data.lesson.contentVersion,
       LESSON_ZERO_CONTENT_SHA256
     ));
-    const outcomes2 = data.lesson.sections.flatMap((section2) => section2.outcomeIds.map((id2) => record$16(
+    const outcomes2 = data.lesson.sections.flatMap((section2) => section2.outcomeIds.map((id2) => record$17(
       id2,
       "outcome",
       LESSON_CONTENT_ID,
@@ -10434,7 +10434,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     )));
     const repair = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-reconstruct-repair");
     const prior = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-follow-instructions");
-    const prerequisites2 = repair && prior ? [record$16(
+    const prerequisites2 = repair && prior ? [record$17(
       "prerequisite-resolution:lesson-zero:reconstruct-repair",
       "prerequisite-resolution",
       LESSON_CONTENT_ID,
@@ -10445,7 +10445,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     )] : [];
     const sound = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-sound-input");
     const nameCard = data.lesson.activities.find((activity2) => activity2.id === "activity:lesson-zero-name-card-draft");
-    const soundPrerequisite = sound && nameCard ? [record$16(
+    const soundPrerequisite = sound && nameCard ? [record$17(
       "prerequisite-resolution:lesson-zero:sound-input",
       "prerequisite-resolution",
       LESSON_CONTENT_ID,
@@ -10465,7 +10465,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return classroom.teachingBlocks.flatMap((block) => {
       const suffix = suffixOf$1(block.id);
       return [
-        record$16(
+        record$17(
           `explanation:lesson-zero:${suffix}`,
           "explanation",
           CLASSROOM_CONTENT_ID,
@@ -10474,7 +10474,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           classroom.contentVersion,
           LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
         ),
-        record$16(
+        record$17(
           `worked-example:lesson-zero:${suffix}`,
           "worked-example",
           CLASSROOM_CONTENT_ID,
@@ -10487,7 +10487,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     });
   }
   function classroomRuntimeRecords(classroom) {
-    const records2 = [record$16(
+    const records2 = [record$17(
       "grader:lesson-zero:normalized-constructed-japanese",
       "deterministic-grader",
       CLASSROOM_CONTENT_ID,
@@ -10503,7 +10503,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const expressionById2 = new Map(classroom.expressions.map((expression) => [expression.id, expression]));
     for (const binding of LESSON_ZERO_CLASSROOM_ACTIVITY_BINDINGS.filter((candidate2) => candidate2.deterministicAssessment)) {
       const probes = lessonZeroProbesForBinding(binding, expressionById2);
-      records2.push(record$16(
+      records2.push(record$17(
         `answer-set:lesson-zero:${suffixOf$1(binding.activityId)}`,
         "answer-set",
         CLASSROOM_CONTENT_ID,
@@ -10519,7 +10519,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (!block) throw new TypeError(`Missing teaching block for ${expression.id}.`);
       for (const probe of expression.probes) {
         records2.push(
-          record$16(
+          record$17(
             lessonZeroErrorId(probe),
             "error-tag",
             CLASSROOM_CONTENT_ID,
@@ -10528,7 +10528,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             classroom.contentVersion,
             LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
           ),
-          record$16(
+          record$17(
             lessonZeroFeedbackId(probe),
             "feedback",
             CLASSROOM_CONTENT_ID,
@@ -10537,7 +10537,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             classroom.contentVersion,
             LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
           ),
-          record$16(
+          record$17(
             lessonZeroNearbyExampleId(probe),
             "nearby-example",
             CLASSROOM_CONTENT_ID,
@@ -10546,7 +10546,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             classroom.contentVersion,
             LESSON_ZERO_CLASSROOM_EXPRESSIONS_SHA256
           ),
-          record$16(
+          record$17(
             lessonZeroReviewSeedId(probe),
             "review-seed",
             CLASSROOM_CONTENT_ID,
@@ -10601,7 +10601,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       result: "pass"
     };
     const records2 = [
-      record$16(
+      record$17(
         "explanation:lesson-zero:sound-listening-gist",
         "explanation",
         LESSON_CONTENT_ID,
@@ -10613,7 +10613,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "worked-example:lesson-zero:sound-listening-gist",
         "worked-example",
         LESSON_CONTENT_ID,
@@ -10627,7 +10627,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "explanation:lesson-zero:sound-listening-detail",
         "explanation",
         LESSON_CONTENT_ID,
@@ -10639,7 +10639,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "worked-example:lesson-zero:sound-listening-detail",
         "worked-example",
         LESSON_CONTENT_ID,
@@ -10653,7 +10653,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "grader:lesson-zero:audio-name-match",
         "deterministic-grader",
         LESSON_CONTENT_ID,
@@ -10669,7 +10669,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "answer-set:lesson-zero:sound-input",
         "answer-set",
         LESSON_CONTENT_ID,
@@ -10678,7 +10678,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "answer-bearing-content:lesson-zero:sound-input",
         "answer-bearing-content",
         LESSON_CONTENT_ID,
@@ -10687,7 +10687,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "surface-audit:lesson-zero:sound-input",
         "surface-audit",
         LESSON_CONTENT_ID,
@@ -10709,7 +10709,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     for (const line2 of checkLines2) {
       const suffix = targetFor(line2.id);
       records2.push(
-        record$16(
+        record$17(
           `error:listening:name:${suffix}`,
           "error-tag",
           LESSON_CONTENT_ID,
@@ -10718,7 +10718,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           revision2,
           LESSON_ZERO_CONTENT_SHA256
         ),
-        record$16(
+        record$17(
           `feedback:lesson-zero:sound-${suffix}`,
           "feedback",
           LESSON_CONTENT_ID,
@@ -10730,7 +10730,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           revision2,
           LESSON_ZERO_CONTENT_SHA256
         ),
-        record$16(
+        record$17(
           `nearby-example:lesson-zero:sound-${suffix}`,
           "nearby-example",
           LESSON_CONTENT_ID,
@@ -10745,7 +10745,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       );
     }
     records2.push(
-      record$16(
+      record$17(
         "review:lesson-zero:name:xingyu",
         "review-seed",
         LESSON_CONTENT_ID,
@@ -10758,7 +10758,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         revision2,
         LESSON_ZERO_CONTENT_SHA256
       ),
-      record$16(
+      record$17(
         "review:lesson-zero:name:mika",
         "review-seed",
         LESSON_CONTENT_ID,
@@ -10778,7 +10778,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const renderer = lessonZeroSoundRendererRef();
     return `<section class="academy-sound-paper academy-sound-mission" data-grounded-lesson-id="lesson:foundation-00" data-grounded-subject-id="activity:lesson-zero-sound-input" data-grounded-surface-id="${LESSON_ZERO_SOUND_SURFACE_ID}" data-grounded-renderer-id="${renderer.id}" data-grounded-renderer-revision="${renderer.revision}" data-grounded-renderer-sha256="${renderer.sha256}" data-grounded-content-revision="${contentRevision}" data-grounded-commit-state="pre-commit"><p>They will introduce each other. Play each line and choose the name you hear.</p><p>You only need the name.</p><button aria-label="Listen: Line 1">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button aria-label="Listen: Line 2">Listen</button><button type="button">Xingyu シンユ</button><button type="button">Mika ミカ</button><button disabled>Check the names</button></section>`;
   }
-  function record$16(id2, kind, contentId, locator, value, revision2, sha2562) {
+  function record$17(id2, kind, contentId, locator, value, revision2, sha2562) {
     return { ref: { id: id2, registry: "academy-content", revision: revision2, sha256: sha2562 }, kind, source: { contentId, locator }, value };
   }
   function suffixOf$1(id2) {
@@ -12837,13 +12837,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     modelAnswer: "after-first-attempt"
   };
   function validateLessonZeroPackage(value) {
-    const data = record$15(value, "Lesson 0 package");
+    const data = record$16(value, "Lesson 0 package");
     if (data.schemaVersion !== 1) fail$2("Lesson 0 package must use schemaVersion 1.");
     if (data.sourceLibrary?.schemaVersion !== 1) fail$2("Lesson 0 source library must use schemaVersion 1.");
     createSourceLibrary(data.sourceLibrary);
     validateSourceScope(data.sourceLibrary);
     const questionIds = new Set(data.sourceLibrary.questions.map((question2) => question2.id));
-    const lesson = record$15(data.lesson, "lesson");
+    const lesson = record$16(data.lesson, "lesson");
     validateLessonIdentity(lesson);
     const sectionById = validateSections(lesson);
     const activityById = validateActivities(lesson, sectionById, questionIds);
@@ -12855,7 +12855,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return structuredClone(data);
   }
   function validateOverview(lesson, activities, questionIds) {
-    const overview = record$15(lesson.overview, "lesson.overview");
+    const overview = record$16(lesson.overview, "lesson.overview");
     validateOverviewCopy(overview);
     validateOverviewPeopleAndLocations(overview);
     validateOverviewMaterials(overview, activities, questionIds);
@@ -13232,7 +13232,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!Array.isArray(value)) fail$2(`${label} must be an array.`);
     return value;
   }
-  function record$15(value, label) {
+  function record$16(value, label) {
     if (!value || typeof value !== "object" || Array.isArray(value)) fail$2(`${label} must be an object.`);
     return value;
   }
@@ -13241,7 +13241,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return value.trim();
   }
   function localized$n(value, label) {
-    const copy2 = record$15(value, label);
+    const copy2 = record$16(value, label);
     text$l(copy2.en, `${label}.en`);
     text$l(copy2.ja, `${label}.ja`);
   }
@@ -14048,7 +14048,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return attempts.at(-1)?.phase === "build" && attempts.at(-1)?.outcome === "lapse";
     }
     if (candidate2.stage === "transfer") {
-      return attempts.some((attempt) => attempt.phase === "build" && attempt.outcome === "pass");
+      return attempts.some((attempt2) => attempt2.phase === "build" && attempt2.outcome === "pass");
     }
     if (candidate2.stage === "transfer-result") {
       return attempts.at(-1)?.phase === "transfer" && attempts.at(-1)?.outcome === "lapse";
@@ -14078,7 +14078,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const correctPositions = state.selectedTokenIds.filter(
       (id2, index) => definition2.correctOrder[index] === id2
     ).length;
-    const attempt = {
+    const attempt2 = {
       phase: "build",
       order: [...state.selectedTokenIds],
       outcome: correctPositions === definition2.correctOrder.length ? "pass" : "lapse",
@@ -14086,25 +14086,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       at
     };
     const eventId = `${definition2.id}:build:${state.attempts.length + 1}:${at}`;
-    const repairing = attempt.outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
+    const repairing = attempt2.outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
     const nextState = {
       ...state,
-      stage: attempt.outcome === "pass" ? "transfer" : "build-result",
+      stage: attempt2.outcome === "pass" ? "transfer" : "build-result",
       selectedTokenIds: [],
       selectedTransferId: null,
-      attempts: [...state.attempts, attempt],
+      attempts: [...state.attempts, attempt2],
       modelRevealed: false
     };
     return {
       state: nextState,
-      evaluation: evaluationFor$6(definition2, attempt, repairing, eventId),
-      adaptive: adaptiveFor$1(definition2, attempt, repairing, eventId),
+      evaluation: evaluationFor$6(definition2, attempt2, repairing, eventId),
+      adaptive: adaptiveFor$1(definition2, attempt2, repairing, eventId),
       supportEvents: []
     };
   }
   function checkTransfer(definition2, state, at) {
     if (!state.selectedTransferId) return unchanged$7(state);
-    const attempt = {
+    const attempt2 = {
       phase: "transfer",
       selectedId: state.selectedTransferId,
       outcome: state.selectedTransferId === "rie" ? "pass" : "lapse",
@@ -14112,19 +14112,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       at
     };
     const eventId = `${definition2.id}:transfer:${state.attempts.length + 1}:${at}`;
-    const repairing = attempt.outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
+    const repairing = attempt2.outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
     const nextState = {
       ...state,
-      status: attempt.outcome === "pass" ? "complete" : "active",
-      stage: attempt.outcome === "pass" ? "complete" : "transfer-result",
+      status: attempt2.outcome === "pass" ? "complete" : "active",
+      stage: attempt2.outcome === "pass" ? "complete" : "transfer-result",
       selectedTransferId: null,
-      attempts: [...state.attempts, attempt],
+      attempts: [...state.attempts, attempt2],
       modelRevealed: false
     };
     return {
       state: nextState,
-      evaluation: evaluationFor$6(definition2, attempt, repairing, eventId),
-      adaptive: adaptiveFor$1(definition2, attempt, repairing, eventId),
+      evaluation: evaluationFor$6(definition2, attempt2, repairing, eventId),
+      adaptive: adaptiveFor$1(definition2, attempt2, repairing, eventId),
       supportEvents: []
     };
   }
@@ -14160,9 +14160,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       ]
     };
   }
-  function evaluationFor$6(definition2, attempt, repairing, eventId) {
-    const errorTags = attempt.outcome === "pass" ? [] : [attempt.phase === "build" ? "name-card:word-order" : "name-card:changed-person"];
-    const reviewSeeds2 = attempt.phase === "transfer" && attempt.outcome === "pass" ? [{
+  function evaluationFor$6(definition2, attempt2, repairing, eventId) {
+    const errorTags = attempt2.outcome === "pass" ? [] : [attempt2.phase === "build" ? "name-card:word-order" : "name-card:changed-person"];
+    const reviewSeeds2 = attempt2.phase === "transfer" && attempt2.outcome === "pass" ? [{
       id: "review:lesson-zero:name-card:desu",
       conceptId: "concept:copula-affirmative",
       reason: repairing ? "repair" : "new-learning",
@@ -14177,27 +14177,27 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       attempt: {
         kind: "attempt-recorded",
         eventId,
-        at: attempt.at,
+        at: attempt2.at,
         activityId: definition2.activityId,
         conceptIds: definition2.conceptIds,
-        responseKind: attempt.phase === "build" ? "tapped-name-card-frame" : "selected-changed-person-name-card",
-        outcome: attempt.outcome,
-        score: attempt.score,
+        responseKind: attempt2.phase === "build" ? "tapped-name-card-frame" : "selected-changed-person-name-card",
+        outcome: attempt2.outcome,
+        score: attempt2.score,
         ...errorTags.length ? { errorTags } : {}
       },
       result: {
-        outcome: attempt.outcome,
-        score: attempt.score,
+        outcome: attempt2.outcome,
+        score: attempt2.score,
         errorTags,
-        feedback: attempt.outcome === "pass" ? {
+        feedback: attempt2.outcome === "pass" ? {
           explanation: {
-            en: attempt.phase === "build" ? "Your name comes first. です finishes the introduction." : "That is Rie’s card.",
-            ja: attempt.phase === "build" ? "名前が先です。「です」で自己紹介を終えます。" : "りえ先生の名札です。"
+            en: attempt2.phase === "build" ? "Your name comes first. です finishes the introduction." : "That is Rie’s card.",
+            ja: attempt2.phase === "build" ? "名前が先です。「です」で自己紹介を終えます。" : "りえ先生の名札です。"
           }
         } : {
           explanation: {
-            en: attempt.phase === "build" ? "Keep your name first, just as Rie did." : "Look for Rie’s name before です.",
-            ja: attempt.phase === "build" ? "りえ先生と同じように、名前を先に置きましょう。" : "「です」の前に、りえ先生の名前を探しましょう。"
+            en: attempt2.phase === "build" ? "Keep your name first, just as Rie did." : "Look for Rie’s name before です.",
+            ja: attempt2.phase === "build" ? "りえ先生と同じように、名前を先に置きましょう。" : "「です」の前に、りえ先生の名前を探しましょう。"
           },
           repairPrompt: {
             en: "Try once more.",
@@ -14208,13 +14208,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       reviewSeeds: reviewSeeds2
     };
   }
-  function adaptiveFor$1(definition2, attempt, repairing, eventId) {
+  function adaptiveFor$1(definition2, attempt2, repairing, eventId) {
     return {
       eventId: `${eventId}:learning`,
-      at: attempt.at,
+      at: attempt2.at,
       modeId: "lesson-zero-name-card",
       skill: "grammar",
-      action: repairing ? "repair" : attempt.phase === "transfer" ? "transfer" : "produce",
+      action: repairing ? "repair" : attempt2.phase === "transfer" ? "transfer" : "produce",
       sourceId: definition2.activityId,
       independent: !repairing
     };
@@ -14226,7 +14226,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function validateSnapshotAgainstDefinition$7(definition2, snapshot) {
     const validIds = new Set(definition2.correctOrder);
-    if (snapshot.nameVariant === "katakana" && !definition2.katakanaName || snapshot.selectedTokenIds.some((id2) => !validIds.has(id2)) || snapshot.attempts.some((attempt) => attempt.phase === "build" && attempt.order.some((id2) => !validIds.has(id2)))) {
+    if (snapshot.nameVariant === "katakana" && !definition2.katakanaName || snapshot.selectedTokenIds.some((id2) => !validIds.has(id2)) || snapshot.attempts.some((attempt2) => attempt2.phase === "build" && attempt2.order.some((id2) => !validIds.has(id2)))) {
       throw new TypeError("Invalid Lesson Zero name-card snapshot for this learner.");
     }
   }
@@ -14235,12 +14235,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function attemptShapeIsValid$7(value) {
     if (!value || typeof value !== "object") return false;
-    const attempt = value;
-    if (attempt.outcome !== "pass" && attempt.outcome !== "lapse" || typeof attempt.score !== "number" || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || typeof attempt.at !== "number" || !Number.isFinite(attempt.at)) return false;
-    if (attempt.phase === "build") {
-      return tokenSetIsValid(attempt.order) && attempt.order.length === LESSON_ZERO_NAME_CARD_TOKEN_IDS.length;
+    const attempt2 = value;
+    if (attempt2.outcome !== "pass" && attempt2.outcome !== "lapse" || typeof attempt2.score !== "number" || !Number.isFinite(attempt2.score) || attempt2.score < 0 || attempt2.score > 1 || typeof attempt2.at !== "number" || !Number.isFinite(attempt2.at)) return false;
+    if (attempt2.phase === "build") {
+      return tokenSetIsValid(attempt2.order) && attempt2.order.length === LESSON_ZERO_NAME_CARD_TOKEN_IDS.length;
     }
-    return attempt.phase === "transfer" && LESSON_ZERO_NAME_CARD_TRANSFER_IDS.includes(attempt.selectedId);
+    return attempt2.phase === "transfer" && LESSON_ZERO_NAME_CARD_TRANSFER_IDS.includes(attempt2.selectedId);
   }
   function supportEvent$4(activityId, supportKind, eventId, at) {
     return { kind: "support-used", eventId, at, activityId, supportKind };
@@ -16432,7 +16432,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         "The grade does not belong to this vowel round."
       );
       const missedItemIds = missedItems(model2, action2.evaluation);
-      const attempt = {
+      const attempt2 = {
         variant: state.variant,
         mode: state.mode,
         outcome: action2.evaluation.result.outcome,
@@ -16440,7 +16440,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         missedItemIds,
         at
       };
-      const attempts = [...state.attempts, attempt];
+      const attempts = [...state.attempts, attempt2];
       const adaptive = adaptiveEvidence$1(state, action2.evaluation, at, attempts.length);
       if (action2.evaluation.result.outcome === "pass") {
         return {
@@ -16517,7 +16517,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!Array.isArray(state.selections) || state.selections.some((selection) => !selection || typeof selection.roundId !== "string" || !selection.roundId || typeof selection.kanaId !== "string" || !selection.kanaId)) return false;
     const repairCursor = state.repairCursor;
     if (!Number.isSafeInteger(repairCursor) || repairCursor === void 0 || repairCursor < 0 || typeof state.baseCompleted !== "boolean" || !Number.isSafeInteger(state.bingoWins) || (state.bingoWins ?? -1) < 0) return false;
-    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !variants.includes(attempt.variant) || !modes.includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$6(attempt.missedItemIds) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt2) => !attempt2 || !variants.includes(attempt2.variant) || !modes.includes(attempt2.mode) || !["pass", "lapse"].includes(attempt2.outcome) || !Number.isFinite(attempt2.score) || attempt2.score < 0 || attempt2.score > 1 || !stringArray$6(attempt2.missedItemIds) || !Number.isSafeInteger(attempt2.at) || attempt2.at < 0)) return false;
     if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.roundOrder).size !== state.roundOrder.length || new Set(state.heardRoundIds).size !== state.heardRoundIds.length || new Set(state.repairItemIds).size !== state.repairItemIds.length || repairCursor > state.repairItemIds.length || state.selections.length > state.roundOrder.length) return false;
     if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0)) return false;
     if (state.status === "complete" && (state.stage !== "complete" || !state.baseCompleted)) return false;
@@ -16527,7 +16527,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return true;
   }
   function beginRound(model2, state, variant2) {
-    const attemptNumber = state.attempts.filter((attempt) => attempt.variant === variant2).length;
+    const attemptNumber = state.attempts.filter((attempt2) => attempt2.variant === variant2).length;
     return {
       ...state,
       status: "active",
@@ -16569,7 +16569,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return unique$h(evaluation.result.errorTags.flatMap((tag) => byError.get(tag) ?? []));
   }
   function adaptiveEvidence$1(state, evaluation, at, attemptNumber) {
-    const repair = state.attempts.some((attempt) => attempt.outcome === "lapse");
+    const repair = state.attempts.some((attempt2) => attempt2.outcome === "lapse");
     return {
       eventId: `adaptive:lesson-zero-vowels:${state.variant}:${attemptNumber}:${at}`,
       at,
@@ -16598,7 +16598,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (state.heardRoundIds.some((id2) => !state.roundOrder.includes(id2))) {
       throw new TypeError("Lesson Zero vowel audio evidence does not fit the active round.");
     }
-    if (state.bingoWins > state.attempts.filter((attempt) => attempt.variant === "bingo" && attempt.outcome === "pass").length) {
+    if (state.bingoWins > state.attempts.filter((attempt2) => attempt2.variant === "bingo" && attempt2.outcome === "pass").length) {
       throw new TypeError("Lesson Zero vowel bingo wins exceed recorded passing attempts.");
     }
   }
@@ -27395,6 +27395,37 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const value = safeReadProperty(source2, key2);
     return typeof value === "string" ? value : void 0;
   }
+  let recorder = () => void 0;
+  function setAttemptRecorder(next) {
+    recorder = next;
+  }
+  function record$15(label, error) {
+    recorder(label, error);
+  }
+  function attempt(fn, fallback, label) {
+    try {
+      return fn();
+    } catch (error) {
+      record$15(label, error);
+      return fallback;
+    }
+  }
+  function attemptVoid(fn, label) {
+    try {
+      fn();
+    } catch (error) {
+      record$15(label, error);
+    }
+  }
+  function parseJson(text2, fallback, label = "parseJson") {
+    if (text2 === null || text2 === void 0 || text2 === "") return fallback;
+    try {
+      return JSON.parse(text2);
+    } catch (error) {
+      record$15(label, error);
+      return fallback;
+    }
+  }
   let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
   let initialWindowAddEventListener = initialWindowMethod("addEventListener");
   let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -27532,11 +27563,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function readProperty(source2, key2) {
     if (!source2 || typeof source2 !== "object" && typeof source2 !== "function") return void 0;
-    try {
-      return source2[key2];
-    } catch {
-      return void 0;
-    }
+    return attempt(() => source2[key2], void 0, "window-events.readProperty");
   }
   function callEventTargetMethod(method, target2, event) {
     if (!method) return { called: false };
@@ -27604,11 +27631,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
   }
   function restoreWindowProperty(key2, descriptor) {
-    try {
+    attemptVoid(() => {
       const target2 = window.wrappedJSObject || window;
       Object.defineProperty(target2, key2, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target2));
-    } catch {
-    }
+    }, "window-events.restoreWindowProperty");
   }
   function pageCompartmentDescriptor(descriptor, _target) {
     return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -27632,11 +27658,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function shouldTemporarilyUnshadowWindowProperty(descriptor) {
     if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
+    return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
   }
   function normalizedPropertyDescriptor(descriptor) {
     const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -31834,11 +31856,11 @@ ${spelling}`);
     const uuid2 = globalThis.crypto?.randomUUID?.();
     return uuid2 ? `grammar-known:${uuid2}` : `grammar-known:${Date.now()}:${Math.random().toString(36).slice(2)}`;
   }
-  function grammarKnowledgeEventsForAttempt(attempt, projection) {
-    return [...new Set(attempt.conceptIds)].flatMap((conceptId) => {
+  function grammarKnowledgeEventsForAttempt(attempt2, projection) {
+    return [...new Set(attempt2.conceptIds)].flatMap((conceptId) => {
       if (!grammarRuleIdForConcept(conceptId)) return [];
       const current = projection.grammarKnowledge[conceptId] ?? "unknown";
-      const knowledge = knowledgeAfterAttempt(current, attempt.outcome);
+      const knowledge = knowledgeAfterAttempt(current, attempt2.outcome);
       return knowledge === current ? [] : [{
         kind: "grammar-known-changed",
         conceptId,
@@ -34155,6 +34177,7 @@ ${spelling}`);
     }
   }
   const Logger = new LoggerImpl();
+  setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
   function configureLogger(options) {
     Logger.configure(options);
   }
@@ -37225,11 +37248,7 @@ ${spelling}`);
   }
   function isCrossOriginJpdbApiPage() {
     if (typeof location === "undefined") return false;
-    try {
-      return new URL(location.href).origin !== "https://jpdb.io";
-    } catch {
-      return false;
-    }
+    return attempt(() => new URL(location.href).origin !== "https://jpdb.io", false, "proxy-fetch-rules.isCrossOriginJpdbApiPage");
   }
   function isHostedGithubPagesApp() {
     if (typeof location === "undefined") return false;
@@ -37313,8 +37332,8 @@ ${spelling}`);
     for (const [index, candidate2] of candidates.entries()) {
       if (options.signal?.aborted) throw abortReasonFor(options.signal);
       try {
-        const attempt = fetchAttemptForCandidate(targetUrl, candidate2, options);
-        const response = await fetchWithTimeout$2(attempt.url, attempt.options);
+        const attempt2 = fetchAttemptForCandidate(targetUrl, candidate2, options);
+        const response = await fetchWithTimeout$2(attempt2.url, attempt2.options);
         if (shouldTryNextFetchCandidate(response, candidate2, index, candidates)) {
           lastError = new Error(`Proxy request failed (${response.status}).`);
           continue;
@@ -50648,10 +50667,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function buildClassroomExpressionSessionReport(definition2, state) {
     const passed = new Set(state.passedProbeIds);
-    const attemptedProbes = new Set(state.attempts.map((attempt) => attempt.probeId));
+    const attemptedProbes = new Set(state.attempts.map((attempt2) => attempt2.probeId));
     const completedIds = definition2.expressions.filter((expression) => expression.probes.every((probe) => passed.has(probe.id))).map((expression) => expression.sourceQuestionId);
     const attemptedIds = new Set(definition2.expressions.filter((expression) => expression.probes.some((probe) => attemptedProbes.has(probe.id))).map((expression) => expression.sourceQuestionId));
-    const lapsed = new Set(state.attempts.filter((attempt) => attempt.outcome === "lapse").map((attempt) => attempt.probeId));
+    const lapsed = new Set(state.attempts.filter((attempt2) => attempt2.outcome === "lapse").map((attempt2) => attempt2.probeId));
     const allProbeIds = definition2.expressions.flatMap((expression) => expression.probes.map((probe) => probe.id));
     return {
       sourceQuestions: {
@@ -50719,17 +50738,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(state.visitedExpressionIds) || state.visitedExpressionIds.some((id2) => !expressionIds.has(id2)) || unique$e(state.visitedExpressionIds).length !== state.visitedExpressionIds.length || !state.visitedExpressionIds.includes(current.expression.id)) {
       throw new TypeError("Classroom-expression snapshot references unknown expressions.");
     }
-    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => {
-      const item2 = probeById.get(attempt.probeId);
-      return !item2 || attempt.sourceQuestionId !== item2.expression.sourceQuestionId || !["pass", "lapse"].includes(attempt.outcome) || typeof attempt.independent !== "boolean" || !Number.isSafeInteger(attempt.at) || attempt.at < 0;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt2) => {
+      const item2 = probeById.get(attempt2.probeId);
+      return !item2 || attempt2.sourceQuestionId !== item2.expression.sourceQuestionId || !["pass", "lapse"].includes(attempt2.outcome) || typeof attempt2.independent !== "boolean" || !Number.isSafeInteger(attempt2.at) || attempt2.at < 0;
     })) {
       throw new TypeError("Classroom-expression snapshot has invalid attempts.");
     }
-    const passedFromAttempts = new Set(state.attempts.filter((attempt) => attempt.outcome === "pass").map((attempt) => attempt.probeId));
+    const passedFromAttempts = new Set(state.attempts.filter((attempt2) => attempt2.outcome === "pass").map((attempt2) => attempt2.probeId));
     if (state.passedProbeIds.some((id2) => !passedFromAttempts.has(id2))) {
       throw new TypeError("Classroom-expression snapshot claims progress without pass evidence.");
     }
-    const lapsedFromAttempts = new Set(state.attempts.filter((attempt) => attempt.outcome === "lapse").map((attempt) => attempt.probeId));
+    const lapsedFromAttempts = new Set(state.attempts.filter((attempt2) => attempt2.outcome === "lapse").map((attempt2) => attempt2.probeId));
     if (state.revealedModelProbeIds.some((id2) => !lapsedFromAttempts.has(id2))) {
       throw new TypeError("Classroom-expression snapshot reveals support without a lapse.");
     }
@@ -50746,7 +50765,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!state.cursor || typeof state.cursor.phaseId !== "string" || typeof state.cursor.expressionId !== "string" || typeof state.cursor.probeId !== "string") return false;
     if (!Array.isArray(state.attempts) || !Array.isArray(state.passedProbeIds) || !Array.isArray(state.revealedModelProbeIds) || !Array.isArray(state.visitedExpressionIds)) return false;
     if ([state.passedProbeIds, state.revealedModelProbeIds, state.visitedExpressionIds].some((values) => values.some((value) => typeof value !== "string" || !value))) return false;
-    return state.attempts.every((attempt) => Boolean(attempt) && typeof attempt.probeId === "string" && typeof attempt.sourceQuestionId === "string" && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.independent === "boolean" && Number.isSafeInteger(attempt.at) && attempt.at >= 0);
+    return state.attempts.every((attempt2) => Boolean(attempt2) && typeof attempt2.probeId === "string" && typeof attempt2.sourceQuestionId === "string" && (attempt2.outcome === "pass" || attempt2.outcome === "lapse") && typeof attempt2.independent === "boolean" && Number.isSafeInteger(attempt2.at) && attempt2.at >= 0);
   }
   function unique$e(values) {
     return [...new Set(values)];
@@ -50770,7 +50789,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function readClassroomExpressionSession(definition2, state) {
     validateClassroomExpressionSessionState(definition2, state);
     const { expression, probe } = locate(definition2, state.cursor);
-    const lapsed = state.attempts.some((attempt) => attempt.probeId === probe.id && attempt.outcome === "lapse");
+    const lapsed = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
     const passed = state.passedProbeIds.includes(probe.id);
     const modelRevealed = state.revealedModelProbeIds.includes(probe.id);
     const phase = definition2.phases.find((candidate2) => candidate2.id === expression.phaseId);
@@ -50823,12 +50842,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const { expression, probe } = locate(definition2, state.cursor);
     const outcome = probe.acceptedAnswers.some((answer2) => normalized(answer2) === normalized(response)) ? "pass" : "lapse";
     const independent = !state.revealedModelProbeIds.includes(probe.id);
-    const hadLapse = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
+    const hadLapse = state.attempts.some((attempt22) => attempt22.probeId === probe.id && attempt22.outcome === "lapse");
     const passedProbeIds = outcome === "pass" ? unique$e([...state.passedProbeIds, probe.id]) : state.passedProbeIds;
-    const attempt = { probeId: probe.id, sourceQuestionId: expression.sourceQuestionId, outcome, independent, at };
+    const attempt2 = { probeId: probe.id, sourceQuestionId: expression.sourceQuestionId, outcome, independent, at };
     let nextState = {
       ...state,
-      attempts: [...state.attempts, attempt],
+      attempts: [...state.attempts, attempt2],
       passedProbeIds
     };
     if (outcome === "pass") {
@@ -50848,7 +50867,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function revealModel$2(definition2, state, at) {
     const { probe } = locate(definition2, state.cursor);
-    const hasLapse = state.attempts.some((attempt) => attempt.probeId === probe.id && attempt.outcome === "lapse");
+    const hasLapse = state.attempts.some((attempt2) => attempt2.probeId === probe.id && attempt2.outcome === "lapse");
     if (!hasLapse || state.passedProbeIds.includes(probe.id)) {
       throw new Error("A model answer is earned only after a committed lapse.");
     }
@@ -50948,7 +50967,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         throw new TypeError("Classroom-instruction snapshot does not fit this definition.");
       }
       const cueIds = new Set(definition2.cues.map((cue) => cue.id));
-      if (snapshot.passedCueIds.some((id2) => !cueIds.has(id2)) || snapshot.attempts.some((attempt) => !cueIds.has(attempt.cueId))) {
+      if (snapshot.passedCueIds.some((id2) => !cueIds.has(id2)) || snapshot.attempts.some((attempt2) => !cueIds.has(attempt2.cueId))) {
         throw new TypeError("Classroom-instruction snapshot contains an unknown cue.");
       }
       const normalized2 = normalizeSnapshot(definition2, snapshot);
@@ -51006,9 +51025,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const cue = classroomInstructionCurrentCue(definition2, current);
     if (!cue) return unchanged$6(current);
     const outcome = action2.actionId === cue.actionId ? "pass" : "lapse";
-    const cueAttempt = current.attempts.filter((attempt2) => attempt2.cueId === cue.id && (attempt2.round ?? "practice") === round2).length + 1;
+    const cueAttempt = current.attempts.filter((attempt22) => attempt22.cueId === cue.id && (attempt22.round ?? "practice") === round2).length + 1;
     const eventStem = `${definition2.id}:${cue.id}:${round2}:attempt:${cueAttempt}`;
-    const attempt = {
+    const attempt2 = {
       cueId: cue.id,
       chosenActionId: action2.actionId,
       outcome,
@@ -51027,7 +51046,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       cursor: passedCueIds.length,
       passedCueIds,
       recalledCueIds,
-      attempts: [...current.attempts, attempt]
+      attempts: [...current.attempts, attempt2]
     };
     const repairing = outcome === "lapse" || current.attempts.some((candidate2) => candidate2.cueId === cue.id && (candidate2.round ?? "practice") === round2 && candidate2.outcome === "lapse");
     const evaluation = evaluationFor$5(cue, outcome, repairing, round2, eventStem, at);
@@ -51144,7 +51163,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         introducedCueIds: definition2.cues.map((cue) => cue.id),
         passedCueIds: definition2.cues.map((cue) => cue.id),
         recalledCueIds: definition2.recallActionOrder.map((actionId) => definition2.cues.find((cue) => cue.actionId === actionId).id),
-        attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: "practice" }))
+        attempts: snapshot.attempts.map((attempt2) => ({ ...attempt2, round: "practice" }))
       };
     }
     if (legacy) {
@@ -51155,14 +51174,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
         introducedCueIds: passedCueIds,
         passedCueIds,
         recalledCueIds: [],
-        attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: "practice" }))
+        attempts: snapshot.attempts.map((attempt2) => ({ ...attempt2, round: "practice" }))
       };
     }
     return {
       ...structuredClone(snapshot),
       introducedCueIds: unique$d([...snapshot.introducedCueIds ?? []]),
       recalledCueIds: unique$d([...snapshot.recalledCueIds ?? []]),
-      attempts: snapshot.attempts.map((attempt) => ({ ...attempt, round: attempt.round ?? "practice" }))
+      attempts: snapshot.attempts.map((attempt2) => ({ ...attempt2, round: attempt2.round ?? "practice" }))
     };
   }
   function validateSnapshotAgainstDefinition$6(definition2, state) {
@@ -51175,7 +51194,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       throw new TypeError("Classroom-instruction snapshot has drifted from the balanced learning order.");
     }
     const known = new Set(learningIds);
-    if (state.attempts.some((attempt) => !known.has(attempt.cueId))) {
+    if (state.attempts.some((attempt2) => !known.has(attempt2.cueId))) {
       throw new TypeError("Classroom-instruction snapshot contains an unknown cue.");
     }
     if ((state.stage === "recall" || state.stage === "recall-repair") && state.passedCueIds.length !== definition2.cues.length) {
@@ -51260,9 +51279,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const expected = round2 === "practice" ? definition2.practiceChunkIds : definition2.transferChunkIds;
     const diagnosis = diagnose(current.selectedChunkIds, expected);
     const outcome = diagnosis.errorTag ? "lapse" : "pass";
-    const attemptNumber = current.attempts.filter((attempt2) => attempt2.round === round2).length + 1;
+    const attemptNumber = current.attempts.filter((attempt22) => attempt22.round === round2).length + 1;
     const eventStem = `${definition2.id}:${round2}:attempt:${attemptNumber}`;
-    const attempt = {
+    const attempt2 = {
       round: round2,
       chosenChunkIds: [...current.selectedChunkIds],
       outcome,
@@ -51281,12 +51300,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       selectedChunkIds: [],
       practicePassed,
       transferPassed,
-      attempts: [...current.attempts, attempt]
+      attempts: [...current.attempts, attempt2]
     };
     return {
       state: nextState,
-      attempt,
-      evaluation: evaluationFor$4(definition2, attempt, repairing, eventStem),
+      attempt: attempt2,
+      evaluation: evaluationFor$4(definition2, attempt2, repairing, eventStem),
       adaptive: {
         eventId: `${eventStem}:learning`,
         at,
@@ -51319,8 +51338,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "complete"
     ].includes(candidate2.stage ?? "") && chunkIdArray(candidate2.selectedChunkIds) && typeof candidate2.practicePassed === "boolean" && typeof candidate2.transferPassed === "boolean" && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid$5);
   }
-  function evaluationFor$4(definition2, attempt, repairing, eventStem) {
-    const reviewSeeds2 = attempt.outcome === "pass" && attempt.round === "practice" ? [{
+  function evaluationFor$4(definition2, attempt2, repairing, eventStem) {
+    const reviewSeeds2 = attempt2.outcome === "pass" && attempt2.round === "practice" ? [{
       id: "review:lesson-zero:classroom-09-repeat",
       conceptId: "concept:classroom-repair-repeat",
       reason: repairing ? "repair" : "new-learning",
@@ -51331,26 +51350,26 @@ recommendedJiten	Jiten由来の頻度バッジです。
         meanings: [definition2.target.meaning.en]
       }
     }] : [];
-    const errorTags = attempt.errorTag ? [attempt.errorTag] : [];
+    const errorTags = attempt2.errorTag ? [attempt2.errorTag] : [];
     return {
       attempt: {
         kind: "attempt-recorded",
         eventId: eventStem,
-        at: attempt.at,
-        activityId: `${definition2.activityId}:${attempt.round}`,
+        at: attempt2.at,
+        activityId: `${definition2.activityId}:${attempt2.round}`,
         sourceQuestionId: definition2.sourceQuestionId,
         conceptIds: definition2.conceptIds,
         responseKind: "ordered-sound-chunks",
-        outcome: attempt.outcome,
-        score: attempt.outcome === "pass" ? 1 : 0,
+        outcome: attempt2.outcome,
+        score: attempt2.outcome === "pass" ? 1 : 0,
         ...errorTags.length ? { errorTags } : {}
       },
       result: {
-        outcome: attempt.outcome,
-        score: attempt.outcome === "pass" ? 1 : 0,
+        outcome: attempt2.outcome,
+        score: attempt2.outcome === "pass" ? 1 : 0,
         errorTags,
-        feedback: attempt.outcome === "pass" ? {
-          explanation: attempt.round === "transfer" ? {
+        feedback: attempt2.outcome === "pass" ? {
+          explanation: attempt2.round === "transfer" ? {
             en: "You used the same request when the scene changed.",
             ja: "場面が変わっても、同じ頼み方を使えました。"
           } : {
@@ -51358,7 +51377,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             ja: "頼み方を正しい順番で組み立てられました。"
           }
         } : {
-          explanation: repairExplanation(attempt),
+          explanation: repairExplanation(attempt2),
           repairPrompt: {
             en: "Fix only that part, then rebuild the request.",
             ja: "そこだけ直して、もう一度組み立てましょう。"
@@ -51368,20 +51387,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reviewSeeds: reviewSeeds2
     };
   }
-  function repairExplanation(attempt) {
-    if (attempt.errorTag === "repeat-request-known-pattern-intrusion") {
+  function repairExplanation(attempt2) {
+    if (attempt2.errorTag === "repeat-request-known-pattern-intrusion") {
       return {
         en: "です finishes a statement. This time you need the polite request ending.",
         ja: "「です」は文を結びます。ここでは丁寧な依頼の結びを使います。"
       };
     }
-    if (attempt.errorTag === "repeat-request-order") {
+    if (attempt2.errorTag === "repeat-request-order") {
       return {
         en: "Say “one more time” first; finish with the polite request.",
         ja: "先に「もう一度」、最後に丁寧な依頼を置きます。"
       };
     }
-    return attempt.slippedChunkId === "please" ? {
+    return attempt2.slippedChunkId === "please" ? {
       en: "The second sound makes it a polite request: onegaishimasu.",
       ja: "二つ目は丁寧な依頼の「お願いします」です。"
     } : {
@@ -51416,7 +51435,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function validateSnapshotAgainstDefinition$5(definition2, snapshot) {
     const known = new Set(definition2.chunks.map((chunk2) => chunk2.id));
-    if (snapshot.selectedChunkIds.some((id2) => !known.has(id2)) || snapshot.attempts.some((attempt) => attempt.chosenChunkIds.some((id2) => !known.has(id2)) || attempt.slippedChunkId !== void 0 && !known.has(attempt.slippedChunkId))) {
+    if (snapshot.selectedChunkIds.some((id2) => !known.has(id2)) || snapshot.attempts.some((attempt2) => attempt2.chosenChunkIds.some((id2) => !known.has(id2)) || attempt2.slippedChunkId !== void 0 && !known.has(attempt2.slippedChunkId))) {
       throw new TypeError("Repeat-request snapshot contains an unknown chunk.");
     }
     if (snapshot.status === "complete" && (!snapshot.practicePassed || !snapshot.transferPassed)) {
@@ -51509,7 +51528,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const errorTag2 = outcome === "lapse" ? `desk-language-${word.id}-confused-with-${word.id === "homework" ? "example" : "homework"}` : void 0;
     const attemptNumber = current.attempts.filter((candidate2) => candidate2.round === round2 && candidate2.wordId === wordId).length + 1;
     const eventStem = `${definition2.id}:${round2}:${wordId}:attempt:${attemptNumber}`;
-    const attempt = {
+    const attempt2 = {
       round: round2,
       wordId,
       chosenPropId: action2.propId,
@@ -51522,13 +51541,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const nextState2 = {
         ...current,
         stage: round2 === "practice" ? "practice-repair" : "transfer-repair",
-        attempts: [...current.attempts, attempt]
+        attempts: [...current.attempts, attempt2]
       };
       return {
         state: nextState2,
-        attempt,
-        evaluation: evaluationFor$3(definition2, word, attempt, repaired, eventStem),
-        adaptive: adaptiveFor(word, attempt, repaired, eventStem),
+        attempt: attempt2,
+        evaluation: evaluationFor$3(definition2, word, attempt2, repaired, eventStem),
+        adaptive: adaptiveFor(word, attempt2, repaired, eventStem),
         supportEvents: [{
           kind: "support-used",
           eventId: `${eventStem}:support:hint`,
@@ -51552,13 +51571,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       transferIndex: round2 === "transfer" ? nextIndex : current.transferIndex,
       practicePassedWordIds,
       transferPassedWordIds,
-      attempts: [...current.attempts, attempt]
+      attempts: [...current.attempts, attempt2]
     };
     return {
       state: nextState,
-      attempt,
-      evaluation: evaluationFor$3(definition2, word, attempt, repaired, eventStem),
-      adaptive: adaptiveFor(word, attempt, repaired, eventStem),
+      attempt: attempt2,
+      evaluation: evaluationFor$3(definition2, word, attempt2, repaired, eventStem),
+      adaptive: adaptiveFor(word, attempt2, repaired, eventStem),
       supportEvents: []
     };
   }
@@ -51590,8 +51609,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       "complete"
     ].includes(candidate2.stage ?? "") && Number.isInteger(candidate2.practiceIndex) && (candidate2.practiceIndex ?? -1) >= 0 && Number.isInteger(candidate2.transferIndex) && (candidate2.transferIndex ?? -1) >= 0 && wordIdArray(candidate2.practicePassedWordIds) && wordIdArray(candidate2.transferPassedWordIds) && Array.isArray(candidate2.attempts) && candidate2.attempts.every(attemptShapeIsValid$4);
   }
-  function evaluationFor$3(definition2, word, attempt, repaired, eventStem) {
-    const reviewSeeds2 = attempt.outcome === "pass" && attempt.round === "practice" ? [{
+  function evaluationFor$3(definition2, word, attempt2, repaired, eventStem) {
+    const reviewSeeds2 = attempt2.outcome === "pass" && attempt2.round === "practice" ? [{
       id: `review:lesson-zero:classroom-${word.id === "homework" ? "13-homework" : "14-example"}`,
       conceptId: word.conceptId,
       reason: repaired ? "repair" : "new-learning",
@@ -51606,21 +51625,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
       attempt: {
         kind: "attempt-recorded",
         eventId: eventStem,
-        at: attempt.at,
-        activityId: `${definition2.activityId}:${attempt.round}:${word.id}`,
+        at: attempt2.at,
+        activityId: `${definition2.activityId}:${attempt2.round}:${word.id}`,
         sourceQuestionId: word.sourceQuestionId,
         conceptIds: [word.conceptId],
         responseKind: "prop-identification",
-        outcome: attempt.outcome,
-        score: attempt.outcome === "pass" ? 1 : 0,
-        ...attempt.errorTag ? { errorTags: [attempt.errorTag] } : {}
+        outcome: attempt2.outcome,
+        score: attempt2.outcome === "pass" ? 1 : 0,
+        ...attempt2.errorTag ? { errorTags: [attempt2.errorTag] } : {}
       },
       result: {
-        outcome: attempt.outcome,
-        score: attempt.outcome === "pass" ? 1 : 0,
-        errorTags: attempt.errorTag ? [attempt.errorTag] : [],
+        outcome: attempt2.outcome,
+        score: attempt2.outcome === "pass" ? 1 : 0,
+        errorTags: attempt2.errorTag ? [attempt2.errorTag] : [],
         feedback: {
-          explanation: attempt.outcome === "pass" ? {
+          explanation: attempt2.outcome === "pass" ? {
             en: word.id === "homework" ? "Right. This is the work you take away." : "Right. This is the model you can follow.",
             ja: word.id === "homework" ? "そうです。あとでする課題です。" : "そうです。まねをする見本です。"
           } : {
@@ -51632,15 +51651,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       reviewSeeds: reviewSeeds2
     };
   }
-  function adaptiveFor(word, attempt, repaired, eventStem) {
+  function adaptiveFor(word, attempt2, repaired, eventStem) {
     return {
       eventId: `${eventStem}:learning`,
-      at: attempt.at,
+      at: attempt2.at,
       modeId: "lesson-zero-desk-language",
-      skill: attempt.round === "transfer" ? "transfer" : "listening",
-      action: repaired ? "repair" : attempt.round === "transfer" ? "transfer" : "recognise",
+      skill: attempt2.round === "transfer" ? "transfer" : "listening",
+      action: repaired ? "repair" : attempt2.round === "transfer" ? "transfer" : "recognise",
       sourceId: word.sourceQuestionId,
-      independent: attempt.round === "transfer" && attempt.outcome === "pass" && !repaired
+      independent: attempt2.round === "transfer" && attempt2.outcome === "pass" && !repaired
     };
   }
   function validateDefinition$6(definition2) {
@@ -51676,8 +51695,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function attemptShapeIsValid$4(value) {
     if (!value || typeof value !== "object") return false;
-    const attempt = value;
-    return (attempt.round === "practice" || attempt.round === "transfer") && (attempt.wordId === "homework" || attempt.wordId === "example") && (attempt.chosenPropId === "take-home-sheet" || attempt.chosenPropId === "worked-example") && (attempt.outcome === "pass" || attempt.outcome === "lapse") && Number.isFinite(attempt.at);
+    const attempt2 = value;
+    return (attempt2.round === "practice" || attempt2.round === "transfer") && (attempt2.wordId === "homework" || attempt2.wordId === "example") && (attempt2.chosenPropId === "take-home-sheet" || attempt2.chosenPropId === "worked-example") && (attempt2.outcome === "pass" || attempt2.outcome === "lapse") && Number.isFinite(attempt2.at);
   }
   function unique$c(values) {
     return [...new Set(values)];
@@ -51791,7 +51810,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const outcome = checks.greetingOrder && checks.nameIntelligible ? "pass" : "lapse";
     const attemptNumber = state.attempts.length + 1;
     const eventStem = `${definition2.id}:attempt:${attemptNumber}`;
-    const attempt = { mode, outcome, ...checks, at };
+    const attempt2 = { mode, outcome, ...checks, at };
     const repairing = outcome === "lapse" || state.attempts.some((candidate2) => candidate2.outcome === "lapse");
     return {
       state: {
@@ -51799,9 +51818,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
         status: outcome === "pass" ? "complete" : "active",
         stage: outcome === "pass" ? "complete" : "rehearse",
         mode,
-        attempts: [...state.attempts, attempt]
+        attempts: [...state.attempts, attempt2]
       },
-      evaluation: evaluationFor$2(definition2, attempt, repairing, eventStem),
+      evaluation: evaluationFor$2(definition2, attempt2, repairing, eventStem),
       adaptive: {
         eventId: `${eventStem}:learning`,
         at,
@@ -51834,29 +51853,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
       nameIntelligible: Boolean(name) && normalized2.includes(`${name}です`)
     };
   }
-  function evaluationFor$2(definition2, attempt, repairing, eventId) {
+  function evaluationFor$2(definition2, attempt2, repairing, eventId) {
     const errorTags = [
-      ...attempt.greetingOrder ? [] : ["greeting-order"],
-      ...attempt.nameIntelligible ? [] : ["name-intelligibility"]
+      ...attempt2.greetingOrder ? [] : ["greeting-order"],
+      ...attempt2.nameIntelligible ? [] : ["name-intelligibility"]
     ];
-    const reviewSeeds2 = attempt.outcome === "pass" ? greetingReviewSeeds(definition2, repairing) : [];
+    const reviewSeeds2 = attempt2.outcome === "pass" ? greetingReviewSeeds(definition2, repairing) : [];
     return {
       attempt: {
         kind: "attempt-recorded",
         eventId,
-        at: attempt.at,
+        at: attempt2.at,
         activityId: definition2.activityId,
         conceptIds: definition2.conceptIds,
-        responseKind: attempt.mode === "typed" ? "typed-accessible-speaking-alternative" : "spoken-self-check",
-        outcome: attempt.outcome,
-        score: (Number(attempt.greetingOrder) + Number(attempt.nameIntelligible)) / 2,
+        responseKind: attempt2.mode === "typed" ? "typed-accessible-speaking-alternative" : "spoken-self-check",
+        outcome: attempt2.outcome,
+        score: (Number(attempt2.greetingOrder) + Number(attempt2.nameIntelligible)) / 2,
         ...errorTags.length ? { errorTags } : {}
       },
       result: {
-        outcome: attempt.outcome,
-        score: (Number(attempt.greetingOrder) + Number(attempt.nameIntelligible)) / 2,
+        outcome: attempt2.outcome,
+        score: (Number(attempt2.greetingOrder) + Number(attempt2.nameIntelligible)) / 2,
         errorTags,
-        feedback: attempt.outcome === "pass" ? {
+        feedback: attempt2.outcome === "pass" ? {
           explanation: {
             en: "Your greeting reached Rie in the right order, with your name attached.",
             ja: "あいさつを順番どおりに、名前と一緒にりえ先生へ伝えられました。"
@@ -52053,7 +52072,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (outcome === "lapse") queue.push(item2.id);
     const guidedPassedItemIds = phase === "row" && outcome === "pass" ? unique$b([...state.guidedPassedItemIds, item2.id]) : state.guidedPassedItemIds;
     const masteryPassedItemIds = phase === "mastery" && outcome === "pass" ? unique$b([...state.masteryPassedItemIds, item2.id]) : state.masteryPassedItemIds;
-    const attempt = {
+    const attempt2 = {
       itemId: item2.id,
       phase,
       response,
@@ -52070,7 +52089,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       guidedPassedItemIds,
       masteryPassedItemIds,
       repairedItemIds,
-      attempts: [...state.attempts, attempt]
+      attempts: [...state.attempts, attempt2]
     };
     const attemptNumber = state.attempts.filter((candidate2) => candidate2.itemId === item2.id && candidate2.phase === phase).length + 1;
     const eventStem = `${LESSON_ZERO_HIRAGANA_SESSION_ID}:${phase}:${item2.id}:${attemptNumber}:${at}`;
@@ -52185,7 +52204,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...state.guidedPassedItemIds,
       ...state.masteryPassedItemIds,
       ...state.repairedItemIds,
-      ...state.attempts.map((attempt) => attempt.itemId)
+      ...state.attempts.map((attempt2) => attempt2.itemId)
     ];
     if (allStateIds.some((id2) => !ids2.has(id2))) {
       throw new TypeError("Hiragana snapshot references an unknown item.");
@@ -52234,8 +52253,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function attemptShapeIsValid$2(value) {
     if (!value || typeof value !== "object") return false;
-    const attempt = value;
-    return typeof attempt.itemId === "string" && attempt.itemId.length > 0 && ["row", "mastery"].includes(attempt.phase ?? "") && typeof attempt.response === "string" && ["pass", "lapse"].includes(attempt.outcome ?? "") && Number.isSafeInteger(attempt.at) && (attempt.at ?? -1) >= 0;
+    const attempt2 = value;
+    return typeof attempt2.itemId === "string" && attempt2.itemId.length > 0 && ["row", "mastery"].includes(attempt2.phase ?? "") && typeof attempt2.response === "string" && ["pass", "lapse"].includes(attempt2.outcome ?? "") && Number.isSafeInteger(attempt2.at) && (attempt2.at ?? -1) >= 0;
   }
   function unchanged$2(state) {
     return { state };
@@ -52380,13 +52399,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (candidate2.schemaVersion !== 1 || candidate2.sessionId !== "session:lesson-zero-sentence-frames" || !["ready", "active", "paused", "complete"].includes(candidate2.status ?? "") || !["teach", "build", "result", "transfer-build", "transfer-result", "complete"].includes(candidate2.stage ?? "") || !Number.isInteger(candidate2.cursor) || (candidate2.cursor ?? -1) < 0 || (candidate2.cursor ?? Number.MAX_SAFE_INTEGER) >= LESSON_ZERO_SENTENCE_FRAME_IDS.length || !stringSetIsValid(selected2) || !frameIdSetIsValid(passed) || !frameIdSetIsValid(revealed) || !frameIdSetIsValid(revealedTransfer) || !Array.isArray(attempts) || !attempts.every(attemptShapeIsValid$1)) return false;
     const passedPrefix = LESSON_ZERO_SENTENCE_FRAME_IDS.slice(0, passed?.length);
     if (!passed?.every((frameId, index) => passedPrefix[index] === frameId)) return false;
-    if (passed.some((frameId) => !attempts.some((attempt) => attempt.frameId === frameId && phaseOf(attempt) === "practice" && attempt.outcome === "pass"))) {
+    if (passed.some((frameId) => !attempts.some((attempt2) => attempt2.frameId === frameId && phaseOf(attempt2) === "practice" && attempt2.outcome === "pass"))) {
       return false;
     }
     const transferPasses = passedTransferFrameIds(attempts);
     const transferPrefix = LESSON_ZERO_SENTENCE_FRAME_IDS.slice(0, transferPasses.length);
     if (!sameList$1(transferPasses, transferPrefix)) return false;
-    const legacyComplete = attempts.length > 0 && attempts.every((attempt) => attempt.phase === void 0);
+    const legacyComplete = attempts.length > 0 && attempts.every((attempt2) => attempt2.phase === void 0);
     if (candidate2.status === "complete") {
       return candidate2.stage === "complete" && candidate2.cursor === LESSON_ZERO_SENTENCE_FRAME_IDS.length - 1 && passed.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length && (legacyComplete || transferPasses.length === LESSON_ZERO_SENTENCE_FRAME_IDS.length);
     }
@@ -52398,15 +52417,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (passed.length !== LESSON_ZERO_SENTENCE_FRAME_IDS.length || transferPasses.length < candidate2.cursor || transferPasses.length > candidate2.cursor + 1) return false;
       if (candidate2.stage === "transfer-build") return transferPasses.length === candidate2.cursor;
       const currentFrameId2 = LESSON_ZERO_SENTENCE_FRAME_IDS[candidate2.cursor];
-      return attempts.some((attempt) => attempt.frameId === currentFrameId2 && phaseOf(attempt) === "transfer");
+      return attempts.some((attempt2) => attempt2.frameId === currentFrameId2 && phaseOf(attempt2) === "transfer");
     }
-    if (attempts.some((attempt) => phaseOf(attempt) === "practice" && LESSON_ZERO_SENTENCE_FRAME_IDS.indexOf(attempt.frameId) > candidate2.cursor)) return false;
+    if (attempts.some((attempt2) => phaseOf(attempt2) === "practice" && LESSON_ZERO_SENTENCE_FRAME_IDS.indexOf(attempt2.frameId) > candidate2.cursor)) return false;
     if (passed.length < candidate2.cursor || passed.length > candidate2.cursor + 1) return false;
     if (candidate2.stage === "teach" || candidate2.stage === "build") {
       return passed.length === candidate2.cursor;
     }
     const currentFrameId = LESSON_ZERO_SENTENCE_FRAME_IDS[candidate2.cursor];
-    if (candidate2.stage === "result" && !attempts.some((attempt) => attempt.frameId === currentFrameId && phaseOf(attempt) === "practice")) return false;
+    if (candidate2.stage === "result" && !attempts.some((attempt2) => attempt2.frameId === currentFrameId && phaseOf(attempt2) === "practice")) return false;
     return true;
   }
   function checkFrame(definition2, state, frame2, at, phase) {
@@ -52417,7 +52436,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const correctPositions = state.selectedTokenIds.filter((id2, index) => frame2.target.correctOrder[index] === id2).length;
     const score = correctPositions / frame2.target.correctOrder.length;
     const outcome = score === 1 ? "pass" : "lapse";
-    const attempt = {
+    const attempt2 = {
       frameId: frame2.id,
       phase,
       order: [...state.selectedTokenIds],
@@ -52435,12 +52454,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ...state,
       status: finalPass ? "complete" : "active",
       stage: finalPass ? "complete" : phase === "transfer" ? "transfer-result" : "result",
-      attempts: [...state.attempts, attempt],
+      attempts: [...state.attempts, attempt2],
       passedFrameIds
     };
     return {
       state: nextState,
-      evaluation: evaluationFor$1(frame2, attempt, phase, repairing, eventStem),
+      evaluation: evaluationFor$1(frame2, attempt2, phase, repairing, eventStem),
       ...finalPass ? { completionEvaluation: completionEvaluation(definition2, at) } : {},
       adaptive: {
         eventId: `${eventStem}:learning`,
@@ -52472,9 +52491,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ]
     };
   }
-  function evaluationFor$1(frame2, attempt, phase, repairing, eventId) {
-    const errorTags = attempt.outcome === "pass" ? [] : [`sentence-frame-${phase}-order:${frame2.id}`];
-    const reviewSeeds2 = phase === "practice" && attempt.outcome === "pass" ? [{
+  function evaluationFor$1(frame2, attempt2, phase, repairing, eventId) {
+    const errorTags = attempt2.outcome === "pass" ? [] : [`sentence-frame-${phase}-order:${frame2.id}`];
+    const reviewSeeds2 = phase === "practice" && attempt2.outcome === "pass" ? [{
       id: `review:lesson-zero:sentence-frame:${frame2.id}`,
       conceptId: frame2.conceptId,
       reason: repairing ? "repair" : "new-learning",
@@ -52489,19 +52508,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
       attempt: {
         kind: "attempt-recorded",
         eventId,
-        at: attempt.at,
+        at: attempt2.at,
         activityId: frame2.activityId,
         conceptIds: [frame2.conceptId],
         responseKind: phase === "transfer" ? "tapped-token-order-transfer" : "tapped-token-order",
-        outcome: attempt.outcome,
-        score: attempt.score,
+        outcome: attempt2.outcome,
+        score: attempt2.score,
         ...errorTags.length ? { errorTags } : {}
       },
       result: {
-        outcome: attempt.outcome,
-        score: attempt.score,
+        outcome: attempt2.outcome,
+        score: attempt2.score,
         errorTags,
-        feedback: attempt.outcome === "pass" ? {
+        feedback: attempt2.outcome === "pass" ? {
           explanation: {
             en: phase === "transfer" ? "You recalled the whole sentence without looking at the pattern." : "The words are carrying the meaning you chose.",
             ja: phase === "transfer" ? "文の形を見ずに、文を思い出せました。" : "選んだ意味が、その語順で伝わっています。"
@@ -52564,13 +52583,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (snapshot.selectedTokenIds.some((id2) => !tokenIds.has(id2))) {
       throw new TypeError("Sentence-frame snapshot contains a token from another turn.");
     }
-    for (const attempt of snapshot.attempts) {
-      const attemptedFrame = definition2.frames.find((candidate2) => candidate2.id === attempt.frameId);
-      if (!attemptedFrame || !sameSet(attempt.order, attemptedFrame.target.tokens.map((token) => token.id))) {
+    for (const attempt2 of snapshot.attempts) {
+      const attemptedFrame = definition2.frames.find((candidate2) => candidate2.id === attempt2.frameId);
+      if (!attemptedFrame || !sameSet(attempt2.order, attemptedFrame.target.tokens.map((token) => token.id))) {
         throw new TypeError("Sentence-frame snapshot contains an impossible attempt.");
       }
     }
-    if (snapshot.attempts.some((attempt) => phaseOf(attempt) === "transfer") && snapshot.passedFrameIds.length !== definition2.frames.length) {
+    if (snapshot.attempts.some((attempt2) => phaseOf(attempt2) === "transfer") && snapshot.passedFrameIds.length !== definition2.frames.length) {
       throw new TypeError("Sentence-frame transfer began before guided practice was complete.");
     }
     const expectedPrefix = definition2.frames.slice(0, snapshot.passedFrameIds.length).map((candidate2) => candidate2.id);
@@ -52582,7 +52601,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return order2.map((id2) => frame2.target.tokens.find((token) => token.id === id2)?.japanese ?? "").join("");
   }
   function lastFrameAttempt(state, frameId, phase) {
-    return [...state.attempts].reverse().find((attempt) => attempt.frameId === frameId && phaseOf(attempt) === phase);
+    return [...state.attempts].reverse().find((attempt2) => attempt2.frameId === frameId && phaseOf(attempt2) === phase);
   }
   function attemptShapeIsValid$1(value) {
     if (!value || typeof value !== "object") return false;
@@ -52610,8 +52629,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function unique$a(values) {
     return [...new Set(values)];
   }
-  function phaseOf(attempt) {
-    return attempt.phase ?? "practice";
+  function phaseOf(attempt2) {
+    return attempt2.phase ?? "practice";
   }
   function phaseForResultStage(stage2) {
     if (stage2 === "result") return "practice";
@@ -52622,7 +52641,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return stage2 === "build" || stage2 === "transfer-build";
   }
   function passedTransferFrameIds(attempts) {
-    return LESSON_ZERO_SENTENCE_FRAME_IDS.filter((frameId) => attempts.some((attempt) => attempt.frameId === frameId && phaseOf(attempt) === "transfer" && attempt.outcome === "pass"));
+    return LESSON_ZERO_SENTENCE_FRAME_IDS.filter((frameId) => attempts.some((attempt2) => attempt2.frameId === frameId && phaseOf(attempt2) === "transfer" && attempt2.outcome === "pass"));
   }
   function unchanged$1(state) {
     return { state, supportEvents: [] };
@@ -52743,7 +52762,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const missedLineIds = lines.filter((line2) => state.selections.find((selection) => selection.lineId === line2.id)?.speakerId !== line2.targetSpeakerId).map((line2) => line2.id);
     const score = (lines.length - missedLineIds.length) / lines.length;
     const outcome = missedLineIds.length === 0 ? "pass" : "lapse";
-    const attempt = {
+    const attempt2 = {
       selections: lines.map((line2) => state.selections.find((selection) => selection.lineId === line2.id)),
       outcome,
       score,
@@ -52760,11 +52779,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ...state,
         status: complete ? "complete" : "active",
         stage: complete ? "complete" : "repair",
-        attempts: [...state.attempts, attempt],
+        attempts: [...state.attempts, attempt2],
         repairedLineIds: [],
         modelRevealed: state.modelRevealed || assistedComplete
       },
-      evaluation: evaluationFor(definition2, attempt, repairing, complete, eventId),
+      evaluation: evaluationFor(definition2, attempt2, repairing, complete, eventId),
       adaptive: {
         eventId: `${eventId}:learning`,
         at,
@@ -52793,8 +52812,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       ]
     };
   }
-  function evaluationFor(definition2, attempt, repairing, complete, eventId) {
-    const errorTags = attempt.missedLineIds.map((lineId) => {
+  function evaluationFor(definition2, attempt2, repairing, complete, eventId) {
+    const errorTags = attempt2.missedLineIds.map((lineId) => {
       const line2 = definition2.lines.find((candidate2) => candidate2.id === lineId);
       return `listening:name:${line2?.targetSpeakerId ?? "unknown"}`;
     });
@@ -52826,22 +52845,22 @@ recommendedJiten	Jiten由来の頻度バッジです。
       attempt: {
         kind: "attempt-recorded",
         eventId,
-        at: attempt.at,
+        at: attempt2.at,
         activityId: definition2.activityId,
         conceptIds: definition2.conceptIds,
         responseKind: "audio-name-match",
-        outcome: attempt.outcome,
-        score: attempt.score,
+        outcome: attempt2.outcome,
+        score: attempt2.score,
         ...errorTags.length ? { errorTags } : {}
       },
       result: {
-        outcome: attempt.outcome,
-        score: attempt.score,
+        outcome: attempt2.outcome,
+        score: attempt2.score,
         errorTags,
         feedback: complete ? {
           explanation: {
-            en: attempt.outcome === "pass" ? "You recognized both names in a new exchange." : "Those two names are saved for another short review.",
-            ja: attempt.outcome === "pass" ? "別の会話でも、二人の名前を聞き取れました。" : "二人の名前は、あとでもう一度短く復習します。"
+            en: attempt2.outcome === "pass" ? "You recognized both names in a new exchange." : "Those two names are saved for another short review.",
+            ja: attempt2.outcome === "pass" ? "別の会話でも、二人の名前を聞き取れました。" : "二人の名前は、あとでもう一度短く復習します。"
           }
         } : {
           explanation: {
@@ -52865,7 +52884,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function validateSnapshotAgainstDefinition$1(definition2, snapshot) {
     const lineIds = new Set(definition2.lines.map((line2) => line2.id));
     const speakerIds = new Set(definition2.speakers.map((speaker2) => speaker2.id));
-    if ([...snapshot.heardLineIds, ...snapshot.repairedLineIds].some((id2) => !lineIds.has(id2)) || snapshot.selections.some((selection) => !lineIds.has(selection.lineId) || !speakerIds.has(selection.speakerId)) || snapshot.attempts.some((attempt) => attempt.selections.some((selection) => !lineIds.has(selection.lineId) || !speakerIds.has(selection.speakerId)))) {
+    if ([...snapshot.heardLineIds, ...snapshot.repairedLineIds].some((id2) => !lineIds.has(id2)) || snapshot.selections.some((selection) => !lineIds.has(selection.lineId) || !speakerIds.has(selection.speakerId)) || snapshot.attempts.some((attempt2) => attempt2.selections.some((selection) => !lineIds.has(selection.lineId) || !speakerIds.has(selection.speakerId)))) {
       throw new TypeError("Lesson Zero sound-mission snapshot contains an unknown line or speaker.");
     }
   }
@@ -52885,8 +52904,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function attemptShapeIsValid(value) {
     if (!value || typeof value !== "object") return false;
-    const attempt = value;
-    return selectionListIsValid(attempt.selections) && attempt.selections.length >= 1 && attempt.selections.length <= LESSON_ZERO_SOUND_CHECK_LINE_IDS.length && (attempt.outcome === "pass" || attempt.outcome === "lapse") && typeof attempt.score === "number" && Number.isFinite(attempt.score) && attempt.score >= 0 && attempt.score <= 1 && lineIdSetIsValid(attempt.missedLineIds) && typeof attempt.at === "number" && Number.isFinite(attempt.at);
+    const attempt2 = value;
+    return selectionListIsValid(attempt2.selections) && attempt2.selections.length >= 1 && attempt2.selections.length <= LESSON_ZERO_SOUND_CHECK_LINE_IDS.length && (attempt2.outcome === "pass" || attempt2.outcome === "lapse") && typeof attempt2.score === "number" && Number.isFinite(attempt2.score) && attempt2.score >= 0 && attempt2.score <= 1 && lineIdSetIsValid(attempt2.missedLineIds) && typeof attempt2.at === "number" && Number.isFinite(attempt2.at);
   }
   function freshState(definition2, status2) {
     return {
@@ -53003,7 +53022,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         action2.evaluation.attempt.responseKind === (state.mode === "draw" ? "kana-doodle" : "kana-stroke-plan"),
         "The writing grade does not match the selected access route."
       );
-      const attempt = {
+      const attempt2 = {
         itemId: item2.id,
         mode: state.mode,
         outcome: action2.evaluation.result.outcome,
@@ -53011,7 +53030,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         errorTags: [...action2.evaluation.result.errorTags],
         at
       };
-      const attempts = [...state.attempts, attempt];
+      const attempts = [...state.attempts, attempt2];
       const adaptive = adaptiveEvidence(state, item2.id, action2.evaluation, at, attempts.length);
       if (action2.evaluation.result.outcome === "lapse") {
         return {
@@ -53051,7 +53070,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         action2.evaluation.attempt.responseKind === "kana-choice",
         "The delayed-recall grade must use a kana choice."
       );
-      const attempt = {
+      const attempt2 = {
         itemId: item2.id,
         mode: "recall",
         outcome: action2.evaluation.result.outcome,
@@ -53059,7 +53078,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         errorTags: [...action2.evaluation.result.errorTags],
         at
       };
-      const attempts = [...state.attempts, attempt];
+      const attempts = [...state.attempts, attempt2];
       const adaptive = adaptiveEvidence(state, item2.id, action2.evaluation, at, attempts.length, true);
       if (action2.evaluation.result.outcome === "lapse") {
         return {
@@ -53090,7 +53109,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (state.schemaVersion !== 1 || state.sessionId !== LESSON_ZERO_VOWEL_WRITING_SESSION_ID || !["ready", "active", "paused", "complete"].includes(state.status ?? "") || !["learn", "attempt", "repair", "recall", "recall-repair", "complete"].includes(state.stage ?? "") || !["draw", "plan"].includes(state.mode ?? "")) return false;
     if (!itemIdArray(state.learnedItemIds) || !itemIdArray(state.completedItemIds) || !itemIdArray(state.guideItemIds)) return false;
     if (state.recalledItemIds !== void 0 && !itemIdArray(state.recalledItemIds)) return false;
-    if (!Array.isArray(state.attempts) || state.attempts.some((attempt) => !attempt || !isItemId(attempt.itemId) || !["draw", "plan", "recall"].includes(attempt.mode) || !["pass", "lapse"].includes(attempt.outcome) || !Number.isFinite(attempt.score) || attempt.score < 0 || attempt.score > 1 || !stringArray$2(attempt.errorTags) || !Number.isSafeInteger(attempt.at) || attempt.at < 0)) return false;
+    if (!Array.isArray(state.attempts) || state.attempts.some((attempt2) => !attempt2 || !isItemId(attempt2.itemId) || !["draw", "plan", "recall"].includes(attempt2.mode) || !["pass", "lapse"].includes(attempt2.outcome) || !Number.isFinite(attempt2.score) || attempt2.score < 0 || attempt2.score > 1 || !stringArray$2(attempt2.errorTags) || !Number.isSafeInteger(attempt2.at) || attempt2.at < 0)) return false;
     if (new Set(state.learnedItemIds).size !== state.learnedItemIds.length || new Set(state.completedItemIds).size !== state.completedItemIds.length || new Set(state.guideItemIds).size !== state.guideItemIds.length || new Set(state.recalledItemIds ?? []).size !== (state.recalledItemIds ?? []).length || state.completedItemIds.length > state.learnedItemIds.length) return false;
     if (state.status === "ready" && (state.stage !== "learn" || state.learnedItemIds.length > 0 || state.completedItemIds.length > 0 || (state.recalledItemIds ?? []).length > 0)) return false;
     if (state.status === "complete" && (state.stage !== "complete" || state.completedItemIds.length !== 5 || state.recalledItemIds !== void 0 && state.recalledItemIds.length !== 5)) return false;
@@ -53103,9 +53122,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return true;
   }
   function lessonZeroVowelWritingAveragePassScore(state) {
-    const latestPasses = ITEM_IDS.map((itemId) => [...state.attempts].reverse().find((attempt) => attempt.itemId === itemId && attempt.mode !== "recall" && attempt.outcome === "pass"));
-    if (latestPasses.some((attempt) => !attempt)) throw new Error("All five kana need a passing attempt before completion.");
-    return latestPasses.reduce((sum, attempt) => sum + (attempt?.score ?? 0), 0) / latestPasses.length;
+    const latestPasses = ITEM_IDS.map((itemId) => [...state.attempts].reverse().find((attempt2) => attempt2.itemId === itemId && attempt2.mode !== "recall" && attempt2.outcome === "pass"));
+    if (latestPasses.some((attempt2) => !attempt2)) throw new Error("All five kana need a passing attempt before completion.");
+    return latestPasses.reduce((sum, attempt2) => sum + (attempt2?.score ?? 0), 0) / latestPasses.length;
   }
   const ITEM_IDS = ["hira-a", "hira-i", "hira-u", "hira-e", "hira-o"];
   const LESSON_ZERO_VOWEL_WRITING_RECALL_ORDER = ["hira-u", "hira-a", "hira-o", "hira-i", "hira-e"];
@@ -53120,7 +53139,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return lessonZeroVowelWritingCurrentItem(definition2, state);
   }
   function adaptiveEvidence(state, itemId, evaluation, at, attemptNumber, recall = false) {
-    const lastRecall = [...state.attempts].reverse().find((attempt) => attempt.itemId === itemId && attempt.mode === "recall");
+    const lastRecall = [...state.attempts].reverse().find((attempt2) => attempt2.itemId === itemId && attempt2.mode === "recall");
     const repairing = recall ? lastRecall?.outcome === "lapse" : state.guideItemIds.includes(itemId);
     return {
       eventId: `adaptive:lesson-zero-vowel-writing:${itemId}:${attemptNumber}:${at}`,
@@ -53146,8 +53165,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     for (const id2 of state.guideItemIds) {
       if (!known.has(id2)) throw new TypeError(`Lesson Zero vowel-writing snapshot contains unknown item ${id2}.`);
     }
-    for (const attempt of state.attempts) {
-      if (!known.has(attempt.itemId)) throw new TypeError(`Lesson Zero vowel-writing attempt contains unknown item ${attempt.itemId}.`);
+    for (const attempt2 of state.attempts) {
+      if (!known.has(attempt2.itemId)) throw new TypeError(`Lesson Zero vowel-writing attempt contains unknown item ${attempt2.itemId}.`);
     }
   }
   function validateDefinition$1(definition2) {
@@ -97398,7 +97417,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return section2;
   }
   function productionTask(language2, kind, prompt2, draft, onChange) {
-    const attempt = draft.production[kind];
+    const attempt2 = draft.production[kind];
     const fieldset = element("fieldset", `academy-placement-production-task academy-placement-production-${kind}`);
     fieldset.append(
       copyElement(
@@ -97418,7 +97437,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       input2.type = "radio";
       input2.name = `placement-${kind}-mode`;
       input2.value = value;
-      input2.checked = attempt.mode === value;
+      input2.checked = attempt2.mode === value;
       input2.addEventListener("change", () => {
         syncProductionMode(fieldset, kind, value);
         onChange();
@@ -97431,7 +97450,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const directCheck = document.createElement("input");
     directCheck.type = "checkbox";
     directCheck.name = `placement-${kind}-complete`;
-    directCheck.checked = attempt.completed && (kind === "speaking" ? attempt.mode === "aloud" : attempt.mode === "paper-alternative");
+    directCheck.checked = attempt2.completed && (kind === "speaking" ? attempt2.mode === "aloud" : attempt2.mode === "paper-alternative");
     directCheck.addEventListener("change", onChange);
     direct.append(directCheck, copyElement(
       "span",
@@ -97450,7 +97469,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       language2,
       kind === "speaking" ? "mockSpeakingConfidence" : "mockWritingConfidence"
     ));
-    response.value = attempt.response;
+    response.value = attempt2.response;
     response.addEventListener("input", onChange);
     fieldset.append(response);
     const confidence = element("fieldset", "academy-placement-self-check");
@@ -97465,13 +97484,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       input2.type = "radio";
       input2.name = `placement-${kind}-confidence`;
       input2.value = String(value);
-      input2.checked = attempt.rated && attempt.confidence === value;
+      input2.checked = attempt2.rated && attempt2.confidence === value;
       input2.addEventListener("change", onChange);
       label.append(input2, copyElement("span", "", language2, key2));
       confidence.append(label);
     });
     fieldset.append(confidence);
-    syncProductionMode(fieldset, kind, attempt.mode);
+    syncProductionMode(fieldset, kind, attempt2.mode);
     return fieldset;
   }
   function syncProductionMode(fieldset, kind, mode) {
@@ -248808,7 +248827,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         expressionId: firstExpression.id,
         probeId: firstProbe.id
       },
-      attempts: state.attempts.filter((attempt) => !probeIds.has(attempt.probeId)),
+      attempts: state.attempts.filter((attempt2) => !probeIds.has(attempt2.probeId)),
       passedProbeIds: state.passedProbeIds.filter((id2) => !probeIds.has(id2)),
       revealedModelProbeIds: state.revealedModelProbeIds.filter((id2) => !probeIds.has(id2)),
       visitedExpressionIds: [
@@ -248826,17 +248845,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return completedClassroomActivityIds(definition2, after).filter((activityId) => !prior.has(activityId));
   }
   function classroomProbeRecording(definition2, transition) {
-    const attempt = transition.evidence.find(isAttempt);
-    if (!attempt) return void 0;
+    const attempt2 = transition.evidence.find(isAttempt);
+    if (!attempt2) return void 0;
     const learning = transition.evidence.find(isLearning);
-    if (!learning) throw new TypeError(`Classroom probe ${attempt.activityId} emitted no learning evidence.`);
-    const { expression, probe } = probeFor(definition2, attempt.activityId);
+    if (!learning) throw new TypeError(`Classroom probe ${attempt2.activityId} emitted no learning evidence.`);
+    const { expression, probe } = probeFor(definition2, attempt2.activityId);
     const binding = bindingForExpression(expression.id);
     const teaching2 = definition2.teachingBlocks.find((block) => block.expressionIds.includes(expression.id));
     if (!teaching2) throw new TypeError(`Classroom expression ${expression.id} has no teaching block.`);
     const meaning = REVIEW_MEANINGS[probe.id];
     if (!meaning) throw new TypeError(`Classroom probe ${probe.id} has no review meaning.`);
-    const reviewSeeds2 = attempt.outcome === "pass" ? [{
+    const reviewSeeds2 = attempt2.outcome === "pass" ? [{
       id: lessonZeroReviewSeedId(probe),
       conceptId: teaching2.conceptId,
       reason: learning.action === "repair" ? "repair" : "new-learning",
@@ -248850,12 +248869,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return {
       bindingActivityId: binding.activityId,
       evaluation: {
-        attempt,
+        attempt: attempt2,
         result: {
-          outcome: attempt.outcome,
-          score: attempt.outcome === "pass" ? 1 : 0,
-          errorTags: attempt.errorTags ?? [],
-          feedback: attempt.outcome === "pass" ? { explanation: { en: "That fits the moment.", ja: "その場面に合っています。" } } : {
+          outcome: attempt2.outcome,
+          score: attempt2.outcome === "pass" ? 1 : 0,
+          errorTags: attempt2.errorTags ?? [],
+          feedback: attempt2.outcome === "pass" ? { explanation: { en: "That fits the moment.", ja: "その場面に合っています。" } } : {
             explanation: probe.repair.contrast,
             repairPrompt: probe.repair.retryPrompt,
             nearbyExample: probe.repair.nearbyExample
@@ -271847,8 +271866,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       body.append(root, leaveControl(signal));
     };
     const renderRepair = (signal) => {
-      const attempt = [...state.attempts].reverse().find((candidate2) => candidate2.outcome === "lapse");
-      const slipped = chunkFor(attempt?.slippedChunkId ?? "once-more");
+      const attempt2 = [...state.attempts].reverse().find((candidate2) => candidate2.outcome === "lapse");
+      const slipped = chunkFor(attempt2?.slippedChunkId ?? "once-more");
       const root = element("section", "academy-repeat-request-repair");
       const portrait2 = characterPortrait$1(ACADEMY_ASSETS.rie, "academy-repeat-request-repair-rie");
       const dialogue2 = paper("academy-repeat-request-repair-paper");
@@ -271863,7 +271882,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       const explanation2 = localized$7(
         "p",
         "academy-repeat-request-repair-explanation",
-        repairCopy(attempt?.errorTag, slipped.id),
+        repairCopy(attempt2?.errorTag, slipped.id),
         options.language
       );
       const retry2 = actionButton$5(COPY$8.retry[options.language], "academy-button-primary");
@@ -272743,7 +272762,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         }
         const chunks2 = [];
         const startedAt = now();
-        const recorder = createMediaRecorder(Recorder, stream);
+        const recorder2 = createMediaRecorder(Recorder, stream);
         let cancelled = false;
         let settled = false;
         let timeout;
@@ -272761,7 +272780,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
             resolveCompletion(null);
             return;
           }
-          const blob = new Blob(chunks2, { type: recorder.mimeType || chunks2[0]?.type || "audio/webm" });
+          const blob = new Blob(chunks2, { type: recorder2.mimeType || chunks2[0]?.type || "audio/webm" });
           const url = createObjectURL(blob);
           let released = false;
           const recording = {
@@ -272781,25 +272800,25 @@ recommendedJiten	Jiten由来の頻度バッジです。
         const capture = {
           completion,
           stop() {
-            if (recorder.state !== "inactive") recorder.stop();
+            if (recorder2.state !== "inactive") recorder2.stop();
           },
           cancel() {
             cancelled = true;
-            if (recorder.state !== "inactive") recorder.stop();
+            if (recorder2.state !== "inactive") recorder2.stop();
             else finish();
           }
         };
-        recorder.addEventListener("dataavailable", (event) => {
+        recorder2.addEventListener("dataavailable", (event) => {
           const data = event.data;
           if (!cancelled && data.size > 0) chunks2.push(data);
         });
-        recorder.addEventListener("stop", finish, { once: true });
-        recorder.addEventListener("error", () => {
+        recorder2.addEventListener("stop", finish, { once: true });
+        recorder2.addEventListener("error", () => {
           cancelled = true;
           finish();
         }, { once: true });
         active = capture;
-        recorder.start();
+        recorder2.start();
         timeout = globalThis.setTimeout(() => capture.stop(), maxDurationMs);
         return capture;
       },
@@ -272912,7 +272931,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonZeroGreetingScreen(options) {
     const lifecycle = new AbortController();
     let renderLifecycle = new AbortController();
-    const recorder = options.recorder ?? createPrivatePracticeRecorder();
+    const recorder2 = options.recorder ?? createPrivatePracticeRecorder();
     let state = options.initialState;
     let playback = null;
     let capture = null;
@@ -273063,7 +273082,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         ["typed", COPY$6.type, COPY$6.typeDetail]
       ];
       modes.forEach(([mode, labelCopy, detailCopy]) => {
-        if (mode === "recorded" && !recorder.supported) return;
+        if (mode === "recorded" && !recorder2.supported) return;
         const button2 = element("button", "academy-greeting-mode");
         button2.type = "button";
         button2.dataset.mode = mode;
@@ -273073,7 +273092,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         button2.addEventListener("click", () => void chooseMode(mode), { signal });
         chooser.append(button2);
       });
-      if (!recorder.supported) {
+      if (!recorder2.supported) {
         chooser.append(localized$5("p", "academy-greeting-recorder-note", COPY$6.recorderUnavailable, options.language));
       }
       return chooser;
@@ -273251,7 +273270,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       recording = null;
       recorderMessage = "";
       try {
-        capture = await recorder.start();
+        capture = await recorder2.start();
         const active = capture;
         render2();
         void active.completion.then((take) => {
@@ -273361,7 +273380,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         renderLifecycle.abort();
         playback?.dispose();
         playback = null;
-        recorder.dispose();
+        recorder2.dispose();
         recording = null;
         capture = null;
       }
@@ -274535,7 +274554,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function createLessonZeroMissionScreen(options) {
     const lifecycle = new AbortController();
     let renderLifecycle = new AbortController();
-    const recorder = options.recorder ?? createPrivatePracticeRecorder();
+    const recorder2 = options.recorder ?? createPrivatePracticeRecorder();
     let playback = null;
     let authoredAudio = null;
     let capture = null;
@@ -274921,7 +274940,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       if (attempted) root.append(transcriptReveal());
       if (!performed && !capture && !recording) {
         const modes = element("div", "academy-mission-speaking-modes");
-        if (recorder.supported) {
+        if (recorder2.supported) {
           modes.append(actionButton2({ en: "Record", ja: "録音する" }, "record", signal, startRecording));
         }
         modes.append(actionButton2({ en: "Speak now", ja: "今、話す" }, "primary", signal, () => {
@@ -275052,7 +275071,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       try {
         recording?.dispose();
         recording = null;
-        capture = await recorder.start();
+        capture = await recorder2.start();
         performed = true;
         render2();
         const take = await capture.completion;
@@ -275113,7 +275132,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         playback?.dispose();
         recording?.dispose();
         capture?.cancel();
-        recorder.dispose();
+        recorder2.dispose();
       }
     };
     function localized2(value) {
@@ -275885,7 +275904,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       screen.dataset.sessionStage = state.stage;
       screen.dataset.sessionPhase = isTransferStage(state.stage) ? "transfer" : "practice";
       screen.dataset.frameId = currentFrame().id;
-      const completed = isTransferStage(state.stage) ? options.definition.frames.filter((frame2) => state.attempts.some((attempt) => attempt.frameId === frame2.id && attempt.phase === "transfer" && attempt.outcome === "pass")).length : state.passedFrameIds.length;
+      const completed = isTransferStage(state.stage) ? options.definition.frames.filter((frame2) => state.attempts.some((attempt2) => attempt2.frameId === frame2.id && attempt2.phase === "transfer" && attempt2.outcome === "pass")).length : state.passedFrameIds.length;
       screen.dataset.frameProgress = `${completed}/${options.definition.frames.length}`;
       progress2.textContent = progressText();
       if (state.status === "ready") renderWelcome(signal);
@@ -275986,17 +276005,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
     const renderResult = (signal, transfer) => {
       const frame2 = currentFrame();
-      const attempt = lastAttempt(frame2, transfer ? "transfer" : "practice");
-      if (!attempt) throw new TypeError(`Sentence-frame result ${frame2.id} has no attempt.`);
-      const passed = attempt.outcome === "pass";
+      const attempt2 = lastAttempt(frame2, transfer ? "transfer" : "practice");
+      if (!attempt2) throw new TypeError(`Sentence-frame result ${frame2.id} has no attempt.`);
+      const passed = attempt2.outcome === "pass";
       const speaker2 = passed && !transfer ? frame2.response.speakerId : "rie";
       const scene2 = sceneWithPortrait(speaker2);
       const paper2 = livingPaper();
-      paper2.dataset.outcome = attempt.outcome;
+      paper2.dataset.outcome = attempt2.outcome;
       paper2.append(
         speakerName(speaker2, options.language),
         localized$2("h2", "academy-sentence-frame-section-title", passed ? frame2.title : COPY$3.repairTitle, options.language),
-        builtLine(frame2, attempt.order, attempt.outcome)
+        builtLine(frame2, attempt2.order, attempt2.outcome)
       );
       if (passed) {
         if (transfer) {
@@ -276195,7 +276214,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       render2();
     };
     const currentFrame = () => options.definition.frames[state.cursor];
-    const lastAttempt = (frame2, phase) => [...state.attempts].reverse().find((attempt) => attempt.frameId === frame2.id && (attempt.phase ?? "practice") === phase);
+    const lastAttempt = (frame2, phase) => [...state.attempts].reverse().find((attempt2) => attempt2.frameId === frame2.id && (attempt2.phase ?? "practice") === phase);
     const progressText = () => {
       if (state.status === "ready") return COPY$3.readyProgress[options.language];
       if (state.status === "complete") return options.language === "ja" ? "5 / 5 完了" : "5 / 5 complete";
@@ -287267,11 +287286,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { names, reached };
   }
   function parseJsonValue(text2) {
-    try {
-      return JSON.parse(text2);
-    } catch {
-      return null;
-    }
+    return parseJson(text2, null, "candidates.parseJsonValue");
   }
   function withAudioQueryPlaceholders(template) {
     if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -287449,11 +287464,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return [card.spelling, card.reading].some((value) => cleanJpdbIdentityText(value) === normalizedQuery);
   }
   function jpdbSearchQuery(value) {
-    try {
-      return new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "";
-    } catch {
-      return "";
-    }
+    return attempt(() => new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "", "", "candidates.jpdbSearchQuery");
   }
   function jpdbVocabularyBlockMatchesCard(html, card) {
     return jpdbVocabularyIdentities$1(html).some((identity2) => jpdbVocabularyIdentityMatches$1(identity2, card));
@@ -287760,11 +287771,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return uniqueAudioUrls(urls);
   }
   function resolveAudioSourceUrl(src, baseUrl) {
-    try {
-      return new URL(src, baseUrl).href;
-    } catch {
-      return "";
-    }
+    return attempt(() => new URL(src, baseUrl).href, "", "candidates.resolveAudioSourceUrl");
   }
   function getHtmlAttribute(attributes, name) {
     const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
@@ -287858,11 +287865,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     appendAudioPreconnectLinks(origin);
   }
   function audioPreconnectOrigin(value) {
-    try {
-      return new URL(value, location.href).origin;
-    } catch {
-      return null;
-    }
+    return attempt(() => new URL(value, location.href).origin, null, "candidates.audioPreconnectOrigin");
   }
   function appendAudioPreconnectLinks(origin) {
     for (const rel of AUDIO_PRECONNECT_RELS) appendAudioPreconnectLink(origin, rel);
@@ -301454,11 +301457,7 @@ ${component.reading}`;
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
     async batchReviewCards(cards, grade2) {
       const reviews = cards.flatMap((card) => {
-        try {
-          return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade2) }];
-        } catch {
-          return [];
-        }
+        return attempt(() => [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade2) }], [], "jiten.batchReviewCards");
       });
       if (!reviews.length) return 0;
       await this.request("srs/batch-review", { reviews });
@@ -301480,11 +301479,7 @@ ${component.reading}`;
     // were looked up.
     async refreshCardStates(cards) {
       const entries2 = cards.map((card) => {
-        try {
-          return { card, ref: jitenCardReference(card) };
-        } catch {
-          return null;
-        }
+        return attempt(() => ({ card, ref: jitenCardReference(card) }), null, "jiten.refreshCardStates");
       }).filter((entry2) => entry2 !== null);
       if (!entries2.length) return 0;
       const response = await this.request("reader/lookup-vocabulary", {
@@ -302407,7 +302402,7 @@ ${component.reading}`;
   }
   async function parseJitenResponse(response, authenticated) {
     const text2 = await response.text();
-    const json = parseJson(text2);
+    const json = parseJson(text2, void 0, "jiten.parseJitenResponse");
     const errorMessage2 = jitenApplicationErrorMessage(json);
     const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
     if (errorMessage2) {
@@ -302434,14 +302429,6 @@ ${component.reading}`;
   function statusFromMessage(message) {
     const match = /\((\d{3})\)/.exec(message);
     return match ? Number(match[1]) : void 0;
-  }
-  function parseJson(text2) {
-    if (!text2) return void 0;
-    try {
-      return JSON.parse(text2);
-    } catch {
-      return void 0;
-    }
   }
   function jitenApplicationErrorMessage(value) {
     if (!isJsonRecord$1(value)) return void 0;
@@ -309613,16 +309600,16 @@ ${component.reading}`;
     async postJsonWithReadRetry(url, token, body, endpoint) {
       const maxAttempts = isRetryableApiReadEndpoint(url) ? RETRYABLE_READ_ATTEMPTS : 1;
       let lastError;
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      for (let attempt2 = 1; attempt2 <= maxAttempts; attempt2 += 1) {
         try {
           return await postJson(url, token, body, this.getProxyUrl());
         } catch (error) {
           lastError = error;
-          if (attempt >= maxAttempts || !isJpdbConnectionFailure(error)) {
+          if (attempt2 >= maxAttempts || !isJpdbConnectionFailure(error)) {
             if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
             throw normalizeJpdbTransportError(error);
           }
-          log$f.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
+          log$f.warn("JPDB read request failed; retrying", { endpoint, attempt: attempt2, maxAttempts }, error);
           await delay(retryableReadDelayMs());
         }
       }
@@ -312404,6 +312391,84 @@ ${normalizedReading}`;
   function trimSpaces(value) {
     return value.replace(/\s+/gu, " ").trim();
   }
+  const NEW_TAB_ACTIONS = [
+    // Shell: overflow menu, app nav, site nav, support banner.
+    "settings",
+    "theme",
+    "language",
+    "install-app",
+    "dismiss-support-banner",
+    "site-nav",
+    "external-link",
+    "mode",
+    // Study: navigation, reveal, grading, step chrome.
+    "previous",
+    "next",
+    "reveal",
+    "grade",
+    "empty-fallback",
+    "continue-batch",
+    "study-step",
+    "study-hint",
+    "dismiss-study-tour",
+    "recall-submit",
+    "type-word-submit",
+    "type-word-skip",
+    "type-word-mode",
+    "jpdb-kanji-action",
+    // Listen / pitch-perception step.
+    "listen-pick",
+    "listen-play",
+    "listen-play-recording",
+    "listen-record",
+    // Library search.
+    "search-submit",
+    "search-clear",
+    "search-focus",
+    "search-suggestion",
+    "search-handwriting-toggle",
+    "handwriting-candidate",
+    "search-result-word",
+    "search-result-kanji",
+    // Library browse (My Cards).
+    "browse-filter",
+    "browse-source-filter",
+    "browse-sort",
+    "browse-sort-direction",
+    "browse-select-mode",
+    "browse-page",
+    "browse-bulk",
+    "browse-card",
+    // Stats dashboard.
+    "stats-source",
+    "stats-activity-metric",
+    "stats-select-day",
+    "stats-study-trouble",
+    "stats-refresh",
+    "stats-toggle-anki-deck",
+    "stats-connect-anki",
+    "stats-open-jpdb-settings",
+    "stats-open-anki-settings",
+    "stats-import-jpdb"
+  ];
+  const NEW_TAB_ACTION_NAMES = new Set(NEW_TAB_ACTIONS);
+  function isNewTabAction(value) {
+    return typeof value === "string" && NEW_TAB_ACTION_NAMES.has(value);
+  }
+  function newTabAction(action2) {
+    return action2;
+  }
+  function newTabActionAttr(action2) {
+    return `data-newtab-action="${action2}"`;
+  }
+  function newTabActionSelector(action2, suffix = "") {
+    return `[data-newtab-action="${action2}"]${suffix}`;
+  }
+  function nearestNewTabAction(target2) {
+    const owner = target2?.closest("[data-newtab-action]");
+    const action2 = owner?.dataset.newtabAction;
+    return isNewTabAction(action2) ? action2 : void 0;
+  }
   const BROWSE_PAGE_SIZE = 50;
   const BROWSE_FILTER_ORDER = [
     "new",
@@ -312467,7 +312532,7 @@ ${normalizedReading}`;
     const chip = (filter, label, count2, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip jpdb-reader-newtab-browse-source-chip",
-      dataset: { newtabAction: "browse-source-filter", browseSourceFilter: filter },
+      dataset: { newtabAction: newTabAction("browse-source-filter"), browseSourceFilter: filter },
       "aria-pressed": String(pressed)
     }, `${label} ${count2}`);
     return el(
@@ -312510,7 +312575,7 @@ ${normalizedReading}`;
     const chip = (filter, label, count2, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip",
-      dataset: { newtabAction: "browse-filter", browseFilter: filter },
+      dataset: { newtabAction: newTabAction("browse-filter"), browseFilter: filter },
       "aria-pressed": String(pressed)
     }, `${label} ${count2}`);
     return el(
@@ -312531,7 +312596,7 @@ ${normalizedReading}`;
         el("span", { class: "jpdb-reader-newtab-sr-only" }, copy2.sortLabel),
         el(
           "select",
-          { dataset: { newtabAction: "browse-sort" }, "aria-label": copy2.sortLabel },
+          { dataset: { newtabAction: newTabAction("browse-sort") }, "aria-label": copy2.sortLabel },
           el("option", { value: "queue", selected: sort === "queue" }, copy2.sortQueue),
           el("option", { value: "alpha", selected: sort === "alpha" }, copy2.sortAlpha),
           el("option", { value: "frequency", selected: sort === "frequency" }, copy2.sortFrequency),
@@ -312541,7 +312606,7 @@ ${normalizedReading}`;
       el("button", {
         type: "button",
         class: "jpdb-reader-newtab-browse-direction",
-        dataset: { newtabAction: "browse-sort-direction" },
+        dataset: { newtabAction: newTabAction("browse-sort-direction") },
         "aria-label": directionLabel,
         title: directionLabel,
         "aria-pressed": String(descending)
@@ -312549,7 +312614,7 @@ ${normalizedReading}`;
       el("button", {
         type: "button",
         class: "jpdb-reader-newtab-browse-select-toggle",
-        dataset: { newtabAction: "browse-select-mode" },
+        dataset: { newtabAction: newTabAction("browse-select-mode") },
         "aria-pressed": String(selectMode)
       }, copy2.select)
     );
@@ -312577,12 +312642,12 @@ ${normalizedReading}`;
         { class: "jpdb-reader-newtab-browse-pager" },
         el("button", {
           type: "button",
-          dataset: { newtabAction: "browse-page", browsePage: String(currentPage - 1) },
+          dataset: { newtabAction: newTabAction("browse-page"), browsePage: String(currentPage - 1) },
           disabled: currentPage === 0
         }, copy2.previous),
         el("button", {
           type: "button",
-          dataset: { newtabAction: "browse-page", browsePage: String(currentPage + 1) },
+          dataset: { newtabAction: newTabAction("browse-page"), browsePage: String(currentPage + 1) },
           disabled: currentPage >= pageCount - 1
         }, copy2.next)
       ) : null
@@ -312591,7 +312656,7 @@ ${normalizedReading}`;
   function renderBrowseBulkBar(copy2) {
     const action2 = (bulkAction, label) => el("button", {
       type: "button",
-      dataset: { newtabAction: "browse-bulk", bulkAction },
+      dataset: { newtabAction: newTabAction("browse-bulk"), bulkAction },
       disabled: true
     }, label);
     return el(
@@ -312630,7 +312695,7 @@ ${normalizedReading}`;
           type: "button",
           class: "jpdb-reader-newtab-browse-row",
           dataset: {
-            newtabAction: "browse-card",
+            newtabAction: newTabAction("browse-card"),
             browseCardKey: cardKey(card),
             expression: card.spelling,
             reading: card.reading
@@ -313253,7 +313318,7 @@ ${newTabCardReading(card)}`;
         {
           type: "button",
           class: "jpdb-reader-newtab-search-card jpdb-reader-newtab-search-word",
-          dataset: { newtabAction: "search-result-word", newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
+          dataset: { newtabAction: newTabAction("search-result-word"), newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
           "aria-expanded": "false"
         },
         renderSearchWordTerm(card, context2),
@@ -313315,7 +313380,7 @@ ${newTabCardReading(card)}`;
         {
           type: "button",
           class: "jpdb-reader-newtab-search-card jpdb-reader-newtab-search-kanji-card",
-          dataset: { newtabAction: "search-result-kanji", kanji: result2.character },
+          dataset: { newtabAction: newTabAction("search-result-kanji"), kanji: result2.character },
           "aria-expanded": "false"
         },
         el("span", { class: "jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable", lang: "ja" }, result2.character),
@@ -314915,7 +314980,7 @@ ${entry2.url}`),
         el("button", {
           type: "button",
           class: "jpdb-reader-stats-refresh",
-          dataset: { newtabAction: "stats-refresh" },
+          dataset: { newtabAction: newTabAction("stats-refresh") },
           "aria-label": text2("statsRefresh"),
           title: text2("statsRefresh")
         }, "↻")
@@ -314947,7 +315012,7 @@ ${entry2.url}`),
       tabs.map(([source2, label]) => el("button", {
         type: "button",
         dataset: {
-          newtabAction: "stats-source",
+          newtabAction: newTabAction("stats-source"),
           statsSource: source2,
           active: source2 === selectedSource
         }
@@ -315029,7 +315094,7 @@ ${entry2.url}`),
       metrics.map(([metric, label]) => el("button", {
         type: "button",
         dataset: {
-          newtabAction: "stats-activity-metric",
+          newtabAction: newTabAction("stats-activity-metric"),
           statsActivityMetric: metric,
           active: metric === activityMetric
         },
@@ -315050,7 +315115,7 @@ ${entry2.url}`),
         "aria-label": label,
         style: `--stats-bar-height:${height}%`,
         dataset: {
-          newtabAction: "stats-select-day",
+          newtabAction: newTabAction("stats-select-day"),
           statsDay: point.date,
           tooltip: label,
           active: value > 0,
@@ -315099,7 +315164,7 @@ ${entry2.url}`),
       title: label,
       "aria-label": label,
       dataset: {
-        newtabAction: "stats-select-day",
+        newtabAction: newTabAction("stats-select-day"),
         statsDay: point.date,
         day: String(Number(point.date.slice(-2))),
         tooltip: label,
@@ -315173,7 +315238,7 @@ ${entry2.url}`),
           el("button", {
             type: "button",
             class: "jpdb-reader-stats-panel-button",
-            dataset: { newtabAction: "stats-study-trouble" },
+            dataset: { newtabAction: newTabAction("stats-study-trouble") },
             disabled: troubleCount <= 0,
             title: text2("statsStudyTroubleHint")
           }, text2("statsStudyTroubleCards"))
@@ -315230,17 +315295,17 @@ ${entry2.url}`),
     const { text: text2 } = context2;
     if (source2.id === "jpdb") {
       const actions = [
-        el("button", { type: "button", dataset: { newtabAction: "stats-open-jpdb-settings" } }, text2("statsOpenJpdbSettings"))
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenJpdbSettings"))
       ];
-      actions.push(el("button", { type: "button", dataset: { newtabAction: "stats-import-jpdb" } }, text2("statsChooseJpdbFile")));
+      actions.push(el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-import-jpdb") } }, text2("statsChooseJpdbFile")));
       return actions;
     }
     if (source2.id === "jiten") return [
-      el("button", { type: "button", dataset: { newtabAction: "stats-open-jpdb-settings" } }, text2("statsOpenApiSettings"))
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenApiSettings"))
     ];
     return [
-      isStatsSourceConnected(source2) ? null : el("button", { type: "button", dataset: { newtabAction: "stats-connect-anki" } }, text2("statsConnectAnki")),
-      el("button", { type: "button", dataset: { newtabAction: "stats-open-anki-settings" } }, text2("statsOpenAnkiSettings"))
+      isStatsSourceConnected(source2) ? null : el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-connect-anki") } }, text2("statsConnectAnki")),
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-anki-settings") } }, text2("statsOpenAnkiSettings"))
     ];
   }
   function isStatsSourceConnected(source2) {
@@ -315294,7 +315359,7 @@ ${entry2.url}`),
           el("input", {
             type: "checkbox",
             checked: active,
-            dataset: { newtabAction: "stats-toggle-anki-deck", statsAnkiDeck: deck }
+            dataset: { newtabAction: newTabAction("stats-toggle-anki-deck"), statsAnkiDeck: deck }
           }),
           el("span", {}, deck)
         );
@@ -315431,6 +315496,9 @@ ${entry2.url}`),
     if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "wanikani" || value === "yomu-local" || value === "anki" || value === "combined") return value;
     return "combined";
   }
+  function isNewTabStatsAction(action2) {
+    return action2 !== void 0 && action2.startsWith("stats-");
+  }
   class NewTabStatsController {
     constructor(deps) {
       this.deps = deps;
@@ -315543,8 +315611,8 @@ ${entry2.url}`),
     }
     clickRequest(root, target2, action2, event) {
       const chartDayTarget = action2 ? null : this.nearestChartDayTarget(root, target2, event);
-      const resolvedAction = action2 ?? chartDayTarget?.dataset.newtabAction;
-      return resolvedAction?.startsWith("stats-") ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target2 } : null;
+      const resolvedAction = action2 ?? nearestNewTabAction(chartDayTarget);
+      return isNewTabStatsAction(resolvedAction) ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target2 } : null;
     }
     performClick(root, request2) {
       const handler = this.clickHandlers[request2.action];
@@ -315577,7 +315645,7 @@ ${entry2.url}`),
     nearbyChartDayTargets(root, target2) {
       const chart = target2.closest(".jpdb-reader-stats-bars, .jpdb-reader-stats-heatmap-grid");
       if (!chart || !root.contains(chart)) return [];
-      return Array.from(chart.querySelectorAll('[data-newtab-action="stats-select-day"][data-stats-day]'));
+      return Array.from(chart.querySelectorAll(newTabActionSelector("stats-select-day", "[data-stats-day]")));
     }
     // --- per-source data loading ---
     loadingSource(source2) {
@@ -316033,7 +316101,7 @@ ${entry2.url}`),
       return root.querySelector("[data-newtab-search-results]");
     }
     searchSuggestionButtons(root) {
-      return Array.from(root.querySelectorAll('[data-newtab-search-autocomplete] [data-newtab-action="search-suggestion"]'));
+      return Array.from(root.querySelectorAll(`[data-newtab-search-autocomplete] ${newTabActionSelector("search-suggestion")}`));
     }
     setSearchActiveSuggestion(root, index) {
       const suggestions = this.searchSuggestionButtons(root);
@@ -316070,7 +316138,7 @@ ${entry2.url}`),
     }
     focusFirstSearchResult(root) {
       const target2 = root.querySelector(
-        '[data-newtab-search-results] [data-newtab-action="search-result-kanji"], [data-newtab-search-results] [data-newtab-action="search-result-word"], [data-newtab-search-results] a, [data-newtab-search-results] button'
+        `[data-newtab-search-results] ${newTabActionSelector("search-result-kanji")}, [data-newtab-search-results] ${newTabActionSelector("search-result-word")}, [data-newtab-search-results] a, [data-newtab-search-results] button`
       );
       if (!target2) return false;
       target2.focus();
@@ -316081,7 +316149,7 @@ ${entry2.url}`),
       if (!input2 || input2 === document.activeElement) return;
       window.setTimeout(() => {
         const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        const canFocus = !active || active === document.body || Boolean(active.closest('[data-newtab-action="mode"]'));
+        const canFocus = !active || active === document.body || Boolean(active.closest(newTabActionSelector("mode")));
         if (this.currentRoute() === "search" && input2.isConnected && canFocus) input2.focus();
       }, 0);
     }
@@ -316188,7 +316256,7 @@ ${entry2.url}`),
     }
     syncSearchHandwritingToggle(root) {
       const panel = root.querySelector("[data-newtab-handwriting]");
-      const toggle = root.querySelector('[data-newtab-action="search-handwriting-toggle"]');
+      const toggle = root.querySelector(newTabActionSelector("search-handwriting-toggle"));
       if (!toggle) return;
       const enabled = usesJapaneseCharacterStudy();
       toggle.hidden = !enabled;
@@ -316275,7 +316343,7 @@ ${entry2.url}`),
         candidates.map((candidate2) => el("button", {
           class: "jpdb-reader-parseable",
           type: "button",
-          dataset: { newtabAction: "handwriting-candidate", query: candidate2 },
+          dataset: { newtabAction: newTabAction("handwriting-candidate"), query: candidate2 },
           lang: "ja"
         }, candidate2)),
         message ? el("span", { class: "jpdb-reader-newtab-handwriting-message jpdb-reader-parseable", lang: resolveUiLanguage(this.deps.language()) === "ja" ? "ja" : "en" }, message) : null,
@@ -316813,7 +316881,7 @@ ${entry2.url}`),
           id: `jpdb-reader-newtab-suggestion-${index}`,
           type: "button",
           role: "option",
-          dataset: { newtabAction: "search-suggestion", query: suggestion.query, newtabSearchSuggestionIndex: index },
+          dataset: { newtabAction: newTabAction("search-suggestion"), query: suggestion.query, newtabSearchSuggestionIndex: index },
           lang: "ja",
           "aria-label": detail ? `${suggestion.query}, ${detail}` : suggestion.query,
           "aria-selected": "false"
@@ -316997,7 +317065,7 @@ ${entry2.url}`),
     return el("button", {
       class: "jpdb-reader-newtab-handwriting-manual-action jpdb-reader-parseable",
       type: "button",
-      dataset: { newtabAction: "search-focus" },
+      dataset: { newtabAction: newTabAction("search-focus") },
       lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en"
     }, newTabText(language2, "typeOrPasteKanji"));
   }
@@ -317202,7 +317270,7 @@ ${entry2.url}`),
       "button",
       {
         type: "button",
-        dataset: { newtabAction: "grade", grade: grade2, ...intervalLabel ? { gradeInterval: intervalLabel } : {} },
+        dataset: { newtabAction: newTabAction("grade"), grade: grade2, ...intervalLabel ? { gradeInterval: intervalLabel } : {} },
         title: title2,
         "aria-label": `${aria}: ${targetLabel}`
       },
@@ -317232,7 +317300,7 @@ ${entry2.url}`),
     return parts.length > 1 ? (parts[parts.length - 1] ?? "").trim() : "";
   }
   function updateMainGradeButtonLabels(root, label) {
-    root.querySelectorAll('[data-newtab-action="grade"][data-grade]').forEach((gradeButton) => {
+    root.querySelectorAll(newTabActionSelector("grade", "[data-grade]")).forEach((gradeButton) => {
       const gradeLabel2 = [
         gradeButton.querySelector(".jpdb-reader-newtab-grade-label")?.textContent?.trim(),
         gradeButton.dataset.gradeInterval
@@ -317533,7 +317601,7 @@ ${entry2.url}`),
     const isPlayAction = action2.startsWith("listen-play");
     const content = isPlayAction ? speakerIcon() : escapeHtml$2(label);
     const className = isPlayAction ? "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio jpdb-reader-newtab-listen-btn jpdb-reader-newtab-listen-icon-btn" : "jpdb-reader-newtab-listen-btn";
-    return `<button type="button" class="${className}" data-newtab-action="${action2}" ${extraAttrs} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${content}</button>`;
+    return `<button type="button" class="${className}" ${newTabActionAttr(action2)} ${extraAttrs} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${content}</button>`;
   }
   function renderPositionPicker(item2, selectedPosition, revealed, validPositions, t) {
     const moraCount = splitMorae(item2.reading).length;
@@ -317548,7 +317616,7 @@ ${entry2.url}`),
       const isSelected = position === selectedPosition;
       const stateClass = revealed ? `${isAnswer ? " jpdb-reader-newtab-listen-pos-correct" : isSelected ? " jpdb-reader-newtab-listen-pos-wrong" : ""}${isSelected ? " jpdb-reader-newtab-listen-pos-selected" : ""}` : isSelected ? " jpdb-reader-newtab-listen-pos-selected" : "";
       buttons.push(`
-            <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || "unknown"}${stateClass}" data-newtab-action="listen-pick" data-listen-pos="${position}" data-pitch-class="${className || "unknown"}" aria-pressed="${isSelected}">
+            <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || "unknown"}${stateClass}" ${newTabActionAttr("listen-pick")} data-listen-pos="${position}" data-pitch-class="${className || "unknown"}" aria-pressed="${isSelected}">
                 <span class="jpdb-reader-newtab-listen-pos-num">${position}</span>
                 <span class="jpdb-reader-newtab-listen-pos-graph">${graph}</span>
                 <span class="jpdb-reader-newtab-listen-pos-name">${escapeHtml$2(pitchClassLabel(className, t))}</span>
@@ -317562,8 +317630,8 @@ ${entry2.url}`),
     const recordLabel = view.recording ? t("listenMicRecording") : t("listenMicListenBack");
     return `
         <div class="jpdb-reader-newtab-listen-record">
-            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml$2(recordLabel)}</button>
-            ${view.hasRecording ? iconButton("listen-play-recording", t("listenMicYou")) : ""}
+            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" ${newTabActionAttr("listen-record")} aria-pressed="${view.recording}">${escapeHtml$2(recordLabel)}</button>
+            ${view.hasRecording ? iconButton(newTabAction("listen-play-recording"), t("listenMicYou")) : ""}
             ${renderSpeakingScore(view, t)}
         </div>`;
   }
@@ -317620,7 +317688,7 @@ ${entry2.url}`),
     const sections = [];
     if (view.subMode !== "recall" || view.revealed) {
       sections.push(`<div class="jpdb-reader-newtab-listen-audio">
-            ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(t("listenNoAudio"))}</span>`}
+            ${view.hasAudio ? iconButton(newTabAction("listen-play"), t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(t("listenNoAudio"))}</span>`}
         </div>`);
     }
     if (view.subMode === "recall") {
@@ -319400,7 +319468,7 @@ ${options.version}`;
       const token = this.getToken().trim();
       if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
       if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-      let attempt = 0;
+      let attempt2 = 0;
       while (true) {
         await this.throttle();
         try {
@@ -319427,8 +319495,8 @@ ${options.version}`;
           });
         } catch (error) {
           const normalized2 = normalizeWanikaniError(error);
-          if (attempt === 0 && isRateLimitError(normalized2)) {
-            attempt += 1;
+          if (attempt2 === 0 && isRateLimitError(normalized2)) {
+            attempt2 += 1;
             await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
             continue;
           }
@@ -321039,16 +321107,16 @@ ${options.version}`;
       (root, target2, event, action2) => this.handleSearchClick(root, target2, event, action2),
       (root, target2, event, action2) => this.handleRootModeClick(root, target2, event, action2)
     ];
+    // Keyed by the closed action vocabulary, so an entry for a name no render
+    // site emits fails typecheck. That is how five permanently-unreachable
+    // entries (skip / undo-review / listen-play-both / listen-grade /
+    // listen-next) were found and removed — nothing in src rendered them.
     studyClickHandlers = {
       next: (_root, _target, event) => this.navigateFromPointer("next", event),
-      skip: (_root, _target, event) => this.navigateFromPointer("next", event),
       previous: (_root, _target, event) => this.navigateFromPointer("previous", event),
       reveal: (root) => this.toggleReveal(root),
       "empty-fallback": (root) => {
         void this.startStarterWordStudy(root);
-      },
-      "undo-review": (root) => {
-        void this.undoLastReview(root);
       },
       "continue-batch": (root) => {
         void this.continueAfterBatch(root);
@@ -321066,15 +321134,10 @@ ${options.version}`;
       "listen-play": () => {
         void this.playListenModelAudio();
       },
-      "listen-play-both": () => {
-        void this.playListenContrast();
-      },
       "listen-record": () => {
         void this.toggleListenRecording();
       },
       "listen-play-recording": () => this.playListenRecording(),
-      "listen-grade": (root, target2) => this.handleListenGrade(root, target2),
-      "listen-next": (root) => this.advanceListen(root),
       grade: (root, target2) => this.gradeFromStudyClick(root, target2),
       "jpdb-kanji-action": (root, target2) => {
         void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target2));
@@ -321205,7 +321268,7 @@ ${options.version}`;
       const root = this.currentRoot();
       if (!root) return;
       this.gradeSubmissionInFlight = true;
-      root.querySelectorAll('[data-newtab-action="grade"], button[data-action="grade"][data-grade]').forEach((button2) => {
+      root.querySelectorAll(`${newTabActionSelector("grade")}, button[data-action="grade"][data-grade]`).forEach((button2) => {
         button2.disabled = true;
       });
       this.lastUndoableReview = void 0;
@@ -321364,9 +321427,9 @@ ${options.version}`;
             el(
               "div",
               { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": newTabText(language2, "newTabMode") },
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "word" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "study")),
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "library")),
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "stats" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "stats"))
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "word" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "study")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "search" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "library")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "stats" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "stats"))
             ),
             this.options.surface === "academy" ? null : el(
               "div",
@@ -321447,18 +321510,18 @@ ${options.version}`;
                   "aria-controls": "jpdb-reader-newtab-autocomplete",
                   "aria-expanded": "false"
                 }),
-                el("button", { class: "jpdb-reader-parseable", type: "submit", dataset: { newtabAction: "search-submit" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, uiText(language2, "search")),
+                el("button", { class: "jpdb-reader-parseable", type: "submit", dataset: { newtabAction: newTabAction("search-submit") }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, uiText(language2, "search")),
                 el("button", {
                   class: "jpdb-reader-parseable",
                   type: "button",
-                  dataset: { newtabAction: "search-handwriting-toggle" },
+                  dataset: { newtabAction: newTabAction("search-handwriting-toggle") },
                   lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en",
                   "aria-controls": "jpdb-reader-newtab-handwriting",
                   "aria-expanded": "false",
                   hidden: !usesJapaneseCharacterStudy(),
                   disabled: !usesJapaneseCharacterStudy()
                 }, newTabText(language2, "draw")),
-                el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "search-clear" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en", "aria-label": newTabText(language2, "clearSearch") }, uiText(language2, "clear"))
+                el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("search-clear") }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en", "aria-label": newTabText(language2, "clearSearch") }, uiText(language2, "clear"))
               ),
               el("div", {
                 id: "jpdb-reader-newtab-autocomplete",
@@ -321473,9 +321536,9 @@ ${options.version}`;
           el(
             "nav",
             { class: "jpdb-reader-newtab-controls", dataset: { newtabControls: true }, "aria-label": newTabText(language2, "studyNavigation") },
-            el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": newTabText(language2, "previousWord") }, newTabText(language2, "previousWord")),
-            el("button", { type: "button", dataset: { newtabAction: "reveal" } }, uiText(language2, "reveal")),
-            el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": newTabText(language2, "nextWord") }, newTabText(language2, "nextWord"))
+            el("button", { type: "button", dataset: { newtabAction: newTabAction("previous") }, "aria-label": newTabText(language2, "previousWord") }, newTabText(language2, "previousWord")),
+            el("button", { type: "button", dataset: { newtabAction: newTabAction("reveal") } }, uiText(language2, "reveal")),
+            el("button", { type: "button", dataset: { newtabAction: newTabAction("next") }, "aria-label": newTabText(language2, "nextWord") }, newTabText(language2, "nextWord"))
           ),
           this.options.surface === "academy" ? null : this.renderAppNavigation(language2),
           el("aside", { class: "jpdb-reader-newtab-support-banner", dataset: { newtabSupportBanner: true }, hidden: true, "aria-label": newTabText(language2, "supportBannerLabel") })
@@ -321487,20 +321550,20 @@ ${options.version}`;
       return el(
         "div",
         { class: "jpdb-reader-newtab-more-menu", role: "menu" },
-        this.renderOverflowMenuButton(newTabText(language2, "connectionsAndSettings"), "settings", language2, {
+        this.renderOverflowMenuButton(newTabText(language2, "connectionsAndSettings"), newTabAction("settings"), language2, {
           description: newTabText(language2, "connectionsDescription")
         }),
         ...studyShellNavRoutes(DOCS_BASE_URL, location.href).map((link) => this.renderSiteNavLink(link, language2)),
-        this.renderOverflowMenuButton(newTabText(language2, "installStudyApp"), "install-app", language2, {
+        this.renderOverflowMenuButton(newTabText(language2, "installStudyApp"), newTabAction("install-app"), language2, {
           className: "jpdb-reader-newtab-install-app",
           dataset: { newtabInstallApp: true, installPromptAvailable: false },
           description: newTabText(language2, "installStudyAppManual")
         }),
         el("hr", { class: "jpdb-reader-newtab-more-divider" }),
-        this.renderOverflowMenuButton(uiText(language2, "theme"), "theme", language2, {
+        this.renderOverflowMenuButton(uiText(language2, "theme"), newTabAction("theme"), language2, {
           className: "jpdb-reader-newtab-menu-appearance"
         }),
-        this.renderOverflowMenuButton(uiText(language2, nextLanguage === "ja" ? "japanese" : "english"), "language", language2, {
+        this.renderOverflowMenuButton(uiText(language2, nextLanguage === "ja" ? "japanese" : "english"), newTabAction("language"), language2, {
           className: "jpdb-reader-newtab-menu-appearance",
           dataset: { nextLanguage }
         }),
@@ -321521,7 +321584,7 @@ ${options.version}`;
         class: "jpdb-reader-newtab-menu-item jpdb-reader-parseable",
         href: link.href,
         ...link.target ? { target: link.target } : {},
-        dataset: { newtabAction: "site-nav" },
+        dataset: { newtabAction: newTabAction("site-nav") },
         role: "menuitem",
         lang: japanese2 ? "ja" : "en"
       }, japanese2 ? link.ja : link.text);
@@ -321545,10 +321608,10 @@ ${options.version}`;
           dataset: { newtabAppNavigation: true },
           "aria-label": newTabText(language2, "appNavigation")
         },
-        item2(newTabText(language2, "study"), "学", "mode", "word"),
-        item2(newTabText(language2, "library"), "辞", "mode", "search"),
-        item2(newTabText(language2, "stats"), "統", "mode", "stats"),
-        item2(newTabText(language2, "connections"), "連", "settings")
+        item2(newTabText(language2, "study"), "学", newTabAction("mode"), "word"),
+        item2(newTabText(language2, "library"), "辞", newTabAction("mode"), "search"),
+        item2(newTabText(language2, "stats"), "統", newTabAction("mode"), "stats"),
+        item2(newTabText(language2, "connections"), "連", newTabAction("settings"))
       );
     }
     renderOverflowMenuButton(label, action2, language2, options = {}) {
@@ -321571,169 +321634,29 @@ ${options.version}`;
         href,
         target: "_blank",
         rel: "noopener",
-        dataset: { newtabAction: "external-link" },
+        dataset: { newtabAction: newTabAction("external-link") },
         role: "menuitem",
         lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en"
       }, label);
     }
+    /**
+     * Root event wiring, as two declarative tables: delegated listeners on the
+     * study root, then the page-level listeners (document/window) the surface
+     * needs. Each body lives in its own named method, so this reads as the
+     * surface's event contract instead of 200 lines of inline closures.
+     */
     bindRootEvents(root) {
       this.migrateLegacyState(this.visibleWords[this.index]);
       this.rootEventController?.abort();
       const controller = new AbortController();
+      const options = { signal: controller.signal };
       installReaderControlPointerActivation(root);
-      root.addEventListener("click", (event) => this.handleRootClick(root, event), { signal: controller.signal });
-      root.addEventListener("submit", (event) => {
-        const form2 = event.target?.closest("form");
-        if (!form2 || !root.contains(form2)) return;
-        if (form2.matches("[data-newtab-type-form]")) {
-          event.preventDefault();
-          this.submitTypeWordAnswer(root);
-          return;
-        }
-        if (form2.matches("[data-newtab-recall-form]")) {
-          event.preventDefault();
-          this.submitRecallAnswer(root);
-          return;
-        }
-        if (!form2.matches("[data-newtab-search]")) return;
-        event.preventDefault();
-        this.searchController.performSearchFromInput(root);
-      }, { signal: controller.signal });
-      root.addEventListener("input", (event) => {
-        const typeInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-type-input]") : null;
-        if (typeInput && root.contains(typeInput)) {
-          const card = this.visibleWords[this.index];
-          if (card) {
-            const state = this.ensureStepState(cardKey(card));
-            state.type = { ...state.type, answer: typeInput.value, feedback: void 0 };
-            const answer2 = typeInput.closest("[data-newtab-answer]");
-            if (answer2) answer2.dataset.typeWordOutcome = "pending";
-            answer2?.querySelector("[data-newtab-type-result]")?.remove();
-          }
-          return;
-        }
-        const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
-        if (recallInput && root.contains(recallInput)) {
-          this.updateRecallAnswer(root, recallInput.value, false);
-          return;
-        }
-        const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-search-input]") : null;
-        if (!input2 || !root.contains(input2)) return;
-        this.searchController.onSearchInput(root, input2.value);
-      }, { signal: controller.signal });
-      root.addEventListener("change", (event) => {
-        const target2 = eventTargetElement(event.target);
-        const sourceSelect = target2?.closest("[data-newtab-source-select]");
-        if (sourceSelect && root.contains(sourceSelect)) {
-          const source2 = concreteNewTabSourceFromValue(sourceSelect.value);
-          if (source2) void this.switchReviewSource(root, source2);
-          return;
-        }
-        const targetSelect = target2?.closest("[data-newtab-grade-target-select]");
-        if (targetSelect && root.contains(targetSelect)) {
-          this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
-          targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
-          return;
-        }
-        const selectPage = target2?.closest("[data-browse-select-page]");
-        if (selectPage && root.contains(selectPage)) {
-          root.querySelectorAll("[data-browse-select]").forEach((box) => {
-            box.checked = selectPage.checked;
-          });
-          this.syncBrowseBulkControls(root);
-          return;
-        }
-        if (target2?.closest("[data-browse-select]")) {
-          this.syncBrowseBulkControls(root);
-          return;
-        }
-        const browseSort = target2?.closest('[data-newtab-action="browse-sort"]');
-        if (browseSort && root.contains(browseSort)) {
-          const value = browseSort.value;
-          const previousSort = this.browseSort;
-          this.browseSort = value === "alpha" || value === "frequency" || value === "history" ? value : "queue";
-          if (this.browseSort === "history" && previousSort !== "history") this.browseSortDescending = true;
-          this.browsePage = 0;
-          const mount = this.searchResultsMount(root);
-          if (mount && this.state.route === "search") this.renderBrowseResults(mount);
-          return;
-        }
-        const filterSelect = target2?.closest("[data-newtab-filter-select]");
-        if (filterSelect && root.contains(filterSelect)) {
-          const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value }).filter;
-          if (filter === "study") {
-            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-            return;
-          }
-          void this.loadBrowsePool().then((cards) => {
-            this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
-            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-          });
-          return;
-        }
-        const deckSelect2 = target2?.closest("[data-newtab-deck-select]");
-        if (deckSelect2 && root.contains(deckSelect2) && this.state.route === "search") {
-          this.state = { ...this.state, jpdbDeck: deckSelect2.value };
-          this.persistState();
-          this.invalidateBrowsePool();
-          this.browsePage = 0;
-          void this.renderBrowseInto(root);
-          return;
-        }
-        if (deckSelect2 && root.contains(deckSelect2)) {
-          const pickedDeck = deckSelect2.value === "all" && this.state.source === "anki" ? "" : deckSelect2.value;
-          this.state = this.state.source === "anki" ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false } : { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
-          this.persistState();
-          this.invalidateSourceResultCache(this.state.source === "anki" ? "anki" : "jpdb");
-          this.allWords = [];
-          this.visibleWords = [];
-          this.visiblePoolSignature = "";
-          this.index = 0;
-          this.setStatus(root, this.text("loading"));
-          void this.loadWordsInto(root, false, { useOfflineCache: false });
-          return;
-        }
-        const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-stats-jpdb-file]") : null;
-        if (!input2 || !root.contains(input2)) return;
-        const file = input2.files?.[0];
-        if (file) void this.statsController.importJpdbFile(root, file);
-        input2.value = "";
-      }, { signal: controller.signal });
-      root.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
-        const input2 = event.target instanceof HTMLInputElement ? event.target : null;
-        if (!input2 || !root.contains(input2)) return;
-        const typeInput = input2.closest("[data-newtab-type-input]");
-        if (typeInput) {
-          event.preventDefault();
-          this.submitTypeWordAnswer(root);
-          return;
-        }
-        const recallInput = input2.closest("[data-newtab-recall-input]");
-        if (!recallInput) return;
-        event.preventDefault();
-        this.submitRecallAnswer(root);
-      }, { signal: controller.signal });
-      root.addEventListener("dragover", (event) => {
-        const dropzone = this.statsDropzoneTarget(root, event);
-        if (!dropzone) return;
-        event.preventDefault();
-        dropzone.dataset.dragging = "true";
-      }, { signal: controller.signal });
-      root.addEventListener("dragleave", (event) => {
-        const dropzone = this.statsDropzoneTarget(root, event);
-        if (!dropzone) return;
-        dropzone.dataset.dragging = "false";
-      }, { signal: controller.signal });
-      root.addEventListener("drop", (event) => {
-        const dropzone = this.statsDropzoneTarget(root, event);
-        if (!dropzone) return;
-        event.preventDefault();
-        dropzone.dataset.dragging = "false";
-        const file = event.dataTransfer?.files?.[0];
-        if (file) void this.statsController.importJpdbFile(root, file);
-      }, { signal: controller.signal });
-      document.addEventListener("keydown", (event) => this.handleRootKeydown(root, event), { signal: controller.signal });
+      for (const [type, handle] of this.rootEventBindings(root)) {
+        root.addEventListener(type, handle, options);
+      }
+      for (const [target2, type, handle] of this.pageEventBindings(root)) {
+        target2.addEventListener(type, handle, options);
+      }
       installNewTabSwipeGesture({
         root,
         target: () => root.querySelector("[data-newtab-study]"),
@@ -321742,32 +321665,214 @@ ${options.version}`;
         onProgress: (progress2) => this.syncSwipeAffordance(root, progress2),
         onSwipe: (action2, direction) => this.handleNewTabSwipe(root, action2, direction)
       });
-      window.addEventListener("popstate", () => this.handleLocationPopstate(root), { signal: controller.signal });
+      this.syncConnectivityIndicator(root);
+      this.rootEventController = controller;
+    }
+    rootEventBindings(root) {
+      return [
+        ["click", (event) => this.handleRootClick(root, event)],
+        ["submit", (event) => this.handleRootSubmit(root, event)],
+        ["input", (event) => this.handleRootInput(root, event)],
+        ["change", (event) => this.handleRootChange(root, event)],
+        ["keydown", (event) => this.handleRootEnterKeydown(root, event)],
+        ["dragover", (event) => this.handleStatsDragOver(root, event)],
+        ["dragleave", (event) => this.handleStatsDragLeave(root, event)],
+        ["drop", (event) => this.handleStatsDrop(root, event)]
+      ];
+    }
+    pageEventBindings(root) {
       const syncQueuedGrades = () => {
         void this.flushQueuedGrades();
       };
-      window.addEventListener("online", () => {
-        this.offlineReviewingAccepted = false;
-        this.syncConnectivityIndicator(root);
-        syncQueuedGrades();
-      }, { signal: controller.signal });
-      window.addEventListener("offline", () => this.syncConnectivityIndicator(root), { signal: controller.signal });
-      window.addEventListener("focus", syncQueuedGrades, { signal: controller.signal });
-      document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) syncQueuedGrades();
-      }, { signal: controller.signal });
-      window.addEventListener("beforeinstallprompt", (event) => {
+      return [
+        // Study shortcuts listen at document level: focus sits on body after
+        // load and falls back there after every re-render (button clicks
+        // replace the controls), so a root-scoped listener left keyboard
+        // reviewing dead most of the time. This page is always Yomu's own
+        // (renderPage gates on isYomuNewTabUrl), and input/search/settings
+        // targets are filtered in handleRootKeydown.
+        [document, "keydown", (event) => this.handleRootKeydown(root, event)],
+        [window, "popstate", () => this.handleLocationPopstate(root)],
+        [window, "online", () => {
+          this.offlineReviewingAccepted = false;
+          this.syncConnectivityIndicator(root);
+          syncQueuedGrades();
+        }],
+        [window, "offline", () => this.syncConnectivityIndicator(root)],
+        [window, "focus", syncQueuedGrades],
+        [document, "visibilitychange", () => {
+          if (!document.hidden) syncQueuedGrades();
+        }],
+        [window, "beforeinstallprompt", (event) => {
+          event.preventDefault();
+          this.installPrompt = event;
+          this.syncInstallAppButton(root);
+        }],
+        [window, "appinstalled", () => {
+          this.installPrompt = null;
+          this.syncInstallAppButton(root);
+          this.dependencies.toast?.(this.text("installStudyAppInstalled"));
+        }]
+      ];
+    }
+    handleRootSubmit(root, event) {
+      const form2 = event.target?.closest("form");
+      if (!form2 || !root.contains(form2)) return;
+      if (form2.matches("[data-newtab-type-form]")) {
         event.preventDefault();
-        this.installPrompt = event;
-        this.syncInstallAppButton(root);
-      }, { signal: controller.signal });
-      window.addEventListener("appinstalled", () => {
-        this.installPrompt = null;
-        this.syncInstallAppButton(root);
-        this.dependencies.toast?.(this.text("installStudyAppInstalled"));
-      }, { signal: controller.signal });
-      this.syncConnectivityIndicator(root);
-      this.rootEventController = controller;
+        this.submitTypeWordAnswer(root);
+        return;
+      }
+      if (form2.matches("[data-newtab-recall-form]")) {
+        event.preventDefault();
+        this.submitRecallAnswer(root);
+        return;
+      }
+      if (!form2.matches("[data-newtab-search]")) return;
+      event.preventDefault();
+      this.searchController.performSearchFromInput(root);
+    }
+    handleRootInput(root, event) {
+      const typeInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-type-input]") : null;
+      if (typeInput && root.contains(typeInput)) {
+        const card = this.visibleWords[this.index];
+        if (card) {
+          const state = this.ensureStepState(cardKey(card));
+          state.type = { ...state.type, answer: typeInput.value, feedback: void 0 };
+          const answer2 = typeInput.closest("[data-newtab-answer]");
+          if (answer2) answer2.dataset.typeWordOutcome = "pending";
+          answer2?.querySelector("[data-newtab-type-result]")?.remove();
+        }
+        return;
+      }
+      const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
+      if (recallInput && root.contains(recallInput)) {
+        this.updateRecallAnswer(root, recallInput.value, false);
+        return;
+      }
+      const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-search-input]") : null;
+      if (!input2 || !root.contains(input2)) return;
+      this.searchController.onSearchInput(root, input2.value);
+    }
+    handleRootChange(root, event) {
+      const target2 = eventTargetElement(event.target);
+      const sourceSelect = target2?.closest("[data-newtab-source-select]");
+      if (sourceSelect && root.contains(sourceSelect)) {
+        const source2 = concreteNewTabSourceFromValue(sourceSelect.value);
+        if (source2) void this.switchReviewSource(root, source2);
+        return;
+      }
+      const targetSelect = target2?.closest("[data-newtab-grade-target-select]");
+      if (targetSelect && root.contains(targetSelect)) {
+        this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+        targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
+        return;
+      }
+      const selectPage = target2?.closest("[data-browse-select-page]");
+      if (selectPage && root.contains(selectPage)) {
+        root.querySelectorAll("[data-browse-select]").forEach((box) => {
+          box.checked = selectPage.checked;
+        });
+        this.syncBrowseBulkControls(root);
+        return;
+      }
+      if (target2?.closest("[data-browse-select]")) {
+        this.syncBrowseBulkControls(root);
+        return;
+      }
+      const browseSort = target2?.closest(newTabActionSelector("browse-sort"));
+      if (browseSort && root.contains(browseSort)) {
+        this.applyBrowseSortChange(root, browseSort.value);
+        return;
+      }
+      const filterSelect = target2?.closest("[data-newtab-filter-select]");
+      if (filterSelect && root.contains(filterSelect)) {
+        this.applyBrowseFilterChange(root, filterSelect.value);
+        return;
+      }
+      const deckSelect2 = target2?.closest("[data-newtab-deck-select]");
+      if (deckSelect2 && root.contains(deckSelect2)) {
+        this.applyDeckSelectChange(root, deckSelect2);
+        return;
+      }
+      const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-stats-jpdb-file]") : null;
+      if (!input2 || !root.contains(input2)) return;
+      const file = input2.files?.[0];
+      if (file) void this.statsController.importJpdbFile(root, file);
+      input2.value = "";
+    }
+    applyBrowseSortChange(root, value) {
+      const previousSort = this.browseSort;
+      this.browseSort = value === "alpha" || value === "frequency" || value === "history" ? value : "queue";
+      if (this.browseSort === "history" && previousSort !== "history") this.browseSortDescending = true;
+      this.browsePage = 0;
+      const mount = this.searchResultsMount(root);
+      if (mount && this.state.route === "search") this.renderBrowseResults(mount);
+    }
+    applyBrowseFilterChange(root, value) {
+      const filter = normalizeNewTabUiState({ ...this.state, filter: value }).filter;
+      if (filter === "study") {
+        this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+        return;
+      }
+      void this.loadBrowsePool().then((cards) => {
+        this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
+        this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+      });
+    }
+    applyDeckSelectChange(root, deckSelect2) {
+      if (this.state.route === "search") {
+        this.state = { ...this.state, jpdbDeck: deckSelect2.value };
+        this.persistState();
+        this.invalidateBrowsePool();
+        this.browsePage = 0;
+        void this.renderBrowseInto(root);
+        return;
+      }
+      const pickedDeck = deckSelect2.value === "all" && this.state.source === "anki" ? "" : deckSelect2.value;
+      this.state = this.state.source === "anki" ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false } : { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
+      this.persistState();
+      this.invalidateSourceResultCache(this.state.source === "anki" ? "anki" : "jpdb");
+      this.allWords = [];
+      this.visibleWords = [];
+      this.visiblePoolSignature = "";
+      this.index = 0;
+      this.setStatus(root, this.text("loading"));
+      void this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
+    handleRootEnterKeydown(root, event) {
+      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
+      const input2 = event.target instanceof HTMLInputElement ? event.target : null;
+      if (!input2 || !root.contains(input2)) return;
+      const typeInput = input2.closest("[data-newtab-type-input]");
+      if (typeInput) {
+        event.preventDefault();
+        this.submitTypeWordAnswer(root);
+        return;
+      }
+      const recallInput = input2.closest("[data-newtab-recall-input]");
+      if (!recallInput) return;
+      event.preventDefault();
+      this.submitRecallAnswer(root);
+    }
+    handleStatsDragOver(root, event) {
+      const dropzone = this.statsDropzoneTarget(root, event);
+      if (!dropzone) return;
+      event.preventDefault();
+      dropzone.dataset.dragging = "true";
+    }
+    handleStatsDragLeave(root, event) {
+      const dropzone = this.statsDropzoneTarget(root, event);
+      if (!dropzone) return;
+      dropzone.dataset.dragging = "false";
+    }
+    handleStatsDrop(root, event) {
+      const dropzone = this.statsDropzoneTarget(root, event);
+      if (!dropzone) return;
+      event.preventDefault();
+      dropzone.dataset.dragging = "false";
+      const file = event.dataTransfer?.files?.[0];
+      if (file) void this.statsController.importJpdbFile(root, file);
     }
     syncConnectivityIndicator(root) {
       const indicator = root.querySelector("[data-newtab-connectivity]");
@@ -321806,8 +321911,7 @@ ${options.version}`;
     rootClickRequest(event) {
       const target2 = eventTargetElement(event.target);
       if (!target2) return null;
-      const action2 = target2.closest("[data-newtab-action]")?.dataset.newtabAction;
-      return { target: target2, action: action2 };
+      return { target: target2, action: nearestNewTabAction(target2) };
     }
     handleRootClickActions(root, target2, event, action2) {
       return this.rootClickHandlers.some((handler) => handler(root, target2, event, action2));
@@ -321898,7 +322002,7 @@ ${options.version}`;
       const candidates = usesBunproFsrsGradeScale(card) ? BUNPRO_FSRS_REVIEW_SHORTCUTS : this.currentStudyUsesTwoButtonGradeScale(root, settings) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
       const grade2 = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
       if (!grade2) return;
-      const button2 = root.querySelector(`[data-newtab-action="grade"][data-grade="${grade2}"]:not([disabled])`);
+      const button2 = root.querySelector(newTabActionSelector("grade", `[data-grade="${grade2}"]:not([disabled])`));
       if (!button2) return;
       event.preventDefault();
       this.dismissKeyHints(root);
@@ -321906,7 +322010,7 @@ ${options.version}`;
     }
     currentStudyUsesTwoButtonGradeScale(root, settings) {
       if (usesTwoButtonNewTabGradeScale(settings, this.visibleWords[this.index])) return true;
-      return Boolean(root.querySelector('[data-newtab-study] [data-newtab-action="grade"][data-grade="pass"]'));
+      return Boolean(root.querySelector(`[data-newtab-study] ${newTabActionSelector("grade", '[data-grade="pass"]')}`));
     }
     canRevealFromEnterTarget(root, target2) {
       if (!target2) return true;
@@ -322071,7 +322175,7 @@ ${options.version}`;
           el("button", {
             class: "jpdb-reader-newtab-support-close",
             type: "button",
-            dataset: { newtabAction: "dismiss-support-banner" },
+            dataset: { newtabAction: newTabAction("dismiss-support-banner") },
             "aria-label": this.text("supportBannerDismiss")
           }, "×")
         )
@@ -322095,9 +322199,7 @@ ${options.version}`;
       return Boolean(nav.standalone) || typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches;
     }
     handleRootModeClick(root, target2, event, action2) {
-      if (action2 === "mode") return this.activateRouteFromClick(root, target2, event);
-      if (action2 === "listen-submode") return this.activateListenStepFromClick(root, target2, event);
-      return false;
+      return action2 === "mode" ? this.activateRouteFromClick(root, target2, event) : false;
     }
     activateRouteFromClick(root, target2, event) {
       event.preventDefault();
@@ -322108,16 +322210,6 @@ ${options.version}`;
         this.setStudyStepOverrideForCurrentCard(step2?.id ?? null);
       }
       this.setState({ route, revealAnswer: false }, root, { preserveWord: true });
-      return true;
-    }
-    activateListenStepFromClick(root, target2, event) {
-      event.preventDefault();
-      const requested = target2.closest("[data-listen-submode]")?.dataset.listenSubmode;
-      const mode = requested === "recall" || requested === "shadow" ? requested : "perceive";
-      if (mode !== "shadow") this.listenInteractionMode = mode;
-      const step2 = this.studyStepForKind(mode === "shadow" ? "speaking" : "listen-pitch");
-      this.setStudyStepOverrideForCurrentCard(step2?.id ?? null);
-      this.setState({ route: "study", revealAnswer: false }, root, { preserveWord: true });
       return true;
     }
     handleRootStudyActionClick(root, target2, event, action2) {
@@ -324232,7 +324324,7 @@ ${options.version}`;
           type: "button",
           class: "jpdb-reader-newtab-study-step",
           dataset: {
-            newtabAction: "study-step",
+            newtabAction: newTabAction("study-step"),
             studyStepId: step2.id,
             studyStepKind: step2.kind,
             active: String(active),
@@ -324277,7 +324369,7 @@ ${options.version}`;
             ),
             audioAvailability
           ),
-          el("button", { type: "button", dataset: { newtabAction: "dismiss-study-tour" } }, this.text("studyTourStart"))
+          el("button", { type: "button", dataset: { newtabAction: newTabAction("dismiss-study-tour") } }, this.text("studyTourStart"))
         );
         return;
       }
@@ -324458,11 +324550,6 @@ ${options.version}`;
       this.rerenderActiveListen();
       void this.playListenModelAudio();
     }
-    handleListenGrade(root, target2) {
-      const grade2 = target2.closest("[data-grade]")?.dataset.grade;
-      if (!grade2 || !this.listenItem) return;
-      this.advanceListen(root);
-    }
     advanceListen(_root) {
       this.listenItem = null;
       this.listenSelectedPosition = null;
@@ -324553,19 +324640,19 @@ ${options.version}`;
         }
         this.clearListenSpeakingScore();
         this.clearListenRecording();
-        const recorder = new MediaRecorder(stream);
+        const recorder2 = new MediaRecorder(stream);
         const chunks2 = [];
-        recorder.addEventListener("dataavailable", (event) => {
+        recorder2.addEventListener("dataavailable", (event) => {
           if (event.data && event.data.size) chunks2.push(event.data);
         });
-        recorder.addEventListener("stop", () => {
+        recorder2.addEventListener("stop", () => {
           if (this.listenRecordingStopTimer) {
             clearTimeout(this.listenRecordingStopTimer);
             this.listenRecordingStopTimer = void 0;
           }
           stream.getTracks().forEach((track2) => track2.stop());
           this.clearListenRecording();
-          const blob = chunks2.length ? new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }) : null;
+          const blob = chunks2.length ? new Blob(chunks2, { type: recorder2.mimeType || "audio/webm" }) : null;
           if (blob && this.listenItem?.key === recordingItemKey && this.activeListenInteractionMode() === "shadow") {
             this.listenRecordingUrl = URL.createObjectURL(blob);
             this.listenSpeakingScoring = true;
@@ -324575,10 +324662,10 @@ ${options.version}`;
           this.rerenderActiveListen();
         });
         this.listenRecordingUnavailable = false;
-        this.listenRecorder = recorder;
-        recorder.start();
+        this.listenRecorder = recorder2;
+        recorder2.start();
         this.listenRecordingStopTimer = setTimeout(() => {
-          if (this.listenRecorder === recorder && recorder.state !== "inactive") this.stopListenRecorder();
+          if (this.listenRecorder === recorder2 && recorder2.state !== "inactive") this.stopListenRecorder();
         }, 3200);
         this.rerenderActiveListen();
       } catch (error) {
@@ -325243,7 +325330,7 @@ ${options.version}`;
       countSlot.append(el("button", {
         type: "button",
         class: "jpdb-reader-newtab-connect-cta",
-        dataset: { newtabAction: "settings" }
+        dataset: { newtabAction: newTabAction("settings") }
       }, this.text("connectSrsCta")));
     }
     syncSessionProgressDataset(countSlot, progress2) {
@@ -325275,7 +325362,7 @@ ${options.version}`;
         meaning: root.querySelector("[data-newtab-meaning]"),
         count: root.querySelector("[data-newtab-count]"),
         status: root.querySelector("[data-newtab-status]"),
-        reveal: root.querySelector('[data-newtab-action="reveal"]'),
+        reveal: root.querySelector(newTabActionSelector("reveal")),
         controls: root.querySelector("[data-newtab-controls]")
       };
     }
@@ -325398,7 +325485,7 @@ ${options.version}`;
         more ? el("button", {
           type: "button",
           class: "jpdb-reader-newtab-study-hint-btn",
-          dataset: { newtabAction: "study-hint" }
+          dataset: { newtabAction: newTabAction("study-hint") }
         }, depth === 0 ? this.text("studyHintReveal") : this.text("studyHintMore")) : null
       );
     }
@@ -325608,7 +325695,7 @@ ${options.version}`;
           el("button", {
             class: "jpdb-reader-newtab-recall-check",
             type: "button",
-            dataset: { newtabAction: "recall-submit" }
+            dataset: { newtabAction: newTabAction("recall-submit") }
           }, this.text("recallCheck"))
         ),
         outcome ? el("div", {
@@ -325805,7 +325892,7 @@ ${options.version}`;
           el("button", {
             class: "jpdb-reader-newtab-type-skip",
             type: "button",
-            dataset: { newtabAction: "type-word-skip" }
+            dataset: { newtabAction: newTabAction("type-word-skip") }
           }, this.text("typeWordSkip"))
         )
       );
@@ -325817,7 +325904,7 @@ ${options.version}`;
       const button2 = (value, label) => el("button", {
         class: "jpdb-reader-newtab-type-mode",
         type: "button",
-        dataset: { newtabAction: "type-word-mode", typeWordMode: value, active: String(mode === value) },
+        dataset: { newtabAction: newTabAction("type-word-mode"), typeWordMode: value, active: String(mode === value) },
         "aria-pressed": String(mode === value),
         disabled: value === "handwriting" && !supportsHandwriting,
         title: value === "handwriting" && !supportsHandwriting ? this.text("typeWordHandwritingUnavailable") : void 0
@@ -325856,7 +325943,7 @@ ${options.version}`;
         el("button", {
           class: "jpdb-reader-newtab-recall-check",
           type: "button",
-          dataset: { newtabAction: "type-word-submit" },
+          dataset: { newtabAction: newTabAction("type-word-submit") },
           "aria-label": this.text(readyToContinue ? "continueStudying" : "recallCheck")
         }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
       );
@@ -327400,7 +327487,7 @@ ${options.version}`;
         actions.map((action2) => el("button", {
           type: "button",
           class: `jpdb-reader-newtab-mini-action ${jpdbKanjiActionClass(action2)}`,
-          dataset: { newtabAction: "jpdb-kanji-action", kanjiActionId: action2.id },
+          dataset: { newtabAction: newTabAction("jpdb-kanji-action"), kanjiActionId: action2.id },
           title: action2.label
         }, action2.label))
       );
@@ -327511,9 +327598,9 @@ ${options.version}`;
       controls.hidden = false;
       replaceChildrenWith(
         controls,
-        el("button", { type: "button", dataset: { newtabAction: "empty-fallback" } }, this.text("starterWords")),
-        el("button", { type: "button", dataset: { newtabAction: "settings" } }, uiText(this.language(), "settings")),
-        el("button", { type: "button", dataset: { newtabAction: "mode", mode: "search" } }, this.text("search"))
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("empty-fallback") } }, this.text("starterWords")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("settings") } }, uiText(this.language(), "settings")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "search" } }, this.text("search"))
       );
     }
     clearEmptyControls(controls) {
@@ -327770,7 +327857,7 @@ ${options.version}`;
     }
     syncBrowseBulkControls(root) {
       const selected2 = root.querySelectorAll("[data-browse-select]:checked").length;
-      root.querySelectorAll('[data-newtab-action="browse-bulk"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("browse-bulk")).forEach((button2) => {
         button2.disabled = selected2 === 0;
       });
       const count2 = root.querySelector("[data-browse-bulk-count]");
@@ -327787,7 +327874,7 @@ ${options.version}`;
       const cardsByKey = new Map(pool.map((card) => [cardKey(card), card]));
       const selected2 = [...root.querySelectorAll("[data-browse-select]:checked")].map((box) => cardsByKey.get(box.dataset.browseCardKey ?? "")).filter((card) => Boolean(card));
       if (!selected2.length) return;
-      root.querySelectorAll('[data-newtab-action="browse-bulk"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("browse-bulk")).forEach((button2) => {
         button2.disabled = true;
       });
       for (const card of selected2) {
@@ -327914,24 +328001,24 @@ ${options.version}`;
       const revealShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
       const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
       return [
-        el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("previous") }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
         el(
           "button",
-          { type: "button", dataset: { newtabAction: "reveal" } },
+          { type: "button", dataset: { newtabAction: newTabAction("reveal") } },
           revealLabel,
           revealShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, revealShortcut) : null
         ),
-        el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("next") }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
       ];
     }
     studyStepControlButtons() {
       const continueShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
       const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
       return [
-        el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("previous") }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
         el(
           "button",
-          { type: "button", dataset: { newtabAction: "next" } },
+          { type: "button", dataset: { newtabAction: newTabAction("next") } },
           this.text("continueStudying"),
           continueShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, continueShortcut) : null
         )
@@ -328132,7 +328219,7 @@ ${options.version}`;
       if (this.gradeSubmissionInFlight) return false;
       this.gradeSubmissionInFlight = true;
       const gradeButtons = [
-        ...Array.from(this.currentRoot()?.querySelectorAll('[data-newtab-action="grade"]') ?? []),
+        ...Array.from(this.currentRoot()?.querySelectorAll(newTabActionSelector("grade")) ?? []),
         ...Array.from(document.querySelectorAll('button[data-action="grade"][data-grade]'))
       ];
       gradeButtons.forEach((button2) => {
@@ -328275,7 +328362,7 @@ ${options.version}`;
       this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
       this.state.revealAnswer = false;
       this.persistState();
-      root.querySelectorAll('[data-newtab-action="grade"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("grade")).forEach((button2) => {
         button2.disabled = true;
       });
       this.setStatus(root, this.text("couldNotSubmitGrade"));
@@ -328413,7 +328500,7 @@ ${options.version}`;
         delete slots.controls.dataset.newtabGradeScale;
         replaceChildrenWith(
           slots.controls,
-          el("button", { type: "button", dataset: { newtabAction: "continue-batch" } }, this.text("continueStudying"))
+          el("button", { type: "button", dataset: { newtabAction: newTabAction("continue-batch") } }, this.text("continueStudying"))
         );
       }
     }
@@ -328845,25 +328932,13 @@ ${options.version}`;
       const controls = root.querySelector("[data-newtab-controls]");
       if (controls) controls.hidden = this.state.route === "stats";
       if (this.state.route !== "search") root.querySelector("[data-newtab-handwriting]")?.remove();
-      root.querySelectorAll('[data-newtab-action="mode"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("mode")).forEach((button2) => {
         const active = button2.dataset.mode === this.state.route || button2.dataset.mode === "word" && this.state.route === "study";
         button2.dataset.active = String(active);
         button2.setAttribute("aria-pressed", String(active));
       });
-      this.syncListenSubModeSwitcher(root);
       this.syncDeckSelector(root);
       this.syncStateFilterSelector(root);
-    }
-    // The Listen sub-mode switcher (Perceive / Recall / Shadow) is only relevant in
-    // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
-    syncListenSubModeSwitcher(root) {
-      const switcher = root.querySelector("[data-newtab-listen-submodes]");
-      if (switcher) switcher.hidden = !this.activeStudyStepIsListen();
-      root.querySelectorAll('[data-newtab-action="listen-submode"]').forEach((button2) => {
-        const active = button2.dataset.listenSubmode === this.activeListenInteractionMode();
-        button2.dataset.active = String(active);
-        button2.setAttribute("aria-pressed", String(active));
-      });
     }
     // JPDB deck-browse "Show only" parity: the persisted state filter for the
     // Word tab pool, rendered as a compact select beside the deck scope.
@@ -329026,7 +329101,7 @@ ${options.version}`;
     syncThemeToggle(root) {
       const theme = this.effectiveTheme(this.dependencies.getSettings().theme);
       root.dataset.newtabTheme = theme;
-      const button2 = root.querySelector('[data-newtab-action="theme"]');
+      const button2 = root.querySelector(newTabActionSelector("theme"));
       if (!button2) return;
       const label = this.text(theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
       button2.setAttribute("aria-label", label);
