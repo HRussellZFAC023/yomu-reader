@@ -188,14 +188,23 @@ const server = await startLoopbackServer((request, response) => {
     response.end(pageHtml);
 }, 'Could not bind popup lifecycle smoke server');
 
+const SCENARIOS = [
+    ['scrollAcrossLateProvider', runScrollAcrossLateProvider],
+    ['hoverSurvivesContentShrink', runHoverSurvivesContentShrink],
+    ['hoverSurvivesSustainedWheel', runHoverSurvivesSustainedWheel],
+    ['touchDismissesInertOverlays', runTouchDismissesInertOverlays],
+];
+// Each scenario covers a different mechanism, so being able to run one is how you
+// confirm it still fails on unfixed code instead of trusting the whole bundle.
+const requested = (process.env.YOMU_POPUP_SCENARIOS || '').split(',').map(name => name.trim()).filter(Boolean);
+const selected = requested.length ? SCENARIOS.filter(([name]) => requested.includes(name)) : SCENARIOS;
+assert(selected.length > 0, 'YOMU_POPUP_SCENARIOS matched no scenario', { requested, known: SCENARIOS.map(([name]) => name) });
+
 const report = { ok: false, scenarios: {} };
 const browser = await launchSmokeBrowser();
 
 try {
-    report.scenarios.scrollAcrossLateProvider = await runScrollAcrossLateProvider(browser, server);
-    report.scenarios.hoverSurvivesContentShrink = await runHoverSurvivesContentShrink(browser, server);
-    report.scenarios.hoverSurvivesSustainedWheel = await runHoverSurvivesSustainedWheel(browser, server);
-    report.scenarios.touchDismissesInertOverlays = await runTouchDismissesInertOverlays(browser, server);
+    for (const [name, run] of selected) report.scenarios[name] = await run(browser, server);
     report.ok = true;
     writeFileSync(path.join(ARTIFACTS, 'popup-lifecycle-smoke.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
@@ -286,10 +295,17 @@ async function runHoverSurvivesContentShrink(browser, server) {
 }
 
 /**
- * (c) The reported gesture: scroll up and down inside the hover popup for ~20s.
- * That is roughly 220 watchdog samples, each an independent chance to mis-resolve
- * the element under a stationary cursor; a provider landing midway supplies the
- * re-render that makes a mis-resolution likely.
+ * (c) The reported gesture: scroll up and down inside the hover popup for ~20s,
+ * with a provider landing midway. That is roughly 220 watchdog samples, each an
+ * independent chance to mis-resolve the element under the cursor.
+ *
+ * Honest status: this is an ENDURANCE guard, not a discriminating regression test.
+ * Measured against unfixed source it PASSES, because the wheel events keep the
+ * stored pointer point fresh at a spot inside the panel and the hit-test keeps
+ * landing. The discriminating half of the same mechanism is scenario (b), which
+ * moves the panel instead of the pointer and does fail on unfixed source. Keep this
+ * one for what it does cover: that the pointer latch cannot wedge the wrong way and
+ * that nothing in a long sustained interaction tears the panel down.
  */
 async function runHoverSurvivesSustainedWheel(browser, server) {
     const gate = createGate();
