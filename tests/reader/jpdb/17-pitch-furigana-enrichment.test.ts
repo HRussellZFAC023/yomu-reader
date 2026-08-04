@@ -715,7 +715,10 @@ describe('reader helpers', () => {
             start,
             end: start + sparse.spelling.length,
         });
-        const word = appendRenderedReaderWord(sparse);
+        const word = appendRenderedReaderWord(sparse, {
+            tokenStart: start,
+            tokenEnd: start + sparse.spelling.length,
+        });
         const hydrateCards = vi.fn(async () => {
             lookupOrder.push('jiten-detail');
             return new Map([['1342860:0', hydrated]]);
@@ -1762,6 +1765,10 @@ describe('reader helpers', () => {
         word.className = 'jpdb-reader-word jpdb-pitch-unknown';
         word.dataset.vid = String(contentFallback.vid);
         word.dataset.sid = String(contentFallback.sid);
+        // Span-keyed repaints only touch words whose stamped token span
+        // matches the resolved token, exactly like production markup.
+        word.dataset.tokenStart = '12';
+        word.dataset.tokenEnd = '14';
         word.textContent = '青空';
         document.body.append(word);
 

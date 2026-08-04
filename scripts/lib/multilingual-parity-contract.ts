@@ -11,8 +11,11 @@ import {
 export const MULTILINGUAL_PARITY_SCHEMA_VERSION = 3;
 export const MULTILINGUAL_PARITY_MEASUREMENT_MODE =
     'production-yomitan-inline-find-term-matches';
+// v4: index reads stopped truncating at eight rows per key — an overflow
+// probe scans the full key and a candidate-aware collector keeps the best
+// compatible rows — so measurements are not comparable with v3 evidence.
 export const MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION =
-    'exact-gold-spans-v3-full-archive-filter';
+    'exact-gold-spans-v4-overflow-scan';
 
 const CONTRACT_REVISION = 'multilingual-lookup-contract-v3';
 const INLINE_MATCH_LIMIT = 256;

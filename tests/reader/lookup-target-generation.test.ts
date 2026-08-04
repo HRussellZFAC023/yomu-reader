@@ -125,7 +125,6 @@ describe('lookup target generations', () => {
 
     it('does not cache or show a stale public pointer result after an away-and-back switch', async () => {
         const pending = deferred<Map<string, JPDBCard>>();
-        const cacheCards = vi.fn();
         const showPointerTextCard = vi.fn();
         const anchor = document.createElement('span');
         anchor.textContent = 'にほんごのじかん';
@@ -133,32 +132,29 @@ describe('lookup target generations', () => {
         const candidate = { text: anchor.textContent, offset: 1, start: 0, end: 8, anchor };
         const app = new ReaderApp() as unknown as {
             settings: ReaderSettings;
-            parser: { cacheCards(cards: JPDBCard[]): void };
-            jitenPublicVocabulary: { lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
-            cardLookup: { captureTarget(): unknown };
+            jitenPublicVocabulary: { parse(paragraphs: readonly string[]): Promise<JPDBToken[][]>; lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
             showPointerTextCard(...args: unknown[]): Promise<void>;
-            showPublicJpdbPointerTextCandidate(
+            showFirstPointerTextCandidate(
                 pointerCandidate: typeof candidate,
                 sentence: string,
                 trigger: 'modal' | 'hover',
                 options: { userGesture?: boolean },
-                scope: unknown,
-            ): Promise<boolean>;
+            ): Promise<void>;
             destroy(): void;
         };
         app.settings = { ...DEFAULT_SETTINGS, apiKey: '', jpdbDefinitionsEnabled: true };
-        app.parser = { cacheCards };
-        app.jitenPublicVocabulary = { lookupMany: vi.fn(() => pending.promise) };
+        app.jitenPublicVocabulary = {
+            parse: vi.fn(async paragraphs => paragraphs.map(() => [])),
+            lookupMany: vi.fn(() => pending.promise),
+        };
         app.showPointerTextCard = showPointerTextCard;
-        const scope = app.cardLookup.captureTarget();
 
-        const lookup = app.showPublicJpdbPointerTextCandidate(candidate, candidate.text, 'modal', { userGesture: true }, scope);
+        const lookup = app.showFirstPointerTextCandidate(candidate, candidate.text, 'modal', { userGesture: true });
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
         expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
         pending.resolve(new Map([['にほんご', { ...CARD, spelling: '日本語', reading: 'にほんご', source: 'jiten' }]]));
-        await expect(lookup).resolves.toBe(true);
+        await expect(lookup).resolves.toBeUndefined();
 
-        expect(cacheCards).not.toHaveBeenCalled();
         expect(showPointerTextCard).not.toHaveBeenCalled();
         app.destroy();
     });
@@ -166,7 +162,6 @@ describe('lookup target generations', () => {
     it('does not cache or show a stale public rendered expansion after an away-and-back switch', async () => {
         const resolvedCard = { ...CARD, spelling: '日本語', reading: 'にほんご', source: 'jiten' } as JPDBCard;
         const pending = deferred<JPDBCard | undefined>();
-        const cacheCards = vi.fn();
         const showRenderedWordCard = vi.fn();
         const word = document.createElement('span');
         word.textContent = 'に';
@@ -181,32 +176,42 @@ describe('lookup target generations', () => {
             insideReaderPopup: false,
         };
         const app = new ReaderApp() as unknown as {
-            parser: { cacheCards(cards: JPDBCard[]): void };
-            cardLookup: { captureTarget(): unknown };
-            resolvePublicJpdbRenderedWordCandidate(terms: string[], boundWait: boolean): Promise<JPDBCard | undefined>;
+            settings: ReaderSettings;
+            cardLookup: { captureTarget(): { isCurrent(): boolean } };
+            parseJapanese(paragraphs: string[]): Promise<JPDBToken[][]>;
             showRenderedWordCard(...args: unknown[]): Promise<void>;
-            showPublicJpdbRenderedWordCandidate(
+            showAuthoritativeSpanForRenderedWord(
                 word: HTMLElement,
                 card: JPDBCard,
                 displayContext: typeof context,
                 options: object,
                 stackOverSettings: boolean,
-                scope: unknown,
+                scope: { isCurrent(): boolean },
             ): Promise<boolean>;
             destroy(): void;
         };
-        app.parser = { cacheCards };
-        app.resolvePublicJpdbRenderedWordCandidate = vi.fn(() => pending.promise);
+        app.settings = { ...DEFAULT_SETTINGS, apiKey: '', jpdbDefinitionsEnabled: true };
+        word.dataset.tokenStart = '0';
+        word.dataset.tokenEnd = '1';
+        const resolvedToken: JPDBToken = {
+            card: resolvedCard,
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [],
+            pitchClass: '',
+            sentence: word.dataset.sentence,
+        };
+        app.parseJapanese = vi.fn(() => pending.promise.then(() => [[resolvedToken]]));
         app.showRenderedWordCard = showRenderedWordCard;
         const scope = app.cardLookup.captureTarget();
 
-        const lookup = app.showPublicJpdbRenderedWordCandidate(word, fragmentCard, context, {}, false, scope);
+        const lookup = app.showAuthoritativeSpanForRenderedWord(word, fragmentCard, context, {}, false, scope);
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
         expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
         pending.resolve(resolvedCard);
         await expect(lookup).resolves.toBe(true);
 
-        expect(cacheCards).not.toHaveBeenCalled();
         expect(showRenderedWordCard).not.toHaveBeenCalled();
         app.destroy();
     });
@@ -364,7 +369,7 @@ describe('lookup target generations', () => {
         const cacheCards = vi.fn();
         const app = new ReaderApp() as unknown as {
             lookupFallbackApiCard(): Promise<JPDBCard | undefined>;
-            resolveRenderedFallbackVocabulary(card: JPDBCard, options: { urgent: boolean }): Promise<JPDBCard | undefined>;
+            resolveRenderedFallbackVocabulary(token: JPDBToken, options: { urgent: boolean }): Promise<JPDBCard | undefined>;
             rememberResolvedFallbackVocabulary(...args: unknown[]): void;
             parser: { cacheCards(cards: JPDBCard[]): void };
             destroy(): void;
@@ -372,8 +377,16 @@ describe('lookup target generations', () => {
         app.lookupFallbackApiCard = vi.fn(() => pending.promise);
         app.rememberResolvedFallbackVocabulary = rememberResolvedFallbackVocabulary;
         app.parser = { cacheCards };
+        const fallbackToken: JPDBToken = {
+            card: CARD,
+            start: 0,
+            end: CARD.spelling.length,
+            length: CARD.spelling.length,
+            rubies: [],
+            pitchClass: '',
+        };
 
-        const resolving = app.resolveRenderedFallbackVocabulary(CARD, { urgent: true });
+        const resolving = app.resolveRenderedFallbackVocabulary(fallbackToken, { urgent: true });
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
         expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
         pending.resolve({ ...CARD, source: 'jiten' } as JPDBCard);

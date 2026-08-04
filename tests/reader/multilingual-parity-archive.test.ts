@@ -197,13 +197,14 @@ describe('candidate-filtered authoritative archive scan', () => {
 
         const { full, filtered } = await matcherResults(archive, target, targetCorpus);
         expect(filtered).toEqual(full);
+        // v4 semantics: the eight-row index truncation is gone. A key with
+        // more rows than the fast read is scanned in full and the collector
+        // keeps the best compatible row, so the highest-sequence talossa row
+        // is reachable instead of being silently cut at the first eight.
         expect(filtered).toEqual(expect.arrayContaining([
-            expect.objectContaining({ surface: 'talossa', sequence: 8 }),
+            expect.objectContaining({ surface: 'talossa', sequence: 10 }),
             expect.objectContaining({ surface: 'koirassa', expression: 'koira', deinflected: 'koira' }),
             expect.objectContaining({ surface: 'lukee', expression: 'read', reading: 'lukee' }),
-        ]));
-        expect(filtered).not.toEqual(expect.arrayContaining([
-            expect.objectContaining({ sequence: 10 }),
         ]));
     });
 

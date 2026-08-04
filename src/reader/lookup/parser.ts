@@ -1309,14 +1309,14 @@ function decorationAlignedSpanConfirmation(
  * entry is exempt — a name like 紫音 is a pitchless multi-segment identity,
  * and the entry's existence is the proof the span is a real lexeme.
  *
- * Local stem cuts: our own dictionary happily confirms 読み inside 読み取る —
- * the entry exists — but a local match that stops strictly inside its
- * covering segment, with a continuation that is not a grammatical boundary,
- * has cut a compound. When the continuation is itself a confirmed word
- * (優しい followed by confirmed 言葉 inside one glued segment), the cut is
- * two adjacent words, not a stranded stem, and both stand. Remote
- * tokenizers earn more trust throughout: their span came from analysing
- * this sentence, not from an isolated entry hit.
+ * Stem cuts, from any source: a dictionary happily confirms 読み inside
+ * 読み取る and a provider happily confirms the surname 訪 inside 訪れた —
+ * but a match that stops strictly inside its covering segment, with a
+ * continuation that is neither a grammatical boundary nor itself a
+ * confirmed word, has cut a compound or an inflection. When the
+ * continuation IS a confirmed word (優しい followed by confirmed 言葉
+ * inside one glued segment, 追加 followed by confirmed できる), the cut is
+ * two adjacent words, not a stranded stem, and both stand.
  *
  * Vetoed spans lose to the next shorter candidate or to segmented fallback.
  */
@@ -1339,8 +1339,7 @@ function rejectUntrustworthySpanShapes(
                 || hasInternalKanaToKanjiTransition(text, candidate.start, candidate.end))) {
             return false;
         }
-        if (match.card.source === 'local'
-            && endsStrictlyInsideSegment(segments, candidate.end)
+        if (endsStrictlyInsideSegment(segments, candidate.end)
             && !context.hasConfirmedSpanAt(candidate.end)
             && !KANA_CASE_PARTICLE_CONTINUATIONS.some(particle => text.startsWith(particle, candidate.end))) {
             return false;
