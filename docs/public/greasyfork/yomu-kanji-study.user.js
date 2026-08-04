@@ -176,6 +176,28 @@ function safeReadString(source, key) {
   const value = safeReadProperty(source, key);
   return typeof value === "string" ? value : void 0;
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 let initialWindowAddEventListener = initialWindowMethod("addEventListener");
 let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -313,11 +335,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -385,11 +403,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -413,11 +430,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -479,15 +492,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -1072,10 +1085,10 @@ const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = { ...value };
-  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-  return record;
+  const record2 = { ...value };
+  delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+  return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
@@ -1439,13 +1452,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -1581,6 +1594,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -1629,8 +1643,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -1916,8 +1930,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -2745,10 +2759,10 @@ async function fetchKanjiMapInfo(kanji) {
   return info;
 }
 function parseKanjiMapInfo(raw, kanji, sourceUrl) {
-  const record = asRecord(raw);
-  if (!record) return void 0;
-  const kanjiAlive = asRecord(record.kanjialiveData);
-  const jisho = asRecord(record.jishoData);
+  const record2 = asRecord(raw);
+  if (!record2) return void 0;
+  const kanjiAlive = asRecord(record2.kanjialiveData);
+  const jisho = asRecord(record2.jishoData);
   const radical = readKanjiMapRadical(kanjiAlive, jisho);
   const examples = readKanjiMapExamples(kanjiAlive, jisho);
   const references = readKanjiMapReferences(kanjiAlive, jisho);
@@ -2988,12 +3002,12 @@ function readKanjiMapExamples(kanjiAlive, jisho) {
   examples.push(item);
   };
   unknownArray(kanjiAlive?.examples).forEach((example) => {
-  const record = asRecord(example);
-  add(record?.japanese, "", asRecord(record?.meaning)?.english);
+  const record2 = asRecord(example);
+  add(record2?.japanese, "", asRecord(record2?.meaning)?.english);
   });
   [...unknownArray(jisho?.onyomiExamples), ...unknownArray(jisho?.kunyomiExamples)].forEach((example) => {
-  const record = asRecord(example);
-  add(record?.example, record?.reading, record?.meaning);
+  const record2 = asRecord(example);
+  add(record2?.example, record2?.reading, record2?.meaning);
   });
   return examples.slice(0, 6);
 }
@@ -15374,11 +15388,11 @@ function enabledImmersionExampleSources(settings) {
 function collectExamples(value) {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== "object") return [];
-  const record = value;
-  return firstArrayField(record, ["examples", "results", "data"]);
+  const record2 = value;
+  return firstArrayField(record2, ["examples", "results", "data"]);
 }
-function firstArrayField(record, keys) {
-  return keys.map((key) => record[key]).find(Array.isArray) ?? [];
+function firstArrayField(record2, keys) {
+  return keys.map((key) => record2[key]).find(Array.isArray) ?? [];
 }
 function filterSearchExamples(data, query, settings, minLength, provider = "immersion-kit") {
   return collectExamples(data).map((value) => normalizeExample(value, provider)).filter((example) => Boolean(example)).filter((example) => isSearchExampleInRange(example, settings, minLength)).filter((example) => isSearchExampleSurfaceMatch(example, query));
@@ -15414,28 +15428,28 @@ function isSearchExampleSurfaceMatch(example, query) {
 function normalizeExample(value, provider = "immersion-kit") {
   return isRecord(value) ? normalizeExampleRecord(value, provider) : null;
 }
-function normalizeExampleRecord(record, provider = "immersion-kit") {
-  const id = text$1(record.id);
-  const sentence = firstText(record, ["sentence", "text"]);
+function normalizeExampleRecord(record2, provider = "immersion-kit") {
+  const id = text$1(record2.id);
+  const sentence = firstText(record2, ["sentence", "text"]);
   if (!sentence) return null;
-  const titleSlug = exampleTitleSlug(record, id);
-  const sourceTitle = exampleSourceTitle(record, titleSlug);
-  const category = exampleCategory(record, id);
-  const soundFile = firstText(record, ["sound", "audio", "audio_file", "audioFile"]);
-  const imageFile = firstText(record, ["image", "image_file", "imageFile"]);
+  const titleSlug = exampleTitleSlug(record2, id);
+  const sourceTitle = exampleSourceTitle(record2, titleSlug);
+  const category = exampleCategory(record2, id);
+  const soundFile = firstText(record2, ["sound", "audio", "audio_file", "audioFile"]);
+  const imageFile = firstText(record2, ["image", "image_file", "imageFile"]);
   return {
   id,
   provider,
   sentence,
-  sentenceWithFurigana: firstText(record, ["sentence_with_furigana", "sentenceWithFurigana"]),
-  translation: firstText(record, ["translation", "translation_en", "english"]),
+  sentenceWithFurigana: firstText(record2, ["sentence_with_furigana", "sentenceWithFurigana"]),
+  translation: firstText(record2, ["translation", "translation_en", "english"]),
   sourceTitle,
   titleSlug,
   category,
   soundFile,
   imageFile,
-  soundUrl: absoluteMediaUrl(firstText(record, ["sound_url", "audio_url", "soundUrl", "audioUrl"])),
-  imageUrl: absoluteMediaUrl(firstText(record, ["image_url", "imageUrl"]))
+  soundUrl: absoluteMediaUrl(firstText(record2, ["sound_url", "audio_url", "soundUrl", "audioUrl"])),
+  imageUrl: absoluteMediaUrl(firstText(record2, ["image_url", "imageUrl"]))
   };
 }
 function nadeshikoSearchPayload(query, settings, minLength) {
@@ -15488,13 +15502,13 @@ function normalizeNadeshikoExample(value, mediaById) {
   mediaPublicId: ids.mediaPublicId
   };
 }
-function nadeshikoSentence(record) {
-  return nestedText(record, "textJa", ["content", "text"]) || firstText(record, ["sentence", "text", "textJa"]);
+function nadeshikoSentence(record2) {
+  return nestedText(record2, "textJa", ["content", "text"]) || firstText(record2, ["sentence", "text", "textJa"]);
 }
-function nadeshikoExampleIds(record) {
+function nadeshikoExampleIds(record2) {
   return {
-  publicId: firstText(record, ["publicId", "public_id", "id"]),
-  mediaPublicId: firstText(record, ["mediaPublicId", "media_public_id", "mediaId"])
+  publicId: firstText(record2, ["publicId", "public_id", "id"]),
+  mediaPublicId: firstText(record2, ["mediaPublicId", "media_public_id", "mediaId"])
   };
 }
 function nadeshikoMediaRecord(mediaById, mediaPublicId) {
@@ -15503,23 +15517,23 @@ function nadeshikoMediaRecord(mediaById, mediaPublicId) {
 function recordField(value) {
   return isRecord(value) ? value : {};
 }
-function nadeshikoSourceTitle(record, media) {
-  return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
+function nadeshikoSourceTitle(record2, media) {
+  return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
 }
 function nadeshikoExampleId(sentence, ids) {
   return `nadeshiko_${ids.publicId || ids.mediaPublicId || stableHashBase36(sentence)}`;
 }
-function nadeshikoTranslation(record) {
-  return nestedText(record, "textEn", ["content", "text"]) || firstText(record, ["translation", "translation_en", "english"]);
+function nadeshikoTranslation(record2) {
+  return nestedText(record2, "textEn", ["content", "text"]) || firstText(record2, ["translation", "translation_en", "english"]);
 }
-function nadeshikoCategory(record, media) {
-  return firstText(media, ["type", "category"]) || firstText(record, ["category"]) || "anime";
+function nadeshikoCategory(record2, media) {
+  return firstText(media, ["type", "category"]) || firstText(record2, ["category"]) || "anime";
 }
-function nadeshikoAbsoluteMediaUrl(record, urls, keys) {
-  return absoluteMediaUrl(firstText(urls, keys) || firstText(record, keys));
+function nadeshikoAbsoluteMediaUrl(record2, urls, keys) {
+  return absoluteMediaUrl(firstText(urls, keys) || firstText(record2, keys));
 }
-function nestedText(record, key, fields) {
-  const value = record[key];
+function nestedText(record2, key, fields) {
+  const value = record2[key];
   return isRecord(value) ? firstText(value, fields) : "";
 }
 function directMediaUrl(example, kind) {
@@ -15539,18 +15553,18 @@ function mediaFileTitleUrls(category, title, file) {
   ...apiUrls(`/download_media?${new URLSearchParams({ path })}`)
   ];
 }
-function exampleTitleSlug(record, id) {
-  return firstText(record, ["title", "deck", "source"]) || titleSlugFromId(id);
+function exampleTitleSlug(record2, id) {
+  return firstText(record2, ["title", "deck", "source"]) || titleSlugFromId(id);
 }
-function exampleSourceTitle(record, titleSlug) {
-  return firstText(record, ["sourceTitle", "display_title", "displayTitle"]) || titleFromSlug(titleSlug);
+function exampleSourceTitle(record2, titleSlug) {
+  return firstText(record2, ["sourceTitle", "display_title", "displayTitle"]) || titleFromSlug(titleSlug);
 }
-function exampleCategory(record, id) {
-  return text$1(record.category) || categoryFromId(id);
+function exampleCategory(record2, id) {
+  return text$1(record2.category) || categoryFromId(id);
 }
-function firstText(record, keys) {
+function firstText(record2, keys) {
   for (const key of keys) {
-  const value = text$1(record[key]);
+  const value = text$1(record2[key]);
   if (value) return value;
   }
   return "";
@@ -16181,21 +16195,21 @@ function contextStorageKey(term) {
   return `${CONTEXT_PREFIX}${term}`;
 }
 function parseStoredMiningContext(value, expectedTerm, now = Date.now()) {
-  const record = storedMiningContextRecord(value, expectedTerm);
-  if (!record) return null;
-  const sourceKind = storedMiningSourceKind(record.sourceKind);
+  const record2 = storedMiningContextRecord(value, expectedTerm);
+  if (!record2) return null;
+  const sourceKind = storedMiningSourceKind(record2.sourceKind);
   if (!sourceKind) return null;
-  const updatedAt = storedMiningContextUpdatedAt(record.updatedAt, now);
+  const updatedAt = storedMiningContextUpdatedAt(record2.updatedAt, now);
   if (updatedAt === null) return null;
   const context = createStoredMiningContext(expectedTerm, {
-  sentence: text(record.sentence),
+  sentence: text(record2.sentence),
   sourceKind,
-  sourceTitle: text(record.sourceTitle),
-  sourceUrl: text(record.sourceUrl),
-  imageUrl: optionalText(record.imageUrl),
-  audioUrls: optionalTextArray(record.audioUrls),
-  immersionIndex: optionalNumber(record.immersionIndex),
-  immersionTotal: optionalNumber(record.immersionTotal)
+  sourceTitle: text(record2.sourceTitle),
+  sourceUrl: text(record2.sourceUrl),
+  imageUrl: optionalText(record2.imageUrl),
+  audioUrls: optionalTextArray(record2.audioUrls),
+  immersionIndex: optionalNumber(record2.immersionIndex),
+  immersionTotal: optionalNumber(record2.immersionTotal)
   }, updatedAt);
   return context;
 }
@@ -19061,11 +19075,11 @@ function grammarPreferencesKey(target) {
   return `${GRAMMAR_PREFERENCES_KEY}:${targetId}`;
 }
 function normalizeGrammarKnowledge(value, target) {
-  const record = objectRecord(value);
-  const entries2 = record?.version === 2 ? normalizeEntries(record.entries, target) : migrateLegacyKnownRules(record?.knownRuleIds, target);
+  const record2 = objectRecord(value);
+  const entries2 = record2?.version === 2 ? normalizeEntries(record2.entries, target) : migrateLegacyKnownRules(record2?.knownRuleIds, target);
   return {
   entries: entries2,
-  showKnown: record?.showKnown === true
+  showKnown: record2?.showKnown === true
   };
 }
 function normalizeEntries(value, target) {

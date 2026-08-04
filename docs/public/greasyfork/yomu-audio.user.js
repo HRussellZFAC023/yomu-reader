@@ -83,6 +83,28 @@ function isPrivateIpv6(host) {
   }
   return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
 const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
@@ -275,8 +297,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -671,11 +693,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -743,11 +761,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -771,11 +788,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -1028,15 +1041,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -5658,13 +5671,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -5789,6 +5802,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -5837,8 +5851,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -9393,19 +9407,19 @@ function findAudioUrlsInString(value, sourceUrl) {
   if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
   return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi)).map((match) => match[0]).filter(isLikelyAudioUrl).map((url) => normalizeAudioUrl(url, sourceUrl)));
 }
-function findAudioUrlsInRecord(record, sourceUrl) {
-  const known = uniqueAudioUrls([...preferredAudioRecordUrls(record, sourceUrl), ...directAudioRecordUrls(record, sourceUrl)]);
-  return known.length ? known : nestedAudioRecordUrls(record, sourceUrl);
+function findAudioUrlsInRecord(record2, sourceUrl) {
+  const known = uniqueAudioUrls([...preferredAudioRecordUrls(record2, sourceUrl), ...directAudioRecordUrls(record2, sourceUrl)]);
+  return known.length ? known : nestedAudioRecordUrls(record2, sourceUrl);
 }
-function preferredAudioRecordUrls(record, sourceUrl) {
-  return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record[key], sourceUrl));
+function preferredAudioRecordUrls(record2, sourceUrl) {
+  return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record2[key], sourceUrl));
 }
-function directAudioRecordUrls(record, sourceUrl) {
-  return typeof record.url === "string" && isLikelyAudioRecord(record) ? findAudioUrls(record.url, sourceUrl) : [];
+function directAudioRecordUrls(record2, sourceUrl) {
+  return typeof record2.url === "string" && isLikelyAudioRecord(record2) ? findAudioUrls(record2.url, sourceUrl) : [];
 }
-function nestedAudioRecordUrls(record, sourceUrl) {
+function nestedAudioRecordUrls(record2, sourceUrl) {
   const knownKeys = /* @__PURE__ */ new Set(["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"]);
-  return uniqueAudioUrls(Object.entries(record).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
+  return uniqueAudioUrls(Object.entries(record2).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
 }
 async function isUnavailableJapanesePod101Audio(blob) {
   if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
@@ -9497,9 +9511,9 @@ function customJsonAudioCandidates(payload, source, sourceUrl) {
 }
 function namedAudioSubSources(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const record = value;
+  const record2 = value;
   const entries2 = [];
-  for (const list of [record.audioSources, record.sources]) {
+  for (const list of [record2.audioSources, record2.sources]) {
   if (!Array.isArray(list)) continue;
   for (const item of list) {
     const entry = namedAudioSubSource(item);
@@ -9510,10 +9524,10 @@ function namedAudioSubSources(value) {
 }
 function namedAudioSubSource(value) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  if (typeof record.name !== "string" || !record.name.trim()) return null;
-  if (typeof record.url !== "string" || !record.url.trim()) return null;
-  return { name: record.name.trim(), url: record.url };
+  const record2 = value;
+  if (typeof record2.name !== "string" || !record2.name.trim()) return null;
+  if (typeof record2.url !== "string" || !record2.url.trim()) return null;
+  return { name: record2.name.trim(), url: record2.url };
 }
 const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
 function recordAudioSubSourceNames(url, names) {
@@ -9613,15 +9627,15 @@ function jitenVocabularySearchResults(response) {
 }
 function normalizeJitenAudioReferenceSearchResult(value) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  const wordId = finitePositiveInteger(record.wordId);
-  const readingIndex = finiteNonNegativeInteger(record.readingIndex);
+  const record2 = value;
+  const wordId = finitePositiveInteger(record2.wordId);
+  const readingIndex = finiteNonNegativeInteger(record2.readingIndex);
   if (wordId === void 0 || readingIndex === void 0) return null;
   return {
   wordId,
   readingIndex,
-  text: typeof record.text === "string" ? record.text.trim() : "",
-  reading: cleanJitenRubyText(typeof record.rubyText === "string" ? record.rubyText : "").trim()
+  text: typeof record2.text === "string" ? record2.text.trim() : "",
+  reading: cleanJitenRubyText(typeof record2.rubyText === "string" ? record2.rubyText : "").trim()
   };
 }
 function bestJitenAudioReference(card, results) {
@@ -9707,11 +9721,7 @@ function isJpdbAliasLookup(card, sourceUrl) {
   return [card.spelling, card.reading].some((value) => cleanJpdbIdentityText(value) === normalizedQuery);
 }
 function jpdbSearchQuery(value) {
-  try {
-  return new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "";
-  } catch {
-  return "";
-  }
+  return attempt(() => new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "", "", "candidates.jpdbSearchQuery");
 }
 function jpdbVocabularyBlockMatchesCard(html, card) {
   return jpdbVocabularyIdentities(html).some((identity) => jpdbVocabularyIdentityMatches(identity, card));
@@ -10018,11 +10028,7 @@ function extractAudioSourceUrls(html, baseUrl) {
   return uniqueAudioUrls(urls);
 }
 function resolveAudioSourceUrl(src, baseUrl) {
-  try {
-  return new URL(src, baseUrl).href;
-  } catch {
-  return "";
-  }
+  return attempt(() => new URL(src, baseUrl).href, "", "candidates.resolveAudioSourceUrl");
 }
 function getHtmlAttribute(attributes, name) {
   const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
@@ -10064,11 +10070,11 @@ function isLoopbackAudioHost(hostname) {
 function normalizeAudioUrlSlashes(value) {
   return value.replace(/\\/g, "/");
 }
-function isLikelyAudioRecord(record) {
-  return typeof record.url === "string" && audioRecordHasPlayableSignal(record);
+function isLikelyAudioRecord(record2) {
+  return typeof record2.url === "string" && audioRecordHasPlayableSignal(record2);
 }
-function audioRecordHasPlayableSignal(record) {
-  return isLikelyAudioUrl(String(record.url)) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string";
+function audioRecordHasPlayableSignal(record2) {
+  return isLikelyAudioUrl(String(record2.url)) || ["audio", "audioSource"].includes(String(record2.type ?? "")) || typeof record2.name === "string";
 }
 function isLikelyAudioUrl(value) {
   if (value.startsWith("data:audio/")) return true;
@@ -10116,11 +10122,7 @@ function preconnectAudioUrl(value) {
   appendAudioPreconnectLinks(origin);
 }
 function audioPreconnectOrigin(value) {
-  try {
-  return new URL(value, location.href).origin;
-  } catch {
-  return null;
-  }
+  return attempt(() => new URL(value, location.href).origin, null, "candidates.audioPreconnectOrigin");
 }
 function appendAudioPreconnectLinks(origin) {
   for (const rel of AUDIO_PRECONNECT_RELS) appendAudioPreconnectLink(origin, rel);

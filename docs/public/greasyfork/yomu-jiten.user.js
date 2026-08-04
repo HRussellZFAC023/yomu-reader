@@ -206,6 +206,28 @@ function safeReadString(source, key) {
   const value = safeReadProperty(source, key);
   return typeof value === "string" ? value : void 0;
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 let initialWindowAddEventListener = initialWindowMethod("addEventListener");
 let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -343,11 +365,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -415,11 +433,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -443,11 +460,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -509,15 +522,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -1463,13 +1476,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -1594,6 +1607,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -1642,8 +1656,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -2051,8 +2065,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -3151,16 +3165,16 @@ function pitchPatterns(value, reading) {
   return Array.isArray(value) ? value.map(finiteInteger).filter((position) => position !== void 0).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean) : [];
 }
 function publicJitenPitchComponents(value) {
-  return arrayRecords(value).flatMap((record) => {
-  const annotated = stringValue(record.readingFurigana);
-  const rawReading = stringValue(record.reading);
-  const spelling = stringValue(record.matchSurface) || cleanAnnotatedJitenText(annotated) || cleanAnnotatedJitenText(rawReading);
+  return arrayRecords(value).flatMap((record2) => {
+  const annotated = stringValue(record2.readingFurigana);
+  const rawReading = stringValue(record2.reading);
+  const spelling = stringValue(record2.matchSurface) || cleanAnnotatedJitenText(annotated) || cleanAnnotatedJitenText(rawReading);
   const reading = (annotated.includes("[") ? cleanJitenAnnotatedReading(annotated) : "") || rawReading || spelling;
   if (!spelling || !reading) return [];
   return [{
     spelling,
     reading,
-    pitchAccent: pitchPatterns(record.pitchAccents, reading),
+    pitchAccent: pitchPatterns(record2.pitchAccents, reading),
     wordWithReading: annotated.includes("[") ? annotated : null
   }];
   });

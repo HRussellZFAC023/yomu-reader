@@ -155,6 +155,28 @@ function safeReadString(source, key) {
   const value = safeReadProperty(source, key);
   return typeof value === "string" ? value : void 0;
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 let initialWindowAddEventListener = initialWindowMethod("addEventListener");
 let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -292,11 +314,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -364,11 +382,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -392,11 +409,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -458,15 +471,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -1413,13 +1426,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -1480,10 +1493,7 @@ function recorderReloadLoopDetected() {
   managedSessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
   recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
   if (recorderLoopBroken) {
-    try {
-      console.warn("[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.");
-    } catch {
-    }
+    attemptVoid(() => console.warn("[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry."), "canvas-mirror.recorderReloadLoopDetected");
   }
   } catch {
   recorderLoopBroken = false;
@@ -1542,10 +1552,10 @@ function selectLatestContentOpsBefore(ops, beforeSeq) {
 }
 function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
   if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
-  const record = lookup(id);
-  if (!record) return out;
+  const record2 = lookup(id);
+  if (!record2) return out;
   const next = new Set(seen).add(id);
-  for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
+  for (const op of selectLatestReplayOps(record2.ops, beforeSeq)) {
   if (op.srcOps?.length) collectLeafUrlsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
   else if (op.srcId) {
     const before = out.size;
@@ -1573,16 +1583,16 @@ function collectLeafUrlsFromSnapshot(ops, lookup, out, seen, depth) {
 }
 function shouldUseLatestSourceFallback(id, beforeSeq, lookup) {
   if (!Number.isFinite(beforeSeq)) return false;
-  const record = lookup(id);
-  if (!record?.ops.length) return false;
-  return !record.ops.some((op) => !op.clear && op.seq < beforeSeq);
+  const record2 = lookup(id);
+  if (!record2?.ops.length) return false;
+  return !record2.ops.some((op) => !op.clear && op.seq < beforeSeq);
 }
 function collectLeafContentFingerprints(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
   if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
-  const record = lookup(id);
-  if (!record) return out;
+  const record2 = lookup(id);
+  if (!record2) return out;
   const next = new Set(seen).add(id);
-  for (const op of selectLatestReplayOps(record.ops, beforeSeq)) {
+  for (const op of selectLatestReplayOps(record2.ops, beforeSeq)) {
   if (op.srcOps?.length) {
     collectLeafContentFingerprintsFromSnapshot(op.srcOps, lookup, out, next, depth + 1);
   } else if (op.srcId) {
@@ -1644,13 +1654,13 @@ function isReadable(canvas) {
 }
 function rebuildById(id, beforeSeq, images, canvases, seen, depth, lookup) {
   if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
-  const record = lookup(id);
-  if (!record || !record.w || !record.h) return null;
-  const ops = selectLatestReplayOps(record.ops, beforeSeq);
+  const record2 = lookup(id);
+  if (!record2 || !record2.w || !record2.h) return null;
+  const ops = selectLatestReplayOps(record2.ops, beforeSeq);
   if (!ops.length) return null;
   const out = document.createElement("canvas");
-  out.width = record.w;
-  out.height = record.h;
+  out.width = record2.w;
+  out.height = record2.h;
   const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
   if (!ctx) return null;
   seen.add(id);
@@ -1663,13 +1673,12 @@ function rebuildById(id, beforeSeq, images, canvases, seen, depth, lookup) {
     source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1, lookup) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, lookup) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1, lookup) : null) ?? canvases.get(op.srcId) ?? null;
   } else if (op.url) source = images.get(op.url) ?? null;
   if (!source) continue;
-  try {
+  attemptVoid(() => {
     if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
     else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
     else ctx.drawImage(source, op.dx, op.dy);
     drew++;
-  } catch {
-  }
+  }, "canvas-mirror.rebuildById");
   }
   return drew ? out : null;
 }
@@ -1693,13 +1702,12 @@ function rebuildSnapshotSource(ops, width, height, images, canvases, seen, depth
     source = images.get(op.url) ?? null;
   }
   if (!source) continue;
-  try {
+  attemptVoid(() => {
     if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
     else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
     else ctx.drawImage(source, op.dx, op.dy);
     drew++;
-  } catch {
-  }
+  }, "canvas-mirror.rebuildSnapshotSource");
   }
   return drew ? out : null;
 }
@@ -1710,8 +1718,8 @@ function pullPageMirrorRecords(target = state(), scope) {
   mergeMirrorPayloadMetadata(target, parsed);
   if (requestedId) {
   let copied = false;
-  for (const [id, record] of Object.entries(parsed.records)) {
-    target.records[id] = record;
+  for (const [id, record2] of Object.entries(parsed.records)) {
+    target.records[id] = record2;
     copied = true;
   }
   if (!copied) delete target.records[requestedId];
@@ -1762,11 +1770,7 @@ function mergeMirrorPayloadMetadata(target, parsed) {
   if (typeof parsed.epoch === "number") target.epoch = parsed.epoch;
 }
 function canvasMirrorTurnToken() {
-  try {
-  return document.documentElement?.getAttribute(EPOCH_ATTR) ?? "";
-  } catch {
-  return "";
-  }
+  return attempt(() => document.documentElement?.getAttribute(EPOCH_ATTR) ?? "", "", "canvas-mirror.canvasMirrorTurnToken");
 }
 function canvasMirrorContentToken(canvas) {
   const id = canvasId(canvas);
@@ -1784,13 +1788,13 @@ function canvasMirrorContentToken(canvas) {
   }
   return mirrorContentTokenForRecords(id, (key) => s.records[key]);
 }
-function operationContentFingerprint(id, record) {
-  const ops = selectLatestReplayOps(record.ops, Number.POSITIVE_INFINITY);
+function operationContentFingerprint(id, record2) {
+  const ops = selectLatestReplayOps(record2.ops, Number.POSITIVE_INFINITY);
   if (!ops.length) return "";
   return [
   id,
-  record.w,
-  record.h,
+  record2.w,
+  record2.h,
   ...ops.map((op) => [
     op.srcId ?? "",
     canonicalBookwalkerAssetUrl(op.url),
@@ -1859,10 +1863,10 @@ function snapshotMirrorRecordGraph(rootId, source) {
   const snapshot = /* @__PURE__ */ Object.create(null);
   const visitRecord = (id, depth) => {
   if (depth > MAX_REBUILD_DEPTH || snapshot[id]) return;
-  const record = source[id];
-  if (!record) return;
-  const ops = record.ops.map(cloneMirrorOp);
-  snapshot[id] = { w: record.w, h: record.h, ops };
+  const record2 = source[id];
+  if (!record2) return;
+  const ops = record2.ops.map(cloneMirrorOp);
+  snapshot[id] = { w: record2.w, h: record2.h, ops };
   visitOps(ops, depth + 1);
   };
   const visitOps = (ops, depth) => {
@@ -1884,8 +1888,8 @@ function cloneMirrorOp(op) {
 function mirrorContentTokenForRecords(id, lookup) {
   const content = collectLeafContentFingerprints(id, Number.POSITIVE_INFINITY, lookup);
   if (content.size) return `m:${mirrorTokenHash([...content].sort().join(""))}`;
-  const record = lookup(id);
-  const fingerprint = record ? operationContentFingerprint(id, record) : "";
+  const record2 = lookup(id);
+  const fingerprint = record2 ? operationContentFingerprint(id, record2) : "";
   return fingerprint ? `o:${mirrorTokenHash(fingerprint)}` : "";
 }
 function mirrorTokenHash(value) {
@@ -1911,10 +1915,7 @@ function recorderBootstrap(win, opts) {
   if (el && el.nodeType && !el.isConnected) return;
   S.epoch = (S.epoch || 0) + 1;
   if (root) {
-    try {
-      root.setAttribute(opts.e, String(S.epoch));
-    } catch {
-    }
+    attemptVoid(() => root.setAttribute(opts.e, String(S.epoch)), "canvas-mirror.bumpEpoch");
   }
   };
   const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
@@ -1938,11 +1939,7 @@ function recorderBootstrap(win, opts) {
   }
   if (el && el.__yomuMid) return el.__yomuMid;
   if (el && create) {
-    try {
-      return el.__yomuMid = "m" + S.nextId++;
-    } catch {
-      return null;
-    }
+    return attempt(() => el.__yomuMid = "m" + S.nextId++, null, "canvas-mirror.idOf");
   }
   return null;
   };
@@ -2010,11 +2007,11 @@ function recorderBootstrap(win, opts) {
   };
   const addRecordClosure = (id, out, seen, depth) => {
   if (!id || seen[id] || depth > 6) return;
-  const record = S.records[id];
-  if (!record) return;
+  const record2 = S.records[id];
+  if (!record2) return;
   seen[id] = true;
-  out[id] = record;
-  addSnapshotDependencies(record.ops, out, seen, depth + 1);
+  out[id] = record2;
+  addSnapshotDependencies(record2.ops, out, seen, depth + 1);
   };
   const requestedRecords = (id) => {
   if (!id) return S.records;
@@ -2059,9 +2056,9 @@ function recorderBootstrap(win, opts) {
   ].join(":");
   const shouldUseLatestSource = (id, beforeSeq) => {
   if (!Number.isFinite(beforeSeq)) return false;
-  const record = S.records[id];
-  if (!record?.ops.length) return false;
-  return !record.ops.some((op) => !op.clear && op.seq < beforeSeq);
+  const record2 = S.records[id];
+  if (!record2?.ops.length) return false;
+  return !record2.ops.some((op) => !op.clear && op.seq < beforeSeq);
   };
   const addSourceLeafFingerprints = (id, beforeSeq, out, seen, depth) => {
   const before = Object.keys(out).length;
@@ -2080,22 +2077,22 @@ function recorderBootstrap(win, opts) {
   };
   const addLeafFingerprints = (id, beforeSeq, out, seen, depth) => {
   if (!id || seen[id] || depth > 6) return;
-  const record = S.records[id];
-  if (!record) return;
+  const record2 = S.records[id];
+  if (!record2) return;
   const nextSeen = { ...seen, [id]: true };
-  for (const op of latestOps(record.ops, beforeSeq)) {
+  for (const op of latestOps(record2.ops, beforeSeq)) {
     if (op.srcOps?.length) addLeafFingerprintsFromOps(op.srcOps, out, nextSeen, depth + 1);
     else if (op.srcId) addSourceLeafFingerprints(op.srcId, op.seq, out, nextSeen, depth + 1);
     else if (op.url) out[leafFingerprint(op)] = true;
   }
   };
-  const operationSummaryToken = (id, record) => {
-  const ops = latestOps(record.ops, Number.POSITIVE_INFINITY);
+  const operationSummaryToken = (id, record2) => {
+  const ops = latestOps(record2.ops, Number.POSITIVE_INFINITY);
   if (!ops.length) return "";
   const payload = [
     id,
-    record.w,
-    record.h,
+    record2.w,
+    record2.h,
     ...ops.map((op) => [
       op.srcId || "",
       canonicalUrl(op.url),
@@ -2112,17 +2109,17 @@ function recorderBootstrap(win, opts) {
   return `o:${hashText(payload)}`;
   };
   const summaryToken = (id) => {
-  const record = S.records[id];
-  if (!record) return "";
-  const ops = record.ops;
+  const record2 = S.records[id];
+  if (!record2) return "";
+  const ops = record2.ops;
   const stamp = ops.length + ":" + (ops.length ? ops[ops.length - 1].seq : -1);
-  if (record.tokStamp === stamp && typeof record.tok === "string") return record.tok;
+  if (record2.tokStamp === stamp && typeof record2.tok === "string") return record2.tok;
   const leafs = /* @__PURE__ */ Object.create(null);
   addLeafFingerprints(id, Number.POSITIVE_INFINITY, leafs, /* @__PURE__ */ Object.create(null), 0);
   const keys = Object.keys(leafs).sort();
-  const token = keys.length ? `m:${hashText(keys.join(""))}` : operationSummaryToken(id, record);
-  record.tok = token;
-  record.tokStamp = stamp;
+  const token = keys.length ? `m:${hashText(keys.join(""))}` : operationSummaryToken(id, record2);
+  record2.tok = token;
+  record2.tokStamp = stamp;
   return token;
   };
   const requestedSummaries = (id) => {
@@ -2139,7 +2136,7 @@ function recorderBootstrap(win, opts) {
   const draw = p.drawImage;
   p.drawImage = function(src) {
     if (!this.__yomuMirrorSkip) {
-      try {
+      attemptVoid(() => {
         const cid = idOf(this.canvas, true);
         if (cid) {
           const r = rec(cid, this.canvas.width, this.canvas.height);
@@ -2180,15 +2177,14 @@ function recorderBootstrap(win, opts) {
             bumpEpoch(this.canvas);
           }
         }
-      } catch {
-      }
+      }, "canvas-mirror.patch");
     }
     return draw.apply(this, arguments);
   };
   const clr = p.clearRect;
   p.clearRect = function(x, y, w, h) {
     if (!this.__yomuMirrorSkip) {
-      try {
+      attemptVoid(() => {
         if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
           const cid = idOf(this.canvas, true);
           if (cid) {
@@ -2196,8 +2192,7 @@ function recorderBootstrap(win, opts) {
             bumpEpoch(this.canvas);
           }
         }
-      } catch {
-      }
+      }, "canvas-mirror.patch");
     }
     return clr.apply(this, arguments);
   };
@@ -2210,11 +2205,8 @@ function recorderBootstrap(win, opts) {
   win.__yomuCanvasMirrorRecorder = true;
   S.installed = true;
   if (doc && root) {
-  try {
-    root.setAttribute(opts.r, "1");
-  } catch {
-  }
-  try {
+  attemptVoid(() => root.setAttribute(opts.r, "1"), "canvas-mirror.patch");
+  attemptVoid(() => {
     root.addEventListener(opts.p, () => {
       try {
         let node = root.querySelector("[" + opts.d + "]");
@@ -2235,8 +2227,7 @@ function recorderBootstrap(win, opts) {
       } catch {
       }
     });
-  } catch {
-  }
+  }, "canvas-mirror.patch");
   }
 }
 function recorderOpts() {
@@ -2304,11 +2295,7 @@ function scheduleRecorderInstallRetry(hostname) {
   }
 }
 function recorderMarkerPresent() {
-  try {
-  return document.documentElement?.getAttribute(MARKER_ATTR) === "1";
-  } catch {
-  return false;
-  }
+  return attempt(() => document.documentElement?.getAttribute(MARKER_ATTR) === "1", false, "canvas-mirror.recorderMarkerPresent");
 }
 function recorderAlreadyInstalled() {
   if (recorderMarkerPresent()) return true;
@@ -2316,21 +2303,14 @@ function recorderAlreadyInstalled() {
   return (uw ? recorderWindowInstalled(uw) : false) || recorderWindowInstalled(pageWindow());
 }
 function recorderWindowInstalled(win) {
-  try {
-  return Boolean(win.__yomuCanvasMirror?.installed);
-  } catch {
-  return false;
-  }
+  return attempt(() => Boolean(win.__yomuCanvasMirror?.installed), false, "canvas-mirror.recorderWindowInstalled");
 }
 function likelyUserscriptContentSandbox() {
   const g = globalThis;
   return Boolean(g.unsafeWindow && g.unsafeWindow !== globalThis) || Boolean(g.GM_info || g.GM || g.GM_xmlhttpRequest);
 }
 function markRecorderMethod(method) {
-  try {
-  document.documentElement?.setAttribute(METHOD_ATTR, method);
-  } catch {
-  }
+  attemptVoid(() => document.documentElement?.setAttribute(METHOD_ATTR, method), "canvas-mirror.markRecorderMethod");
 }
 function createTrustedMirrorScript(code) {
   try {
@@ -2995,6 +2975,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -3043,8 +3024,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -12628,17 +12609,17 @@ function numberFrom(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
-function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
+function normalizeCloudVisionResponse(record2, fallbackWidth, fallbackHeight) {
   const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
-  for (const response of cloudVisionResponses(record)) {
+  for (const response of cloudVisionResponses(record2)) {
   appendCloudVisionPages(response, state2);
   appendCloudVisionTextAnnotations(response, state2);
   }
   return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
 }
-function cloudVisionResponses(record) {
-  if (Array.isArray(record.responses)) return record.responses;
-  return "fullTextAnnotation" in record ? [record] : [];
+function cloudVisionResponses(record2) {
+  if (Array.isArray(record2.responses)) return record2.responses;
+  return "fullTextAnnotation" in record2 ? [record2] : [];
 }
 function appendCloudVisionPages(response, state2) {
   const annotation = response?.fullTextAnnotation;
@@ -12803,14 +12784,14 @@ function parseJsDataLiteral(source) {
   return parseIdentifierValue();
   }
   function parseObject() {
-  const record = {};
+  const record2 = {};
   index += 1;
   skipWhitespace();
   while (source[index] !== "}") {
     const key = parseObjectKey();
     skipWhitespace();
     expect(":");
-    record[key] = parseValue();
+    record2[key] = parseValue();
     skipWhitespace();
     if (source[index] === ",") {
       index += 1;
@@ -12820,7 +12801,7 @@ function parseJsDataLiteral(source) {
     break;
   }
   expect("}");
-  return record;
+  return record2;
   }
   function parseObjectKey() {
   skipWhitespace();
@@ -12929,28 +12910,28 @@ function parseJsDataLiteral(source) {
 const LENS_WRITING_TOP_TO_BOTTOM = 2;
 function normalizeOcrResult(value, fallbackWidth = 1, fallbackHeight = 1) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  const cloudVision = normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight);
+  const record2 = value;
+  const cloudVision = normalizeCloudVisionResponse(record2, fallbackWidth, fallbackHeight);
   if (cloudVision) return cloudVision;
-  const { width, height } = ocrResultDimensions(record, fallbackWidth, fallbackHeight);
-  const lines = collectGenericOcrLines(record, width, height);
+  const { width, height } = ocrResultDimensions(record2, fallbackWidth, fallbackHeight);
+  const lines = collectGenericOcrLines(record2, width, height);
   return japaneseOcrResult(width, height, lines);
 }
-function ocrResultDimensions(record, fallbackWidth, fallbackHeight) {
-  const resolution = record.context_resolution;
-  const width = numberFrom(record.width) || numberFrom(resolution?.width) || fallbackWidth;
-  const height = numberFrom(record.height) || numberFrom(resolution?.height) || fallbackHeight;
+function ocrResultDimensions(record2, fallbackWidth, fallbackHeight) {
+  const resolution = record2.context_resolution;
+  const width = numberFrom(record2.width) || numberFrom(resolution?.width) || fallbackWidth;
+  const height = numberFrom(record2.height) || numberFrom(resolution?.height) || fallbackHeight;
   return { width, height };
 }
-function collectGenericOcrLines(record, width, height) {
+function collectGenericOcrLines(record2, width, height) {
   const lines = [];
-  appendGenericOcrLines(lines, genericRawLines(record), width, height, normalizeSimpleLines);
-  appendGenericOcrLines(lines, record.results, width, height, normalizeStructuredOcrResults);
-  appendGenericOcrLines(lines, record.ocr_regions, width, height, normalizeOcrRegionResults);
+  appendGenericOcrLines(lines, genericRawLines(record2), width, height, normalizeSimpleLines);
+  appendGenericOcrLines(lines, record2.results, width, height, normalizeStructuredOcrResults);
+  appendGenericOcrLines(lines, record2.ocr_regions, width, height, normalizeOcrRegionResults);
   return lines;
 }
-function genericRawLines(record) {
-  return Array.isArray(record.lines) ? record.lines : record.regions;
+function genericRawLines(record2) {
+  return Array.isArray(record2.lines) ? record2.lines : record2.regions;
 }
 function appendGenericOcrLines(lines, value, width, height, normalize) {
   if (Array.isArray(value)) lines.push(...normalize(value, width, height));
@@ -13151,37 +13132,37 @@ function googleLensUploadLineBox(value, width, height) {
   }, width, height);
 }
 function normalizeSimpleLine(value, width, height) {
-  const record = asRecord(value);
-  if (!record) return null;
-  const text = simpleLineText(record);
-  const box = simpleLineBox(record, width, height);
+  const record2 = asRecord(value);
+  if (!record2) return null;
+  const text = simpleLineText(record2);
+  const box = simpleLineBox(record2, width, height);
   if (!text || !box) return null;
-  return { text, box, vertical: simpleLineIsVertical(record) };
+  return { text, box, vertical: simpleLineIsVertical(record2) };
 }
-function simpleLineText(record) {
-  return stringFrom(record.text) || stringFrom(record.content) || stringFrom(record.sentence);
+function simpleLineText(record2) {
+  return stringFrom(record2.text) || stringFrom(record2.content) || stringFrom(record2.sentence);
 }
-function simpleLineBox(record, width, height) {
-  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+function simpleLineBox(record2, width, height) {
+  return normalizeBox(record2.box ?? record2.boundingBox ?? record2, width, height);
 }
-function simpleLineIsVertical(record) {
-  return Boolean(record.vertical ?? record.is_vertical);
+function simpleLineIsVertical(record2) {
+  return Boolean(record2.vertical ?? record2.is_vertical);
 }
 function normalizeStructuredOcrResult(value, width, height) {
   if (!value || typeof value !== "object") return [];
-  const record = value;
-  const textLines = structuredOcrTextLines(record);
-  const vertical = structuredOcrVertical(record);
+  const record2 = value;
+  const textLines = structuredOcrTextLines(record2);
+  const vertical = structuredOcrVertical(record2);
   const lines = textLines.map((item) => normalizeStructuredOcrLine(item, width, height, vertical)).filter((line) => line !== null);
   if (lines.length) return lines;
-  return normalizeStructuredOcrFallback(record, textLines, width, height, vertical);
+  return normalizeStructuredOcrFallback(record2, textLines, width, height, vertical);
 }
-function structuredOcrTextLines(record) {
-  if (Array.isArray(record.text_lines)) return record.text_lines;
-  return Array.isArray(record.text) ? record.text : [];
+function structuredOcrTextLines(record2) {
+  if (Array.isArray(record2.text_lines)) return record2.text_lines;
+  return Array.isArray(record2.text) ? record2.text : [];
 }
-function structuredOcrVertical(record) {
-  return Boolean(record.is_vertical ?? record.box?.isVertical);
+function structuredOcrVertical(record2) {
+  return Boolean(record2.is_vertical ?? record2.box?.isVertical);
 }
 function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
   const lineRecord = asRecord(item);
@@ -13191,29 +13172,29 @@ function normalizeStructuredOcrLine(item, width, height, inheritedVertical) {
   if (!text || !box) return null;
   return { text, box, vertical: structuredOcrLineVertical(lineRecord, inheritedVertical) };
 }
-function structuredOcrLineText(record) {
-  return stringFrom(record.content ?? record.text ?? record.word);
+function structuredOcrLineText(record2) {
+  return stringFrom(record2.content ?? record2.text ?? record2.word);
 }
-function structuredOcrLineBox(record, width, height) {
-  return normalizeBox(record.box ?? record.boundingBox ?? record, width, height);
+function structuredOcrLineBox(record2, width, height) {
+  return normalizeBox(record2.box ?? record2.boundingBox ?? record2, width, height);
 }
-function structuredOcrLineVertical(record, inheritedVertical) {
-  return Boolean(record.is_vertical ?? record.box?.isVertical ?? inheritedVertical);
+function structuredOcrLineVertical(record2, inheritedVertical) {
+  return Boolean(record2.is_vertical ?? record2.box?.isVertical ?? inheritedVertical);
 }
-function normalizeStructuredOcrFallback(record, textLines, width, height, vertical) {
+function normalizeStructuredOcrFallback(record2, textLines, width, height, vertical) {
   const text = cleanOcrText(textLines.map((item) => stringFrom(item?.content)).filter(Boolean).join(" "));
-  const box = normalizeBox(record.box, width, height);
+  const box = normalizeBox(record2.box, width, height);
   return text && box ? [{ text, box, vertical }] : [];
 }
-function normalizeOcrRegion(record, width, height) {
-  const region = readOcrRegion(record);
+function normalizeOcrRegion(record2, width, height) {
+  const region = readOcrRegion(record2);
   if (!region) return null;
   const box = clampBox(scaleOcrRegion(region, width, height), width, height);
   return box && !isFullImageOcrRegion(box, width, height) ? box : null;
 }
-function readOcrRegion(record) {
-  const position = record.position;
-  const size = record.size;
+function readOcrRegion(record2) {
+  const position = record2.position;
+  const size = record2.size;
   if (!position || !size) return null;
   return completeOcrRegionParts({
   left: numberFrom(position.left),
@@ -13252,12 +13233,12 @@ function offsetLineToRegion(line, region, width, height) {
 }
 function normalizeBox(value, width, height) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  return normalizePositionDimensionsBox(record, width, height) ?? normalizeDirectBox(record, width, height) ?? normalizePointBox(record, width, height);
+  const record2 = value;
+  return normalizePositionDimensionsBox(record2, width, height) ?? normalizeDirectBox(record2, width, height) ?? normalizePointBox(record2, width, height);
 }
-function normalizePositionDimensionsBox(record, width, height) {
-  const position = asRecord(record.position);
-  const dimensions = asRecord(record.dimensions);
+function normalizePositionDimensionsBox(record2, width, height) {
+  const position = asRecord(record2.position);
+  const dimensions = asRecord(record2.dimensions);
   if (!position || !dimensions) return null;
   return boxFromNumbers({
   left: numberFrom(position.left),
@@ -13266,23 +13247,23 @@ function normalizePositionDimensionsBox(record, width, height) {
   height: numberFrom(dimensions.height)
   }, width, height, "percent-100");
 }
-function normalizeDirectBox(record, width, height) {
-  const box = directBoxNumbers(record);
+function normalizeDirectBox(record2, width, height) {
+  const box = directBoxNumbers(record2);
   return boxFromNumbers(box, width, height, directBoxScale(box));
 }
-function directBoxNumbers(record) {
+function directBoxNumbers(record2) {
   return {
-  left: numberFrom(record.left ?? record.x),
-  top: numberFrom(record.top ?? record.y),
-  width: numberFrom(record.width ?? record.w),
-  height: numberFrom(record.height ?? record.h)
+  left: numberFrom(record2.left ?? record2.x),
+  top: numberFrom(record2.top ?? record2.y),
+  width: numberFrom(record2.width ?? record2.w),
+  height: numberFrom(record2.height ?? record2.h)
   };
 }
 function directBoxScale(box) {
   return Object.values(box).every((value) => value !== null && value <= 1) ? "fraction" : "pixels";
 }
-function normalizePointBox(record, width, height) {
-  const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record[key])).filter((point) => Boolean(point));
+function normalizePointBox(record2, width, height) {
+  const points = ["top_left", "top_right", "bottom_right", "bottom_left"].map((key) => asRecord(record2[key])).filter((point) => Boolean(point));
   if (points.length < 2) return null;
   const xs = points.map((point) => numberFrom(point?.x)).filter((item) => item !== null);
   const ys = points.map((point) => numberFrom(point?.y)).filter((item) => item !== null);
@@ -14368,11 +14349,7 @@ function bookwalkerVerticalSurface(canvas) {
 }
 function canvasReaderContentTokens(canvases) {
   const tokens = canvases.map((canvas) => {
-  try {
-    return canvasPageContentToken(canvas);
-  } catch {
-    return "";
-  }
+  return attempt(() => canvasPageContentToken(canvas), "", "canvas-readers.canvasReaderContentTokens");
   });
   return [...new Set(tokens)].filter(Boolean);
 }
@@ -14398,11 +14375,10 @@ function captureCanvasDataUrl(canvas, maxPixels) {
   }
 }
 function releaseTransientCanvas(canvas) {
-  try {
+  attemptVoid(() => {
   canvas.width = 0;
   canvas.height = 0;
-  } catch {
-  }
+  }, "canvas-readers.releaseTransientCanvas");
 }
 function captureCanvasRegionDataUrl(canvas, surfaceRect, regionRect, maxPixels) {
   try {
@@ -17071,8 +17047,8 @@ class ImageOcrController {
       this.canvasTapRecapture.delete(canvas);
       return false;
     }
-    const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
-    const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
+    const attempt2 = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
+    const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt2, READER_RASTER_RETRY_MAX_MS);
     this.scheduleReaderRasterRefresh(delay2);
     return true;
   }

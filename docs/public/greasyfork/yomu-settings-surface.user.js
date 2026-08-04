@@ -5224,6 +5224,37 @@ function readSourceProperty(source, key) {
   return void 0;
   }
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record$1(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record$1(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record$1(label, error);
+  }
+}
+function parseJson(text2, fallback, label = "parseJson") {
+  if (text2 === null || text2 === void 0 || text2 === "") return fallback;
+  try {
+  return JSON.parse(text2);
+  } catch (error) {
+  record$1(label, error);
+  return fallback;
+  }
+}
 let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 let initialWindowAddEventListener = initialWindowMethod("addEventListener");
 let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -5361,11 +5392,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -5433,11 +5460,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -5461,11 +5487,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -8278,6 +8300,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function configureLogger(options) {
   Logger.configure(options);
 }
@@ -9145,8 +9168,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -52944,11 +52967,7 @@ async function probeCustomJsonAudioSubSources(template, timeoutMs, proxyUrl) {
   return { names, reached };
 }
 function parseJsonValue(text2) {
-  try {
-  return JSON.parse(text2);
-  } catch {
-  return null;
-  }
+  return parseJson(text2, null, "candidates.parseJsonValue");
 }
 function withAudioQueryPlaceholders(template) {
   if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -53122,7 +53141,7 @@ class WanikaniClient {
   const token = this.getToken().trim();
   if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
   if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-  let attempt = 0;
+  let attempt2 = 0;
   while (true) {
     await this.throttle();
     try {
@@ -53149,8 +53168,8 @@ class WanikaniClient {
       });
     } catch (error) {
       const normalized = normalizeWanikaniError(error);
-      if (attempt === 0 && isRateLimitError(normalized)) {
-        attempt += 1;
+      if (attempt2 === 0 && isRateLimitError(normalized)) {
+        attempt2 += 1;
         await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
         continue;
       }
@@ -54141,8 +54160,8 @@ async function driveRequestText(path, options = {}) {
   return driveRequest(options, (body) => requestText(driveUrl(path), body));
 }
 async function driveRequest(options, run) {
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-  const token = await acquireAccessToken(attempt === 0);
+  for (let attempt2 = 0; attempt2 < 2; attempt2 += 1) {
+  const token = await acquireAccessToken(attempt2 === 0);
   try {
     return await run({
       method: options.method ?? "GET",
@@ -54155,7 +54174,7 @@ async function driveRequest(options, run) {
       failureLabel: "Google Drive settings sync"
     });
   } catch (error) {
-    if (attempt === 0 && isUnauthorized(error)) {
+    if (attempt2 === 0 && isUnauthorized(error)) {
       cachedToken = null;
       continue;
     }

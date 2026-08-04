@@ -77,6 +77,19 @@ function isPrivateIpv6(host) {
   }
   return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
 }
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  }
+}
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
 const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
@@ -269,8 +282,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -665,11 +678,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0);
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -737,11 +746,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  });
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -765,11 +773,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false);
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");

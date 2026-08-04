@@ -81,6 +81,28 @@ function isPrivateIpv6(host) {
   }
   return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
 const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
@@ -273,8 +295,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -669,11 +691,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -741,11 +759,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -769,11 +786,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -1026,15 +1039,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -2114,10 +2127,10 @@ const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = { ...value };
-  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-  return record;
+  const record2 = { ...value };
+  delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+  return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
   return void 0;
@@ -2476,13 +2489,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -2738,30 +2751,30 @@ function bunproDueTotal(due) {
   return (grammar ?? 0) + (vocab ?? 0);
 }
 function normalizeBunproReviewable(raw, fallbackKind = "grammar") {
-  const record = reviewableRecord(raw);
-  if (!record) return null;
-  const id = readString(record, ["id", "review_id", "reviewId", "card_id", "cardId"]) || readString(raw, ["id"]) || readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
-  const reviewableId = readString(record, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
-  const expression = readString(record, ["grammar_point", "grammarPoint", "japanese", "word", "expression", "slug", "title"]) || readString(raw, ["slug", "title"]);
+  const record2 = reviewableRecord(raw);
+  if (!record2) return null;
+  const id = readString(record2, ["id", "review_id", "reviewId", "card_id", "cardId"]) || readString(raw, ["id"]) || readString(record2, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
+  const reviewableId = readString(record2, ["reviewable_id", "reviewableId", "grammar_id", "grammarId", "vocab_id", "vocabId"]);
+  const expression = readString(record2, ["grammar_point", "grammarPoint", "japanese", "word", "expression", "slug", "title"]) || readString(raw, ["slug", "title"]);
   if (!id || !expression) return null;
   const kind = normalizeBunproKind(
-  readString(record, ["reviewable_type", "reviewableType", "type", "kind"]),
-  inferBunproKind(record, fallbackKind)
+  readString(record2, ["reviewable_type", "reviewableType", "type", "kind"]),
+  inferBunproKind(record2, fallbackKind)
   );
-  const slug = readString(record, ["slug", "grammar_point_slug", "grammarPointSlug"]);
+  const slug = readString(record2, ["slug", "grammar_point_slug", "grammarPointSlug"]);
   return {
   providerId: "bunpro",
   providerCardId: id,
-  providerReviewId: readString(record, ["review_id", "reviewId"]) || id,
+  providerReviewId: readString(record2, ["review_id", "reviewId"]) || id,
   providerReviewableId: reviewableId || void 0,
   kind,
   expression,
-  reading: readString(record, ["reading", "kana", "furigana"]) || expression,
-  meanings: normalizeBunproMeanings(record, kind),
-  state: normalizeBunproCardState(readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel", "status", "state"])),
-  srsLevel: readString(record, ["srs_stage", "srsStage", "srs_level", "srsLevel"]) || void 0,
-  dueAt: readFirstDate(record, ["next_review_at", "nextReviewAt", "due_at", "dueAt"]),
-  lastReviewAt: readFirstDate(record, ["last_reviewed_at", "lastReviewedAt", "last_review_at", "lastReviewAt"]),
+  reading: readString(record2, ["reading", "kana", "furigana"]) || expression,
+  meanings: normalizeBunproMeanings(record2, kind),
+  state: normalizeBunproCardState(readString(record2, ["srs_stage", "srsStage", "srs_level", "srsLevel", "status", "state"])),
+  srsLevel: readString(record2, ["srs_stage", "srsStage", "srs_level", "srsLevel"]) || void 0,
+  dueAt: readFirstDate(record2, ["next_review_at", "nextReviewAt", "due_at", "dueAt"]),
+  lastReviewAt: readFirstDate(record2, ["last_reviewed_at", "lastReviewedAt", "last_review_at", "lastReviewAt"]),
   sourceUrl: bunproReviewableUrl(kind, slug || reviewableId || id),
   raw
   };
@@ -2887,8 +2900,8 @@ function bunproQuizIndexReviewable(entry, reviewAttributes) {
   return {};
 }
 function exactBunproSearchReviewable(raw, expression, reading, preferredKind) {
-  const record = isNonNullObject(raw) ? raw : {};
-  const section = preferredKind === "vocabulary" ? record.vocabs : record.grammar_points;
+  const record2 = isNonNullObject(raw) ? raw : {};
+  const section = preferredKind === "vocabulary" ? record2.vocabs : record2.grammar_points;
   const hits = readArray(section, ["data"]).map((hit) => normalizeBunproReviewable(hit, preferredKind)).filter((hit) => hit !== null).filter((hit) => normalizedLookupText$1(hit.expression) === normalizedLookupText$1(expression));
   if (!hits.length) return null;
   if (reading) {
@@ -2934,9 +2947,9 @@ function normalizeBunproKind(value, fallback) {
   if (normalized.includes("sentence") || normalized.includes("question")) return "sentence";
   return fallback;
 }
-function inferBunproKind(record, fallback) {
-  if (readString(record, ["vocab_id", "vocabId", "vocabulary_id", "vocabularyId", "word"])) return "vocabulary";
-  if (readString(record, ["grammar_id", "grammarId", "grammar_point", "grammarPoint"])) return "grammar";
+function inferBunproKind(record2, fallback) {
+  if (readString(record2, ["vocab_id", "vocabId", "vocabulary_id", "vocabularyId", "word"])) return "vocabulary";
+  if (readString(record2, ["grammar_id", "grammarId", "grammar_point", "grammarPoint"])) return "grammar";
   return fallback;
 }
 function normalizeBunproCardState(value) {
@@ -2949,15 +2962,15 @@ function normalizeBunproCardState(value) {
   if (normalized.includes("seasoned") || normalized.includes("expert") || normalized.includes("adept")) return ["learning"];
   return ["in-deck"];
 }
-function normalizeBunproMeanings(record, kind) {
-  const glosses = readStringList(record, ["meaning", "meanings", "english", "translation", "translations", "definition"]).filter(Boolean);
+function normalizeBunproMeanings(record2, kind) {
+  const glosses = readStringList(record2, ["meaning", "meanings", "english", "translation", "translations", "definition"]).filter(Boolean);
   return glosses.length ? [{ glosses, partOfSpeech: kind === "grammar" ? ["grammar"] : [] }] : [];
 }
 function normalizeLevelCounts(raw) {
-  const record = objectAt(raw, "srs_level_counts") ?? objectAt(raw, "srsLevelCounts") ?? objectAt(raw, "level_counts") ?? objectAt(raw, "levelCounts");
-  if (!record) return void 0;
+  const record2 = objectAt(raw, "srs_level_counts") ?? objectAt(raw, "srsLevelCounts") ?? objectAt(raw, "level_counts") ?? objectAt(raw, "levelCounts");
+  if (!record2) return void 0;
   const counts = {};
-  for (const [key, value] of Object.entries(record)) {
+  for (const [key, value] of Object.entries(record2)) {
   const number = Number(value);
   if (Number.isFinite(number)) counts[key] = number;
   }
@@ -2978,60 +2991,60 @@ function readFirstDate(value, keys) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 function readFirstNumber(value, keys) {
-  const record = isNonNullObject(value) ? value : null;
-  if (!record) return void 0;
+  const record2 = isNonNullObject(value) ? value : null;
+  if (!record2) return void 0;
   for (const key of keys) {
-  const number = Number(record[key]);
+  const number = Number(record2[key]);
   if (Number.isFinite(number)) return number;
   }
-  const data = record.data;
+  const data = record2.data;
   if (isNonNullObject(data) && !Array.isArray(data)) return readFirstNumber(data, keys);
-  const attributes = objectAt(record, "attributes");
+  const attributes = objectAt(record2, "attributes");
   return attributes ? readFirstNumber(attributes, keys) : void 0;
 }
 function readBoolean(value, keys) {
-  const record = isNonNullObject(value) ? value : null;
-  if (!record) return false;
+  const record2 = isNonNullObject(value) ? value : null;
+  if (!record2) return false;
   for (const key of keys) {
-  const raw = record[key];
+  const raw = record2[key];
   if (typeof raw === "boolean") return raw;
   if (raw === 1 || raw === "1" || raw === "true") return true;
   }
-  const data = record.data;
+  const data = record2.data;
   if (isNonNullObject(data) && !Array.isArray(data)) return readBoolean(data, keys);
-  const attributes = objectAt(record, "attributes");
+  const attributes = objectAt(record2, "attributes");
   return attributes ? readBoolean(attributes, keys) : false;
 }
 function readString(value, keys) {
-  const record = isNonNullObject(value) ? value : null;
-  if (!record) return "";
+  const record2 = isNonNullObject(value) ? value : null;
+  if (!record2) return "";
   for (const key of keys) {
-  const raw = record[key];
+  const raw = record2[key];
   if (typeof raw === "string" && raw.trim()) return raw.trim();
   if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
   }
-  const data = record.data;
+  const data = record2.data;
   if (isNonNullObject(data) && !Array.isArray(data)) return readString(data, keys);
   return "";
 }
 function readStringList(value, keys) {
-  const record = isNonNullObject(value) ? value : null;
-  if (!record) return [];
+  const record2 = isNonNullObject(value) ? value : null;
+  if (!record2) return [];
   for (const key of keys) {
-  const raw = record[key];
+  const raw = record2[key];
   if (typeof raw === "string" && raw.trim()) return [raw.trim()];
   if (Array.isArray(raw)) return raw.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean);
   }
   return [];
 }
 function readArray(value, keys) {
-  const record = isNonNullObject(value) ? value : null;
-  if (!record) return [];
+  const record2 = isNonNullObject(value) ? value : null;
+  if (!record2) return [];
   for (const key of keys) {
-  const raw = record[key];
+  const raw = record2[key];
   if (Array.isArray(raw)) return raw;
   }
-  const data = record.data;
+  const data = record2.data;
   if (isNonNullObject(data) && !Array.isArray(data)) return readArray(data, keys);
   return [];
 }
@@ -7071,6 +7084,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -7119,8 +7133,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -12152,9 +12166,9 @@ function bunproJmdictRelatedWords(raw, info) {
   const seen = /* @__PURE__ */ new Set([info.expression, info.reading]);
   const related = [];
   for (const sense of senses) {
-  const record = objectRecord(sense);
+  const record2 = objectRecord(sense);
   for (const relation of ["related", "antonym"]) {
-    for (const reference of Array.isArray(record?.[relation]) ? record[relation] : []) {
+    for (const reference of Array.isArray(record2?.[relation]) ? record2[relation] : []) {
       const text = textValue(Array.isArray(reference) ? reference[0] : reference);
       if (!text || seen.has(text)) continue;
       seen.add(text);
@@ -12168,11 +12182,11 @@ function bunproStructureLines(value) {
   return value.split(/<br\s*\/?\s*>|\n/gi).map((line) => stripBunproFurigana(stripBunproMarkup(line)).trim()).filter(Boolean).slice(0, 12);
 }
 function bunproRelatedGrammarPoint(raw) {
-  const record = objectRecord(raw);
-  const id = numberValue(record?.id);
-  const title = textValue(record?.title);
+  const record2 = objectRecord(raw);
+  const id = numberValue(record2?.id);
+  const title = textValue(record2?.title);
   if (!id || !title) return null;
-  return { id, title, slug: textValue(record?.slug) || title };
+  return { id, title, slug: textValue(record2?.slug) || title };
 }
 function uniqueRelatedGrammar(entries2) {
   const seen = /* @__PURE__ */ new Set();
@@ -12201,9 +12215,9 @@ function applyBunproExampleCollection(info, collection) {
   info.examplesUnavailableReason = collection.availability === "unavailable" ? collection.reason : "";
 }
 function bunproExampleSentence(value, sourceUrl) {
-  const record = objectRecord(value);
-  if (textValue(record?.type) !== "study_question") return null;
-  const attributes = objectRecord(record?.attributes);
+  const record2 = objectRecord(value);
+  if (textValue(record2?.type) !== "study_question") return null;
+  const attributes = objectRecord(record2?.attributes);
   if (!attributes) return null;
   const answer = textValue(attributes.kanji_answer) || textValue(attributes.answer);
   const content = fillBunproClozeContent(textValue(attributes.content), answer);
@@ -12211,7 +12225,7 @@ function bunproExampleSentence(value, sourceUrl) {
   const text = stripBunproFurigana(parts.map((part) => part.text).join("")).trim();
   if (!text || !/[぀-ヿ㐀-鿿]/u.test(text)) return null;
   return {
-  id: textValue(record?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
+  id: textValue(record2?.id) || textValue(attributes.id) || `example-${Number(attributes.sentence_order) || 0}`,
   parts,
   text,
   translation: stripBunproMarkup(textValue(attributes.translation)),
@@ -12478,10 +12492,10 @@ function bunproAnnotatedKana(value) {
   return rendered === value.trim() ? "" : rendered;
 }
 function definitionInfo(value, kind) {
-  const record = objectRecord(value);
-  const attributes = objectRecord(record?.attributes) ?? record;
+  const record2 = objectRecord(value);
+  const attributes = objectRecord(record2?.attributes) ?? record2;
   if (!attributes) return null;
-  const id = numberValue(attributes.id ?? record?.id);
+  const id = numberValue(attributes.id ?? record2?.id);
   const expression = textValue(attributes.title ?? attributes.grammar_point ?? attributes.word);
   if (!id || !expression) return null;
   const reading = textValue(attributes.kana ?? attributes.furigana ?? attributes.reading) || expression;

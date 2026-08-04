@@ -116,6 +116,28 @@ function isPrivateIpv6(host) {
   }
   return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
 const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
@@ -308,8 +330,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -704,11 +726,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -776,11 +794,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -804,11 +821,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -1061,15 +1074,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -5546,10 +5559,10 @@ const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = { ...value };
-  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-  return record;
+  const record2 = { ...value };
+  delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+  return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
   return void 0;
@@ -5908,13 +5921,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -6039,6 +6052,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -6087,8 +6101,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -11850,20 +11864,20 @@ function primitiveGlossaryText(value) {
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   return void 0;
 }
-function glossaryRecordToText(record, options) {
-  if (typeof record.text === "string") return record.text;
-  if ("content" in record) return glossaryValueToProfileText(record.content, options);
-  const values = glossaryRecordTextValues(record, options);
+function glossaryRecordToText(record2, options) {
+  if (typeof record2.text === "string") return record2.text;
+  if ("content" in record2) return glossaryValueToProfileText(record2.content, options);
+  const values = glossaryRecordTextValues(record2, options);
   if (values.length) return values.join(" ");
-  if ("path" in record) return glossaryPathRecordText(record);
+  if ("path" in record2) return glossaryPathRecordText(record2);
   return "";
 }
-function glossaryPathRecordText(record) {
-  return String(record.description || record.alt || "");
+function glossaryPathRecordText(record2) {
+  return String(record2.description || record2.alt || "");
 }
-function glossaryRecordTextValues(record, options) {
+function glossaryRecordTextValues(record2, options) {
   const values = [];
-  for (const [key, childValue] of Object.entries(record)) {
+  for (const [key, childValue] of Object.entries(record2)) {
   if (!shouldReadRecordTextKey(key, options)) continue;
   const childText = glossaryValueToProfileText(childValue, options);
   if (childText) values.push(childText);
@@ -11945,8 +11959,8 @@ function isStructuredPrimitive(value) {
 function renderGlossaryArray(value, context) {
   return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
 }
-function renderGlossaryRecord(record, context) {
-  return renderDirectGlossaryRecord(record, context) ?? renderTaggedGlossaryRecord(record, context);
+function renderGlossaryRecord(record2, context) {
+  return renderDirectGlossaryRecord(record2, context) ?? renderTaggedGlossaryRecord(record2, context);
 }
 const DIRECT_GLOSSARY_RECORD_RENDERERS = [
   renderTextGlossaryRecord,
@@ -11954,72 +11968,72 @@ const DIRECT_GLOSSARY_RECORD_RENDERERS = [
   renderImageGlossaryRecord,
   renderTextContentGlossaryRecord
 ];
-function renderDirectGlossaryRecord(record, context) {
+function renderDirectGlossaryRecord(record2, context) {
   for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
-  const html = render(record, context);
+  const html = render(record2, context);
   if (html !== null) return html;
   }
   return null;
 }
-function renderTextGlossaryRecord(record) {
-  return typeof record.text === "string" ? escapeHtml(record.text) : null;
+function renderTextGlossaryRecord(record2) {
+  return typeof record2.text === "string" ? escapeHtml(record2.text) : null;
 }
-function renderStructuredContentGlossaryRecord(record, context) {
-  return record.type === "structured-content" ? renderStructuredContent(record, context) : null;
+function renderStructuredContentGlossaryRecord(record2, context) {
+  return record2.type === "structured-content" ? renderStructuredContent(record2, context) : null;
 }
-function renderImageGlossaryRecord(record, context) {
-  return isStructuredImageRecord(record) ? renderStructuredImage(record, context.dictionary) : null;
+function renderImageGlossaryRecord(record2, context) {
+  return isStructuredImageRecord(record2) ? renderStructuredImage(record2, context.dictionary) : null;
 }
-function renderTextContentGlossaryRecord(record, context) {
-  return record.type === "text" && "content" in record ? renderGlossaryValue(record.content, context) : null;
+function renderTextContentGlossaryRecord(record2, context) {
+  return record2.type === "text" && "content" in record2 ? renderGlossaryValue(record2.content, context) : null;
 }
-function renderStructuredContent(record, context) {
+function renderStructuredContent(record2, context) {
   const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
-  return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, context)}</span>`;
+  return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record2.content, context)}</span>`;
 }
-function renderTaggedGlossaryRecord(record, context) {
-  const tag = structuredRecordTag(record);
-  if (!tag) return renderRecordValues(record, context);
-  return renderKnownTaggedGlossaryRecord(record, tag, context) ?? structuredFallbackContent(record, taggedRecordContent(record, tag, context));
+function renderTaggedGlossaryRecord(record2, context) {
+  const tag = structuredRecordTag(record2);
+  if (!tag) return renderRecordValues(record2, context);
+  return renderKnownTaggedGlossaryRecord(record2, tag, context) ?? structuredFallbackContent(record2, taggedRecordContent(record2, tag, context));
 }
-function renderKnownTaggedGlossaryRecord(record, tag, context) {
-  if (tag === "a") return renderStructuredLink(record, context);
-  if (tag === "img") return renderStructuredImage(record, context.dictionary);
-  const content = taggedRecordContent(record, tag, context);
-  if (tag === "table") return renderStructuredTable(record, content, context.dictionary);
-  if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record, tag, content, context.dictionary);
+function renderKnownTaggedGlossaryRecord(record2, tag, context) {
+  if (tag === "a") return renderStructuredLink(record2, context);
+  if (tag === "img") return renderStructuredImage(record2, context.dictionary);
+  const content = taggedRecordContent(record2, tag, context);
+  if (tag === "table") return renderStructuredTable(record2, content, context.dictionary);
+  if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record2, tag, content, context.dictionary);
   return null;
 }
-function taggedRecordContent(record, tag, context) {
-  return tag === "br" ? "" : renderGlossaryValue(record.content, context);
+function taggedRecordContent(record2, tag, context) {
+  return tag === "br" ? "" : renderGlossaryValue(record2.content, context);
 }
-function structuredFallbackContent(record, content) {
-  return content || escapeHtml(glossaryValueToText(record));
+function structuredFallbackContent(record2, content) {
+  return content || escapeHtml(glossaryValueToText(record2));
 }
-function structuredRecordTag(record) {
-  if (typeof record.tag === "string") return record.tag.toLowerCase();
-  return "content" in record ? "span" : "";
+function structuredRecordTag(record2) {
+  if (typeof record2.tag === "string") return record2.tag.toLowerCase();
+  return "content" in record2 ? "span" : "";
 }
-function renderRecordValues(record, context) {
-  return Object.values(record).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+function renderRecordValues(record2, context) {
+  return Object.values(record2).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
 }
-function renderStructuredTable(record, content, dictionary) {
-  return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record, "table", dictionary)}>${content}</table></div>`;
+function renderStructuredTable(record2, content, dictionary) {
+  return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record2, "table", dictionary)}>${content}</table></div>`;
 }
-function renderStructuredElement(record, tag, content, dictionary) {
-  const attrs = renderStructuredElementAttributes(record, tag, dictionary);
+function renderStructuredElement(record2, tag, content, dictionary) {
+  const attrs = renderStructuredElementAttributes(record2, tag, dictionary);
   return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
 }
-function renderStructuredElementAttributes(record, tag, dictionary) {
+function renderStructuredElementAttributes(record2, tag, dictionary) {
   return [
   ` class="gloss-sc-${escapeHtml(tag)}"`,
   dictionaryDataAttribute(dictionary),
-  renderStructuredDataAttributes(record.data),
-  renderDirectDataAttributes(record),
-  structuredStyleAttribute(record.style),
-  structuredStringAttribute("title", record.title),
-  structuredStringAttribute("lang", record.lang),
-  ...structuredStateAttributes(record, tag)
+  renderStructuredDataAttributes(record2.data),
+  renderDirectDataAttributes(record2),
+  structuredStyleAttribute(record2.style),
+  structuredStringAttribute("title", record2.title),
+  structuredStringAttribute("lang", record2.lang),
+  ...structuredStateAttributes(record2, tag)
   ].filter(Boolean).join("");
 }
 function dictionaryDataAttribute(dictionary) {
@@ -12032,15 +12046,15 @@ function structuredStyleAttribute(value) {
 function structuredStringAttribute(name, value) {
   return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
 }
-function structuredStateAttributes(record, tag) {
+function structuredStateAttributes(record2, tag) {
   return [
-  tag === "details" && record.open === true ? " open" : "",
-  tableCellSpanAttribute(record, tag, "colSpan", "colspan"),
-  tableCellSpanAttribute(record, tag, "rowSpan", "rowspan")
+  tag === "details" && record2.open === true ? " open" : "",
+  tableCellSpanAttribute(record2, tag, "colSpan", "colspan"),
+  tableCellSpanAttribute(record2, tag, "rowSpan", "rowspan")
   ];
 }
-function tableCellSpanAttribute(record, tag, key, attr) {
-  const value = Number(record[key]);
+function tableCellSpanAttribute(record2, tag, key, attr) {
+  const value = Number(record2[key]);
   return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
 }
 function isTableCellTag(tag) {
@@ -12056,8 +12070,8 @@ function renderStructuredDataAttribute(key, rawValue) {
 function isStructuredAttributeValue(value) {
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
 }
-function renderDirectDataAttributes(record) {
-  return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
+function renderDirectDataAttributes(record2) {
+  return Object.entries(record2).map(renderDirectDataAttribute).filter(Boolean).join("");
 }
 function renderDirectDataAttribute([key, value]) {
   return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
@@ -12090,14 +12104,14 @@ function structuredStyleDeclaration(key, property, rawValue) {
   if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
   return "";
 }
-function renderStructuredLink(record, context) {
-  const content = renderGlossaryValue(record.content, context) || escapeHtml(glossaryValueToText(record));
-  const link = structuredLinkModel(record, context);
+function renderStructuredLink(record2, context) {
+  const content = renderGlossaryValue(record2.content, context) || escapeHtml(glossaryValueToText(record2));
+  const link = structuredLinkModel(record2, context);
   const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
-  return `<a${structuredLinkAttrs(link, context.dictionary, record.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
+  return `<a${structuredLinkAttrs(link, context.dictionary, record2.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
 }
-function structuredLinkModel(record, context) {
-  const rawHref = typeof record.href === "string" ? record.href : "";
+function structuredLinkModel(record2, context) {
+  const rawHref = typeof record2.href === "string" ? record2.href : "";
   const searchReference = structuredLinkSearchReference(rawHref, context);
   const kanjiReference = structuredLinkKanjiReference(rawHref, context);
   const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
@@ -12156,35 +12170,35 @@ function externalLinkAttributes(external) {
 function langAttribute(lang) {
   return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
 }
-function renderStructuredImage(record, dictionary) {
-  const path = typeof record.path === "string" ? record.path : "";
-  const title = typeof record.title === "string" ? record.title : "";
-  const description = structuredImageDescription(record);
+function renderStructuredImage(record2, dictionary) {
+  const path = typeof record2.path === "string" ? record2.path : "";
+  const title = typeof record2.title === "string" ? record2.title : "";
+  const description = structuredImageDescription(record2);
   const src = structuredImageSrc(path);
   const alt = escapeHtml(description || title || "Dictionary image");
   const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
-  return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
+  return `<span${renderStructuredImageAttributes(record2, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
 }
-function renderStructuredImageAttributes(record, dictionary) {
+function renderStructuredImageAttributes(record2, dictionary) {
   return [
   ` class="gloss-image-link"`,
   dictionaryAttribute(dictionary),
-  structuredImageStateAttribute(record)
+  structuredImageStateAttribute(record2)
   ].join("");
 }
-function structuredImageStateAttribute(record) {
-  const path = typeof record.path === "string" ? record.path : "";
+function structuredImageStateAttribute(record2) {
+  const path = typeof record2.path === "string" ? record2.path : "";
   return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
 }
 function structuredImageSrc(path) {
   return /^data:image\//i.test(path) ? path : "";
 }
-function structuredImageDescription(record) {
-  if (typeof record.description === "string") return record.description;
-  return typeof record.alt === "string" ? record.alt : "";
+function structuredImageDescription(record2) {
+  if (typeof record2.description === "string") return record2.description;
+  return typeof record2.alt === "string" ? record2.alt : "";
 }
-function isStructuredImageRecord(record) {
-  return record.type === "image" || "path" in record;
+function isStructuredImageRecord(record2) {
+  return record2.type === "image" || "path" in record2;
 }
 function normalizeStructuredHref(href) {
   if (!href) return "";
@@ -12247,7 +12261,7 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
   const transactionStores = [.../* @__PURE__ */ new Set([
   options.markerStoreName,
   ...options.clearedStoreNames,
-  ...(options.deletedRecords ?? []).map((record) => record.storeName)
+  ...(options.deletedRecords ?? []).map((record2) => record2.storeName)
   ])];
   let reconciliationError;
   await new Promise((resolve, reject) => {
@@ -12255,13 +12269,13 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
   const markerStore = tx.objectStore(options.markerStoreName);
   const request = markerStore.get(options.markerKey);
   request.onsuccess = () => {
-    const record = request.result;
-    const markerMissing = record === void 0;
-    if (!markerMissing && (!record || typeof record !== "object" || Array.isArray(record) || typeof record.token !== "string")) {
+    const record2 = request.result;
+    const markerMissing = record2 === void 0;
+    if (!markerMissing && (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string")) {
       reconciliationError = managedStateIdbEpochError(options.label, "malformed");
       return;
     }
-    const storedToken = markerMissing ? void 0 : record.token;
+    const storedToken = markerMissing ? void 0 : record2.token;
     if (storedToken === token) return;
     if (storedToken !== void 0) {
       const relation = managedStateEpochTokenRelation(storedToken, epoch);
@@ -12272,7 +12286,7 @@ async function reconcileManagedStateIdbEpoch(db, epoch, options) {
     }
     if (storedToken !== void 0) {
       for (const storeName of options.clearedStoreNames) tx.objectStore(storeName).clear();
-      for (const record2 of options.deletedRecords ?? []) tx.objectStore(record2.storeName).delete(record2.key);
+      for (const record22 of options.deletedRecords ?? []) tx.objectStore(record22.storeName).delete(record22.key);
     }
     markerStore.put({ [options.markerKeyPath]: options.markerKey, token });
   };
@@ -12334,11 +12348,11 @@ function managedStateIdbEpochError(label, relation) {
   if (relation === "conflict") return new Error(`${label} has a conflicting managed-state epoch.`);
   return new Error(`${label} has a malformed managed-state epoch.`);
 }
-function assertManagedStateIdbMarker(record, epoch) {
-  if (!record || typeof record !== "object" || Array.isArray(record) || typeof record.token !== "string") {
+function assertManagedStateIdbMarker(record2, epoch) {
+  if (!record2 || typeof record2 !== "object" || Array.isArray(record2) || typeof record2.token !== "string") {
   throw new Error("Managed IndexedDB epoch marker is missing or malformed.");
   }
-  const storedToken = record.token;
+  const storedToken = record2.token;
   if (storedToken !== managedStateEpochToken(epoch)) {
   throw new Error(`Managed IndexedDB epoch marker is stale (${storedToken}).`);
   }
@@ -12354,14 +12368,14 @@ function formatMetaFrequency(value) {
 function metaFrequencyDisplayValue(value) {
   const primitive = primitiveMetaValue(value);
   if (primitive !== null) return primitive;
-  const record = objectRecord(value);
-  return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+  const record2 = objectRecord(value);
+  return record2 ? scalarMetaValue(nestedMetaValue(record2)) : null;
 }
 function scalarMetaValue(value) {
   const primitive = primitiveMetaValue(value);
   if (primitive !== null) return primitive;
-  const record = objectRecord(value);
-  return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+  const record2 = objectRecord(value);
+  return record2 ? scalarMetaValue(nestedMetaValue(record2)) : null;
 }
 function primitiveMetaValue(value) {
   return typeof value === "number" || typeof value === "string" ? String(value) : null;
@@ -12369,8 +12383,8 @@ function primitiveMetaValue(value) {
 function objectRecord(value) {
   return value && typeof value === "object" ? value : null;
 }
-function nestedMetaValue(record) {
-  return record.displayValue ?? record.frequency ?? record.value;
+function nestedMetaValue(record2) {
+  return record2.displayValue ?? record2.frequency ?? record2.value;
 }
 function groupTermEntriesByDictionary(entries2) {
   const grouped = /* @__PURE__ */ new Map();
@@ -12580,17 +12594,17 @@ function safeGlossaryHtml(value, dictionary) {
   return html || escapeHtml$1(glossaryToText(value));
 }
 function formatMetaPitch(value) {
-  const record = metaRecord(value);
-  if (!record) return "";
-  const positions = metaPitchPositions(record);
-  return positions.length ? formatPitchPositions(positions) : formatPitchPosition(record.position);
+  const record2 = metaRecord(value);
+  if (!record2) return "";
+  const positions = metaPitchPositions(record2);
+  return positions.length ? formatPitchPositions(positions) : formatPitchPosition(record2.position);
 }
 function metaRecord(value) {
   return value && typeof value === "object" ? value : null;
 }
-function metaPitchPositions(record) {
-  if (Array.isArray(record.pitches)) return record.pitches;
-  return Array.isArray(record.positions) ? record.positions : [];
+function metaPitchPositions(record2) {
+  if (Array.isArray(record2.pitches)) return record2.pitches;
+  return Array.isArray(record2.positions) ? record2.positions : [];
 }
 function formatPitchPositions(positions) {
   return positions.slice(0, 4).map(String).join(", ");
@@ -12979,11 +12993,11 @@ async function loadAnkiStatusIndexEntriesFromIndexedDb(keys) {
   for (const chunk of chunkArray(unique(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
     const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
     const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record) => [key, record])));
+    const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record2) => [key, record2])));
     await idbTransactionDone(tx);
     records.push(...chunkRecords);
   }
-  return new Map(records.filter((record) => Boolean(record[1])).map(([key, record]) => [key, record.entry]));
+  return new Map(records.filter((record2) => Boolean(record2[1])).map(([key, record2]) => [key, record2.entry]));
   } finally {
   db.close();
   }
@@ -15339,19 +15353,19 @@ function findAudioUrlsInString(value, sourceUrl) {
   if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
   return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi)).map((match) => match[0]).filter(isLikelyAudioUrl).map((url) => normalizeAudioUrl(url, sourceUrl)));
 }
-function findAudioUrlsInRecord(record, sourceUrl) {
-  const known = uniqueAudioUrls([...preferredAudioRecordUrls(record, sourceUrl), ...directAudioRecordUrls(record, sourceUrl)]);
-  return known.length ? known : nestedAudioRecordUrls(record, sourceUrl);
+function findAudioUrlsInRecord(record2, sourceUrl) {
+  const known = uniqueAudioUrls([...preferredAudioRecordUrls(record2, sourceUrl), ...directAudioRecordUrls(record2, sourceUrl)]);
+  return known.length ? known : nestedAudioRecordUrls(record2, sourceUrl);
 }
-function preferredAudioRecordUrls(record, sourceUrl) {
-  return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record[key], sourceUrl));
+function preferredAudioRecordUrls(record2, sourceUrl) {
+  return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record2[key], sourceUrl));
 }
-function directAudioRecordUrls(record, sourceUrl) {
-  return typeof record.url === "string" && isLikelyAudioRecord(record) ? findAudioUrls(record.url, sourceUrl) : [];
+function directAudioRecordUrls(record2, sourceUrl) {
+  return typeof record2.url === "string" && isLikelyAudioRecord(record2) ? findAudioUrls(record2.url, sourceUrl) : [];
 }
-function nestedAudioRecordUrls(record, sourceUrl) {
+function nestedAudioRecordUrls(record2, sourceUrl) {
   const knownKeys = /* @__PURE__ */ new Set(["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"]);
-  return uniqueAudioUrls(Object.entries(record).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
+  return uniqueAudioUrls(Object.entries(record2).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
 }
 async function isUnavailableJapanesePod101Audio(blob) {
   if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
@@ -15439,9 +15453,9 @@ function customJsonAudioCandidates(payload, source, sourceUrl) {
 }
 function namedAudioSubSources(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const record = value;
+  const record2 = value;
   const entries2 = [];
-  for (const list of [record.audioSources, record.sources]) {
+  for (const list of [record2.audioSources, record2.sources]) {
   if (!Array.isArray(list)) continue;
   for (const item of list) {
     const entry = namedAudioSubSource(item);
@@ -15452,10 +15466,10 @@ function namedAudioSubSources(value) {
 }
 function namedAudioSubSource(value) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  if (typeof record.name !== "string" || !record.name.trim()) return null;
-  if (typeof record.url !== "string" || !record.url.trim()) return null;
-  return { name: record.name.trim(), url: record.url };
+  const record2 = value;
+  if (typeof record2.name !== "string" || !record2.name.trim()) return null;
+  if (typeof record2.url !== "string" || !record2.url.trim()) return null;
+  return { name: record2.name.trim(), url: record2.url };
 }
 const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
 function recordAudioSubSourceNames(url, names) {
@@ -15555,15 +15569,15 @@ function jitenVocabularySearchResults(response) {
 }
 function normalizeJitenAudioReferenceSearchResult(value) {
   if (!value || typeof value !== "object") return null;
-  const record = value;
-  const wordId = finitePositiveInteger(record.wordId);
-  const readingIndex = finiteNonNegativeInteger(record.readingIndex);
+  const record2 = value;
+  const wordId = finitePositiveInteger(record2.wordId);
+  const readingIndex = finiteNonNegativeInteger(record2.readingIndex);
   if (wordId === void 0 || readingIndex === void 0) return null;
   return {
   wordId,
   readingIndex,
-  text: typeof record.text === "string" ? record.text.trim() : "",
-  reading: cleanJitenRubyText(typeof record.rubyText === "string" ? record.rubyText : "").trim()
+  text: typeof record2.text === "string" ? record2.text.trim() : "",
+  reading: cleanJitenRubyText(typeof record2.rubyText === "string" ? record2.rubyText : "").trim()
   };
 }
 function bestJitenAudioReference(card, results) {
@@ -15649,11 +15663,7 @@ function isJpdbAliasLookup(card, sourceUrl) {
   return [card.spelling, card.reading].some((value) => cleanJpdbIdentityText(value) === normalizedQuery);
 }
 function jpdbSearchQuery(value) {
-  try {
-  return new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "";
-  } catch {
-  return "";
-  }
+  return attempt(() => new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "", "", "candidates.jpdbSearchQuery");
 }
 function jpdbVocabularyBlockMatchesCard(html, card) {
   return jpdbVocabularyIdentities(html).some((identity) => jpdbVocabularyIdentityMatches(identity, card));
@@ -15960,11 +15970,7 @@ function extractAudioSourceUrls(html, baseUrl) {
   return uniqueAudioUrls(urls);
 }
 function resolveAudioSourceUrl(src, baseUrl) {
-  try {
-  return new URL(src, baseUrl).href;
-  } catch {
-  return "";
-  }
+  return attempt(() => new URL(src, baseUrl).href, "", "candidates.resolveAudioSourceUrl");
 }
 function getHtmlAttribute(attributes, name) {
   const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
@@ -16006,11 +16012,11 @@ function isLoopbackAudioHost(hostname) {
 function normalizeAudioUrlSlashes(value) {
   return value.replace(/\\/g, "/");
 }
-function isLikelyAudioRecord(record) {
-  return typeof record.url === "string" && audioRecordHasPlayableSignal(record);
+function isLikelyAudioRecord(record2) {
+  return typeof record2.url === "string" && audioRecordHasPlayableSignal(record2);
 }
-function audioRecordHasPlayableSignal(record) {
-  return isLikelyAudioUrl(String(record.url)) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string";
+function audioRecordHasPlayableSignal(record2) {
+  return isLikelyAudioUrl(String(record2.url)) || ["audio", "audioSource"].includes(String(record2.type ?? "")) || typeof record2.name === "string";
 }
 function isLikelyAudioUrl(value) {
   if (value.startsWith("data:audio/")) return true;

@@ -1545,6 +1545,37 @@
     }
     return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
   }
+  let recorder = () => void 0;
+  function setAttemptRecorder(next) {
+    recorder = next;
+  }
+  function record$1(label, error) {
+    recorder(label, error);
+  }
+  function attempt(fn, fallback, label) {
+    try {
+      return fn();
+    } catch (error) {
+      record$1(label, error);
+      return fallback;
+    }
+  }
+  function attemptVoid(fn, label) {
+    try {
+      fn();
+    } catch (error) {
+      record$1(label, error);
+    }
+  }
+  function parseJson$1(text2, fallback, label = "parseJson") {
+    if (text2 === null || text2 === void 0 || text2 === "") return fallback;
+    try {
+      return JSON.parse(text2);
+    } catch (error) {
+      record$1(label, error);
+      return fallback;
+    }
+  }
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
   const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
@@ -1672,11 +1703,7 @@
   }
   function isCrossOriginJpdbApiPage() {
     if (typeof location === "undefined") return false;
-    try {
-      return new URL(location.href).origin !== "https://jpdb.io";
-    } catch {
-      return false;
-    }
+    return attempt(() => new URL(location.href).origin !== "https://jpdb.io", false, "proxy-fetch-rules.isCrossOriginJpdbApiPage");
   }
   function isHostedGithubPagesApp() {
     if (typeof location === "undefined") return false;
@@ -1760,8 +1787,8 @@
     for (const [index, candidate] of candidates.entries()) {
       if (options.signal?.aborted) throw abortReasonFor(options.signal);
       try {
-        const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-        const response = await fetchWithTimeout$3(attempt.url, attempt.options);
+        const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+        const response = await fetchWithTimeout$3(attempt2.url, attempt2.options);
         if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
           lastError = new Error(`Proxy request failed (${response.status}).`);
           continue;
@@ -2227,11 +2254,7 @@
   }
   function readProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
+    return attempt(() => source[key], void 0, "window-events.readProperty");
   }
   function callEventTargetMethod(method, target, event) {
     if (!method) return { called: false };
@@ -2299,11 +2322,10 @@
     }
   }
   function restoreWindowProperty(key, descriptor) {
-    try {
+    attemptVoid(() => {
       const target = window.wrappedJSObject || window;
       Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-    } catch {
-    }
+    }, "window-events.restoreWindowProperty");
   }
   function pageCompartmentDescriptor(descriptor, _target) {
     return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -2311,11 +2333,7 @@
   function pageCompartmentDescriptorOrNull(descriptor) {
     const cloneInto = readMethod(globalThis, "cloneInto");
     if (!cloneInto || typeof window === "undefined") return descriptor;
-    try {
-      return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
-    } catch {
-      return null;
-    }
+    return attempt(() => cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }), null, "window-events.pageCompartmentDescriptorOrNull");
   }
   function pageCompartmentValue(value, options = {}) {
     const cloneInto = readMethod(globalThis, "cloneInto");
@@ -2336,11 +2354,7 @@
   }
   function shouldTemporarilyUnshadowWindowProperty(descriptor) {
     if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
+    return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
   }
   function normalizedPropertyDescriptor(descriptor) {
     const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -9201,6 +9215,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
   }
   const Logger = new LoggerImpl();
+  setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
   function configureLogger(options) {
     Logger.configure(options);
   }
@@ -32365,11 +32380,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return { names, reached };
   }
   function parseJsonValue(text2) {
-    try {
-      return JSON.parse(text2);
-    } catch {
-      return null;
-    }
+    return parseJson$1(text2, null, "candidates.parseJsonValue");
   }
   function withAudioQueryPlaceholders(template) {
     if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
@@ -32547,11 +32558,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return [card.spelling, card.reading].some((value) => cleanJpdbIdentityText(value) === normalizedQuery);
   }
   function jpdbSearchQuery(value) {
-    try {
-      return new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "";
-    } catch {
-      return "";
-    }
+    return attempt(() => new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "", "", "candidates.jpdbSearchQuery");
   }
   function jpdbVocabularyBlockMatchesCard(html, card) {
     return jpdbVocabularyIdentities$1(html).some((identity) => jpdbVocabularyIdentityMatches$1(identity, card));
@@ -32858,11 +32865,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return uniqueAudioUrls(urls);
   }
   function resolveAudioSourceUrl(src, baseUrl) {
-    try {
-      return new URL(src, baseUrl).href;
-    } catch {
-      return "";
-    }
+    return attempt(() => new URL(src, baseUrl).href, "", "candidates.resolveAudioSourceUrl");
   }
   function getHtmlAttribute(attributes, name) {
     const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
@@ -32956,11 +32959,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     appendAudioPreconnectLinks(origin);
   }
   function audioPreconnectOrigin(value) {
-    try {
-      return new URL(value, location.href).origin;
-    } catch {
-      return null;
-    }
+    return attempt(() => new URL(value, location.href).origin, null, "candidates.audioPreconnectOrigin");
   }
   function appendAudioPreconnectLinks(origin) {
     for (const rel of AUDIO_PRECONNECT_RELS) appendAudioPreconnectLink(origin, rel);
@@ -38874,16 +38873,16 @@ ${key}`] = { t: now, v: value };
     async postJsonWithReadRetry(url, token, body, endpoint) {
       const maxAttempts = isRetryableApiReadEndpoint(url) ? RETRYABLE_READ_ATTEMPTS : 1;
       let lastError;
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      for (let attempt2 = 1; attempt2 <= maxAttempts; attempt2 += 1) {
         try {
           return await postJson(url, token, body, this.getProxyUrl());
         } catch (error) {
           lastError = error;
-          if (attempt >= maxAttempts || !isJpdbConnectionFailure(error)) {
+          if (attempt2 >= maxAttempts || !isJpdbConnectionFailure(error)) {
             if (isJpdbConnectionFailure(error)) this.backOffAfterConnectionFailure(endpoint, error);
             throw normalizeJpdbTransportError(error);
           }
-          log$z.warn("JPDB read request failed; retrying", { endpoint, attempt, maxAttempts }, error);
+          log$z.warn("JPDB read request failed; retrying", { endpoint, attempt: attempt2, maxAttempts }, error);
           await delay(retryableReadDelayMs());
         }
       }
@@ -41002,7 +41001,7 @@ ${normalizedReading}`;
   async function fetchKanjiMapInfo(kanji) {
     const done = log$v.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
-    const raw = parseJson$1(await requestText$4(sourceUrl));
+    const raw = parseJson(await requestText$4(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
     done();
     return info;
@@ -41403,7 +41402,7 @@ ${normalizedReading}`;
   function asRecord$2(value) {
     return value && typeof value === "object" && !Array.isArray(value) ? value : void 0;
   }
-  function parseJson$1(value) {
+  function parseJson(value) {
     try {
       return JSON.parse(value);
     } catch {
@@ -41411,7 +41410,7 @@ ${normalizedReading}`;
     }
   }
   async function fetchKanjiAlivePrimaryGlosses() {
-    const payload = asRecord$2(parseJson$1(await requestText$4(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
+    const payload = asRecord$2(parseJson(await requestText$4(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
     const meanings = asRecord$2(payload?.meanings);
     if (!meanings) return {};
     return Object.fromEntries(Object.entries(meanings).map(([kanji, meaning]) => [kanji, stringValue$2(meaning)]).filter((entry) => Boolean(entry[1])));
@@ -53054,10 +53053,7 @@ ${entry.reading}`);
       managedSessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
       recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
       if (recorderLoopBroken) {
-        try {
-          console.warn("[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.");
-        } catch {
-        }
+        attemptVoid(() => console.warn("[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry."), "canvas-mirror.recorderReloadLoopDetected");
       }
     } catch {
       recorderLoopBroken = false;
@@ -53237,13 +53233,12 @@ ${entry.reading}`);
         source = rebuildById(op.srcId, op.seq, images, canvases, new Set(seen), depth + 1, lookup) ?? (shouldUseLatestSourceFallback(op.srcId, op.seq, lookup) ? rebuildById(op.srcId, Number.POSITIVE_INFINITY, images, canvases, new Set(seen), depth + 1, lookup) : null) ?? canvases.get(op.srcId) ?? null;
       } else if (op.url) source = images.get(op.url) ?? null;
       if (!source) continue;
-      try {
+      attemptVoid(() => {
         if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
         else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
         else ctx.drawImage(source, op.dx, op.dy);
         drew++;
-      } catch {
-      }
+      }, "canvas-mirror.rebuildById");
     }
     return drew ? out : null;
   }
@@ -53267,13 +53262,12 @@ ${entry.reading}`);
         source = images.get(op.url) ?? null;
       }
       if (!source) continue;
-      try {
+      attemptVoid(() => {
         if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
         else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
         else ctx.drawImage(source, op.dx, op.dy);
         drew++;
-      } catch {
-      }
+      }, "canvas-mirror.rebuildSnapshotSource");
     }
     return drew ? out : null;
   }
@@ -53336,11 +53330,7 @@ ${entry.reading}`);
     if (typeof parsed.epoch === "number") target.epoch = parsed.epoch;
   }
   function canvasMirrorTurnToken() {
-    try {
-      return document.documentElement?.getAttribute(EPOCH_ATTR) ?? "";
-    } catch {
-      return "";
-    }
+    return attempt(() => document.documentElement?.getAttribute(EPOCH_ATTR) ?? "", "", "canvas-mirror.canvasMirrorTurnToken");
   }
   function canvasMirrorContentToken(canvas) {
     const id = canvasId(canvas);
@@ -53485,10 +53475,7 @@ ${entry.reading}`);
       if (el2 && el2.nodeType && !el2.isConnected) return;
       S.epoch = (S.epoch || 0) + 1;
       if (root) {
-        try {
-          root.setAttribute(opts.e, String(S.epoch));
-        } catch {
-        }
+        attemptVoid(() => root.setAttribute(opts.e, String(S.epoch)), "canvas-mirror.bumpEpoch");
       }
     };
     const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
@@ -53512,11 +53499,7 @@ ${entry.reading}`);
       }
       if (el2 && el2.__yomuMid) return el2.__yomuMid;
       if (el2 && create) {
-        try {
-          return el2.__yomuMid = "m" + S.nextId++;
-        } catch {
-          return null;
-        }
+        return attempt(() => el2.__yomuMid = "m" + S.nextId++, null, "canvas-mirror.idOf");
       }
       return null;
     };
@@ -53713,7 +53696,7 @@ ${entry.reading}`);
       const draw = p.drawImage;
       p.drawImage = function(src) {
         if (!this.__yomuMirrorSkip) {
-          try {
+          attemptVoid(() => {
             const cid = idOf(this.canvas, true);
             if (cid) {
               const r = rec(cid, this.canvas.width, this.canvas.height);
@@ -53754,15 +53737,14 @@ ${entry.reading}`);
                 bumpEpoch(this.canvas);
               }
             }
-          } catch {
-          }
+          }, "canvas-mirror.patch");
         }
         return draw.apply(this, arguments);
       };
       const clr = p.clearRect;
       p.clearRect = function(x2, y, w, h) {
         if (!this.__yomuMirrorSkip) {
-          try {
+          attemptVoid(() => {
             if (x2 <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
               const cid = idOf(this.canvas, true);
               if (cid) {
@@ -53770,8 +53752,7 @@ ${entry.reading}`);
                 bumpEpoch(this.canvas);
               }
             }
-          } catch {
-          }
+          }, "canvas-mirror.patch");
         }
         return clr.apply(this, arguments);
       };
@@ -53784,11 +53765,8 @@ ${entry.reading}`);
     win.__yomuCanvasMirrorRecorder = true;
     S.installed = true;
     if (doc && root) {
-      try {
-        root.setAttribute(opts.r, "1");
-      } catch {
-      }
-      try {
+      attemptVoid(() => root.setAttribute(opts.r, "1"), "canvas-mirror.patch");
+      attemptVoid(() => {
         root.addEventListener(opts.p, () => {
           try {
             let node = root.querySelector("[" + opts.d + "]");
@@ -53809,8 +53787,7 @@ ${entry.reading}`);
           } catch {
           }
         });
-      } catch {
-      }
+      }, "canvas-mirror.patch");
     }
   }
   function recorderOpts() {
@@ -53878,11 +53855,7 @@ ${entry.reading}`);
     }
   }
   function recorderMarkerPresent() {
-    try {
-      return document.documentElement?.getAttribute(MARKER_ATTR) === "1";
-    } catch {
-      return false;
-    }
+    return attempt(() => document.documentElement?.getAttribute(MARKER_ATTR) === "1", false, "canvas-mirror.recorderMarkerPresent");
   }
   function recorderAlreadyInstalled() {
     if (recorderMarkerPresent()) return true;
@@ -53890,21 +53863,14 @@ ${entry.reading}`);
     return (uw ? recorderWindowInstalled(uw) : false) || recorderWindowInstalled(pageWindow());
   }
   function recorderWindowInstalled(win) {
-    try {
-      return Boolean(win.__yomuCanvasMirror?.installed);
-    } catch {
-      return false;
-    }
+    return attempt(() => Boolean(win.__yomuCanvasMirror?.installed), false, "canvas-mirror.recorderWindowInstalled");
   }
   function likelyUserscriptContentSandbox() {
     const g = globalThis;
     return Boolean(g.unsafeWindow && g.unsafeWindow !== globalThis) || Boolean(g.GM_info || g.GM || g.GM_xmlhttpRequest);
   }
   function markRecorderMethod(method) {
-    try {
-      document.documentElement?.setAttribute(METHOD_ATTR, method);
-    } catch {
-    }
+    attemptVoid(() => document.documentElement?.setAttribute(METHOD_ATTR, method), "canvas-mirror.markRecorderMethod");
   }
   function createTrustedMirrorScript(code) {
     try {
@@ -56472,11 +56438,7 @@ ${spelling}`);
   }
   function canvasReaderContentTokens(canvases) {
     const tokens = canvases.map((canvas) => {
-      try {
-        return canvasPageContentToken(canvas);
-      } catch {
-        return "";
-      }
+      return attempt(() => canvasPageContentToken(canvas), "", "canvas-readers.canvasReaderContentTokens");
     });
     return [...new Set(tokens)].filter(Boolean);
   }
@@ -56502,11 +56464,10 @@ ${spelling}`);
     }
   }
   function releaseTransientCanvas(canvas) {
-    try {
+    attemptVoid(() => {
       canvas.width = 0;
       canvas.height = 0;
-    } catch {
-    }
+    }, "canvas-readers.releaseTransientCanvas");
   }
   function captureCanvasRegionDataUrl(canvas, surfaceRect, regionRect, maxPixels) {
     try {
@@ -59169,8 +59130,8 @@ ${spelling}`);
           this.canvasTapRecapture.delete(canvas);
           return false;
         }
-        const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
-        const delay22 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
+        const attempt2 = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
+        const delay22 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt2, READER_RASTER_RETRY_MAX_MS);
         this.scheduleReaderRasterRefresh(delay22);
         return true;
       }
@@ -97184,7 +97145,7 @@ ${reading}`);
       const token = this.getToken().trim();
       if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
       if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-      let attempt = 0;
+      let attempt2 = 0;
       while (true) {
         await this.throttle();
         try {
@@ -97211,8 +97172,8 @@ ${reading}`);
           });
         } catch (error) {
           const normalized = normalizeWanikaniError(error);
-          if (attempt === 0 && isRateLimitError(normalized)) {
-            attempt += 1;
+          if (attempt2 === 0 && isRateLimitError(normalized)) {
+            attempt2 += 1;
             await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
             continue;
           }
@@ -98203,8 +98164,8 @@ ${reading}`);
     return driveRequest(options, (body) => requestText$7(driveUrl(path), body));
   }
   async function driveRequest(options, run) {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const token = await acquireAccessToken(attempt === 0);
+    for (let attempt2 = 0; attempt2 < 2; attempt2 += 1) {
+      const token = await acquireAccessToken(attempt2 === 0);
       try {
         return await run({
           method: options.method ?? "GET",
@@ -98217,7 +98178,7 @@ ${reading}`);
           failureLabel: "Google Drive settings sync"
         });
       } catch (error) {
-        if (attempt === 0 && isUnauthorized(error)) {
+        if (attempt2 === 0 && isUnauthorized(error)) {
           cachedToken = null;
           continue;
         }
@@ -109114,10 +109075,7 @@ ${reading}`);
     }
   }
   function saveTranscriptPanelSize(size) {
-    try {
-      gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size);
-    } catch {
-    }
+    attemptVoid(() => gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size), "subtitle-layout.saveTranscriptPanelSize");
   }
   function loadSubtitleDragOffsetFraction() {
     try {
@@ -109128,10 +109086,7 @@ ${reading}`);
     }
   }
   function saveSubtitleDragOffsetFraction(fraction) {
-    try {
-      gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
-    } catch {
-    }
+    attemptVoid(() => gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) }), "subtitle-layout.saveSubtitleDragOffsetFraction");
   }
   function loadSubtitleControlRailPosition() {
     try {
@@ -109143,13 +109098,12 @@ ${reading}`);
     }
   }
   function saveSubtitleControlRailPosition(position) {
-    try {
+    attemptVoid(() => {
       gmStorageSetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {
         x: clampRailFraction(position.x),
         y: clampRailFraction(position.y)
       });
-    } catch {
-    }
+    }, "subtitle-layout.saveSubtitleControlRailPosition");
   }
   function clampRailFraction(value) {
     if (!Number.isFinite(value)) return 0;
@@ -113334,12 +113288,12 @@ ${reading}`);
       return fetchSubtitleText(url);
     }
     let lastError;
-    for (let attempt = 0; attempt < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt += 1) {
+    for (let attempt2 = 0; attempt2 < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt2 += 1) {
       try {
         return await requestSubtitleTextOnce(url);
       } catch (error) {
         lastError = error;
-        if (!isRetryableSubtitleRequestError(error) || attempt + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
+        if (!isRetryableSubtitleRequestError(error) || attempt2 + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
         await delaySubtitleRetry();
       }
     }
@@ -119065,18 +119019,18 @@ ${reading}`);
         this.clearShadowRecording();
         if (this.video && !this.video.paused) this.video.pause();
         const stream = await mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
+        const recorder2 = new MediaRecorder(stream);
         const chunks2 = [];
-        recorder.addEventListener("dataavailable", (event) => {
+        recorder2.addEventListener("dataavailable", (event) => {
           if (event.data && event.data.size) chunks2.push(event.data);
         });
-        recorder.addEventListener("stop", () => {
+        recorder2.addEventListener("stop", () => {
           const recordingSignature = this.shadowRecordingCueSignature;
           this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
           stream.getTracks().forEach((track) => track.stop());
           if (!this.shadowRecordingDiscard && chunks2.length) {
             this.clearShadowRecording();
-            this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }));
+            this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks2, { type: recorder2.mimeType || "audio/webm" }));
             this.shadowRecordingCueSignature = recordingSignature;
           }
           if (!this.shadowRecordingDiscard && !chunks2.length) this.clearShadowRecording();
@@ -119086,10 +119040,10 @@ ${reading}`);
           this.renderShadowPanel(true);
         });
         this.shadowRecordingUnavailable = false;
-        this.shadowRecorder = recorder;
+        this.shadowRecorder = recorder2;
         this.shadowRecordingCueSignature = cue ? subtitleCueSignature(cue) : "";
         this.shadowRecordingDiscard = false;
-        recorder.start();
+        recorder2.start();
         this.scheduleShadowRecordingStop(cue);
         this.renderShadowPanel(true);
       } catch (error) {
@@ -123841,12 +123795,12 @@ ${reading}`);
     const root = globalThis;
     return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
   }
-  function injectPagePreferenceScript(enabled, revision2, attempt = 0) {
+  function injectPagePreferenceScript(enabled, revision2, attempt2 = 0) {
     if (!preferenceIsCurrent(enabled, revision2)) return;
     const parent = document.head || document.documentElement;
     if (!parent) {
-      if (attempt < INJECTION_RETRY_LIMIT) {
-        window.setTimeout(() => injectPagePreferenceScript(enabled, revision2, attempt + 1), 0);
+      if (attempt2 < INJECTION_RETRY_LIMIT) {
+        window.setTimeout(() => injectPagePreferenceScript(enabled, revision2, attempt2 + 1), 0);
       }
       return;
     }
@@ -123866,8 +123820,8 @@ ${reading}`);
       parent.append(script);
       script.remove();
     } catch {
-      if (attempt < INJECTION_RETRY_LIMIT) {
-        window.setTimeout(() => injectPagePreferenceScript(enabled, revision2, attempt + 1), 0);
+      if (attempt2 < INJECTION_RETRY_LIMIT) {
+        window.setTimeout(() => injectPagePreferenceScript(enabled, revision2, attempt2 + 1), 0);
       }
     }
   }
@@ -124018,13 +123972,13 @@ ${reading}`);
   function currentLocationHref() {
     return typeof location.href === "string" ? location.href : "";
   }
-  function installAlternateRedirectWatcher(revision2, attempt = 0) {
+  function installAlternateRedirectWatcher(revision2, attempt2 = 0) {
     if (!preferenceIsCurrent(true, revision2)) return;
     if (alternateRedirectCleanup) return;
     const root = document.documentElement || document.head;
     if (!root) {
-      if (attempt < INJECTION_RETRY_LIMIT) {
-        window.setTimeout(() => installAlternateRedirectWatcher(revision2, attempt + 1), 0);
+      if (attempt2 < INJECTION_RETRY_LIMIT) {
+        window.setTimeout(() => installAlternateRedirectWatcher(revision2, attempt2 + 1), 0);
       }
       return;
     }
@@ -127548,11 +127502,7 @@ ${component.reading}`;
     // Jiten v1.2.x parity: mass-review visible words in one transaction.
     async batchReviewCards(cards, grade) {
       const reviews = cards.flatMap((card) => {
-        try {
-          return [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }];
-        } catch {
-          return [];
-        }
+        return attempt(() => [{ ...jitenCardReference(card), rating: jitenRatingForGrade(grade) }], [], "jiten.batchReviewCards");
       });
       if (!reviews.length) return 0;
       await this.request("srs/batch-review", { reviews });
@@ -127574,11 +127524,7 @@ ${component.reading}`;
     // were looked up.
     async refreshCardStates(cards) {
       const entries2 = cards.map((card) => {
-        try {
-          return { card, ref: jitenCardReference(card) };
-        } catch {
-          return null;
-        }
+        return attempt(() => ({ card, ref: jitenCardReference(card) }), null, "jiten.refreshCardStates");
       }).filter((entry) => entry !== null);
       if (!entries2.length) return 0;
       const response = await this.request("reader/lookup-vocabulary", {
@@ -128501,7 +128447,7 @@ ${component.reading}`;
   }
   async function parseJitenResponse(response, authenticated) {
     const text2 = await response.text();
-    const json = parseJson(text2);
+    const json = parseJson$1(text2, void 0, "jiten.parseJitenResponse");
     const errorMessage2 = jitenApplicationErrorMessage(json);
     const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
     if (errorMessage2) {
@@ -128528,14 +128474,6 @@ ${component.reading}`;
   function statusFromMessage(message) {
     const match = /\((\d{3})\)/.exec(message);
     return match ? Number(match[1]) : void 0;
-  }
-  function parseJson(text2) {
-    if (!text2) return void 0;
-    try {
-      return JSON.parse(text2);
-    } catch {
-      return void 0;
-    }
   }
   function jitenApplicationErrorMessage(value) {
     if (!isJsonRecord(value)) return void 0;
@@ -131368,6 +131306,84 @@ ${component.reading}`;
   function trimSpaces(value) {
     return value.replace(/\s+/gu, " ").trim();
   }
+  const NEW_TAB_ACTIONS = [
+    // Shell: overflow menu, app nav, site nav, support banner.
+    "settings",
+    "theme",
+    "language",
+    "install-app",
+    "dismiss-support-banner",
+    "site-nav",
+    "external-link",
+    "mode",
+    // Study: navigation, reveal, grading, step chrome.
+    "previous",
+    "next",
+    "reveal",
+    "grade",
+    "empty-fallback",
+    "continue-batch",
+    "study-step",
+    "study-hint",
+    "dismiss-study-tour",
+    "recall-submit",
+    "type-word-submit",
+    "type-word-skip",
+    "type-word-mode",
+    "jpdb-kanji-action",
+    // Listen / pitch-perception step.
+    "listen-pick",
+    "listen-play",
+    "listen-play-recording",
+    "listen-record",
+    // Library search.
+    "search-submit",
+    "search-clear",
+    "search-focus",
+    "search-suggestion",
+    "search-handwriting-toggle",
+    "handwriting-candidate",
+    "search-result-word",
+    "search-result-kanji",
+    // Library browse (My Cards).
+    "browse-filter",
+    "browse-source-filter",
+    "browse-sort",
+    "browse-sort-direction",
+    "browse-select-mode",
+    "browse-page",
+    "browse-bulk",
+    "browse-card",
+    // Stats dashboard.
+    "stats-source",
+    "stats-activity-metric",
+    "stats-select-day",
+    "stats-study-trouble",
+    "stats-refresh",
+    "stats-toggle-anki-deck",
+    "stats-connect-anki",
+    "stats-open-jpdb-settings",
+    "stats-open-anki-settings",
+    "stats-import-jpdb"
+  ];
+  const NEW_TAB_ACTION_NAMES = new Set(NEW_TAB_ACTIONS);
+  function isNewTabAction(value) {
+    return typeof value === "string" && NEW_TAB_ACTION_NAMES.has(value);
+  }
+  function newTabAction(action) {
+    return action;
+  }
+  function newTabActionAttr(action) {
+    return `data-newtab-action="${action}"`;
+  }
+  function newTabActionSelector(action, suffix = "") {
+    return `[data-newtab-action="${action}"]${suffix}`;
+  }
+  function nearestNewTabAction(target) {
+    const owner = target?.closest("[data-newtab-action]");
+    const action = owner?.dataset.newtabAction;
+    return isNewTabAction(action) ? action : void 0;
+  }
   const BROWSE_PAGE_SIZE = 50;
   const BROWSE_FILTER_ORDER = [
     "new",
@@ -131431,7 +131447,7 @@ ${component.reading}`;
     const chip = (filter, label, count, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip jpdb-reader-newtab-browse-source-chip",
-      dataset: { newtabAction: "browse-source-filter", browseSourceFilter: filter },
+      dataset: { newtabAction: newTabAction("browse-source-filter"), browseSourceFilter: filter },
       "aria-pressed": String(pressed)
     }, `${label} ${count}`);
     return el(
@@ -131474,7 +131490,7 @@ ${component.reading}`;
     const chip = (filter, label, count, pressed) => el("button", {
       type: "button",
       class: "jpdb-reader-newtab-browse-chip",
-      dataset: { newtabAction: "browse-filter", browseFilter: filter },
+      dataset: { newtabAction: newTabAction("browse-filter"), browseFilter: filter },
       "aria-pressed": String(pressed)
     }, `${label} ${count}`);
     return el(
@@ -131495,7 +131511,7 @@ ${component.reading}`;
         el("span", { class: "jpdb-reader-newtab-sr-only" }, copy2.sortLabel),
         el(
           "select",
-          { dataset: { newtabAction: "browse-sort" }, "aria-label": copy2.sortLabel },
+          { dataset: { newtabAction: newTabAction("browse-sort") }, "aria-label": copy2.sortLabel },
           el("option", { value: "queue", selected: sort === "queue" }, copy2.sortQueue),
           el("option", { value: "alpha", selected: sort === "alpha" }, copy2.sortAlpha),
           el("option", { value: "frequency", selected: sort === "frequency" }, copy2.sortFrequency),
@@ -131505,7 +131521,7 @@ ${component.reading}`;
       el("button", {
         type: "button",
         class: "jpdb-reader-newtab-browse-direction",
-        dataset: { newtabAction: "browse-sort-direction" },
+        dataset: { newtabAction: newTabAction("browse-sort-direction") },
         "aria-label": directionLabel,
         title: directionLabel,
         "aria-pressed": String(descending)
@@ -131513,7 +131529,7 @@ ${component.reading}`;
       el("button", {
         type: "button",
         class: "jpdb-reader-newtab-browse-select-toggle",
-        dataset: { newtabAction: "browse-select-mode" },
+        dataset: { newtabAction: newTabAction("browse-select-mode") },
         "aria-pressed": String(selectMode)
       }, copy2.select)
     );
@@ -131541,12 +131557,12 @@ ${component.reading}`;
         { class: "jpdb-reader-newtab-browse-pager" },
         el("button", {
           type: "button",
-          dataset: { newtabAction: "browse-page", browsePage: String(currentPage - 1) },
+          dataset: { newtabAction: newTabAction("browse-page"), browsePage: String(currentPage - 1) },
           disabled: currentPage === 0
         }, copy2.previous),
         el("button", {
           type: "button",
-          dataset: { newtabAction: "browse-page", browsePage: String(currentPage + 1) },
+          dataset: { newtabAction: newTabAction("browse-page"), browsePage: String(currentPage + 1) },
           disabled: currentPage >= pageCount2 - 1
         }, copy2.next)
       ) : null
@@ -131555,7 +131571,7 @@ ${component.reading}`;
   function renderBrowseBulkBar(copy2) {
     const action = (bulkAction, label) => el("button", {
       type: "button",
-      dataset: { newtabAction: "browse-bulk", bulkAction },
+      dataset: { newtabAction: newTabAction("browse-bulk"), bulkAction },
       disabled: true
     }, label);
     return el(
@@ -131594,7 +131610,7 @@ ${component.reading}`;
           type: "button",
           class: "jpdb-reader-newtab-browse-row",
           dataset: {
-            newtabAction: "browse-card",
+            newtabAction: newTabAction("browse-card"),
             browseCardKey: cardKey(card),
             expression: card.spelling,
             reading: card.reading
@@ -132217,7 +132233,7 @@ ${newTabCardReading(card)}`;
         {
           type: "button",
           class: "jpdb-reader-newtab-search-card jpdb-reader-newtab-search-word",
-          dataset: { newtabAction: "search-result-word", newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
+          dataset: { newtabAction: newTabAction("search-result-word"), newtabCard: cardKey(card), expression: card.spelling, reading: newTabCardReading(card) },
           "aria-expanded": "false"
         },
         renderSearchWordTerm(card, context),
@@ -132279,7 +132295,7 @@ ${newTabCardReading(card)}`;
         {
           type: "button",
           class: "jpdb-reader-newtab-search-card jpdb-reader-newtab-search-kanji-card",
-          dataset: { newtabAction: "search-result-kanji", kanji: result.character },
+          dataset: { newtabAction: newTabAction("search-result-kanji"), kanji: result.character },
           "aria-expanded": "false"
         },
         el("span", { class: "jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable", lang: "ja" }, result.character),
@@ -133866,7 +133882,7 @@ ${entry.url}`),
         el("button", {
           type: "button",
           class: "jpdb-reader-stats-refresh",
-          dataset: { newtabAction: "stats-refresh" },
+          dataset: { newtabAction: newTabAction("stats-refresh") },
           "aria-label": text2("statsRefresh"),
           title: text2("statsRefresh")
         }, "↻")
@@ -133898,7 +133914,7 @@ ${entry.url}`),
       tabs.map(([source, label]) => el("button", {
         type: "button",
         dataset: {
-          newtabAction: "stats-source",
+          newtabAction: newTabAction("stats-source"),
           statsSource: source,
           active: source === selectedSource
         }
@@ -133980,7 +133996,7 @@ ${entry.url}`),
       metrics.map(([metric, label]) => el("button", {
         type: "button",
         dataset: {
-          newtabAction: "stats-activity-metric",
+          newtabAction: newTabAction("stats-activity-metric"),
           statsActivityMetric: metric,
           active: metric === activityMetric
         },
@@ -134001,7 +134017,7 @@ ${entry.url}`),
         "aria-label": label,
         style: `--stats-bar-height:${height}%`,
         dataset: {
-          newtabAction: "stats-select-day",
+          newtabAction: newTabAction("stats-select-day"),
           statsDay: point.date,
           tooltip: label,
           active: value > 0,
@@ -134050,7 +134066,7 @@ ${entry.url}`),
       title: label,
       "aria-label": label,
       dataset: {
-        newtabAction: "stats-select-day",
+        newtabAction: newTabAction("stats-select-day"),
         statsDay: point.date,
         day: String(Number(point.date.slice(-2))),
         tooltip: label,
@@ -134124,7 +134140,7 @@ ${entry.url}`),
           el("button", {
             type: "button",
             class: "jpdb-reader-stats-panel-button",
-            dataset: { newtabAction: "stats-study-trouble" },
+            dataset: { newtabAction: newTabAction("stats-study-trouble") },
             disabled: troubleCount <= 0,
             title: text2("statsStudyTroubleHint")
           }, text2("statsStudyTroubleCards"))
@@ -134181,17 +134197,17 @@ ${entry.url}`),
     const { text: text2 } = context;
     if (source.id === "jpdb") {
       const actions = [
-        el("button", { type: "button", dataset: { newtabAction: "stats-open-jpdb-settings" } }, text2("statsOpenJpdbSettings"))
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenJpdbSettings"))
       ];
-      actions.push(el("button", { type: "button", dataset: { newtabAction: "stats-import-jpdb" } }, text2("statsChooseJpdbFile")));
+      actions.push(el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-import-jpdb") } }, text2("statsChooseJpdbFile")));
       return actions;
     }
     if (source.id === "jiten") return [
-      el("button", { type: "button", dataset: { newtabAction: "stats-open-jpdb-settings" } }, text2("statsOpenApiSettings"))
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-jpdb-settings") } }, text2("statsOpenApiSettings"))
     ];
     return [
-      isStatsSourceConnected(source) ? null : el("button", { type: "button", dataset: { newtabAction: "stats-connect-anki" } }, text2("statsConnectAnki")),
-      el("button", { type: "button", dataset: { newtabAction: "stats-open-anki-settings" } }, text2("statsOpenAnkiSettings"))
+      isStatsSourceConnected(source) ? null : el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-connect-anki") } }, text2("statsConnectAnki")),
+      el("button", { type: "button", dataset: { newtabAction: newTabAction("stats-open-anki-settings") } }, text2("statsOpenAnkiSettings"))
     ];
   }
   function isStatsSourceConnected(source) {
@@ -134245,7 +134261,7 @@ ${entry.url}`),
           el("input", {
             type: "checkbox",
             checked: active,
-            dataset: { newtabAction: "stats-toggle-anki-deck", statsAnkiDeck: deck }
+            dataset: { newtabAction: newTabAction("stats-toggle-anki-deck"), statsAnkiDeck: deck }
           }),
           el("span", {}, deck)
         );
@@ -134382,6 +134398,9 @@ ${entry.url}`),
     if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "wanikani" || value === "yomu-local" || value === "anki" || value === "combined") return value;
     return "combined";
   }
+  function isNewTabStatsAction(action) {
+    return action !== void 0 && action.startsWith("stats-");
+  }
   class NewTabStatsController {
     constructor(deps) {
       this.deps = deps;
@@ -134494,8 +134513,8 @@ ${entry.url}`),
     }
     clickRequest(root, target, action, event) {
       const chartDayTarget = action ? null : this.nearestChartDayTarget(root, target, event);
-      const resolvedAction = action ?? chartDayTarget?.dataset.newtabAction;
-      return resolvedAction?.startsWith("stats-") ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target } : null;
+      const resolvedAction = action ?? nearestNewTabAction(chartDayTarget);
+      return isNewTabStatsAction(resolvedAction) ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target } : null;
     }
     performClick(root, request) {
       const handler = this.clickHandlers[request.action];
@@ -134528,7 +134547,7 @@ ${entry.url}`),
     nearbyChartDayTargets(root, target) {
       const chart = target.closest(".jpdb-reader-stats-bars, .jpdb-reader-stats-heatmap-grid");
       if (!chart || !root.contains(chart)) return [];
-      return Array.from(chart.querySelectorAll('[data-newtab-action="stats-select-day"][data-stats-day]'));
+      return Array.from(chart.querySelectorAll(newTabActionSelector("stats-select-day", "[data-stats-day]")));
     }
     // --- per-source data loading ---
     loadingSource(source) {
@@ -134984,7 +135003,7 @@ ${entry.url}`),
       return root.querySelector("[data-newtab-search-results]");
     }
     searchSuggestionButtons(root) {
-      return Array.from(root.querySelectorAll('[data-newtab-search-autocomplete] [data-newtab-action="search-suggestion"]'));
+      return Array.from(root.querySelectorAll(`[data-newtab-search-autocomplete] ${newTabActionSelector("search-suggestion")}`));
     }
     setSearchActiveSuggestion(root, index) {
       const suggestions = this.searchSuggestionButtons(root);
@@ -135021,7 +135040,7 @@ ${entry.url}`),
     }
     focusFirstSearchResult(root) {
       const target = root.querySelector(
-        '[data-newtab-search-results] [data-newtab-action="search-result-kanji"], [data-newtab-search-results] [data-newtab-action="search-result-word"], [data-newtab-search-results] a, [data-newtab-search-results] button'
+        `[data-newtab-search-results] ${newTabActionSelector("search-result-kanji")}, [data-newtab-search-results] ${newTabActionSelector("search-result-word")}, [data-newtab-search-results] a, [data-newtab-search-results] button`
       );
       if (!target) return false;
       target.focus();
@@ -135032,7 +135051,7 @@ ${entry.url}`),
       if (!input2 || input2 === document.activeElement) return;
       window.setTimeout(() => {
         const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-        const canFocus = !active || active === document.body || Boolean(active.closest('[data-newtab-action="mode"]'));
+        const canFocus = !active || active === document.body || Boolean(active.closest(newTabActionSelector("mode")));
         if (this.currentRoute() === "search" && input2.isConnected && canFocus) input2.focus();
       }, 0);
     }
@@ -135139,7 +135158,7 @@ ${entry.url}`),
     }
     syncSearchHandwritingToggle(root) {
       const panel = root.querySelector("[data-newtab-handwriting]");
-      const toggle = root.querySelector('[data-newtab-action="search-handwriting-toggle"]');
+      const toggle = root.querySelector(newTabActionSelector("search-handwriting-toggle"));
       if (!toggle) return;
       const enabled = usesJapaneseCharacterStudy();
       toggle.hidden = !enabled;
@@ -135226,7 +135245,7 @@ ${entry.url}`),
         candidates.map((candidate) => el("button", {
           class: "jpdb-reader-parseable",
           type: "button",
-          dataset: { newtabAction: "handwriting-candidate", query: candidate },
+          dataset: { newtabAction: newTabAction("handwriting-candidate"), query: candidate },
           lang: "ja"
         }, candidate)),
         message ? el("span", { class: "jpdb-reader-newtab-handwriting-message jpdb-reader-parseable", lang: resolveUiLanguage(this.deps.language()) === "ja" ? "ja" : "en" }, message) : null,
@@ -135764,7 +135783,7 @@ ${entry.url}`),
           id: `jpdb-reader-newtab-suggestion-${index}`,
           type: "button",
           role: "option",
-          dataset: { newtabAction: "search-suggestion", query: suggestion.query, newtabSearchSuggestionIndex: index },
+          dataset: { newtabAction: newTabAction("search-suggestion"), query: suggestion.query, newtabSearchSuggestionIndex: index },
           lang: "ja",
           "aria-label": detail ? `${suggestion.query}, ${detail}` : suggestion.query,
           "aria-selected": "false"
@@ -135948,7 +135967,7 @@ ${entry.url}`),
     return el("button", {
       class: "jpdb-reader-newtab-handwriting-manual-action jpdb-reader-parseable",
       type: "button",
-      dataset: { newtabAction: "search-focus" },
+      dataset: { newtabAction: newTabAction("search-focus") },
       lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en"
     }, newTabText(language2, "typeOrPasteKanji"));
   }
@@ -136153,7 +136172,7 @@ ${entry.url}`),
       "button",
       {
         type: "button",
-        dataset: { newtabAction: "grade", grade, ...intervalLabel ? { gradeInterval: intervalLabel } : {} },
+        dataset: { newtabAction: newTabAction("grade"), grade, ...intervalLabel ? { gradeInterval: intervalLabel } : {} },
         title,
         "aria-label": `${aria}: ${targetLabel}`
       },
@@ -136183,7 +136202,7 @@ ${entry.url}`),
     return parts.length > 1 ? (parts[parts.length - 1] ?? "").trim() : "";
   }
   function updateMainGradeButtonLabels(root, label) {
-    root.querySelectorAll('[data-newtab-action="grade"][data-grade]').forEach((gradeButton) => {
+    root.querySelectorAll(newTabActionSelector("grade", "[data-grade]")).forEach((gradeButton) => {
       const gradeLabel2 = [
         gradeButton.querySelector(".jpdb-reader-newtab-grade-label")?.textContent?.trim(),
         gradeButton.dataset.gradeInterval
@@ -136710,7 +136729,7 @@ ${entry.url}`),
     const isPlayAction = action.startsWith("listen-play");
     const content = isPlayAction ? speakerIcon() : escapeHtml$2(label);
     const className = isPlayAction ? "jpdb-reader-icon-btn jpdb-reader-audio-control jpdb-reader-newtab-term-audio jpdb-reader-newtab-listen-btn jpdb-reader-newtab-listen-icon-btn" : "jpdb-reader-newtab-listen-btn";
-    return `<button type="button" class="${className}" data-newtab-action="${action}" ${extraAttrs} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${content}</button>`;
+    return `<button type="button" class="${className}" ${newTabActionAttr(action)} ${extraAttrs} title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}">${content}</button>`;
   }
   function renderPositionPicker(item, selectedPosition, revealed, validPositions, t) {
     const moraCount = splitMorae(item.reading).length;
@@ -136725,7 +136744,7 @@ ${entry.url}`),
       const isSelected = position === selectedPosition;
       const stateClass = revealed ? `${isAnswer ? " jpdb-reader-newtab-listen-pos-correct" : isSelected ? " jpdb-reader-newtab-listen-pos-wrong" : ""}${isSelected ? " jpdb-reader-newtab-listen-pos-selected" : ""}` : isSelected ? " jpdb-reader-newtab-listen-pos-selected" : "";
       buttons.push(`
-            <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || "unknown"}${stateClass}" data-newtab-action="listen-pick" data-listen-pos="${position}" data-pitch-class="${className || "unknown"}" aria-pressed="${isSelected}">
+            <button type="button" class="jpdb-reader-newtab-listen-pos jpdb-pitch-${className || "unknown"}${stateClass}" ${newTabActionAttr("listen-pick")} data-listen-pos="${position}" data-pitch-class="${className || "unknown"}" aria-pressed="${isSelected}">
                 <span class="jpdb-reader-newtab-listen-pos-num">${position}</span>
                 <span class="jpdb-reader-newtab-listen-pos-graph">${graph}</span>
                 <span class="jpdb-reader-newtab-listen-pos-name">${escapeHtml$2(pitchClassLabel(className, t))}</span>
@@ -136739,8 +136758,8 @@ ${entry.url}`),
     const recordLabel = view.recording ? t("listenMicRecording") : t("listenMicListenBack");
     return `
         <div class="jpdb-reader-newtab-listen-record">
-            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" data-newtab-action="listen-record" aria-pressed="${view.recording}">${escapeHtml$2(recordLabel)}</button>
-            ${view.hasRecording ? iconButton("listen-play-recording", t("listenMicYou")) : ""}
+            <button type="button" class="jpdb-reader-newtab-listen-btn${view.recording ? " jpdb-reader-newtab-listen-recording" : ""}" ${newTabActionAttr("listen-record")} aria-pressed="${view.recording}">${escapeHtml$2(recordLabel)}</button>
+            ${view.hasRecording ? iconButton(newTabAction("listen-play-recording"), t("listenMicYou")) : ""}
             ${renderSpeakingScore(view, t)}
         </div>`;
   }
@@ -136797,7 +136816,7 @@ ${entry.url}`),
     const sections = [];
     if (view.subMode !== "recall" || view.revealed) {
       sections.push(`<div class="jpdb-reader-newtab-listen-audio">
-            ${view.hasAudio ? iconButton("listen-play", t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(t("listenNoAudio"))}</span>`}
+            ${view.hasAudio ? iconButton(newTabAction("listen-play"), t("listenReplay")) : `<span class="jpdb-reader-newtab-listen-note">${escapeHtml$2(t("listenNoAudio"))}</span>`}
         </div>`);
     }
     if (view.subMode === "recall") {
@@ -139129,16 +139148,16 @@ ${options.version}`;
       (root, target, event, action) => this.handleSearchClick(root, target, event, action),
       (root, target, event, action) => this.handleRootModeClick(root, target, event, action)
     ];
+    // Keyed by the closed action vocabulary, so an entry for a name no render
+    // site emits fails typecheck. That is how five permanently-unreachable
+    // entries (skip / undo-review / listen-play-both / listen-grade /
+    // listen-next) were found and removed — nothing in src rendered them.
     studyClickHandlers = {
       next: (_root, _target, event) => this.navigateFromPointer("next", event),
-      skip: (_root, _target, event) => this.navigateFromPointer("next", event),
       previous: (_root, _target, event) => this.navigateFromPointer("previous", event),
       reveal: (root) => this.toggleReveal(root),
       "empty-fallback": (root) => {
         void this.startStarterWordStudy(root);
-      },
-      "undo-review": (root) => {
-        void this.undoLastReview(root);
       },
       "continue-batch": (root) => {
         void this.continueAfterBatch(root);
@@ -139156,15 +139175,10 @@ ${options.version}`;
       "listen-play": () => {
         void this.playListenModelAudio();
       },
-      "listen-play-both": () => {
-        void this.playListenContrast();
-      },
       "listen-record": () => {
         void this.toggleListenRecording();
       },
       "listen-play-recording": () => this.playListenRecording(),
-      "listen-grade": (root, target) => this.handleListenGrade(root, target),
-      "listen-next": (root) => this.advanceListen(root),
       grade: (root, target) => this.gradeFromStudyClick(root, target),
       "jpdb-kanji-action": (root, target) => {
         void this.performJpdbKanjiAction(root, this.kanjiActionIdFromTarget(target));
@@ -139295,7 +139309,7 @@ ${options.version}`;
       const root = this.currentRoot();
       if (!root) return;
       this.gradeSubmissionInFlight = true;
-      root.querySelectorAll('[data-newtab-action="grade"], button[data-action="grade"][data-grade]').forEach((button2) => {
+      root.querySelectorAll(`${newTabActionSelector("grade")}, button[data-action="grade"][data-grade]`).forEach((button2) => {
         button2.disabled = true;
       });
       this.lastUndoableReview = void 0;
@@ -139454,9 +139468,9 @@ ${options.version}`;
             el(
               "div",
               { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": newTabText(language2, "newTabMode") },
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "word" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "study")),
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "library")),
-              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "stats" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "stats"))
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "word" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "study")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "search" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "library")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "stats" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, newTabText(language2, "stats"))
             ),
             this.options.surface === "academy" ? null : el(
               "div",
@@ -139537,18 +139551,18 @@ ${options.version}`;
                   "aria-controls": "jpdb-reader-newtab-autocomplete",
                   "aria-expanded": "false"
                 }),
-                el("button", { class: "jpdb-reader-parseable", type: "submit", dataset: { newtabAction: "search-submit" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, uiText(language2, "search")),
+                el("button", { class: "jpdb-reader-parseable", type: "submit", dataset: { newtabAction: newTabAction("search-submit") }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en" }, uiText(language2, "search")),
                 el("button", {
                   class: "jpdb-reader-parseable",
                   type: "button",
-                  dataset: { newtabAction: "search-handwriting-toggle" },
+                  dataset: { newtabAction: newTabAction("search-handwriting-toggle") },
                   lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en",
                   "aria-controls": "jpdb-reader-newtab-handwriting",
                   "aria-expanded": "false",
                   hidden: !usesJapaneseCharacterStudy(),
                   disabled: !usesJapaneseCharacterStudy()
                 }, newTabText(language2, "draw")),
-                el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "search-clear" }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en", "aria-label": newTabText(language2, "clearSearch") }, uiText(language2, "clear"))
+                el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("search-clear") }, lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en", "aria-label": newTabText(language2, "clearSearch") }, uiText(language2, "clear"))
               ),
               el("div", {
                 id: "jpdb-reader-newtab-autocomplete",
@@ -139563,9 +139577,9 @@ ${options.version}`;
           el(
             "nav",
             { class: "jpdb-reader-newtab-controls", dataset: { newtabControls: true }, "aria-label": newTabText(language2, "studyNavigation") },
-            el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": newTabText(language2, "previousWord") }, newTabText(language2, "previousWord")),
-            el("button", { type: "button", dataset: { newtabAction: "reveal" } }, uiText(language2, "reveal")),
-            el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": newTabText(language2, "nextWord") }, newTabText(language2, "nextWord"))
+            el("button", { type: "button", dataset: { newtabAction: newTabAction("previous") }, "aria-label": newTabText(language2, "previousWord") }, newTabText(language2, "previousWord")),
+            el("button", { type: "button", dataset: { newtabAction: newTabAction("reveal") } }, uiText(language2, "reveal")),
+            el("button", { type: "button", dataset: { newtabAction: newTabAction("next") }, "aria-label": newTabText(language2, "nextWord") }, newTabText(language2, "nextWord"))
           ),
           this.options.surface === "academy" ? null : this.renderAppNavigation(language2),
           el("aside", { class: "jpdb-reader-newtab-support-banner", dataset: { newtabSupportBanner: true }, hidden: true, "aria-label": newTabText(language2, "supportBannerLabel") })
@@ -139577,20 +139591,20 @@ ${options.version}`;
       return el(
         "div",
         { class: "jpdb-reader-newtab-more-menu", role: "menu" },
-        this.renderOverflowMenuButton(newTabText(language2, "connectionsAndSettings"), "settings", language2, {
+        this.renderOverflowMenuButton(newTabText(language2, "connectionsAndSettings"), newTabAction("settings"), language2, {
           description: newTabText(language2, "connectionsDescription")
         }),
         ...studyShellNavRoutes(DOCS_BASE_URL, location.href).map((link) => this.renderSiteNavLink(link, language2)),
-        this.renderOverflowMenuButton(newTabText(language2, "installStudyApp"), "install-app", language2, {
+        this.renderOverflowMenuButton(newTabText(language2, "installStudyApp"), newTabAction("install-app"), language2, {
           className: "jpdb-reader-newtab-install-app",
           dataset: { newtabInstallApp: true, installPromptAvailable: false },
           description: newTabText(language2, "installStudyAppManual")
         }),
         el("hr", { class: "jpdb-reader-newtab-more-divider" }),
-        this.renderOverflowMenuButton(uiText(language2, "theme"), "theme", language2, {
+        this.renderOverflowMenuButton(uiText(language2, "theme"), newTabAction("theme"), language2, {
           className: "jpdb-reader-newtab-menu-appearance"
         }),
-        this.renderOverflowMenuButton(uiText(language2, nextLanguage === "ja" ? "japanese" : "english"), "language", language2, {
+        this.renderOverflowMenuButton(uiText(language2, nextLanguage === "ja" ? "japanese" : "english"), newTabAction("language"), language2, {
           className: "jpdb-reader-newtab-menu-appearance",
           dataset: { nextLanguage }
         }),
@@ -139611,7 +139625,7 @@ ${options.version}`;
         class: "jpdb-reader-newtab-menu-item jpdb-reader-parseable",
         href: link.href,
         ...link.target ? { target: link.target } : {},
-        dataset: { newtabAction: "site-nav" },
+        dataset: { newtabAction: newTabAction("site-nav") },
         role: "menuitem",
         lang: japanese ? "ja" : "en"
       }, japanese ? link.ja : link.text);
@@ -139635,10 +139649,10 @@ ${options.version}`;
           dataset: { newtabAppNavigation: true },
           "aria-label": newTabText(language2, "appNavigation")
         },
-        item(newTabText(language2, "study"), "学", "mode", "word"),
-        item(newTabText(language2, "library"), "辞", "mode", "search"),
-        item(newTabText(language2, "stats"), "統", "mode", "stats"),
-        item(newTabText(language2, "connections"), "連", "settings")
+        item(newTabText(language2, "study"), "学", newTabAction("mode"), "word"),
+        item(newTabText(language2, "library"), "辞", newTabAction("mode"), "search"),
+        item(newTabText(language2, "stats"), "統", newTabAction("mode"), "stats"),
+        item(newTabText(language2, "connections"), "連", newTabAction("settings"))
       );
     }
     renderOverflowMenuButton(label, action, language2, options = {}) {
@@ -139661,169 +139675,29 @@ ${options.version}`;
         href,
         target: "_blank",
         rel: "noopener",
-        dataset: { newtabAction: "external-link" },
+        dataset: { newtabAction: newTabAction("external-link") },
         role: "menuitem",
         lang: resolveUiLanguage(language2) === "ja" ? "ja" : "en"
       }, label);
     }
+    /**
+     * Root event wiring, as two declarative tables: delegated listeners on the
+     * study root, then the page-level listeners (document/window) the surface
+     * needs. Each body lives in its own named method, so this reads as the
+     * surface's event contract instead of 200 lines of inline closures.
+     */
     bindRootEvents(root) {
       this.migrateLegacyState(this.visibleWords[this.index]);
       this.rootEventController?.abort();
       const controller = new AbortController();
+      const options = { signal: controller.signal };
       installReaderControlPointerActivation(root);
-      root.addEventListener("click", (event) => this.handleRootClick(root, event), { signal: controller.signal });
-      root.addEventListener("submit", (event) => {
-        const form = event.target?.closest("form");
-        if (!form || !root.contains(form)) return;
-        if (form.matches("[data-newtab-type-form]")) {
-          event.preventDefault();
-          this.submitTypeWordAnswer(root);
-          return;
-        }
-        if (form.matches("[data-newtab-recall-form]")) {
-          event.preventDefault();
-          this.submitRecallAnswer(root);
-          return;
-        }
-        if (!form.matches("[data-newtab-search]")) return;
-        event.preventDefault();
-        this.searchController.performSearchFromInput(root);
-      }, { signal: controller.signal });
-      root.addEventListener("input", (event) => {
-        const typeInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-type-input]") : null;
-        if (typeInput && root.contains(typeInput)) {
-          const card = this.visibleWords[this.index];
-          if (card) {
-            const state2 = this.ensureStepState(cardKey(card));
-            state2.type = { ...state2.type, answer: typeInput.value, feedback: void 0 };
-            const answer = typeInput.closest("[data-newtab-answer]");
-            if (answer) answer.dataset.typeWordOutcome = "pending";
-            answer?.querySelector("[data-newtab-type-result]")?.remove();
-          }
-          return;
-        }
-        const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
-        if (recallInput && root.contains(recallInput)) {
-          this.updateRecallAnswer(root, recallInput.value, false);
-          return;
-        }
-        const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-search-input]") : null;
-        if (!input2 || !root.contains(input2)) return;
-        this.searchController.onSearchInput(root, input2.value);
-      }, { signal: controller.signal });
-      root.addEventListener("change", (event) => {
-        const target = eventTargetElement(event.target);
-        const sourceSelect = target?.closest("[data-newtab-source-select]");
-        if (sourceSelect && root.contains(sourceSelect)) {
-          const source = concreteNewTabSourceFromValue(sourceSelect.value);
-          if (source) void this.switchReviewSource(root, source);
-          return;
-        }
-        const targetSelect = target?.closest("[data-newtab-grade-target-select]");
-        if (targetSelect && root.contains(targetSelect)) {
-          this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
-          targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
-          return;
-        }
-        const selectPage = target?.closest("[data-browse-select-page]");
-        if (selectPage && root.contains(selectPage)) {
-          root.querySelectorAll("[data-browse-select]").forEach((box) => {
-            box.checked = selectPage.checked;
-          });
-          this.syncBrowseBulkControls(root);
-          return;
-        }
-        if (target?.closest("[data-browse-select]")) {
-          this.syncBrowseBulkControls(root);
-          return;
-        }
-        const browseSort = target?.closest('[data-newtab-action="browse-sort"]');
-        if (browseSort && root.contains(browseSort)) {
-          const value = browseSort.value;
-          const previousSort = this.browseSort;
-          this.browseSort = value === "alpha" || value === "frequency" || value === "history" ? value : "queue";
-          if (this.browseSort === "history" && previousSort !== "history") this.browseSortDescending = true;
-          this.browsePage = 0;
-          const mount = this.searchResultsMount(root);
-          if (mount && this.state.route === "search") this.renderBrowseResults(mount);
-          return;
-        }
-        const filterSelect = target?.closest("[data-newtab-filter-select]");
-        if (filterSelect && root.contains(filterSelect)) {
-          const filter = normalizeNewTabUiState({ ...this.state, filter: filterSelect.value }).filter;
-          if (filter === "study") {
-            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-            return;
-          }
-          void this.loadBrowsePool().then((cards) => {
-            this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
-            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-          });
-          return;
-        }
-        const deckSelect2 = target?.closest("[data-newtab-deck-select]");
-        if (deckSelect2 && root.contains(deckSelect2) && this.state.route === "search") {
-          this.state = { ...this.state, jpdbDeck: deckSelect2.value };
-          this.persistState();
-          this.invalidateBrowsePool();
-          this.browsePage = 0;
-          void this.renderBrowseInto(root);
-          return;
-        }
-        if (deckSelect2 && root.contains(deckSelect2)) {
-          const pickedDeck = deckSelect2.value === "all" && this.state.source === "anki" ? "" : deckSelect2.value;
-          this.state = this.state.source === "anki" ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false } : { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
-          this.persistState();
-          this.invalidateSourceResultCache(this.state.source === "anki" ? "anki" : "jpdb");
-          this.allWords = [];
-          this.visibleWords = [];
-          this.visiblePoolSignature = "";
-          this.index = 0;
-          this.setStatus(root, this.text("loading"));
-          void this.loadWordsInto(root, false, { useOfflineCache: false });
-          return;
-        }
-        const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-stats-jpdb-file]") : null;
-        if (!input2 || !root.contains(input2)) return;
-        const file = input2.files?.[0];
-        if (file) void this.statsController.importJpdbFile(root, file);
-        input2.value = "";
-      }, { signal: controller.signal });
-      root.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
-        const input2 = event.target instanceof HTMLInputElement ? event.target : null;
-        if (!input2 || !root.contains(input2)) return;
-        const typeInput = input2.closest("[data-newtab-type-input]");
-        if (typeInput) {
-          event.preventDefault();
-          this.submitTypeWordAnswer(root);
-          return;
-        }
-        const recallInput = input2.closest("[data-newtab-recall-input]");
-        if (!recallInput) return;
-        event.preventDefault();
-        this.submitRecallAnswer(root);
-      }, { signal: controller.signal });
-      root.addEventListener("dragover", (event) => {
-        const dropzone = this.statsDropzoneTarget(root, event);
-        if (!dropzone) return;
-        event.preventDefault();
-        dropzone.dataset.dragging = "true";
-      }, { signal: controller.signal });
-      root.addEventListener("dragleave", (event) => {
-        const dropzone = this.statsDropzoneTarget(root, event);
-        if (!dropzone) return;
-        dropzone.dataset.dragging = "false";
-      }, { signal: controller.signal });
-      root.addEventListener("drop", (event) => {
-        const dropzone = this.statsDropzoneTarget(root, event);
-        if (!dropzone) return;
-        event.preventDefault();
-        dropzone.dataset.dragging = "false";
-        const file = event.dataTransfer?.files?.[0];
-        if (file) void this.statsController.importJpdbFile(root, file);
-      }, { signal: controller.signal });
-      document.addEventListener("keydown", (event) => this.handleRootKeydown(root, event), { signal: controller.signal });
+      for (const [type, handle] of this.rootEventBindings(root)) {
+        root.addEventListener(type, handle, options);
+      }
+      for (const [target, type, handle] of this.pageEventBindings(root)) {
+        target.addEventListener(type, handle, options);
+      }
       installNewTabSwipeGesture({
         root,
         target: () => root.querySelector("[data-newtab-study]"),
@@ -139832,32 +139706,214 @@ ${options.version}`;
         onProgress: (progress) => this.syncSwipeAffordance(root, progress),
         onSwipe: (action, direction) => this.handleNewTabSwipe(root, action, direction)
       });
-      window.addEventListener("popstate", () => this.handleLocationPopstate(root), { signal: controller.signal });
+      this.syncConnectivityIndicator(root);
+      this.rootEventController = controller;
+    }
+    rootEventBindings(root) {
+      return [
+        ["click", (event) => this.handleRootClick(root, event)],
+        ["submit", (event) => this.handleRootSubmit(root, event)],
+        ["input", (event) => this.handleRootInput(root, event)],
+        ["change", (event) => this.handleRootChange(root, event)],
+        ["keydown", (event) => this.handleRootEnterKeydown(root, event)],
+        ["dragover", (event) => this.handleStatsDragOver(root, event)],
+        ["dragleave", (event) => this.handleStatsDragLeave(root, event)],
+        ["drop", (event) => this.handleStatsDrop(root, event)]
+      ];
+    }
+    pageEventBindings(root) {
       const syncQueuedGrades = () => {
         void this.flushQueuedGrades();
       };
-      window.addEventListener("online", () => {
-        this.offlineReviewingAccepted = false;
-        this.syncConnectivityIndicator(root);
-        syncQueuedGrades();
-      }, { signal: controller.signal });
-      window.addEventListener("offline", () => this.syncConnectivityIndicator(root), { signal: controller.signal });
-      window.addEventListener("focus", syncQueuedGrades, { signal: controller.signal });
-      document.addEventListener("visibilitychange", () => {
-        if (!document.hidden) syncQueuedGrades();
-      }, { signal: controller.signal });
-      window.addEventListener("beforeinstallprompt", (event) => {
+      return [
+        // Study shortcuts listen at document level: focus sits on body after
+        // load and falls back there after every re-render (button clicks
+        // replace the controls), so a root-scoped listener left keyboard
+        // reviewing dead most of the time. This page is always Yomu's own
+        // (renderPage gates on isYomuNewTabUrl), and input/search/settings
+        // targets are filtered in handleRootKeydown.
+        [document, "keydown", (event) => this.handleRootKeydown(root, event)],
+        [window, "popstate", () => this.handleLocationPopstate(root)],
+        [window, "online", () => {
+          this.offlineReviewingAccepted = false;
+          this.syncConnectivityIndicator(root);
+          syncQueuedGrades();
+        }],
+        [window, "offline", () => this.syncConnectivityIndicator(root)],
+        [window, "focus", syncQueuedGrades],
+        [document, "visibilitychange", () => {
+          if (!document.hidden) syncQueuedGrades();
+        }],
+        [window, "beforeinstallprompt", (event) => {
+          event.preventDefault();
+          this.installPrompt = event;
+          this.syncInstallAppButton(root);
+        }],
+        [window, "appinstalled", () => {
+          this.installPrompt = null;
+          this.syncInstallAppButton(root);
+          this.dependencies.toast?.(this.text("installStudyAppInstalled"));
+        }]
+      ];
+    }
+    handleRootSubmit(root, event) {
+      const form = event.target?.closest("form");
+      if (!form || !root.contains(form)) return;
+      if (form.matches("[data-newtab-type-form]")) {
         event.preventDefault();
-        this.installPrompt = event;
-        this.syncInstallAppButton(root);
-      }, { signal: controller.signal });
-      window.addEventListener("appinstalled", () => {
-        this.installPrompt = null;
-        this.syncInstallAppButton(root);
-        this.dependencies.toast?.(this.text("installStudyAppInstalled"));
-      }, { signal: controller.signal });
-      this.syncConnectivityIndicator(root);
-      this.rootEventController = controller;
+        this.submitTypeWordAnswer(root);
+        return;
+      }
+      if (form.matches("[data-newtab-recall-form]")) {
+        event.preventDefault();
+        this.submitRecallAnswer(root);
+        return;
+      }
+      if (!form.matches("[data-newtab-search]")) return;
+      event.preventDefault();
+      this.searchController.performSearchFromInput(root);
+    }
+    handleRootInput(root, event) {
+      const typeInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-type-input]") : null;
+      if (typeInput && root.contains(typeInput)) {
+        const card = this.visibleWords[this.index];
+        if (card) {
+          const state2 = this.ensureStepState(cardKey(card));
+          state2.type = { ...state2.type, answer: typeInput.value, feedback: void 0 };
+          const answer = typeInput.closest("[data-newtab-answer]");
+          if (answer) answer.dataset.typeWordOutcome = "pending";
+          answer?.querySelector("[data-newtab-type-result]")?.remove();
+        }
+        return;
+      }
+      const recallInput = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-recall-input]") : null;
+      if (recallInput && root.contains(recallInput)) {
+        this.updateRecallAnswer(root, recallInput.value, false);
+        return;
+      }
+      const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-newtab-search-input]") : null;
+      if (!input2 || !root.contains(input2)) return;
+      this.searchController.onSearchInput(root, input2.value);
+    }
+    handleRootChange(root, event) {
+      const target = eventTargetElement(event.target);
+      const sourceSelect = target?.closest("[data-newtab-source-select]");
+      if (sourceSelect && root.contains(sourceSelect)) {
+        const source = concreteNewTabSourceFromValue(sourceSelect.value);
+        if (source) void this.switchReviewSource(root, source);
+        return;
+      }
+      const targetSelect = target?.closest("[data-newtab-grade-target-select]");
+      if (targetSelect && root.contains(targetSelect)) {
+        this.updateMainGradeTargetLabel(root, targetSelect.selectedOptions[0] ?? null);
+        targetSelect.closest("[data-newtab-grade-target]")?.removeAttribute("open");
+        return;
+      }
+      const selectPage = target?.closest("[data-browse-select-page]");
+      if (selectPage && root.contains(selectPage)) {
+        root.querySelectorAll("[data-browse-select]").forEach((box) => {
+          box.checked = selectPage.checked;
+        });
+        this.syncBrowseBulkControls(root);
+        return;
+      }
+      if (target?.closest("[data-browse-select]")) {
+        this.syncBrowseBulkControls(root);
+        return;
+      }
+      const browseSort = target?.closest(newTabActionSelector("browse-sort"));
+      if (browseSort && root.contains(browseSort)) {
+        this.applyBrowseSortChange(root, browseSort.value);
+        return;
+      }
+      const filterSelect = target?.closest("[data-newtab-filter-select]");
+      if (filterSelect && root.contains(filterSelect)) {
+        this.applyBrowseFilterChange(root, filterSelect.value);
+        return;
+      }
+      const deckSelect2 = target?.closest("[data-newtab-deck-select]");
+      if (deckSelect2 && root.contains(deckSelect2)) {
+        this.applyDeckSelectChange(root, deckSelect2);
+        return;
+      }
+      const input2 = event.target instanceof HTMLInputElement ? event.target.closest("[data-stats-jpdb-file]") : null;
+      if (!input2 || !root.contains(input2)) return;
+      const file = input2.files?.[0];
+      if (file) void this.statsController.importJpdbFile(root, file);
+      input2.value = "";
+    }
+    applyBrowseSortChange(root, value) {
+      const previousSort = this.browseSort;
+      this.browseSort = value === "alpha" || value === "frequency" || value === "history" ? value : "queue";
+      if (this.browseSort === "history" && previousSort !== "history") this.browseSortDescending = true;
+      this.browsePage = 0;
+      const mount = this.searchResultsMount(root);
+      if (mount && this.state.route === "search") this.renderBrowseResults(mount);
+    }
+    applyBrowseFilterChange(root, value) {
+      const filter = normalizeNewTabUiState({ ...this.state, filter: value }).filter;
+      if (filter === "study") {
+        this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+        return;
+      }
+      void this.loadBrowsePool().then((cards) => {
+        this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
+        this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+      });
+    }
+    applyDeckSelectChange(root, deckSelect2) {
+      if (this.state.route === "search") {
+        this.state = { ...this.state, jpdbDeck: deckSelect2.value };
+        this.persistState();
+        this.invalidateBrowsePool();
+        this.browsePage = 0;
+        void this.renderBrowseInto(root);
+        return;
+      }
+      const pickedDeck = deckSelect2.value === "all" && this.state.source === "anki" ? "" : deckSelect2.value;
+      this.state = this.state.source === "anki" ? { ...this.state, ankiDeck: pickedDeck, revealAnswer: false } : { ...this.state, jpdbDeck: deckSelect2.value, revealAnswer: false };
+      this.persistState();
+      this.invalidateSourceResultCache(this.state.source === "anki" ? "anki" : "jpdb");
+      this.allWords = [];
+      this.visibleWords = [];
+      this.visiblePoolSignature = "";
+      this.index = 0;
+      this.setStatus(root, this.text("loading"));
+      void this.loadWordsInto(root, false, { useOfflineCache: false });
+    }
+    handleRootEnterKeydown(root, event) {
+      if (event.key !== "Enter" || event.isComposing || event.keyCode === 229) return;
+      const input2 = event.target instanceof HTMLInputElement ? event.target : null;
+      if (!input2 || !root.contains(input2)) return;
+      const typeInput = input2.closest("[data-newtab-type-input]");
+      if (typeInput) {
+        event.preventDefault();
+        this.submitTypeWordAnswer(root);
+        return;
+      }
+      const recallInput = input2.closest("[data-newtab-recall-input]");
+      if (!recallInput) return;
+      event.preventDefault();
+      this.submitRecallAnswer(root);
+    }
+    handleStatsDragOver(root, event) {
+      const dropzone = this.statsDropzoneTarget(root, event);
+      if (!dropzone) return;
+      event.preventDefault();
+      dropzone.dataset.dragging = "true";
+    }
+    handleStatsDragLeave(root, event) {
+      const dropzone = this.statsDropzoneTarget(root, event);
+      if (!dropzone) return;
+      dropzone.dataset.dragging = "false";
+    }
+    handleStatsDrop(root, event) {
+      const dropzone = this.statsDropzoneTarget(root, event);
+      if (!dropzone) return;
+      event.preventDefault();
+      dropzone.dataset.dragging = "false";
+      const file = event.dataTransfer?.files?.[0];
+      if (file) void this.statsController.importJpdbFile(root, file);
     }
     syncConnectivityIndicator(root) {
       const indicator = root.querySelector("[data-newtab-connectivity]");
@@ -139896,8 +139952,7 @@ ${options.version}`;
     rootClickRequest(event) {
       const target = eventTargetElement(event.target);
       if (!target) return null;
-      const action = target.closest("[data-newtab-action]")?.dataset.newtabAction;
-      return { target, action };
+      return { target, action: nearestNewTabAction(target) };
     }
     handleRootClickActions(root, target, event, action) {
       return this.rootClickHandlers.some((handler) => handler(root, target, event, action));
@@ -139988,7 +140043,7 @@ ${options.version}`;
       const candidates = usesBunproFsrsGradeScale(card) ? BUNPRO_FSRS_REVIEW_SHORTCUTS : this.currentStudyUsesTwoButtonGradeScale(root, settings) ? TWO_BUTTON_REVIEW_SHORTCUTS : FIVE_BUTTON_REVIEW_SHORTCUTS;
       const grade = matchedReviewShortcutGrade(event, settings.shortcuts, candidates);
       if (!grade) return;
-      const button2 = root.querySelector(`[data-newtab-action="grade"][data-grade="${grade}"]:not([disabled])`);
+      const button2 = root.querySelector(newTabActionSelector("grade", `[data-grade="${grade}"]:not([disabled])`));
       if (!button2) return;
       event.preventDefault();
       this.dismissKeyHints(root);
@@ -139996,7 +140051,7 @@ ${options.version}`;
     }
     currentStudyUsesTwoButtonGradeScale(root, settings) {
       if (usesTwoButtonNewTabGradeScale(settings, this.visibleWords[this.index])) return true;
-      return Boolean(root.querySelector('[data-newtab-study] [data-newtab-action="grade"][data-grade="pass"]'));
+      return Boolean(root.querySelector(`[data-newtab-study] ${newTabActionSelector("grade", '[data-grade="pass"]')}`));
     }
     canRevealFromEnterTarget(root, target) {
       if (!target) return true;
@@ -140161,7 +140216,7 @@ ${options.version}`;
           el("button", {
             class: "jpdb-reader-newtab-support-close",
             type: "button",
-            dataset: { newtabAction: "dismiss-support-banner" },
+            dataset: { newtabAction: newTabAction("dismiss-support-banner") },
             "aria-label": this.text("supportBannerDismiss")
           }, "×")
         )
@@ -140185,9 +140240,7 @@ ${options.version}`;
       return Boolean(nav.standalone) || typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches;
     }
     handleRootModeClick(root, target, event, action) {
-      if (action === "mode") return this.activateRouteFromClick(root, target, event);
-      if (action === "listen-submode") return this.activateListenStepFromClick(root, target, event);
-      return false;
+      return action === "mode" ? this.activateRouteFromClick(root, target, event) : false;
     }
     activateRouteFromClick(root, target, event) {
       event.preventDefault();
@@ -140198,16 +140251,6 @@ ${options.version}`;
         this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
       }
       this.setState({ route, revealAnswer: false }, root, { preserveWord: true });
-      return true;
-    }
-    activateListenStepFromClick(root, target, event) {
-      event.preventDefault();
-      const requested = target.closest("[data-listen-submode]")?.dataset.listenSubmode;
-      const mode = requested === "recall" || requested === "shadow" ? requested : "perceive";
-      if (mode !== "shadow") this.listenInteractionMode = mode;
-      const step = this.studyStepForKind(mode === "shadow" ? "speaking" : "listen-pitch");
-      this.setStudyStepOverrideForCurrentCard(step?.id ?? null);
-      this.setState({ route: "study", revealAnswer: false }, root, { preserveWord: true });
       return true;
     }
     handleRootStudyActionClick(root, target, event, action) {
@@ -142322,7 +142365,7 @@ ${options.version}`;
           type: "button",
           class: "jpdb-reader-newtab-study-step",
           dataset: {
-            newtabAction: "study-step",
+            newtabAction: newTabAction("study-step"),
             studyStepId: step.id,
             studyStepKind: step.kind,
             active: String(active),
@@ -142367,7 +142410,7 @@ ${options.version}`;
             ),
             audioAvailability
           ),
-          el("button", { type: "button", dataset: { newtabAction: "dismiss-study-tour" } }, this.text("studyTourStart"))
+          el("button", { type: "button", dataset: { newtabAction: newTabAction("dismiss-study-tour") } }, this.text("studyTourStart"))
         );
         return;
       }
@@ -142548,11 +142591,6 @@ ${options.version}`;
       this.rerenderActiveListen();
       void this.playListenModelAudio();
     }
-    handleListenGrade(root, target) {
-      const grade = target.closest("[data-grade]")?.dataset.grade;
-      if (!grade || !this.listenItem) return;
-      this.advanceListen(root);
-    }
     advanceListen(_root) {
       this.listenItem = null;
       this.listenSelectedPosition = null;
@@ -142643,19 +142681,19 @@ ${options.version}`;
         }
         this.clearListenSpeakingScore();
         this.clearListenRecording();
-        const recorder = new MediaRecorder(stream);
+        const recorder2 = new MediaRecorder(stream);
         const chunks2 = [];
-        recorder.addEventListener("dataavailable", (event) => {
+        recorder2.addEventListener("dataavailable", (event) => {
           if (event.data && event.data.size) chunks2.push(event.data);
         });
-        recorder.addEventListener("stop", () => {
+        recorder2.addEventListener("stop", () => {
           if (this.listenRecordingStopTimer) {
             clearTimeout(this.listenRecordingStopTimer);
             this.listenRecordingStopTimer = void 0;
           }
           stream.getTracks().forEach((track) => track.stop());
           this.clearListenRecording();
-          const blob = chunks2.length ? new Blob(chunks2, { type: recorder.mimeType || "audio/webm" }) : null;
+          const blob = chunks2.length ? new Blob(chunks2, { type: recorder2.mimeType || "audio/webm" }) : null;
           if (blob && this.listenItem?.key === recordingItemKey && this.activeListenInteractionMode() === "shadow") {
             this.listenRecordingUrl = URL.createObjectURL(blob);
             this.listenSpeakingScoring = true;
@@ -142665,10 +142703,10 @@ ${options.version}`;
           this.rerenderActiveListen();
         });
         this.listenRecordingUnavailable = false;
-        this.listenRecorder = recorder;
-        recorder.start();
+        this.listenRecorder = recorder2;
+        recorder2.start();
         this.listenRecordingStopTimer = setTimeout(() => {
-          if (this.listenRecorder === recorder && recorder.state !== "inactive") this.stopListenRecorder();
+          if (this.listenRecorder === recorder2 && recorder2.state !== "inactive") this.stopListenRecorder();
         }, 3200);
         this.rerenderActiveListen();
       } catch (error) {
@@ -143333,7 +143371,7 @@ ${options.version}`;
       countSlot.append(el("button", {
         type: "button",
         class: "jpdb-reader-newtab-connect-cta",
-        dataset: { newtabAction: "settings" }
+        dataset: { newtabAction: newTabAction("settings") }
       }, this.text("connectSrsCta")));
     }
     syncSessionProgressDataset(countSlot, progress) {
@@ -143365,7 +143403,7 @@ ${options.version}`;
         meaning: root.querySelector("[data-newtab-meaning]"),
         count: root.querySelector("[data-newtab-count]"),
         status: root.querySelector("[data-newtab-status]"),
-        reveal: root.querySelector('[data-newtab-action="reveal"]'),
+        reveal: root.querySelector(newTabActionSelector("reveal")),
         controls: root.querySelector("[data-newtab-controls]")
       };
     }
@@ -143488,7 +143526,7 @@ ${options.version}`;
         more ? el("button", {
           type: "button",
           class: "jpdb-reader-newtab-study-hint-btn",
-          dataset: { newtabAction: "study-hint" }
+          dataset: { newtabAction: newTabAction("study-hint") }
         }, depth === 0 ? this.text("studyHintReveal") : this.text("studyHintMore")) : null
       );
     }
@@ -143698,7 +143736,7 @@ ${options.version}`;
           el("button", {
             class: "jpdb-reader-newtab-recall-check",
             type: "button",
-            dataset: { newtabAction: "recall-submit" }
+            dataset: { newtabAction: newTabAction("recall-submit") }
           }, this.text("recallCheck"))
         ),
         outcome ? el("div", {
@@ -143895,7 +143933,7 @@ ${options.version}`;
           el("button", {
             class: "jpdb-reader-newtab-type-skip",
             type: "button",
-            dataset: { newtabAction: "type-word-skip" }
+            dataset: { newtabAction: newTabAction("type-word-skip") }
           }, this.text("typeWordSkip"))
         )
       );
@@ -143907,7 +143945,7 @@ ${options.version}`;
       const button2 = (value, label) => el("button", {
         class: "jpdb-reader-newtab-type-mode",
         type: "button",
-        dataset: { newtabAction: "type-word-mode", typeWordMode: value, active: String(mode === value) },
+        dataset: { newtabAction: newTabAction("type-word-mode"), typeWordMode: value, active: String(mode === value) },
         "aria-pressed": String(mode === value),
         disabled: value === "handwriting" && !supportsHandwriting,
         title: value === "handwriting" && !supportsHandwriting ? this.text("typeWordHandwritingUnavailable") : void 0
@@ -143946,7 +143984,7 @@ ${options.version}`;
         el("button", {
           class: "jpdb-reader-newtab-recall-check",
           type: "button",
-          dataset: { newtabAction: "type-word-submit" },
+          dataset: { newtabAction: newTabAction("type-word-submit") },
           "aria-label": this.text(readyToContinue ? "continueStudying" : "recallCheck")
         }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
       );
@@ -145490,7 +145528,7 @@ ${options.version}`;
         actions.map((action) => el("button", {
           type: "button",
           class: `jpdb-reader-newtab-mini-action ${jpdbKanjiActionClass(action)}`,
-          dataset: { newtabAction: "jpdb-kanji-action", kanjiActionId: action.id },
+          dataset: { newtabAction: newTabAction("jpdb-kanji-action"), kanjiActionId: action.id },
           title: action.label
         }, action.label))
       );
@@ -145601,9 +145639,9 @@ ${options.version}`;
       controls.hidden = false;
       replaceChildrenWith(
         controls,
-        el("button", { type: "button", dataset: { newtabAction: "empty-fallback" } }, this.text("starterWords")),
-        el("button", { type: "button", dataset: { newtabAction: "settings" } }, uiText(this.language(), "settings")),
-        el("button", { type: "button", dataset: { newtabAction: "mode", mode: "search" } }, this.text("search"))
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("empty-fallback") } }, this.text("starterWords")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("settings") } }, uiText(this.language(), "settings")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "search" } }, this.text("search"))
       );
     }
     clearEmptyControls(controls) {
@@ -145860,7 +145898,7 @@ ${options.version}`;
     }
     syncBrowseBulkControls(root) {
       const selected = root.querySelectorAll("[data-browse-select]:checked").length;
-      root.querySelectorAll('[data-newtab-action="browse-bulk"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("browse-bulk")).forEach((button2) => {
         button2.disabled = selected === 0;
       });
       const count = root.querySelector("[data-browse-bulk-count]");
@@ -145877,7 +145915,7 @@ ${options.version}`;
       const cardsByKey = new Map(pool.map((card) => [cardKey(card), card]));
       const selected = [...root.querySelectorAll("[data-browse-select]:checked")].map((box) => cardsByKey.get(box.dataset.browseCardKey ?? "")).filter((card) => Boolean(card));
       if (!selected.length) return;
-      root.querySelectorAll('[data-newtab-action="browse-bulk"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("browse-bulk")).forEach((button2) => {
         button2.disabled = true;
       });
       for (const card of selected) {
@@ -146004,24 +146042,24 @@ ${options.version}`;
       const revealShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
       const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
       return [
-        el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("previous") }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
         el(
           "button",
-          { type: "button", dataset: { newtabAction: "reveal" } },
+          { type: "button", dataset: { newtabAction: newTabAction("reveal") } },
           revealLabel,
           revealShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, revealShortcut) : null
         ),
-        el("button", { type: "button", dataset: { newtabAction: "next" }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("next") }, "aria-label": this.text("nextWord") }, this.text("nextWord"))
       ];
     }
     studyStepControlButtons() {
       const continueShortcut = this.studyShortcutHint(["studyReveal", "studyRevealAlternate"]);
       const showShortcutHints = this.dependencies.getSettings().newTabShortcutHintsEnabled;
       return [
-        el("button", { type: "button", dataset: { newtabAction: "previous" }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
+        el("button", { type: "button", dataset: { newtabAction: newTabAction("previous") }, "aria-label": this.text("previousWord") }, this.text("previousWord")),
         el(
           "button",
-          { type: "button", dataset: { newtabAction: "next" } },
+          { type: "button", dataset: { newtabAction: newTabAction("next") } },
           this.text("continueStudying"),
           continueShortcut && newTabKeyHintsRenderable(showShortcutHints) ? el("kbd", { class: "jpdb-reader-newtab-key-hint", "aria-hidden": "true" }, continueShortcut) : null
         )
@@ -146222,7 +146260,7 @@ ${options.version}`;
       if (this.gradeSubmissionInFlight) return false;
       this.gradeSubmissionInFlight = true;
       const gradeButtons = [
-        ...Array.from(this.currentRoot()?.querySelectorAll('[data-newtab-action="grade"]') ?? []),
+        ...Array.from(this.currentRoot()?.querySelectorAll(newTabActionSelector("grade")) ?? []),
         ...Array.from(document.querySelectorAll('button[data-action="grade"][data-grade]'))
       ];
       gradeButtons.forEach((button2) => {
@@ -146365,7 +146403,7 @@ ${options.version}`;
       this.visiblePoolSignature = this.newTabPoolSignature(this.visibleWords);
       this.state.revealAnswer = false;
       this.persistState();
-      root.querySelectorAll('[data-newtab-action="grade"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("grade")).forEach((button2) => {
         button2.disabled = true;
       });
       this.setStatus(root, this.text("couldNotSubmitGrade"));
@@ -146503,7 +146541,7 @@ ${options.version}`;
         delete slots.controls.dataset.newtabGradeScale;
         replaceChildrenWith(
           slots.controls,
-          el("button", { type: "button", dataset: { newtabAction: "continue-batch" } }, this.text("continueStudying"))
+          el("button", { type: "button", dataset: { newtabAction: newTabAction("continue-batch") } }, this.text("continueStudying"))
         );
       }
     }
@@ -146935,25 +146973,13 @@ ${options.version}`;
       const controls = root.querySelector("[data-newtab-controls]");
       if (controls) controls.hidden = this.state.route === "stats";
       if (this.state.route !== "search") root.querySelector("[data-newtab-handwriting]")?.remove();
-      root.querySelectorAll('[data-newtab-action="mode"]').forEach((button2) => {
+      root.querySelectorAll(newTabActionSelector("mode")).forEach((button2) => {
         const active = button2.dataset.mode === this.state.route || button2.dataset.mode === "word" && this.state.route === "study";
         button2.dataset.active = String(active);
         button2.setAttribute("aria-pressed", String(active));
       });
-      this.syncListenSubModeSwitcher(root);
       this.syncDeckSelector(root);
       this.syncStateFilterSelector(root);
-    }
-    // The Listen sub-mode switcher (Perceive / Recall / Shadow) is only relevant in
-    // Listen mode; CSS hides it otherwise, and here we reflect the active sub-mode.
-    syncListenSubModeSwitcher(root) {
-      const switcher = root.querySelector("[data-newtab-listen-submodes]");
-      if (switcher) switcher.hidden = !this.activeStudyStepIsListen();
-      root.querySelectorAll('[data-newtab-action="listen-submode"]').forEach((button2) => {
-        const active = button2.dataset.listenSubmode === this.activeListenInteractionMode();
-        button2.dataset.active = String(active);
-        button2.setAttribute("aria-pressed", String(active));
-      });
     }
     // JPDB deck-browse "Show only" parity: the persisted state filter for the
     // Word tab pool, rendered as a compact select beside the deck scope.
@@ -147116,7 +147142,7 @@ ${options.version}`;
     syncThemeToggle(root) {
       const theme = this.effectiveTheme(this.dependencies.getSettings().theme);
       root.dataset.newtabTheme = theme;
-      const button2 = root.querySelector('[data-newtab-action="theme"]');
+      const button2 = root.querySelector(newTabActionSelector("theme"));
       if (!button2) return;
       const label = this.text(theme === "dark" ? "switchToLightTheme" : "switchToDarkTheme");
       button2.setAttribute("aria-label", label);

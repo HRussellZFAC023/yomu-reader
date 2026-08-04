@@ -78,6 +78,28 @@ function isPrivateIpv6(host) {
   }
   return host.startsWith("fc") || host.startsWith("fd") || /^fe[89ab]/u.test(host);
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
 const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
 const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
@@ -270,8 +292,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -666,11 +688,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -738,11 +756,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -766,11 +783,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -1023,15 +1036,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -1482,7 +1495,7 @@ class WanikaniClient {
   const token = this.getToken().trim();
   if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
   if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-  let attempt = 0;
+  let attempt2 = 0;
   while (true) {
     await this.throttle();
     try {
@@ -1509,8 +1522,8 @@ class WanikaniClient {
       });
     } catch (error) {
       const normalized = normalizeWanikaniError(error);
-      if (attempt === 0 && isRateLimitError(normalized)) {
-        attempt += 1;
+      if (attempt2 === 0 && isRateLimitError(normalized)) {
+        attempt2 += 1;
         await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
         continue;
       }
@@ -1559,11 +1572,11 @@ class WanikaniClient {
 }
 const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
 function parseWanikaniUser(raw) {
-  const record = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
-  const subscriptionRaw = isRecord$2(record.subscription) ? record.subscription : {};
+  const record2 = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
+  const subscriptionRaw = isRecord$2(record2.subscription) ? record2.subscription : {};
   return {
-  id: typeof record.id === "string" ? record.id : "",
-  level: typeof record.level === "number" ? record.level : 0,
+  id: typeof record2.id === "string" ? record2.id : "",
+  level: typeof record2.level === "number" ? record2.level : 0,
   subscription: {
     active: subscriptionRaw.active === true,
     type: typeof subscriptionRaw.type === "string" ? subscriptionRaw.type : "",
@@ -1791,16 +1804,16 @@ function subjectTypesFor(spelling) {
   return Array.from(spelling).length === 1 && /[\u3400-\u9fff\uf900-\ufaff]/u.test(spelling) ? ["kanji", "vocabulary", "kana_vocabulary"] : ["vocabulary", "kana_vocabulary"];
 }
 function parseAssignment$1(raw) {
-  const record = dataRecord(raw);
+  const record2 = dataRecord(raw);
   const outer = asRecord(raw);
   const id = numberValue(outer?.id);
-  if (!record || id === null) return null;
+  if (!record2 || id === null) return null;
   return {
   id,
-  srsStage: numberValue(record.srs_stage) ?? 0,
-  availableAt: stringValue(record.available_at),
-  burnedAt: stringValue(record.burned_at),
-  unlockedAt: stringValue(record.unlocked_at)
+  srsStage: numberValue(record2.srs_stage) ?? 0,
+  availableAt: stringValue(record2.available_at),
+  burnedAt: stringValue(record2.burned_at),
+  unlockedAt: stringValue(record2.unlocked_at)
   };
 }
 function parseStudyMaterial(raw) {
@@ -1824,8 +1837,8 @@ function parseReviewStatistic(raw) {
   };
 }
 function dataRecord(value) {
-  const record = asRecord(value);
-  return asRecord(record?.data);
+  const record2 = asRecord(value);
+  return asRecord(record2?.data);
 }
 function asRecord(value) {
   return typeof value === "object" && value !== null ? value : null;
@@ -2898,13 +2911,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -3029,6 +3042,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -3077,8 +3091,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));

@@ -3,6 +3,28 @@
 function isNonNullObject(value) {
   return typeof value === "object" && value !== null;
 }
+let recorder = () => void 0;
+function setAttemptRecorder(next) {
+  recorder = next;
+}
+function record(label, error) {
+  recorder(label, error);
+}
+function attempt(fn, fallback, label) {
+  try {
+  return fn();
+  } catch (error) {
+  record(label, error);
+  return fallback;
+  }
+}
+function attemptVoid(fn, label) {
+  try {
+  fn();
+  } catch (error) {
+  record(label, error);
+  }
+}
 let initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 let initialWindowAddEventListener = initialWindowMethod("addEventListener");
 let initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -162,11 +184,7 @@ function readOwnMethod(source, key) {
 }
 function readProperty(source, key) {
   if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-  try {
-  return source[key];
-  } catch {
-  return void 0;
-  }
+  return attempt(() => source[key], void 0, "window-events.readProperty");
 }
 function callEventTargetMethod(method, target, event) {
   if (!method) return { called: false };
@@ -234,11 +252,10 @@ function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
   }
 }
 function restoreWindowProperty(key, descriptor) {
-  try {
+  attemptVoid(() => {
   const target = window.wrappedJSObject || window;
   Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-  } catch {
-  }
+  }, "window-events.restoreWindowProperty");
 }
 function pageCompartmentDescriptor(descriptor, _target) {
   return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
@@ -246,11 +263,7 @@ function pageCompartmentDescriptor(descriptor, _target) {
 function pageCompartmentDescriptorOrNull(descriptor) {
   const cloneInto = readMethod(globalThis, "cloneInto");
   if (!cloneInto || typeof window === "undefined") return descriptor;
-  try {
-  return cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true });
-  } catch {
-  return null;
-  }
+  return attempt(() => cloneInto(descriptor, window, { cloneFunctions: true, wrapReflectors: true }), null, "window-events.pageCompartmentDescriptorOrNull");
 }
 function pageCompartmentValue(value, options = {}) {
   const cloneInto = readMethod(globalThis, "cloneInto");
@@ -271,11 +284,7 @@ function safeWindowPropertyDescriptor(key) {
 }
 function shouldTemporarilyUnshadowWindowProperty(descriptor) {
   if (!descriptor) return false;
-  try {
-  return typeof descriptor.value !== "function";
-  } catch {
-  return false;
-  }
+  return attempt(() => typeof descriptor.value !== "function", false, "window-events.shouldTemporarilyUnshadowWindowProperty");
 }
 function normalizedPropertyDescriptor(descriptor) {
   const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
@@ -1069,15 +1078,15 @@ function storageBridgeRequest(request) {
 function storageBridgeResponseDetail(event) {
   const detail = normalizedBridgeEventDetail(event);
   if (!detail || typeof detail !== "object") return void 0;
-  const record = detail;
-  if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+  const record2 = detail;
+  if (typeof record2.id !== "string" || typeof record2.ok !== "boolean") return void 0;
   return {
-  id: record.id,
-  ok: record.ok,
-  found: typeof record.found === "boolean" ? record.found : void 0,
-  value: record.value,
-  keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-  message: typeof record.message === "string" ? record.message : void 0
+  id: record2.id,
+  ok: record2.ok,
+  found: typeof record2.found === "boolean" ? record2.found : void 0,
+  value: record2.value,
+  keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
+  message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
 function normalizedBridgeEventDetail(event) {
@@ -1945,10 +1954,10 @@ const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const record = { ...value };
-  delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
-  return record;
+  const record2 = { ...value };
+  delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+  return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
@@ -2312,13 +2321,13 @@ function extensionStorageArea() {
 function parseFactoryResetSignal(value) {
   const parsed = typeof value === "string" ? parseJsonRecord(value) : value;
   if (!isFactoryResetSignalRecord(parsed)) return null;
-  const record = parsed;
-  if (!isValidFactoryResetPhase(record.phase)) return null;
+  const record2 = parsed;
+  if (!isValidFactoryResetPhase(record2.phase)) return null;
   return {
-  id: record.id,
-  phase: record.phase,
-  at: factoryResetSignalTime(record.at),
-  href: factoryResetSignalHref(record.href)
+  id: record2.id,
+  phase: record2.phase,
+  at: factoryResetSignalTime(record2.at),
+  href: factoryResetSignalHref(record2.href)
   };
 }
 function factoryResetSignalTime(value) {
@@ -2463,6 +2472,7 @@ class LoggerImpl {
   }
 }
 const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function isDevMode() {
   return BUILD_IS_DEV_MODE;
 }
@@ -2511,8 +2521,8 @@ const CONSOLE_VALUE_SANITIZERS = [
   (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
   (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
 ];
-function sanitizeRecordForConsole(record) {
-  return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+function sanitizeRecordForConsole(record2) {
+  return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
   key,
   shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
   ]));
@@ -7059,8 +7069,8 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
   for (const [index, candidate] of candidates.entries()) {
   if (options.signal?.aborted) throw abortReasonFor(options.signal);
   try {
-    const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
-    const response = await fetchWithTimeout(attempt.url, attempt.options);
+    const attempt2 = fetchAttemptForCandidate(targetUrl, candidate, options);
+    const response = await fetchWithTimeout(attempt2.url, attempt2.options);
     if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
       lastError = new Error(`Proxy request failed (${response.status}).`);
       continue;
@@ -13826,10 +13836,7 @@ function loadTranscriptPanelSize() {
   }
 }
 function saveTranscriptPanelSize(size) {
-  try {
-  gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size);
-  } catch {
-  }
+  attemptVoid(() => gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size), "subtitle-layout.saveTranscriptPanelSize");
 }
 function loadSubtitleDragOffsetFraction() {
   try {
@@ -13840,10 +13847,7 @@ function loadSubtitleDragOffsetFraction() {
   }
 }
 function saveSubtitleDragOffsetFraction(fraction) {
-  try {
-  gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
-  } catch {
-  }
+  attemptVoid(() => gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) }), "subtitle-layout.saveSubtitleDragOffsetFraction");
 }
 function loadSubtitleControlRailPosition() {
   try {
@@ -13855,13 +13859,12 @@ function loadSubtitleControlRailPosition() {
   }
 }
 function saveSubtitleControlRailPosition(position) {
-  try {
+  attemptVoid(() => {
   gmStorageSetSync(SUBTITLE_CONTROL_RAIL_POSITION_KEY, {
     x: clampRailFraction(position.x),
     y: clampRailFraction(position.y)
   });
-  } catch {
-  }
+  }, "subtitle-layout.saveSubtitleControlRailPosition");
 }
 function clampRailFraction(value) {
   if (!Number.isFinite(value)) return 0;
@@ -13997,53 +14000,53 @@ function subtitleSourcesFromConfigValue(value, pageTitle, keyPrefix) {
   if (!current || typeof current !== "object") return;
   if (seenObjects.has(current)) return;
   seenObjects.add(current);
-  const record = current;
-  const source = subtitleSourceFromConfigRecord(record, pageTitle, keyPrefix, sources.length, path);
+  const record2 = current;
+  const source = subtitleSourceFromConfigRecord(record2, pageTitle, keyPrefix, sources.length, path);
   if (source) sources.push(source);
-  for (const [key, child] of Object.entries(record)) visit(child, [...path, key]);
+  for (const [key, child] of Object.entries(record2)) visit(child, [...path, key]);
   };
   visit(value, []);
   return sources;
 }
-function subtitleSourceFromConfigRecord(record, pageTitle, keyPrefix, index, path) {
-  const url = subtitleConfigRecordUrl(record);
-  if (!url || !isSubtitleConfigRecord(record, path)) return null;
-  const label = subtitleConfigSourceLabel(subtitleConfigRecordLabel(record), url, pageTitle);
+function subtitleSourceFromConfigRecord(record2, pageTitle, keyPrefix, index, path) {
+  const url = subtitleConfigRecordUrl(record2);
+  if (!url || !isSubtitleConfigRecord(record2, path)) return null;
+  const label = subtitleConfigSourceLabel(subtitleConfigRecordLabel(record2), url, pageTitle);
   return {
   url,
   label,
-  language: normalizeSubtitleLanguage(subtitleConfigRecordLanguage(record) || inferSubtitleLanguage(label, url)),
+  language: normalizeSubtitleLanguage(subtitleConfigRecordLanguage(record2) || inferSubtitleLanguage(label, url)),
   sourceKey: pageSubtitleSourceKey(`${keyPrefix}-${index}`, url)
   };
 }
-function subtitleConfigRecordUrl(record) {
+function subtitleConfigRecordUrl(record2) {
   for (const key of ["src", "file", "url", "href"]) {
-  const value = subtitleConfigString(record[key]);
+  const value = subtitleConfigString(record2[key]);
   const url = value ? subtitleSourceUrl(value) : "";
   if (url) return url;
   }
   return "";
 }
-function subtitleConfigRecordLabel(record) {
-  return subtitleConfigString(record.label) || subtitleConfigString(record.name) || subtitleConfigString(record.title) || subtitleConfigRecordLanguage(record);
+function subtitleConfigRecordLabel(record2) {
+  return subtitleConfigString(record2.label) || subtitleConfigString(record2.name) || subtitleConfigString(record2.title) || subtitleConfigRecordLanguage(record2);
 }
-function subtitleConfigRecordLanguage(record) {
-  return subtitleConfigString(record.language) || subtitleConfigString(record.lang) || subtitleConfigString(record.srclang);
+function subtitleConfigRecordLanguage(record2) {
+  return subtitleConfigString(record2.language) || subtitleConfigString(record2.lang) || subtitleConfigString(record2.srclang);
 }
 function subtitleConfigSourceLabel(value, url, pageTitle) {
   const cleaned = cleanSubtitleTitle(value);
   return cleaned || subtitleSourceLabel("", url, { pageTitle });
 }
-function isSubtitleConfigRecord(record, path) {
-  const context = `${path.join(" ")} ${Object.keys(record).join(" ")}`;
+function isSubtitleConfigRecord(record2, path) {
+  const context = `${path.join(" ")} ${Object.keys(record2).join(" ")}`;
   if (/(?:thumbnail|thumb|preview|poster|image|sprite|chapter|manifest|playlist)/i.test(context)) return false;
   const type = [
-  subtitleConfigString(record.kind),
-  subtitleConfigString(record.type),
-  subtitleConfigString(record.role),
-  subtitleConfigString(record.trackKind)
+  subtitleConfigString(record2.kind),
+  subtitleConfigString(record2.type),
+  subtitleConfigString(record2.role),
+  subtitleConfigString(record2.trackKind)
   ].join(" ");
-  return /(?:subtitles?|captions?|closed.?captions?|text.?tracks?)/i.test(`${context} ${type}`) || Boolean(subtitleConfigRecordLanguage(record) && subtitleConfigRecordLabel(record));
+  return /(?:subtitles?|captions?|closed.?captions?|text.?tracks?)/i.test(`${context} ${type}`) || Boolean(subtitleConfigRecordLanguage(record2) && subtitleConfigRecordLabel(record2));
 }
 function subtitleConfigString(value) {
   const decoded = subtitleConfigTaggedValue(value);
@@ -15278,12 +15281,12 @@ function youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages
   ];
 }
 function parseYouTubeCaptionTrack(track) {
-  const record = track;
-  const url = normalizedYouTubeCaptionUrl(record);
+  const record2 = track;
+  const url = normalizedYouTubeCaptionUrl(record2);
   if (!url) return null;
-  const language = record.languageCode;
-  const label = youtubeCaptionTrackLabel(record, language);
-  const autoGenerated = isAutoGeneratedYouTubeCaptionTrack(record, label);
+  const language = record2.languageCode;
+  const label = youtubeCaptionTrackLabel(record2, language);
+  const autoGenerated = isAutoGeneratedYouTubeCaptionTrack(record2, label);
   const autoSuffix = youtubeCaptionAutoSuffix(autoGenerated, label);
   const sourceType = autoGenerated ? "asr" : "manual";
   const parsed = {
@@ -15294,7 +15297,7 @@ function parseYouTubeCaptionTrack(track) {
   raw: track,
   sourceType,
   sourceLanguage: language,
-  vssId: record.vssId
+  vssId: record2.vssId
   };
   return { ...parsed, youtubeIdentity: youtubeCaptionTrackIdentity(parsed) };
 }
@@ -15309,10 +15312,10 @@ function preferredYouTubeTranslationLanguages(rawLanguages) {
   });
 }
 function parseYouTubeTranslationLanguage(value) {
-  const record = value;
-  const code = normalizedYouTubeLanguageCode(record.languageCode);
+  const record2 = value;
+  const code = normalizedYouTubeLanguageCode(record2.languageCode);
   if (!code) return null;
-  return { code, label: firstYouTubeCaptionTrackLabel(record, code) || code, raw: value };
+  return { code, label: firstYouTubeCaptionTrackLabel(record2, code) || code, raw: value };
 }
 function translatedYouTubeCaptionTrack(source, language) {
   const url = new URL(source.url, location.href);
@@ -15338,17 +15341,17 @@ function translatedYouTubeCaptionTrack(source, language) {
 function sourceLabelForTranslation(source) {
   return source.label.replace(/\s+·\s+auto-generated$/iu, "").replace(/\([^)]*\)\s*$/u, "").trim() || source.language || "source";
 }
-function normalizedYouTubeCaptionUrl(record) {
-  const rawUrl = rawYouTubeCaptionUrl(record);
+function normalizedYouTubeCaptionUrl(record2) {
+  const rawUrl = rawYouTubeCaptionUrl(record2);
   if (!rawUrl) return null;
   const url = new URL(rawUrl, location.href);
   url.searchParams.set("fmt", "srv3");
-  if (record.languageCode && !url.searchParams.has("lang")) url.searchParams.set("lang", record.languageCode);
+  if (record2.languageCode && !url.searchParams.has("lang")) url.searchParams.set("lang", record2.languageCode);
   applyYouTubeCaptionClientName(url, readYouTubeClientName());
   return url;
 }
-function rawYouTubeCaptionUrl(record) {
-  return typeof record.url === "string" ? record.url : typeof record.baseUrl === "string" ? record.baseUrl : "";
+function rawYouTubeCaptionUrl(record2) {
+  return typeof record2.url === "string" ? record2.url : typeof record2.baseUrl === "string" ? record2.baseUrl : "";
 }
 function applyYouTubeCaptionClientName(url, clientName) {
   if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
@@ -15401,24 +15404,24 @@ function androidYouTubeCaptionTracksFromPayload(payload, videoId) {
   const rawTracks = renderer?.captionTracks;
   return uniqueYouTubeCaptionTracks(Array.isArray(rawTracks) ? rawTracks : [], renderer?.translationLanguages);
 }
-function youtubeCaptionTrackLabel(record, language) {
-  return firstYouTubeCaptionTrackLabel(record, language) || "YouTube subtitles";
+function youtubeCaptionTrackLabel(record2, language) {
+  return firstYouTubeCaptionTrackLabel(record2, language) || "YouTube subtitles";
 }
-function firstYouTubeCaptionTrackLabel(record, language) {
+function firstYouTubeCaptionTrackLabel(record2, language) {
   return [
-  youtubeCaptionText(record.name),
-  youtubeCaptionText(record.displayName),
-  youtubeCaptionText(record.languageName),
+  youtubeCaptionText(record2.name),
+  youtubeCaptionText(record2.displayName),
+  youtubeCaptionText(record2.languageName),
   language
   ].find((label) => Boolean(label)) ?? "";
 }
 function youtubeCaptionText(value) {
   if (typeof value === "string") return value;
   if (!value || typeof value !== "object") return "";
-  const record = value;
-  if (typeof record.simpleText === "string") return record.simpleText;
-  if (!Array.isArray(record.runs)) return "";
-  return record.runs.map((run) => typeof run === "object" && run ? run.text : "").filter((text) => typeof text === "string").join("");
+  const record2 = value;
+  if (typeof record2.simpleText === "string") return record2.simpleText;
+  if (!Array.isArray(record2.runs)) return "";
+  return record2.runs.map((run) => typeof run === "object" && run ? run.text : "").filter((text) => typeof text === "string").join("");
 }
 function youtubeCaptionAutoSuffix(autoGenerated, label) {
   return autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
@@ -15492,8 +15495,8 @@ function findPreferredYouTubeCaptionCandidate(track) {
 }
 function extractYouTubeTrackArray(value) {
   if (Array.isArray(value)) return value;
-  const record = value;
-  return Array.isArray(record?.captionTracks) ? record.captionTracks : [];
+  const record2 = value;
+  return Array.isArray(record2?.captionTracks) ? record2.captionTracks : [];
 }
 function getYouTubePlayerResponse() {
   const videoId = getYouTubeVideoId();
@@ -15572,8 +15575,8 @@ function parseYouTubePlayerResponseJson(candidate) {
   }
 }
 function readYouTubePlayerResponseObject(candidate) {
-  const record = candidate;
-  return readYouTubePlayerResponseCandidate(record.player_response ?? record.raw_player_response) ?? candidate;
+  const record2 = candidate;
+  return readYouTubePlayerResponseCandidate(record2.player_response ?? record2.raw_player_response) ?? candidate;
 }
 function isMatchingYouTubePlayerResponse(value, videoId) {
   const response = youtubePlayerResponseRecord(value);
@@ -17747,12 +17750,12 @@ async function requestSubtitleText(url) {
   return fetchSubtitleText(url);
   }
   let lastError;
-  for (let attempt = 0; attempt < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt += 1) {
+  for (let attempt2 = 0; attempt2 < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt2 += 1) {
   try {
     return await requestSubtitleTextOnce(url);
   } catch (error) {
     lastError = error;
-    if (!isRetryableSubtitleRequestError(error) || attempt + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
+    if (!isRetryableSubtitleRequestError(error) || attempt2 + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
     await delaySubtitleRetry();
   }
   }
@@ -23481,18 +23484,18 @@ class SubtitlePlayerController {
     this.clearShadowRecording();
     if (this.video && !this.video.paused) this.video.pause();
     const stream = await mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
+    const recorder2 = new MediaRecorder(stream);
     const chunks = [];
-    recorder.addEventListener("dataavailable", (event) => {
+    recorder2.addEventListener("dataavailable", (event) => {
       if (event.data && event.data.size) chunks.push(event.data);
     });
-    recorder.addEventListener("stop", () => {
+    recorder2.addEventListener("stop", () => {
       const recordingSignature = this.shadowRecordingCueSignature;
       this.shadowRecordingStopTimer = clearWindowTimeout(this.shadowRecordingStopTimer);
       stream.getTracks().forEach((track) => track.stop());
       if (!this.shadowRecordingDiscard && chunks.length) {
         this.clearShadowRecording();
-        this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks, { type: recorder.mimeType || "audio/webm" }));
+        this.shadowRecordingUrl = URL.createObjectURL(new Blob(chunks, { type: recorder2.mimeType || "audio/webm" }));
         this.shadowRecordingCueSignature = recordingSignature;
       }
       if (!this.shadowRecordingDiscard && !chunks.length) this.clearShadowRecording();
@@ -23502,10 +23505,10 @@ class SubtitlePlayerController {
       this.renderShadowPanel(true);
     });
     this.shadowRecordingUnavailable = false;
-    this.shadowRecorder = recorder;
+    this.shadowRecorder = recorder2;
     this.shadowRecordingCueSignature = cue ? subtitleCueSignature(cue) : "";
     this.shadowRecordingDiscard = false;
-    recorder.start();
+    recorder2.start();
     this.scheduleShadowRecordingStop(cue);
     this.renderShadowPanel(true);
   } catch (error) {
@@ -27626,15 +27629,15 @@ function findNestedYouTubeValue(value, readValue) {
   return "";
 }
 function nestedYouTubeText(value, key, predicate) {
-  const record = recordValue(value);
-  if (!record) return "";
-  const text = textFromYouTubeValue(record[key]);
+  const record2 = recordValue(value);
+  if (!record2) return "";
+  const text = textFromYouTubeValue(record2[key]);
   return text && predicate(text) ? text : "";
 }
 function nestedYouTubeThumbnailUrl(value) {
-  const record = recordValue(value);
-  if (!record) return "";
-  return thumbnailUrl(record.thumbnail) || thumbnailUrl(record.avatar);
+  const record2 = recordValue(value);
+  if (!record2) return "";
+  return thumbnailUrl(record2.thumbnail) || thumbnailUrl(record2.avatar);
 }
 function nestedYouTubeChildren(value) {
   return Array.isArray(value) ? value : Object.values(value);
@@ -27650,11 +27653,11 @@ function thumbnailUrl(value) {
 }
 function textFromYouTubeValue(value) {
   if (typeof value === "string") return value.trim();
-  const record = recordValue(value);
-  if (!record) return "";
-  const simpleText = stringValue(record.simpleText);
+  const record2 = recordValue(value);
+  if (!record2) return "";
+  const simpleText = stringValue(record2.simpleText);
   if (simpleText) return simpleText;
-  const runs = record.runs;
+  const runs = record2.runs;
   if (Array.isArray(runs)) {
   return runs.map((run) => stringValue(recordValue(run)?.text)).join("").trim();
   }
@@ -28286,12 +28289,12 @@ function hasExtensionRuntime() {
   const root = globalThis;
   return Boolean(root.browser?.runtime?.id || root.chrome?.runtime?.id);
 }
-function injectPagePreferenceScript(enabled, revision, attempt = 0) {
+function injectPagePreferenceScript(enabled, revision, attempt2 = 0) {
   if (!preferenceIsCurrent(enabled, revision)) return;
   const parent = document.head || document.documentElement;
   if (!parent) {
-  if (attempt < INJECTION_RETRY_LIMIT) {
-    window.setTimeout(() => injectPagePreferenceScript(enabled, revision, attempt + 1), 0);
+  if (attempt2 < INJECTION_RETRY_LIMIT) {
+    window.setTimeout(() => injectPagePreferenceScript(enabled, revision, attempt2 + 1), 0);
   }
   return;
   }
@@ -28311,8 +28314,8 @@ function injectPagePreferenceScript(enabled, revision, attempt = 0) {
   parent.append(script);
   script.remove();
   } catch {
-  if (attempt < INJECTION_RETRY_LIMIT) {
-    window.setTimeout(() => injectPagePreferenceScript(enabled, revision, attempt + 1), 0);
+  if (attempt2 < INJECTION_RETRY_LIMIT) {
+    window.setTimeout(() => injectPagePreferenceScript(enabled, revision, attempt2 + 1), 0);
   }
   }
 }
@@ -28463,13 +28466,13 @@ function forgetSessionRedirectState() {
 function currentLocationHref() {
   return typeof location.href === "string" ? location.href : "";
 }
-function installAlternateRedirectWatcher(revision, attempt = 0) {
+function installAlternateRedirectWatcher(revision, attempt2 = 0) {
   if (!preferenceIsCurrent(true, revision)) return;
   if (alternateRedirectCleanup) return;
   const root = document.documentElement || document.head;
   if (!root) {
-  if (attempt < INJECTION_RETRY_LIMIT) {
-    window.setTimeout(() => installAlternateRedirectWatcher(revision, attempt + 1), 0);
+  if (attempt2 < INJECTION_RETRY_LIMIT) {
+    window.setTimeout(() => installAlternateRedirectWatcher(revision, attempt2 + 1), 0);
   }
   return;
   }
