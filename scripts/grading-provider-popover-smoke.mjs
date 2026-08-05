@@ -187,7 +187,7 @@ async function ensurePopover(page, word) {
     if (await page.locator('.jpdb-reader-popover').count() && await page.locator('.jpdb-reader-popover').first().isVisible()) return;
     await word.click();
     await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
-    await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
+    await waitForProviderToggle(page);
 }
 
 async function waitForProviderToggle(page) {
