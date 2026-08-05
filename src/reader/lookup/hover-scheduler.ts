@@ -25,7 +25,7 @@
  * The FIRST open is untouched: that delay is the learner's `hoverOpenDelayMs`
  * setting, whose default of zero is a deliberate product choice.
  */
-export const HOVER_ANCHOR_SWITCH_COALESCE_MS = 50;
+const HOVER_ANCHOR_SWITCH_COALESCE_MS = 50;
 
 export interface HoverLookupDelayInput {
     /** A hover popover is on screen and this lookup would move its anchor. */
