@@ -27108,6 +27108,100 @@ ${entry.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
+  function termSearchPostings(entry, tokens) {
+    const termId = entry.id;
+    if (typeof termId !== "number") return [];
+    return tokens.map((token) => ({ token, dictionary: entry.dictionary, termId }));
+  }
+  function termKanjiPostings(entry, characters) {
+    const termId = entry.id;
+    if (typeof termId !== "number") return [];
+    return characters.map((character) => ({ character, dictionary: entry.dictionary, termId }));
+  }
+  function hydrateTermsByIds(db, ids) {
+    return new Promise((resolve, reject) => {
+      const result = /* @__PURE__ */ new Map();
+      if (!ids.length) {
+        resolve(result);
+        return;
+      }
+      const store = db.transaction("terms", "readonly").objectStore("terms");
+      let pending2 = ids.length;
+      const settleOne = () => {
+        pending2 -= 1;
+        if (pending2 === 0) resolve(result);
+      };
+      for (const id of ids) {
+        const request = store.get(id);
+        request.onsuccess = () => {
+          const value = request.result;
+          if (value) result.set(id, value);
+          settleOne();
+        };
+        request.onerror = () => reject(request.error ?? new Error("Could not load local dictionary terms by id."));
+      }
+    });
+  }
+  function collectTermKanjiPostingIds(db, character, budget, rank) {
+    return new Promise((resolve, reject) => {
+      const ids = [];
+      const seenIds = /* @__PURE__ */ new Set();
+      const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
+      request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || ids.length >= budget) {
+          resolve(ids);
+          return;
+        }
+        const posting = cursor.value;
+        if (dictionaryEnabled(posting.dictionary, rank) && typeof posting.termId === "number" && !seenIds.has(posting.termId)) {
+          seenIds.add(posting.termId);
+          ids.push(posting.termId);
+        }
+        cursor.continue();
+      };
+    });
+  }
+  function collectTermSearchPostings(db, range, budget, rank, options) {
+    return new Promise((resolve, reject) => {
+      const postings = [];
+      const seenTermIds = /* @__PURE__ */ new Set();
+      const startedAt = performance.now();
+      let visited = 0;
+      const request = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(range);
+      request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary glossary index."));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || postings.length >= budget || glossaryCursorSearchExpired(options, visited, startedAt)) {
+          resolve(postings);
+          return;
+        }
+        visited++;
+        const posting = cursor.value;
+        if (dictionaryEnabled(posting.dictionary, rank) && typeof posting.termId === "number" && !seenTermIds.has(posting.termId)) {
+          seenTermIds.add(posting.termId);
+          postings.push(posting);
+        }
+        cursor.continue();
+      };
+    });
+  }
+  function dedupedTermsForPostingIds(termIds, terms, limit) {
+    const entries2 = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const termId of termIds) {
+      if (entries2.length >= limit) break;
+      const entry = terms.get(termId);
+      if (!entry) continue;
+      const key = `${entry.expression}
+${entry.reading}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      entries2.push(entry);
+    }
+    return entries2;
+  }
   const log$G = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
@@ -27353,7 +27447,7 @@ ${entry.reading}`;
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 6;
+  const DB_VERSION = 7;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
@@ -28345,30 +28439,9 @@ ${entry.reading}`;
       });
     }
     async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
-      return new Promise((resolve, reject) => {
-        const entries2 = [];
-        const seen = /* @__PURE__ */ new Set();
-        const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
-        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || entries2.length >= candidateLimit) {
-            resolve(entries2);
-            return;
-          }
-          const row = cursor.value;
-          if (dictionaryEnabled(row.dictionary, rank)) {
-            const entry = termEntryFromKanjiEntry(row);
-            const key = `${entry.expression}
-${entry.reading}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              entries2.push(entry);
-            }
-          }
-          cursor.continue();
-        };
-      });
+      const termIds = await collectTermKanjiPostingIds(db, character, candidateLimit * 2, rank);
+      const terms = await hydrateTermsByIds(db, termIds);
+      return dedupedTermsForPostingIds(termIds, terms, candidateLimit);
     }
     async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
       return new Promise((resolve, reject) => {
@@ -28467,20 +28540,26 @@ ${entry.reading}`;
     async getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, options = {}) {
       const token = termSearchIndexToken(query);
       if (!token) return [];
-      const request = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(termSearchPrefixRange(token));
-      return this.collectGlossaryTermSearchCandidates(
-        request,
-        query,
-        candidateLimit,
+      const postings = await collectTermSearchPostings(
+        db,
+        termSearchPrefixRange(token),
+        Math.max(candidateLimit * 4, 32),
         rank,
-        options,
-        "Could not search local dictionary glossary index.",
-        void 0,
-        true,
-        (entry) => termEntryFromSearchEntry(entry)
+        options
       );
+      if (!postings.length) return [];
+      const terms = await hydrateTermsByIds(db, postings.map((posting) => posting.termId));
+      const candidates = [];
+      for (const posting of postings) {
+        const entry = terms.get(posting.termId);
+        if (!entry) continue;
+        const searchRank = glossaryTermSearchRank(entry.glossary, query);
+        if (searchRank < Number.POSITIVE_INFINITY) candidates.push({ entry, rank: searchRank });
+      }
+      trimTermSearchCandidates(candidates, candidateLimit, query, rank);
+      return candidates.slice(0, candidateLimit);
     }
-    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage2, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry) => entry) {
+    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage2, afterPush, stopAtCandidateLimit = true) {
       return new Promise((resolve, reject) => {
         const candidates = [];
         const startedAt = performance.now();
@@ -28497,7 +28576,7 @@ ${entry.reading}`;
           if (dictionaryEnabled(entry.dictionary, rank)) {
             const searchRank = glossaryTermSearchRank(entry.glossary, query);
             if (searchRank < Number.POSITIVE_INFINITY) {
-              candidates.push({ entry: entryFromCursorValue(entry), rank: searchRank });
+              candidates.push({ entry, rank: searchRank });
               afterPush?.({ candidates });
             }
           }
@@ -28761,6 +28840,10 @@ ${entry.reading}`;
           const termKanji = ensureStore(db, tx, "termKanji");
           ensureIndex(termKanji, "character", "character");
           ensureIndex(termKanji, "dictionary", "dictionary");
+          if (event.oldVersion > 0 && event.oldVersion < 7) {
+            termSearch.clear();
+            termKanji.clear();
+          }
           if (event.oldVersion > 0 && event.oldVersion < 5) {
             clearTimeout(openTimeout);
             normalizeStoredLookupTerms(terms);
@@ -28980,26 +29063,10 @@ ${glossaryKey}`;
     return text2.split(/\s+/u).filter(Boolean);
   }
   function termSearchEntries(entry) {
-    const { id: _id, ...entryWithoutId } = entry;
-    return glossarySearchTokens(entry.glossary).map((token) => ({
-      ...entryWithoutId,
-      token
-    }));
-  }
-  function termEntryFromSearchEntry(entry) {
-    const { id: _id, token: _token, ...term } = entry;
-    return term;
+    return termSearchPostings(entry, glossarySearchTokens(entry.glossary));
   }
   function termKanjiEntries(entry) {
-    const { id: _id, ...entryWithoutId } = entry;
-    return uniqueExpressionKanji(entry.expression).map((character) => ({
-      ...entryWithoutId,
-      character
-    }));
-  }
-  function termEntryFromKanjiEntry(entry) {
-    const { id: _id, character: _character, ...term } = entry;
-    return term;
+    return termKanjiPostings(entry, uniqueExpressionKanji(entry.expression));
   }
   function uniqueExpressionKanji(expression) {
     const seen = /* @__PURE__ */ new Set();
@@ -29126,7 +29193,7 @@ ${glossaryKey}`;
     return activeLearningTarget() === target && activeLearningTargetGeneration() === generation;
   }
   function nextTask() {
-    return new Promise((resolve) => window.setTimeout(resolve, 0));
+    return new Promise((resolve) => setTimeout(resolve, 0));
   }
   function formatMetaFrequency(value) {
     const display = metaFrequencyDisplayValue(value);

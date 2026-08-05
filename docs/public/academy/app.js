@@ -295220,6 +295220,100 @@ ${entry2.reading}`;
     }
     return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
   }
+  function termSearchPostings(entry2, tokens) {
+    const termId = entry2.id;
+    if (typeof termId !== "number") return [];
+    return tokens.map((token) => ({ token, dictionary: entry2.dictionary, termId }));
+  }
+  function termKanjiPostings(entry2, characters) {
+    const termId = entry2.id;
+    if (typeof termId !== "number") return [];
+    return characters.map((character) => ({ character, dictionary: entry2.dictionary, termId }));
+  }
+  function hydrateTermsByIds(db, ids2) {
+    return new Promise((resolve, reject) => {
+      const result2 = /* @__PURE__ */ new Map();
+      if (!ids2.length) {
+        resolve(result2);
+        return;
+      }
+      const store = db.transaction("terms", "readonly").objectStore("terms");
+      let pending2 = ids2.length;
+      const settleOne = () => {
+        pending2 -= 1;
+        if (pending2 === 0) resolve(result2);
+      };
+      for (const id2 of ids2) {
+        const request2 = store.get(id2);
+        request2.onsuccess = () => {
+          const value = request2.result;
+          if (value) result2.set(id2, value);
+          settleOne();
+        };
+        request2.onerror = () => reject(request2.error ?? new Error("Could not load local dictionary terms by id."));
+      }
+    });
+  }
+  function collectTermKanjiPostingIds(db, character, budget, rank2) {
+    return new Promise((resolve, reject) => {
+      const ids2 = [];
+      const seenIds = /* @__PURE__ */ new Set();
+      const request2 = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
+      request2.onerror = () => reject(request2.error ?? new Error("Could not search local dictionary kanji index."));
+      request2.onsuccess = () => {
+        const cursor = request2.result;
+        if (!cursor || ids2.length >= budget) {
+          resolve(ids2);
+          return;
+        }
+        const posting = cursor.value;
+        if (dictionaryEnabled(posting.dictionary, rank2) && typeof posting.termId === "number" && !seenIds.has(posting.termId)) {
+          seenIds.add(posting.termId);
+          ids2.push(posting.termId);
+        }
+        cursor.continue();
+      };
+    });
+  }
+  function collectTermSearchPostings(db, range2, budget, rank2, options) {
+    return new Promise((resolve, reject) => {
+      const postings = [];
+      const seenTermIds = /* @__PURE__ */ new Set();
+      const startedAt = performance.now();
+      let visited = 0;
+      const request2 = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(range2);
+      request2.onerror = () => reject(request2.error ?? new Error("Could not search local dictionary glossary index."));
+      request2.onsuccess = () => {
+        const cursor = request2.result;
+        if (!cursor || postings.length >= budget || glossaryCursorSearchExpired(options, visited, startedAt)) {
+          resolve(postings);
+          return;
+        }
+        visited++;
+        const posting = cursor.value;
+        if (dictionaryEnabled(posting.dictionary, rank2) && typeof posting.termId === "number" && !seenTermIds.has(posting.termId)) {
+          seenTermIds.add(posting.termId);
+          postings.push(posting);
+        }
+        cursor.continue();
+      };
+    });
+  }
+  function dedupedTermsForPostingIds(termIds, terms, limit) {
+    const entries2 = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const termId of termIds) {
+      if (entries2.length >= limit) break;
+      const entry2 = terms.get(termId);
+      if (!entry2) continue;
+      const key2 = `${entry2.expression}
+${entry2.reading}`;
+      if (seen.has(key2)) continue;
+      seen.add(key2);
+      entries2.push(entry2);
+    }
+    return entries2;
+  }
   const log$n = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
@@ -295465,7 +295559,7 @@ ${entry2.reading}`;
     return Number.isFinite(number) ? Math.max(min, Math.min(max2, number)) : min;
   }
   const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 6;
+  const DB_VERSION = 7;
   const DB_OPEN_TIMEOUT_MS = 1e4;
   const DEXIE_IMPORT_BATCH_SIZE = 5e3;
   const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
@@ -296457,30 +296551,9 @@ ${entry2.reading}`;
       });
     }
     async getTermKanjiIndexEntries(db, character, candidateLimit, rank2) {
-      return new Promise((resolve, reject) => {
-        const entries2 = [];
-        const seen = /* @__PURE__ */ new Set();
-        const request2 = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
-        request2.onerror = () => reject(request2.error ?? new Error("Could not search local dictionary kanji index."));
-        request2.onsuccess = () => {
-          const cursor = request2.result;
-          if (!cursor || entries2.length >= candidateLimit) {
-            resolve(entries2);
-            return;
-          }
-          const row2 = cursor.value;
-          if (dictionaryEnabled(row2.dictionary, rank2)) {
-            const entry2 = termEntryFromKanjiEntry(row2);
-            const key2 = `${entry2.expression}
-${entry2.reading}`;
-            if (!seen.has(key2)) {
-              seen.add(key2);
-              entries2.push(entry2);
-            }
-          }
-          cursor.continue();
-        };
-      });
+      const termIds = await collectTermKanjiPostingIds(db, character, candidateLimit * 2, rank2);
+      const terms = await hydrateTermsByIds(db, termIds);
+      return dedupedTermsForPostingIds(termIds, terms, candidateLimit);
     }
     async getSimilarTermCursorEntries(db, character, candidateLimit, rank2, options = {}) {
       return new Promise((resolve, reject) => {
@@ -296579,20 +296652,26 @@ ${entry2.reading}`;
     async getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank2, options = {}) {
       const token = termSearchIndexToken(query);
       if (!token) return [];
-      const request2 = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(termSearchPrefixRange(token));
-      return this.collectGlossaryTermSearchCandidates(
-        request2,
-        query,
-        candidateLimit,
+      const postings = await collectTermSearchPostings(
+        db,
+        termSearchPrefixRange(token),
+        Math.max(candidateLimit * 4, 32),
         rank2,
-        options,
-        "Could not search local dictionary glossary index.",
-        void 0,
-        true,
-        (entry2) => termEntryFromSearchEntry(entry2)
+        options
       );
+      if (!postings.length) return [];
+      const terms = await hydrateTermsByIds(db, postings.map((posting) => posting.termId));
+      const candidates = [];
+      for (const posting of postings) {
+        const entry2 = terms.get(posting.termId);
+        if (!entry2) continue;
+        const searchRank = glossaryTermSearchRank(entry2.glossary, query);
+        if (searchRank < Number.POSITIVE_INFINITY) candidates.push({ entry: entry2, rank: searchRank });
+      }
+      trimTermSearchCandidates(candidates, candidateLimit, query, rank2);
+      return candidates.slice(0, candidateLimit);
     }
-    async collectGlossaryTermSearchCandidates(request2, query, candidateLimit, rank2, options, errorMessage2, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry2) => entry2) {
+    async collectGlossaryTermSearchCandidates(request2, query, candidateLimit, rank2, options, errorMessage2, afterPush, stopAtCandidateLimit = true) {
       return new Promise((resolve, reject) => {
         const candidates = [];
         const startedAt = performance.now();
@@ -296609,7 +296688,7 @@ ${entry2.reading}`;
           if (dictionaryEnabled(entry2.dictionary, rank2)) {
             const searchRank = glossaryTermSearchRank(entry2.glossary, query);
             if (searchRank < Number.POSITIVE_INFINITY) {
-              candidates.push({ entry: entryFromCursorValue(entry2), rank: searchRank });
+              candidates.push({ entry: entry2, rank: searchRank });
               afterPush?.({ candidates });
             }
           }
@@ -296873,6 +296952,10 @@ ${entry2.reading}`;
           const termKanji = ensureStore(db, tx, "termKanji");
           ensureIndex(termKanji, "character", "character");
           ensureIndex(termKanji, "dictionary", "dictionary");
+          if (event.oldVersion > 0 && event.oldVersion < 7) {
+            termSearch.clear();
+            termKanji.clear();
+          }
           if (event.oldVersion > 0 && event.oldVersion < 5) {
             clearTimeout(openTimeout);
             normalizeStoredLookupTerms(terms);
@@ -297092,26 +297175,10 @@ ${glossaryKey}`;
     return text2.split(/\s+/u).filter(Boolean);
   }
   function termSearchEntries(entry2) {
-    const { id: _id, ...entryWithoutId } = entry2;
-    return glossarySearchTokens(entry2.glossary).map((token) => ({
-      ...entryWithoutId,
-      token
-    }));
-  }
-  function termEntryFromSearchEntry(entry2) {
-    const { id: _id, token: _token, ...term } = entry2;
-    return term;
+    return termSearchPostings(entry2, glossarySearchTokens(entry2.glossary));
   }
   function termKanjiEntries(entry2) {
-    const { id: _id, ...entryWithoutId } = entry2;
-    return uniqueExpressionKanji(entry2.expression).map((character) => ({
-      ...entryWithoutId,
-      character
-    }));
-  }
-  function termEntryFromKanjiEntry(entry2) {
-    const { id: _id, character: _character, ...term } = entry2;
-    return term;
+    return termKanjiPostings(entry2, uniqueExpressionKanji(entry2.expression));
   }
   function uniqueExpressionKanji(expression) {
     const seen = /* @__PURE__ */ new Set();
@@ -297238,7 +297305,7 @@ ${glossaryKey}`;
     return activeLearningTarget() === target2 && activeLearningTargetGeneration() === generation2;
   }
   function nextTask() {
-    return new Promise((resolve) => window.setTimeout(resolve, 0));
+    return new Promise((resolve) => setTimeout(resolve, 0));
   }
   function formatMetaFrequency(value) {
     const display = metaFrequencyDisplayValue(value);

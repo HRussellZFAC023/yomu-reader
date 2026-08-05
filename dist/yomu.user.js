@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.170ad35963be.user.js#sha256=FwrTWWO+w53bp+87k522NN22o+CP8HfEzFLk5rwiiSs=
+// @require https://yomureader.com/greasyfork/yomu-runtime.1b5c417f4281.user.js#sha256=G1xBf0KB0KiUvfXnwDMELfUY6EcsrqAy8iCmhf1D7fY=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -35893,13 +35893,16 @@ const inert = {
 lookup: async () => [],
 searchTerms: async () => [],
 lookupKanji: async () => [],
+listKanjiCharacters: async () => [],
 lookupTermMeta: async () => [],
+lookupSimilarTermsByKanji: async () => [],
 findTermMatches: async () => [],
 lookupExactTermCandidates: async () => [],
 listRandomTerms: async () => [],
 listRandomTopTerms: async () => [],
 hasDictionaries: async () => false,
 hasTermDictionaries: async () => false,
+hasPitchMetaDictionaries: async () => false,
 prepareTermSearchIndex: async () => void 0,
 summary: async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 }),
 dictionaryStyleCss: async () => "",
@@ -35912,8 +35915,19 @@ throw companionMissingError();
 importFromUrl: async () => {
 throw companionMissingError();
 },
+importZip: async () => {
+throw companionMissingError();
+},
+importJson: async () => {
+throw companionMissingError();
+},
+importDexieJson: async () => {
+throw companionMissingError();
+},
+clear: async () => void 0,
 deleteDictionary: async () => void 0,
 deleteDatabase: async () => void 0,
+invalidateCaches: () => void 0,
 invalidateForFactoryReset: async () => void 0
 };
 return inert;
