@@ -16,44 +16,30 @@ export function createLocalDictionaryStore(
     return inertLocalDictionaryStore();
 }
 
-// Every store method reachable from core (or shared surfaces the store
-// instance flows into) must appear here so a missing companion degrades to
-// empty results instead of a TypeError.
-type InertLocalDictionaryStore = Pick<
-    YomitanDictionaryStore,
-    | 'lookup'
-    | 'searchTerms'
-    | 'lookupKanji'
-    | 'lookupTermMeta'
-    | 'findTermMatches'
-    | 'lookupExactTermCandidates'
-    | 'listRandomTerms'
-    | 'listRandomTopTerms'
-    | 'hasDictionaries'
-    | 'hasTermDictionaries'
-    | 'prepareTermSearchIndex'
-    | 'summary'
-    | 'dictionaryStyleCss'
-    | 'exportJson'
-    | 'importFile'
-    | 'importFromUrl'
-    | 'deleteDictionary'
-    | 'deleteDatabase'
-    | 'invalidateForFactoryReset'
->;
+// Derived, never declared: `keyof` over a class type is exactly its public
+// surface, so the fallback covers the store by construction. A hand-written
+// list of the methods "reachable from core" is how this contract rots — the
+// list is written where the store is not, so adding a public store method
+// (1.8.79 added lookupExactTermCandidates) leaves the fallback one method
+// short and the gap only surfaces as a TypeError on the first companion-less
+// call. Derived, the same mistake is a typecheck failure.
+type InertLocalDictionaryStore = Pick<YomitanDictionaryStore, keyof YomitanDictionaryStore>;
 
 function inertLocalDictionaryStore(): YomitanDictionaryStore {
     const inert = {
         lookup: async () => [],
         searchTerms: async () => [],
         lookupKanji: async () => [],
+        listKanjiCharacters: async () => [],
         lookupTermMeta: async () => [],
+        lookupSimilarTermsByKanji: async () => [],
         findTermMatches: async () => [],
         lookupExactTermCandidates: async () => [],
         listRandomTerms: async () => [],
         listRandomTopTerms: async () => [],
         hasDictionaries: async () => false,
         hasTermDictionaries: async () => false,
+        hasPitchMetaDictionaries: async () => false,
         prepareTermSearchIndex: async () => undefined,
         summary: async () => ({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 }),
         dictionaryStyleCss: async () => '',
@@ -66,8 +52,19 @@ function inertLocalDictionaryStore(): YomitanDictionaryStore {
         importFromUrl: async () => {
             throw companionMissingError();
         },
+        importZip: async () => {
+            throw companionMissingError();
+        },
+        importJson: async () => {
+            throw companionMissingError();
+        },
+        importDexieJson: async () => {
+            throw companionMissingError();
+        },
+        clear: async () => undefined,
         deleteDictionary: async () => undefined,
         deleteDatabase: async () => undefined,
+        invalidateCaches: () => undefined,
         invalidateForFactoryReset: async () => undefined,
     } satisfies InertLocalDictionaryStore;
     // satisfies pins the structural contract; the cast is still required
