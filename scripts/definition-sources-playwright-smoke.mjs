@@ -17,6 +17,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
@@ -35,15 +36,6 @@ const JITEN_WORD_ID = 2500800;
 const JITEN_READING_INDEX = 0;
 const REQUEST_BRIDGE_NAME = '__yomuDefinitionSourcesSmokeRequest';
 const POPOVER_PATH = '/definition-source-popover.html';
-const COMPANION_PATHS = [
-    'yomu-anki.user.js',
-    'yomu-kanji-study.user.js',
-    'yomu-ocr-manga.user.js',
-    'yomu-ui-copy.user.js',
-    'yomu-settings-surface.user.js',
-    'yomu-bunpro.user.js',
-    'yomu-video.user.js',
-].map(fileName => path.join(DIST, 'greasyfork', fileName));
 
 const BUILT_ARTIFACTS = [
     SCRIPT_PATH,
@@ -52,7 +44,6 @@ const BUILT_ARTIFACTS = [
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
     path.join(NEWTAB_DIR, 'sw.js'),
-    ...COMPANION_PATHS,
 ];
 
 const STATIC_ROUTES = new Map([
@@ -140,6 +131,7 @@ const SCENARIOS = [
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts(BUILT_ARTIFACTS, ROOT, 'Run npm run build first.');
+assertBuiltArtifacts(userscriptCompanionPaths(SCRIPT_PATH), ROOT, 'Run npm run build first.');
 
 const server = await startLoopbackServer(serveRequest, 'Could not bind definition source smoke server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
@@ -188,8 +180,7 @@ async function runPopoverSurface(browser, fixture, scenario, settings) {
     try {
         await page.goto(`${fixture.origin}${POPOVER_PATH}?scenario=${scenario.id}`, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ path: CSS_PATH });
-        for (const companionPath of COMPANION_PATHS) await page.addScriptTag({ path: companionPath });
-        await page.addScriptTag({ path: SCRIPT_PATH });
+        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         try {
             await page.waitForFunction(({ term }) => {
                 return Array.from(document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word'))
@@ -657,13 +648,20 @@ function assertJitenRequestAuthState(scenario, surface, requests, settings) {
             || /\/api\/vocabulary\/\d+\/\d+\/info/.test(request.path)
             || /\/api\/vocabulary\/\d+\/\d+\/random-example-sentences/.test(request.path)
             || /\/api\/reader\/parse/.test(request.path)));
+    // The definition card is the traffic for the word the learner LOOKED UP.
+    // Annotation hydration reads the same public /info lane for the other words
+    // in the sentence and is gated by the parser, not by a definitions toggle,
+    // so match on this term's vocabulary id in both directions. Keying on
+    // "any id" let the enabled case pass on a neighbour's hydration request and
+    // made the disabled case fail on it.
+    const lookedUpInfo = jitenDefinitionRequests.filter(request => jitenLookedUpPath(request, 'info'));
+    const lookedUpExamples = jitenDefinitionRequests.filter(request => jitenLookedUpPath(request, 'random-example-sentences'));
     if (scenario.expect.jiten) {
-        assert(jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/info/.test(request.path)), `${scenario.label} ${surface}: no Jiten info request was recorded`, jitenDefinitionRequests);
-        assert(jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/random-example-sentences/.test(request.path)), `${scenario.label} ${surface}: no Jiten examples request was recorded`, jitenDefinitionRequests);
-    }
-    if (!scenario.expect.jiten) {
-        assert(!jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/info/.test(request.path)), `${scenario.label} ${surface}: Jiten source was disabled but info still loaded`, jitenDefinitionRequests);
-        assert(!jitenDefinitionRequests.some(request => /\/api\/vocabulary\/\d+\/\d+\/random-example-sentences/.test(request.path)), `${scenario.label} ${surface}: Jiten source was disabled but examples still loaded`, jitenDefinitionRequests);
+        assert(lookedUpInfo.length >= 1, `${scenario.label} ${surface}: no Jiten info request was recorded`, jitenDefinitionRequests);
+        assert(lookedUpExamples.length >= 1, `${scenario.label} ${surface}: no Jiten examples request was recorded`, jitenDefinitionRequests);
+    } else {
+        assert(lookedUpInfo.length === 0, `${scenario.label} ${surface}: Jiten source was disabled but info still loaded`, jitenDefinitionRequests);
+        assert(lookedUpExamples.length === 0, `${scenario.label} ${surface}: Jiten source was disabled but examples still loaded`, jitenDefinitionRequests);
     }
     assert(jitenDefinitionRequests.every(request => {
         if (!settings.jitenApiKey) return !request.hasAuthorization;
@@ -676,6 +674,10 @@ function assertJitenRequestAuthState(scenario, surface, requests, settings) {
             && !request.hasAuthorization) return true;
         return request.hasAuthorization && request.authorizationScheme === 'ApiKey';
     }), `${scenario.label} ${surface}: Jiten auth state was wrong`, jitenDefinitionRequests);
+}
+
+function jitenLookedUpPath(request, endpoint) {
+    return request.path === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/${endpoint}`;
 }
 
 function assertBunproRequestAuthState(scenario, surface, requests, settings) {

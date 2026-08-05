@@ -21,7 +21,7 @@ export async function installUserscriptCssResource(page, cssPath, resourceName =
 }
 
 export async function addScriptTagWithCspFallback(page, scriptPath) {
-    for (const companionPath of localUserscriptCompanionPaths(scriptPath)) {
+    for (const companionPath of userscriptCompanionPaths(scriptPath)) {
         await addSingleScriptTagWithCspFallback(page, companionPath);
     }
     await addSingleScriptTagWithCspFallback(page, scriptPath);
@@ -32,13 +32,19 @@ export async function addUserscriptGraphInitScripts(page, scriptPath) {
     // init scripts. A userscript's @require graph does: companions execute in
     // declaration order before main. Register one concatenated program so
     // WebKit proves the exact same dependency contract deterministically.
-    const graph = [...localUserscriptCompanionPaths(scriptPath), scriptPath]
+    const graph = [...userscriptCompanionPaths(scriptPath), scriptPath]
         .map(graphPath => readFileSync(graphPath, 'utf8'))
         .join('\n;\n');
     await page.addInitScript({ content: graph });
 }
 
-function localUserscriptCompanionPaths(userscriptPath) {
+// The ONE place that answers "what does a userscript manager execute before the
+// core script". Read it from the built @require header rather than listing
+// companion bundles by hand: every capability core delegates to a companion slot
+// (learning targets, the JPDB/Jiten clients, i18n copy) silently disappears from
+// a hand-written list the moment the split moves, and the smoke then measures a
+// configuration no reader ever runs.
+export function userscriptCompanionPaths(userscriptPath) {
     const root = path.resolve(path.dirname(userscriptPath), '..');
     return readFileSync(userscriptPath, 'utf8')
         .split(/\r?\n/u)
@@ -49,6 +55,10 @@ function localUserscriptCompanionPaths(userscriptPath) {
             if (fileName !== match[1]) throw new Error(`Unsafe userscript companion path: ${match[1]}`);
             const hostedPath = path.join(root, 'docs/public/greasyfork', fileName);
             if (existsSync(hostedPath)) return [hostedPath];
+
+            // @require names are content-addressed. A freshly built worktree has
+            // the local companions but not yet the hashed hosted copies, so run
+            // the companion that MATCHES this core rather than a stale hash.
             const canonicalName = fileName.replace(/\.[a-f0-9]{12}(?=\.user\.js$)/u, '');
             return [path.join(path.dirname(userscriptPath), 'greasyfork', canonicalName)];
         });
