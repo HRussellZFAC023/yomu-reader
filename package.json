@@ -216,6 +216,7 @@
     "smoke:p0": "npm run smoke:feedback && npm run smoke:pdf-reader && npm run smoke:google-search-reader",
     "manual:youtube-sidebar-layout": "node scripts/manual/youtube-sidebar-layout-matrix.mjs",
     "manual:youtube-sidebar-resize-profile": "node scripts/manual/youtube-sidebar-resize-profile.mjs",
+    "smoke:furigana-tapband": "node scripts/furigana-tapband-smoke.mjs",
     "smoke:popover-headword-furigana": "node scripts/popover-headword-furigana-smoke.mjs",
     "smoke:popup-lifecycle": "node scripts/popup-lifecycle-smoke.mjs",
     "manual:popover-actions": "node scripts/manual/popover-action-pills-smoke.mjs",

@@ -35,6 +35,9 @@ export const NIGHTLY_SMOKES = [
     'smoke:bookwalker-modes-ocr',
     'smoke:definition-sources',
     'smoke:enrichment-concurrency',
+    // Chromium + Firefox: the furigana band is a pure cascade/geometry contract,
+    // so only a real engine can tell a live annotation from a dead one.
+    'smoke:furigana-tapband',
     'smoke:grading-provider',
     'smoke:hosted-settings',
     'smoke:ja-docs-perf',

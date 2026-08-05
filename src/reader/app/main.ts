@@ -54,6 +54,7 @@ import {
     isParticleCard,
     isPassiveInteractionElement,
     nearestReadableSentenceForElement,
+    projectedReadingWordAtPoint,
     readerRenderRejectionRescanDelay,
     readerWordAtPointInScope,
     readerWordAtSourcePointInScope,
@@ -4630,9 +4631,10 @@ export class ReaderApp {
             && canUseWord(direct)
             && this.readerWordMatchesPointerGeometry(direct, event.clientX, event.clientY)) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
+            // A projected reading is the one thing no rect fallback below can see: its clone lives in a paint-only overlay layer, so the press lands on the page behind the band. Resolve it to the word it annotates before the looser point/caret fallbacks, which would answer for the page instead.
+            ?? projectedReadingWordAtPoint(document, event.clientX, event.clientY, word => this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word))
             ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord))
-            ?? firstComposedEventGeometryMatch(event, candidate =>
-                this.readerWordFromRenderedGeometry(candidate, event.clientX, event.clientY, canUseWord));
+            ?? firstComposedEventGeometryMatch(event, candidate => this.readerWordFromRenderedGeometry(candidate, event.clientX, event.clientY, canUseWord));
     }
 
     private readerPointerSurfaceForTarget(target: Element | null): HTMLElement | null {
@@ -4644,10 +4646,8 @@ export class ReaderApp {
     }
 
     private readerWordMatchesPointerGeometry(word: HTMLElement, x: number, y: number): boolean {
-        if (!word.closest('.jpdb-reader-additive-text-mirror')) return true;
-        // jsdom and older embedded engines have no range-rect API; keep the
-        // direct-target fallback there. Real browsers validate source geometry.
-        if (typeof Range.prototype.getClientRects !== 'function') return true;
+        // No mirror, or no range-rect API (jsdom, older embedded engines): there is no source geometry to validate against, so keep the direct-target answer. Real browsers validate it.
+        if (!word.closest('.jpdb-reader-additive-text-mirror') || typeof Range.prototype.getClientRects !== 'function') return true;
         return readerWordSourcePointScore(word, x, y) !== null;
     }
 
