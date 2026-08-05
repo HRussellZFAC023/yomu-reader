@@ -26,7 +26,10 @@ import {
     MULTILINGUAL_PARITY_MEASUREMENT_MODE,
     MULTILINGUAL_PARITY_SCHEMA_VERSION,
     measureMultilingualParityTarget,
-    multilingualParityLookupContractSha256,
+    multilingualParityContractState,
+    multilingualParityToolchainManifestFailures,
+    multilingualParityWrittenCheckpointFailures,
+    type MultilingualParityContractInput,
     type MultilingualParityMeasurement,
     type MultilingualParitySpan,
 } from './lib/multilingual-parity-contract';
@@ -96,6 +99,7 @@ export interface MultilingualParityBaseline {
     corpusSha256: string;
     corpusRule: string;
     suggestedBenchmarkPercent: number;
+    lookupContractInputs: MultilingualParityContractInput[];
     results: BaselineTarget[];
 }
 
@@ -113,6 +117,7 @@ export interface MultilingualParityEvidence {
     measurementAlgorithmVersion: string;
     generatedAt: string;
     corpusSha256: string;
+    lookupContractInputs: MultilingualParityContractInput[];
     targets: EvidenceTarget[];
 }
 
@@ -121,12 +126,11 @@ const BASELINE_PATH = resolve('config/quality/multilingual-lookup-baseline.json'
 const EVIDENCE_PATH = resolve('config/quality/multilingual-lookup-evidence.json');
 const SUGGESTED_BENCHMARK_PERCENT = 60;
 const CLEAN_GIT_STATUS_SHA256 = createHash('sha256').update('').digest('hex');
-const expectedLookupContracts = new Map(await Promise.all(
-    multilingualParityCorpus().map(async target => [
-        target.language,
-        await multilingualParityLookupContractSha256(target.language),
-    ] as const),
-));
+const rosterLanguages = multilingualParityCorpus().map(target => target.language);
+const contractState = await multilingualParityContractState(rosterLanguages);
+const expectedLookupContracts = contractState.contractByLanguage;
+// Async, so it cannot run inside the synchronous validator the tests call.
+const toolchainManifestFailures = await multilingualParityToolchainManifestFailures();
 
 async function readJson<T>(path: string): Promise<T> {
     return JSON.parse(await readFile(path, 'utf8')) as T;
@@ -269,14 +273,11 @@ export function validateMultilingualParityInputs(
     const failures: string[] = [
         ...parityDocumentFailures(baseline, evidence, corpus, baselineResults, evidenceTargets),
     ];
-
     for (const targetCorpus of corpus) {
         const { language } = targetCorpus;
         const baselineTarget = baselineResults.find(result => result.language === language);
         const evidenceTarget = evidenceTargets.find(target => target.language === language);
         if (!baselineTarget || !evidenceTarget) continue;
-
-        failures.push(...parityLookupContractFailures(language, baselineTarget, evidenceTarget));
 
         const dictionaryId = parityDictionaryId(language);
         const catalogEntry = catalog.entries.find(entry => entry.id === dictionaryId);
@@ -333,6 +334,24 @@ function parityDocumentFailures(
     }
     if (baseline.corpusSha256 !== corpusSha256) failures.push('baseline corpus SHA-256 is stale');
     if (evidence.corpusSha256 !== corpusSha256) failures.push('evidence corpus SHA-256 is stale');
+    // Shared verbatim with the recorder's post-write self-check, so the gate and
+    // the tool that has to satisfy it cannot disagree about what "stale" means.
+    // These name the input files that moved: the aggregate digest alone reported
+    // 33 targets and no cause, which is how a rewritten package-lock.json read
+    // as an algorithm change twice.
+    failures.push(
+        ...toolchainManifestFailures,
+        ...multilingualParityWrittenCheckpointFailures(
+            'baseline',
+            { lookupContractInputs: baseline.lookupContractInputs, rows: baselineResults },
+            contractState,
+        ),
+        ...multilingualParityWrittenCheckpointFailures(
+            'evidence',
+            { lookupContractInputs: evidence.lookupContractInputs, rows: evidenceTargets },
+            contractState,
+        ),
+    );
     if (baseline.suggestedBenchmarkPercent !== SUGGESTED_BENCHMARK_PERCENT) {
         failures.push(
             `baseline suggested benchmark is ${baseline.suggestedBenchmarkPercent}, expected ${SUGGESTED_BENCHMARK_PERCENT}`,
@@ -385,23 +404,6 @@ function parityProvenanceMetadataFailures(
     }
     if (baseline.icu !== currentIcu) {
         failures.push(`baseline ICU runtime is ${baseline.icu}, current runtime is ${currentIcu}`);
-    }
-    return failures;
-}
-
-function parityLookupContractFailures(
-    language: string,
-    baselineTarget: MultilingualParityBaselineResult,
-    evidenceTarget: MultilingualParityEvidenceTarget,
-): string[] {
-    const expectedLookupContract = expectedLookupContracts.get(language);
-    if (!expectedLookupContract) return [`${language}: lookup contract is absent`];
-    const failures: string[] = [];
-    if (baselineTarget.lookupContractSha256 !== expectedLookupContract) {
-        failures.push(`${language}: baseline lookup contract SHA-256 is stale`);
-    }
-    if (evidenceTarget.lookupContractSha256 !== expectedLookupContract) {
-        failures.push(`${language}: evidence lookup contract SHA-256 is stale`);
     }
     return failures;
 }

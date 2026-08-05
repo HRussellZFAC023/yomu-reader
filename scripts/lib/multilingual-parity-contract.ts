@@ -89,6 +89,19 @@ let yomitanSourceFilesPromise: Promise<string[]> | undefined;
 const sourceBytesByPath = new Map<string, Promise<Buffer>>();
 const contractHashByLanguage = new Map<string, Promise<string>>();
 
+/**
+ * Drop every memo so the next digest is computed from bytes read anew.
+ *
+ * The recorder needs this: it must re-verify what it just wrote the way a fresh
+ * ratchet process will, and a memo populated before the write would let it
+ * confirm its own stale reading of the tree.
+ */
+export function resetMultilingualParityContractCaches(): void {
+    yomitanSourceFilesPromise = undefined;
+    sourceBytesByPath.clear();
+    contractHashByLanguage.clear();
+}
+
 async function sourceFilesBelow(directory: string): Promise<string[]> {
     const root = resolve(directory);
     const files: string[] = [];
@@ -107,7 +120,8 @@ async function sourceFilesBelow(directory: string): Promise<string[]> {
     return files.sort();
 }
 
-async function yomitanSourceFiles(): Promise<string[]> {
+async function yomitanSourceFiles(fresh = false): Promise<string[]> {
+    if (fresh) return sourceFilesBelow('src/reader/dictionaries/yomitan');
     yomitanSourceFilesPromise ??= sourceFilesBelow('src/reader/dictionaries/yomitan');
     return yomitanSourceFilesPromise;
 }
@@ -118,6 +132,15 @@ function sourceBytes(path: string): Promise<Buffer> {
     const pending = readFile(resolve(path));
     sourceBytesByPath.set(path, pending);
     return pending;
+}
+
+function freshSourceBytes(path: string): Promise<Buffer> {
+    return readFile(resolve(path));
+}
+
+/** Options shared by every contract read. `fresh` bypasses all memoization. */
+interface ContractReadOptions {
+    fresh?: boolean;
 }
 
 function targetSourceFiles(language: string): readonly string[] {
@@ -136,9 +159,12 @@ function targetSourceFiles(language: string): readonly string[] {
  * are covered by their own production tests and are intentionally not hashed
  * here.
  */
-export async function multilingualParityLookupContractSourceFiles(language: string): Promise<readonly string[]> {
+export async function multilingualParityLookupContractSourceFiles(
+    language: string,
+    options: ContractReadOptions = {},
+): Promise<readonly string[]> {
     return [...new Set([
-        ...await yomitanSourceFiles(),
+        ...await yomitanSourceFiles(options.fresh),
         ...(language === 'ja' ? [] : TARGET_ROSTER_INPUT_FILES),
         ...COMMON_LOOKUP_FILES,
         ...LOOKUP_TOOLCHAIN_INPUT_FILES,
@@ -156,8 +182,12 @@ export async function multilingualParityLookupContractSourceFiles(language: stri
  * makes the fast gate reject that evidence until the published archives are
  * measured again.
  */
-async function calculateLookupContractSha256(language: string): Promise<string> {
-    const files = await multilingualParityLookupContractSourceFiles(language);
+async function calculateLookupContractSha256(
+    language: string,
+    options: ContractReadOptions = {},
+): Promise<string> {
+    const files = await multilingualParityLookupContractSourceFiles(language, options);
+    const read = options.fresh ? freshSourceBytes : sourceBytes;
     const hash = createHash('sha256');
     hash.update([
         CONTRACT_REVISION,
@@ -168,7 +198,7 @@ async function calculateLookupContractSha256(language: string): Promise<string> 
     ].join('\0'));
     for (const path of files) {
         hash.update(`${path}\0`);
-        hash.update(await sourceBytes(path));
+        hash.update(await read(path));
         hash.update('\0');
     }
     return hash.digest('hex');
@@ -180,6 +210,264 @@ export function multilingualParityLookupContractSha256(language: string): Promis
     const pending = calculateLookupContractSha256(language);
     contractHashByLanguage.set(language, pending);
     return pending;
+}
+
+/**
+ * The same digest, recomputed from disk with no memo in the path.
+ *
+ * The recorder verifies its own output with this so its self-check cannot pass
+ * by agreeing with bytes it read before the run started.
+ */
+function freshLookupContractSha256(language: string): Promise<string> {
+    return calculateLookupContractSha256(language, { fresh: true });
+}
+
+/** One contract input and the digest of its bytes. */
+export interface MultilingualParityContractInput {
+    path: string;
+    sha256: string;
+}
+
+/**
+ * Per-file digests for every contract input across the roster.
+ *
+ * The aggregate per-target digest is the right thing to gate on and the wrong
+ * thing to report: when it moves it names 33 targets and zero causes. A single
+ * `npm install` rewrites `package-lock.json` — a hashed toolchain input — and
+ * the gate answered that with 66 identical "lookup contract SHA-256 is stale"
+ * lines, which cost two sessions of archaeology apiece. A file's digest does not
+ * depend on the language reading it, so one document-level breakdown attributes
+ * a stale aggregate for every target.
+ */
+export async function multilingualParityLookupContractInputs(
+    languages: readonly string[],
+    options: ContractReadOptions = {},
+): Promise<MultilingualParityContractInput[]> {
+    const paths = new Set<string>();
+    for (const language of languages) {
+        for (const path of await multilingualParityLookupContractSourceFiles(language, options)) {
+            paths.add(path);
+        }
+    }
+    const read = options.fresh ? freshSourceBytes : sourceBytes;
+    return Promise.all([...paths].sort().map(async path => ({
+        path,
+        sha256: createHash('sha256').update(await read(path)).digest('hex'),
+    })));
+}
+
+const SHORT_DIGEST_LENGTH = 12;
+
+function shortDigest(sha256: string | undefined): string {
+    return typeof sha256 === 'string' && sha256 ? sha256.slice(0, SHORT_DIGEST_LENGTH) : 'absent';
+}
+
+function contractInputDigestsByPath(
+    inputs: readonly MultilingualParityContractInput[],
+): Map<string, string> {
+    return new Map(inputs.map(input => [input.path, input.sha256]));
+}
+
+function malformedContractInputs(inputs: readonly unknown[]): boolean {
+    return inputs.some(input => {
+        const row = input as Partial<MultilingualParityContractInput> | null;
+        return !row || typeof row.path !== 'string' || typeof row.sha256 !== 'string';
+    });
+}
+
+/**
+ * Which recorded contract inputs disagree with the working tree, by path.
+ *
+ * Returns nothing when the breakdown is missing or malformed; the caller
+ * reports that separately so a missing breakdown is never read as "nothing
+ * changed".
+ */
+function changedContractInputs(
+    recorded: readonly MultilingualParityContractInput[] | undefined,
+    current: readonly MultilingualParityContractInput[],
+): string[] {
+    if (!Array.isArray(recorded) || malformedContractInputs(recorded)) return [];
+    const recordedByPath = contractInputDigestsByPath(recorded);
+    const currentByPath = contractInputDigestsByPath(current);
+    const paths = new Set([...recordedByPath.keys(), ...currentByPath.keys()]);
+    return [...paths]
+        .filter(path => recordedByPath.get(path) !== currentByPath.get(path))
+        .sort();
+}
+
+/** Names each contract input whose bytes moved, with both short digests. */
+function contractInputFailures(
+    label: string,
+    recorded: readonly MultilingualParityContractInput[] | undefined,
+    current: readonly MultilingualParityContractInput[],
+): string[] {
+    if (!Array.isArray(recorded)) {
+        return [`${label} contract input breakdown is absent; re-record so a stale digest can name its cause`];
+    }
+    if (malformedContractInputs(recorded)) {
+        return [`${label} contract input breakdown contains a malformed row`];
+    }
+    const recordedByPath = contractInputDigestsByPath(recorded);
+    const currentByPath = contractInputDigestsByPath(current);
+    return changedContractInputs(recorded, current).map(path =>
+        `${label} contract input ${path} changed: recorded ${shortDigest(recordedByPath.get(path))}, current ${shortDigest(currentByPath.get(path))}`,
+    );
+}
+
+/**
+ * The stale-aggregate message, narrowed to the inputs this target actually
+ * hashes so a target is never blamed for a file outside its own boundary.
+ */
+function staleContractFailure(
+    label: string,
+    changedPaths: readonly string[],
+    targetSourceFilePaths: readonly string[],
+): string {
+    const owned = new Set(targetSourceFilePaths);
+    const blamed = changedPaths.filter(path => owned.has(path));
+    if (!blamed.length) {
+        return `${label} lookup contract SHA-256 is stale; no recorded contract input explains it`;
+    }
+    return `${label} lookup contract SHA-256 is stale; changed contract inputs: ${blamed.join(', ')}`;
+}
+
+/** Everything a checkpoint is judged against, hashed once for the whole roster. */
+interface ContractState {
+    inputs: readonly MultilingualParityContractInput[];
+    contractByLanguage: ReadonlyMap<string, string>;
+    sourceFilesByLanguage: ReadonlyMap<string, readonly string[]>;
+}
+
+export async function multilingualParityContractState(
+    languages: readonly string[],
+    options: ContractReadOptions = {},
+): Promise<ContractState> {
+    const digest = options.fresh
+        ? freshLookupContractSha256
+        : multilingualParityLookupContractSha256;
+    const [inputs, contracts, sourceFiles] = await Promise.all([
+        multilingualParityLookupContractInputs(languages, options),
+        Promise.all(languages.map(async language => [language, await digest(language)] as const)),
+        Promise.all(languages.map(async language => [
+            language,
+            await multilingualParityLookupContractSourceFiles(language, options),
+        ] as const)),
+    ]);
+    return {
+        inputs,
+        contractByLanguage: new Map(contracts),
+        sourceFilesByLanguage: new Map(sourceFiles),
+    };
+}
+
+/**
+ * The one comparison both the recorder and the fast gate use.
+ *
+ * The recorder used to record a digest and the ratchet used to recompute one
+ * with no shared code between them, so a disagreement could only ever surface as
+ * a red gate on somebody else's machine. Sharing this means the recorder's
+ * self-check fails in the same words, for the same reasons, as the gate it is
+ * trying to satisfy.
+ */
+export function multilingualParityWrittenCheckpointFailures(
+    label: string,
+    document: {
+        lookupContractInputs?: readonly MultilingualParityContractInput[];
+        rows: ReadonlyArray<{ language: string; lookupContractSha256: string }>;
+    },
+    state: ContractState,
+): string[] {
+    const failures = contractInputFailures(
+        label,
+        document.lookupContractInputs,
+        state.inputs,
+    );
+    const changed = changedContractInputs(document.lookupContractInputs, state.inputs);
+    for (const row of document.rows) {
+        if (row.lookupContractSha256 === state.contractByLanguage.get(row.language)) continue;
+        failures.push(staleContractFailure(
+            `${row.language}: ${label}`,
+            changed,
+            state.sourceFilesByLanguage.get(row.language) ?? [],
+        ));
+    }
+    return failures;
+}
+
+interface ToolchainManifest {
+    version?: unknown;
+    packages?: { ''?: { version?: unknown } };
+}
+
+/**
+ * `package.json` and `package-lock.json` must agree about the app version.
+ *
+ * Both are hashed into the lookup contract, and npm rewrites the lock's copy of
+ * the version on the next install whenever the two disagree. So a bump that
+ * edits `package.json` without regenerating the lock leaves the repository in a
+ * state where the documented setup step — `npm install` — is guaranteed to
+ * mutate a contract input and red the gate for everyone who runs it, while CI
+ * stays green because it uses `npm ci` and never writes the lock. That is
+ * exactly what happened at v1.8.78 and it stayed broken for seven versions.
+ * Naming the drift costs nothing and turns an unattributable 66-line failure
+ * into one sentence.
+ */
+function toolchainVersionFailures(
+    manifestVersion: unknown,
+    lockVersion: unknown,
+    lockRootVersion: unknown,
+): string[] {
+    return ([
+        ['package-lock.json version', lockVersion],
+        ['package-lock.json packages root version', lockRootVersion],
+    ] as const).flatMap(([field, actual]) => actual === manifestVersion
+        ? []
+        : [`${field} is ${String(actual)}, expected ${String(manifestVersion)} from package.json;`
+            + ' run npm install and commit the lockfile so a setup step cannot rewrite a hashed contract input']);
+}
+
+export async function multilingualParityToolchainManifestFailures(
+    read: (path: string) => Promise<Buffer> = freshSourceBytes,
+): Promise<string[]> {
+    const [manifest, lock] = await Promise.all([
+        read('package.json').then(bytes => JSON.parse(bytes.toString('utf8')) as ToolchainManifest),
+        read('package-lock.json').then(bytes => JSON.parse(bytes.toString('utf8')) as ToolchainManifest),
+    ]);
+    return toolchainVersionFailures(
+        manifest.version,
+        lock.version,
+        lock.packages?.['']?.version,
+    );
+}
+
+/**
+ * Contract inputs with uncommitted changes, from `git status --porcelain=v1`.
+ *
+ * Recorded digests describe bytes on disk, so recording while a contract input
+ * is modified publishes evidence nobody else can reproduce from the commit.
+ */
+export function multilingualParityDirtyContractInputs(
+    porcelainStatus: string,
+    inputs: readonly MultilingualParityContractInput[],
+): string[] {
+    const tracked = new Set(inputs.map(input => input.path));
+    return [...new Set(multilingualParityStatusEntryPaths(porcelainStatus).filter(path => tracked.has(path)))].sort();
+}
+
+/**
+ * Repository-relative paths named by a porcelain v1 status, renames included.
+ */
+export function multilingualParityStatusEntryPaths(porcelainStatus: string): string[] {
+    return porcelainStatus
+        .split('\n')
+        .filter(line => line.trim())
+        // Porcelain v1 is "XY path". Match the status column instead of slicing a
+        // fixed three bytes: a caller that trimmed the text first leaves the
+        // first line one byte short, and a fixed slice turned that into a path
+        // that matched nothing while looking entirely plausible.
+        .map(line => line.replace(/^[ ACDMRTU?!]{1,2}\s/u, ''))
+        .flatMap(entry => entry.split(' -> '))
+        .map(path => path.replace(/^"|"$/gu, ''));
 }
 
 export interface MultilingualParitySpan {

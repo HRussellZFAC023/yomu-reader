@@ -48,7 +48,13 @@ interface MultilingualParityBaseline {
     corpusSha256: string;
     corpusRule: string;
     suggestedBenchmarkPercent: number;
+    lookupContractInputs: ContractInput[];
     results: BaselineTarget[];
+}
+
+interface ContractInput {
+    path: string;
+    sha256: string;
 }
 
 interface MultilingualParityEvidence {
@@ -57,6 +63,7 @@ interface MultilingualParityEvidence {
     measurementAlgorithmVersion: string;
     generatedAt: string;
     corpusSha256: string;
+    lookupContractInputs: ContractInput[];
     targets: Array<{
         language: string;
         lookupContractSha256: string;
@@ -129,8 +136,14 @@ const {
     MULTILINGUAL_PARITY_SCHEMA_VERSION,
     measureMultilingualParityTarget,
     multilingualParityCheckpointIdentityFailures,
+    multilingualParityContractState,
+    multilingualParityDirtyContractInputs,
+    multilingualParityLookupContractInputs,
     multilingualParityLookupContractSourceFiles,
     multilingualParityLookupContractSha256,
+    multilingualParityStatusEntryPaths,
+    multilingualParityToolchainManifestFailures,
+    multilingualParityWrittenCheckpointFailures,
 } = await import(contractModulePath) as {
     MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION: string;
     MULTILINGUAL_PARITY_MEASUREMENT_MODE: string;
@@ -145,7 +158,31 @@ const {
     ) => string[];
     multilingualParityLookupContractSourceFiles: (language: string) => Promise<readonly string[]>;
     multilingualParityLookupContractSha256: (language: string) => Promise<string>;
+    multilingualParityContractState: (languages: readonly string[]) => Promise<ContractState>;
+    multilingualParityDirtyContractInputs: (
+        porcelainStatus: string,
+        inputs: readonly ContractInput[],
+    ) => string[];
+    multilingualParityLookupContractInputs: (languages: readonly string[]) => Promise<ContractInput[]>;
+    multilingualParityStatusEntryPaths: (porcelainStatus: string) => string[];
+    multilingualParityToolchainManifestFailures: (
+        read?: (path: string) => Promise<Buffer>,
+    ) => Promise<string[]>;
+    multilingualParityWrittenCheckpointFailures: (
+        label: string,
+        document: {
+            lookupContractInputs?: readonly ContractInput[];
+            rows: ReadonlyArray<{ language: string; lookupContractSha256: string }>;
+        },
+        state: ContractState,
+    ) => string[];
 };
+
+interface ContractState {
+    inputs: readonly ContractInput[];
+    contractByLanguage: ReadonlyMap<string, string>;
+    sourceFilesByLanguage: ReadonlyMap<string, readonly string[]>;
+}
 
 interface CheckpointIdentity {
     schemaVersion: number;
@@ -200,6 +237,9 @@ async function validInputs(): Promise<{
         target.language,
         await multilingualParityLookupContractSha256(target.language),
     ] as const)));
+    const lookupContractInputs = await multilingualParityLookupContractInputs(
+        corpus.map(target => target.language),
+    );
     return {
         baseline: {
             schemaVersion: MULTILINGUAL_PARITY_SCHEMA_VERSION,
@@ -214,6 +254,7 @@ async function validInputs(): Promise<{
             corpusSha256,
             corpusRule: MULTILINGUAL_PARITY_CORPUS_RULE,
             suggestedBenchmarkPercent: SUGGESTED_BENCHMARK_PERCENT,
+            lookupContractInputs: lookupContractInputs.map(input => ({ ...input })),
             results: corpus.map(target => {
                 const contentWords = target.sentences.reduce(
                     (total, sentence) => total + sentence.contentWords.length,
@@ -239,6 +280,7 @@ async function validInputs(): Promise<{
             measurementAlgorithmVersion: MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION,
             generatedAt: '2026-07-31T00:00:00.000Z',
             corpusSha256,
+            lookupContractInputs: lookupContractInputs.map(input => ({ ...input })),
             targets: corpus.map(target => ({
                 language: target.language,
                 lookupContractSha256: contracts.get(target.language) ?? '',
@@ -317,9 +359,11 @@ describe('multilingual parity ratchet input validation', () => {
         baseline.results[0].lookupContractSha256 = '0'.repeat(64);
         evidence.targets[0].lookupContractSha256 = '0'.repeat(64);
 
+        // The recorded per-file breakdown still agrees with the tree here, so the
+        // gate says so rather than blaming a file that did not move.
         expect(validateMultilingualParityInputs(baseline, evidence)).toEqual(expect.arrayContaining([
-            `${language}: baseline lookup contract SHA-256 is stale`,
-            `${language}: evidence lookup contract SHA-256 is stale`,
+            `${language}: baseline lookup contract SHA-256 is stale; no recorded contract input explains it`,
+            `${language}: evidence lookup contract SHA-256 is stale; no recorded contract input explains it`,
         ]));
     });
 
@@ -493,5 +537,175 @@ describe('multilingual parity measurement contract', () => {
             'checkpoint measurementAlgorithmVersion is stale',
             'checkpoint icu is stale',
         ]);
+    });
+});
+
+// A stale aggregate digest used to be reported as 33 identical
+// "lookup contract SHA-256 is stale" lines that named no cause. The real cause
+// at v1.8.78 was a single `npm install` rewriting package-lock.json — a hashed
+// toolchain input — and diagnosing that from the aggregate alone cost two
+// sessions. These cover the attribution that replaced it.
+describe('multilingual parity contract input attribution', () => {
+    it('names the one contract input whose bytes moved, with both short digests', async () => {
+        const { baseline, evidence } = await validInputs();
+        const recorded = baseline.lookupContractInputs.find(input => input.path === 'package-lock.json');
+        if (!recorded) throw new Error('package-lock.json is not a recorded contract input.');
+        const current = recorded.sha256;
+        const forged = '0'.repeat(64);
+        for (const document of [baseline, evidence]) {
+            const row = document.lookupContractInputs.find(input => input.path === 'package-lock.json');
+            if (row) row.sha256 = forged;
+        }
+
+        const failures = validateMultilingualParityInputs(baseline, evidence);
+
+        expect(failures).toEqual(expect.arrayContaining([
+            `baseline contract input package-lock.json changed: recorded ${forged.slice(0, 12)}, current ${current.slice(0, 12)}`,
+            `evidence contract input package-lock.json changed: recorded ${forged.slice(0, 12)}, current ${current.slice(0, 12)}`,
+        ]));
+        // Only the corrupted file is blamed.
+        expect(failures.filter(failure => failure.includes('contract input ') && failure.includes(' changed:')))
+            .toHaveLength(2);
+    });
+
+    it('blames the changed input in every stale per-target message', async () => {
+        const { baseline, evidence } = await validInputs();
+        for (const document of [baseline, evidence]) {
+            const row = document.lookupContractInputs.find(input => input.path === 'package-lock.json');
+            if (row) row.sha256 = '0'.repeat(64);
+        }
+        // What a lockfile rewrite actually does: every target's aggregate moves.
+        for (const result of baseline.results) result.lookupContractSha256 = '1'.repeat(64);
+        for (const target of evidence.targets) target.lookupContractSha256 = '1'.repeat(64);
+
+        const failures = validateMultilingualParityInputs(baseline, evidence);
+        const stale = failures.filter(failure => failure.includes('lookup contract SHA-256 is stale'));
+
+        expect(stale).toHaveLength(baseline.results.length + evidence.targets.length);
+        for (const failure of stale) {
+            expect(failure).toContain('changed contract inputs: package-lock.json');
+        }
+    });
+
+    it('rejects evidence that carries no breakdown instead of reading it as unchanged', async () => {
+        const { baseline, evidence } = await validInputs();
+        const withoutBreakdown = { ...baseline, lookupContractInputs: undefined };
+
+        expect(validateMultilingualParityInputs(
+            withoutBreakdown as unknown as MultilingualParityBaseline,
+            evidence,
+        )).toEqual(expect.arrayContaining([
+            'baseline contract input breakdown is absent; re-record so a stale digest can name its cause',
+        ]));
+    });
+
+    it('never blames a file the target does not hash', () => {
+        // ja does not hash config/multilingual/languages.json, so a run where
+        // both that file and the lockfile moved must blame only the lockfile.
+        const state: ContractState = {
+            inputs: [
+                { path: 'package-lock.json', sha256: 'a'.repeat(64) },
+                { path: 'config/multilingual/languages.json', sha256: 'b'.repeat(64) },
+            ],
+            contractByLanguage: new Map([['ja', 'c'.repeat(64)]]),
+            sourceFilesByLanguage: new Map([['ja', ['package.json', 'package-lock.json']]]),
+        };
+        const recorded = state.inputs.map(input => ({ ...input, sha256: '0'.repeat(64) }));
+
+        expect(multilingualParityWrittenCheckpointFailures('baseline', {
+            lookupContractInputs: recorded,
+            rows: [{ language: 'ja', lookupContractSha256: 'd'.repeat(64) }],
+        }, state).filter(failure => failure.includes('SHA-256 is stale'))).toEqual([
+            'ja: baseline lookup contract SHA-256 is stale; changed contract inputs: package-lock.json',
+        ]);
+    });
+
+    it('keeps the two toolchain manifests in step so a setup step cannot rewrite one', async () => {
+        // package-lock.json carries its own copy of the app version and npm
+        // rewrites it on the next install when it disagrees with package.json.
+        // At v1.8.78 the bump left them out of step for seven versions, which
+        // made the documented `npm install` red the gate for everyone.
+        expect(await multilingualParityToolchainManifestFailures()).toEqual([]);
+
+        // The v1.8.78 state, replayed: package.json bumped, lockfile left behind.
+        const drifted = async (path: string): Promise<Buffer> => Buffer.from(JSON.stringify(
+            path === 'package.json'
+                ? { version: '1.8.84' }
+                : { version: '1.8.77', packages: { '': { version: '1.8.77' } } },
+        ));
+        expect(await multilingualParityToolchainManifestFailures(drifted)).toEqual([
+            'package-lock.json version is 1.8.77, expected 1.8.84 from package.json;'
+            + ' run npm install and commit the lockfile so a setup step cannot rewrite a hashed contract input',
+            'package-lock.json packages root version is 1.8.77, expected 1.8.84 from package.json;'
+            + ' run npm install and commit the lockfile so a setup step cannot rewrite a hashed contract input',
+        ]);
+    });
+});
+
+describe('multilingual parity recorder self-verification', () => {
+    it('fails when a written aggregate disagrees with a fresh recomputation', async () => {
+        const state = await multilingualParityContractState(['ja']);
+        const honest = state.contractByLanguage.get('ja');
+        if (!honest) throw new Error('Japanese contract digest is absent.');
+
+        expect(multilingualParityWrittenCheckpointFailures('baseline', {
+            lookupContractInputs: state.inputs,
+            rows: [{ language: 'ja', lookupContractSha256: honest }],
+        }, state)).toEqual([]);
+        expect(multilingualParityWrittenCheckpointFailures('baseline', {
+            lookupContractInputs: state.inputs,
+            rows: [{ language: 'ja', lookupContractSha256: '0'.repeat(64) }],
+        }, state)).toEqual([
+            'ja: baseline lookup contract SHA-256 is stale; no recorded contract input explains it',
+        ]);
+    });
+
+    it('fails, naming the file, when a written breakdown disagrees with disk', async () => {
+        const state = await multilingualParityContractState(['ja']);
+        const honest = state.contractByLanguage.get('ja') ?? '';
+        const forged = state.inputs.map(input => input.path === 'package.json'
+            ? { ...input, sha256: '0'.repeat(64) }
+            : input);
+
+        expect(multilingualParityWrittenCheckpointFailures('evidence', {
+            lookupContractInputs: forged,
+            rows: [{ language: 'ja', lookupContractSha256: honest }],
+        }, state)).toEqual([
+            `evidence contract input package.json changed: recorded ${'0'.repeat(12)}, current ${
+                state.inputs.find(input => input.path === 'package.json')?.sha256.slice(0, 12) ?? ''}`,
+        ]);
+    });
+
+    it('sees the contract inputs a wrong-tree record would have left modified', async () => {
+        const inputs = await multilingualParityLookupContractInputs(['ja']);
+
+        expect(multilingualParityDirtyContractInputs(
+            ' M package-lock.json\n?? scratch/notes.txt\n M src/reader/languages/japanese.ts',
+            inputs,
+        )).toEqual(['package-lock.json', 'src/reader/languages/japanese.ts']);
+        expect(multilingualParityDirtyContractInputs('', inputs)).toEqual([]);
+    });
+
+    it('reads renamed and quoted porcelain entries', () => {
+        expect(multilingualParityStatusEntryPaths('R  old/name.ts -> new/name.ts\n M "quoted path.ts"\n'))
+            .toEqual(['old/name.ts', 'new/name.ts', 'quoted path.ts']);
+    });
+
+    it('parses the first entry intact whether or not the status text was trimmed', () => {
+        // A blanket trim() eats the leading space of the FIRST line only, so a
+        // fixed three-byte slice returned "onfig/..." for line one and the real
+        // path for every line after it. The self-check then reported a tree that
+        // had not moved, and it cost a full 33-target measurement run to see.
+        const first = 'config/quality/multilingual-lookup-baseline.json';
+        const second = 'config/quality/multilingual-lookup-evidence.json';
+        const status = ` M ${first}\n M ${second}`;
+
+        expect(multilingualParityStatusEntryPaths(status)).toEqual([first, second]);
+        expect(multilingualParityStatusEntryPaths(status.trim())).toEqual([first, second]);
+        // The ignore filter that depends on it must therefore see both files.
+        expect(multilingualParityDirtyContractInputs(status.trim(), [
+            { path: first, sha256: 'a'.repeat(64) },
+            { path: second, sha256: 'b'.repeat(64) },
+        ])).toEqual([first, second]);
     });
 });

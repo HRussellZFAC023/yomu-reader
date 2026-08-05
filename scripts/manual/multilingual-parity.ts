@@ -4,7 +4,7 @@ import { File } from 'node:buffer';
 import { execFile as execFileCallback, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual, promisify } from 'node:util';
 
@@ -27,8 +27,16 @@ import {
     MULTILINGUAL_PARITY_SCHEMA_VERSION,
     measureMultilingualParityTarget,
     multilingualParityCheckpointIdentityFailures,
+    multilingualParityContractState,
+    multilingualParityDirtyContractInputs,
+    multilingualParityLookupContractInputs,
     multilingualParityLookupContractSha256,
+    multilingualParityStatusEntryPaths,
+    multilingualParityToolchainManifestFailures,
+    multilingualParityWrittenCheckpointFailures,
+    resetMultilingualParityContractCaches,
     type MultilingualParityCheckpointIdentity,
+    type MultilingualParityContractInput,
     type MultilingualParitySpan,
 } from '../lib/multilingual-parity-contract';
 import {
@@ -385,22 +393,73 @@ async function runTargetChild(
     });
 }
 
-async function runMetadata(): Promise<MultilingualParityCheckpointIdentity> {
-    const [commit, status] = await Promise.all([
-        execFile('git', ['rev-parse', 'HEAD']).then(result => result.stdout.trim()),
-        execFile('git', ['status', '--porcelain=v1', '--untracked-files=all']).then(result => result.stdout.trim()),
-    ]);
+/**
+ * Trailing newlines only. A blanket `trim()` here eats the leading space of the
+ * FIRST porcelain line — " M path" becomes "M path" — which shifts every parsed
+ * path by one byte and made the post-write self-check report a tree that had not
+ * moved. Status text is parsed per line now, so the leading status column has to
+ * survive.
+ */
+async function gitPorcelainStatus(): Promise<string> {
+    const result = await execFile('git', ['status', '--porcelain=v1', '--untracked-files=all']);
+    return result.stdout.replace(/\n+$/u, '');
+}
+
+/**
+ * Contract inputs are resolved against `process.cwd()`, so a recorder started
+ * from anywhere but the repository root hashes another checkout's bytes — or
+ * another repository's — while `git` reports the identity of whatever tree the
+ * cwd happens to sit in. Shell cwd drift between commands is a standing hazard
+ * here, so state the requirement instead of trusting it.
+ */
+async function assertRecordingFromRepositoryRoot(): Promise<void> {
+    const root = await execFile('git', ['rev-parse', '--show-toplevel'])
+        .then(result => result.stdout.trim());
+    if (resolve(root) !== resolve(process.cwd())) {
+        throw new Error(
+            `Run the parity recorder from the repository root. Contract inputs resolve against the working `
+            + `directory, so recording from ${process.cwd()} would hash bytes that do not belong to ${root}.`,
+        );
+    }
+}
+
+/**
+ * `ignoredPaths` exists for the post-write self-check: the recorder's own output
+ * files are modified by the time it re-reads them, and that must not be mistaken
+ * for the tree having moved underneath the measurement.
+ */
+function checkpointIdentity(
+    commit: string,
+    status: string,
+    ignoredPaths: readonly string[] = [],
+): MultilingualParityCheckpointIdentity {
+    const ignored = new Set(ignoredPaths);
+    const remaining = status
+        .split('\n')
+        .filter(line => line.trim()
+            && !multilingualParityStatusEntryPaths(line).every(path => ignored.has(path)))
+        .join('\n');
     return {
         schemaVersion: MULTILINGUAL_PARITY_SCHEMA_VERSION,
         measurementMode: MULTILINGUAL_PARITY_MEASUREMENT_MODE,
         measurementAlgorithmVersion: MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION,
         gitCommit: commit,
-        gitDirty: Boolean(status),
-        gitStatusSha256: createHash('sha256').update(status).digest('hex'),
+        gitDirty: Boolean(remaining),
+        gitStatusSha256: createHash('sha256').update(remaining).digest('hex'),
         node: process.version,
         icu: process.versions.icu ?? 'unknown',
         corpusSha256: multilingualParityCorpusSha256(),
     };
+}
+
+async function runMetadata(
+    ignoredPaths: readonly string[] = [],
+): Promise<MultilingualParityCheckpointIdentity> {
+    const [commit, status] = await Promise.all([
+        execFile('git', ['rev-parse', 'HEAD']).then(result => result.stdout.trim()),
+        gitPorcelainStatus(),
+    ]);
+    return checkpointIdentity(commit, status, ignoredPaths);
 }
 
 function baselineResult(result: TargetMeasurement): Omit<TargetMeasurement, 'evidenceTerms'> {
@@ -465,6 +524,113 @@ async function checkpointResults(
     }
 }
 
+/**
+ * A checkpoint this run wrote, and whether it carries the run identity.
+ */
+interface WrittenCheckpoint {
+    label: string;
+    path: string;
+    repositoryPath: string;
+    carriesIdentity: boolean;
+}
+
+function writtenCheckpoint(label: string, path: string, carriesIdentity: boolean): WrittenCheckpoint {
+    return {
+        label,
+        path,
+        repositoryPath: relative(process.cwd(), resolve(path)),
+        carriesIdentity,
+    };
+}
+
+/**
+ * Refuse to publish evidence the tree cannot reproduce.
+ *
+ * A recorded digest describes bytes on disk, not bytes in a commit, so
+ * recording while a contract input is modified — or while the two toolchain
+ * manifests disagree about the version, which guarantees the next install
+ * rewrites one — produces evidence that is stale the moment anyone else checks
+ * out the commit.
+ */
+async function assertRecordableContractInputs(
+    contractInputs: readonly MultilingualParityContractInput[],
+    authoritative: boolean,
+): Promise<void> {
+    const dirty = multilingualParityDirtyContractInputs(await gitPorcelainStatus(), contractInputs);
+    const reasons = [
+        ...dirty.map(path => `${path} has uncommitted changes`),
+        ...await multilingualParityToolchainManifestFailures(),
+    ];
+    if (!reasons.length) return;
+    const message = `Contract inputs are not in a recordable state:\n  ${reasons.join('\n  ')}\n`
+        + 'Commit every contract input before recording. A version bump in particular must be committed with a '
+        + 'regenerated package-lock.json: both manifests are hashed into the lookup contract, so leaving them out '
+        + 'of step means the next npm install rewrites a hashed input and reds the gate for everyone who runs it.';
+    if (authoritative) throw new Error(message);
+    process.stderr.write(`WARNING: ${message}\n`);
+}
+
+/**
+ * Re-verify what was just written the way the ratchet will.
+ *
+ * Writing a checkpoint the fast gate rejects used to be silent: the recorder
+ * exited 0 and the mismatch surfaced later as an unattributable stale digest for
+ * all 33 targets. So re-read the files from disk, recompute every digest with no
+ * memo in the path, and fail here instead.
+ */
+async function verifyWrittenCheckpoints(
+    written: readonly WrittenCheckpoint[],
+    expectedIdentity: MultilingualParityCheckpointIdentity,
+    languages: readonly string[],
+): Promise<void> {
+    if (!written.length) return;
+    // Everything this process memoized was read before the write, so a check
+    // that trusted it would only confirm the recorder agrees with itself.
+    resetMultilingualParityContractCaches();
+    const state = await multilingualParityContractState(languages, { fresh: true });
+    const failures: string[] = [];
+    for (const checkpoint of written) {
+        const document = JSON.parse(await readFile(resolve(checkpoint.path), 'utf8')) as {
+            lookupContractInputs?: MultilingualParityContractInput[];
+            results?: Array<{ language: string; lookupContractSha256: string }>;
+            targets?: Array<{ language: string; lookupContractSha256: string }>;
+        };
+        const rows = document.results ?? document.targets ?? [];
+        if (rows.length !== languages.length) {
+            failures.push(`${checkpoint.label} wrote ${rows.length} targets, expected ${languages.length}`);
+        }
+        failures.push(...multilingualParityWrittenCheckpointFailures(
+            checkpoint.label,
+            { lookupContractInputs: document.lookupContractInputs, rows },
+            state,
+        ));
+        if (checkpoint.carriesIdentity) {
+            failures.push(...multilingualParityCheckpointIdentityFailures(
+                document as Partial<MultilingualParityCheckpointIdentity>,
+                expectedIdentity,
+            ).map(failure => `${checkpoint.label} ${failure}`));
+        }
+    }
+    const afterWrite = await runMetadata(written.map(checkpoint => checkpoint.repositoryPath));
+    // Name the field. "Something changed" cost a full 33-target measurement run
+    // to diagnose, which is the same complaint this whole change is answering.
+    failures.push(...multilingualParityCheckpointIdentityFailures(afterWrite, expectedIdentity).map(failure =>
+        `${failure} between the measurement and the write`
+        + ` (now gitCommit=${afterWrite.gitCommit.slice(0, 12)}, gitDirty=${String(afterWrite.gitDirty)};`
+        + ` measured at gitCommit=${expectedIdentity.gitCommit.slice(0, 12)}, gitDirty=${String(expectedIdentity.gitDirty)})`));
+    if (!failures.length) {
+        process.stderr.write(
+            `Self-verified ${written.length} checkpoint(s) against ${state.inputs.length} freshly hashed contract inputs.\n`,
+        );
+        return;
+    }
+    for (const failure of failures) process.stderr.write(`[multilingual-parity-record] ${failure}\n`);
+    throw new Error(
+        'The written parity checkpoint disagrees with a fresh recomputation, so it would have landed evidence the '
+        + 'release gate rejects. Nothing above this line was published as authoritative.',
+    );
+}
+
 async function main(): Promise<void> {
     const corpus = multilingualParityCorpus();
     const cacheDir = resolve(cliValue('--cache-dir') ?? DEFAULT_CACHE_DIR);
@@ -485,6 +651,12 @@ async function main(): Promise<void> {
     }
 
     const checkpointPath = cliValue('--checkpoint');
+    const baselinePath = cliValue('--write-baseline');
+    const evidencePath = cliValue('--write-evidence');
+    await assertRecordingFromRepositoryRoot();
+    const languages = corpus.map(target => target.language);
+    const contractInputs = await multilingualParityLookupContractInputs(languages);
+    await assertRecordableContractInputs(contractInputs, Boolean(baselinePath ?? evidencePath));
     const startMetadata = await runMetadata();
     const results = await checkpointResults(checkpointPath, startMetadata, corpus);
     for (const targetCorpus of corpus) {
@@ -509,6 +681,7 @@ async function main(): Promise<void> {
         ...startMetadata,
         suggestedBenchmarkPercent: SUGGESTED_BENCHMARK_PERCENT,
         corpusRule: MULTILINGUAL_PARITY_CORPUS_RULE,
+        lookupContractInputs: contractInputs,
         results: results.map(baselineResult),
     };
     const evidence = {
@@ -517,6 +690,7 @@ async function main(): Promise<void> {
         measurementAlgorithmVersion: MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION,
         generatedAt: baseline.measuredAt,
         corpusSha256: startMetadata.corpusSha256,
+        lookupContractInputs: contractInputs,
         targets: results.map(result => ({
             language: result.language,
             lookupContractSha256: result.lookupContractSha256,
@@ -533,8 +707,12 @@ async function main(): Promise<void> {
         suggestedBar: result.suggestedBar,
     })));
     await writeJson(cliValue('--json'), { baseline, evidence });
-    await writeJson(cliValue('--write-baseline'), baseline);
-    await writeJson(cliValue('--write-evidence'), evidence);
+    await writeJson(baselinePath, baseline);
+    await writeJson(evidencePath, evidence);
+    await verifyWrittenCheckpoints([
+        ...(baselinePath ? [writtenCheckpoint('baseline', baselinePath, true)] : []),
+        ...(evidencePath ? [writtenCheckpoint('evidence', evidencePath, false)] : []),
+    ], startMetadata, languages);
 }
 
 const invokedAsNpmHarness = process.env.npm_lifecycle_event === 'manual:multilingual-parity';
