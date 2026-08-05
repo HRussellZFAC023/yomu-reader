@@ -6,15 +6,12 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUTPUTS = [
-    path.join(REPO_ROOT, 'public/academy/art/ACADEMY-ASSET-REGISTRY.json'),
-    path.join(REPO_ROOT, 'docs/public/academy/art/ACADEMY-ASSET-REGISTRY.json'),
-];
-const RUNTIME_LEDGER_OUTPUTS = [
-    path.join(REPO_ROOT, 'public/academy/art/ASSET-USAGE.json'),
-    path.join(REPO_ROOT, 'docs/public/academy/art/ASSET-USAGE.json'),
-];
-const RUNTIME_LEDGER_PATH = RUNTIME_LEDGER_OUTPUTS[0];
+// public/academy is the single source. docs/public/academy is generated:
+// scripts/sync-academy.cjs rm -rf's it and rewrites it from public/academy on
+// every build:academy, so writing (or hash-checking) a second copy here is work
+// the next sync discards.
+const REGISTRY_OUTPUT = path.join(REPO_ROOT, 'public/academy/art/ACADEMY-ASSET-REGISTRY.json');
+const RUNTIME_LEDGER_PATH = path.join(REPO_ROOT, 'public/academy/art/ASSET-USAGE.json');
 const RECOVERY_LEDGER_PATH = path.join(REPO_ROOT, 'docs/academy/recovery/ASSET-CARRYOVER.json');
 const LISTENING_BINDINGS_PATH = path.join(REPO_ROOT, 'public/academy/content/listening/listening-task-bindings.v1.json');
 const SNAPSHOT_DATE = '2026-07-15';
@@ -347,9 +344,6 @@ export function validateRegistry(registry) {
             const file = path.join(REPO_ROOT, 'public', media.path.slice(1));
             if (!fs.existsSync(file)) errors.push(`${media.path} is missing`);
             else if (sha256(file) !== media.sha256) errors.push(`${media.path} hash drifted`);
-            const mirror = path.join(REPO_ROOT, 'docs/public', media.path.slice(1));
-            if (!fs.existsSync(mirror)) errors.push(`${media.path} docs mirror is missing`);
-            else if (fs.existsSync(file) && !fs.readFileSync(file).equals(fs.readFileSync(mirror))) errors.push(`${media.path} docs mirror drifted`);
         }
     }
     for (const world of registry.worlds) {
@@ -375,7 +369,7 @@ function validateRegistryLedgerRecord() {
         if (entry.verdict !== 'generated-conformance-data/non-runtime' || entry.runtimeHome?.length !== 0) {
             errors.push('Academy asset registry metadata must remain explicitly non-runtime');
         }
-        if (fs.existsSync(OUTPUTS[0]) && sha256(OUTPUTS[0]) !== delivery.sha256) {
+        if (fs.existsSync(REGISTRY_OUTPUT) && sha256(REGISTRY_OUTPUT) !== delivery.sha256) {
             errors.push('ASSET-USAGE.json has a stale Academy asset registry hash');
         }
     }
@@ -387,42 +381,32 @@ async function buildFiles() {
     const errors = validateRegistry(registry);
     if (errors.length) throw new Error(errors.join('\n'));
     const serialized = serializeRegistry(registry);
-    for (const output of OUTPUTS) {
-        fs.mkdirSync(path.dirname(output), { recursive: true });
-        fs.writeFileSync(output, serialized);
-    }
+    fs.writeFileSync(REGISTRY_OUTPUT, serialized);
     updateRegistryLedgerHash(crypto.createHash('sha256').update(serialized).digest('hex'));
     console.log(`Built Academy asset registry: ${registry.counts.sourceMedia} source media, ${registry.counts.missingPurposefulAssets} explicit gaps.`);
 }
 
 function updateRegistryLedgerHash(registrySha256) {
-    for (const output of RUNTIME_LEDGER_OUTPUTS) {
-        const source = fs.readFileSync(output, 'utf8');
-        const entryStart = source.indexOf('"id": "academy-asset-registry-v1"');
-        const entryEnd = source.indexOf('\n    {', entryStart + 1);
-        if (entryStart < 0) throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry record.`);
-        const before = source.slice(0, entryStart);
-        const entry = source.slice(entryStart, entryEnd < 0 ? source.length : entryEnd);
-        const after = entryEnd < 0 ? '' : source.slice(entryEnd);
-        const deliveryPattern = /("path": "\/academy\/art\/ACADEMY-ASSET-REGISTRY\.json",\s*"sha256": ")[0-9a-f]{64}("\s*)/u;
-        if (!deliveryPattern.test(entry)) {
-            throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry delivery.`);
-        }
-        const updatedEntry = entry.replace(
-            deliveryPattern,
-            `$1${registrySha256}$2`,
-        );
-        fs.writeFileSync(output, `${before}${updatedEntry}${after}`);
+    const output = RUNTIME_LEDGER_PATH;
+    const source = fs.readFileSync(output, 'utf8');
+    const entryStart = source.indexOf('"id": "academy-asset-registry-v1"');
+    const entryEnd = source.indexOf('\n    {', entryStart + 1);
+    if (entryStart < 0) throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry record.`);
+    const before = source.slice(0, entryStart);
+    const entry = source.slice(entryStart, entryEnd < 0 ? source.length : entryEnd);
+    const after = entryEnd < 0 ? '' : source.slice(entryEnd);
+    const deliveryPattern = /("path": "\/academy\/art\/ACADEMY-ASSET-REGISTRY\.json",\s*"sha256": ")[0-9a-f]{64}("\s*)/u;
+    if (!deliveryPattern.test(entry)) {
+        throw new TypeError(`${path.relative(REPO_ROOT, output)} is missing the Academy asset registry delivery.`);
     }
+    fs.writeFileSync(output, `${before}${entry.replace(deliveryPattern, `$1${registrySha256}$2`)}${after}`);
 }
 
 async function validateFiles() {
     const expected = serializeRegistry(await buildRegistry());
     const errors = [];
-    for (const output of OUTPUTS) {
-        if (!fs.existsSync(output)) errors.push(`${path.relative(REPO_ROOT, output)} is missing`);
-        else if (fs.readFileSync(output, 'utf8') !== expected) errors.push(`${path.relative(REPO_ROOT, output)} is stale`);
-    }
+    if (!fs.existsSync(REGISTRY_OUTPUT)) errors.push(`${path.relative(REPO_ROOT, REGISTRY_OUTPUT)} is missing`);
+    else if (fs.readFileSync(REGISTRY_OUTPUT, 'utf8') !== expected) errors.push(`${path.relative(REPO_ROOT, REGISTRY_OUTPUT)} is stale`);
     if (!errors.length) errors.push(...validateRegistry(JSON.parse(expected)), ...validateRegistryLedgerRecord());
     if (errors.length) {
         console.error(errors.join('\n'));

@@ -9,8 +9,9 @@ import { readJson, readJsonIfPresent, writeJsonAtomic } from './academy-source-p
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const schema = 'yomu-academy.audio-source-inventory/v1';
 const privateCatalogPath = path.join(repoRoot, 'artifacts/yomu-academy/audio-source-inventory.v1.json');
+// public/academy only: scripts/sync-academy.cjs regenerates
+// docs/public/academy from it on every build:academy.
 const publicCatalogPath = path.join(repoRoot, 'public/academy/content/audio/source-inventory.v1.json');
-const docsCatalogPath = path.join(repoRoot, 'docs/public/academy/content/audio/source-inventory.v1.json');
 const moodleLedgerPath = path.join(repoRoot, 'artifacts/yomu-academy/source-pipeline/private-ledger.v1.json');
 const taskBindingsPath = path.join(repoRoot, 'public/academy/content/listening/listening-task-bindings.v1.json');
 const zipMetadataVersion = 5;
@@ -411,9 +412,7 @@ function main() {
         },
     });
     writeJsonAtomic(privateCatalogPath, catalog);
-    const publicCatalog = publicAudioSourceCatalog(catalog);
-    writeJsonAtomic(publicCatalogPath, publicCatalog);
-    writeJsonAtomic(docsCatalogPath, publicCatalog);
+    writeJsonAtomic(publicCatalogPath, publicAudioSourceCatalog(catalog));
     process.stdout.write(`[audio-source-catalog] ${catalog.summary.map(source => `${source.id}: ${source.audioFileCount} audio, ${source.visualFileCount} visual files`).join(', ')}\n`);
 }
 

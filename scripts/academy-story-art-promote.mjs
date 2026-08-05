@@ -11,10 +11,10 @@ const specFile = process.argv[2]
     ? path.resolve(process.argv[2])
     : path.join(repoRoot, 'docs/academy/art/STORY-ART-PROMOTIONS.json');
 const manifestFile = path.join(repoRoot, 'src/academy/domain/story-art-manifest.ts');
-const usageFiles = [
-    path.join(repoRoot, 'public/academy/art/ASSET-USAGE.json'),
-    path.join(repoRoot, 'docs/public/academy/art/ASSET-USAGE.json'),
-];
+// public/academy only: scripts/sync-academy.cjs regenerates
+// docs/public/academy from it on every build:academy, so mirroring here writes
+// bytes the next sync throws away.
+const usageFile = path.join(repoRoot, 'public/academy/art/ASSET-USAGE.json');
 const storyRoot = path.join(repoRoot, 'src/academy/content/story-sources');
 
 const spec = JSON.parse(fs.readFileSync(specFile, 'utf8'));
@@ -47,7 +47,6 @@ for (const promotion of spec.promotions) {
             throw new Error(`${promotion.assetId} has an invalid ${variant} delivery.`);
         }
         const publicFile = path.join(repoRoot, 'public', deliveryPath.slice(1));
-        const docsFile = path.join(repoRoot, 'docs/public', deliveryPath.slice(1));
         if (!fs.existsSync(publicFile)) throw new Error(`Missing story art: ${deliveryPath}`);
         const metadata = await sharp(publicFile).metadata();
         const expected = variant === 'wide'
@@ -56,8 +55,6 @@ for (const promotion of spec.promotions) {
         if (metadata.width !== expected.width || metadata.height !== expected.height) {
             throw new Error(`${deliveryPath} must be ${expected.width}x${expected.height}.`);
         }
-        fs.mkdirSync(path.dirname(docsFile), { recursive: true });
-        fs.copyFileSync(publicFile, docsFile);
         const digest = sha256(fs.readFileSync(publicFile));
         files[variant] = deliveryPath;
         deliveries.push({ path: deliveryPath, sha256: digest });
@@ -108,15 +105,14 @@ assertUnique(
 
 fs.writeFileSync(manifestFile, renderManifest(bindings, runtimeAssets, coverage));
 
-const usage = JSON.parse(fs.readFileSync(usageFiles[0], 'utf8'));
+const usage = JSON.parse(fs.readFileSync(usageFile, 'utf8'));
 usage.assets = usage.assets.filter(asset =>
     asset.source !== 'manifest:docs/academy/art/STORY-ART-PROMOTIONS.json',
 );
 usage.assets.push(...ledgerAssets);
 usage.assets.sort((left, right) => left.id.localeCompare(right.id));
 recountUsage(usage);
-const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
-for (const usageFile of usageFiles) fs.writeFileSync(usageFile, serializedUsage);
+fs.writeFileSync(usageFile, `${JSON.stringify(usage, null, 2)}\n`);
 await refreshAcademyRuntimeArtPrecache(repoRoot);
 
 console.log(`Promoted ${spec.promotions.length} node-bound story art states.`);

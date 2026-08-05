@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createHash } from 'node:crypto';
-import { copyFileSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeJsonAtomic } from './academy-source-pipeline/io.mjs';
@@ -9,10 +9,10 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const monorepoRoot = path.resolve(repoRoot, '../..');
 const lessonsRoot = path.join(repoRoot, 'public/academy/content/lessons');
 const crosswalkPath = path.join(repoRoot, 'public/academy/content/listening/listening-crosswalk.v1.json');
-const docsCrosswalkPath = path.join(repoRoot, 'docs/public/academy/content/listening/listening-crosswalk.v1.json');
 const soyaMapPath = path.join(monorepoRoot, 'references/soya-research/listening-question-audio-map.json');
+// public/academy only: scripts/sync-academy.cjs rm -rf's docs/public/academy
+// and rewrites it from public/academy on every build:academy.
 const publicPath = path.join(repoRoot, 'public/academy/content/listening/listening-task-bindings.v1.json');
-const docsPath = path.join(repoRoot, 'docs/public/academy/content/listening/listening-task-bindings.v1.json');
 
 const schema = 'yomu-academy.listening-task-bindings/v1';
 
@@ -576,8 +576,6 @@ const DIRECT_REVIEWED_MOODLE_SOURCES = {
 };
 
 function main() {
-    mkdirSync(path.dirname(docsCrosswalkPath), { recursive: true });
-    copyFileSync(crosswalkPath, docsCrosswalkPath);
     const crosswalk = readJson(crosswalkPath);
     const sourceByLocator = new Map(crosswalk.entries
         .filter(entry => entry.availability === 'source-verified')
@@ -753,7 +751,6 @@ function main() {
         ],
     };
     writeJsonAtomic(publicPath, manifest);
-    writeJsonAtomic(docsPath, manifest);
     process.stdout.write(`[listening-task-bindings] ${entries.length} exact task bindings, ${entries.filter(entry => entry.delivery.status === 'packaged-static').length} packaged\n`);
 }
 

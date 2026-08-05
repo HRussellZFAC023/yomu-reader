@@ -85,10 +85,8 @@ describe('Academy runtime asset ledger', () => {
         const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'yomu-art-reconcile-'));
         try {
             const publicArt = path.join(fixtureRoot, 'public/academy/art');
-            const hostedArt = path.join(fixtureRoot, 'docs/public/academy/art');
             const recoveryRoot = path.join(fixtureRoot, 'docs/academy/recovery');
             fs.mkdirSync(publicArt, { recursive: true });
-            fs.mkdirSync(hostedArt, { recursive: true });
             fs.mkdirSync(recoveryRoot, { recursive: true });
             const runtimeBytes = Buffer.from('runtime-art');
             const missingRecoveryBytes = Buffer.from('catalog-only-recovery-art');
@@ -130,7 +128,6 @@ describe('Academy runtime asset ledger', () => {
                 ],
             };
             fs.writeFileSync(path.join(publicArt, 'ASSET-USAGE.json'), JSON.stringify(usage));
-            fs.writeFileSync(path.join(hostedArt, 'ASSET-USAGE.json'), JSON.stringify(usage));
             fs.writeFileSync(path.join(recoveryRoot, 'ACADEMY-ART-CATALOG.json'), JSON.stringify(catalog));
 
             const reconcile = () =>
@@ -154,11 +151,12 @@ describe('Academy runtime asset ledger', () => {
             });
             expect(reconciled.assets.find(asset => asset.id === 'recovered-art-review-collection-v1')?.deliveries).toEqual([{ path: '/academy/art/_incoming/missing.png', sha256: recoverySha256 }]);
             expect(fs.existsSync(path.join(publicArt, '_incoming/missing.png'))).toBe(false);
-            expect(fs.readFileSync(path.join(hostedArt, 'ASSET-USAGE.json'), 'utf8')).toBe(first);
-
+            // No hosted mirror is asserted here: the reconciler writes
+            // public/academy only, and scripts/sync-academy.cjs regenerates
+            // docs/public/academy from it on every build:academy. The real-tree
+            // parity assertion above still proves that sync ran.
             reconcile();
             expect(fs.readFileSync(path.join(publicArt, 'ASSET-USAGE.json'), 'utf8')).toBe(first);
-            expect(fs.readFileSync(path.join(hostedArt, 'ASSET-USAGE.json'), 'utf8')).toBe(first);
         } finally {
             fs.rmSync(fixtureRoot, { recursive: true, force: true });
         }
