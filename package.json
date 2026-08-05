@@ -201,6 +201,7 @@
     "manual:keyless-popover": "node scripts/manual/keyless-word-popover-smoke.mjs",
     "smoke:late-content": "node scripts/late-content-smoke.mjs",
     "smoke:local-dictionary-upgrade": "node scripts/local-dictionary-upgrade-smoke.mjs",
+    "smoke:lookup-perf": "node scripts/lookup-perf-gate.mjs",
     "smoke:grading-provider": "node scripts/grading-provider-popover-smoke.mjs",
     "smoke:google-search-reader": "node scripts/google-search-reader-smoke.mjs",
     "manual:live-browser": "node scripts/manual/live-browser-smoke.mjs",

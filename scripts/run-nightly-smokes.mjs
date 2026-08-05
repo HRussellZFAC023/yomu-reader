@@ -41,6 +41,10 @@ export const NIGHTLY_SMOKES = [
     'smoke:jiten-keyless-definition',
     'smoke:late-content',
     'smoke:local-dictionary-upgrade',
+    // Asserting operation-count ratchet for the hover lookup hot path. Needs the
+    // built userscript + the settings-surface companion, so it is nightly rather
+    // than part of the fast push gate.
+    'smoke:lookup-perf',
     'smoke:mobile-docs',
     'smoke:ocr-provider-matrix',
     'smoke:onboarding-popover',
