@@ -184,7 +184,6 @@ import {
     PUBLIC_VOCABULARY_MISS_RETRY_LIMIT,
     DEFERRED_PUBLIC_PITCH_BACKOFF_WAIT_MS,
     MISALIGNED_PUBLIC_FURIGANA_RECOVERY_LIMIT,
-    allowsFrequentVisibleAutoScan,
     allowsGenericVisibleAutoScan,
     ankiLookupHasDisplayableNotes,
     audioPreloadLimits,
@@ -2738,7 +2737,6 @@ export class ReaderApp {
             const japaneseScanBudget = createMutationJapaneseScanBudget();
             const mutationScopeRoots = annotationScopeRoots();
             const mutationHasJapaneseText = mutationScanProbeCanProduceWork(this.settings, canScanText)
-                && allowsFrequentVisibleAutoScan()
                 && !mutationsOnlyInsideReaderRoot
                 ? scanMutations.reduce(
                     (found, mutation) => mutationMayContainJapaneseText(
@@ -2816,7 +2814,7 @@ export class ReaderApp {
         // fallback window has expired; it still enters the ordinary scoped
         // scan rather than bypassing the generic collector.
         setCustomElementUpgradeHook(() => {
-            if (this.isDestroyed || !this.canParseJapanese() || !allowsFrequentVisibleAutoScan()) return;
+            if (this.isDestroyed || !this.canParseJapanese()) return;
             this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
         });
         this.observeAutoScanMutations();
@@ -2844,19 +2842,15 @@ export class ReaderApp {
             // Scrolls inside Yomu's own UI (popover bodies, settings sheet,
             // transcript drawer) never change page content — don't rescan.
             if (eventTargetsReaderRoot(event)) return;
-            if (allowsFrequentVisibleAutoScan()) {
-                // Always debounce: without it the pending timer fires mid-fling
-                // and every ~160ms of scrolling runs a full visible-page scan
-                // (collection + residual body walk). Trailing-edge means one
-                // settle scan after the scroll stops.
-                this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
-            }
+            // Always debounce: without it the pending timer fires mid-fling
+            // and every ~160ms of scrolling runs a full visible-page scan
+            // (collection + residual body walk). Trailing-edge means one
+            // settle scan after the scroll stops.
+            this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
         }, { passive: true, capture: true, signal: abortSignal });
         window.addEventListener('resize', () => {
             if (document.hidden) return;
-            if (allowsFrequentVisibleAutoScan()) {
-                this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
-            }
+            this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
         }, { passive: true, signal: abortSignal });
         document.addEventListener('click', event => {
             if (!document.hidden
@@ -2869,7 +2863,6 @@ export class ReaderApp {
             }
             if (document.hidden
                 || !this.canParseJapanese()
-                || !allowsFrequentVisibleAutoScan()
                 || !clickMayRevealDynamicUiText(event)) return;
             this.noteVisibleAutoScanWorkObserved();
             // Capture runs before the site's click handler. The delayed scan
@@ -2971,7 +2964,7 @@ export class ReaderApp {
         this.disposeJpdbReviewBridge?.();
         this.disposeJpdbReviewBridge = installReaderStartupBridge();
         if (!this.embeddedFrame) this.installFab();
-        if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
+        if (this.canParseJapanese()) {
             this.noteVisibleAutoScanWorkObserved();
             this.scheduleAutoScan(0, { force: true, debounce: true });
         }
