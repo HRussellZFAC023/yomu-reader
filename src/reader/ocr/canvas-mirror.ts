@@ -709,14 +709,15 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
     const bumpEpoch = (el: { nodeType?: number; isConnected?: boolean }): void => {
         if (el && el.nodeType && !el.isConnected) return;
         S.epoch = (S.epoch || 0) + 1;
-        if (root) { attemptVoid(() => root.setAttribute(opts.e, String(S.epoch)), 'canvas-mirror.bumpEpoch'); }
+        // Bare try/catch: this function is serialized into the page realm and may reference only its parameters.
+        if (root) { try { root.setAttribute(opts.e, String(S.epoch)); } catch { /* page realm: stay silent */ } }
     };
     const isCanvas = (o: unknown): boolean => Boolean(o) && ((HC != null && o instanceof HC) || (OC != null && o instanceof OC));
     const srcUrl = (o: unknown): string => { const m = o as { currentSrc?: string; src?: string } | null; return m ? ((typeof m.currentSrc === 'string' && m.currentSrc) || (typeof m.src === 'string' && m.src) || '') : ''; };
     const idOf = (c: unknown, create: boolean): string | null => {
         const el = c as { getAttribute?: (n: string) => string | null; setAttribute?: (n: string, v: string) => void; __yomuMid?: string };
         if (el && typeof el.getAttribute === 'function' && typeof el.setAttribute === 'function') { let i = el.getAttribute(ATTR); if (!i && create) { i = 'm' + (S.nextId++); try { el.setAttribute(ATTR, i); } catch { return null; } } return i; }
-        if (el && el.__yomuMid) return el.__yomuMid; if (el && create) { return attempt(() => (el.__yomuMid = 'm' + (S.nextId++)), null, 'canvas-mirror.idOf'); } return null;
+        if (el && el.__yomuMid) return el.__yomuMid; if (el && create) { try { return (el.__yomuMid = 'm' + (S.nextId++)); } catch { return null; } } return null;
     };
     const rec = (id: string, w: number, h: number): MirrorRecord => { let r = S.records[id]; if (!r) { r = { w, h, ops: [] }; S.records[id] = r; } if (w) r.w = w; if (h) r.h = h; if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP); return r; };
     const dKey = (op: MirrorOp): string => op.dx + ',' + op.dy + ',' + op.dw + ',' + op.dh;
@@ -918,7 +919,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
         p.__yomuMirrorPatched = true;
         const draw = p.drawImage;
         p.drawImage = function (this: Context2DPrototype, src: unknown) {
-            if (!this.__yomuMirrorSkip) { attemptVoid(() => {
+            if (!this.__yomuMirrorSkip) { try {
                 const cid = idOf(this.canvas, true);
                 if (cid) {
                     const r = rec(cid, this.canvas.width, this.canvas.height); const a = arguments as unknown as ArrayLike<number>;
@@ -949,14 +950,14 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
                     if (o.srcId) bumpEpoch(this.canvas);
                     else if (o.url && o.url !== lastDrawUrl) { lastDrawUrl = o.url; bumpEpoch(this.canvas); }
                 }
- }, 'canvas-mirror.patch'); }
+ } catch { /* page realm: stay silent */ } }
             return draw.apply(this, arguments as unknown as unknown[]);
         } as typeof p.drawImage;
         const clr = p.clearRect;
         p.clearRect = function (this: Context2DPrototype, x: number, y: number, w: number, h: number) {
-            if (!this.__yomuMirrorSkip) { attemptVoid(() => {
+            if (!this.__yomuMirrorSkip) { try {
  if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) { rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); bumpEpoch(this.canvas); } } 
- }, 'canvas-mirror.patch'); }
+ } catch { /* page realm: stay silent */ } }
             return clr.apply(this, arguments as unknown as [number, number, number, number]);
         } as typeof p.clearRect;
         return true;
@@ -968,8 +969,8 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
     win.__yomuCanvasMirrorRecorder = true;
     S.installed = true;
     if (doc && root) {
-        attemptVoid(() => root.setAttribute(opts.r, '1'), 'canvas-mirror.patch');
-        attemptVoid(() => {
+        try { root.setAttribute(opts.r, '1'); } catch { /* page realm: stay silent */ }
+        try {
             root.addEventListener(opts.p, () => {
                 try {
                     let node = root.querySelector('[' + opts.d + ']');
@@ -983,7 +984,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
                     }
                 } catch { /* */ }
             });
-        }, 'canvas-mirror.patch');
+        } catch { /* page realm: stay silent */ }
     }
 }
 

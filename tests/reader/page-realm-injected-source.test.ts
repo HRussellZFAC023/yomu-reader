@@ -22,6 +22,8 @@ import { describe, expect, it } from 'vitest';
 const ROOT = process.cwd();
 const SOURCE_PATH = path.join(ROOT, 'src/reader/app/preferred-site-language-impl.ts');
 const SOURCE = readFileSync(SOURCE_PATH, 'utf8');
+const CANVAS_MIRROR_PATH = path.join(ROOT, 'src/reader/ocr/canvas-mirror.ts');
+const CANVAS_MIRROR = readFileSync(CANVAS_MIRROR_PATH, 'utf8');
 
 /** Named bindings imported at the top of the module, which the page realm lacks. */
 function importedBindings(source: string): string[] {
@@ -81,6 +83,19 @@ describe('page-realm injected source', () => {
         const body = functionBody(SOURCE, name);
         const unguarded = imported.filter(binding => new RegExp(`\\b${binding}\\s*[(.]`).test(body)
             && !new RegExp(`typeof\\s+${binding}\\b`).test(body));
+        expect(unguarded).toEqual([]);
+    });
+
+    // recorderBootstrap in canvas-mirror.ts is the OTHER .toString()-serialized
+    // page-realm function ("Must reference ONLY its parameters"). The nightly
+    // BookWalker smoke caught six helper calls shipping inside it as
+    // `ReferenceError: attemptVoid is not defined` in every engine.
+    it('recorderBootstrap references no unguarded imported binding', () => {
+        expect(CANVAS_MIRROR).toMatch(/recorderBootstrap\.toString\(\)/);
+        const body = functionBody(CANVAS_MIRROR, 'recorderBootstrap');
+        const unguarded = importedBindings(CANVAS_MIRROR)
+            .filter(binding => new RegExp(`\\b${binding}\\s*[(.]`).test(body)
+                && !new RegExp(`typeof\\s+${binding}\\b`).test(body));
         expect(unguarded).toEqual([]);
     });
 });
