@@ -4,6 +4,7 @@ import {
     type ManagedStateIdbWriteOptions,
 } from '../../app/managed-indexeddb';
 import type { ManagedStateEpoch } from '../../app/managed-state-epoch';
+import { assertManagedStateMutationAllowed, assertManagedStateReadAllowed } from '../../app/storage';
 
 const MANAGED_STATE_STORE = 'managedState';
 const MANAGED_STATE_EPOCH_RECORD_KEY = 'epoch';
@@ -32,6 +33,41 @@ export function reconcileYomitanManagedStateEpoch(db: IDBDatabase, epoch: Manage
         markerKeyPath: 'key',
         clearedStoreNames: CONTENT_STORES.filter(storeName => db.objectStoreNames.contains(storeName)),
     });
+}
+
+/**
+ * Fence one acquisition of the dictionary database handle.
+ *
+ * OPENING is a managed-state mutation: it reconciles the epoch record and can
+ * clear retired content stores, so it keeps the full mutation fence on both
+ * sides of the open. Reusing an already-open handle is a READ, and only has to
+ * refuse a realm whose epoch was retired.
+ *
+ * The store used to take the mutation fence twice on every acquisition. Measured
+ * against a warm store: 9 GM round trips per `lookup()` and 9 more per
+ * `findTermMatches()` pass, every one of them re-reading `yomu:state-epoch` or
+ * `yomu:factory-reset-signal` — two control keys that cannot change without a
+ * factory reset. Under Tampermonkey each is an IPC hop to the extension worker,
+ * so an annotation sweep over twenty text windows paid ~180 hops before reading
+ * a single dictionary row. Every write path in the store (importFile, clearAll,
+ * the derived-index builders) already fences itself, so the fence on the reuse
+ * path was protecting nothing a reader needs.
+ *
+ * `open` is passed the epoch and is expected to memoize (`??=`), so a second
+ * caller racing the first through the fence reuses the first open.
+ */
+export async function fencedYomitanDbHandle(
+    current: () => Promise<IDBDatabase> | undefined,
+    open: (epoch: ManagedStateEpoch) => Promise<IDBDatabase>,
+): Promise<IDBDatabase> {
+    const existing = current();
+    if (existing) {
+        await assertManagedStateReadAllowed();
+        return existing;
+    }
+    const db = await open(await assertManagedStateMutationAllowed());
+    await assertManagedStateMutationAllowed();
+    return db;
 }
 
 export function runYomitanManagedStateWrite(

@@ -308,6 +308,15 @@ export async function assertManagedStateMutationAllowed(): Promise<ManagedStateE
     return epoch;
 }
 
+/**
+ * Fence a non-GM managed-state READ: the realm-liveness half only. It still
+ * refuses a realm whose epoch was retired, but skips the write-suppression
+ * signal, because suppressing writes during a reset is no reason to fail a read.
+ * One GM round trip rather than the mutation fence's four.
+ */
+export const assertManagedStateReadAllowed = (): Promise<ManagedStateEpoch> =>
+    assertRealmManagedStateEpoch(asyncGmGetValue());
+
 /** Reconcile and certify this origin's local/session managed caches before boot. */
 export async function ensureManagedWebStorageCurrent(): Promise<void> {
     const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
