@@ -123,6 +123,9 @@ export const Logger = new LoggerImpl();
 setAttemptRecorder((label, error) => Logger.scope('Attempt').debug(`${label} failed`, error));
 
 export function configureLogger(options: LoggerOptions): void {
+    // Re-take the persisted override: a read from before the managed-state epoch
+    // was resolvable answered `false` by fallback, not by fact.
+    runtimeLoggingOverride = undefined;
     Logger.configure(options);
 }
 
@@ -155,15 +158,36 @@ function isOptionalCorsBridgeError(value: unknown): boolean {
     return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
 
+let runtimeLoggingOverride: boolean | undefined;
+
+/**
+ * The persisted debug escape hatch, read once per page load.
+ *
+ * isEnabled() runs on every log call, including the discard path when logging is
+ * OFF, and each read costs a synchronous epoch read plus the value read. The
+ * asserting lookup-perf gate measured one hover lookup asking for
+ * `yomu:enable-logs` 26 times, with a matching share of its 85 `yomu:state-epoch`
+ * reads — roughly 50 IPC hops to answer one unchanging boolean.
+ *
+ * Caching it does not change what the flag means. A realm that turns logging on
+ * during this page load does it through Logger.enable(), which sets the memo
+ * directly; the PERSISTED form has always been documented as taking effect on the
+ * next load. configureLogger() clears the memo, so a value read before the
+ * managed-state epoch was resolvable (very early boot, where the read falls back
+ * to false) is re-taken once the app configures the logger for real.
+ */
 function getRuntimeLoggingOverride(): boolean {
+    if (runtimeLoggingOverride !== undefined) return runtimeLoggingOverride;
     try {
-        return gmStorageGetSync<boolean>(RUNTIME_LOG_KEY, false) === true;
+        runtimeLoggingOverride = gmStorageGetSync<boolean>(RUNTIME_LOG_KEY, false) === true;
     } catch {
-        return false;
+        runtimeLoggingOverride = false;
     }
+    return runtimeLoggingOverride;
 }
 
 function setRuntimeLoggingOverride(enabled: boolean): void {
+    runtimeLoggingOverride = enabled;
     try {
         if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
         else gmStorageDeleteSync(RUNTIME_LOG_KEY);
