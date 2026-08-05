@@ -159,6 +159,33 @@ function dynamicUiClickElements(eventOrTarget: Event | EventTarget | null): Elem
     return path.filter((target): target is Element => target instanceof Element);
 }
 
+/**
+ * Whether a mutation-driven Japanese-text probe can still produce work.
+ *
+ * The probe is the expensive half of the observer callback. The style/class
+ * channel it feeds on is the noisiest one a page has, and for a class flip the
+ * probe must ask whether the element renders NOW — a forced style resolution per
+ * mutation. Measured on a 40-row table doing one class flip per row: 40 forced
+ * getComputedStyle reads and 40 positive verdicts, each of which then calls
+ * scheduleAutoScan.
+ *
+ * When the master pause or manual-scan mode is on, canScheduleAutoScan refuses
+ * every one of those, so all of that work is spent to be thrown away. This is
+ * the same pair of settings canScheduleAutoScan checks first, hoisted to before
+ * the probe rather than after it.
+ *
+ * Deliberately narrow: the observer's other jobs — disconnected-shadow-root
+ * hygiene, annotation-scope target maintenance, render-rejection rescans, the
+ * jiten/Bunpro page-enhancement branches — are untouched, and geometry
+ * repositioning does not run through this observer at all.
+ */
+export function mutationScanProbeCanProduceWork(
+    settings: { annotationsPaused: boolean; manualScanEnabled: boolean },
+    canParseTargetLanguage: boolean,
+): boolean {
+    return canParseTargetLanguage && !settings.annotationsPaused && !settings.manualScanEnabled;
+}
+
 export function mutationMayContainJapaneseText(
     mutation: MutationRecord,
     budget: MutationJapaneseScanBudget = createMutationJapaneseScanBudget(),

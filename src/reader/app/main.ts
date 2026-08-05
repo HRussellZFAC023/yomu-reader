@@ -252,7 +252,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayRevealReviewAnswer, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
+import { AUTO_SCAN_OBSERVER_OPTIONS, clickMayRevealDynamicUiText, clickMayRevealReviewAnswer, createMutationJapaneseScanBudget, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationScanProbeCanProduceWork, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { clearManagedBrowserCaches, managedLocalStorage, unregisterManagedServiceWorkers } from './storage';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
@@ -2737,7 +2737,7 @@ export class ReaderApp {
                 && scanMutations.every(mutationInsideReaderRoot);
             const japaneseScanBudget = createMutationJapaneseScanBudget();
             const mutationScopeRoots = annotationScopeRoots();
-            const mutationHasJapaneseText = canScanText
+            const mutationHasJapaneseText = mutationScanProbeCanProduceWork(this.settings, canScanText)
                 && allowsFrequentVisibleAutoScan()
                 && !mutationsOnlyInsideReaderRoot
                 ? scanMutations.reduce(
