@@ -7072,6 +7072,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isPlainRecord$3(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
+  const MISSING = { __yomuStorageValueMissing: true };
+  function isMissingSentinel(value) {
+    if (value === MISSING) return true;
+    return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+  }
+  async function rawAuthoritativeManagedStateEpoch(getValue) {
+    const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+    return isMissingSentinel(stored) ? void 0 : stored;
+  }
+  async function authoritativeManagedStateEpoch(getValue) {
+    return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+  }
+  function managedStateStorageKey(key, epoch) {
+    if (epoch.generation === 0) return key;
+    return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+  }
+  async function readManagedGmValue(getValue, key, epoch) {
+    const storageKey = managedStateStorageKey(key, epoch);
+    const scoped = await getValue(storageKey, MISSING);
+    const readFromCurrentSlot = !isMissingSentinel(scoped);
+    const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
+    if (isMissingSentinel(stored)) return { kind: "missing" };
+    const unreadable = Symbol("unreadable-managed-state");
+    const logical = managedStateLogicalValue(stored, epoch, unreadable);
+    if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
+    if (isMissingSentinel(logical)) return { kind: "deleted" };
+    return { kind: "found", value: logical };
+  }
+  async function managedGmValue(getValue, key, fallback, epoch) {
+    const read = await readManagedGmValue(getValue, key, epoch);
+    return read.kind === "found" ? read.value : fallback;
+  }
   const AREA_MARKER_KEYS = {
     local: "yomu:web-storage-epoch:v1:local",
     session: "yomu:web-storage-epoch:v1:session"
@@ -7560,11 +7592,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isManagedStorageBackupKey(key) {
     return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
   }
-  const MISSING = { __yomuStorageValueMissing: true };
-  function isMissingSentinel(value) {
-    if (value === MISSING) return true;
-    return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
-  }
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
   const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
@@ -7596,13 +7623,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function managedStateResetEpochMayHaveCommitted(error) {
     return Boolean(error && typeof error === "object" && error.epochMayHaveCommitted === true);
   }
-  async function rawAuthoritativeManagedStateEpoch(getValue) {
-    const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-    return isMissingSentinel(stored) ? void 0 : stored;
-  }
-  async function authoritativeManagedStateEpoch(getValue) {
-    return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
-  }
   async function assertRealmManagedStateEpoch(getValue) {
     const readEpoch = getValue ? async () => {
       const epoch2 = await authoritativeManagedStateEpoch(getValue);
@@ -7611,27 +7631,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
     if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
     return epoch;
-  }
-  async function managedGmValue(getValue, key, fallback, epoch) {
-    const read = await readManagedGmValue(getValue, key, epoch);
-    return read.kind === "found" ? read.value : fallback;
-  }
-  async function readManagedGmValue(getValue, key, epoch) {
-    const storageKey = managedStateStorageKey(key, epoch);
-    const scoped = await getValue(storageKey, MISSING);
-    const readFromCurrentSlot = !isMissingSentinel(scoped);
-    const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
-    await assertRealmManagedStateEpoch(getValue);
-    if (isMissingSentinel(stored)) return { kind: "missing" };
-    const unreadable = Symbol("unreadable-managed-state");
-    const logical = managedStateLogicalValue(stored, epoch, unreadable);
-    if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
-    if (isMissingSentinel(logical)) return { kind: "deleted" };
-    return { kind: "found", value: logical };
-  }
-  function managedStateStorageKey(key, epoch) {
-    if (epoch.generation === 0) return key;
-    return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
   }
   async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
     await assertManagedStateMutationFence(getValue, epoch);
@@ -7719,38 +7718,65 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
-    if (getValue) {
-      let epoch2;
-      try {
-        epoch2 = await assertRealmManagedStateEpoch(getValue);
-        const pendingPatch = pendingHostedLocalPatch(key, epoch2);
-        if (pendingPatch) {
-          const shared2 = await managedGmValue(getValue, key, void 0, epoch2);
-          const sharedRecord = isPlainRecord$1(shared2) ? shared2 : {};
-          const reconciled = { ...sharedRecord, ...pendingPatch };
-          await gmStorageSet(key, reconciled);
-          return reconciled;
-        }
-        const read = await readManagedGmValue(getValue, key, epoch2);
-        if (read.kind === "found") return read.value;
-        if (read.kind === "deleted") return fallback;
-        const migrated = localMirrorBelongsToEpoch(key, epoch2) ? localStorageGet(key, MISSING) : MISSING;
-        if (!isMissingSentinel(migrated)) {
-          const promoted = sanitizedStrandedLocalValue(key, migrated);
-          await gmStorageSet(key, promoted);
-          return promoted;
-        }
-        return fallback;
-      } catch (error) {
-        if (isStaleManagedStateEpochError(error)) throw error;
-        debugStorageError("GM storage read failed", key, error);
-        if (epoch2 && localMirrorBelongsToEpoch(key, epoch2)) {
-          return localStorageGet(key, fallback);
-        }
-        return fallback;
-      }
+    if (!getValue) return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
+    let epoch;
+    try {
+      epoch = await assertRealmManagedStateEpoch(getValue);
+      return await sharedManagedValue(getValue, key, fallback, epoch);
+    } catch (error) {
+      return failedManagedReadValue(error, key, fallback, epoch);
     }
-    const epoch = await assertRealmManagedStateEpoch(null);
+  }
+  async function gmStorageGetMany(keys, fallback) {
+    if (!keys.length) return [];
+    const getValue = asyncGmGetValue();
+    if (!getValue) {
+      const epoch = await assertRealmManagedStateEpoch(null);
+      return keys.map((key) => localOnlyManagedValue(key, fallback, epoch));
+    }
+    let passEpoch;
+    try {
+      passEpoch = await assertRealmManagedStateEpoch(getValue);
+    } catch (error) {
+      return keys.map((key) => failedManagedReadValue(error, key, fallback, void 0));
+    }
+    return Promise.all(keys.map(async (key) => {
+      try {
+        return await sharedManagedValue(getValue, key, fallback, passEpoch);
+      } catch (error) {
+        return failedManagedReadValue(error, key, fallback, passEpoch);
+      }
+    }));
+  }
+  async function sharedManagedValue(getValue, key, fallback, epoch) {
+    const pendingPatch = pendingHostedLocalPatch(key, epoch);
+    if (pendingPatch) {
+      const shared2 = await managedGmValue(getValue, key, void 0, epoch);
+      const sharedRecord = isPlainRecord$1(shared2) ? shared2 : {};
+      const reconciled = { ...sharedRecord, ...pendingPatch };
+      await gmStorageSet(key, reconciled);
+      return reconciled;
+    }
+    const read = await readManagedGmValue(getValue, key, epoch);
+    if (read.kind === "found") return read.value;
+    if (read.kind === "deleted") return fallback;
+    const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
+    if (!isMissingSentinel(migrated)) {
+      const promoted = sanitizedStrandedLocalValue(key, migrated);
+      await gmStorageSet(key, promoted);
+      return promoted;
+    }
+    return fallback;
+  }
+  function failedManagedReadValue(error, key, fallback, epoch) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage read failed", key, error);
+    if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
+      return localStorageGet(key, fallback);
+    }
+    return fallback;
+  }
+  function localOnlyManagedValue(key, fallback, epoch) {
     const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
     if (!isMissingSentinel(local)) return local;
     if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord$1(fallback)) {
@@ -7820,14 +7846,15 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    let epoch = null;
     if (getValue) {
-      const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
-      if (!epoch2) return fallback;
-      const read = gmStorageSyncRead(key, getValue, epoch2);
+      epoch = managedStateEpochFromSynchronousGetter(getValue);
+      if (!epoch) return fallback;
+      const read = gmStorageSyncRead(key, getValue, epoch);
       if (read.kind === "found") return read.value;
       if (read.kind === "deleted") return fallback;
     }
-    const epoch = managedStateEpochForSynchronousLocalRead();
+    epoch ??= managedStateEpochForSynchronousLocalRead();
     return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
   }
   function gmStorageGetSharedSync(key, fallback) {
@@ -27789,12 +27816,14 @@ ${entry.reading}`;
     async sweepTermMatchWindows(source, limit, preferences, target, targetGeneration) {
       const selected = [];
       const rank = dictionaryRank(preferences);
+      const db = await this.db();
       let coveredUntil = 0;
       for (let start = 0; start < source.length; ) {
         if (start > 0) await nextTask();
         const end = codePointBoundaryAtOrAfter(source, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
         if (!isCurrentLookupTarget(target, targetGeneration)) return [];
-        const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
+        const candidates = this.inlineTermCandidates.collect(target, source, start, end);
+        const matches = candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences, db) : [];
         const free = matches.filter((match) => match.start >= coveredUntil);
         const windowMatches = target.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit, rank) : nonOverlappingMatches(free, limit, rank);
         for (const match of windowMatches) {
@@ -27805,12 +27834,8 @@ ${entry.reading}`;
       }
       return selected.sort((a, b) => a.start - b.start);
     }
-    async termMatchesInWindow(source, start, end, preferences, target) {
-      const candidates = this.inlineTermCandidates.collect(target, source, start, end);
-      return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
-    }
-    async lookupTermMatchCandidates(target, candidates, preferences) {
-      return collectTermMatchCandidates(await this.db(), target, candidates, dictionaryRank(preferences));
+    async lookupTermMatchCandidates(target, candidates, preferences, db) {
+      return collectTermMatchCandidates(db ?? await this.db(), target, candidates, dictionaryRank(preferences));
     }
     async summary() {
       if (!this.summaryPromise) {
@@ -61040,7 +61065,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.85".trim() ? "1.8.85".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.86".trim() ? "1.8.86".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -103096,10 +103121,9 @@ ${reading}`);
   }
   class LocalYomuSrsStore {
     async read() {
-      const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
+      const [rawIndex, legacy] = await gmStorageGetMany([DECK_INDEX_KEY, LEGACY_DECK_KEY], null);
       const index = normalizeIndex(rawIndex);
       const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
-      const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
       if (legacy === null || legacy === void 0) return current;
       const migrated = mergeStoredYomuSrsDecks(current, legacy);
       await this.write(current, migrated);
@@ -103137,14 +103161,12 @@ ${reading}`);
       ]);
     }
     async readIndexedDeck(index) {
-      const cards = await Promise.all(index.cardIds.map(async (id) => [
-        id,
-        await gmStorageGet(cardStorageKey(id), null)
-      ]));
-      const tombstones = await Promise.all(index.tombstoneIds.map(async (id) => [
-        id,
-        await gmStorageGet(tombstoneStorageKey(id), null)
-      ]));
+      const values = await gmStorageGetMany([
+        ...index.cardIds.map(cardStorageKey),
+        ...index.tombstoneIds.map(tombstoneStorageKey)
+      ], null);
+      const cards = index.cardIds.map((id, position) => [id, values[position]]);
+      const tombstones = index.tombstoneIds.map((id, position) => [id, values[index.cardIds.length + position]]);
       return normalizeStoredYomuSrsDeck({
         version: 1,
         cards: Object.fromEntries(cards.filter((entry) => Boolean(entry[1] && typeof entry[1] === "object"))),

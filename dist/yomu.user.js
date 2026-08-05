@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.85
+// @version 1.8.86
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.d863112aed7c.user.js#sha256=2GMRKu185RZZdkD3kjS/9bS5gC8XzoroVAjpHeLkyUk=
+// @require https://yomureader.com/greasyfork/yomu-runtime.f2370e366b08.user.js#sha256=8jcONmsIQ0ZoMFfM+2J0WUTpBRunivEOzMfnDiIemSA=
 // @resource yomuCss  https://yomureader.com/yomu.0f710500cc29.css#sha256=D3EFAMwp54rB9sHQ/NP39dr+5FJHa3siw3iyJZwFsuQ=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -1325,6 +1325,38 @@ return Boolean(value && typeof value === "object" && typeof value.current === "f
 function isPlainRecord$2(value) {
 return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
+const MISSING = { __yomuStorageValueMissing: true };
+function isMissingSentinel(value) {
+if (value === MISSING) return true;
+return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+}
+async function rawAuthoritativeManagedStateEpoch(getValue) {
+const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+return isMissingSentinel(stored) ? void 0 : stored;
+}
+async function authoritativeManagedStateEpoch(getValue) {
+return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+}
+function managedStateStorageKey(key, epoch) {
+if (epoch.generation === 0) return key;
+return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+async function readManagedGmValue(getValue, key, epoch) {
+const storageKey = managedStateStorageKey(key, epoch);
+const scoped = await getValue(storageKey, MISSING);
+const readFromCurrentSlot = !isMissingSentinel(scoped);
+const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
+if (isMissingSentinel(stored)) return { kind: "missing" };
+const unreadable = Symbol("unreadable-managed-state");
+const logical = managedStateLogicalValue(stored, epoch, unreadable);
+if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
+if (isMissingSentinel(logical)) return { kind: "deleted" };
+return { kind: "found", value: logical };
+}
+async function managedGmValue(getValue, key, fallback, epoch) {
+const read = await readManagedGmValue(getValue, key, epoch);
+return read.kind === "found" ? read.value : fallback;
+}
 const AREA_MARKER_KEYS = {
 local: "yomu:web-storage-epoch:v1:local",
 session: "yomu:web-storage-epoch:v1:session"
@@ -1811,11 +1843,6 @@ MANAGED_STATE_EPOCH_KEY,
 function isManagedStorageBackupKey(key) {
 return isManagedStorageKey(key) && !isPrivateManagedStorageKey(key) && !isManagedStorageSlotKey(key) && !key.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key);
 }
-const MISSING = { __yomuStorageValueMissing: true };
-function isMissingSentinel(value) {
-if (value === MISSING) return true;
-return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
-}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
@@ -1847,13 +1874,6 @@ this.epochMayHaveCommitted = epochMayHaveCommitted;
 function managedStateResetEpochMayHaveCommitted(error) {
 return Boolean(error && typeof error === "object" && error.epochMayHaveCommitted === true);
 }
-async function rawAuthoritativeManagedStateEpoch(getValue) {
-const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-return isMissingSentinel(stored) ? void 0 : stored;
-}
-async function authoritativeManagedStateEpoch(getValue) {
-return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
-}
 async function assertRealmManagedStateEpoch(getValue) {
 const readEpoch = getValue ? async () => {
 const epoch2 = await authoritativeManagedStateEpoch(getValue);
@@ -1862,27 +1882,6 @@ return epoch2.generation === 0 ? void 0 : epoch2;
 const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
 if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
 return epoch;
-}
-async function managedGmValue(getValue, key, fallback, epoch) {
-const read = await readManagedGmValue(getValue, key, epoch);
-return read.kind === "found" ? read.value : fallback;
-}
-async function readManagedGmValue(getValue, key, epoch) {
-const storageKey = managedStateStorageKey(key, epoch);
-const scoped = await getValue(storageKey, MISSING);
-const readFromCurrentSlot = !isMissingSentinel(scoped);
-const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
-await assertRealmManagedStateEpoch(getValue);
-if (isMissingSentinel(stored)) return { kind: "missing" };
-const unreadable = Symbol("unreadable-managed-state");
-const logical = managedStateLogicalValue(stored, epoch, unreadable);
-if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
-if (isMissingSentinel(logical)) return { kind: "deleted" };
-return { kind: "found", value: logical };
-}
-function managedStateStorageKey(key, epoch) {
-if (epoch.generation === 0) return key;
-return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
 async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
 await assertManagedStateMutationFence(getValue, epoch);
@@ -1969,38 +1968,65 @@ return localStorageGet(key, fallback);
 }
 async function gmStorageGet(key, fallback) {
 const getValue = asyncGmGetValue();
-if (getValue) {
-let epoch2;
+if (!getValue) return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
+let epoch;
 try {
-epoch2 = await assertRealmManagedStateEpoch(getValue);
-const pendingPatch = pendingHostedLocalPatch(key, epoch2);
+epoch = await assertRealmManagedStateEpoch(getValue);
+return await sharedManagedValue(getValue, key, fallback, epoch);
+} catch (error) {
+return failedManagedReadValue(error, key, fallback, epoch);
+}
+}
+async function gmStorageGetMany(keys, fallback) {
+if (!keys.length) return [];
+const getValue = asyncGmGetValue();
+if (!getValue) {
+const epoch = await assertRealmManagedStateEpoch(null);
+return keys.map((key) => localOnlyManagedValue(key, fallback, epoch));
+}
+let passEpoch;
+try {
+passEpoch = await assertRealmManagedStateEpoch(getValue);
+} catch (error) {
+return keys.map((key) => failedManagedReadValue(error, key, fallback, void 0));
+}
+return Promise.all(keys.map(async (key) => {
+try {
+return await sharedManagedValue(getValue, key, fallback, passEpoch);
+} catch (error) {
+return failedManagedReadValue(error, key, fallback, passEpoch);
+}
+}));
+}
+async function sharedManagedValue(getValue, key, fallback, epoch) {
+const pendingPatch = pendingHostedLocalPatch(key, epoch);
 if (pendingPatch) {
-const shared = await managedGmValue(getValue, key, void 0, epoch2);
+const shared = await managedGmValue(getValue, key, void 0, epoch);
 const sharedRecord = isPlainRecord(shared) ? shared : {};
 const reconciled = { ...sharedRecord, ...pendingPatch };
 await gmStorageSet(key, reconciled);
 return reconciled;
 }
-const read = await readManagedGmValue(getValue, key, epoch2);
+const read = await readManagedGmValue(getValue, key, epoch);
 if (read.kind === "found") return read.value;
 if (read.kind === "deleted") return fallback;
-const migrated = localMirrorBelongsToEpoch(key, epoch2) ? localStorageGet(key, MISSING) : MISSING;
+const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
 if (!isMissingSentinel(migrated)) {
 const promoted = sanitizedStrandedLocalValue(key, migrated);
 await gmStorageSet(key, promoted);
 return promoted;
 }
 return fallback;
-} catch (error) {
+}
+function failedManagedReadValue(error, key, fallback, epoch) {
 if (isStaleManagedStateEpochError(error)) throw error;
 debugStorageError("GM storage read failed", key, error);
-if (epoch2 && localMirrorBelongsToEpoch(key, epoch2)) {
+if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
 return localStorageGet(key, fallback);
 }
 return fallback;
 }
-}
-const epoch = await assertRealmManagedStateEpoch(null);
+function localOnlyManagedValue(key, fallback, epoch) {
 const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
 if (!isMissingSentinel(local)) return local;
 if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
@@ -2070,14 +2096,15 @@ listValues: asyncGmListValues()
 }
 function gmStorageGetSync(key, fallback) {
 const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+let epoch = null;
 if (getValue) {
-const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
-if (!epoch2) return fallback;
-const read = gmStorageSyncRead(key, getValue, epoch2);
+epoch = managedStateEpochFromSynchronousGetter(getValue);
+if (!epoch) return fallback;
+const read = gmStorageSyncRead(key, getValue, epoch);
 if (read.kind === "found") return read.value;
 if (read.kind === "deleted") return fallback;
 }
-const epoch = managedStateEpochForSynchronousLocalRead();
+epoch ??= managedStateEpochForSynchronousLocalRead();
 return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
 function gmStorageGetSharedSync(key, fallback) {
@@ -16553,10 +16580,9 @@ DECK_INDEX_KEY,
 }
 class LocalYomuSrsStore {
 async read() {
-const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
+const [rawIndex, legacy] = await gmStorageGetMany([DECK_INDEX_KEY, LEGACY_DECK_KEY], null);
 const index = normalizeIndex(rawIndex);
 const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
-const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
 if (legacy === null || legacy === void 0) return current;
 const migrated = mergeStoredYomuSrsDecks(current, legacy);
 await this.write(current, migrated);
@@ -16594,14 +16620,12 @@ await Promise.all([
 ]);
 }
 async readIndexedDeck(index) {
-const cards = await Promise.all(index.cardIds.map(async (id) => [
-id,
-await gmStorageGet(cardStorageKey(id), null)
-]));
-const tombstones = await Promise.all(index.tombstoneIds.map(async (id) => [
-id,
-await gmStorageGet(tombstoneStorageKey(id), null)
-]));
+const values = await gmStorageGetMany([
+...index.cardIds.map(cardStorageKey),
+...index.tombstoneIds.map(tombstoneStorageKey)
+], null);
+const cards = index.cardIds.map((id, position) => [id, values[position]]);
+const tombstones = index.tombstoneIds.map((id, position) => [id, values[index.cardIds.length + position]]);
 return normalizeStoredYomuSrsDeck({
 version: 1,
 cards: Object.fromEntries(cards.filter((entry) => Boolean(entry[1] && typeof entry[1] === "object"))),
@@ -34615,8 +34639,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.85"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.85"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.86"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.86"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34759,7 +34783,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.85"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.86"}`;
 } catch {
 return null;
 }

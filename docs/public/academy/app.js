@@ -28156,6 +28156,38 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isPlainRecord$3(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
   }
+  const MISSING = { __yomuStorageValueMissing: true };
+  function isMissingSentinel(value) {
+    if (value === MISSING) return true;
+    return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
+  }
+  async function rawAuthoritativeManagedStateEpoch(getValue) {
+    const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
+    return isMissingSentinel(stored) ? void 0 : stored;
+  }
+  async function authoritativeManagedStateEpoch(getValue) {
+    return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
+  }
+  function managedStateStorageKey(key2, epoch) {
+    if (epoch.generation === 0) return key2;
+    return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`;
+  }
+  async function readManagedGmValue(getValue, key2, epoch) {
+    const storageKey = managedStateStorageKey(key2, epoch);
+    const scoped = await getValue(storageKey, MISSING);
+    const readFromCurrentSlot = !isMissingSentinel(scoped);
+    const stored = readFromCurrentSlot || storageKey === key2 ? scoped : await getValue(key2, MISSING);
+    if (isMissingSentinel(stored)) return { kind: "missing" };
+    const unreadable = Symbol("unreadable-managed-state");
+    const logical = managedStateLogicalValue(stored, epoch, unreadable);
+    if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
+    if (isMissingSentinel(logical)) return { kind: "deleted" };
+    return { kind: "found", value: logical };
+  }
+  async function managedGmValue(getValue, key2, fallback, epoch) {
+    const read = await readManagedGmValue(getValue, key2, epoch);
+    return read.kind === "found" ? read.value : fallback;
+  }
   const AREA_MARKER_KEYS = {
     local: "yomu:web-storage-epoch:v1:local",
     session: "yomu:web-storage-epoch:v1:session"
@@ -28644,11 +28676,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isManagedStorageBackupKey(key2) {
     return isManagedStorageKey(key2) && !isPrivateManagedStorageKey(key2) && !isManagedStorageSlotKey(key2) && !key2.startsWith(MANAGED_STATE_EPOCH_LEASE_KEY_PREFIX) && !key2.startsWith(STORAGE_LEASE_KEY_PREFIX) && !EXCLUDED_BACKUP_STORAGE_KEYS.has(key2);
   }
-  const MISSING = { __yomuStorageValueMissing: true };
-  function isMissingSentinel(value) {
-    if (value === MISSING) return true;
-    return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
-  }
   const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
   const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
   const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
@@ -28680,13 +28707,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function managedStateResetEpochMayHaveCommitted(error) {
     return Boolean(error && typeof error === "object" && error.epochMayHaveCommitted === true);
   }
-  async function rawAuthoritativeManagedStateEpoch(getValue) {
-    const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-    return isMissingSentinel(stored) ? void 0 : stored;
-  }
-  async function authoritativeManagedStateEpoch(getValue) {
-    return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
-  }
   async function assertRealmManagedStateEpoch(getValue) {
     const readEpoch = getValue ? async () => {
       const epoch2 = await authoritativeManagedStateEpoch(getValue);
@@ -28695,27 +28715,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
     if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
     return epoch;
-  }
-  async function managedGmValue(getValue, key2, fallback, epoch) {
-    const read = await readManagedGmValue(getValue, key2, epoch);
-    return read.kind === "found" ? read.value : fallback;
-  }
-  async function readManagedGmValue(getValue, key2, epoch) {
-    const storageKey = managedStateStorageKey(key2, epoch);
-    const scoped = await getValue(storageKey, MISSING);
-    const readFromCurrentSlot = !isMissingSentinel(scoped);
-    const stored = readFromCurrentSlot || storageKey === key2 ? scoped : await getValue(key2, MISSING);
-    await assertRealmManagedStateEpoch(getValue);
-    if (isMissingSentinel(stored)) return { kind: "missing" };
-    const unreadable = Symbol("unreadable-managed-state");
-    const logical = managedStateLogicalValue(stored, epoch, unreadable);
-    if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
-    if (isMissingSentinel(logical)) return { kind: "deleted" };
-    return { kind: "found", value: logical };
-  }
-  function managedStateStorageKey(key2, epoch) {
-    if (epoch.generation === 0) return key2;
-    return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key2)}`;
   }
   async function writeManagedGmValue(key2, value, epoch, getValue, setValue) {
     await assertManagedStateMutationFence(getValue, epoch);
@@ -28797,38 +28796,65 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   async function gmStorageGet(key2, fallback) {
     const getValue = asyncGmGetValue();
-    if (getValue) {
-      let epoch2;
-      try {
-        epoch2 = await assertRealmManagedStateEpoch(getValue);
-        const pendingPatch = pendingHostedLocalPatch(key2, epoch2);
-        if (pendingPatch) {
-          const shared2 = await managedGmValue(getValue, key2, void 0, epoch2);
-          const sharedRecord = isPlainRecord$1(shared2) ? shared2 : {};
-          const reconciled = { ...sharedRecord, ...pendingPatch };
-          await gmStorageSet(key2, reconciled);
-          return reconciled;
-        }
-        const read = await readManagedGmValue(getValue, key2, epoch2);
-        if (read.kind === "found") return read.value;
-        if (read.kind === "deleted") return fallback;
-        const migrated = localMirrorBelongsToEpoch(key2, epoch2) ? localStorageGet(key2, MISSING) : MISSING;
-        if (!isMissingSentinel(migrated)) {
-          const promoted = sanitizedStrandedLocalValue(key2, migrated);
-          await gmStorageSet(key2, promoted);
-          return promoted;
-        }
-        return fallback;
-      } catch (error) {
-        if (isStaleManagedStateEpochError(error)) throw error;
-        debugStorageError("GM storage read failed", key2, error);
-        if (epoch2 && localMirrorBelongsToEpoch(key2, epoch2)) {
-          return localStorageGet(key2, fallback);
-        }
-        return fallback;
-      }
+    if (!getValue) return localOnlyManagedValue(key2, fallback, await assertRealmManagedStateEpoch(null));
+    let epoch;
+    try {
+      epoch = await assertRealmManagedStateEpoch(getValue);
+      return await sharedManagedValue(getValue, key2, fallback, epoch);
+    } catch (error) {
+      return failedManagedReadValue(error, key2, fallback, epoch);
     }
-    const epoch = await assertRealmManagedStateEpoch(null);
+  }
+  async function gmStorageGetMany(keys, fallback) {
+    if (!keys.length) return [];
+    const getValue = asyncGmGetValue();
+    if (!getValue) {
+      const epoch = await assertRealmManagedStateEpoch(null);
+      return keys.map((key2) => localOnlyManagedValue(key2, fallback, epoch));
+    }
+    let passEpoch;
+    try {
+      passEpoch = await assertRealmManagedStateEpoch(getValue);
+    } catch (error) {
+      return keys.map((key2) => failedManagedReadValue(error, key2, fallback, void 0));
+    }
+    return Promise.all(keys.map(async (key2) => {
+      try {
+        return await sharedManagedValue(getValue, key2, fallback, passEpoch);
+      } catch (error) {
+        return failedManagedReadValue(error, key2, fallback, passEpoch);
+      }
+    }));
+  }
+  async function sharedManagedValue(getValue, key2, fallback, epoch) {
+    const pendingPatch = pendingHostedLocalPatch(key2, epoch);
+    if (pendingPatch) {
+      const shared2 = await managedGmValue(getValue, key2, void 0, epoch);
+      const sharedRecord = isPlainRecord$1(shared2) ? shared2 : {};
+      const reconciled = { ...sharedRecord, ...pendingPatch };
+      await gmStorageSet(key2, reconciled);
+      return reconciled;
+    }
+    const read = await readManagedGmValue(getValue, key2, epoch);
+    if (read.kind === "found") return read.value;
+    if (read.kind === "deleted") return fallback;
+    const migrated = localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, MISSING) : MISSING;
+    if (!isMissingSentinel(migrated)) {
+      const promoted = sanitizedStrandedLocalValue(key2, migrated);
+      await gmStorageSet(key2, promoted);
+      return promoted;
+    }
+    return fallback;
+  }
+  function failedManagedReadValue(error, key2, fallback, epoch) {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError("GM storage read failed", key2, error);
+    if (epoch && localMirrorBelongsToEpoch(key2, epoch)) {
+      return localStorageGet(key2, fallback);
+    }
+    return fallback;
+  }
+  function localOnlyManagedValue(key2, fallback, epoch) {
     const local = localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, MISSING) : MISSING;
     if (!isMissingSentinel(local)) return local;
     if (key2 === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord$1(fallback)) {
@@ -28898,14 +28924,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function gmStorageGetSync(key2, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    let epoch = null;
     if (getValue) {
-      const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
-      if (!epoch2) return fallback;
-      const read = gmStorageSyncRead(key2, getValue, epoch2);
+      epoch = managedStateEpochFromSynchronousGetter(getValue);
+      if (!epoch) return fallback;
+      const read = gmStorageSyncRead(key2, getValue, epoch);
       if (read.kind === "found") return read.value;
       if (read.kind === "deleted") return fallback;
     }
-    const epoch = managedStateEpochForSynchronousLocalRead();
+    epoch ??= managedStateEpochForSynchronousLocalRead();
     return epoch && localMirrorBelongsToEpoch(key2, epoch) ? localStorageGet(key2, fallback) : fallback;
   }
   function gmStorageSyncRead(key2, getValue, epoch) {
@@ -32602,10 +32629,9 @@ ${spelling}`);
   }
   class LocalYomuSrsStore {
     async read() {
-      const rawIndex = await gmStorageGet(DECK_INDEX_KEY, null);
+      const [rawIndex, legacy] = await gmStorageGetMany([DECK_INDEX_KEY, LEGACY_DECK_KEY], null);
       const index = normalizeIndex(rawIndex);
       const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
-      const legacy = await gmStorageGet(LEGACY_DECK_KEY, null);
       if (legacy === null || legacy === void 0) return current;
       const migrated = mergeStoredYomuSrsDecks(current, legacy);
       await this.write(current, migrated);
@@ -32643,14 +32669,12 @@ ${spelling}`);
       ]);
     }
     async readIndexedDeck(index) {
-      const cards = await Promise.all(index.cardIds.map(async (id2) => [
-        id2,
-        await gmStorageGet(cardStorageKey(id2), null)
-      ]));
-      const tombstones = await Promise.all(index.tombstoneIds.map(async (id2) => [
-        id2,
-        await gmStorageGet(tombstoneStorageKey(id2), null)
-      ]));
+      const values = await gmStorageGetMany([
+        ...index.cardIds.map(cardStorageKey),
+        ...index.tombstoneIds.map(tombstoneStorageKey)
+      ], null);
+      const cards = index.cardIds.map((id2, position) => [id2, values[position]]);
+      const tombstones = index.tombstoneIds.map((id2, position) => [id2, values[index.cardIds.length + position]]);
       return normalizeStoredYomuSrsDeck({
         version: 1,
         cards: Object.fromEntries(cards.filter((entry2) => Boolean(entry2[1] && typeof entry2[1] === "object"))),
@@ -295873,12 +295897,14 @@ ${entry2.reading}`;
     async sweepTermMatchWindows(source2, limit, preferences, target2, targetGeneration) {
       const selected2 = [];
       const rank2 = dictionaryRank(preferences);
+      const db = await this.db();
       let coveredUntil = 0;
       for (let start = 0; start < source2.length; ) {
         if (start > 0) await nextTask();
         const end = codePointBoundaryAtOrAfter(source2, Math.min(start + TERM_MATCH_WINDOW_CHARS, source2.length));
         if (!isCurrentLookupTarget(target2, targetGeneration)) return [];
-        const matches = await this.termMatchesInWindow(source2, start, end, preferences, target2);
+        const candidates = this.inlineTermCandidates.collect(target2, source2, start, end);
+        const matches = candidates.size ? await this.lookupTermMatchCandidates(target2, candidates, preferences, db) : [];
         const free = matches.filter((match) => match.start >= coveredUntil);
         const windowMatches = target2.lookupSweepMode === "left-to-right-longest-exact" ? leftToRightLongestMatches(free, limit, rank2) : nonOverlappingMatches(free, limit, rank2);
         for (const match of windowMatches) {
@@ -295889,12 +295915,8 @@ ${entry2.reading}`;
       }
       return selected2.sort((a, b) => a.start - b.start);
     }
-    async termMatchesInWindow(source2, start, end, preferences, target2) {
-      const candidates = this.inlineTermCandidates.collect(target2, source2, start, end);
-      return candidates.size ? await this.lookupTermMatchCandidates(target2, candidates, preferences) : [];
-    }
-    async lookupTermMatchCandidates(target2, candidates, preferences) {
-      return collectTermMatchCandidates(await this.db(), target2, candidates, dictionaryRank(preferences));
+    async lookupTermMatchCandidates(target2, candidates, preferences, db) {
+      return collectTermMatchCandidates(db ?? await this.db(), target2, candidates, dictionaryRank(preferences));
     }
     async summary() {
       if (!this.summaryPromise) {

@@ -5214,9 +5214,6 @@ function isMissingSentinel(value) {
   if (value === MISSING) return true;
   return Boolean(value && typeof value === "object" && !Array.isArray(value) && value.__yomuStorageValueMissing === true);
 }
-const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
-const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
-const managedStateEpochSession = managedStateEpochSessionForRealm();
 async function rawAuthoritativeManagedStateEpoch(getValue) {
   const stored = await getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
   return isMissingSentinel(stored) ? void 0 : stored;
@@ -5224,6 +5221,13 @@ async function rawAuthoritativeManagedStateEpoch(getValue) {
 async function authoritativeManagedStateEpoch(getValue) {
   return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
 }
+function managedStateStorageKey(key, epoch) {
+  if (epoch.generation === 0) return key;
+  return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
+}
+const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
+const managedStateEpochSession = managedStateEpochSessionForRealm();
 async function assertRealmManagedStateEpoch(getValue) {
   const readEpoch = getValue ? async () => {
   const epoch2 = await authoritativeManagedStateEpoch(getValue);
@@ -5232,10 +5236,6 @@ async function assertRealmManagedStateEpoch(getValue) {
   const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
   if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
   return epoch;
-}
-function managedStateStorageKey(key, epoch) {
-  if (epoch.generation === 0) return key;
-  return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
 async function writeManagedGmValue(key, value, epoch, getValue, setValue) {
   await assertManagedStateMutationFence(getValue, epoch);
@@ -5291,14 +5291,15 @@ function managedStateEpochForSynchronousLocalRead() {
 }
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+  let epoch = null;
   if (getValue) {
-  const epoch2 = managedStateEpochFromSynchronousGetter(getValue);
-  if (!epoch2) return fallback;
-  const read = gmStorageSyncRead(key, getValue, epoch2);
+  epoch = managedStateEpochFromSynchronousGetter(getValue);
+  if (!epoch) return fallback;
+  const read = gmStorageSyncRead(key, getValue, epoch);
   if (read.kind === "found") return read.value;
   if (read.kind === "deleted") return fallback;
   }
-  const epoch = managedStateEpochForSynchronousLocalRead();
+  epoch ??= managedStateEpochForSynchronousLocalRead();
   return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
 function gmStorageSyncRead(key, getValue, epoch) {
