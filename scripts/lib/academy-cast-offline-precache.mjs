@@ -19,24 +19,29 @@ export async function refreshAcademyRuntimeArtPrecache(repoRoot) {
         throw new Error('Academy runtime-art precache contains duplicate paths.');
     }
 
-    for (const relative of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
-        const serviceWorkerFile = path.join(repoRoot, relative);
-        let source = fs.readFileSync(serviceWorkerFile, 'utf8');
-        const replacement = [
-            'const RUNTIME_ART_PRECACHE = [',
-            ...paths.map(assetPath => `    '${assetPath}',`),
-            '];',
-        ].join('\n');
-        const marker = /const (?:CAST_SPRITE|RUNTIME_ART)_PRECACHE = \[[\s\S]*?\n\];/u;
-        if (!marker.test(source)) {
-            throw new Error(`Missing runtime-art precache in ${relative}.`);
-        }
-        source = source
-            .replace(marker, replacement)
-            .replace('...CAST_SPRITE_PRECACHE,', '...RUNTIME_ART_PRECACHE,');
-        source = replaceCoreWithoutHandMaintainedArt(source, relative);
-        fs.writeFileSync(serviceWorkerFile, source);
+    // public/academy/sw.js is the TEMPLATE, and the only file to edit. The
+    // committed docs/public/academy/sw.js is rendered from it by
+    // scripts/sync-academy.cjs, which substitutes the content-derived revision
+    // token that check:artifacts recomputes from HEAD. Writing the rendered copy
+    // here was worse than redundant: it re-stamped the precache list while
+    // leaving the OLD revision in place, which is exactly the staleness the
+    // committed-artifacts gate fails on. Run build:academy to regenerate it.
+    const relative = 'public/academy/sw.js';
+    const serviceWorkerFile = path.join(repoRoot, relative);
+    let source = fs.readFileSync(serviceWorkerFile, 'utf8');
+    const replacement = [
+        'const RUNTIME_ART_PRECACHE = [',
+        ...paths.map(assetPath => `    '${assetPath}',`),
+        '];',
+    ].join('\n');
+    const marker = /const (?:CAST_SPRITE|RUNTIME_ART)_PRECACHE = \[[\s\S]*?\n\];/u;
+    if (!marker.test(source)) {
+        throw new Error(`Missing runtime-art precache in ${relative}.`);
     }
+    source = source
+        .replace(marker, replacement)
+        .replace('...CAST_SPRITE_PRECACHE,', '...RUNTIME_ART_PRECACHE,');
+    fs.writeFileSync(serviceWorkerFile, replaceCoreWithoutHandMaintainedArt(source, relative));
 }
 
 async function loadAcademyRuntimeAssets(repoRoot) {

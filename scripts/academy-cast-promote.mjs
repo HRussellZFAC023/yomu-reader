@@ -9,14 +9,12 @@ import { reconcileAcademyLessonCastBindings } from './lib/academy-cast-usage-bin
 
 const repoRoot = path.resolve(import.meta.dirname, '..');
 const manifestFile = path.join(repoRoot, 'src/academy/domain/cast-standardization-manifest.ts');
-const usageFiles = [
-    path.join(repoRoot, 'public/academy/art/ASSET-USAGE.json'),
-    path.join(repoRoot, 'docs/public/academy/art/ASSET-USAGE.json'),
-];
-const batchManifestFiles = [
-    path.join(repoRoot, 'public/academy/art/SPRITE-BATCH-MANIFEST.json'),
-    path.join(repoRoot, 'docs/public/academy/art/SPRITE-BATCH-MANIFEST.json'),
-];
+// public/academy is the only source this writes. docs/public/academy is
+// generated: scripts/sync-academy.cjs rm -rf's it and rewrites it from
+// public/academy on every build:academy, so a mirror write here is work that
+// gets thrown away, in a path .gitignore excludes.
+const usageFile = path.join(repoRoot, 'public/academy/art/ASSET-USAGE.json');
+const batchManifestFile = path.join(repoRoot, 'public/academy/art/SPRITE-BATCH-MANIFEST.json');
 const specFile = process.argv[2] ? path.resolve(process.argv[2]) : undefined;
 
 if (!specFile || !fs.existsSync(specFile)) {
@@ -35,8 +33,8 @@ const coverage = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_COVERAGE
 const journalReview = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_JOURNAL_REVIEW');
 const galleries = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_GALLERIES');
 const summary = readJsonConstant(source, 'ACADEMY_CAST_STANDARDIZATION_SUMMARY');
-const usage = JSON.parse(fs.readFileSync(usageFiles[0], 'utf8'));
-const batchManifest = JSON.parse(fs.readFileSync(batchManifestFiles[0], 'utf8'));
+const usage = JSON.parse(fs.readFileSync(usageFile, 'utf8'));
+const batchManifest = JSON.parse(fs.readFileSync(batchManifestFile, 'utf8'));
 
 for (const promotion of spec.promotions) {
     validatePromotion(promotion);
@@ -88,7 +86,6 @@ for (const promotion of spec.promotions) {
             primaryUse: slot.runtimeHomes[0],
         };
         usage.assets.push(createUsageAsset(slot));
-        mirrorSlot(slot);
     }
 
     const castSlots = manifest.filter(slot => slot.castId === promotion.castId);
@@ -158,14 +155,8 @@ if (!batchManifestDelivery) {
 batchManifestDelivery.sha256 = sha256(Buffer.from(serializedBatchManifest));
 recountUsage(usage);
 const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
-for (const usageFile of usageFiles) {
-    fs.mkdirSync(path.dirname(usageFile), { recursive: true });
-    fs.writeFileSync(usageFile, serializedUsage);
-}
-for (const batchManifestFile of batchManifestFiles) {
-    fs.mkdirSync(path.dirname(batchManifestFile), { recursive: true });
-    fs.writeFileSync(batchManifestFile, serializedBatchManifest);
-}
+fs.writeFileSync(usageFile, serializedUsage);
+fs.writeFileSync(batchManifestFile, serializedBatchManifest);
 await refreshAcademyRuntimeArtPrecache(repoRoot);
 await refreshAcademyCastPortraitFocus(repoRoot, manifest);
 
@@ -270,20 +261,11 @@ function archiveSlot(slot, archiveLabel) {
         relative,
     );
     const publicFile = path.join(repoRoot, 'public', slot.assetPath.slice(1));
-    const docsFile = path.join(repoRoot, 'docs/public', slot.assetPath.slice(1));
     if (fs.existsSync(publicFile)) {
         fs.mkdirSync(path.dirname(archiveFile), { recursive: true });
         fs.copyFileSync(publicFile, archiveFile);
         fs.unlinkSync(publicFile);
     }
-    if (fs.existsSync(docsFile)) fs.unlinkSync(docsFile);
-}
-
-function mirrorSlot(slot) {
-    const publicFile = path.join(repoRoot, 'public', slot.assetPath.slice(1));
-    const docsFile = path.join(repoRoot, 'docs/public', slot.assetPath.slice(1));
-    fs.mkdirSync(path.dirname(docsFile), { recursive: true });
-    fs.copyFileSync(publicFile, docsFile);
 }
 
 function recountUsage(usage) {

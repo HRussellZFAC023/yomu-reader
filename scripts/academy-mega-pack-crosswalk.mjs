@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 
 export const MEGA_PACK_CROSSWALK_SCHEMA = 'yomu-academy.source-pipeline.mega-pack-crosswalk/v1';
 const MEGA_PACK_CROSSWALK_REVISION = 'mega-pack-crosswalk/2026-07-15.1';
+// The only output. docs/public/academy is generated: scripts/sync-academy.cjs
+// rm -rf's it and rewrites it from public/academy on every build:academy.
+const OUTPUT_PATH = 'public/academy/content/source-pipeline/mega-pack-crosswalk.v1.json';
 
 const DEFAULT_ROOT = path.join(
     os.homedir(),
@@ -240,17 +243,15 @@ export function validateMegaPackCrosswalk(catalog) {
 }
 
 function writeMegaPackCrosswalk(catalog, { repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
-    const json = `${JSON.stringify(catalog, null, 2)}\n`;
-    for (const relativePath of outputPaths()) writeFileSync(path.join(repoRoot, relativePath), json, 'utf8');
+    writeFileSync(path.join(repoRoot, OUTPUT_PATH), `${JSON.stringify(catalog, null, 2)}\n`, 'utf8');
 }
 
 function checkMegaPackCrosswalk(catalog, { repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..') } = {}) {
+    const output = path.join(repoRoot, OUTPUT_PATH);
     const expected = `${JSON.stringify(catalog, null, 2)}\n`;
-    const stale = outputPaths().filter(relativePath => {
-        const output = path.join(repoRoot, relativePath);
-        return !existsSync(output) || readFileSync(output, 'utf8') !== expected;
-    });
-    if (stale.length) throw new Error(`Stale Mega Pack crosswalk outputs: ${stale.join(', ')}`);
+    if (!existsSync(output) || readFileSync(output, 'utf8') !== expected) {
+        throw new Error(`Stale Mega Pack crosswalk output: ${OUTPUT_PATH}`);
+    }
 }
 
 function segment(value) {
@@ -323,13 +324,6 @@ function buildIndex(segments, mappingName) {
 
 function sha256(value) {
     return createHash('sha256').update(value).digest('hex');
-}
-
-function outputPaths() {
-    return [
-        'public/academy/content/source-pipeline/mega-pack-crosswalk.v1.json',
-        'docs/public/academy/content/source-pipeline/mega-pack-crosswalk.v1.json',
-    ];
 }
 
 function runCli() {
