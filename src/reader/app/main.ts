@@ -299,6 +299,7 @@ import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from 
 import { documentBackgroundLooksDark, refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
+import { hoverLookupScheduleDelay } from '../lookup/hover-scheduler';
 import {
     clearRenderedWordAnkiState,
     applyBunproStateToRenderedWord,
@@ -5100,7 +5101,11 @@ export class ReaderApp {
             this.rememberSettledHoverPopoverPointer(options.minimumDelayMs);
             this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
         };
-        this.startHoverLookupAfterDelay(runLookup, this.hoverLookupDelay(word, options.minimumDelayMs));
+        this.startHoverLookupAfterDelay(runLookup, hoverLookupScheduleDelay({
+            switchesAnchor: this.activePopoverMode === 'hover' && Boolean(this.activeHoverWord) && this.activeHoverWord !== word,
+            hoverOpenDelayMs: this.settings.hoverOpenDelayMs,
+            minimumDelayMs: options.minimumDelayMs,
+        }));
     }
 
     private retargetPendingHoverLookup(word: HTMLElement, hoverLookupKey: string, minimumDelayMs?: number): boolean {
@@ -5114,14 +5119,6 @@ export class ReaderApp {
     private rememberSettledHoverPopoverPointer(minimumDelayMs?: number): void {
         if (minimumDelayMs === undefined || !this.lastPointerPosition) return;
         this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
-    }
-
-    private hoverLookupDelay(word: HTMLElement, minimumDelayMs?: number): number {
-        const switchesActiveWord = this.activePopoverMode === 'hover'
-            && Boolean(this.activeHoverWord)
-            && this.activeHoverWord !== word;
-        const normalDelay = switchesActiveWord ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
-        return Math.max(normalDelay, minimumDelayMs ?? 0);
     }
 
     private startHoverLookupAfterDelay(runLookup: () => void, delay: number): void {
@@ -5236,9 +5233,11 @@ export class ReaderApp {
                 if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = '';
             });
         };
-        const normalDelay = this.activePopoverMode === 'hover' ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
-        const delay = Math.max(normalDelay, options.minimumDelayMs ?? 0);
-        this.startHoverLookupAfterDelay(runLookup, delay);
+        this.startHoverLookupAfterDelay(runLookup, hoverLookupScheduleDelay({
+            switchesAnchor: this.activePopoverMode === 'hover',
+            hoverOpenDelayMs: this.settings.hoverOpenDelayMs,
+            minimumDelayMs: options.minimumDelayMs,
+        }));
     }
 
     private isPointerTextLookupAlreadyQueued(hoverLookupKey: string): boolean {
