@@ -288,6 +288,7 @@ import {
 import { capturePopoverScrollOffset, clearDocumentSelection, createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, MINING_DRAWER_HANDLE_SELECTOR, MINING_DRAWER_POINTER_TARGET_SELECTOR, refreshForcedReaderPopoverSurface, restorePopoverScrollOffsetSoon, shouldUseSheet } from '../popup/shell';
 import { addViewportChangeListeners } from '../popup/handle-drag';
 import { HOVER_POPOVER_TRANSIT_SETTLE_DELAY_MS, isActiveHoverPopoverPointerContext, isHoverPopoverTransitActive, type HoverPopoverPointerState } from '../popup/hover-transit';
+import { domHoverCloseTimers, HoverCloseController, type HoverContextQuery } from '../popup/hover-close';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
 import type { RtkInfo } from '../kanji/rtk';
 import { ReaderAudioActions } from '../audio/actions';
@@ -798,8 +799,15 @@ export class ReaderApp {
     };
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;
-    private hoverCloseTimer?: number;
-    private hoverWatchTimer?: number;
+    private readonly hoverClose = new HoverCloseController(domHoverCloseTimers, {
+        isHoverPopoverActive: () => this.activePopoverMode === 'hover',
+        closeDelayMs: () => this.settings.hoverCloseDelayMs,
+        isHoverContextActive: query => this.isHoverContextActive(query),
+        close: () => this.dismiss({
+            suppressHoverTarget: false,
+            deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose(),
+        }),
+    });
     private hoverResizeStickyPointer?: { x: number; y: number };
     private hoverResizeStickyExpiry = 0;
     private hoverPendingWord?: HTMLElement;
@@ -2657,8 +2665,7 @@ export class ReaderApp {
         this.jpdbPageEnhanceDeadline = 0;
         window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
         window.clearTimeout(this.hoverLookupTimer);
-        window.clearTimeout(this.hoverCloseTimer);
-        window.clearTimeout(this.hoverWatchTimer);
+        this.hoverClose.stop();
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.localPitchDictionaryAvailability = undefined;
@@ -4081,8 +4088,7 @@ export class ReaderApp {
 
     private pinActiveHoverPopoverForPendingModalLookup(): void {
         if (this.activePopoverMode !== 'hover' || !this.activePopover) return;
-        window.clearTimeout(this.hoverWatchTimer);
-        this.hoverWatchTimer = undefined;
+        this.hoverClose.stopWatch();
         this.clearHoverPopoverResizeSticky();
         this.hoverPopoverPointerPosition = undefined;
         this.activePopoverMode = 'modal';
@@ -5241,8 +5247,7 @@ export class ReaderApp {
     }
 
     private cancelHoverClose(): void {
-        window.clearTimeout(this.hoverCloseTimer);
-        this.hoverCloseTimer = undefined;
+        this.hoverClose.cancel();
     }
 
     // A <details> inside the hover popover toggled, resizing the popover under a
@@ -5278,17 +5283,12 @@ export class ReaderApp {
         this.hoverResizeStickyExpiry = 0;
     }
 
-    private scheduleHoverClose(delay = this.settings.hoverCloseDelayMs, options: { ignoreCssHover?: boolean } = {}): void {
+    // Asks the ONE close owner for a close in `delay` ms. The deadline is monotonic
+    // (see HoverCloseController), so the callers that re-ask per pointer frame no
+    // longer push the close out of reach while the hand keeps moving.
+    private scheduleHoverClose(delay = this.settings.hoverCloseDelayMs, options: HoverContextQuery = {}): void {
         if (this.activePopoverMode !== 'hover') return;
-        this.cancelHoverClose();
-        this.hoverCloseTimer = window.setTimeout(() => {
-            this.hoverCloseTimer = undefined;
-            if (this.isHoverContextActive(options)) return;
-            this.dismiss({
-                suppressHoverTarget: false,
-                deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose(),
-            });
-        }, Math.max(0, delay));
+        this.hoverClose.arm(delay, options);
     }
 
     private shouldDeferSubtitleMiningResumeForHoverClose(): boolean {
@@ -9976,7 +9976,7 @@ export class ReaderApp {
     private finishMountedPopoverLifecycle(popover: HTMLElement, mode: 'modal' | 'hover', options: MountPopoverOptions): void {
         if (mode === 'hover') {
             this.installHoverPopoverLifecycle(popover);
-            this.startHoverWatch();
+            this.hoverClose.startWatch();
             return;
         }
         if (options.focusOnMount === false) return;
@@ -10131,7 +10131,7 @@ export class ReaderApp {
      * must STAY true until a real exit event says otherwise.
      *
      * 1. The pointer is inside. The hover watchdog re-asks that question every
-     *    max(90, hoverCloseDelayMs) ms by hit-testing the last known pointer point,
+     *    HOVER_WATCH_PERIOD_MS by hit-testing the last known pointer point,
      *    which is a *sample* of a moving DOM: a re-render between two samples can
      *    put a different element under a parked cursor, and Firefox transiently
      *    clears CSS :hover while a scroll changes the descendant beneath it. Over a
@@ -10172,23 +10172,6 @@ export class ReaderApp {
     private clearLatchedHoverPopoverPointerForOutsideEvent(target: Node | null): void {
         if (!this.hoverPopoverPointerLatched || this.isInsideActivePopover(target)) return;
         this.hoverPopoverPointerLatched = false;
-    }
-
-    private startHoverWatch(): void {
-        window.clearTimeout(this.hoverWatchTimer);
-        const tick = () => {
-            this.hoverWatchTimer = undefined;
-            if (this.activePopoverMode !== 'hover') return;
-            if (!this.isHoverContextActive({ ignorePointerPosition: true })) {
-                this.dismiss({
-                    suppressHoverTarget: false,
-                    deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose(),
-                });
-                return;
-            }
-            this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
-        };
-        this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
     }
 
     private dismiss(options: ActivePopoverDismissOptions = { suppressHoverTarget: true }): void {
@@ -10268,15 +10251,12 @@ export class ReaderApp {
 
     private clearHoverDismissState(options: { preserveHoverGeneration?: boolean }): void {
         window.clearTimeout(this.hoverLookupTimer);
-        window.clearTimeout(this.hoverCloseTimer);
-        window.clearTimeout(this.hoverWatchTimer);
+        this.hoverClose.stop();
         if (this.popoverRepositionFrame !== undefined) {
             window.cancelAnimationFrame(this.popoverRepositionFrame);
             this.popoverRepositionFrame = undefined;
         }
         this.hoverLookupTimer = undefined;
-        this.hoverCloseTimer = undefined;
-        this.hoverWatchTimer = undefined;
         this.clearHoverPopoverResizeSticky();
         this.hoverPopoverPointerLatched = false;
         this.hoverPopoverPointerPosition = undefined;

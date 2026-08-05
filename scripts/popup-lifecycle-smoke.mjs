@@ -85,6 +85,24 @@ const WATCHDOG_PERIOD_MS = 90;
 const WATCHDOG_PERIODS_TO_OUTLAST = 5;
 const HOVER_ENDURANCE_MS = Number(process.env.YOMU_POPUP_HOVER_ENDURANCE_MS || 20_000);
 const HOVER_ENDURANCE_WHEEL_INTERVAL_MS = 250;
+// Well clear of WATCHDOG_PERIOD_MS in both directions, because what these scenarios
+// measure is whether the CONFIGURED delay is the thing that decides when the panel
+// goes away. It used not to be: the close timer was cleared and re-armed on every
+// coalesced pointer frame, so with a hand still in motion it never elapsed, and the
+// panel was taken down instead by the hover watchdog — a poll phased from mount time.
+// Measured on 1.8.85 at this delay: closes at 178ms, 221ms, 407ms and 441ms, every
+// one of them from the watchdog tick and not one from the close timer. A delay at or
+// below the poll period cannot tell the two mechanisms apart.
+const HOVER_CLOSE_DELAY_MS = 600;
+// Allowance for event dispatch, the rAF coalescing hop, and the Playwright round trip
+// that observes the removal. Asserted on BOTH sides: closing early is the same defect
+// as closing late — the delay exists so a learner can leave the panel and come back.
+const HOVER_CLOSE_LATENCY_SLACK_LATE_MS = 250;
+const HOVER_CLOSE_LATENCY_SLACK_EARLY_MS = 120;
+// How long the scenarios keep the hand moving after leaving the hover surface. Long
+// enough that a per-pointermove re-arm is unmistakable rather than borderline.
+const HOVER_CLOSE_WATCH_MS = 3_000;
+const HOVER_CLOSE_JIGGLE_INTERVAL_MS = 16;
 const DESKTOP_VIEWPORT = { width: 1280, height: 900 };
 // Short on purpose. The mechanism only exists when the panel is placed ABOVE the
 // cursor, where its bottom is pinned to the word and growth or shrinkage moves the
@@ -153,6 +171,15 @@ const hoverShrinkSettings = {
     ankiSectionEnabled: false,
 };
 
+// The close-latency scenarios time one specific transition, so nothing else may move
+// the panel while they measure: Anki's note-detail hydration re-renders the card a
+// beat after mount, and a rebuild landing inside the measurement window would change
+// what the pointer is over for a reason unrelated to close scheduling.
+const hoverCloseLatencySettings = {
+    ...hoverShrinkSettings,
+    hoverCloseDelayMs: HOVER_CLOSE_DELAY_MS,
+};
+
 const phoneSettings = {
     ...desktopSettings,
     ankiEnabled: false,
@@ -192,6 +219,8 @@ const SCENARIOS = [
     ['scrollAcrossLateProvider', runScrollAcrossLateProvider],
     ['hoverSurvivesContentShrink', runHoverSurvivesContentShrink],
     ['hoverSurvivesSustainedWheel', runHoverSurvivesSustainedWheel],
+    ['hoverClosesAfterLeavingWord', runHoverClosesAfterLeavingWord],
+    ['hoverClosesAfterLeavingPanel', runHoverClosesAfterLeavingPanel],
     ['touchDismissesInertOverlays', runTouchDismissesInertOverlays],
 ];
 // Each scenario covers a different mechanism, so being able to run one is how you
@@ -346,6 +375,86 @@ async function runHoverSurvivesSustainedWheel(browser, server) {
             { closedAfterMs, wheels, rebuilds, pointer: hovered.pointer },
         );
         return { durationMs: HOVER_ENDURANCE_MS, wheels, rebuilds: rebuilds.rebuilds, after };
+    } finally {
+        await context.close();
+    }
+}
+
+/**
+ * (c2) The flip side of (b) and (c), and the one the owner reported: the panel must
+ * also GO AWAY. The pointer leaves the hovered word for empty page space and never
+ * enters the panel, and the hand keeps moving the way a hand does. The close is owed
+ * hoverCloseDelayMs after the departure — not after the gesture eventually stops.
+ *
+ * Measured from inside the page rather than by polling from node: `departedAt` is the
+ * first pointermove that lands on neither a parsed word nor the panel, `removedAt` is
+ * the mutation that unmounts the panel. Polling would fold the harness round trip
+ * into the number and could not tell a 90ms close from a 300ms one.
+ */
+async function runHoverClosesAfterLeavingWord(browser, server) {
+    const { context, page } = await openReaderPage(browser, server, {
+        settings: hoverCloseLatencySettings,
+        viewport: HOVER_VIEWPORT,
+    });
+    try {
+        const word = page.locator(WORD_SELECTOR).first();
+        await word.hover();
+        await page.waitForSelector(POPOVER_BODY_SELECTOR, { timeout: 15_000 });
+        const panel = await popoverBox(page);
+        assert(panel.connected, 'Hover popover never mounted');
+        const wordBox = await word.boundingBox();
+        assert(wordBox, 'Could not measure the hovered word');
+        // Straight DOWN from the word into main's bottom padding. The panel is placed
+        // above the word in this viewport, so descending never touches it, and the
+        // sentence is one line so no neighbouring word is crossed on the way — either
+        // would legitimately keep a popup open and the measurement would be of
+        // retargeting rather than of closing.
+        const destination = await pickEmptyPagePoint(page, [
+            { x: Math.round(wordBox.x + wordBox.width / 2), y: Math.round(wordBox.y + wordBox.height + 140) },
+            { x: Math.round(wordBox.x + wordBox.width / 2), y: HOVER_VIEWPORT.height - 24 },
+        ]);
+        assert(destination, 'Found no empty page space below the sentence to move into', { wordBox, panel });
+        assert(
+            destination.y > panel.top + panel.height,
+            'Chosen destination is not clear of the panel, so leaving the word would cross it',
+            { destination, panel },
+        );
+
+        const measured = await measureHoverCloseLatency(page, destination);
+        assertHoverCloseLatency(measured, 'Hover popover outlived the pointer leaving the word', { panel, wordBox });
+        return measured;
+    } finally {
+        await context.close();
+    }
+}
+
+/**
+ * (c3) The same guarantee for the other close path: the pointer went INTO the panel
+ * (latching it open, which is what 1.8.80 added) and then left. One pointerleave must
+ * schedule one close that actually fires — the latch releasing is not enough if the
+ * close it schedules is cancelled again by the next pointermove.
+ */
+async function runHoverClosesAfterLeavingPanel(browser, server) {
+    const { context, page } = await openReaderPage(browser, server, {
+        settings: hoverCloseLatencySettings,
+        viewport: HOVER_VIEWPORT,
+    });
+    try {
+        const hovered = await openHoverPopoverAtUpperThird(page);
+        const panel = hovered.box;
+        // Away from the panel on the side the word is NOT on. The panel sits above the
+        // word here, so leaving upward or sideways cannot land back on the anchor and
+        // re-open the very lookup being timed.
+        const destination = await pickEmptyPagePoint(page, [
+            { x: Math.round(panel.left + panel.width + 60), y: Math.round(panel.top + panel.height / 2) },
+            { x: Math.max(4, Math.round(panel.left - 60)), y: Math.round(panel.top + panel.height / 2) },
+            { x: Math.round(panel.left + panel.width / 2), y: Math.max(4, Math.round(panel.top - 40)) },
+        ]);
+        assert(destination, 'Found no empty page space beside the panel to move into', { panel });
+
+        const measured = await measureHoverCloseLatency(page, destination);
+        assertHoverCloseLatency(measured, 'Hover popover outlived the pointer leaving the panel', { panel, pointer: hovered.pointer });
+        return measured;
     } finally {
         await context.close();
     }
@@ -587,6 +696,124 @@ async function popoverBox(page) {
         const rect = popover.getBoundingClientRect();
         return { connected: true, top: rect.top, left: rect.left, width: rect.width, height: rect.height };
     }, POPOVER_SELECTOR);
+}
+
+// Records, in page time, the moment the pointer left every hover surface and the
+// moment the panel was unmounted. Both live in the page so the reported latency is
+// the product's, with no harness round trip folded into it.
+async function installHoverCloseRecorder(page) {
+    await page.evaluate(popoverSelector => {
+        const state = { departedAt: null, removedAt: null, lastInsideAt: null, moves: 0, movesAfterDeparture: 0 };
+        window.__yomuHoverClose = state;
+        const insideHoverSurface = target => target instanceof Element
+            && Boolean(target.closest('.jpdb-reader-word') || target.closest(popoverSelector));
+        document.addEventListener('pointermove', event => {
+            state.moves += 1;
+            if (insideHoverSurface(event.target)) {
+                state.lastInsideAt = performance.now();
+                // Re-entering restarts the clock: the close is owed from the LAST
+                // departure, and a scenario that wandered back over the word would
+                // otherwise report a latency it never actually owed.
+                state.departedAt = null;
+                state.movesAfterDeparture = 0;
+                return;
+            }
+            if (state.departedAt === null) state.departedAt = performance.now();
+            state.movesAfterDeparture += 1;
+        }, true);
+        const observer = new MutationObserver(() => {
+            if (state.removedAt !== null || document.querySelector(popoverSelector)) return;
+            state.removedAt = performance.now();
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    }, POPOVER_SELECTOR);
+}
+
+async function readHoverCloseRecord(page) {
+    return page.evaluate(() => {
+        const state = window.__yomuHoverClose;
+        if (!state) return { present: false };
+        return {
+            present: true,
+            departedAt: state.departedAt,
+            removedAt: state.removedAt,
+            lastInsideAt: state.lastInsideAt,
+            moves: state.moves,
+            movesAfterDeparture: state.movesAfterDeparture,
+        };
+    });
+}
+
+async function pickEmptyPagePoint(page, candidates) {
+    for (const point of candidates) {
+        const empty = await page.evaluate(({ x, y, popoverSelector }) => {
+            const target = document.elementFromPoint(x, y);
+            return target instanceof Element
+                && !target.closest('.jpdb-reader-word')
+                && !target.closest(popoverSelector);
+        }, { ...point, popoverSelector: POPOVER_SELECTOR });
+        if (empty) return point;
+    }
+    return null;
+}
+
+// Travels to `destination` in steps, then keeps the hand alive there. Both halves
+// matter: a single jump gives the close scheduler one event to react to and would hide
+// a per-pointermove re-arm completely, and stopping dead after arrival lets a
+// scheduler that only fires once the pointer is still look correct.
+async function measureHoverCloseLatency(page, destination) {
+    await installHoverCloseRecorder(page);
+    await page.mouse.move(destination.x, destination.y, { steps: 12 });
+    const deadline = Date.now() + HOVER_CLOSE_WATCH_MS;
+    let jiggles = 0;
+    let record = await readHoverCloseRecord(page);
+    while (record.removedAt === null && Date.now() < deadline) {
+        await page.mouse.move(destination.x + (jiggles % 2 === 0 ? 1 : -1), destination.y);
+        jiggles += 1;
+        await page.waitForTimeout(HOVER_CLOSE_JIGGLE_INTERVAL_MS);
+        record = await readHoverCloseRecord(page);
+    }
+    const latencyMs = record.departedAt !== null && record.removedAt !== null
+        ? Math.round(record.removedAt - record.departedAt)
+        : null;
+    return {
+        destination,
+        jiggles,
+        latencyMs,
+        configuredDelayMs: HOVER_CLOSE_DELAY_MS,
+        earliestMs: HOVER_CLOSE_DELAY_MS - HOVER_CLOSE_LATENCY_SLACK_EARLY_MS,
+        latestMs: HOVER_CLOSE_DELAY_MS + HOVER_CLOSE_LATENCY_SLACK_LATE_MS,
+        ...record,
+    };
+}
+
+function assertHoverCloseLatency(measured, message, context) {
+    assert(measured.present, 'Hover close recorder never installed', { measured, ...context });
+    assert(
+        measured.movesAfterDeparture >= 2,
+        'The pointer never produced moves outside the hover surfaces, so no close was owed and the measurement is vacuous',
+        { measured, ...context },
+    );
+    assert(measured.departedAt !== null, 'Pointer never left the hover surfaces', { measured, ...context });
+    assert(
+        measured.removedAt !== null,
+        `${message}: still open after ${HOVER_CLOSE_WATCH_MS}ms of pointer movement away from it`,
+        { measured, ...context },
+    );
+    assert(
+        measured.latencyMs <= measured.latestMs,
+        `${message}: closed ${measured.latencyMs}ms after departure, and the configured delay is ${HOVER_CLOSE_DELAY_MS}ms`,
+        { measured, ...context },
+    );
+    // The early bound is the same defect seen from the other side: a panel taken down
+    // by a poll on its own cadence ignores the learner's delay in whichever direction
+    // the phase happens to fall, and a delay that closes early is a panel you cannot
+    // return to.
+    assert(
+        measured.latencyMs >= measured.earliestMs,
+        `${message}: closed ${measured.latencyMs}ms after departure, ahead of the configured ${HOVER_CLOSE_DELAY_MS}ms delay, so something other than that delay decided it`,
+        { measured, ...context },
+    );
 }
 
 // Park the cursor a third of the way down the panel: high enough that a top edge
