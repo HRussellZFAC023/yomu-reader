@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.86] - 2026-08-05
+
+### Changed
+
+- Faster word lookups: よむ asks browser storage about a third as often per lookup, so definitions land sooner. Most noticeable under Tampermonkey, where every storage request is a round trip to the extension.
+- Large Academy decks load faster: reading a deck of N cards now takes about N storage requests instead of three times that.
+
 ## [1.8.85] - 2026-08-05
 
 ### Fixed
