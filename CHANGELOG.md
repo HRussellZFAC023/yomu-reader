@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.8.82] - 2026-08-05
+
+### Fixed
+
+- Hovering across a line no longer starts a dictionary lookup for every word the pointer passes: crossing eleven words now resolves one lookup instead of eleven, and only the word you settle on answers.
+- Each lookup makes two storage round trips instead of nine, and the debug logger stops re-reading its setting on every message (121 storage reads per lookup down to 43), which is most of the reported lookup latency on the userscript bridge.
+- A page left paused or in manual-scan mode no longer does style probing when the site's own scripts churn the page, ending the idle lag reported on nyaa.si.
+- Pointer handling over OCR-scanned pages does a third of the hit-testing per movement on pages with no scannable images.
+
 ## [1.8.81] - 2026-08-05
 
 ### Fixed
