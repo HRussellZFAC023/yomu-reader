@@ -195,6 +195,9 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Tapping or hovering a word\'s furigana now opens that word. The reading above every annotated line was a dead strip whose presses fell through to the page behind it.': '単語のふりがなをタップまたはホバーすると、その単語が開くようになりました。注釈された行の上の読みは、押しても背後のページに突き抜けてしまう反応しない帯になっていました。',
+    'Readings projected over mirrored, scrolled, OCR, and button text are pressable too, and resolve to the word they belong to.': 'ミラーリングされたテキスト、スクロールされたテキスト、OCRテキスト、ボタンテキストの上に投影された読みも押せるようになり、属する単語に解決されます。',
+    'Buttons and links keep their own clicks: pressing a reading painted over a control still activates the control.': 'ボタンとリンクは自身のクリックを保持します。コントロールの上に描かれた読みを押しても、そのコントロールが動作します。',
     'Hovering across a line no longer starts a dictionary lookup for every word the pointer passes: crossing eleven words now resolves one lookup instead of eleven, and only the word you settle on answers.': '行の上でポインターを動かしても、通過したすべての単語で辞書検索が始まることはなくなりました。11語を横切っても検索は11回ではなく1回だけ実行され、最終的に止まった単語だけが応答します。',
     'Each lookup makes two storage round trips instead of nine, and the debug logger stops re-reading its setting on every message (121 storage reads per lookup down to 43), which is most of the reported lookup latency on the userscript bridge.': '各検索のストレージ往復が9回から2回になり、デバッグロガーがメッセージごとに設定を読み直すこともなくなりました（検索あたりのストレージ読み取りが121回から43回に減少）。これは報告されていたユーザースクリプトブリッジでの検索遅延の大部分を占めていました。',
     'A page left paused or in manual-scan mode no longer does style probing when the site\'s own scripts churn the page, ending the idle lag reported on nyaa.si.': '一時停止中や手動スキャンモードのページでは、サイト自身のスクリプトがページを更新してもスタイルの探査を行わなくなりました。nyaa.siで報告されていたアイドル時の遅延が解消されます。',

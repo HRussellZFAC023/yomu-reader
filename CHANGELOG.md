@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.83] - 2026-08-05
+
+### Fixed
+
+- Tapping or hovering a word's furigana now opens that word. The reading above every annotated line was a dead strip whose presses fell through to the page behind it.
+- Readings projected over mirrored, scrolled, OCR, and button text are pressable too, and resolve to the word they belong to.
+- Buttons and links keep their own clicks: pressing a reading painted over a control still activates the control.
+
 ## [1.8.82] - 2026-08-05
 
 ### Fixed
