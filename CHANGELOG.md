@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.85] - 2026-08-05
+
+### Fixed
+
+- BookWalker manga OCR works again in browsers that isolate the userscript from the page (Firefox, Safari userscript extensions): 1.8.82 accidentally made the page-side canvas recorder reference a helper that does not exist in the page realm, so the recorder never installed. The nightly cross-engine check that caught this now runs as a permanent test.
+
 ## [1.8.84] - 2026-08-05
 
 ### Fixed
