@@ -56,9 +56,11 @@ const HOVER_WORD = '漢字';
 // and the post-hover tail.
 const IDLE_WINDOW_MS = 800;
 
-// Measured after the 1.8.82 lookup-path work, +50%, rounded up. The counts were
-// identical across three consecutive local runs (43 / 12 / 6 / 4), so the
-// headroom is for host and build variation, not for measurement noise.
+// Measured after the 1.8.82 lookup-path work, +50%, rounded up. Across four local
+// runs: gmReads 43-46, the other three exactly 12 / 6 / 4 every time. The GM count
+// drifts by a few because a couple of subsystems re-read their own key an extra
+// time depending on when the popover body resolves, so the headroom covers that
+// plus host and build variation.
 //
 // gmReads is 43 rather than the handful the dictionary store now needs, and the
 // remaining shape is worth naming so nobody reads 43 as "fine": 33 of them are
