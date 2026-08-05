@@ -132611,6 +132611,24 @@ ${newTabCardReading(card)}`;
       return this;
     }
   }
+  function jitenLatestReviewTimes(reviews) {
+    const latest = /* @__PURE__ */ new Map();
+    for (const review of reviews) {
+      if (!Number.isFinite(review.reviewedAt)) continue;
+      const key = jitenReviewKey(review.wordId, review.readingIndex);
+      const existing = latest.get(key);
+      if (existing === void 0 || review.reviewedAt > existing) latest.set(key, review.reviewedAt);
+    }
+    return latest;
+  }
+  function jitenHistoryCardKey(card) {
+    const wordId = typeof card.jitenWordId === "number" ? card.jitenWordId : card.source === "jiten" ? card.vid : Number.NaN;
+    const readingIndex = typeof card.jitenReadingIndex === "number" ? card.jitenReadingIndex : card.source === "jiten" ? card.sid : Number.NaN;
+    return jitenReviewKey(wordId, readingIndex);
+  }
+  function jitenReviewKey(wordId, readingIndex) {
+    return Number.isFinite(wordId) && Number.isFinite(readingIndex) ? `${wordId}:${readingIndex}` : "";
+  }
   const CONTROL_POINTER_ACTIVATION_SELECTOR = [
     "button",
     "a[href]",
@@ -147403,24 +147421,6 @@ ${options.version}`;
   }
   function uniqueNumbers(values) {
     return [...new Set(values)];
-  }
-  function jitenLatestReviewTimes(reviews) {
-    const latest = /* @__PURE__ */ new Map();
-    for (const review of reviews) {
-      if (!Number.isFinite(review.reviewedAt)) continue;
-      const key = jitenReviewKey(review.wordId, review.readingIndex);
-      const existing = latest.get(key);
-      if (existing === void 0 || review.reviewedAt > existing) latest.set(key, review.reviewedAt);
-    }
-    return latest;
-  }
-  function jitenHistoryCardKey(card) {
-    const wordId = typeof card.jitenWordId === "number" ? card.jitenWordId : card.source === "jiten" ? card.vid : Number.NaN;
-    const readingIndex = typeof card.jitenReadingIndex === "number" ? card.jitenReadingIndex : card.source === "jiten" ? card.sid : Number.NaN;
-    return jitenReviewKey(wordId, readingIndex);
-  }
-  function jitenReviewKey(wordId, readingIndex) {
-    return Number.isFinite(wordId) && Number.isFinite(readingIndex) ? `${wordId}:${readingIndex}` : "";
   }
   function isJitenBulkAction(action) {
     return action === "jiten-mining" || action === "jiten-suspend" || action === "jiten-forget";
