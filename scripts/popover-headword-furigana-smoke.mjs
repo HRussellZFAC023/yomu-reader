@@ -14,6 +14,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
@@ -59,6 +60,7 @@ const settings = {
 
 mkdirSync(ARTIFACTS, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts(userscriptCompanionPaths(SCRIPT_PATH), ROOT, 'Run npm run build first.');
 
 const server = await startLoopbackServer((request, response) => {
     if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== PAGE_PATH) {
@@ -92,7 +94,7 @@ try {
     });
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ path: CSS_PATH });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(
         value => document.querySelectorAll(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${value}"]`).length >= 1,
         LOOKUP_WORD,

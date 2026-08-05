@@ -420,9 +420,9 @@ export function mockJpdbParseFromVocabulary(body, rows, options = {}) {
     return { vocabulary, tokens };
 }
 
-function normalizeJpdbVocabularyRow(row) {
+function normalizeJpdbVocabularyRow(row, rowIndex) {
     const [surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch] = row;
-    return { surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch };
+    return { surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch, rowIndex };
 }
 
 function parseJpdbParagraph(text, fixtureVocabulary, vocabulary, vocabIndexBySpelling, options) {
@@ -453,14 +453,21 @@ function jpdbVocabularyIndex(entry, vocabulary, vocabIndexBySpelling, options) {
     if (existingIndex !== undefined) return existingIndex;
     const vocabularyIndex = vocabulary.length;
     vocabIndexBySpelling.set(entry.spelling, vocabularyIndex);
-    vocabulary.push(jpdbVocabularyRecord(entry, vocabularyIndex, options));
+    vocabulary.push(jpdbVocabularyRecord(entry, options));
     return vocabularyIndex;
 }
 
-function jpdbVocabularyRecord(entry, vocabularyIndex, options) {
+// Card identity comes from the FIXTURE ROW, never from this response's ordering.
+// JPDB vids/sids are properties of a vocabulary entry, so the reader is entitled
+// to treat (vid, sid) as the same card across requests. Numbering by
+// first-seen-in-this-response made every request re-issue the same low ids to
+// whichever word it happened to see first: a later single-word parse (state
+// repaint after a grade) handed word A's identity to word B, and the reader
+// faithfully re-stamped B's span with A's expression.
+function jpdbVocabularyRecord(entry, options) {
     return [
-        jpdbVocabularyId(options, vocabularyIndex),
-        jpdbSpellingId(options, vocabularyIndex),
+        jpdbVocabularyId(options, entry.rowIndex),
+        jpdbSpellingId(options, entry.rowIndex),
         0,
         entry.spelling,
         entry.reading,
@@ -473,12 +480,12 @@ function jpdbVocabularyRecord(entry, vocabularyIndex, options) {
     ];
 }
 
-function jpdbVocabularyId(options, vocabularyIndex) {
-    return withDefault(options.vocabularyIdBase, 1000) + vocabularyIndex;
+function jpdbVocabularyId(options, rowIndex) {
+    return withDefault(options.vocabularyIdBase, 1000) + rowIndex;
 }
 
-function jpdbSpellingId(options, vocabularyIndex) {
-    return withDefault(options.spellingIdBase, 2000) + vocabularyIndex;
+function jpdbSpellingId(options, rowIndex) {
+    return withDefault(options.spellingIdBase, 2000) + rowIndex;
 }
 
 function jpdbVocabularyState(entry, options) {

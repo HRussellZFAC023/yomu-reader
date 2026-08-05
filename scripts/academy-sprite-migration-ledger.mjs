@@ -5,8 +5,9 @@ import sharp from 'sharp';
 
 const ROOT = process.cwd();
 const PUBLIC_ART = path.resolve(ROOT, 'public/academy/art');
+// public/academy only: scripts/sync-academy.cjs regenerates
+// docs/public/academy from it on every build:academy.
 const OUTPUT = path.join(PUBLIC_ART, 'CLASSMATE-SPRITE-INVENTORY.json');
-const DOCS_OUTPUT = path.resolve(ROOT, 'docs/public/academy/art/CLASSMATE-SPRITE-INVENTORY.json');
 const BATCH_MANIFEST = JSON.parse(fs.readFileSync(path.join(PUBLIC_ART, 'SPRITE-BATCH-MANIFEST.json'), 'utf8'));
 const ASSET_USAGE = JSON.parse(fs.readFileSync(path.join(PUBLIC_ART, 'ASSET-USAGE.json'), 'utf8'));
 const RECOVERY = JSON.parse(fs.readFileSync(path.resolve(ROOT, 'docs/academy/recovery/ASSET-CARRYOVER.json'), 'utf8'));
@@ -398,9 +399,6 @@ const output = {
     historicalAssets,
 };
 
-const serialized = `${JSON.stringify(output, null, 2)}\n`;
 fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-fs.mkdirSync(path.dirname(DOCS_OUTPUT), { recursive: true });
-fs.writeFileSync(OUTPUT, serialized);
-fs.writeFileSync(DOCS_OUTPUT, serialized);
-console.log(`Wrote ${path.relative(ROOT, OUTPUT)} and docs mirror: ${characters.length} characters, ${output.target.totalSlots} slots, ${historicalAssets.length} historical hashes.`);
+fs.writeFileSync(OUTPUT, `${JSON.stringify(output, null, 2)}\n`);
+console.log(`Wrote ${path.relative(ROOT, OUTPUT)}: ${characters.length} characters, ${output.target.totalSlots} slots, ${historicalAssets.length} historical hashes.`);

@@ -11,10 +11,15 @@ import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 import { run } from './lib/ci-utils.mjs';
 import {
+    assertHardenedExtensionDictionaryBackgroundSource,
+    buildExtensionDictionaryBackgroundSource,
+} from './lib/extension-dictionary-background.mjs';
+import {
     assertAmoJavaScriptFiles,
     deterministicExtensionTimestamp,
     hardenGeneratedExtensionBackgrounds,
     hardenExtensionSubmissionGuide,
+    refreshGeneratedExtensionProjectArchive,
 } from './lib/extension-runtime-hardening.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -68,6 +73,7 @@ for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, pu
 await stageNewTabShell();
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
+const dictionaryBackgroundSource = await buildExtensionDictionaryBackgroundSource(root);
 
 await run(process.execPath, [
     compilerCli,
@@ -85,8 +91,10 @@ await hardenGeneratedExtensionBackgrounds(out, {
     thirdPartyNotices: await readFile(thirdPartyNotices),
     runtimeDictionaryCatalog: await readFile(runtimeDictionaryCatalog),
     archiveTimestamp: generatedAt,
+    dictionaryBackgroundSource,
 });
 await hardenGeneratedSubmissionGuide();
+await refreshGeneratedExtensionProjectArchive(out, generatedAt);
 await run(process.execPath, [path.join(out, 'tools', 'verify.mjs')], { cwd: out });
 await verifyReleaseArtifacts();
 await verifyStoreReadiness();
@@ -327,9 +335,21 @@ async function verifyFirefoxPackageArchiveParity() {
 }
 
 async function verifyStoreReadiness() {
+    await verifyStoreProjectArchive(path.join(out, 'yomureader.com-extension-project.zip'));
     await verifyStoreZip(path.join(out, 'release', 'chrome', 'yomureader.com-chrome.zip'), 'chrome');
     await verifyStoreZip(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), 'firefox');
     await verifyStoreDirectory(path.join(out, 'release', 'safari', 'yomureader.com-safari-web-extension'), 'safari');
+}
+
+async function verifyStoreProjectArchive(artifact) {
+    const archiveEntries = unzipSync(new Uint8Array(await readFile(artifact)));
+    for (const target of ['chrome', 'firefox', 'safari']) {
+        const prefix = `packages/extension/${target}/`;
+        const entries = Object.fromEntries(Object.entries(archiveEntries)
+            .filter(([file]) => file.startsWith(prefix) && !file.endsWith('/'))
+            .map(([file, bytes]) => [file.slice(prefix.length), bytes]));
+        verifyStorePackage(entries, `${target} project archive`);
+    }
 }
 
 async function verifyStoreZip(artifact, target) {
@@ -350,6 +370,7 @@ async function verifyStoreDirectory(directory, target) {
 function verifyStorePackage(entries, target) {
     const decode = file => new TextDecoder().decode(entries[file]);
     const manifest = JSON.parse(decode('manifest.json'));
+    verifyDictionaryBackgroundService(entries, target);
     const permissions = manifest.permissions ?? [];
     const hostPermissions = manifest.manifest_version >= 3
         ? manifest.host_permissions ?? []
@@ -449,6 +470,14 @@ function verifyStorePackage(entries, target) {
     if (target === 'safari' && /\^file:/.test(popupSource)) {
         throw new Error('Safari store popup still offers unsupported file-page injection.');
     }
+}
+
+function verifyDictionaryBackgroundService(entries, target) {
+    const source = entries['background.js'] && new TextDecoder().decode(entries['background.js']);
+    if (!source) {
+        throw new Error(`${target} store package is missing the shared dictionary background service.`);
+    }
+    assertHardenedExtensionDictionaryBackgroundSource(source, `${target} store package background.js`);
 }
 
 async function collectDirectoryFiles(directory, relative = '') {

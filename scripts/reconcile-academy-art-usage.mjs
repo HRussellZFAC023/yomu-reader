@@ -11,11 +11,9 @@ const repoRoot = process.env.ACADEMY_ART_RECONCILE_REPO_ROOT
   : path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const publicRoot = path.join(repoRoot, "public");
 const artRoot = path.join(publicRoot, "academy/art");
+// public/academy only: scripts/sync-academy.cjs regenerates
+// docs/public/academy from it on every build:academy.
 const usagePath = path.join(artRoot, "ASSET-USAGE.json");
-const usageMirrorPath = path.join(
-  repoRoot,
-  "docs/public/academy/art/ASSET-USAGE.json",
-);
 const catalogPath = path.join(
   repoRoot,
   "docs/academy/recovery/ACADEMY-ART-CATALOG.json",
@@ -168,7 +166,6 @@ nextUsage.counts.canonicalRecoveryInventoryFiles =
 
 const serialized = await format(JSON.stringify(nextUsage), { parser: "json" });
 fs.writeFileSync(usagePath, serialized);
-fs.writeFileSync(usageMirrorPath, serialized);
 
 console.log(
   JSON.stringify(

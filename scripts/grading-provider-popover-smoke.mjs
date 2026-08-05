@@ -3,7 +3,7 @@
 // a word present in both services shows a provider toggle beside the grade target.
 // Toggling flips the deck/grade buttons between Jiten and JPDB, and grading
 // dispatches to the chosen service. Produces before/after screenshots.
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -18,6 +18,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
@@ -29,12 +30,6 @@ const SENTENCE = `毎日${TERM}するのが大切です。`;
 const REQUEST_BRIDGE_NAME = '__yomuGradingProviderSmokeRequest';
 const JITEN_WORD_ID = 1500800;
 const JITEN_READING_INDEX = 0;
-const COMPANION_SCRIPT_CANDIDATES = [
-    'yomu-anki.user.js',
-    'yomu-kanji-study.user.js',
-    'yomu-settings-surface.user.js',
-    'yomu-video.user.js',
-].map(fileName => path.join(ROOT, 'dist', 'greasyfork', fileName));
 
 // [surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch]
 const JPDB_VOCAB = [
@@ -74,8 +69,7 @@ const settings = {
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
-const COMPANION_SCRIPT_PATHS = userscriptRequiresCompanions(SCRIPT_PATH) ? COMPANION_SCRIPT_CANDIDATES : [];
-if (COMPANION_SCRIPT_PATHS.length) assertBuiltArtifacts(COMPANION_SCRIPT_PATHS, ROOT, 'Run npm run build first.');
+assertBuiltArtifacts(userscriptCompanionPaths(SCRIPT_PATH), ROOT, 'Run npm run build first.');
 
 const server = await startLoopbackServer((request, response) => {
     if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== PAGE_PATH) {
@@ -111,8 +105,7 @@ try {
 
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ path: CSS_PATH });
-    for (const companionPath of COMPANION_SCRIPT_PATHS) await page.addScriptTag({ path: companionPath });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
 
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
     const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
@@ -194,39 +187,52 @@ async function ensurePopover(page, word) {
     if (await page.locator('.jpdb-reader-popover').count() && await page.locator('.jpdb-reader-popover').first().isVisible()) return;
     await word.click();
     await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
-    await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
+    await waitForProviderToggle(page);
 }
 
 async function waitForProviderToggle(page) {
+    await withPopoverTimeoutReport(page, 'provider-toggle-timeout', () =>
+        page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 }));
+}
+
+// Every wait in this smoke fails the same way -- a popover that never reached the
+// state being waited for -- so the snapshot that explains it is written once here
+// instead of being hand-rolled per wait (only the toggle wait ever had one).
+async function withPopoverTimeoutReport(page, reportName, operation) {
     try {
-        await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
+        return await operation();
     } catch (error) {
-        const state = await readPopoverState(page);
-        const debug = {
-            state,
-            requests: summarizeRequests(),
-            browserEvents,
-            words: await page.evaluate(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')].map(word => word instanceof HTMLElement ? {
-                text: word.textContent?.replace(/\s+/g, '') ?? '',
-                expression: word.dataset.expression ?? '',
-                source: word.dataset.cardSource ?? '',
-                state: word.dataset.cardState ?? '',
-                className: word.className,
-            } : null)),
-            popover: await page.evaluate(() => {
-                const popover = document.querySelector('.jpdb-reader-popover');
-                if (!(popover instanceof HTMLElement)) return null;
-                return {
-                    loading: Boolean(popover.querySelector('[data-card-details-loading]')),
-                    blocked: popover.querySelector('.jpdb-reader-review-blocked')?.textContent?.trim() ?? '',
-                    text: popover.textContent?.replace(/\s+/g, ' ').trim().slice(0, 1000) ?? '',
-                    html: popover.innerHTML.slice(0, 3000),
-                };
-            }),
-        };
-        writeFileSync(path.join(ARTIFACT_DIR, 'provider-toggle-timeout.json'), JSON.stringify(debug, null, 2));
+        writeFileSync(
+            path.join(ARTIFACT_DIR, `${reportName}.json`),
+            JSON.stringify(await popoverTimeoutSnapshot(page), null, 2),
+        );
         throw error;
     }
+}
+
+async function popoverTimeoutSnapshot(page) {
+    return {
+        state: await readPopoverState(page),
+        requests: summarizeRequests(),
+        browserEvents,
+        words: await page.evaluate(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')].map(word => word instanceof HTMLElement ? {
+            text: word.textContent?.replace(/\s+/g, '') ?? '',
+            expression: word.dataset.expression ?? '',
+            source: word.dataset.cardSource ?? '',
+            state: word.dataset.cardState ?? '',
+            className: word.className,
+        } : null)),
+        popover: await page.evaluate(() => {
+            const popover = document.querySelector('.jpdb-reader-popover');
+            if (!(popover instanceof HTMLElement)) return null;
+            return {
+                loading: Boolean(popover.querySelector('[data-card-details-loading]')),
+                blocked: popover.querySelector('.jpdb-reader-review-blocked')?.textContent?.trim() ?? '',
+                text: popover.textContent?.replace(/\s+/g, ' ').trim().slice(0, 1000) ?? '',
+                html: popover.innerHTML.slice(0, 3000),
+            };
+        }),
+    };
 }
 
 async function ensureProvider(page, word, providerLabel) {
@@ -244,7 +250,7 @@ async function ensureProvider(page, word, providerLabel) {
 }
 
 async function waitForProviderReady(page, providerLabel) {
-    await page.waitForFunction(
+    await withPopoverTimeoutReport(page, `provider-ready-timeout-${providerLabel.toLowerCase()}`, () => page.waitForFunction(
         label => {
             const providerReady = (document.querySelector('.jpdb-reader-provider-status')?.textContent ?? '').includes(label);
             const hasGrades = document.querySelectorAll('.jpdb-reader-actions [data-action="grade"][data-grade]').length >= 4;
@@ -254,7 +260,7 @@ async function waitForProviderReady(page, providerLabel) {
         },
         providerLabel,
         { timeout: 8_000 },
-    );
+    ));
 }
 
 async function readPopoverState(page) {
@@ -422,10 +428,6 @@ function requestCount(host, pathFragment) {
 
 function summarizeRequests() {
     return requests.filter(request => request.host).map(request => `${request.method} ${request.host}${request.path}`);
-}
-
-function userscriptRequiresCompanions(scriptPath) {
-    return readFileSync(scriptPath, 'utf8').includes('// @require');
 }
 
 function smokeViewportName(value) {

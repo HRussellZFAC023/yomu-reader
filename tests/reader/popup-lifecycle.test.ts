@@ -9,6 +9,7 @@ import {
     restorePopoverScrollFrameSoon,
     restorePopoverScrollOffsetSoon,
 } from '../../src/reader/popup/shell';
+import { HOVER_WATCH_PERIOD_MS, HoverCloseController, type HoverCloseTimers } from '../../src/reader/popup/hover-close';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardRenderData } from '../../src/reader/cards/render-data';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
@@ -19,6 +20,7 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
  *   "the hover ... close by scrolling up and down inside the hover popup for ~20s"
  *   "Tapping outside of the popup doesn't close it, the popup remains and the text
  *    stays selected"
+ *   "the hover popup stays open too long after hovering away"
  *
  * What jsdom can honestly answer is kept here: whether the wiring exists, which
  * branch a selector takes, whether a flag defers and then flushes. Everything that
@@ -29,6 +31,13 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
  */
 
 const POPOVER_SCROLL_TOP = 240;
+// Deliberately under HOVER_WATCH_PERIOD_MS. That is what makes the latency
+// assertions discriminate: while the departure delay is shorter than the watchdog
+// period, a close that is actually owned by the configured delay lands before the
+// poll could have produced it, and a close that is re-armed per pointer frame cannot.
+const HOVER_CLOSE_DELAY_MS = 40;
+// One coalesced pointer frame. The hand keeps moving at this cadence throughout.
+const FRAME_MS = 16;
 
 interface PopupLifecycleInternals {
     settings: ReaderSettings;
@@ -56,6 +65,9 @@ interface PopupLifecycleInternals {
     dismiss(options?: { suppressHoverTarget?: boolean; preserveNavigation?: boolean }): void;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
     bindEvents(): void;
+    handleHoverPointer(event: Event): void;
+    handleHoverPointerOut(event: Event): void;
+    hoverClose: { readonly pending: boolean; readonly remainingMs?: number };
 }
 
 // jsdom ships no PointerEvent constructor, so synthesize one the way the other
@@ -127,6 +139,111 @@ function ownedSurfaceFixture(className: string): { surface: HTMLElement; inert: 
 function cleanupReaderApp(app: ReaderApp): void {
     app.destroy();
     document.body.replaceChildren();
+}
+
+function wordFixture(): HTMLElement {
+    const word = document.createElement('span');
+    word.className = 'jpdb-reader-word';
+    word.textContent = '読む';
+    document.body.append(word);
+    return word;
+}
+
+/**
+ * A hover popover open on a word, with the pointer already off both of them: jsdom's
+ * hit-test answers document.body, so every geometry route through
+ * isHoverContextActive honestly reports "not hovering" and the only question left is
+ * WHEN the close lands.
+ */
+function hoverClosingFixture(): {
+    internals: PopupLifecycleInternals;
+    popover: HTMLElement;
+    word: HTMLElement;
+    runMovingHand(): number | undefined;
+    cleanup(): void;
+} {
+    vi.useFakeTimers();
+    const app = new ReaderApp();
+    const internals = app as unknown as PopupLifecycleInternals;
+    const { popover } = scrolledPopoverFixture();
+    const word = wordFixture();
+    popover.getBoundingClientRect = () => new DOMRect(64, 120, 420, 300);
+    Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: () => document.body });
+    internals.settings = {
+        ...DEFAULT_SETTINGS,
+        lookupOnHover: true,
+        hoverCloseDelayMs: HOVER_CLOSE_DELAY_MS,
+        shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+    };
+    internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+    internals.activeHoverWord = word;
+    internals.lastPointerPosition = { x: 40, y: 24 };
+
+    return {
+        internals,
+        popover,
+        word,
+        // The hand keeps moving over the page, one coalesced frame at a time, for long
+        // enough that a per-frame re-arm would be unmistakable. Returns how many ms
+        // after the departure the panel was unmounted, or undefined if it never was.
+        runMovingHand(): number | undefined {
+            const budgetMs = Math.max(HOVER_CLOSE_DELAY_MS, HOVER_WATCH_PERIOD_MS) * 8;
+            for (let elapsed = FRAME_MS; elapsed <= budgetMs; elapsed += FRAME_MS) {
+                vi.advanceTimersByTime(FRAME_MS);
+                if (!popover.isConnected) return elapsed;
+                internals.handleHoverPointer(pointerEvent('pointermove', document.body));
+            }
+            return undefined;
+        },
+        cleanup(): void {
+            Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: undefined });
+            cleanupReaderApp(app);
+            vi.useRealTimers();
+        },
+    };
+}
+
+/** A hand-cranked clock, so the scheduler's deadline algebra is asserted exactly. */
+function fakeHoverCloseClock(): {
+    timers: HoverCloseTimers;
+    host: { isHoverPopoverActive(): boolean; closeDelayMs(): number; isHoverContextActive(): boolean; close(): void };
+    tick(ms: number): void;
+    closes: number;
+    contextActive: boolean;
+} {
+    let now = 1_000;
+    const scheduled = new Map<number, { at: number; handler: () => void }>();
+    let nextHandle = 1;
+    const state = {
+        timers: {
+            now: () => now,
+            setTimeout: (handler: () => void, delayMs: number) => {
+                const handle = nextHandle++;
+                scheduled.set(handle, { at: now + delayMs, handler });
+                return handle;
+            },
+            clearTimeout: (handle: number | undefined) => {
+                if (handle !== undefined) scheduled.delete(handle);
+            },
+        } satisfies HoverCloseTimers,
+        host: {
+            isHoverPopoverActive: () => true,
+            closeDelayMs: () => HOVER_CLOSE_DELAY_MS,
+            isHoverContextActive: () => state.contextActive,
+            close: () => { state.closes += 1; },
+        },
+        tick(ms: number): void {
+            now += ms;
+            for (const [handle, entry] of [...scheduled]) {
+                if (entry.at > now) continue;
+                scheduled.delete(handle);
+                entry.handler();
+            }
+        },
+        closes: 0,
+        contextActive: false,
+    };
+    return state;
 }
 
 describe('popup lifecycle: scroll position across a card re-render', () => {
@@ -296,6 +413,140 @@ describe('popup lifecycle: hover pointer latch', () => {
         } finally {
             cleanupReaderApp(app);
         }
+    });
+});
+
+/**
+ * "The hover popup stays open too long after hovering away."
+ *
+ * The close delay was owned by nobody. `scheduleHoverClose` cleared the pending timer
+ * and armed a fresh one, and one of its callers runs once per coalesced pointer frame
+ * while the pointer is off the hover surfaces — so with a hand still in motion the
+ * delay was reset every ~16ms and the close timer never elapsed. The panel was closed
+ * instead by the hover watchdog, a poll phased from mount time, which is why measured
+ * latency on 1.8.85 tracked the poll and not the setting (with the delay at 600ms:
+ * 178/221/407/441ms, all four dismissed from the watchdog tick).
+ *
+ * These drive the real handlers with a hand that keeps moving, and assert the close
+ * lands within one configured delay plus a frame. Each fails on 1.8.85 by closing at
+ * the watchdog's 90ms+ instead. The rAF coalescing in front of handleHoverPointer is
+ * left to the real-engine smoke; here the handler it coalesces INTO is called
+ * directly, once per simulated frame.
+ */
+describe('popup lifecycle: hover close latency', () => {
+    it('closes one configured delay after the pointer leaves the word, however long the hand keeps moving', () => {
+        const closing = hoverClosingFixture();
+
+        try {
+            closing.internals.handleHoverPointerOut(pointerEvent('pointerout', closing.word, document.body));
+            expect(closing.internals.hoverClose.pending).toBe(true);
+
+            expect(closing.runMovingHand()).toBeLessThanOrEqual(HOVER_CLOSE_DELAY_MS + FRAME_MS);
+        } finally {
+            closing.cleanup();
+        }
+    });
+
+    it('closes one configured delay after the pointer leaves the panel it had entered', () => {
+        const closing = hoverClosingFixture();
+
+        try {
+            // pointerenter latches the pointer inside and locks the frame (v1.8.80);
+            // the matching pointerleave is the only thing that may release it.
+            closing.popover.dispatchEvent(new Event('pointerenter'));
+            expect(closing.internals.hoverPopoverPointerLatched).toBe(true);
+
+            const leave = new Event('pointerleave');
+            Object.defineProperty(leave, 'relatedTarget', { value: document.body });
+            closing.popover.dispatchEvent(leave);
+            expect(closing.internals.hoverPopoverPointerLatched).toBe(false);
+            expect(closing.internals.hoverClose.pending).toBe(true);
+
+            expect(closing.runMovingHand()).toBeLessThanOrEqual(HOVER_CLOSE_DELAY_MS + FRAME_MS);
+        } finally {
+            closing.cleanup();
+        }
+    });
+
+    // Moving to the next word is a RETARGET, not a departure: the pending close is
+    // released so the incoming lookup owns the panel. What must not happen is a close
+    // surviving with a deadline stacked from the word the pointer merely passed over.
+    it('releases the close when the pointer moves to another word instead of stacking a delay', () => {
+        const closing = hoverClosingFixture();
+        const next = wordFixture();
+
+        try {
+            closing.internals.handleHoverPointerOut(pointerEvent('pointerout', closing.word, next));
+
+            expect(closing.internals.hoverClose.pending).toBe(false);
+            expect(closing.popover.isConnected).toBe(true);
+        } finally {
+            next.remove();
+            closing.cleanup();
+        }
+    });
+
+    // The v1.8.80 backstop, kept: when the DOM never dispatches the exit event (a
+    // re-render detached the node the pointer was over), the watchdog still has to
+    // notice. It now arms the close rather than dismissing on the spot, so the panel
+    // goes away one configured delay after the poll spots the departure.
+    it('still closes a hover popover whose exit event never arrived', () => {
+        const closing = hoverClosingFixture();
+
+        try {
+            vi.advanceTimersByTime(HOVER_WATCH_PERIOD_MS);
+            expect(closing.popover.isConnected).toBe(true);
+            expect(closing.internals.hoverClose.pending).toBe(true);
+
+            vi.advanceTimersByTime(HOVER_CLOSE_DELAY_MS + FRAME_MS);
+            expect(closing.popover.isConnected).toBe(false);
+        } finally {
+            closing.cleanup();
+        }
+    });
+});
+
+describe('hover close scheduler: the deadline is monotonic', () => {
+    it('ignores a re-arm that would push an armed close further out', () => {
+        const clock = fakeHoverCloseClock();
+        const controller = new HoverCloseController(clock.timers, clock.host);
+
+        controller.arm(80);
+        clock.tick(40);
+        controller.arm(80);
+
+        expect(controller.remainingMs).toBe(40);
+        clock.tick(40);
+        expect(clock.closes).toBe(1);
+    });
+
+    it('accepts a re-arm that brings the close earlier', () => {
+        const clock = fakeHoverCloseClock();
+        const controller = new HoverCloseController(clock.timers, clock.host);
+
+        controller.arm(3000);
+        controller.arm(0);
+
+        expect(controller.remainingMs).toBe(0);
+        clock.tick(0);
+        expect(clock.closes).toBe(1);
+    });
+
+    it('drops a due close while the pointer is back in the hover context, and re-arms from scratch after', () => {
+        const clock = fakeHoverCloseClock();
+        clock.host.isHoverContextActive = () => clock.contextActive;
+        const controller = new HoverCloseController(clock.timers, clock.host);
+
+        clock.contextActive = true;
+        controller.arm(40);
+        clock.tick(40);
+        expect(clock.closes).toBe(0);
+        expect(controller.pending).toBe(false);
+
+        clock.contextActive = false;
+        controller.arm(40);
+        clock.tick(40);
+        expect(clock.closes).toBe(1);
     });
 });
 

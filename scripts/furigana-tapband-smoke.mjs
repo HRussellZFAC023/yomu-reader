@@ -20,7 +20,7 @@
 //
 // The press is a real mouse click at real coordinates. Nothing here asserts on
 // synthetic rects, and no assertion passes because an element merely exists.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, firefox } from 'playwright';
 import {
@@ -37,6 +37,7 @@ import {
     requestedBrowserCoverageFailures,
     startLoopbackServer,
 } from './lib/smoke-harness.mjs';
+import { userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const REQUEST_BRIDGE = '__yomuFuriganaTapBandRequest';
 const PAGE_PATH = '/furigana-tap-band.html';
@@ -415,23 +416,4 @@ function handleYomuRequest(request, requestLog) {
     }
     requestLog.push({ kind: 'unexpected', url: request.url });
     return { status: 404, responseText: '' };
-}
-
-function userscriptCompanionPaths(userscriptPath) {
-    return readFileSync(userscriptPath, 'utf8')
-        .split(/\r?\n/u)
-        .flatMap(line => {
-            const match = line.match(/^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)(?:#\S+)?$/u);
-            if (!match) return [];
-            const fileName = path.basename(match[1]);
-            assert(fileName === match[1], `Unsafe userscript companion path: ${match[1]}`);
-            const hostedPath = path.join(ROOT, 'docs/public/greasyfork', fileName);
-            if (existsSync(hostedPath)) return [hostedPath];
-
-            // @require names are content-addressed. A freshly built worktree has
-            // the local companions but not yet the hashed hosted copies, so run
-            // the companion that MATCHES this core rather than a stale hash.
-            const canonicalName = fileName.replace(/\.[a-f0-9]{12}(?=\.user\.js$)/u, '');
-            return [path.join(ROOT, 'dist/greasyfork', canonicalName)];
-        });
 }

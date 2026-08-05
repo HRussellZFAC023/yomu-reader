@@ -7,13 +7,12 @@ import { reconcileAcademyLessonCastBindings } from './lib/academy-cast-usage-bin
 
 const manifestFile = path.resolve('src/academy/domain/cast-standardization-manifest.ts');
 const rejectedRoot = path.resolve('artifacts/yomu-academy/cast-standardization/rejected');
-const usageFiles = [
-    path.resolve('public/academy/art/ASSET-USAGE.json'),
-    path.resolve('docs/public/academy/art/ASSET-USAGE.json'),
-];
+// public/academy only: scripts/sync-academy.cjs regenerates
+// docs/public/academy from it on every build:academy.
+const usageFile = path.resolve('public/academy/art/ASSET-USAGE.json');
 
 let source = fs.readFileSync(manifestFile, 'utf8');
-const usage = JSON.parse(fs.readFileSync(usageFiles[0], 'utf8'));
+const usage = JSON.parse(fs.readFileSync(usageFile, 'utf8'));
 
 const manifest = readJsonConstant(
     source,
@@ -38,13 +37,9 @@ const runtimeAssets = readJsonConstant(
 
 for (const slot of manifest) {
     const publicFile = path.resolve('public', slot.assetPath.slice(1));
-    const docsFile = path.resolve('docs/public', slot.assetPath.slice(1));
     assertFile(publicFile);
 
     const publicBytes = fs.readFileSync(publicFile);
-    fs.mkdirSync(path.dirname(docsFile), { recursive: true });
-    fs.writeFileSync(docsFile, publicBytes);
-
     const metadata = await sharp(publicBytes).metadata();
     if (
         metadata.format !== 'webp'
@@ -121,11 +116,7 @@ source = replaceJsonConstant(
 
 fs.writeFileSync(manifestFile, source);
 reconcileAcademyLessonCastBindings(usage, manifest);
-const serializedUsage = `${JSON.stringify(usage, null, 2)}\n`;
-for (const usageFile of usageFiles) {
-    fs.mkdirSync(path.dirname(usageFile), { recursive: true });
-    fs.writeFileSync(usageFile, serializedUsage);
-}
+fs.writeFileSync(usageFile, `${JSON.stringify(usage, null, 2)}\n`);
 await refreshAcademyRuntimeArtPrecache(process.cwd());
 console.log(`Refreshed ${manifest.length} production cast slots and ${rejected.length} archived candidates.`);
 
