@@ -93,10 +93,15 @@ function criticalRubyCss(): string {
         // deliberately refuses a caret inside a reader word. Pressing a word's own
         // furigana therefore did nothing at all — no lookup, no feedback — which is
         // the product's core gesture failing on its most Japanese-looking words.
-        // `auto` needs no geometry: the rt box belongs to exactly one word, so
-        // target.closest('.jpdb-reader-word') resolves it exactly. Scoped inside
-        // .jpdb-reader-word, so a host page's own ruby is untouched.
-        '.jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:auto;text-decoration:none!important}',
+        // `inherit` needs no geometry: the rt box belongs to exactly one word, so
+        // target.closest('.jpdb-reader-word') resolves it exactly. It must not be a
+        // flat `auto`: pointer-events is an inherited property, so `auto` on a
+        // descendant RE-ARMS hit testing inside the additive mirrors and OCR layers
+        // that deliberately switch it off on themselves, and those surfaces would
+        // start swallowing host-page clicks they are contracted to pass through.
+        // Inheriting means the reading is exactly as pressable as its own word.
+        // Scoped inside .jpdb-reader-word, so a host page's own ruby is untouched.
+        '.jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:inherit;text-decoration:none!important}',
         '.jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}',
         '.jpdb-reader-furi{font-size:.58em;font-weight:700;line-height:1.08;color:inherit!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}',
     ].join('\n');

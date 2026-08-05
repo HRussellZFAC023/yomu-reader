@@ -111,6 +111,7 @@ interface YomuCompanionRegistry {
     annotations?: {
         clearProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').clearProjectedReadings;
         clearProjectedReadingsWithin: typeof import('../dom/detached-reading-overlay-impl').clearProjectedReadingsWithin;
+        projectedReadingWordAtPoint: typeof import('../dom/detached-reading-overlay-impl').projectedReadingWordAtPoint;
         pruneProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').pruneProjectedReadings;
         syncProjectedReadings: typeof import('../dom/detached-reading-overlay-impl').syncProjectedReadings;
     };

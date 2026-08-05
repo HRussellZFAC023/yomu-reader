@@ -251,6 +251,78 @@ export function pruneProjectedReadings(document: Document): void {
     if (overlay) pruneDisconnectedRecords(overlay);
 }
 
+/**
+ * The word a PROJECTED reading belongs to, for one viewport point.
+ *
+ * In-place furigana is a child of its word, so a press on the reading resolves
+ * by containment alone. A projected reading is not: it is a clone re-rooted into
+ * a reader-owned overlay layer (viewport, document, or per-scroller), so the
+ * annotation a reader sees above a word is, structurally, nowhere near it. The
+ * clones are also deliberately pointer-events:none — the layers are paint-only
+ * and every projection surface (mirrors, OCR lines, BookWalker pages, YouTube
+ * chrome) contracts to leave host interaction to the page — so the press never
+ * even targets the reading. It landed on whatever page element sits behind the
+ * band, no rect-based fallback covers a projected annotation, and the gesture
+ * did nothing at all: a dead horizontal band above every annotated line.
+ *
+ * Resolution is therefore explicitly geometric and runs off the SAME record set
+ * that paints the clones, which is what makes it one path for all three layer
+ * modes rather than a per-surface patch. Each clone's own painted box is
+ * authoritative (getBoundingClientRect reports the post-transform band in every
+ * engine), and the record already knows the source reading, so the owning word
+ * is exact — never inferred from the expression text, which repeats on a page.
+ *
+ * Deliberately does NOT make the clones hit-testable: that would turn each
+ * reading into a real occluder over host content, and the overlay's own
+ * topmost/occlusion guards would then have to reason about Yomu's own paint. The
+ * repo's chrome-safety rule is geometry guards, never hiding — so the guards
+ * keep seeing a paint-only layer, and the pointer path does the resolving.
+ */
+export function projectedReadingWordAtPoint(
+    document: Document,
+    x: number,
+    y: number,
+    accepts: (word: HTMLElement) => boolean = () => true,
+): HTMLElement | null {
+    const overlay = overlays.get(document);
+    if (!overlay) return null;
+    let best: { word: HTMLElement; distance: number } | null = null;
+    for (const record of overlay.records) {
+        const rect = projectedReadingPaintedRect(record);
+        if (!rect || !pointInsideRect(rect, x, y)) continue;
+        const word = projectedReadingOwnerWord(record);
+        if (!word || !accepts(word)) continue;
+        // Crowding resolution keeps readings off each other, but a condensed
+        // lane may still leave a hair of overlap: the reading whose centre the
+        // press is nearest owns it.
+        const distance = Math.abs(x - (rect.left + rect.width / 2));
+        if (!best || distance < best.distance) best = { word, distance };
+    }
+    return best?.word ?? null;
+}
+
+/** The band a clone actually paints, or null when it is not painting at all. */
+function projectedReadingPaintedRect(record: ProjectionRecord): DOMRect | null {
+    const { clone } = record;
+    if (!clone.isConnected) return null;
+    const rect = clone.getBoundingClientRect();
+    return validRect(rect) ? rect : null;
+}
+
+/**
+ * A clone is a copy, so the record — not the DOM around the clone — is the only
+ * honest owner reference. The source reading stays inside its word for exactly
+ * this reason (it remains the annotation of record; the clone is only paint).
+ */
+function projectedReadingOwnerWord(record: ProjectionRecord): HTMLElement | null {
+    const word = record.source.closest<HTMLElement>('.jpdb-reader-word');
+    return word?.isConnected ? word : null;
+}
+
+function pointInsideRect(rect: DOMRect, x: number, y: number): boolean {
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
 function documentOverlay(document: Document): DocumentOverlay {
     const existing = overlays.get(document);
     if (existing) {

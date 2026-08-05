@@ -21,3 +21,14 @@ export function clearProjectedReadingsWithin(root: ParentNode): number {
 export function pruneProjectedReadings(document: Document): void {
     yomuAnnotationsCompanion()?.pruneProjectedReadings(document);
 }
+
+// Without the companion there are no projected readings to resolve, so the
+// pointer path simply falls through to its next candidate.
+export function projectedReadingWordAtPoint(
+    document: Document,
+    x: number,
+    y: number,
+    accepts?: (word: HTMLElement) => boolean,
+): HTMLElement | null {
+    return yomuAnnotationsCompanion()?.projectedReadingWordAtPoint(document, x, y, accepts) ?? null;
+}

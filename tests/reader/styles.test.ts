@@ -99,17 +99,37 @@ describe('reader stylesheet loading', () => {
         // rects never include the ruby annotation, every fallback in
         // readerWordForPointerEvent is rect-based, and the raw-text fallback
         // refuses a caret inside a reader word: pressing a word's furigana did
-        // nothing whatsoever. `auto` needs no geometry — the rt box belongs to
+        // nothing whatsoever. `inherit` needs no geometry — the rt box belongs to
         // exactly one word, so target.closest('.jpdb-reader-word') resolves it.
         const css = initialReaderCss('');
 
         const rtRule = css.split('\n').find(line => line.startsWith('.jpdb-reader-word rt{'));
         expect(rtRule).toBeDefined();
-        expect(rtRule).toContain('pointer-events:auto');
+        expect(rtRule).toContain('pointer-events:inherit');
         expect(rtRule).not.toContain('pointer-events:none');
+        // Never a flat `auto`. pointer-events is an inherited property, so `auto`
+        // on the reading re-arms hit testing inside the additive mirrors and OCR
+        // layers that switch it off on THEMSELVES to leave host interaction to the
+        // page — those surfaces would start swallowing presses they must pass
+        // through. Inheriting makes the reading exactly as pressable as its word.
+        expect(rtRule).not.toContain('pointer-events:auto');
         // Scoped inside a reader word, so a host page's own ruby keeps its own
         // pointer behaviour and Yomu does not start swallowing its presses.
         expect(css).not.toContain('\nrt{');
+    });
+
+    it('agrees with the critical subset in the full sheet, which overrides it', () => {
+        // The regression this locks down: the measured pointer-events fix landed
+        // ONLY in the critical subset above. The subset is used while the full
+        // sheet is unavailable — so on every page that COULD load the full sheet,
+        // this file's own `pointer-events: none` won the cascade and the reading
+        // stayed a dead tap target. Two sheets, one contract: assert both.
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const rtRule = css.match(/\.jpdb-reader-word rt \{[^}]*\}/)?.[0] ?? '';
+
+        expect(rtRule).toContain('pointer-events: inherit');
+        expect(rtRule).not.toContain('pointer-events: none');
+        expect(rtRule).not.toContain('pointer-events: auto');
     });
 
     it('uses the full reader CSS when the userscript resource is available', () => {

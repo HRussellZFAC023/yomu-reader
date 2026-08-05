@@ -80,7 +80,7 @@ import {
     syncProjectedReadings,
     type DetachedReadingProjection,
 } from './detached-reading-overlay';
-export { clearProjectedReadingsWithin } from './detached-reading-overlay';
+export { clearProjectedReadingsWithin, projectedReadingWordAtPoint } from './detached-reading-overlay';
 import { createPostPaintPass, viewForNode } from './post-paint-pass';
 import { ensureReaderStylesForHost } from './shadow-styles';
 import { forEachScannedShadowRoot, watchPotentialOpenShadowRootHost } from './shadow-scan-registry';
