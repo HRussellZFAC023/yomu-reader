@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.81
+// @version 1.8.82
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.1b5c417f4281.user.js#sha256=G1xBf0KB0KiUvfXnwDMELfUY6EcsrqAy8iCmhf1D7fY=
+// @require https://yomureader.com/greasyfork/yomu-runtime.708bb3619374.user.js#sha256=cIuzYZN0wiFSsK1rpld0NwJDT0a2BSM8vNq6Wl0y+mo=
 // @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -4248,6 +4248,7 @@ writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, leve
 const Logger = new LoggerImpl();
 setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function configureLogger(options) {
+runtimeLoggingOverride = void 0;
 Logger.configure(options);
 }
 function loggingSettingsSummary(settings) {
@@ -4275,14 +4276,18 @@ else console.debug(...args);
 function isOptionalCorsBridgeError(value) {
 return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
+let runtimeLoggingOverride;
 function getRuntimeLoggingOverride() {
+if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
 try {
-return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
 } catch {
-return false;
+runtimeLoggingOverride = false;
 }
+return runtimeLoggingOverride;
 }
 function setRuntimeLoggingOverride(enabled) {
+runtimeLoggingOverride = enabled;
 try {
 if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
 else gmStorageDeleteSync(RUNTIME_LOG_KEY);
@@ -31763,6 +31768,9 @@ function dynamicUiClickElements(eventOrTarget) {
 const path = eventOrTarget instanceof Event ? eventOrTarget.composedPath() : [eventOrTarget];
 return path.filter((target) => target instanceof Element);
 }
+function mutationScanProbeCanProduceWork(settings, canParseTargetLanguage) {
+return canParseTargetLanguage && !settings.annotationsPaused && !settings.manualScanEnabled;
+}
 function mutationMayContainJapaneseText(mutation, budget = createMutationJapaneseScanBudget(), scopeRoots = annotationScopeRoots()) {
 const targetNodes = mutationNodesWithinAnnotationScope(mutation.target, scopeRoots);
 if (mutation.type === "characterData") {
@@ -33905,6 +33913,11 @@ if (!options.recolorRenderedAnkiWordsFromCache) return;
 const promise = options.recolorRenderedAnkiWordsFromCache();
 if (options.onRecolorError) void promise.catch(options.onRecolorError);
 }
+const HOVER_ANCHOR_SWITCH_COALESCE_MS = 50;
+function hoverLookupScheduleDelay(input) {
+const normal = input.switchesAnchor ? HOVER_ANCHOR_SWITCH_COALESCE_MS : Math.max(0, input.hoverOpenDelayMs);
+return Math.max(normal, input.minimumDelayMs ?? 0);
+}
 const installAcademyReaderSrsSync = () => {
 yomuSettingsSurfaceCompanion()?.installAcademyReaderSrsSync?.();
 };
@@ -34599,8 +34612,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.81"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.81"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.82"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.82"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34743,7 +34756,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.81"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.82"}`;
 } catch {
 return null;
 }
@@ -39051,7 +39064,7 @@ this.observeAutoScanMutations();
 const mutationsOnlyInsideReaderRoot = scanMutations.length > 0 && scanMutations.every(mutationInsideReaderRoot);
 const japaneseScanBudget = createMutationJapaneseScanBudget();
 const mutationScopeRoots = annotationScopeRoots();
-const mutationHasJapaneseText = canScanText && allowsFrequentVisibleAutoScan() && !mutationsOnlyInsideReaderRoot ? scanMutations.reduce(
+const mutationHasJapaneseText = mutationScanProbeCanProduceWork(this.settings, canScanText) && !mutationsOnlyInsideReaderRoot ? scanMutations.reduce(
 (found, mutation) => mutationMayContainJapaneseText(
 mutation,
 japaneseScanBudget,
@@ -39099,7 +39112,7 @@ this.scheduleAutoScan(0, { force: true, debounce: true });
 }
 });
 setCustomElementUpgradeHook(() => {
-if (this.isDestroyed || !this.canParseJapanese() || false) return;
+if (this.isDestroyed || !this.canParseJapanese()) return;
 this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
 });
 this.observeAutoScanMutations();
@@ -39110,21 +39123,17 @@ document.addEventListener("visibilitychange", () => this.handleAutoScanVisibilit
 window.addEventListener("scroll", (event) => {
 if (document.hidden) return;
 if (eventTargetsReaderRoot(event)) return;
-{
 this.scheduleAutoScan(visibleAutoScanMutationDelay(160), { force: true, debounce: true });
-}
 }, { passive: true, capture: true, signal: abortSignal });
 window.addEventListener("resize", () => {
 if (document.hidden) return;
-{
 this.scheduleAutoScan(250, { force: true, debounce: isYouTubeHostname() });
-}
 }, { passive: true, signal: abortSignal });
 document.addEventListener("click", (event) => {
 if (!document.hidden && isPageEnhancementHost() && clickMayRevealReviewAnswer(event)) {
 this.scheduleJpdbPageEnhancements(0, { preserveEarlier: true });
 }
-if (document.hidden || !this.canParseJapanese() || false || !clickMayRevealDynamicUiText(event)) return;
+if (document.hidden || !this.canParseJapanese() || !clickMayRevealDynamicUiText(event)) return;
 this.noteVisibleAutoScanWorkObserved();
 this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
 }, { capture: true, signal: abortSignal });
@@ -39190,7 +39199,7 @@ this.pageScanner.repointGeometrySettleTarget?.();
 this.disposeJpdbReviewBridge?.();
 this.disposeJpdbReviewBridge = installReaderStartupBridge();
 if (!this.embeddedFrame) this.installFab();
-if (this.canParseJapanese() && allowsFrequentVisibleAutoScan()) {
+if (this.canParseJapanese()) {
 this.noteVisibleAutoScanWorkObserved();
 this.scheduleAutoScan(0, { force: true, debounce: true });
 }
@@ -40794,7 +40803,11 @@ const runLookup = () => {
 this.rememberSettledHoverPopoverPointer(options.minimumDelayMs);
 this.runScheduledHoverLookup(word, event, hoverLookupGeneration);
 };
-this.startHoverLookupAfterDelay(runLookup, this.hoverLookupDelay(word, options.minimumDelayMs));
+this.startHoverLookupAfterDelay(runLookup, hoverLookupScheduleDelay({
+switchesAnchor: this.activePopoverMode === "hover" && Boolean(this.activeHoverWord) && this.activeHoverWord !== word,
+hoverOpenDelayMs: this.settings.hoverOpenDelayMs,
+minimumDelayMs: options.minimumDelayMs
+}));
 }
 retargetPendingHoverLookup(word, hoverLookupKey, minimumDelayMs) {
 if (minimumDelayMs !== void 0) return false;
@@ -40806,11 +40819,6 @@ return true;
 rememberSettledHoverPopoverPointer(minimumDelayMs) {
 if (minimumDelayMs === void 0 || !this.lastPointerPosition) return;
 this.hoverPopoverPointerPosition = { ...this.lastPointerPosition };
-}
-hoverLookupDelay(word, minimumDelayMs) {
-const switchesActiveWord = this.activePopoverMode === "hover" && Boolean(this.activeHoverWord) && this.activeHoverWord !== word;
-const normalDelay = switchesActiveWord ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
-return Math.max(normalDelay, minimumDelayMs ?? 0);
 }
 startHoverLookupAfterDelay(runLookup, delay2) {
 if (delay2 === 0) {
@@ -40905,9 +40913,11 @@ void this.showLookupCandidate(candidate, "hover", { hoverLookupGeneration }).fin
 if (this.hoverLookupInFlightKey === hoverLookupKey) this.hoverLookupInFlightKey = "";
 });
 };
-const normalDelay = this.activePopoverMode === "hover" ? 0 : Math.max(0, this.settings.hoverOpenDelayMs);
-const delay2 = Math.max(normalDelay, options.minimumDelayMs ?? 0);
-this.startHoverLookupAfterDelay(runLookup, delay2);
+this.startHoverLookupAfterDelay(runLookup, hoverLookupScheduleDelay({
+switchesAnchor: this.activePopoverMode === "hover",
+hoverOpenDelayMs: this.settings.hoverOpenDelayMs,
+minimumDelayMs: options.minimumDelayMs
+}));
 }
 isPointerTextLookupAlreadyQueued(hoverLookupKey) {
 return Boolean(hoverLookupKey && (this.hoverPendingLookupKey === hoverLookupKey && this.hoverLookupTimer || this.hoverLookupInFlightKey === hoverLookupKey));

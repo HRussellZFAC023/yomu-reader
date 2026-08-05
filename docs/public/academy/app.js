@@ -28785,6 +28785,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     await assertManagedStateMutationFence(getValue, epoch);
     return epoch;
   }
+  const assertManagedStateReadAllowed = () => assertRealmManagedStateEpoch(asyncGmGetValue());
   async function ensureManagedWebStorageCurrent() {
     const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
     await ensureManagedWebStorageEpochCurrent(epoch);
@@ -34179,6 +34180,7 @@ ${spelling}`);
   const Logger = new LoggerImpl();
   setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
   function configureLogger(options) {
+    runtimeLoggingOverride = void 0;
     Logger.configure(options);
   }
   function isDevMode() {
@@ -34191,14 +34193,18 @@ ${spelling}`);
   function isOptionalCorsBridgeError(value) {
     return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
   }
+  let runtimeLoggingOverride;
   function getRuntimeLoggingOverride() {
+    if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
     try {
-      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+      runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
     } catch {
-      return false;
+      runtimeLoggingOverride = false;
     }
+    return runtimeLoggingOverride;
   }
   function setRuntimeLoggingOverride(enabled) {
+    runtimeLoggingOverride = enabled;
     try {
       if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
       else gmStorageDeleteSync(RUNTIME_LOG_KEY);
@@ -294282,6 +294288,16 @@ ${scopedInner}
       clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
     });
   }
+  async function fencedYomitanDbHandle(current, open) {
+    const existing = current();
+    if (existing) {
+      await assertManagedStateReadAllowed();
+      return existing;
+    }
+    const db = await open(await assertManagedStateMutationAllowed());
+    await assertManagedStateMutationAllowed();
+    return db;
+  }
   function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
     return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
   }
@@ -296900,12 +296916,8 @@ ${entry2.reading}`;
         request2.onerror = () => reject(request2.error);
       });
     }
-    async db() {
-      const epoch = await assertManagedStateMutationAllowed();
-      this.dbPromise ??= this.openDb(epoch);
-      const db = await this.dbPromise;
-      await assertManagedStateMutationAllowed();
-      return db;
+    db() {
+      return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
     }
     // A blocked or wedged upgrade (an older runtime still holding the
     // connection) used to leave the open promise pending FOREVER — every local

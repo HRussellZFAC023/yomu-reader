@@ -7220,6 +7220,7 @@ async function assertManagedStateMutationAllowed() {
   await assertManagedStateMutationFence(getValue, epoch);
   return epoch;
 }
+const assertManagedStateReadAllowed = () => assertRealmManagedStateEpoch(asyncGmGetValue());
 async function ensureManagedWebStorageCurrent() {
   const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
   await ensureManagedWebStorageEpochCurrent(epoch);
@@ -8302,6 +8303,7 @@ class LoggerImpl {
 const Logger = new LoggerImpl();
 setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
 function configureLogger(options) {
+  runtimeLoggingOverride = void 0;
   Logger.configure(options);
 }
 function isDevMode() {
@@ -8314,14 +8316,18 @@ function writeDebugToConsole(...args) {
 function isOptionalCorsBridgeError(value) {
   return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
+let runtimeLoggingOverride;
 function getRuntimeLoggingOverride() {
+  if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
   try {
-  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+  runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
   } catch {
-  return false;
+  runtimeLoggingOverride = false;
   }
+  return runtimeLoggingOverride;
 }
 function setRuntimeLoggingOverride(enabled) {
+  runtimeLoggingOverride = enabled;
   try {
   if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
   else gmStorageDeleteSync(RUNTIME_LOG_KEY);
@@ -16165,7 +16171,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.81".trim() ? "1.8.81".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.82".trim() ? "1.8.82".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -60166,6 +60172,16 @@ ${scopedInner}
       clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
     });
   }
+  async function fencedYomitanDbHandle(current, open) {
+    const existing = current();
+    if (existing) {
+      await assertManagedStateReadAllowed();
+      return existing;
+    }
+    const db = await open(await assertManagedStateMutationAllowed());
+    await assertManagedStateMutationAllowed();
+    return db;
+  }
   function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
     return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
   }
@@ -62784,12 +62800,8 @@ ${entry.reading}`;
         request.onerror = () => reject(request.error);
       });
     }
-    async db() {
-      const epoch = await assertManagedStateMutationAllowed();
-      this.dbPromise ??= this.openDb(epoch);
-      const db = await this.dbPromise;
-      await assertManagedStateMutationAllowed();
-      return db;
+    db() {
+      return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
     }
     // A blocked or wedged upgrade (an older runtime still holding the
     // connection) used to leave the open promise pending FOREVER — every local

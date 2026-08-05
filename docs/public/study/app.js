@@ -7673,6 +7673,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     await assertManagedStateMutationFence(getValue, epoch);
     return epoch;
   }
+  const assertManagedStateReadAllowed = () => assertRealmManagedStateEpoch(asyncGmGetValue());
   async function ensureManagedWebStorageCurrent() {
     const epoch = await assertRealmManagedStateEpoch(asyncGmGetValue());
     await ensureManagedWebStorageEpochCurrent(epoch);
@@ -9217,6 +9218,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const Logger = new LoggerImpl();
   setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
   function configureLogger(options) {
+    runtimeLoggingOverride = void 0;
     Logger.configure(options);
   }
   function isDevMode() {
@@ -9229,14 +9231,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function isOptionalCorsBridgeError(value) {
     return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
   }
+  let runtimeLoggingOverride;
   function getRuntimeLoggingOverride() {
+    if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
     try {
-      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+      runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
     } catch {
-      return false;
+      runtimeLoggingOverride = false;
     }
+    return runtimeLoggingOverride;
   }
   function setRuntimeLoggingOverride(enabled) {
+    runtimeLoggingOverride = enabled;
     try {
       if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
       else gmStorageDeleteSync(RUNTIME_LOG_KEY);
@@ -26170,6 +26176,16 @@ ${scopedInner}
       clearedStoreNames: CONTENT_STORES.filter((storeName) => db.objectStoreNames.contains(storeName))
     });
   }
+  async function fencedYomitanDbHandle(current, open) {
+    const existing = current();
+    if (existing) {
+      await assertManagedStateReadAllowed();
+      return existing;
+    }
+    const db = await open(await assertManagedStateMutationAllowed());
+    await assertManagedStateMutationAllowed();
+    return db;
+  }
   function runYomitanManagedStateWrite(db, storeNames, mutate, options) {
     return runManagedStateIdbWrite(db, MANAGED_STATE_MARKER, storeNames, mutate, options);
   }
@@ -28788,12 +28804,8 @@ ${entry.reading}`;
         request.onerror = () => reject(request.error);
       });
     }
-    async db() {
-      const epoch = await assertManagedStateMutationAllowed();
-      this.dbPromise ??= this.openDb(epoch);
-      const db = await this.dbPromise;
-      await assertManagedStateMutationAllowed();
-      return db;
+    db() {
+      return fencedYomitanDbHandle(() => this.dbPromise, (epoch) => this.dbPromise ??= this.openDb(epoch));
     }
     // A blocked or wedged upgrade (an older runtime still holding the
     // connection) used to leave the open promise pending FOREVER — every local
@@ -56418,6 +56430,14 @@ ${spelling}`);
     }
     return false;
   }
+  const pointerHitElements = /* @__PURE__ */ new WeakMap();
+  function ocrPointerHitElement(event) {
+    const cached = pointerHitElements.get(event);
+    if (cached) return cached.element;
+    const hit = typeof event.clientX === "number" && typeof event.clientY === "number" ? document.elementFromPoint?.(event.clientX, event.clientY) ?? null : null;
+    pointerHitElements.set(event, { element: hit });
+    return hit;
+  }
   function mutationsMayAddReaderRasterCandidate(mutations) {
     return mutationsTouchReaderRasterCandidates(mutations, "addedNodes");
   }
@@ -57748,7 +57768,7 @@ ${spelling}`);
         this.enqueue(image, true);
         return true;
       }
-      const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
+      const surface = ocrReaderSurfaceFromPointerEvent(event, settings, this.isProvenRasterFreePage());
       if (!surface) return false;
       const autoOwnsSurface = settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !(surface instanceof HTMLCanvasElement && isManualCanvasReaderSurface(surface));
       if (autoOwnsSurface) return false;
@@ -60130,8 +60150,8 @@ ${reading}`);
     const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
   }
-  function ocrReaderSurfaceFromPointerEvent(event, settings) {
-    if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+  function ocrReaderSurfaceFromPointerEvent(event, settings, rasterFreePage) {
+    if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
   }
@@ -60154,8 +60174,7 @@ ${reading}`);
   function pointerEventOverOcrOverlay(event) {
     const target = event.target;
     if (target?.closest?.("[data-jpdb-reader-root]")) return true;
-    if (typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
-    return Boolean(document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
+    return Boolean(ocrPointerHitElement(event)?.closest?.("[data-jpdb-reader-root]"));
   }
   function shouldHandleOcrPointerEvent(event) {
     if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
@@ -60174,7 +60193,7 @@ ${reading}`);
     return target instanceof HTMLImageElement ? target : target.closest("img");
   }
   function pointerEventImageAtPoint(event) {
-    const element2 = document.elementFromPoint?.(event.clientX, event.clientY);
+    const element2 = ocrPointerHitElement(event);
     if (!element2 || element2.closest("[data-jpdb-reader-root]")) return null;
     return element2 instanceof HTMLImageElement ? element2 : element2.closest("img");
   }
@@ -60184,7 +60203,7 @@ ${reading}`);
     return readerSurfaceFromElement(target, settings);
   }
   function pointerEventReaderSurfaceAtPoint(event, settings) {
-    const element2 = document.elementFromPoint?.(event.clientX, event.clientY);
+    const element2 = ocrPointerHitElement(event);
     if (element2 && !element2.closest("[data-jpdb-reader-root]")) {
       const surface = readerSurfaceFromElement(element2, settings);
       if (surface) return surface;
@@ -60980,7 +60999,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.81".trim() ? "1.8.81".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.82".trim() ? "1.8.82".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;

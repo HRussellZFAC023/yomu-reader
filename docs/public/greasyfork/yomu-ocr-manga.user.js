@@ -2986,14 +2986,18 @@ function writeDebugToConsole(...args) {
 function isOptionalCorsBridgeError(value) {
   return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
+let runtimeLoggingOverride;
 function getRuntimeLoggingOverride() {
+  if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
   try {
-  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+  runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
   } catch {
-  return false;
+  runtimeLoggingOverride = false;
   }
+  return runtimeLoggingOverride;
 }
 function setRuntimeLoggingOverride(enabled) {
+  runtimeLoggingOverride = enabled;
   try {
   if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
   else gmStorageDeleteSync(RUNTIME_LOG_KEY);
@@ -14262,6 +14266,14 @@ function pageHasReaderRasterCandidates(hostname = location.hostname) {
   }
   return false;
 }
+const pointerHitElements = /* @__PURE__ */ new WeakMap();
+function ocrPointerHitElement(event) {
+  const cached = pointerHitElements.get(event);
+  if (cached) return cached.element;
+  const hit = typeof event.clientX === "number" && typeof event.clientY === "number" ? document.elementFromPoint?.(event.clientX, event.clientY) ?? null : null;
+  pointerHitElements.set(event, { element: hit });
+  return hit;
+}
 function mutationsMayAddReaderRasterCandidate(mutations) {
   return mutationsTouchReaderRasterCandidates(mutations, "addedNodes");
 }
@@ -15598,7 +15610,7 @@ class ImageOcrController {
     this.enqueue(image, true);
     return true;
   }
-  const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
+  const surface = ocrReaderSurfaceFromPointerEvent(event, settings, this.isProvenRasterFreePage());
   if (!surface) return false;
   const autoOwnsSurface = settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false && !(surface instanceof HTMLCanvasElement && isManualCanvasReaderSurface(surface));
   if (autoOwnsSurface) return false;
@@ -17980,8 +17992,8 @@ function ocrImageFromPointerEvent(event, settings) {
   const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
   return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
 }
-function ocrReaderSurfaceFromPointerEvent(event, settings) {
-  if (!ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+function ocrReaderSurfaceFromPointerEvent(event, settings, rasterFreePage) {
+  if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
   if (pointerEventOverOcrOverlay(event)) return null;
   return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
 }
@@ -18004,8 +18016,7 @@ function eventWithPoint(event, point) {
 function pointerEventOverOcrOverlay(event) {
   const target = event.target;
   if (target?.closest?.("[data-jpdb-reader-root]")) return true;
-  if (typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
-  return Boolean(document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
+  return Boolean(ocrPointerHitElement(event)?.closest?.("[data-jpdb-reader-root]"));
 }
 function shouldHandleOcrPointerEvent(event) {
   if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
@@ -18024,7 +18035,7 @@ function pointerEventImageTarget(event) {
   return target instanceof HTMLImageElement ? target : target.closest("img");
 }
 function pointerEventImageAtPoint(event) {
-  const element = document.elementFromPoint?.(event.clientX, event.clientY);
+  const element = ocrPointerHitElement(event);
   if (!element || element.closest("[data-jpdb-reader-root]")) return null;
   return element instanceof HTMLImageElement ? element : element.closest("img");
 }
@@ -18034,7 +18045,7 @@ function pointerEventReaderSurfaceTarget(event, settings) {
   return readerSurfaceFromElement(target, settings);
 }
 function pointerEventReaderSurfaceAtPoint(event, settings) {
-  const element = document.elementFromPoint?.(event.clientX, event.clientY);
+  const element = ocrPointerHitElement(event);
   if (element && !element.closest("[data-jpdb-reader-root]")) {
   const surface = readerSurfaceFromElement(element, settings);
   if (surface) return surface;

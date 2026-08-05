@@ -6063,14 +6063,18 @@ function writeDebugToConsole(...args) {
 function isOptionalCorsBridgeError(value) {
   return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
 }
+let runtimeLoggingOverride;
 function getRuntimeLoggingOverride() {
+  if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
   try {
-  return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+  runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
   } catch {
-  return false;
+  runtimeLoggingOverride = false;
   }
+  return runtimeLoggingOverride;
 }
 function setRuntimeLoggingOverride(enabled) {
+  runtimeLoggingOverride = enabled;
   try {
   if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
   else gmStorageDeleteSync(RUNTIME_LOG_KEY);
