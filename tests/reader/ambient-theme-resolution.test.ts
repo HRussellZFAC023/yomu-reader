@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { documentBackgroundLooksDark } from '../../src/reader/dom/word-contrast';
+import { documentBackgroundLooksDark } from '../../src/reader/dom/page-background';
 import { localPitchPatternsFromMeta } from '../../src/reader/lookup/pitch-meta';
 import { setRenderedWordPitchAccentPattern } from '../../src/reader/dom/rendered-word-state';
 import type { JPDBCard } from '../../src/reader/app/types';
 
 afterEach(() => {
     document.body.innerHTML = '';
-    document.body.style.backgroundColor = '';
-    document.documentElement.style.backgroundColor = '';
+    document.body.style.cssText = '';
+    document.documentElement.style.cssText = '';
 });
 
 // theme:'auto' on ordinary hosts used to defer to prefers-color-scheme, which
@@ -28,6 +28,38 @@ describe('documentBackgroundLooksDark', () => {
     it('blends a translucent body over the root paint', () => {
         document.documentElement.style.backgroundColor = 'rgb(10, 10, 12)';
         document.body.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+        expect(documentBackgroundLooksDark()).toBe(true);
+    });
+
+    // An unpainted page is the user agent's canvas, and the only signal left is
+    // the copy's own colour — which has to be DECISIVELY light to imply a dark
+    // canvas. Reading "closer to white than to black" as light accepted every
+    // grey lighter than about #767676, so ordinary muted secondary copy on a
+    // plainly white page resolved to the dark canvas.
+    it('reports light for an unpainted page whose copy is muted grey', () => {
+        document.body.style.color = 'rgb(153, 153, 153)';
+        expect(documentBackgroundLooksDark()).toBe(false);
+    });
+
+    it('still reports dark for an unpainted page with decisively light copy', () => {
+        document.body.style.color = 'rgb(242, 244, 248)';
+        expect(documentBackgroundLooksDark()).toBe(true);
+    });
+
+    // This function and the per-word probe are the two authorities over the same
+    // question, and both resolve it here. A `true` here puts
+    // `jpdb-reader-theme-dark` on the document element, which swaps the
+    // highlight backdrop token for the whole page — so a wrong answer paints
+    // dark-theme state colours over a light page, exactly the reported symptom.
+    // `color-scheme: light dark` means "either canvas is fine, the UA decides":
+    // matching the bare `dark` token flipped every such page.
+    it('reports light for a light-dark color-scheme page while the UA prefers light', () => {
+        document.documentElement.style.colorScheme = 'light dark';
+        expect(documentBackgroundLooksDark()).toBe(false);
+    });
+
+    it('still reports dark for a page that declares a dark color-scheme outright', () => {
+        document.documentElement.style.colorScheme = 'dark';
         expect(documentBackgroundLooksDark()).toBe(true);
     });
 });

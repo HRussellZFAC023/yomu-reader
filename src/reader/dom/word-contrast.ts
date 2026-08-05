@@ -1,5 +1,6 @@
 import { CORE_COLOR_TOKENS, PAGE_WORD_COLOR_TOKENS } from '../theme/color-tokens';
 import { blendRgba, contrastRatio, cssColorToHex, cssColorToRgba, mixHex, readableOn, readableOnAll, rgbaToHex, type RgbaColor } from '../theme/color-utils';
+import { probePageBackground, type PageBackground, type ProbedPageBackground } from './page-background';
 import { RENDERED_WORD_CONTRAST_VARS, RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW } from './rendered-word-contrast-vars';
 
 const PAGE_WORD_SELECTOR = '.jpdb-reader-word';
@@ -7,7 +8,6 @@ const YOMU_SURFACE_SELECTOR = '[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-s
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
-const TRANSPARENT_DARK_PAGE_FALLBACK = '#181b20';
 const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
 const COLORED_READER_WORD_CLASSES = new Set([
     'jpdb-new',
@@ -47,32 +47,29 @@ const appliedContrastState = new WeakMap<HTMLElement, {
     parentColor: string;
 }>();
 
-interface PageBackground {
-    css: string;
-    hex: string;
-    rgba: RgbaColor;
-}
-
 export function refreshReaderWordContrast(root: ParentNode = document): void {
     const words = readerWords(root);
     const activeWords: HTMLElement[] = [];
     const activeBackgrounds: PageBackground[] = [];
     const unknownBackgroundWords: HTMLElement[] = [];
+    const unknownBackgrounds: PageBackground[] = [];
     const neutralWords: HTMLElement[] = [];
     const neutralPageWords: HTMLElement[] = [];
     const neutralPageBackgrounds: PageBackground[] = [];
-    // pageBackgroundFor walks the word's ancestors calling getComputedStyle on
+    // probePageBackground walks the word's ancestors calling getComputedStyle on
     // each — identical for every word under the same parent. Memoize per parent
     // for this pass so a paragraph of N words costs one ancestor walk, not N
-    // (this was a dominant cost when hovering words in dense text).
-    const backgroundByParent = new Map<Element, PageBackground | null>();
-    const cachedPageBackgroundFor = (word: HTMLElement): PageBackground | null => {
+    // (this was a dominant cost when hovering words in dense text). Scoped to
+    // this pass only: a background that changes between passes must recompute.
+    const backgroundByParent = new Map<Element, ProbedPageBackground>();
+    const cachedPageBackgroundFor = (word: HTMLElement): ProbedPageBackground => {
         const parent = word.parentElement;
-        if (!parent) return pageBackgroundFor(word);
-        if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-        const background = pageBackgroundFor(word);
-        backgroundByParent.set(parent, background);
-        return background;
+        if (!parent) return probePageBackground(word);
+        const cached = backgroundByParent.get(parent);
+        if (cached) return cached;
+        const probed = probePageBackground(word);
+        backgroundByParent.set(parent, probed);
+        return probed;
     };
 
     for (const word of words) {
@@ -92,19 +89,16 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
             // coloured neighbours mix against. Falling back to the reader
             // theme's own token rendered these words a different darkness from
             // the rest of the line until a hover happened to recompute them.
-            const neutralBackground = cachedPageBackgroundFor(word);
-            if (neutralBackground) {
-                neutralPageWords.push(word);
-                neutralPageBackgrounds.push(neutralBackground);
-            } else {
-                neutralWords.push(word);
-            }
+            neutralPageWords.push(word);
+            neutralPageBackgrounds.push(cachedPageBackgroundFor(word).background);
             continue;
         }
-        const background = cachedPageBackgroundFor(word);
-        if (!background) {
+        const probed = cachedPageBackgroundFor(word);
+        const background = probed.background;
+        if (probed.imageBackdrop) {
             if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
             unknownBackgroundWords.push(word);
+            unknownBackgrounds.push(background);
             continue;
         }
         const isHovered = word.matches(':hover, :focus');
@@ -159,7 +153,7 @@ export function refreshReaderWordContrast(root: ParentNode = document): void {
 
     neutralWords.forEach(word => clearContrastVars(word));
     neutralPageWords.forEach((word, i) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i]));
-    unknownBackgroundWords.forEach(word => applyUnknownBackgroundFallback(word));
+    unknownBackgroundWords.forEach((word, i) => applyUnknownBackgroundFallback(word, unknownBackgrounds[i]));
 
     activeWords.forEach((word, i) => {
         savedVars[i].forEach(({ name, value, priority }) => {
@@ -327,83 +321,6 @@ function readerWords(root: ParentNode): HTMLElement[] {
     return [...words];
 }
 
-function pageBackgroundFor(word: HTMLElement): PageBackground | null {
-    const ancestors: Element[] = [];
-    for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
-
-    let found = false;
-    let hasImageBackdrop = false;
-    let unknownBase = false;
-    let rgba: RgbaColor = { red: 255, green: 255, blue: 255, alpha: 1 };
-    for (const element of ancestors.reverse()) {
-        const style = getComputedStyle(element);
-        hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== 'none');
-        const color = cssColorToRgba(style.backgroundColor);
-        if (!color) {
-            // A painted layer we cannot parse: everything blended so far may
-            // sit on a surface of unknown darkness. Never let the white seed
-            // stand in for it — that painted dark-on-dark "redaction bars" on
-            // Discord dark themes whose colors used unhandled formats.
-            unknownBase = true;
-            continue;
-        }
-        if (color.alpha <= 0) continue;
-        if (color.alpha >= 1) unknownBase = false;
-        rgba = blendRgba(color, rgba);
-        found = true;
-    }
-    if (unknownBase || !found) {
-        if (hasImageBackdrop) return null;
-        return inferredTransparentPageBackground(word);
-    }
-    return pageBackgroundFromRgba(rgba);
-}
-
-function inferredTransparentPageBackground(word: HTMLElement): PageBackground {
-    const style = getComputedStyle(word.parentElement ?? word);
-    const rootStyle = getComputedStyle(document.documentElement);
-    const bodyStyle = getComputedStyle(document.body);
-    const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-    if (colorScheme.includes('dark')) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    // The word's own context colour first: a dark embedded shell on a light
-    // page has light LOCAL text while body/root still read as a light theme.
-    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color]
-        .map(color => cssColorToHex(color))
-        .filter((color): color is string => Boolean(color));
-    if (pageTextColors.some(color => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-        return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    }
-    return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-}
-
-// Resolves whether the PAGE (not the OS) paints dark: blends the root/body
-// backgrounds and falls back to the same color-scheme + text-luminance
-// inference transparent word backdrops use. Lets theme:'auto' agree with the
-// page's real paint on hosts without a theme bridge, where a desktop shell can
-// report prefers-color-scheme:light while painting a dark page.
-export function documentBackgroundLooksDark(): boolean {
-    if (typeof document === 'undefined' || !document.body) return false;
-    let rgba: RgbaColor = { red: 255, green: 255, blue: 255, alpha: 1 };
-    let found = false;
-    for (const element of [document.documentElement, document.body]) {
-        const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
-        if (!color || color.alpha <= 0) continue;
-        rgba = blendRgba(color, rgba);
-        found = true;
-    }
-    const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
-    return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
-}
-
-function pageBackgroundFromCss(color: string): PageBackground {
-    return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-}
-
-function pageBackgroundFromRgba(rgba: RgbaColor): PageBackground {
-    const hex = rgbaToHex(rgba);
-    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-}
-
 function bestTextColor(background: string): string {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background)
         ? CORE_COLOR_TOKENS.black
@@ -422,8 +339,14 @@ function readableHighlightBackground(color: string, background: string): string 
     return color;
 }
 
-function applyUnknownBackgroundFallback(word: HTMLElement): void {
+function applyUnknownBackgroundFallback(word: HTMLElement, background: PageBackground): void {
     RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach(name => word.style.removeProperty(name));
+    // Text and underline colours derived over an image would be guesses, so the
+    // shadow carries readability instead — but the status wash still mixes
+    // against the backdrop var. Leaving it unset handed that mix to the
+    // stylesheet default, which prefers-color-scheme picks: a reader whose
+    // device was in dark mode got dark saturated blocks on a white page.
+    word.style.setProperty('--jpdb-reader-highlight-backdrop', background.css);
     word.style.setProperty('--jpdb-reader-word-contrast-shadow', PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
 }
 
