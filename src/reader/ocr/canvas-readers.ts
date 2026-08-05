@@ -452,6 +452,31 @@ export function pageHasReaderRasterCandidates(hostname: string = location.hostna
     return false;
 }
 
+const pointerHitElements = new WeakMap<object, { element: Element | null }>();
+
+/**
+ * The element under one pointer event, hit-tested at most once per event.
+ *
+ * The OCR pointer path asks three separate questions of the same point — is the
+ * pointer over our own overlay, over a candidate image, over a reader surface —
+ * and each used to run its own `document.elementFromPoint`. That is three
+ * hit-tests per `pointermove`, i.e. three per mouse-move frame on every page the
+ * reader is installed on, for an answer that cannot differ: same event, same
+ * coordinates, same frame.
+ *
+ * Keyed on the event object, so the memo lives exactly as long as the event does
+ * and there is no window in which a stale point could be served.
+ */
+export function ocrPointerHitElement(event: Pick<PointerEvent, 'clientX' | 'clientY'>): Element | null {
+    const cached = pointerHitElements.get(event);
+    if (cached) return cached.element;
+    const hit = typeof event.clientX === 'number' && typeof event.clientY === 'number'
+        ? document.elementFromPoint?.(event.clientX, event.clientY) ?? null
+        : null;
+    pointerHitElements.set(event, { element: hit });
+    return hit;
+}
+
 /**
  * True when a mutation batch could add a raster candidate to a page that was
  * proven raster-free: an added canvas / signal element (or subtree containing
