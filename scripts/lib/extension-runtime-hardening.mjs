@@ -1,6 +1,10 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { strToU8, unzipSync, zipSync } from 'fflate';
+import {
+    hardenCompilerRuntimeMessageChannel,
+    installExtensionDictionaryBackgroundSource,
+} from './extension-dictionary-background.mjs';
 
 const BACKGROUND_FILE = 'background.js';
 const CONTENT_FILE = 'content.js';
@@ -10,6 +14,7 @@ const MANIFEST_FILE = 'manifest.json';
 const READER_CSS_FILE = 'yomu.css';
 const RUNTIME_CATALOG_FILE = 'runtime-catalog.json';
 const THIRD_PARTY_NOTICES_FILE = 'THIRD_PARTY_NOTICES.txt';
+const PROJECT_ARCHIVE_FILE = 'yomureader.com-extension-project.zip';
 const SCREENSHOT_BRIDGE_MARKER = 'yomu-extension-screenshot-bridge';
 const GOOGLE_DRIVE_SYNC_BRIDGE_MARKER = 'yomu-google-drive-settings-sync-bridge';
 const PACKAGED_READER_CSS_MARKER = 'yomu-extension-packaged-reader-css';
@@ -51,14 +56,16 @@ export function deterministicExtensionTimestamp(sourceDateEpoch, gitCommitEpoch)
 }
 
 export function hardenExtensionBackgroundSource(source, options = {}) {
-    const hardened = UNSAFE_EXTENSION_EVENT_PATTERNS.reduce(
+    const guarded = UNSAFE_EXTENSION_EVENT_PATTERNS.reduce(
         (current, [pattern, replacement]) => current.replace(pattern, replacement),
         source,
     );
-    const withScreenshotBridge = installExtensionScreenshotBridgeSource(hardened);
-    return options.target === 'chrome' && options.googleOAuthClientId
+    const withCompilerChannelGuard = hardenCompilerRuntimeMessageChannel(guarded);
+    const withScreenshotBridge = installExtensionScreenshotBridgeSource(withCompilerChannelGuard);
+    const withSettingsSync = options.target === 'chrome' && options.googleOAuthClientId
         ? installGoogleDriveSettingsSyncBridgeSource(withScreenshotBridge)
         : withScreenshotBridge;
+    return installExtensionDictionaryBackgroundSource(withSettingsSync, options.dictionaryBackgroundSource);
 }
 
 export function hardenExtensionContentSource(source) {
@@ -349,7 +356,11 @@ export async function hardenGeneratedExtensionBackgrounds(root, options = {}) {
         const googleOAuthClientId = process.env.YOMU_GOOGLE_OAUTH_CLIENT_ID
             ?? process.env.GOOGLE_OAUTH_CLIENT_ID
             ?? '';
-        const hardened = hardenExtensionBackgroundSource(source, { target, googleOAuthClientId });
+        const hardened = hardenExtensionBackgroundSource(source, {
+            target,
+            googleOAuthClientId,
+            dictionaryBackgroundSource: options.dictionaryBackgroundSource,
+        });
         if (hardened !== source) await writeFile(file, hardened);
     }
     await hardenGeneratedExtensionContentScripts(root);
@@ -357,8 +368,30 @@ export async function hardenGeneratedExtensionBackgrounds(root, options = {}) {
     await hardenGeneratedExtensionManifests(root, { packagedReaderCss: packageAssets.size > 0 });
     await reconcileGeneratedPackageValidationAudit(root);
     await stageGeneratedExtensionAssets(root, packageAssets);
-    await hardenGeneratedReleaseArchives(root, packageAssets, options.archiveTimestamp);
+    await hardenGeneratedReleaseArchives(
+        root,
+        packageAssets,
+        options.archiveTimestamp,
+        options.dictionaryBackgroundSource,
+    );
     return files;
+}
+
+export async function refreshGeneratedExtensionProjectArchive(root, archiveTimestamp) {
+    const entries = {};
+    for (const file of ['README.md', 'package.json']) {
+        entries[file] = new Uint8Array(await readFile(path.join(root, file)));
+    }
+    for (const directory of ['audit', 'packages', 'review', 'tools']) {
+        for (const file of await collectRelativeFiles(path.join(root, directory))) {
+            const name = `${directory}/${file.split(path.sep).join('/')}`;
+            entries[name] = new Uint8Array(await readFile(path.join(root, directory, file)));
+        }
+    }
+    await writeFile(
+        path.join(root, PROJECT_ARCHIVE_FILE),
+        zipSync(zipEntriesWithTimestamp(entries, archiveTimestamp), { level: 9 }),
+    );
 }
 
 async function hardenGeneratedExtensionPopups(root) {
@@ -385,7 +418,7 @@ async function reconcileGeneratedPackageValidationAudit(root) {
     await writeFile(auditFile, `${JSON.stringify(reconciled, null, 2)}\n`);
 }
 
-async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimestamp) {
+async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimestamp, dictionaryBackgroundSource) {
     const releaseRoot = path.join(root, 'release');
     const files = await collectArchiveFiles(releaseRoot);
     for (const file of files) {
@@ -400,6 +433,7 @@ async function hardenGeneratedReleaseArchives(root, packageAssets, archiveTimest
                 entries[name] = strToU8(hardenExtensionBackgroundSource(new TextDecoder().decode(bytes), {
                     target,
                     googleOAuthClientId,
+                    dictionaryBackgroundSource,
                 }));
             } else if (name === CONTENT_FILE) {
                 // This archive is patched from its own entries rather than from the
@@ -588,6 +622,17 @@ async function collectArchiveFiles(directory) {
         const file = path.join(directory, entry.name);
         if (entry.isDirectory()) files.push(...await collectArchiveFiles(file));
         else if (entry.isFile() && (entry.name.endsWith('.zip') || entry.name.endsWith('.xpi'))) files.push(file);
+    }
+    return files;
+}
+
+async function collectRelativeFiles(directory, relative = '') {
+    const entries = await readdir(path.join(directory, relative), { withFileTypes: true });
+    const files = [];
+    for (const entry of entries) {
+        const child = path.join(relative, entry.name);
+        if (entry.isDirectory()) files.push(...await collectRelativeFiles(directory, child));
+        else if (entry.isFile()) files.push(child);
     }
     return files;
 }

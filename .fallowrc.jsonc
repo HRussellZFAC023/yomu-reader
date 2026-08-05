@@ -13,6 +13,9 @@
     // path string in scripts/lib/hosted-appearance-boot.cjs rather than
     // imported. It ships inside the <head> of every hosted surface.
     "src/reader/core/hosted-appearance-boot.ts",
+    // esbuild entry point injected into generated extension backgrounds. The
+    // build names it by path, so no ordinary TypeScript import reaches it.
+    "src/reader/dictionaries/extension-background-entry.ts",
     "src/gaming/main.ts",
     "src/gaming/preload.ts",
     "src/gaming/renderer/app.ts",
@@ -209,6 +212,21 @@
     {
       "file": "src/reader/cards/utils.ts",
       "exports": ["*"]
+    },
+    // esbuild rewrites Yomitan's storage, logging, settings, and archive-cache
+    // imports to this worker adapter. Static analysis sees the original import
+    // specifiers, so it cannot associate these exact exports with their users.
+    {
+      "file": "src/reader/dictionaries/extension-background-adapters.ts",
+      "exports": [
+        "assertManagedStateMutationAllowed",
+        "assertManagedStateReadAllowed",
+        "deleteDictionaryArchive",
+        "Logger",
+        "normalizeAudioSource",
+        "normalizeDictionaryPreferences",
+        "persistDictionaryArchive"
+      ]
     },
     // Consumed through CommonJS object destructuring by the Academy sync,
     // committed-artifact verifier, and revision contract tests. Fallow reaches
