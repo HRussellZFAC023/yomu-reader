@@ -164,6 +164,10 @@
     }
   ],
   "ignorePatterns": [
+    // The release workflow clones the external UserScript-Compiler into the
+    // workspace before check:release runs; it is vendored, not ours to audit.
+    "UserScript-Compiler/**",
+    "tools/UserScript-Compiler/**",
     "dist/**",
     "dist-dev/**",
     "dist-gaming/**",
