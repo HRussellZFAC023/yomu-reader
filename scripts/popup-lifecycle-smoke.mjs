@@ -103,6 +103,11 @@ const HOVER_CLOSE_LATENCY_SLACK_EARLY_MS = 120;
 // enough that a per-pointermove re-arm is unmistakable rather than borderline.
 const HOVER_CLOSE_WATCH_MS = 3_000;
 const HOVER_CLOSE_JIGGLE_INTERVAL_MS = 16;
+// How long the pointer is parked on the hover surface before it leaves, per pass. The
+// spread is what breaks the phase coincidence a mount-phased poll can hide behind —
+// see measureAcrossDwells. A third of the configured delay apart is enough that no two
+// passes can share a window this narrow.
+const HOVER_CLOSE_DWELLS_MS = [0, 200, 400];
 const DESKTOP_VIEWPORT = { width: 1280, height: 900 };
 // Short on purpose. The mechanism only exists when the panel is placed ABOVE the
 // cursor, where its bottom is pinned to the word and growth or shrinkage moves the
@@ -384,12 +389,13 @@ async function runHoverSurvivesSustainedWheel(browser, server) {
  * (c2) The flip side of (b) and (c), and the one the owner reported: the panel must
  * also GO AWAY. The pointer leaves the hovered word for empty page space and never
  * enters the panel, and the hand keeps moving the way a hand does. The close is owed
- * hoverCloseDelayMs after the departure — not after the gesture eventually stops.
+ * hoverCloseDelayMs after the departure — not after the gesture eventually stops, and
+ * not on some other clock's cadence.
  *
  * Measured from inside the page rather than by polling from node: `departedAt` is the
  * first pointermove that lands on neither a parsed word nor the panel, `removedAt` is
- * the mutation that unmounts the panel. Polling would fold the harness round trip
- * into the number and could not tell a 90ms close from a 300ms one.
+ * the mutation that unmounts the panel. Polling would fold the harness round trip into
+ * the number and could not tell a 90ms close from a 300ms one.
  */
 async function runHoverClosesAfterLeavingWord(browser, server) {
     const { context, page } = await openReaderPage(browser, server, {
@@ -398,31 +404,35 @@ async function runHoverClosesAfterLeavingWord(browser, server) {
     });
     try {
         const word = page.locator(WORD_SELECTOR).first();
-        await word.hover();
-        await page.waitForSelector(POPOVER_BODY_SELECTOR, { timeout: 15_000 });
-        const panel = await popoverBox(page);
-        assert(panel.connected, 'Hover popover never mounted');
-        const wordBox = await word.boundingBox();
-        assert(wordBox, 'Could not measure the hovered word');
-        // Straight DOWN from the word into main's bottom padding. The panel is placed
-        // above the word in this viewport, so descending never touches it, and the
-        // sentence is one line so no neighbouring word is crossed on the way — either
-        // would legitimately keep a popup open and the measurement would be of
-        // retargeting rather than of closing.
-        const destination = await pickEmptyPagePoint(page, [
-            { x: Math.round(wordBox.x + wordBox.width / 2), y: Math.round(wordBox.y + wordBox.height + 140) },
-            { x: Math.round(wordBox.x + wordBox.width / 2), y: HOVER_VIEWPORT.height - 24 },
-        ]);
-        assert(destination, 'Found no empty page space below the sentence to move into', { wordBox, panel });
-        assert(
-            destination.y > panel.top + panel.height,
-            'Chosen destination is not clear of the panel, so leaving the word would cross it',
-            { destination, panel },
-        );
+        const passes = await measureAcrossDwells(page, async dwellMs => {
+            await word.hover();
+            await page.waitForSelector(POPOVER_BODY_SELECTOR, { timeout: 15_000 });
+            const panel = await popoverBox(page);
+            assert(panel.connected, 'Hover popover never mounted');
+            const wordBox = await word.boundingBox();
+            assert(wordBox, 'Could not measure the hovered word');
+            // Straight DOWN from the word into main's bottom padding. The panel is placed
+            // above the word in this viewport, so descending never touches it, and the
+            // sentence is one line so no neighbouring word is crossed on the way — either
+            // would legitimately keep a popup open and the measurement would be of
+            // retargeting rather than of closing.
+            const destination = await pickEmptyPagePoint(page, [
+                { x: Math.round(wordBox.x + wordBox.width / 2), y: Math.round(wordBox.y + wordBox.height + 140) },
+                { x: Math.round(wordBox.x + wordBox.width / 2), y: HOVER_VIEWPORT.height - 24 },
+            ]);
+            assert(destination, 'Found no empty page space below the sentence to move into', { wordBox, panel });
+            assert(
+                destination.y > panel.top + panel.height,
+                'Chosen destination is not clear of the panel, so leaving the word would cross it',
+                { destination, panel },
+            );
 
-        const measured = await measureHoverCloseLatency(page, destination);
-        assertHoverCloseLatency(measured, 'Hover popover outlived the pointer leaving the word', { panel, wordBox });
-        return measured;
+            await page.waitForTimeout(dwellMs);
+            const measured = await measureHoverCloseLatency(page, destination);
+            assertHoverCloseLatency(measured, 'Hover popover outlived the pointer leaving the word', { panel, wordBox });
+            return measured;
+        });
+        return { passes, latenciesMs: passes.map(pass => pass.latencyMs) };
     } finally {
         await context.close();
     }
@@ -440,24 +450,50 @@ async function runHoverClosesAfterLeavingPanel(browser, server) {
         viewport: HOVER_VIEWPORT,
     });
     try {
-        const hovered = await openHoverPopoverAtUpperThird(page);
-        const panel = hovered.box;
-        // Away from the panel on the side the word is NOT on. The panel sits above the
-        // word here, so leaving upward or sideways cannot land back on the anchor and
-        // re-open the very lookup being timed.
-        const destination = await pickEmptyPagePoint(page, [
-            { x: Math.round(panel.left + panel.width + 60), y: Math.round(panel.top + panel.height / 2) },
-            { x: Math.max(4, Math.round(panel.left - 60)), y: Math.round(panel.top + panel.height / 2) },
-            { x: Math.round(panel.left + panel.width / 2), y: Math.max(4, Math.round(panel.top - 40)) },
-        ]);
-        assert(destination, 'Found no empty page space beside the panel to move into', { panel });
+        const passes = await measureAcrossDwells(page, async dwellMs => {
+            const hovered = await openHoverPopoverAtUpperThird(page);
+            const panel = hovered.box;
+            // Away from the panel on the side the word is NOT on. The panel sits above the
+            // word here, so leaving upward or sideways cannot land back on the anchor and
+            // re-open the very lookup being timed.
+            const destination = await pickEmptyPagePoint(page, [
+                { x: Math.round(panel.left + panel.width + 60), y: Math.round(panel.top + panel.height / 2) },
+                { x: Math.max(4, Math.round(panel.left - 60)), y: Math.round(panel.top + panel.height / 2) },
+                { x: Math.round(panel.left + panel.width / 2), y: Math.max(4, Math.round(panel.top - 40)) },
+            ]);
+            assert(destination, 'Found no empty page space beside the panel to move into', { panel });
 
-        const measured = await measureHoverCloseLatency(page, destination);
-        assertHoverCloseLatency(measured, 'Hover popover outlived the pointer leaving the panel', { panel, pointer: hovered.pointer });
-        return measured;
+            await page.waitForTimeout(dwellMs);
+            const measured = await measureHoverCloseLatency(page, destination);
+            assertHoverCloseLatency(measured, 'Hover popover outlived the pointer leaving the panel', { panel, pointer: hovered.pointer });
+            return measured;
+        });
+        return { passes, latenciesMs: passes.map(pass => pass.latencyMs) };
     } finally {
         await context.close();
     }
+}
+
+/**
+ * Runs one close measurement per dwell, re-opening the panel each time, and returns
+ * them all.
+ *
+ * The dwells are the whole reason this is a gate rather than a coin toss. The
+ * mechanism that used to close the panel is a poll phased from the panel's MOUNT, so
+ * its latency is `period - (time from mount to departure)`: hold the choreography
+ * fixed and that lands on the same value every run, which can be inside the asserted
+ * window by pure coincidence (it was, for the word scenario, on 1.8.85). Parking the
+ * pointer for a different length of time before leaving shifts that phase by the dwell
+ * and leaves a delay-owned close untouched, so the three passes agree only when the
+ * configured delay is what decides.
+ */
+async function measureAcrossDwells(page, measure) {
+    const passes = [];
+    for (const dwellMs of HOVER_CLOSE_DWELLS_MS) {
+        passes.push({ dwellMs, ...await measure(dwellMs) });
+        await page.waitForSelector(POPOVER_SELECTOR, { state: 'detached', timeout: 5_000 });
+    }
+    return passes;
 }
 
 /**
@@ -703,11 +739,15 @@ async function popoverBox(page) {
 // the product's, with no harness round trip folded into it.
 async function installHoverCloseRecorder(page) {
     await page.evaluate(popoverSelector => {
+        // Re-installed once per pass, so the previous pass's observer and listener have
+        // to go: left connected they would keep writing to their own state object and
+        // the surviving one would report a departure that belongs to an earlier gesture.
+        window.__yomuHoverCloseTeardown?.();
         const state = { departedAt: null, removedAt: null, lastInsideAt: null, moves: 0, movesAfterDeparture: 0 };
         window.__yomuHoverClose = state;
         const insideHoverSurface = target => target instanceof Element
             && Boolean(target.closest('.jpdb-reader-word') || target.closest(popoverSelector));
-        document.addEventListener('pointermove', event => {
+        const onPointerMove = event => {
             state.moves += 1;
             if (insideHoverSurface(event.target)) {
                 state.lastInsideAt = performance.now();
@@ -720,12 +760,17 @@ async function installHoverCloseRecorder(page) {
             }
             if (state.departedAt === null) state.departedAt = performance.now();
             state.movesAfterDeparture += 1;
-        }, true);
+        };
+        document.addEventListener('pointermove', onPointerMove, true);
         const observer = new MutationObserver(() => {
             if (state.removedAt !== null || document.querySelector(popoverSelector)) return;
             state.removedAt = performance.now();
         });
         observer.observe(document.documentElement, { childList: true, subtree: true });
+        window.__yomuHoverCloseTeardown = () => {
+            observer.disconnect();
+            document.removeEventListener('pointermove', onPointerMove, true);
+        };
     }, POPOVER_SELECTOR);
 }
 
