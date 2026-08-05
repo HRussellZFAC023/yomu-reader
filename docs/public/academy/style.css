@@ -8149,7 +8149,27 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   display: ruby-text;
   transform: none;
   white-space: nowrap;
-  pointer-events: none;
+  /* MEASURED 2026-08-02 in Chromium: with pointer-events:none the READING is a
+     dead tap target. At 18px text the word's own rects are 51-72 and the reading
+     sits at 40-52, so 12px of a 32px word — 37% of what a reader sees and aims
+     at — hit-tested to the paragraph instead. A word is display:inline so its
+     rects never include the annotation, every fallback in
+     readerWordForPointerEvent is rect-based, and the raw-text fallback refuses a
+     caret inside a reader word: pressing a word's own furigana did nothing at
+     all. The measured fix once landed only in the critical subset
+     (styles/index.ts), which THIS sheet then overwrote on every page that could
+     load it — so the band stayed dead everywhere it mattered.
+     `inherit`, not `auto`: the reading must behave exactly like the word it
+     annotates, and the rt box belongs to exactly one word, so
+     target.closest('.jpdb-reader-word') resolves it with no geometry at all. An
+     unconditional `auto` would ALSO re-arm hit testing inside the additive
+     mirrors and OCR layers that deliberately set pointer-events:none on
+     themselves (pointer-events is an inherited property, and a descendant `auto`
+     re-enables what an ancestor's `none` switched off) — that would swallow host
+     clicks the page is supposed to own, which is worse than the dead band.
+     Mirrored/projected readings resolve through their own path instead: see
+     projectedReadingWordAtPoint in dom/detached-reading-overlay-impl.ts. */
+  pointer-events: inherit;
   text-decoration: none !important;
   /* Unprefixed only — `-webkit-ruby-align` never existed in any engine and just
      parse-fails; see the .jpdb-reader-word ruby rule above for why center beats

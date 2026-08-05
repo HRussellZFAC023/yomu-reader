@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.82
+// @version 1.8.83
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.708bb3619374.user.js#sha256=cIuzYZN0wiFSsK1rpld0NwJDT0a2BSM8vNq6Wl0y+mo=
-// @resource yomuCss  https://yomureader.com/yomu.7c5f78a34209.css#sha256=fF94o0IJmxvZgjZau5h1KOV+1cfq1YEdxH3EVUOSSp4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.86bbd35720df.user.js#sha256=hrvTVyDfLJNy0kUiW85gmKsQXGO/YUz/4hKyrSQdu1M=
+// @resource yomuCss  https://yomureader.com/yomu.0f710500cc29.css#sha256=D3EFAMwp54rB9sHQ/NP39dr+5FJHa3siw3iyJZwFsuQ=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -8888,6 +8888,9 @@ return yomuAnnotationsCompanion()?.clearProjectedReadingsWithin(root) ?? 0;
 }
 function pruneProjectedReadings(document2) {
 yomuAnnotationsCompanion()?.pruneProjectedReadings(document2);
+}
+function projectedReadingWordAtPoint(document2, x, y, accepts) {
+return yomuAnnotationsCompanion()?.projectedReadingWordAtPoint(document2, x, y, accepts) ?? null;
 }
 function createPostPaintPass(run) {
 let pendingScheduler = null;
@@ -34612,8 +34615,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.82"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.82"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.83"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.83"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34651,7 +34654,7 @@ return [
 ".jpdb-reader-word ruby{position:static!important;display:ruby!important;ruby-align:center!important;ruby-position:over!important;line-height:1;vertical-align:baseline!important}",
 ".jpdb-reader-ruby-base{display:inline}",
 ".jpdb-reader-word rp{display:none}",
-".jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:auto;text-decoration:none!important}",
+".jpdb-reader-word rt{position:static;display:ruby-text;ruby-align:center;line-height:1;text-align:center;white-space:nowrap;pointer-events:inherit;text-decoration:none!important}",
 ".jpdb-reader-word rt.jpdb-reader-furi{display:ruby-text!important;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important}",
 ".jpdb-reader-furi{font-size:.58em;font-weight:700;line-height:1.08;color:inherit!important;-webkit-text-fill-color:currentColor!important;user-select:none;-webkit-user-select:none}"
 ].join("\n");
@@ -34756,7 +34759,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.82"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.83"}`;
 } catch {
 return null;
 }
@@ -40457,7 +40460,7 @@ if (options.clickLookup) return this.canClickLookupReaderWord(word);
 return this.canLookupReaderWord(word);
 };
 if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct) && this.readerWordMatchesPointerGeometry(direct, event.clientX, event.clientY)) return direct;
-return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord)) ?? firstComposedEventGeometryMatch(event, (candidate) => this.readerWordFromRenderedGeometry(candidate, event.clientX, event.clientY, canUseWord));
+return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? projectedReadingWordAtPoint(document, event.clientX, event.clientY, (word) => this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word)) ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord)) ?? firstComposedEventGeometryMatch(event, (candidate) => this.readerWordFromRenderedGeometry(candidate, event.clientX, event.clientY, canUseWord));
 }
 readerPointerSurfaceForTarget(target) {
 return target?.closest(READER_POINTER_SURFACE_SELECTOR) ?? null;
@@ -40466,8 +40469,7 @@ readerWordBelongsToPointerSurface(word, surface) {
 return !surface || surface.contains(word);
 }
 readerWordMatchesPointerGeometry(word, x, y) {
-if (!word.closest(".jpdb-reader-additive-text-mirror")) return true;
-if (typeof Range.prototype.getClientRects !== "function") return true;
+if (!word.closest(".jpdb-reader-additive-text-mirror") || typeof Range.prototype.getClientRects !== "function") return true;
 return readerWordSourcePointScore(word, x, y) !== null;
 }
 isMiningDrawerHandlePointerEvent(event) {

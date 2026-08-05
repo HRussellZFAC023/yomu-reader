@@ -187,6 +187,33 @@ function pruneProjectedReadings(document2) {
   const overlay = overlays.get(document2);
   if (overlay) pruneDisconnectedRecords(overlay);
 }
+function projectedReadingWordAtPoint(document2, x, y, accepts = () => true) {
+  const overlay = overlays.get(document2);
+  if (!overlay) return null;
+  let best = null;
+  for (const record of overlay.records) {
+  const rect = projectedReadingPaintedRect(record);
+  if (!rect || !pointInsideRect(rect, x, y)) continue;
+  const word = projectedReadingOwnerWord(record);
+  if (!word || !accepts(word)) continue;
+  const distance = Math.abs(x - (rect.left + rect.width / 2));
+  if (!best || distance < best.distance) best = { word, distance };
+  }
+  return best?.word ?? null;
+}
+function projectedReadingPaintedRect(record) {
+  const { clone } = record;
+  if (!clone.isConnected) return null;
+  const rect = clone.getBoundingClientRect();
+  return validRect(rect) ? rect : null;
+}
+function projectedReadingOwnerWord(record) {
+  const word = record.source.closest(".jpdb-reader-word");
+  return word?.isConnected ? word : null;
+}
+function pointInsideRect(rect, x, y) {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
 function documentOverlay(document2) {
   const existing = overlays.get(document2);
   if (existing) {
@@ -1341,6 +1368,7 @@ function readYomuCompanions(target) {
 registerYomuCompanion("annotations", {
   clearProjectedReadings,
   clearProjectedReadingsWithin,
+  projectedReadingWordAtPoint,
   pruneProjectedReadings,
   syncProjectedReadings
 });

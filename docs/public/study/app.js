@@ -187,6 +187,33 @@
     const overlay = overlays.get(document2);
     if (overlay) pruneDisconnectedRecords(overlay);
   }
+  function projectedReadingWordAtPoint(document2, x2, y, accepts = () => true) {
+    const overlay = overlays.get(document2);
+    if (!overlay) return null;
+    let best = null;
+    for (const record2 of overlay.records) {
+      const rect = projectedReadingPaintedRect(record2);
+      if (!rect || !pointInsideRect(rect, x2, y)) continue;
+      const word = projectedReadingOwnerWord(record2);
+      if (!word || !accepts(word)) continue;
+      const distance = Math.abs(x2 - (rect.left + rect.width / 2));
+      if (!best || distance < best.distance) best = { word, distance };
+    }
+    return best?.word ?? null;
+  }
+  function projectedReadingPaintedRect(record2) {
+    const { clone } = record2;
+    if (!clone.isConnected) return null;
+    const rect = clone.getBoundingClientRect();
+    return validRect(rect) ? rect : null;
+  }
+  function projectedReadingOwnerWord(record2) {
+    const word = record2.source.closest(".jpdb-reader-word");
+    return word?.isConnected ? word : null;
+  }
+  function pointInsideRect(rect, x2, y) {
+    return x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
   function documentOverlay(document2) {
     const existing = overlays.get(document2);
     if (existing) {
@@ -1365,6 +1392,7 @@
   registerYomuCompanion("annotations", {
     clearProjectedReadings: clearProjectedReadings$1,
     clearProjectedReadingsWithin: clearProjectedReadingsWithin$1,
+    projectedReadingWordAtPoint,
     pruneProjectedReadings: pruneProjectedReadings$1,
     syncProjectedReadings: syncProjectedReadings$1
   });
@@ -60999,7 +61027,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.82".trim() ? "1.8.82".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.83".trim() ? "1.8.83".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
