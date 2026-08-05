@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.8.84] - 2026-08-05
+
+### Fixed
+
+- Restores the published release packages: the 1.8.82 and 1.8.83 release pipelines failed after publishing their documentation, so their downloadable packages never appeared. This release carries both versions' fixes and publishes normally. No new changes beyond 1.8.83.
+
 ## [1.8.83] - 2026-08-05
 
 ### Fixed

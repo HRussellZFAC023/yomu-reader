@@ -195,6 +195,7 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    'Restores the published release packages: the 1.8.82 and 1.8.83 release pipelines failed after publishing their documentation, so their downloadable packages never appeared. This release carries both versions\' fixes and publishes normally. No new changes beyond 1.8.83.': '公開リリースパッケージを復旧しました。1.8.82と1.8.83のリリースパイプラインはドキュメントの公開後に失敗し、ダウンロード可能なパッケージが公開されませんでした。このリリースは両バージョンの修正を含み、通常どおり公開されます。1.8.83以降の新しい変更はありません。',
     'Tapping or hovering a word\'s furigana now opens that word. The reading above every annotated line was a dead strip whose presses fell through to the page behind it.': '単語のふりがなをタップまたはホバーすると、その単語が開くようになりました。注釈された行の上の読みは、押しても背後のページに突き抜けてしまう反応しない帯になっていました。',
     'Readings projected over mirrored, scrolled, OCR, and button text are pressable too, and resolve to the word they belong to.': 'ミラーリングされたテキスト、スクロールされたテキスト、OCRテキスト、ボタンテキストの上に投影された読みも押せるようになり、属する単語に解決されます。',
     'Buttons and links keep their own clicks: pressing a reading painted over a control still activates the control.': 'ボタンとリンクは自身のクリックを保持します。コントロールの上に描かれた読みを押しても、そのコントロールが動作します。',
