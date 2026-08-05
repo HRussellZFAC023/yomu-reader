@@ -208,9 +208,18 @@ export function shouldAutoScanImageOcr(pageHasJapaneseText: boolean): boolean {
         || (isBookWalkerReaderPage() && Boolean(document.querySelector('canvas')));
 }
 
+/**
+ * The shipped policy: every host gets frequent mutation/scroll scans, so dynamic
+ * feeds annotate as content streams in instead of waiting for a manual scan.
+ *
+ * This is a POLICY CONSTANT, not a gate. It used to be called as a condition in
+ * the observer callback, the scroll and resize listeners, the reveal-click
+ * handler and the custom-element upgrade hook, where it read as a host check
+ * that could fail and never could. Those call sites are gone; what remains is
+ * the injectable default of throttledAutoScanDelay, whose non-frequent branch is
+ * exercised as a pure-function contract.
+ */
 export function allowsFrequentVisibleAutoScan(): boolean {
-    // Frequent mutation/scroll scans make dynamic feeds annotate as content
-    // streams in instead of waiting for a manual scan.
     return true;
 }
 
