@@ -30,6 +30,7 @@ import { renderDictionaryScopedStyles } from './glossary';
 import { glossaryValueToSearchText, normalizeGlossarySearchText } from './glossary-text';
 import {
     ensureYomitanManagedStateStore,
+    fencedYomitanDbHandle,
     reconcileYomitanManagedStateEpoch,
     runYomitanManagedStateWrite,
 } from './managed-state';
@@ -1839,12 +1840,8 @@ export class YomitanDictionaryStore {
         });
     }
 
-    private async db(): Promise<IDBDatabase> {
-        const epoch = await assertManagedStateMutationAllowed();
-        this.dbPromise ??= this.openDb(epoch);
-        const db = await this.dbPromise;
-        await assertManagedStateMutationAllowed();
-        return db;
+    private db(): Promise<IDBDatabase> {
+        return fencedYomitanDbHandle(() => this.dbPromise, epoch => (this.dbPromise ??= this.openDb(epoch)));
     }
 
     // A blocked or wedged upgrade (an older runtime still holding the
