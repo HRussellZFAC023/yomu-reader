@@ -77,4 +77,28 @@ describe('VisiblePageScanner settle triggers', () => {
         await new Promise(resolve => setTimeout(resolve, 350));
         expect(word.hasAttribute('data-yomu-wrapped')).toBe(false);
     });
+
+    it('does not throw when late-annotation refresh timer fires after destroy or when Node global is torn down', async () => {
+        scanner = createScanner();
+        const root = document.createElement('div');
+        document.body.append(root);
+
+        scanner.scheduleLateAnnotationRefresh([root]);
+        scanner.destroy();
+
+        // Simulate JSDOM realm teardown where the bare Node global is removed before timeout fires
+        const originalNode = (globalThis as Record<string, unknown>).Node;
+        delete (globalThis as Record<string, unknown>).Node;
+
+        try {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            // Should complete cleanly without throwing ReferenceError: Node is not defined
+        } finally {
+            if (originalNode !== undefined) {
+                (globalThis as Record<string, unknown>).Node = originalNode;
+            }
+            root.remove();
+        }
+    });
 });
+

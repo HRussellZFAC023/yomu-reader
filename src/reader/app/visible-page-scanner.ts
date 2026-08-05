@@ -242,10 +242,10 @@ export class VisiblePageScanner {
     ): void {
         if (this.destroyed || typeof window === 'undefined') return;
         for (const root of roots) {
-            if (root instanceof Node && root.isConnected) this.lateAnnotationStateRoots.add(root);
+            if (isConnectedNode(root)) this.lateAnnotationStateRoots.add(root);
         }
         for (const root of geometryRoots) {
-            if (root instanceof Node && root.isConnected) this.lateAnnotationGeometryRoots.add(root);
+            if (isConnectedNode(root)) this.lateAnnotationGeometryRoots.add(root);
         }
         if (!this.lateAnnotationStateRoots.size && !this.lateAnnotationGeometryRoots.size) return;
         // Leading coalescer: a continuous detail queue must not keep pushing
@@ -254,11 +254,17 @@ export class VisiblePageScanner {
         if (this.lateAnnotationRefreshTimer !== undefined) return;
         this.lateAnnotationRefreshTimer = window.setTimeout(() => {
             this.lateAnnotationRefreshTimer = undefined;
+            if (this.destroyed) return;
             this.flushLateAnnotationRefresh();
         }, LATE_ANNOTATION_REFRESH_WINDOW_MS);
     }
 
     private flushLateAnnotationRefresh(): void {
+        if (this.destroyed) {
+            this.lateAnnotationStateRoots.clear();
+            this.lateAnnotationGeometryRoots.clear();
+            return;
+        }
         const stateRoots = compactConnectedRoots(this.lateAnnotationStateRoots);
         const geometryRoots = compactConnectedRoots(this.lateAnnotationGeometryRoots);
         this.lateAnnotationStateRoots.clear();
@@ -1154,10 +1160,15 @@ function visiblePageCoverageInsightSurface(word: HTMLElement, key: string): stri
     return key || word.dataset.expression || word.textContent || '';
 }
 
+function isConnectedNode(root: unknown): root is ParentNode & Node {
+    if (typeof Node !== 'undefined' && root instanceof Node) {
+        return Boolean(root.isConnected);
+    }
+    return Boolean(root && typeof root === 'object' && 'isConnected' in root && (root as Node).isConnected);
+}
+
 function compactConnectedRoots(roots: Iterable<ParentNode>): ParentNode[] {
-    const connected = [...new Set(roots)].filter((root): root is ParentNode & Node => (
-        root instanceof Node && root.isConnected
-    ));
+    const connected = [...new Set(roots)].filter(isConnectedNode);
     // If a feed/card ancestor and one of its sentence descendants both joined
     // the window, scanning the ancestor already covers the child. Keeping only
     // the broadest connected roots avoids duplicate semantic and layout passes.
