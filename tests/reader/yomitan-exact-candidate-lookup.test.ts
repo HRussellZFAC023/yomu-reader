@@ -121,7 +121,11 @@ describe('exact local candidate lookup', () => {
     it('returns no confirmations when the local-dictionary companion is absent', async () => {
         const host = globalThis as typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
         const previous = Object.getOwnPropertyDescriptor(host, '__yomuCompanions');
-        delete host.__yomuCompanions;
+        // An EMPTY registry, not a deleted one: the resolver falls back to a
+        // module-level sandbox copy, so deleting the global still handed back
+        // the real store and this case passed without ever reaching the
+        // companion-less path.
+        host.__yomuCompanions = {};
         try {
             const inert = createLocalDictionaryStore(() => '', () => 'en');
             await expect(inert.lookupExactTermCandidates([
