@@ -2,6 +2,7 @@ import {
     gmStorageDelete,
     gmStorageGet,
     gmStorageGetForResetEnumeration,
+    gmStorageGetMany,
     gmStorageSet,
 } from '../app/storage';
 import { registerManagedState } from '../app/managed-state-registry';
@@ -62,10 +63,11 @@ export async function enumerateLocalYomuSrsStorageKeys(): Promise<string[]> {
  */
 export class LocalYomuSrsStore {
     async read(): Promise<StoredYomuSrsDeck> {
-        const rawIndex = await gmStorageGet<unknown>(DECK_INDEX_KEY, null);
+        // The index and the legacy v1 key are one logical read, so they take one
+        // managed-state fence between them rather than one each.
+        const [rawIndex, legacy] = await gmStorageGetMany<unknown>([DECK_INDEX_KEY, LEGACY_DECK_KEY], null);
         const index = normalizeIndex(rawIndex);
         const current = index ? await this.readIndexedDeck(index) : normalizeStoredYomuSrsDeck(null);
-        const legacy = await gmStorageGet<unknown>(LEGACY_DECK_KEY, null);
         if (legacy === null || legacy === undefined) return current;
 
         const migrated = mergeStoredYomuSrsDecks(current, legacy);
@@ -115,14 +117,16 @@ export class LocalYomuSrsStore {
     }
 
     private async readIndexedDeck(index: StoredYomuSrsIndex): Promise<StoredYomuSrsDeck> {
-        const cards = await Promise.all(index.cardIds.map(async id => [
-            id,
-            await gmStorageGet<unknown>(cardStorageKey(id), null),
-        ] as const));
-        const tombstones = await Promise.all(index.tombstoneIds.map(async id => [
-            id,
-            await gmStorageGet<unknown>(tombstoneStorageKey(id), null),
-        ] as const));
+        // One fence for the whole fan-out. Fencing per card made a deck of N
+        // cards and tombstones cost 3N GM round trips — an epoch read on each
+        // side of every value read — instead of N+1.
+        const values = await gmStorageGetMany<unknown>([
+            ...index.cardIds.map(cardStorageKey),
+            ...index.tombstoneIds.map(tombstoneStorageKey),
+        ], null);
+        const cards = index.cardIds.map((id, position) => [id, values[position]] as const);
+        const tombstones = index.tombstoneIds
+            .map((id, position) => [id, values[index.cardIds.length + position]] as const);
         return normalizeStoredYomuSrsDeck({
             version: 1,
             cards: Object.fromEntries(cards.filter((entry): entry is [string, StoredYomuSrsCard] =>

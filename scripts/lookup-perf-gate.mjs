@@ -14,7 +14,10 @@
 //                    hop to the extension worker. The dictionary store used to
 //                    take the managed-state MUTATION fence twice per handle
 //                    acquisition, which cost 9 of these per lookup on two
-//                    control keys that cannot change without a factory reset.
+//                    control keys that cannot change without a factory reset;
+//                    and every managed value read used to be bracketed by an
+//                    epoch read on BOTH sides, so a read cost three round trips
+//                    and a fan-out of N keys cost 3N.
 //   idbTransactions  IndexedDB read transactions.
 //   elementFromPoint Hit tests. The OCR pointer path asked the same point three
 //                    separate times before the per-event memo.
@@ -56,23 +59,28 @@ const HOVER_WORD = '漢字';
 // and the post-hover tail.
 const IDLE_WINDOW_MS = 800;
 
-// Measured after the 1.8.82 lookup-path work, +50%, rounded up. Across four local
-// runs: gmReads 43-46, the other three exactly 12 / 6 / 4 every time. The GM count
-// drifts by a few because a couple of subsystems re-read their own key an extra
-// time depending on when the popover body resolves, so the headroom covers that
-// plus host and build variation.
+// Measured, +50%, rounded up. Across local runs: gmReads 31-33, the other three
+// exactly 12 / 6 / 4 every time. The GM count drifts by a couple because the
+// study panel re-renders its grammar hints a variable number of times depending
+// on when the popover body resolves, and each render re-reads its preferences
+// key, so the headroom covers that plus host and build variation.
 //
-// gmReads is 43 rather than the handful the dictionary store now needs, and the
-// remaining shape is worth naming so nobody reads 43 as "fine": 33 of them are
-// `yomu:state-epoch`, because every managed read is bracketed by an epoch read on
-// each side, so ~10 real value reads (the two SRS keys, grammar preferences, the
-// mining context) cost four times that in round trips. Collapsing that
-// amplification is a storage-layer change with a factory-reset fence to respect;
-// this ceiling holds the line until then.
+// gmReads was 43-46 before the epoch-read work, with 33-35 of those on
+// `yomu:state-epoch`: every managed value read was bracketed by an epoch read on
+// BOTH sides, so ~10 real value reads cost four times that in round trips. The
+// after-fence is gone for reads (a read cannot observe a newer epoch — see
+// src/reader/app/managed-read-path.ts), a read pass now takes one fence for N
+// keys instead of one each, and the synchronous path no longer asks for the same
+// epoch twice in one turn. 21 of the remaining 33 are still `yomu:state-epoch`.
+//
+// The next two bites are both CALLER-side, not storage-side: the study grammar
+// panel renders 4x per hover (4 epoch + 4 value reads for one preferences key),
+// and the parser sweeps the dictionary 7x per hover, each sweep taking its own
+// handle fence. Fix those in their own callers, not by weakening a fence.
 //
 // Update deliberately, never to make a red gate green.
 const CEILINGS = {
-    gmReads: 65,
+    gmReads: 47,
     idbTransactions: 18,
     elementFromPoint: 9,
     readerQuerySelectorAll: 6,

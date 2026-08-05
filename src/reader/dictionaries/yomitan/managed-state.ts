@@ -55,6 +55,16 @@ export function reconcileYomitanManagedStateEpoch(db: IDBDatabase, epoch: Manage
  *
  * `open` is passed the epoch and is expected to memoize (`??=`), so a second
  * caller racing the first through the fence reuses the first open.
+ *
+ * Granularity: one acquisition per LOGICAL read, not per round trip. A window
+ * sweep acquires once and threads the handle through its windows, rather than
+ * paying a `yomu:state-epoch` read for every window of every sweep. The gate
+ * fixture's short sentence is a single window per sweep, so that costs it
+ * nothing measurable; the saving scales with the length of the text being
+ * annotated, which is where the sweep exists to be cheap. A sweep that started
+ * in a live epoch and finishes in a retired one has still only READ; every write
+ * it can reach (the derived-index builders, importFile, clearAll) fences itself,
+ * so nothing it does can persist.
  */
 export async function fencedYomitanDbHandle(
     current: () => Promise<IDBDatabase> | undefined,

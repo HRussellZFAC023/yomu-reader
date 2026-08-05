@@ -546,6 +546,10 @@ export class YomitanDictionaryStore {
         // The learner's dictionary order decides which entry answers for a span
         // once the span itself is settled, so the sweep carries the rank.
         const rank = dictionaryRank(preferences);
+        // One sweep is one logical read: it takes the handle, and so the
+        // managed-state read fence, once rather than once per window. See
+        // fencedYomitanDbHandle for why that is the right granularity.
+        const db = await this.db();
         // Windows are swept in reading order and every match starts inside its
         // own window, so the furthest end selected so far is all a later window
         // needs to stay non-overlapping across the boundary.
@@ -557,7 +561,10 @@ export class YomitanDictionaryStore {
             if (start > 0) await nextTask();
             const end = codePointBoundaryAtOrAfter(source, Math.min(start + TERM_MATCH_WINDOW_CHARS, source.length));
             if (!isCurrentLookupTarget(target, targetGeneration)) return [];
-            const matches = await this.termMatchesInWindow(source, start, end, preferences, target);
+            const candidates = this.inlineTermCandidates.collect(target, source, start, end);
+            const matches = candidates.size
+                ? await this.lookupTermMatchCandidates(target, candidates, preferences, db)
+                : [];
             const free = matches.filter(match => match.start >= coveredUntil);
             const windowMatches = target.lookupSweepMode === 'left-to-right-longest-exact'
                 ? leftToRightLongestMatches(free, limit, rank)
@@ -571,23 +578,13 @@ export class YomitanDictionaryStore {
         return selected.sort((a, b) => a.start - b.start);
     }
 
-    private async termMatchesInWindow(
-        source: string,
-        start: number,
-        end: number,
-        preferences: DictionaryPreference[],
-        target: LearningTargetModule,
-    ): Promise<YomitanTermMatch[]> {
-        const candidates = this.inlineTermCandidates.collect(target, source, start, end);
-        return candidates.size ? await this.lookupTermMatchCandidates(target, candidates, preferences) : [];
-    }
-
     private async lookupTermMatchCandidates(
         target: LearningTargetModule,
         candidates: TermMatchCandidates,
         preferences: DictionaryPreference[],
+        db?: IDBDatabase,
     ): Promise<YomitanTermMatch[]> {
-        return collectTermMatchCandidates(await this.db(), target, candidates, dictionaryRank(preferences));
+        return collectTermMatchCandidates(db ?? await this.db(), target, candidates, dictionaryRank(preferences));
     }
 
     async summary(): Promise<DictionarySummary> {
