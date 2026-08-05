@@ -53582,7 +53582,10 @@ ${entry.reading}`);
       if (el2 && el2.nodeType && !el2.isConnected) return;
       S.epoch = (S.epoch || 0) + 1;
       if (root) {
-        attemptVoid(() => root.setAttribute(opts.e, String(S.epoch)), "canvas-mirror.bumpEpoch");
+        try {
+          root.setAttribute(opts.e, String(S.epoch));
+        } catch {
+        }
       }
     };
     const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
@@ -53606,7 +53609,11 @@ ${entry.reading}`);
       }
       if (el2 && el2.__yomuMid) return el2.__yomuMid;
       if (el2 && create) {
-        return attempt(() => el2.__yomuMid = "m" + S.nextId++, null, "canvas-mirror.idOf");
+        try {
+          return el2.__yomuMid = "m" + S.nextId++;
+        } catch {
+          return null;
+        }
       }
       return null;
     };
@@ -53803,7 +53810,7 @@ ${entry.reading}`);
       const draw = p.drawImage;
       p.drawImage = function(src) {
         if (!this.__yomuMirrorSkip) {
-          attemptVoid(() => {
+          try {
             const cid = idOf(this.canvas, true);
             if (cid) {
               const r = rec(cid, this.canvas.width, this.canvas.height);
@@ -53844,14 +53851,15 @@ ${entry.reading}`);
                 bumpEpoch(this.canvas);
               }
             }
-          }, "canvas-mirror.patch");
+          } catch {
+          }
         }
         return draw.apply(this, arguments);
       };
       const clr = p.clearRect;
       p.clearRect = function(x2, y, w, h) {
         if (!this.__yomuMirrorSkip) {
-          attemptVoid(() => {
+          try {
             if (x2 <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
               const cid = idOf(this.canvas, true);
               if (cid) {
@@ -53859,7 +53867,8 @@ ${entry.reading}`);
                 bumpEpoch(this.canvas);
               }
             }
-          }, "canvas-mirror.patch");
+          } catch {
+          }
         }
         return clr.apply(this, arguments);
       };
@@ -53872,8 +53881,11 @@ ${entry.reading}`);
     win.__yomuCanvasMirrorRecorder = true;
     S.installed = true;
     if (doc && root) {
-      attemptVoid(() => root.setAttribute(opts.r, "1"), "canvas-mirror.patch");
-      attemptVoid(() => {
+      try {
+        root.setAttribute(opts.r, "1");
+      } catch {
+      }
+      try {
         root.addEventListener(opts.p, () => {
           try {
             let node = root.querySelector("[" + opts.d + "]");
@@ -53894,7 +53906,8 @@ ${entry.reading}`);
           } catch {
           }
         });
-      }, "canvas-mirror.patch");
+      } catch {
+      }
     }
   }
   function recorderOpts() {
@@ -61027,7 +61040,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.84".trim() ? "1.8.84".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.85".trim() ? "1.8.85".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
