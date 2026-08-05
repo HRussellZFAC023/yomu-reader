@@ -9,7 +9,7 @@
     "src/reader/subtitles/youtube.ts": 2737,
     "src/reader/app/i18n.ts": 2658,
     "src/reader/newtab/runtime.ts": 2596,
-    "src/reader/dictionaries/yomitan/index.ts": 2388,
+    "src/reader/dictionaries/yomitan/index.ts": 2366,
     "src/reader/settings/index.ts": 2306,
     "src/reader/app/site-parsers.ts": 2243,
     "src/academy/domain/world-locations.ts": 2225,
