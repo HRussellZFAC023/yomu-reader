@@ -60,6 +60,7 @@ import {
     isReaderRasterPage,
     mutationsMayAddReaderRasterCandidate,
     mutationsMayRemoveReaderRasterCandidate,
+    ocrPointerHitElement,
     pageHasReaderRasterCandidates,
     positionCanvasFrameImage,
     readerCanvasSourceImageUrl,
@@ -949,7 +950,7 @@ export class ImageOcrController {
             this.enqueue(image, true);
             return true;
         }
-        const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
+        const surface = ocrReaderSurfaceFromPointerEvent(event, settings, this.isProvenRasterFreePage());
         if (!surface) return false;
         // Auto mode owns reader canvases through the stable full-page poll. Treating
         // pointermove/pointerover as a manual request captures only the visible crop;
@@ -3938,8 +3939,8 @@ function ocrImageFromPointerEvent(event: Event, settings: ReaderSettings): HTMLI
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
 }
 
-function ocrReaderSurfaceFromPointerEvent(event: Event, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
-    if (!ocrRuntimeActive(settings) || settings.ocrProvider === 'off' || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+function ocrReaderSurfaceFromPointerEvent(event: Event, settings: ReaderSettings, rasterFreePage: boolean): HTMLCanvasElement | HTMLElement | null {
+    if (rasterFreePage || !ocrRuntimeActive(settings) || settings.ocrProvider === 'off' || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
     // A tap whose POINT lands on existing OCR text must look it up, not re-scan.
     // Re-scanning releases the frame mid-tap, so the overlay vanishes before the
     // gesture ends — losing the lookup AND letting the tap fall through to the host
@@ -3973,8 +3974,7 @@ function eventWithPoint(
 function pointerEventOverOcrOverlay(event: Event & Pick<PointerEvent, 'clientX' | 'clientY'>): boolean {
     const target = event.target as Element | null;
     if (target?.closest?.('[data-jpdb-reader-root]')) return true;
-    if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return false;
-    return Boolean(document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.('[data-jpdb-reader-root]'));
+    return Boolean(ocrPointerHitElement(event)?.closest?.('[data-jpdb-reader-root]'));
 }
 
 function shouldHandleOcrPointerEvent(event: Event & Pick<PointerEvent, 'button' | 'pointerType'>): boolean {
@@ -3998,7 +3998,7 @@ function pointerEventImageTarget(event: Event): HTMLImageElement | null {
 }
 
 function pointerEventImageAtPoint(event: Event & Pick<PointerEvent, 'clientX' | 'clientY'>): HTMLImageElement | null {
-    const element = document.elementFromPoint?.(event.clientX, event.clientY);
+    const element = ocrPointerHitElement(event);
     if (!element || element.closest('[data-jpdb-reader-root]')) return null;
     return element instanceof HTMLImageElement ? element : element.closest('img');
 }
@@ -4010,7 +4010,7 @@ function pointerEventReaderSurfaceTarget(event: Event, settings: ReaderSettings)
 }
 
 function pointerEventReaderSurfaceAtPoint(event: Event & Pick<PointerEvent, 'clientX' | 'clientY'>, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
-    const element = document.elementFromPoint?.(event.clientX, event.clientY);
+    const element = ocrPointerHitElement(event);
     if (element && !element.closest('[data-jpdb-reader-root]')) {
         const surface = readerSurfaceFromElement(element, settings);
         if (surface) return surface;
