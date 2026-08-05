@@ -205,6 +205,7 @@
     "smoke:grading-provider": "node scripts/grading-provider-popover-smoke.mjs",
     "smoke:google-search-reader": "node scripts/google-search-reader-smoke.mjs",
     "manual:live-browser": "node scripts/manual/live-browser-smoke.mjs",
+    "smoke:modal-reading-register": "node scripts/modal-reading-register-smoke.mjs",
     "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
     "smoke:ja-docs-perf": "node scripts/ja-docs-annotation-perf-smoke.mjs",
     "smoke:offline-study": "node scripts/offline-study-smoke.mjs",

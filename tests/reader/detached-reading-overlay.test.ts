@@ -1711,6 +1711,40 @@ describe('detached reading scroll context', () => {
         expect(reading.style.getPropertyValue('position')).toBe('fixed');
     });
 
+    /**
+     * Choosing the viewport layer is only half the contract: the clone's offsets
+     * resolve against that layer's own box, so the layer has to actually BE
+     * viewport space. Any ancestor establishing a containing block for fixed
+     * descendants moves it — a `transform` or `will-change` on the root, which is
+     * what sites hand iOS Safari for momentum scrolling — and parks it at the
+     * document origin instead. Stamping as if the layer sat at (0, 0) then put
+     * every reading over fixed content exactly the page's scroll offset above its
+     * word, with no later pass able to recover it: the reported readings floating
+     * in empty space over a cart dialog on a scrolled page. So the origin is
+     * measured from the layer, exactly as the document and per-scroller layers
+     * already were.
+     */
+    it('stamps a reading over fixed content through its layer, not an assumed viewport', async () => {
+        const pinned = document.createElement('div');
+        pinned.style.position = 'fixed';
+        const target = projectTargetInto(pinned, 'かいもの');
+        const layer = target.reading.parentElement!;
+        expect(layer.classList.contains('jpdb-reader-detached-reading-document-layer')).toBe(false);
+        expect(target.reading.style.top).toBe('20px');
+
+        // The root captures the layer, so its box is the document's: 530px of
+        // page scroll above the viewport.
+        layer.getBoundingClientRect = () => rect(0, -530, 1200, 4000);
+        document.dispatchEvent(new Event('scroll'));
+        await nextProjectionFrame();
+
+        // The word is fixed and has not moved on screen, so the stamp has to
+        // grow by exactly what the layer lost.
+        expect(target.reading.style.display).toBe('block');
+        expect(target.reading.style.top).toBe('550px');
+        clearProjectedReadings(target.owner);
+    });
+
     it('re-decides the layer when the word gains a scrolling ancestor', async () => {
         const target = readingOwner('いどう');
         mockElementsFromPoint([target.anchor]);

@@ -71,7 +71,6 @@ type FrameScheduler = (callback: FrameRequestCallback) => number;
 interface DocumentOverlay {
     layer: HTMLElement;
     documentLayer: HTMLElement;
-    documentLayerOrigin: { x: number; y: number } | null;
     scrollLayers: Map<HTMLElement, ScrollProjectionLayer>;
     scrolledContainers: WeakSet<Element>;
     records: Set<ProjectionRecord>;
@@ -121,7 +120,9 @@ interface ProjectionReadContext {
     elementPaint: Map<Element, boolean>;
     occludingPaint: Map<Element, boolean>;
     projectionLayers: Map<Element, ProjectionLayerTarget>;
-    scrollLayerOrigins: Map<HTMLElement, { x: number; y: number }>;
+    // Where each overlay layer's own box sits, in viewport coordinates. Read at
+    // most once per layer per pass, and never assumed — see projectionPaintOrigin.
+    layerOrigins: Map<Element, { x: number; y: number }>;
     viewportCoordinateSafety: Map<Element, boolean>;
     // Paint visibility and scroll context both walk the composed ancestry and
     // both want the same computed style. Reading it once per element per pass
@@ -163,11 +164,10 @@ export function syncProjectedReadings(
         elementPaint: new Map(),
         occludingPaint: new Map(),
         projectionLayers: new Map(),
-        scrollLayerOrigins: new Map(),
+        layerOrigins: new Map(),
         viewportCoordinateSafety: new Map(),
         styleReads: new Map(),
     };
-    overlay.documentLayerOrigin = null;
 
     for (const [source, record] of records) {
         if (currentSources.has(source)) continue;
@@ -344,7 +344,6 @@ function documentOverlay(document: Document): DocumentOverlay {
     const overlay: DocumentOverlay = {
         layer,
         documentLayer,
-        documentLayerOrigin: null,
         scrollLayers: new Map(),
         scrolledContainers: new WeakSet(),
         records: new Set(),
@@ -748,17 +747,42 @@ function naturalReadingWidth(record: ProjectionRecord): number {
     return Number.isFinite(fontSize) ? fontSize * (record.clone.textContent ?? '').length : 0;
 }
 
-/** The offset between viewport geometry and the compositor-owned layer. */
+/**
+ * The offset between viewport geometry and the compositor-owned layer a clone
+ * actually lives in — measured from that layer's own box, never inferred from
+ * the mode that chose it.
+ *
+ * Every layer is a containing block for its clones (each is `contain: layout`),
+ * so a clone's stamped offsets are resolved against the layer's box and against
+ * nothing else. Which means a layer is only the coordinate space the mode
+ * assumes for as long as its box sits where the mode expects — and any ancestor
+ * that establishes a containing block for FIXED descendants moves it. A
+ * `transform`, `filter`, `will-change`, or `contain` on the root (the
+ * translate3d/will-change momentum-scroll hints sites hand iOS Safari are the
+ * common one) captures the viewport layer and parks it at the document origin
+ * instead of the viewport.
+ *
+ * Assuming (0, 0) there put every viewport-mode reading — inside a fixed dialog,
+ * a sticky bar, a top-layer <dialog> — exactly the page's scroll offset above
+ * its word, and no later pass could recover it because every pass made the same
+ * wrong assumption: the reported "readings floating in empty space far above the
+ * button" on a scrolled page behind a cart-limit dialog. Measuring costs one
+ * rect per layer per pass, reports (0, 0) whenever the layer really is
+ * viewport-pinned, and is the same rule the document and per-scroller layers
+ * already relied on.
+ */
 function projectionPaintOrigin(
     record: ProjectionRecord,
     context: ProjectionReadContext,
 ): { x: number; y: number } {
-    const target = record.layerTarget;
-    if (target?.mode === 'document') return documentLayerOrigin(context.overlay);
-    if (target?.mode === 'scroll' && target.scrollLayerHost) {
-        return scrollLayerOrigin(target.scrollLayerHost, context);
-    }
-    return { x: 0, y: 0 };
+    const layer = record.clone.parentElement;
+    if (!layer) return { x: 0, y: 0 };
+    const cached = context.layerOrigins.get(layer);
+    if (cached) return cached;
+    const rect = layer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    context.layerOrigins.set(layer, origin);
+    return origin;
 }
 
 /**
@@ -858,37 +882,6 @@ function projectionLayerTargetForRecord(
     const { overlay } = context;
     if (record.scrollContextEpoch === overlay.scrollContextEpoch && record.layerTarget) return record.layerTarget;
     return projectionLayerTarget(record.anchor, context);
-}
-
-/**
- * Layout containment makes the document layer the containing block for the
- * clones inside it, so document-space offsets are stamped relative to that
- * layer's own box rather than to the page origin. Both that box and the word
- * are measured in viewport coordinates in the same pass, so the scroll offset
- * cancels and the stamped value holds still while the page scrolls. It is read
- * once per pass rather than once per reading.
- */
-function documentLayerOrigin(overlay: DocumentOverlay): { x: number; y: number } {
-    if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
-    const rect = overlay.documentLayer.getBoundingClientRect();
-    const origin = { x: -rect.left, y: -rect.top };
-    overlay.documentLayerOrigin = origin;
-    return origin;
-}
-
-function scrollLayerOrigin(
-    host: HTMLElement,
-    context: ProjectionReadContext,
-): { x: number; y: number } {
-    const cached = context.scrollLayerOrigins.get(host);
-    if (cached) return cached;
-    const scrollLayer = context.overlay.scrollLayers.get(host);
-    if (!scrollLayer) return { x: 0, y: 0 };
-    const { layer } = scrollLayer;
-    const rect = layer.getBoundingClientRect();
-    const origin = { x: -rect.left, y: -rect.top };
-    context.scrollLayerOrigins.set(host, origin);
-    return origin;
 }
 
 function projectionLayerTarget(element: Element, context: ProjectionReadContext): ProjectionLayerTarget {
@@ -1159,9 +1152,6 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
     // A queued pass is itself the chance to drain prior deferred work. Only a
     // record deferred by THIS pass should request another frame.
     overlay.occlusionRefreshNeeded = false;
-    // The layer's viewport box moves with every scroll; only its value within
-    // a single pass may be reused.
-    overlay.documentLayerOrigin = null;
     // Frameworks can move an already-annotated node between shadow trees
     // without asking the reader to sync it again. After a DOM/slot mutation,
     // reconcile composed ancestry before choosing records so listeners follow
@@ -1179,7 +1169,9 @@ function runProjectionRefreshPass(overlay: DocumentOverlay): void {
         elementPaint: new Map(),
         occludingPaint: new Map(),
         projectionLayers: new Map(),
-        scrollLayerOrigins: new Map(),
+        // A layer's viewport box moves with every scroll, so the map is rebuilt
+        // per pass: only its value WITHIN one pass may be reused.
+        layerOrigins: new Map(),
         viewportCoordinateSafety: new Map(),
         styleReads: new Map(),
     };

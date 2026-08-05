@@ -49,6 +49,10 @@ export const NIGHTLY_SMOKES = [
     // than part of the fast push gate.
     'smoke:lookup-perf',
     'smoke:mobile-docs',
+    // Chromium + WebKit: whether a reading lands on its word inside a fixed
+    // dialog is decided by real containing-block resolution, which no jsdom test
+    // models.
+    'smoke:modal-reading-register',
     'smoke:ocr-provider-matrix',
     'smoke:onboarding-popover',
     'smoke:pitch-underline',
