@@ -1,5 +1,4 @@
 import {
-    MANAGED_STATE_SLOT_KEY_PREFIX,
     MANAGED_STORAGE_KEY_PREFIXES,
     isManagedStorageKey,
     isManagedStorageSlotKey,
@@ -26,6 +25,16 @@ import {
     type ManagedStateEpoch,
 } from './managed-state-epoch';
 import {
+    authoritativeManagedStateEpoch,
+    isMissingSentinel,
+    managedGmValue,
+    managedStateStorageKey,
+    MISSING,
+    rawAuthoritativeManagedStateEpoch,
+    readManagedGmValue,
+    type GmGetValue,
+} from './managed-read-path';
+import {
     registeredManagedStorageKeys,
     registeredManagedIndexedDbNames,
     managedStateEntries,
@@ -49,20 +58,6 @@ import { isManagedStorageBackupKey } from './managed-storage-backup-policy';
 export { managedLocalStorage, managedSessionStorage };
 export type { GmStorageLeaseOptions } from './gm-storage-lease';
 
-// Missing-value sentinel. Message-based GM implementations (Safari
-// Userscripts, FireMonkey, world bridges) structured-clone the default they
-// hand back, so identity alone cannot detect "key not stored" — compare
-// structurally as well or every read of an absent key returns the sentinel
-// clone as if it were stored data (defaults + onboarding on every site).
-const MISSING = { __yomuStorageValueMissing: true };
-
-function isMissingSentinel(value: unknown): boolean {
-    if (value === MISSING) return true;
-    return Boolean(value
-        && typeof value === 'object'
-        && !Array.isArray(value)
-        && (value as Record<string, unknown>).__yomuStorageValueMissing === true);
-}
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
 const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
 const LOCAL_MIRROR_PROVENANCE_KEY = 'yomu:local-storage-provenance:v1';
@@ -105,8 +100,6 @@ export function managedStateResetEpochMayHaveCommitted(error: unknown): boolean 
 }
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'deleted' } | { kind: 'fallback' };
-type ManagedGmRead<T> = { kind: 'found'; value: T } | { kind: 'deleted' } | { kind: 'missing' };
-type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
 type GmSetValue = (key: string, value: unknown) => void | Promise<void>;
 type GmDeleteValue = (key: string) => void | Promise<void>;
 type GmListValues = () => string[] | Promise<string[]>;
@@ -156,18 +149,6 @@ export interface StoredValueChangeSource {
     readonly transport: 'gm-storage' | 'extension-storage' | 'web-storage';
 }
 
-async function rawAuthoritativeManagedStateEpoch(getValue: GmGetValue): Promise<unknown> {
-    const stored = await getValue<unknown | typeof MISSING>(MANAGED_STATE_EPOCH_KEY, MISSING);
-    return isMissingSentinel(stored) ? undefined : stored;
-}
-
-async function authoritativeManagedStateEpoch(getValue: GmGetValue): Promise<ManagedStateEpoch> {
-    // Page-local storage is only a cache. Whenever a userscript/extension
-    // backend exists, its epoch is the sole authority; a host page must never
-    // be able to advance global managed state by planting a larger local value.
-    return parseManagedStateEpoch(await rawAuthoritativeManagedStateEpoch(getValue));
-}
-
 async function assertRealmManagedStateEpoch(getValue: GmGetValue | null): Promise<ManagedStateEpoch> {
     const readEpoch = getValue
         ? async () => {
@@ -178,41 +159,6 @@ async function assertRealmManagedStateEpoch(getValue: GmGetValue | null): Promis
     const epoch = await managedStateEpochSession.assertCurrent(readEpoch);
     if (getValue) cacheManagedStateEpochForLocalFallback(epoch);
     return epoch;
-}
-
-async function managedGmValue<T>(
-    getValue: GmGetValue,
-    key: string,
-    fallback: T,
-    epoch: ManagedStateEpoch,
-): Promise<T> {
-    const read = await readManagedGmValue(getValue, key, epoch);
-    return read.kind === 'found' ? read.value as T : fallback;
-}
-
-async function readManagedGmValue<T>(
-    getValue: GmGetValue,
-    key: string,
-    epoch: ManagedStateEpoch,
-): Promise<ManagedGmRead<T>> {
-    const storageKey = managedStateStorageKey(key, epoch);
-    const scoped = await getValue<unknown | typeof MISSING>(storageKey, MISSING);
-    const readFromCurrentSlot = !isMissingSentinel(scoped);
-    const stored = readFromCurrentSlot || storageKey === key
-        ? scoped
-        : await getValue<unknown | typeof MISSING>(key, MISSING);
-    await assertRealmManagedStateEpoch(getValue);
-    if (isMissingSentinel(stored)) return { kind: 'missing' };
-    const unreadable = Symbol('unreadable-managed-state');
-    const logical = managedStateLogicalValue<unknown | typeof MISSING | typeof unreadable>(stored, epoch, unreadable);
-    if (logical === unreadable) return readFromCurrentSlot ? { kind: 'deleted' } : { kind: 'missing' };
-    if (isMissingSentinel(logical)) return { kind: 'deleted' };
-    return { kind: 'found', value: logical as T };
-}
-
-function managedStateStorageKey(key: string, epoch: ManagedStateEpoch): string {
-    if (epoch.generation === 0) return key;
-    return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
 
 async function writeManagedGmValue(
@@ -342,40 +288,81 @@ export function localFallbackStoredValue<T>(key: string, fallback: T): T {
 
 export async function gmStorageGet<T>(key: string, fallback: T): Promise<T> {
     const getValue = asyncGmGetValue();
-    if (getValue) {
-        let epoch: ManagedStateEpoch | undefined;
-        try {
-            epoch = await assertRealmManagedStateEpoch(getValue);
-            const pendingPatch = pendingHostedLocalPatch(key, epoch);
-            if (pendingPatch) {
-                const shared = await managedGmValue(getValue, key, undefined, epoch);
-                const sharedRecord = isPlainRecord(shared) ? shared : {};
-                const reconciled = { ...sharedRecord, ...pendingPatch } as T;
-                await gmStorageSet(key, reconciled);
-                return reconciled;
-            }
-            const read = await readManagedGmValue<T>(getValue, key, epoch);
-            if (read.kind === 'found') return read.value;
-            if (read.kind === 'deleted') return fallback;
-            const migrated = localMirrorBelongsToEpoch(key, epoch)
-                ? localStorageGet<T>(key, MISSING as T)
-                : MISSING as T;
-            if (!isMissingSentinel(migrated)) {
-                const promoted = sanitizedStrandedLocalValue(key, migrated);
-                await gmStorageSet(key, promoted);
-                return promoted;
-            }
-            return fallback;
-        } catch (error) {
-            if (isStaleManagedStateEpochError(error)) throw error;
-            debugStorageError('GM storage read failed', key, error);
-            if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
-                return localStorageGet(key, fallback);
-            }
-            return fallback;
-        }
+    if (!getValue) return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
+    let epoch: ManagedStateEpoch | undefined;
+    try {
+        epoch = await assertRealmManagedStateEpoch(getValue);
+        return await sharedManagedValue(getValue, key, fallback, epoch);
+    } catch (error) {
+        return failedManagedReadValue(error, key, fallback, epoch);
     }
-    const epoch = await assertRealmManagedStateEpoch(null);
+}
+
+/**
+ * Read several managed keys behind ONE realm fence, in the order given. Per-key
+ * recovery and error handling are exactly `gmStorageGet`'s.
+ *
+ * One logical read takes one fence. Every key in the pass is slot-scoped
+ * (`managedStateStorageKey`) to the epoch the fence certified, so none of them
+ * can observe a newer epoch — see managed-read-path.ts for the full argument.
+ * This is a same-operation coalesce, not a cache: the pass reads every key it is
+ * given and holds no value past its own return.
+ */
+export async function gmStorageGetMany<T>(keys: readonly string[], fallback: T): Promise<T[]> {
+    if (!keys.length) return [];
+    const getValue = asyncGmGetValue();
+    if (!getValue) {
+        const epoch = await assertRealmManagedStateEpoch(null);
+        return keys.map(key => localOnlyManagedValue(key, fallback, epoch));
+    }
+    let passEpoch: ManagedStateEpoch;
+    try {
+        passEpoch = await assertRealmManagedStateEpoch(getValue);
+    } catch (error) {
+        return keys.map(key => failedManagedReadValue(error, key, fallback, undefined));
+    }
+    return Promise.all(keys.map(async key => {
+        try {
+            return await sharedManagedValue(getValue, key, fallback, passEpoch);
+        } catch (error) {
+            return failedManagedReadValue(error, key, fallback, passEpoch);
+        }
+    }));
+}
+
+async function sharedManagedValue<T>(getValue: GmGetValue, key: string, fallback: T, epoch: ManagedStateEpoch): Promise<T> {
+    const pendingPatch = pendingHostedLocalPatch(key, epoch);
+    if (pendingPatch) {
+        const shared = await managedGmValue(getValue, key, undefined, epoch);
+        const sharedRecord = isPlainRecord(shared) ? shared : {};
+        const reconciled = { ...sharedRecord, ...pendingPatch } as T;
+        await gmStorageSet(key, reconciled);
+        return reconciled;
+    }
+    const read = await readManagedGmValue<T>(getValue, key, epoch);
+    if (read.kind === 'found') return read.value;
+    if (read.kind === 'deleted') return fallback;
+    const migrated = localMirrorBelongsToEpoch(key, epoch)
+        ? localStorageGet<T>(key, MISSING as T)
+        : MISSING as T;
+    if (!isMissingSentinel(migrated)) {
+        const promoted = sanitizedStrandedLocalValue(key, migrated);
+        await gmStorageSet(key, promoted);
+        return promoted;
+    }
+    return fallback;
+}
+
+function failedManagedReadValue<T>(error: unknown, key: string, fallback: T, epoch?: ManagedStateEpoch): T {
+    if (isStaleManagedStateEpochError(error)) throw error;
+    debugStorageError('GM storage read failed', key, error);
+    if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
+        return localStorageGet(key, fallback);
+    }
+    return fallback;
+}
+
+function localOnlyManagedValue<T>(key: string, fallback: T, epoch: ManagedStateEpoch): T {
     const local = localMirrorBelongsToEpoch(key, epoch)
         ? localStorageGet<T | typeof MISSING>(key, MISSING)
         : MISSING;
@@ -466,14 +453,19 @@ function gmStorageLeaseBackend() {
 
 export function gmStorageGetSync<T>(key: string, fallback: T): T {
     const getValue = typeof GM_getValue === 'function' ? GM_getValue as GmGetValue : null;
+    let epoch: ManagedStateEpoch | null = null;
     if (getValue) {
-        const epoch = managedStateEpochFromSynchronousGetter(getValue);
+        epoch = managedStateEpochFromSynchronousGetter(getValue);
         if (!epoch) return fallback;
         const read = gmStorageSyncRead<T>(key, getValue, epoch);
         if (read.kind === 'found') return read.value;
         if (read.kind === 'deleted') return fallback;
     }
-    const epoch = managedStateEpochForSynchronousLocalRead();
+    // Reuse the epoch this same synchronous turn already read. Not a memo across
+    // an await: nothing can run between the read above and this line, so asking
+    // the backend again would return the identical byte for the identical
+    // instant. Only a getter-less realm still resolves it from the local mirror.
+    epoch ??= managedStateEpochForSynchronousLocalRead();
     return epoch && localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, fallback) : fallback;
 }
 
