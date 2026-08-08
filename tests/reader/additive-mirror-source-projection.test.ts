@@ -84,6 +84,27 @@ describe('additive text-mirror source projection', () => {
         expect(mirror.style.transform).toBe('none');
     });
 
+    it('emits no mirror mutations when an identical projection pass repeats', async () => {
+        const { host, mirror } = scene();
+        sourceRects = [rect(130, 54, 32, 16)];
+        projectAdditiveTextMirror(mirror, host);
+        await Promise.resolve();
+
+        const mutations: MutationRecord[] = [];
+        const observer = new MutationObserver(records => mutations.push(...records));
+        observer.observe(mirror, { attributes: true, childList: true, subtree: true });
+
+        projectAdditiveTextMirror(mirror, host);
+        await Promise.resolve();
+        observer.disconnect();
+
+        expect(mutations.map(mutation => ({
+            attribute: mutation.attributeName,
+            target: mutation.target instanceof HTMLElement ? mutation.target.className : mutation.target.nodeName,
+            type: mutation.type,
+        }))).toEqual([]);
+    });
+
     it('creates one decoration box for every wrapped source fragment', () => {
         const { host, mirror, word } = scene();
         sourceRects = [rect(180, 50, 20, 16), rect(100, 70, 24, 16)];
@@ -119,6 +140,35 @@ describe('additive text-mirror source projection', () => {
             .toEqual(['0px', '-20px']);
     });
 
+    it('reconciles a 1→2→1 wrap or clip delta without restarting the pitch gradient', () => {
+        const { host, mirror, word } = scene();
+        sourceRects = [rect(100, 50, 20, 16)];
+        projectAdditiveTextMirror(mirror, host);
+        const first = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')!;
+
+        sourceRects = [rect(180, 50, 20, 16), rect(100, 70, 44, 16)];
+        projectAdditiveTextMirror(mirror, host);
+        const wrapped = [...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment')];
+
+        expect(wrapped).toHaveLength(2);
+        expect(wrapped[0]).toBe(first);
+        expect(wrapped.map(fragment => fragment.style.getPropertyValue('--jpdb-reader-source-gradient-width')))
+            .toEqual(['64px', '64px']);
+        expect(wrapped.map(fragment => fragment.style.getPropertyValue('--jpdb-reader-source-gradient-offset')))
+            .toEqual(['0px', '-20px']);
+
+        const removed = wrapped[1];
+        sourceRects = [rect(120, 50, 32, 16)];
+        projectAdditiveTextMirror(mirror, host);
+        const clipped = [...word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment')];
+
+        expect(clipped).toEqual([first]);
+        expect(removed.isConnected).toBe(false);
+        expect(first.style.left).toBe('20px');
+        expect(first.style.getPropertyValue('--jpdb-reader-source-gradient-width')).toBe('32px');
+        expect(first.style.getPropertyValue('--jpdb-reader-source-gradient-offset')).toBe('0px');
+    });
+
     it('merges duplicate and nested source rects on the same line', () => {
         const { host, mirror, word } = scene();
         sourceRects = [rect(130, 54, 32, 16), rect(130, 54, 16, 16), rect(146, 54, 16, 16)];
@@ -148,20 +198,47 @@ describe('additive text-mirror source projection', () => {
             .toEqual([['80px', '0px', '20px'], ['0px', '20px', '52px']]);
     });
 
-    it('replaces stale fragment boxes on reflow', () => {
+    it('reuses the same fragment node when source geometry reflows', () => {
         const { host, mirror, word } = scene();
         sourceRects = [rect(120)];
         projectAdditiveTextMirror(mirror, host);
+        const original = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')!;
         sourceRects = [rect(140)];
 
         projectAdditiveTextMirror(mirror, host);
 
         const fragments = word.querySelectorAll<HTMLElement>('.jpdb-reader-source-fragment');
         expect(fragments).toHaveLength(1);
+        expect(fragments[0]).toBe(original);
         expect(fragments[0].style.left).toBe('40px');
     });
 
-    it('reads every word and ruby range before replacing any projected fragment', () => {
+    it('clears reused fragment paint when the page replaces its source text', () => {
+        const { host, mirror, word } = scene();
+        document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
+        word.classList.add('jpdb-pitch-heiban');
+        sourceRects = [rect(120)];
+
+        try {
+            projectAdditiveTextMirror(mirror, host);
+            expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source'))
+                .toContain('--jpdb-reader-source-pitch-decoration');
+
+            host.firstChild!.textContent = '別語';
+            projectAdditiveTextMirror(mirror, host);
+
+            expect(word.querySelector('.jpdb-reader-source-fragment')).toBeNull();
+            expect(word.hasAttribute('data-yomu-source-projected')).toBe(false);
+            expect(mirror.hasAttribute('data-yomu-source-projected')).toBe(false);
+            expect(mirror.dataset.yomuSourceStale).toBe('true');
+            expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source')).toBe('transparent');
+            expect(word.style.position).toBe('');
+        } finally {
+            document.documentElement.classList.remove('jpdb-reader-word-underline-pitch');
+        }
+    });
+
+    it('reads every word and ruby range before updating any projected fragment', () => {
         const { host, mirror, word } = scene();
         host.firstChild!.textContent = '投票日本';
         mirror.dataset.sourceText = '投票日本';
@@ -183,19 +260,12 @@ describe('additive text-mirror source projection', () => {
         for (const projectedWord of [word, second]) {
             const stale = document.createElement('span');
             stale.className = 'jpdb-reader-source-fragment';
-            const remove = stale.remove.bind(stale);
-            stale.remove = () => {
-                events.push('write:remove');
-                remove();
-            };
             projectedWord.append(stale);
 
-            const append = projectedWord.append.bind(projectedWord);
-            projectedWord.append = (...nodes: (Node | string)[]) => {
-                if (nodes.some(node => node instanceof Element && node.classList.contains('jpdb-reader-source-fragment'))) {
-                    events.push('write:append');
-                }
-                append(...nodes);
+            const setProperty = projectedWord.style.setProperty.bind(projectedWord.style);
+            projectedWord.style.setProperty = (...args: Parameters<CSSStyleDeclaration['setProperty']>) => {
+                events.push('write:style');
+                setProperty(...args);
             };
         }
 

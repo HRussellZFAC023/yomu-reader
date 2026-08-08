@@ -3282,14 +3282,11 @@ function projectPreparedAdditiveTextMirror(
         .map(projection => writeAdditiveMirrorWordProjection(projection, context, readingProjections))
         .some(Boolean);
     syncProjectedReadings(mirror, readingProjections);
-    if (projected) mirror.dataset.yomuSourceProjected = 'true';
-    else delete mirror.dataset.yomuSourceProjected;
+    if (projected) setDataAttributeIfChanged(mirror, 'data-yomu-source-projected', 'true');
+    else removeAttributeIfPresent(mirror, 'data-yomu-source-projected');
     // A pass got a context, so this mirror's host text matches what it was
     // rendered from again: it is no longer stale and may paint its own lane.
-    delete mirror.dataset.yomuSourceStale;
-    for (const word of mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
-        word.style.removeProperty('--jpdb-reader-word-decoration-source');
-    }
+    removeAttributeIfPresent(mirror, 'data-yomu-source-stale');
     styleAdditiveMirrorPaint(mirror);
 }
 
@@ -3349,11 +3346,11 @@ function additiveMirrorProjectionContext(
     // An absolute child is laid out from the host's padding box. Match that
     // containing block instead of the border box so a bordered control does
     // not gain synthetic scroll overflow from the projection shell itself.
-    mirror.style.setProperty('inset', '0 auto auto 0');
-    mirror.style.setProperty('width', `${host.clientWidth || hostRect.width}px`);
-    mirror.style.setProperty('height', `${host.clientHeight || hostRect.height}px`);
-    mirror.style.setProperty('padding', '0');
-    mirror.style.setProperty('transform', 'none');
+    setInlineStyleIfChanged(mirror, 'inset', '0px auto auto 0px');
+    setInlineStyleIfChanged(mirror, 'width', `${host.clientWidth || hostRect.width}px`);
+    setInlineStyleIfChanged(mirror, 'height', `${host.clientHeight || hostRect.height}px`);
+    setInlineStyleIfChanged(mirror, 'padding', '0px');
+    setInlineStyleIfChanged(mirror, 'transform', 'none');
     const mirrorRect = mirror.getBoundingClientRect();
     if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return 'unmeasurable';
 
@@ -3420,12 +3417,14 @@ function writeAdditiveMirrorWordProjection(
     readings: DetachedReadingProjection[],
 ): boolean {
     const { word, sourceRects, fragments } = projection;
-    delete word.dataset.yomuSourceProjected;
-    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
-    if (!fragments.length) return false;
+    if (!fragments.length) {
+        syncSourceFragments(word, fragments, sourceRects, context);
+        removeAttributeIfPresent(word, 'data-yomu-source-projected');
+        return false;
+    }
 
     styleProjectedSourceWord(word);
-    appendSourceFragments(word, fragments, sourceRects, context);
+    syncSourceFragments(word, fragments, sourceRects, context);
     for (const { ruby, projection: readingProjection } of projection.readings) {
         positionProjectedElement(ruby, readingProjection.rect, context.mirrorRect, context.scaleX, context.scaleY);
         readings.push(readingProjection);
@@ -3509,17 +3508,19 @@ function writeProjectedGeometry<Property extends string>(
     properties: readonly Property[],
     values: Record<Property, string>,
 ): void {
-    for (const property of properties) element.style.setProperty(property, values[property], 'important');
+    for (const property of properties) {
+        setInlineStyleIfChanged(element, property, values[property], 'important');
+    }
 }
 
 function styleProjectedSourceWord(word: HTMLElement): void {
-    word.dataset.yomuSourceProjected = 'true';
+    setDataAttributeIfChanged(word, 'data-yomu-source-projected', 'true');
     writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
         position: 'absolute',
-        inset: '0',
+        inset: '0px',
         width: 'auto',
         height: 'auto',
-        margin: '0',
+        margin: '0px',
     });
 }
 
@@ -3537,7 +3538,7 @@ function styleProjectedSourceWord(word: HTMLElement): void {
  * carries no decoration rather than the wrong word's.
  */
 function clearAdditiveMirrorSourceProjection(mirror: HTMLElement): void {
-    delete mirror.dataset.yomuSourceProjected;
+    removeAttributeIfPresent(mirror, 'data-yomu-source-projected');
     // Removing the projection is not enough to stop this mirror painting. An
     // additive mirror word carries its OWN pitch/status underline:
     // styleAdditiveMirrorPaint writes --jpdb-reader-word-decoration-source
@@ -3548,39 +3549,47 @@ function clearAdditiveMirrorSourceProjection(mirror: HTMLElement): void {
     // stale fragment occupied — the same wrong glyphs underlined, 4% shorter.
     // The mirror is stale, not resting, so the lane stays off until a pass can
     // measure the host again.
-    mirror.dataset.yomuSourceStale = 'true';
+    setDataAttributeIfChanged(mirror, 'data-yomu-source-stale', 'true');
     for (const word of mirror.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-yomu-source-projected]')) {
-        word.style.setProperty('--jpdb-reader-word-decoration-source', 'transparent');
+        setInlineStyleIfChanged(word, '--jpdb-reader-word-decoration-source', 'transparent');
         word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach(fragment => fragment.remove());
         for (const wrapper of word.querySelectorAll<HTMLElement>('.jpdb-reader-detached-ruby')) {
-            PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach(property => wrapper.style.removeProperty(property));
+            PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach(property => removeInlineStyleIfPresent(wrapper, property));
             // styleDetachedReadingElements' resting value for a wrapper the
             // projection had lifted out of flow.
-            wrapper.style.setProperty('position', 'relative', 'important');
+            setInlineStyleIfChanged(wrapper, 'position', 'relative', 'important');
         }
-        PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach(property => word.style.removeProperty(property));
-        delete word.dataset.yomuSourceProjected;
+        PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach(property => removeInlineStyleIfPresent(word, property));
+        removeAttributeIfPresent(word, 'data-yomu-source-projected');
     }
 }
 
-function appendSourceFragments(
+function syncSourceFragments(
     word: HTMLElement,
     fragments: Array<{ rect: DOMRect; gradientOffset: number }>,
     sourceRects: DOMRect[],
     context: AdditiveMirrorProjectionContext,
 ): void {
     const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
-    for (const { rect, gradientOffset } of fragments) {
-        const fragment = word.ownerDocument.createElement('span');
-        fragment.className = SOURCE_FRAGMENT_CLASS;
-        fragment.setAttribute('aria-hidden', 'true');
+    const existing = Array.from(word.querySelectorAll<HTMLElement>(`:scope > .${SOURCE_FRAGMENT_CLASS}`));
+    fragments.forEach(({ rect, gradientOffset }, index) => {
+        const existingFragment = existing[index];
+        const fragment = existingFragment ?? createSourceFragment(word.ownerDocument);
         // Component pitch belongs to the complete word. Fragment-local
         // coordinates keep one continuous gradient across source wraps.
-        fragment.style.setProperty('--jpdb-reader-source-gradient-width', `${gradientWidth}px`);
-        fragment.style.setProperty('--jpdb-reader-source-gradient-offset', `${-gradientOffset}px`);
+        setInlineStyleIfChanged(fragment, '--jpdb-reader-source-gradient-width', `${gradientWidth}px`);
+        setInlineStyleIfChanged(fragment, '--jpdb-reader-source-gradient-offset', `${-gradientOffset}px`);
         positionProjectedElement(fragment, rect, context.mirrorRect, context.scaleX, context.scaleY);
-        word.append(fragment);
-    }
+        if (!existingFragment) word.append(fragment);
+    });
+    existing.slice(fragments.length).forEach(fragment => fragment.remove());
+}
+
+function createSourceFragment(document: Document): HTMLElement {
+    const fragment = document.createElement('span');
+    fragment.className = SOURCE_FRAGMENT_CLASS;
+    fragment.setAttribute('aria-hidden', 'true');
+    return fragment;
 }
 
 function readProjectedWordReadings(
@@ -3731,7 +3740,7 @@ function positionProjectedElement(
         top: `${(rect.top - mirrorRect.top) / scaleY}px`,
         width: `${rect.width / scaleX}px`,
         height: `${rect.height / scaleY}px`,
-        margin: '0',
+        margin: '0px',
     });
 }
 
@@ -4192,6 +4201,21 @@ function setInlineStyleIfChanged(element: HTMLElement, property: string, value: 
     element.style.setProperty(property, value, priority);
 }
 
+function removeInlineStyleIfPresent(element: HTMLElement, property: string): void {
+    if (!element.style.getPropertyValue(property) && !element.style.getPropertyPriority(property)) return;
+    element.style.removeProperty(property);
+}
+
+function setDataAttributeIfChanged(element: HTMLElement, name: `data-${string}`, value: string): void {
+    if (element.getAttribute(name) === value) return;
+    element.setAttribute(name, value);
+}
+
+function removeAttributeIfPresent(element: HTMLElement, name: string): void {
+    if (!element.hasAttribute(name)) return;
+    element.removeAttribute(name);
+}
+
 type AdditiveDecorationSource = 'status' | 'jpdb' | 'anki' | 'pitch';
 const ADDITIVE_DECORATION_SOURCES: readonly AdditiveDecorationSource[] = ['status', 'jpdb', 'anki', 'pitch'];
 const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => source !== 'pitch');
@@ -4202,7 +4226,7 @@ const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter(source => 
 // Source order deliberately matches the stylesheet cascade (pitch is last).
 function styleAdditiveMirrorPaint(root: HTMLElement): void {
     if (!root.classList.contains('jpdb-reader-additive-text-mirror')) return;
-    root.style.setProperty('-webkit-text-fill-color', 'transparent', 'important');
+    setInlineStyleIfChanged(root, '-webkit-text-fill-color', 'transparent', 'important');
     const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     // The injected shadow stylesheet owns glyph suppression and word
@@ -4218,11 +4242,11 @@ function styleAdditiveMirrorPaint(root: HTMLElement): void {
         ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)`
         : '';
     for (const word of words) {
-        word.style.removeProperty('text-decoration-color');
-        word.style.removeProperty('--jpdb-reader-additive-decoration');
-        word.style.setProperty('--jpdb-reader-word-decoration-source', paint);
-        if (softPaint) word.style.setProperty('--jpdb-reader-mirror-status-soft', softPaint);
-        else word.style.removeProperty('--jpdb-reader-mirror-status-soft');
+        removeInlineStyleIfPresent(word, 'text-decoration-color');
+        removeInlineStyleIfPresent(word, '--jpdb-reader-additive-decoration');
+        setInlineStyleIfChanged(word, '--jpdb-reader-word-decoration-source', paint);
+        if (softPaint) setInlineStyleIfChanged(word, '--jpdb-reader-mirror-status-soft', softPaint);
+        else removeInlineStyleIfPresent(word, '--jpdb-reader-mirror-status-soft');
     }
 }
 
