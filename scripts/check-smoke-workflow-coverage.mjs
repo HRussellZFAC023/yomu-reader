@@ -20,11 +20,10 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKFLOW_DIR = join(ROOT, '.github/workflows');
 const SMOKE_DIR = join(ROOT, 'scripts');
 const SMOKE_FILE = /smoke.*\.mjs$/;
-// Shared helpers and the aggregate runner are not guards themselves.
+// scripts/lib is helper code by definition, even when a helper's descriptive
+// filename contains "smoke". Keep entry-point exceptions limited to actual
+// runners instead of growing a second list of every shared helper.
 const NOT_A_GUARD = new Set([
-    'scripts/lib/smoke-harness.mjs',
-    'scripts/lib/smoke-test-helpers.mjs',
-    'scripts/lib/smoke-wait-helpers.mjs',
     'scripts/run-nightly-smokes.mjs',
     'scripts/check-smoke-workflow-coverage.mjs',
 ]);
@@ -67,7 +66,7 @@ while (queue.length) {
 
 const guards = collect(SMOKE_DIR)
     .map(file => relative(ROOT, file))
-    .filter(path => SMOKE_FILE.test(path) && !NOT_A_GUARD.has(path));
+    .filter(path => SMOKE_FILE.test(path) && !path.startsWith('scripts/lib/') && !NOT_A_GUARD.has(path));
 
 const unrunnable = [];
 const unreachable = [];
