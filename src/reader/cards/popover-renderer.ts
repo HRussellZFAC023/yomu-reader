@@ -7,7 +7,7 @@ import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
 import { renderCardSpellingWithFurigana, renderHeadwordComponentPitchSpans } from './reading-display';
 import { escapeHtml, renderRuby } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
-import { cardStateLabel, uiText } from '../app/i18n';
+import { cardStateLabel, formatUiText, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
@@ -18,7 +18,7 @@ import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, apiSrsSwitchableProviderIds, isApiSrsProviderEnabled, isBunproMiningCard, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
-import type { ProviderFrequencyRanks } from './frequency-ranks';
+import { contextOccurrenceCount, hasFrequencyRankEvidence, type ProviderFrequencyRanks } from './frequency-ranks';
 import type { BunproDefinitionInfo } from '../bunpro/definition';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
@@ -26,7 +26,7 @@ import { pillStyle } from '../dictionaries/display';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
-import { targetSupportsCharacterLookup } from '../languages/character-lookup';
+import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -107,7 +107,7 @@ export class CardPopoverRenderer {
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, data, view, trigger)}
+                ${this.renderHeader(card, sentence, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${expressionComponents}
                 ${definitionSources}
@@ -156,11 +156,13 @@ export class CardPopoverRenderer {
         };
     }
 
-    private renderHeader(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
+    private renderHeader(card: JPDBCard, sentence: string | undefined, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView, trigger: 'modal' | 'hover'): string {
+        const wordPills = this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks);
+        const pills = appendWordPill(wordPills, this.renderContextFrequencyPill(card, sentence, data, view.language));
         return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, data, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, undefined, trigger, data.ankiLookup, data.frequencyRanks)}
+                ${pills}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${renderPronunciation({
@@ -177,6 +179,20 @@ export class CardPopoverRenderer {
         </div>`;
     }
 
+    private renderContextFrequencyPill(
+        card: JPDBCard,
+        sentence: string | undefined,
+        data: CardRenderData & { loading: boolean },
+        language: InterfaceLanguage,
+    ): string {
+        if (data.loading || hasFrequencyRankEvidence(card, data.metaEntries, data.frequencyRanks)) return '';
+        const count = contextOccurrenceCount(card, sentence);
+        if (!count) return '';
+        const label = formatUiText(language, 'contextOccurrences', { count });
+        const title = uiText(language, 'contextOccurrencesTitle');
+        return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle('frequency:context')}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
+    }
+
     private renderTitleRow(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {
         // Carry the pitch class on the headword so it shows the same pitch-accent
         // underline as words on the page (the underline CSS keys off jpdb-pitch-*);
@@ -186,7 +202,7 @@ export class CardPopoverRenderer {
             ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading)
             : '';
         const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
-        const kanjiNavigation = targetSupportsCharacterLookup()
+        const kanjiNavigation = targetUsesCharacterDictionary()
             ? { enabled: true, label: uiText(view.language, 'showKanji') }
             : undefined;
         const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent
@@ -774,6 +790,14 @@ function renderAnkiMeta(lookup: CardRenderData['ankiLookup'], settings: ReaderSe
 
 function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
+}
+
+function appendWordPill(wordPills: string, pill: string): string {
+    if (!pill) return wordPills;
+    const closingTag = wordPills.includes('jpdb-reader-word-pills') ? wordPills.lastIndexOf('</div>') : -1;
+    return closingTag >= 0
+        ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}`
+        : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;
 }
 
 function uniqueExpressionComponents(components: ExpressionComponentLookup[]): ExpressionComponentLookup[] {

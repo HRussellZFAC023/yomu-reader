@@ -235,22 +235,13 @@ describe('published product claims', () => {
         expect(() => assertStudyTargetClaimReadiness(claimedFull, 'full', 'Homepage headline')).not.toThrow();
     });
 
-    it('fails if a reading-only target is claimed as full', () => {
-        const readingOnlyTarget = LEARNING_TARGET_ROSTER.find(
-            target => target.studyTargetReadiness === 'reading-only',
-        );
-        if (!readingOnlyTarget) throw new Error('The readiness fixture needs a reading-only target.');
+    it('fails if an unknown target is claimed as full', () => {
         expect(() => assertStudyTargetClaimReadiness(
-            [readingOnlyTarget.id],
+            ['not-a-target'],
             'full',
             'Mutation proof',
-        )).toThrow(
-            `Mutation proof claims ${readingOnlyTarget.englishName} (${readingOnlyTarget.id}) as full, `
-            + 'but its study-target readiness is reading-only.',
-        );
-        expect(() => heroStudyLanguages('full')).toThrow(
-            /Homepage hero claims .+ as full, but its study-target readiness is reading-only\./u,
-        );
+        )).toThrow('Mutation proof claims an unknown study target: not-a-target.');
+        expect(() => heroStudyLanguages('full')).not.toThrow();
     });
 
     it('keeps every lookup-capable picker target backed by published dictionary supply', () => {

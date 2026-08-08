@@ -56,7 +56,6 @@ describe('recognizer line text', () => {
         const target = registerLearningTargetModule(createLearningTargetModule({
             id: 'sv-ocr-response-test-target',
             language: SWEDISH,
-            capabilities: { ocr: true },
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],

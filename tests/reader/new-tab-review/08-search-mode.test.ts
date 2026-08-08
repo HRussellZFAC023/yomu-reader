@@ -673,7 +673,7 @@ describe('new tab review — search mode', () => {
         root.remove();
     });
 
-    it('keeps Japanese public search, kanji summaries, and handwriting off for a Chinese target', async () => {
+    it('keeps Japanese public search and kanji summaries off while offering target handwriting for Chinese', async () => {
         setActiveLearningTargetLanguage('zh');
         const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '学', reading: 'がく', source: 'jpdb' })]);
         const jpdbKanjiLookup = vi.fn(async () => null);
@@ -697,9 +697,9 @@ describe('new tab review — search mode', () => {
             await expect(search.searchPublicJpdbCards('学习')).resolves.toEqual([]);
             await expect(search.searchKanjiCards('学习')).resolves.toEqual([]);
             const toggle = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-handwriting-toggle"]');
-            expect(toggle?.hidden).toBe(true);
-            expect(toggle?.disabled).toBe(true);
-            expect(root.querySelector('[data-newtab-handwriting]')).toBeNull();
+            expect(toggle?.hidden).toBe(false);
+            expect(toggle?.disabled).toBe(false);
+            expect(root.querySelector('[data-newtab-handwriting]')).not.toBeNull();
             expect(publicSearch).not.toHaveBeenCalled();
             expect(jpdbKanjiLookup).not.toHaveBeenCalled();
             expect(kanjiVgLookup).not.toHaveBeenCalled();

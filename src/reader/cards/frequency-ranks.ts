@@ -1,5 +1,8 @@
 import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
+import { formatMetaFrequency } from '../dictionaries/groups-core';
+import type { YomitanMetaEntry } from '../dictionaries/yomitan';
+import { learningTargetModuleFor } from '../languages/registry';
 
 export type FrequencyProvider = 'jiten' | 'jpdb' | 'bunpro';
 export type FrequencyRankSource = 'card' | 'live-search' | 'kanji';
@@ -25,6 +28,39 @@ export interface ProviderFrequencyRank {
 }
 
 export type ProviderFrequencyRanks = Partial<Record<FrequencyProvider, ProviderFrequencyRank>>;
+
+/**
+ * A corpus rank and a context count are different evidence.  The former wins
+ * whenever it exists; the latter is only the honest, target-generic fallback
+ * for a language whose installed catalogue has no frequency list.
+ */
+export function hasFrequencyRankEvidence(
+    card: JPDBCard,
+    metaEntries: readonly YomitanMetaEntry[],
+    providerRanks?: ProviderFrequencyRanks,
+): boolean {
+    return frequencyRank(card.frequencyRank) !== null
+        || metaEntries.some(entry => entry.mode === 'freq' && Boolean(formatMetaFrequency(entry.data)))
+        || Object.values(providerRanks ?? {}).some(evidence => frequencyRank(evidence?.rank) !== null);
+}
+
+/** Count non-overlapping occurrences of the exact lookup surface in its sentence. */
+export function contextOccurrenceCount(card: JPDBCard, context: string | undefined): number {
+    if (!context) return 0;
+    const target = learningTargetModuleFor(card.language ?? 'ja');
+    const normalize = target?.normalizeText ?? normalizeIdentityText;
+    const surface = normalize(card.spelling);
+    const text = normalize(context);
+    if (!surface || !text) return 0;
+
+    let count = 0;
+    let offset = text.indexOf(surface);
+    while (offset >= 0) {
+        count++;
+        offset = text.indexOf(surface, offset + surface.length);
+    }
+    return count;
+}
 
 export function frequencyProviderForLookupId(id: string | undefined): FrequencyProvider | null {
     if (id === 'jiten-frequency') return 'jiten';

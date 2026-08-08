@@ -14,8 +14,8 @@ import type { LanguageLookupCandidate } from './types';
  * For a Japanese target these are the deinflector and its rule matcher
  * verbatim, so routing a call site through here changes nothing about Japanese
  * behaviour; for any other target they are that target's morphology, and for a
- * target that declares none they are the identity: the surface at depth 0,
- * matched by any entry.
+ * a dictionary-forms target they are the surface at depth 0, matched against
+ * the inflected rows the published dictionary owns.
  */
 export function targetLookupCandidates(text: string): readonly LanguageLookupCandidate[] {
     return activeLearningTarget().lookupCandidates(text);
@@ -34,7 +34,7 @@ export function targetLookupCandidateRulesMatch(
     return activeLearningTarget().matchesLookupCandidateRules(entryRules, candidateRules);
 }
 
-/** Whether the active target claims real morphology at all. */
+/** Whether the active target has a coded or dictionary-owned morphology path. */
 export function targetHasMorphology(): boolean {
     return activeLearningTarget().capabilities.morphology;
 }

@@ -31,7 +31,7 @@ import {
     type ProviderFrequencyRank,
     type ProviderFrequencyRanks,
 } from './frequency-ranks';
-import { targetSupportsCharacterLookup, usesJapaneseProviders } from '../languages/character-lookup';
+import { targetUsesCharacterDictionary, usesJapaneseProviders } from '../languages/character-lookup';
 import { activeLearningTargetGeneration } from '../languages/target-runtime';
 
 const log = Logger.scope('CardRenderData');
@@ -463,7 +463,7 @@ export class CardRenderDataLoader {
 
     private loadLocalKanjiEntries(card: JPDBCard): Promise<YomitanKanjiEntry[]> {
         const settings = this.settings();
-        if (!targetSupportsCharacterLookup() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+        if (!targetUsesCharacterDictionary() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, 'local kanji dictionary', this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(error => {
             log.warn('Local kanji lookup failed', { term: card.spelling }, error);
             return [];

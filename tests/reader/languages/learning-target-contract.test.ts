@@ -54,10 +54,11 @@ describe('LearningTargetModule contract revision', () => {
         // Revision 8 put grammar detection and its level scale behind the target
         // Module instead of a Japanese registry in shared Study code. Revision 9
         // adds target-owned sweep runs and exact left-to-right matching for
-        // unspaced Han text. Two waves landed these hours apart and both claimed
-        // 8; the sweep members are the later pair, so they are 9.
-        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(9);
-        expect(isSupportedLearningTargetModuleInterfaceVersion(9)).toBe(true);
+        // unspaced Han text. Revision 10 replaces drifting depth booleans with
+        // concrete target experience Adapters.
+        expect(LEARNING_TARGET_MODULE_INTERFACE_VERSION).toBe(10);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(10)).toBe(true);
+        expect(isSupportedLearningTargetModuleInterfaceVersion(9)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(8)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(6)).toBe(false);
         expect(isSupportedLearningTargetModuleInterfaceVersion(5)).toBe(false);
@@ -86,6 +87,7 @@ describe('LearningTargetModule contract revision', () => {
             'collationLocale',
             'compareLookupCandidates',
             'direction',
+            'experiences',
             'featureSemantics',
             'grammar',
             'id',
@@ -233,11 +235,12 @@ describe('a second target needs registration and nothing else', () => {
         expect(KOREAN_LEARNING_TARGET.capabilities['term-lookup']).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.segmentation).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.ocr).toBe(true);
-        // Honest about morphology while exposing dictionary-supplied Hangul
-        // reading annotations and IPA pronunciation.
-        expect(KOREAN_LEARNING_TARGET.capabilities.morphology).toBe(false);
-        expect(KOREAN_LEARNING_TARGET.capabilities.grammar).toBe(false);
-        expect(KOREAN_LEARNING_TARGET.grammar.rules).toEqual([]);
+        // Korean's bounded eojeol subsegments are its morphology Adapter; it
+        // never receives Japanese deinflection rules.
+        expect(KOREAN_LEARNING_TARGET.capabilities.morphology).toBe(true);
+        expect(KOREAN_LEARNING_TARGET.experiences.morphology).toBe('bounded-rewrites');
+        expect(KOREAN_LEARNING_TARGET.capabilities.grammar).toBe(true);
+        expect(KOREAN_LEARNING_TARGET.grammar.rules.length).toBeGreaterThan(0);
         expect(KOREAN_LEARNING_TARGET.capabilities['reading-annotation']).toBe(true);
         expect(KOREAN_LEARNING_TARGET.capabilities.pronunciation).toBe(true);
         expect(KOREAN_LEARNING_TARGET.featureSemantics).toMatchObject({
@@ -293,7 +296,6 @@ describe('a second target needs registration and nothing else', () => {
         const swahili = createLearningTargetModule({
             id: 'swahili-test-target',
             language: 'sw',
-            capabilities: {},
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],
@@ -343,7 +345,6 @@ describe('a second target needs registration and nothing else', () => {
         const override = createLearningTargetModule({
             id: 'swedish-temporary-override',
             language: 'sv',
-            capabilities: {},
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],
@@ -399,14 +400,14 @@ describe('every target is a study target', () => {
         expect(LEARNING_TARGET_ROSTER.length).toBeGreaterThanOrEqual(33);
     });
 
-    it('reports script-specific capabilities only where the script has them', () => {
-        // The counterweight: "every target is a study target" must not decay into
-        // "every capability is true everywhere". Spanish has no characters to look
-        // up and no reading to annotate, and saying otherwise would be a worse lie
-        // than the one this file fixed.
+    it('reports the target Adapter rather than relabelling Japanese behavior', () => {
+        // Spanish uses one-grapheme term lookup and exact dictionary readings;
+        // it does not gain a fake kanji bank or Japanese ruby inference.
         const spanish = learningTargetModuleFor('es')!;
-        expect(spanish.capabilities['character-lookup']).toBe(false);
-        expect(spanish.capabilities['reading-annotation']).toBe(false);
+        expect(spanish.capabilities['character-lookup']).toBe(true);
+        expect(spanish.capabilities['reading-annotation']).toBe(true);
+        expect(spanish.experiences.characterLookup).toBe('term-dictionary');
+        expect(spanish.experiences.readingAnnotation).toBe('dictionary-reading');
 
         // Han targets do have per-character data now — the published catalogue ships
         // CC-CEDICT.Hanzi, EDHCC, Wiktionary Hanzi and 康熙字典 for zh, Words.hk
@@ -415,6 +416,7 @@ describe('every target is a study target', () => {
             const module = learningTargetModuleFor(han)!;
             expect(module.capabilities['character-lookup'], `${han} character lookup`).toBe(true);
             expect(module.capabilities['reading-annotation'], `${han} reading annotation`).toBe(true);
+            expect(module.experiences.characterLookup, `${han} character Adapter`).toBe('character-dictionary');
         }
     });
 

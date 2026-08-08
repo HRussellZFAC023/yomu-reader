@@ -69,7 +69,7 @@ describe('settings word click lookup', () => {
             word,
             expect.objectContaining({ stackOverSettings: true, trigger: 'click', userGesture: true }),
             expect.objectContaining({
-                target: expect.objectContaining({ language: 'ja', interfaceVersion: 9 }),
+                target: expect.objectContaining({ language: 'ja', interfaceVersion: 10 }),
                 isCurrent: expect.any(Function),
             }),
         );

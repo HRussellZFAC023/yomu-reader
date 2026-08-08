@@ -26,7 +26,7 @@ const COPY = {
         // whether it can be studied. See learning-target-contract.test.ts.
         studyTargetReadinessReadingOnly: 'Read, mine and review',
         studyTargetReadinessPlanned: 'Planned',
-        studyTargetReadinessFullReason: 'Everything, including pitch accent, kanji and grammar.',
+        studyTargetReadinessFullReason: 'Lookup, readings, grammar, audio, OCR, handwriting and study are ready for this target.',
         studyTargetReadinessReadingOnlyReason: 'Reading, lookup, mining and review are ready.',
         studyTargetReadinessPlannedReason: 'Support is planned.',
         onboardingHoverShortcut: 'Lookup hover modifier',
@@ -705,6 +705,8 @@ const COPY = {
         openSettings: 'Open settings',
         resizeSettings: 'Resize settings',
         playAudio: 'Play audio',
+        contextOccurrences: 'In context ×{count}',
+        contextOccurrencesTitle: 'Exact text occurrences in this sentence',
         playingAudioPreview: `Playing ${APP_NAME}...`,
         audioPreviewFailed: 'Audio preview failed.',
         audioPlaybackDisabled: 'Audio playback is disabled',
@@ -1284,7 +1286,7 @@ onboardingInstallOfflineDictionaries	この言語のスターター辞書をダ�
 studyTargetReadinessFull	よむの全機能
 studyTargetReadinessReadingOnly	読んで、集めて、復習
 studyTargetReadinessPlanned	準備中
-studyTargetReadinessFullReason	ピッチアクセント、漢字、文法まですべて使えます。
+studyTargetReadinessFullReason	検索、読み、文法、音声、OCR、手書き、学習がすべて使えます。
 studyTargetReadinessReadingOnlyReason	読解、検索、マイニング、復習が使えます。
 studyTargetReadinessPlannedReason	対応を準備中です。
 offlineDictionarySetupComplete	オフライン辞書をインストールしました。
@@ -1508,6 +1510,8 @@ previousKanji	前の漢字
 nextKanji	次の漢字
 openKanjiOnJpdb	JPDBで漢字を開く
 playAudio	音声を再生
+contextOccurrences	文脈内 ×{count}
+contextOccurrencesTitle	この文にある同じ表記の数
 audioPlaybackDisabled	音声再生は無効です
 audioPlaybackDisabledToast	音声再生は無効です。
 audioPlaybackFailed	音声の再生に失敗しました。

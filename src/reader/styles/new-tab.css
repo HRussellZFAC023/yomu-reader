@@ -2611,6 +2611,34 @@ button.jpdb-reader-newtab-study-hint-btn:active {
   font-weight: 820;
 }
 
+.jpdb-reader-newtab-type-self-check-answer {
+  color: var(--jpdb-reader-newtab-study-text);
+  font-size: clamp(2rem, 6vw, 4rem);
+  font-weight: 900;
+}
+
+.jpdb-reader-newtab-type-self-check-actions,
+[data-type-word-self-check-choices] {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+[data-type-word-self-check-choices][hidden] {
+  display: none;
+}
+
+.jpdb-reader-newtab .jpdb-reader-newtab-type-self-check-choice {
+  min-height: 44px;
+  min-width: 180px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 8px;
+  padding: 0 16px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  font: 820 13px / 1 var(--jpdb-reader-font);
+}
+
 [data-newtab-action="grade"][data-suggested="true"] {
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 2px;

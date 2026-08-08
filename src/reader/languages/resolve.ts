@@ -1,4 +1,4 @@
-import { activeLearningTarget, registeredLearningTargetModules } from './target-runtime';
+import { activeLearningTarget } from './target-runtime';
 import { languageDisplayName, languageSubtag } from './locale';
 import type { LanguageTag } from './types';
 
@@ -48,9 +48,14 @@ export function targetOcrLanguageHint(configured?: string | null): string {
 export function isTargetDefaultOcrLanguageTag(value: string | null | undefined): boolean {
     const tag = value?.trim().toLowerCase();
     if (!tag) return false;
-    return registeredLearningTargetModules()
-        .some(module => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
+    // Revision 9 only auto-wrote defaults for the two OCR-capable targets it
+    // declared. Revision 10 makes OCR target-locale for every target, but that
+    // must not retroactively reinterpret an explicit `de-DE` (or any other
+    // newly supported tag) as machine-owned and erase it during migration.
+    return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
 }
+
+const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = new Set(['ja-jp', 'ko-kr']);
 
 /**
  * The name of the language being studied, written in `locale`, for copy that

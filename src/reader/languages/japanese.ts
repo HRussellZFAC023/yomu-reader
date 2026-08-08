@@ -36,15 +36,11 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
     language: 'ja',
     direction: 'ltr',
     collationLocale: 'ja',
-    capabilities: {
-        'character-lookup': true,
-        morphology: true,
-        'reading-annotation': true,
-        frequency: true,
-        examples: true,
-        audio: true,
-        ocr: true,
-        handwriting: true,
+    experiences: {
+        characterLookup: 'character-dictionary',
+        morphology: 'deinflection',
+        audio: 'recorded-and-speech-synthesis',
+        handwriting: 'stroke-feedback',
     },
     featureSemantics: {
         characterSystem: 'kanji',
@@ -69,6 +65,7 @@ export const JAPANESE_LEARNING_TARGET: LearningTargetModule = createLearningTarg
     audio: {
         speechSynthesisLocale: 'ja-JP',
         templateLanguageToken: 'ja',
+        recordedWordAudio: true,
     },
     ocr: {
         defaultLanguage: 'ja-JP',

@@ -8,7 +8,9 @@ import { resolveUiLanguage, type UiCopyKey } from '../app/i18n';
 import { newTabText, type NewTabCopyKey } from './i18n';
 import { isKanjiCharacter } from '../popup/pitch';
 import {
+    targetCanHandwriteText,
     targetCanLookupCharacter,
+    targetSupportsHandwriting,
     usesJapaneseCharacterStudy,
     usesJapaneseProviders,
 } from '../languages/character-lookup';
@@ -29,7 +31,7 @@ import {
     NEW_TAB_HANDWRITING_COMMON_KANJI,
     newTabKanjiReadings,
     normalizeJpdbKanjiInfo,
-    recognizeGoogleJapaneseHandwriting,
+    recognizeGoogleHandwriting,
 } from './kanji-helpers';
 import {
     appendSearchHandwritingCandidate,
@@ -249,11 +251,11 @@ export class NewTabSearchController {
                 return true;
             case 'search-handwriting-toggle':
                 event.preventDefault();
-                if (usesJapaneseCharacterStudy()) this.toggleSearchHandwriting(root);
+                if (targetSupportsHandwriting()) this.toggleSearchHandwriting(root);
                 return true;
             case 'handwriting-candidate':
                 event.preventDefault();
-                if (targetCanLookupCharacter(this.searchActionQuery(target))) {
+                if (targetCanHandwriteText(this.searchActionQuery(target))) {
                     this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
                 }
                 return true;
@@ -527,7 +529,7 @@ export class NewTabSearchController {
     }
 
     private installSearchHandwriting(root: HTMLElement): void {
-        if (!usesJapaneseCharacterStudy()) {
+        if (!targetSupportsHandwriting()) {
             root.querySelector<HTMLElement>('[data-newtab-handwriting]')?.remove();
             this.syncSearchHandwritingToggle(root);
             return;
@@ -556,7 +558,7 @@ export class NewTabSearchController {
     }
 
     private ensureSearchHandwritingPanel(root: HTMLElement): HTMLElement | null {
-        if (!usesJapaneseCharacterStudy()) return null;
+        if (!targetSupportsHandwriting()) return null;
         const existing = root.querySelector<HTMLElement>('[data-newtab-handwriting]');
         if (existing) return existing;
         const results = this.searchResultsMount(root);
@@ -567,7 +569,7 @@ export class NewTabSearchController {
     }
 
     private toggleSearchHandwriting(root: HTMLElement, open?: boolean): void {
-        if (!usesJapaneseCharacterStudy()) return;
+        if (!targetSupportsHandwriting()) return;
         const panel = this.ensureSearchHandwritingPanel(root) as HTMLDetailsElement | null;
         if (!panel) return;
         panel.open = open ?? !panel.open;
@@ -588,14 +590,14 @@ export class NewTabSearchController {
         const panel = root.querySelector<HTMLDetailsElement>('[data-newtab-handwriting]');
         const toggle = root.querySelector<HTMLButtonElement>(newTabActionSelector('search-handwriting-toggle'));
         if (!toggle) return;
-        const enabled = usesJapaneseCharacterStudy();
+        const enabled = targetSupportsHandwriting();
         toggle.hidden = !enabled;
         toggle.disabled = !enabled;
         toggle.setAttribute('aria-expanded', String(enabled && Boolean(panel?.open)));
     }
 
     private scheduleSearchHandwritingRecognition(root: HTMLElement): void {
-        if (!usesJapaneseCharacterStudy()) {
+        if (!targetSupportsHandwriting()) {
             this.clearSearchHandwriting(root);
             return;
         }
@@ -614,8 +616,9 @@ export class NewTabSearchController {
     }
 
     private async recognizeSearchHandwriting(root: HTMLElement, strokes: DoodleStroke[], generation: number): Promise<void> {
-        if (!usesJapaneseCharacterStudy()) return;
-        const recognizedCandidates = await recognizeGoogleJapaneseHandwriting(strokes).catch(error => {
+        if (!targetSupportsHandwriting()) return;
+        const target = activeLearningTarget();
+        const recognizedCandidates = await recognizeGoogleHandwriting(strokes, target).catch(error => {
             log.warn('Search handwriting failed', error);
             return [];
         });
@@ -623,9 +626,9 @@ export class NewTabSearchController {
             log.warn('Search handwriting geometry failed', error);
             return [];
         });
-        if (!usesJapaneseCharacterStudy() || !root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
+        if (activeLearningTarget() !== target || !root.isConnected || this.currentRoute() !== 'search' || generation !== this.searchHandwritingGeneration) return;
         const candidates = uniqueStrings([...recognizedCandidates, ...geometryCandidates])
-            .filter(targetCanLookupCharacter)
+            .filter(candidate => targetCanHandwriteText(candidate, target))
             .slice(0, 8);
         const message = candidates.length ? '' : this.deps.text('searchNoHandwritingMatch');
         this.renderSearchHandwritingCandidates(root, candidates, message);
@@ -674,19 +677,21 @@ export class NewTabSearchController {
     private renderSearchHandwritingCandidates(root: HTMLElement, candidates: string[], message: string): void {
         const mount = root.querySelector<HTMLElement>('[data-newtab-handwriting-candidates]');
         if (!mount) return;
-        if (!usesJapaneseCharacterStudy()) {
+        if (!targetSupportsHandwriting()) {
             mount.hidden = true;
             mount.replaceChildren();
             return;
         }
-        candidates = candidates.filter(targetCanLookupCharacter);
+        const target = activeLearningTarget();
+        candidates = candidates.filter(candidate => targetCanHandwriteText(candidate, target));
         mount.hidden = !candidates.length && !message;
         replaceChildrenWith(mount,
             candidates.map(candidate => el('button', {
                 class: 'jpdb-reader-parseable',
                 type: 'button',
                 dataset: { newtabAction: newTabAction('handwriting-candidate'), query: candidate },
-                lang: 'ja',
+                lang: target.typography.contentLocale,
+                dir: target.direction,
             }, candidate)),
             message ? el('span', { class: 'jpdb-reader-newtab-handwriting-message jpdb-reader-parseable', lang: resolveUiLanguage(this.deps.language()) === 'ja' ? 'ja' : 'en' }, message) : null,
             message && !candidates.length ? renderSearchHandwritingManualAction(this.deps.language()) : null,

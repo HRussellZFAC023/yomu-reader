@@ -42,7 +42,6 @@ function activateAdHocTarget() {
     const target = registerLearningTargetModule(createLearningTargetModule({
         id: 'sv-gaming-test-target',
         language: AD_HOC_TARGET_LANGUAGE,
-        capabilities: { ocr: true },
         featureSemantics: {
             characterSystem: 'latin',
             phoneticScripts: ['latin'],
@@ -155,7 +154,6 @@ describe('Yomu Gaming line filtering defers to the target predicate', () => {
         const target = registerLearningTargetModule(createLearningTargetModule({
             id: 'sv-gaming-predicate-target',
             language: AD_HOC_TARGET_LANGUAGE,
-            capabilities: { ocr: true },
             featureSemantics: {
                 characterSystem: 'latin',
                 phoneticScripts: ['latin'],

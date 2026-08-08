@@ -10,6 +10,8 @@ import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import { jpdbVocabularyIdentityFromUrl } from '../jpdb/jpdb-vocabulary-url';
 import type { RtkInfo } from '../kanji/rtk';
 import type { JPDBCard, ReaderSettings } from '../app/types';
+import { activeLearningTarget } from '../languages/target-runtime';
+import type { LearningTargetModule } from '../languages/types';
 
 const NEW_TAB_PUBLIC_JPDB_KANJI_SEED_LIMIT = 8;
 const NEW_TAB_PUBLIC_JPDB_WORD_SEED_LIMIT = 12;
@@ -213,7 +215,10 @@ function keywordCandidateValue(
 
 export const firstTruthy = (values: Array<string | undefined>): string => values.find(Boolean) ?? '';
 
-export async function recognizeGoogleJapaneseHandwriting(strokes: DoodleStroke[]): Promise<string[]> {
+export async function recognizeGoogleHandwriting(
+    strokes: DoodleStroke[],
+    target: LearningTargetModule = activeLearningTarget(),
+): Promise<string[]> {
     if (typeof fetch !== 'function' || !strokes.length) return [];
     const response = await fetch(NEW_TAB_HANDWRITING_GOOGLE_URL, {
         method: 'POST',
@@ -226,7 +231,7 @@ export async function recognizeGoogleJapaneseHandwriting(strokes: DoodleStroke[]
                     writing_area_height: 240,
                 },
                 ink: googleHandwritingInk(strokes),
-                language: 'ja',
+                language: target.language,
             }],
         }),
     });
@@ -248,9 +253,7 @@ function googleHandwritingPredictionQueries(response: unknown): string[] {
         : [];
     return uniqueStrings(results.flatMap(result => {
         const text = typeof result === 'string' ? result.trim() : '';
-        if (!text) return [];
-        const kanji = kanjiCharacters(text);
-        return kanji.length === 1 && Array.from(text).length === 1 ? kanji : [];
+        return text ? [text] : [];
     })).slice(0, 8);
 }
 

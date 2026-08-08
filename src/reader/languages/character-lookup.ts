@@ -1,16 +1,24 @@
 import { isUnifiedIdeograph } from './han';
 import { activeLearningTarget } from './target-runtime';
+import type { LearningTargetModule } from './types';
 
-/** Whether the active target has trustworthy per-character data. */
+/** Whether the active target offers character lookup through either Adapter. */
 export function targetSupportsCharacterLookup(): boolean {
     return activeLearningTarget().capabilities['character-lookup'];
+}
+
+/** Whether the active target has a dedicated character-bank surface. */
+export function targetUsesCharacterDictionary(): boolean {
+    const target = activeLearningTarget();
+    return target.capabilities['character-lookup']
+        && target.experiences.characterLookup === 'character-dictionary';
 }
 
 /**
  * Whether Japanese-only lookup providers may run for the active target.
  *
- * This is deliberately separate from character lookup. A future Chinese
- * target may gain trustworthy per-character data without thereby becoming
+ * This is deliberately separate from character lookup. A target may use a
+ * dedicated character bank or one-grapheme term lookup without thereby becoming
  * eligible for JPDB, Jiten, Japanese pitch, or the Japanese parser.
  */
 export function usesJapaneseProviders(): boolean {
@@ -33,12 +41,13 @@ export function usesJapaneseProviders(): boolean {
  * reaching for the wrong half.
  */
 export function usesJapaneseCharacterStudy(): boolean {
-    return targetSupportsCharacterLookup() && usesJapaneseProviders();
+    return targetUsesCharacterDictionary() && usesJapaneseProviders();
 }
 
 /**
- * Whether the active target has per-character STROKE data, which is a different
- * question from whether it has per-character definitions.
+ * Whether the active target offers handwriting through stroke feedback or an
+ * explicit self-check. Automatic per-character stroke data is the narrower
+ * `targetCanHandwriteCharacter` question below.
  *
  * Handwriting needs stroke order (KanjiVG); a character card needs a dictionary
  * entry. Those coincided for as long as Japanese was the only target with either,
@@ -52,16 +61,65 @@ export function targetSupportsHandwriting(): boolean {
 }
 
 /**
+ * Whether text is one target-language writing unit that can be sent through
+ * the ordinary term dictionary.
+ *
+ * A writing unit is a grapheme cluster, not a UTF-16 code unit: supplementary
+ * Han characters and joined/combining scripts must remain intact. This is the
+ * universal character-lookup Adapter for targets without a dedicated character
+ * bank.
+ */
+export function targetCanLookupWritingUnit(
+    value: string,
+    target: LearningTargetModule = activeLearningTarget(),
+): boolean {
+    const unit = singleGrapheme(value);
+    return Boolean(unit) && target.isLookupableText(unit);
+}
+
+/**
+ * Whether target-aware recognition may accept this handwriting prediction.
+ * Reference-backed Japanese stroke grading is deliberately a narrower
+ * question (`targetCanHandwriteCharacter`); every other target uses an explicit
+ * self-check and therefore never receives a fabricated automatic score.
+ */
+export function targetCanHandwriteText(
+    value: string,
+    target: LearningTargetModule = activeLearningTarget(),
+): boolean {
+    return target.capabilities.handwriting
+        && Boolean(value.trim())
+        && target.isLookupableText(value);
+}
+
+/**
  * Defensive execution gate for character-card entry points.
  *
  * Rendering also uses the capability, but stale DOM and direct controller
  * calls must not reach Japanese providers after the target changes.
  */
 export function targetCanLookupCharacter(value: string): boolean {
-    return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
+    const target = activeLearningTarget();
+    return target.capabilities['character-lookup']
+        && target.experiences.characterLookup === 'character-dictionary'
+        && isUnifiedIdeograph(value);
 }
 
-/** Whether a character may be drilled by hand: stroke data AND a Han character. */
+/** Whether a character may receive automatic stroke feedback. */
 export function targetCanHandwriteCharacter(value: string): boolean {
-    return targetSupportsHandwriting() && isUnifiedIdeograph(value);
+    const target = activeLearningTarget();
+    return target.capabilities.handwriting
+        && target.experiences.handwriting === 'stroke-feedback'
+        && isUnifiedIdeograph(value);
+}
+
+function singleGrapheme(value: string): string {
+    const text = value.trim();
+    if (!text) return '';
+    if (typeof Intl.Segmenter === 'function') {
+        const segments = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text));
+        return segments.length === 1 ? segments[0]?.segment ?? '' : '';
+    }
+    const codePoints = Array.from(text);
+    return codePoints.length === 1 ? codePoints[0] ?? '' : '';
 }

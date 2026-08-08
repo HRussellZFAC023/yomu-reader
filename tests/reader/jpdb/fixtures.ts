@@ -75,7 +75,7 @@ export const DEFAULT_SETTINGS = testEnSettings();
 export function japaneseLearningTargetMatcher() {
     return expect.objectContaining({
         language: 'ja',
-        interfaceVersion: 9,
+        interfaceVersion: 10,
         lookupSweepMode: 'global-ranked',
     });
 }

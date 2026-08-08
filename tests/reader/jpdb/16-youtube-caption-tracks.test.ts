@@ -1405,7 +1405,7 @@ describe('reader helpers', () => {
         try {
             await internals.showCard(fallbackCard);
             expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard, expect.objectContaining({
-                target: expect.objectContaining({ language: 'ja', interfaceVersion: 9 }),
+                target: expect.objectContaining({ language: 'ja', interfaceVersion: 10 }),
                 isCurrent: expect.any(Function),
             }));
             expect(updateWord).toHaveBeenCalledWith(publicCard, undefined, 'modal', 'reset', undefined);

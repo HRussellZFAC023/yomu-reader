@@ -385,7 +385,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
             expect(study.querySelector('[data-study-step-kanji]')).toBeNull();
             expect(study.querySelector('[data-study-hint-kanji]')).toBeNull();
             expect(study.querySelector('.jpdb-reader-doodle-stage')?.hasAttribute('data-kanji')).toBe(false);
-            expect(study.querySelector('.jpdb-reader-doodle-canvas')?.getAttribute('aria-label')).toBe('Draw kanji');
+            expect(study.querySelector('.jpdb-reader-doodle-canvas')?.getAttribute('aria-label')).toBe('Write by hand');
             expect(preRevealMarkup).not.toContain('買');
             expect(preRevealMarkup).not.toContain('買い物');
             expect(preRevealMarkup).toContain('＿い＿');

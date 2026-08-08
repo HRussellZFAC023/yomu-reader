@@ -48,7 +48,6 @@ function germanTarget() {
     return createLearningTargetModule({
         id: 'german-morphology-test-target',
         language: 'de',
-        capabilities: { morphology: true, },
         featureSemantics: {
             characterSystem: 'latin',
             phoneticScripts: ['latin'],
@@ -174,14 +173,15 @@ describe('morphology is a contract member, not a Japanese import', () => {
 });
 
 describe('a non-Japanese target does not get Japanese morphology', () => {
-    it('refuses to deinflect Japanese verbs for a target with no morphology', () => {
+    it('uses its own bounded Adapter without deinflecting Japanese verbs', () => {
         // Under Japanese, 食べました is an inflection of 食べる.
         expect(targetLookupCandidates('食べました').map(candidate => candidate.term))
             .toContain('食べる');
         expect(targetHasMorphology()).toBe(true);
 
         expect(setActiveLearningTargetLanguage('ko')).toBe(KOREAN_LEARNING_TARGET);
-        expect(targetHasMorphology()).toBe(false);
+        expect(targetHasMorphology()).toBe(true);
+        expect(KOREAN_LEARNING_TARGET.experiences.morphology).toBe('bounded-rewrites');
 
         // Under Korean it is a surface and nothing else. Before morphology was
         // a contract member this text went through godan/ichidan rules no
@@ -381,7 +381,6 @@ describe('resolving morphology stays cheap without going stale', () => {
         const inert = createLearningTargetModule({
             id: 'japanese-inert-test-target',
             language: 'ja',
-            capabilities: {},
             featureSemantics: {
                 characterSystem: 'kanji',
                 phoneticScripts: ['hiragana'],

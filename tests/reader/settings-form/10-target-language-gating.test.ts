@@ -25,10 +25,10 @@ describe('target-language settings', () => {
         expect(picker.querySelector<HTMLOptionElement>('option[value="ja"]')?.dataset.studyTargetReadiness)
             .toBe('full');
         const spanish = picker.querySelector<HTMLOptionElement>('option[value="es"]')!;
-        expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
+        expect(spanish.dataset.studyTargetReadiness).toBe('full');
         expect(spanish.textContent).toContain('Español');
-        expect(spanish.textContent).toContain('Read, mine and review');
-        expect(spanish.title).toBe('Reading, lookup, mining and review are ready.');
+        expect(spanish.textContent).toContain('Full Yomu support');
+        expect(spanish.title).toContain('Lookup, readings, grammar, audio, OCR, handwriting and study');
     });
 
     it('keeps a planned target visible, named, and unavailable with a reason', () => {
@@ -101,7 +101,7 @@ describe('target-language settings', () => {
         }
     });
 
-    it('keeps pronunciation universal, shares reading controls with zh/yue/ko, and restores Japanese-only nodes', () => {
+    it('keeps pronunciation and reading controls universal, and restores Japanese-only nodes', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         // Japanese-only means "the DATA behind it is Japanese", not "it mentions
         // Japanese". The YouTube immersion filter and the site-language redirect both
@@ -148,8 +148,8 @@ describe('target-language settings', () => {
         expect(form.querySelector('input[name="showPitchAccent"]')).toBe(pronunciationToggle);
 
         syncLanguageFamilyDom(form, 'es');
-        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBeNull();
-        expect(form.querySelector('select[name="furiganaMode"]')).toBeNull();
+        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
+        expect(form.querySelector('select[name="furiganaMode"]')).toBe(furiganaMode);
         expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
         expect(form.querySelector('input[name="showPitchAccent"]')).toBe(pronunciationToggle);
 

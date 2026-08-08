@@ -27,15 +27,13 @@ export interface HeroStudyLanguage {
 export type StudyTargetClaimReadiness = Exclude<StudyTargetReadiness, 'planned'>;
 
 /**
- * The homepage names every target that can support reading and lookup. Keep the
- * strength of its copy separate from that membership rule: otherwise changing
- * the claim to `full` would merely hide reading-only targets and make the gate
- * approve its own overstatement.
+ * A47: the homepage names the same first-class target roster the product ships.
+ * A newly added target must reach full readiness before it enters this claim.
  */
 export const HOMEPAGE_STUDY_TARGET_CLAIM_READINESS =
-    'reading-only' as const satisfies StudyTargetClaimReadiness;
+    'full' as const satisfies StudyTargetClaimReadiness;
 const HERO_TARGET_MINIMUM_READINESS =
-    'reading-only' as const satisfies StudyTargetClaimReadiness;
+    'full' as const satisfies StudyTargetClaimReadiness;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -68,9 +66,8 @@ export function assertStudyTargetClaimReadiness(
 }
 
 /**
- * Public hero membership is every target ready for reading and lookup. The
- * separate assertion above prevents its copy from implying the full Japanese
- * feature set for a reading-only target.
+ * Public hero membership is every first-class target. The assertion prevents
+ * the copy from out-running the contract when a future target is added.
  */
 export function heroStudyLanguages(
     claimedReadiness: StudyTargetClaimReadiness = HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,

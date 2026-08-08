@@ -4,7 +4,6 @@ import { normalizeGenericLookupText } from './lookup-normalization';
 import { canonicalLanguageTag, languageSubtag, localeDirection } from './locale';
 import { EMPTY_LEARNING_TARGET_GRAMMAR } from './grammar';
 import {
-    LEARNING_TARGET_CAPABILITY_IDS,
     LEARNING_TARGET_MODULE_INTERFACE_VERSION,
     type LanguageLookupCandidate,
     type LanguageTag,
@@ -12,6 +11,7 @@ import {
     type LearningTargetAudio,
     type LearningTargetCapabilities,
     type LearningTargetFeatureSemantics,
+    type LearningTargetExperiences,
     type LearningTargetGrammar,
     type LearningTargetModule,
     type LearningTargetModuleInterfaceVersion,
@@ -34,14 +34,8 @@ export interface LearningTargetSpec {
     featureSemantics: LearningTargetFeatureSemantics;
     /** Defaults to the current contract revision. */
     interfaceVersion?: LearningTargetModuleInterfaceVersion;
-    /**
-     * Defaults to every capability off; declare only what the module has.
-     *
-     * `grammar` and the CORE_DELIVERED_CAPABILITIES are absent from this type on
-     * purpose — they are facts about shared machinery, not per-target claims, so
-     * declaring them is a compile error rather than a comment nobody reads.
-     */
-    capabilities?: Partial<Record<DeclarableCapability, boolean>>;
+    /** Selects a target-owned Adapter where the user experience legitimately varies. */
+    experiences?: Partial<LearningTargetExperiences>;
     /** Target-owned grammar Adapter; capability is derived from its checked rules. */
     grammar?: LearningTargetGrammar;
     direction?: TextDirection;
@@ -78,10 +72,6 @@ export interface LearningTargetSpec {
     normalizeReading?: (spelling: string, reading?: string) => string;
 }
 
-const NO_CAPABILITIES: LearningTargetCapabilities = Object.freeze(
-    Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map(id => [id, false])),
-) as LearningTargetCapabilities;
-
 /**
  * Capabilities that core delivers for EVERY target, so no module may under-claim
  * them.
@@ -100,34 +90,35 @@ const NO_CAPABILITIES: LearningTargetCapabilities = Object.freeze(
  *     (mining-language-regression.test.ts, es-en / ru-en / ja-en fixtures).
  * The flags were simply never revisited after the machinery became multilingual.
  *
- * Declaring them per module invited exactly that drift, so they are no longer
- * declarable: the type below removes them from the accepted spec. A capability
- * that every target has is a fact about core, and belongs in one place.
+ * Declaring them per module invited exactly that drift. Revision 10 therefore
+ * derives them in one place and gives the seven language-shaped experiences a
+ * concrete Adapter mode instead. A capability every target has is a fact about
+ * core, not a target-by-target promise.
  */
 const CORE_DELIVERED_CAPABILITIES = Object.freeze({
     'term-lookup': true,
+    'character-lookup': true,
     segmentation: true,
+    morphology: true,
+    'reading-annotation': true,
     pronunciation: true,
+    frequency: true,
+    examples: true,
+    audio: true,
     'text-to-speech': true,
+    ocr: true,
     subtitles: true,
     typing: true,
+    handwriting: true,
     mining: true,
     srs: true,
     grading: true,
-});
-
-type DeclarableCapability = Exclude<
-    keyof LearningTargetCapabilities,
-    'grammar' | keyof typeof CORE_DELIVERED_CAPABILITIES
->;
+} satisfies Omit<LearningTargetCapabilities, 'grammar'>);
 
 function learningTargetCapabilities(
-    declared: Partial<Record<DeclarableCapability, boolean>> = {},
     hasGrammarRules = false,
 ): LearningTargetCapabilities {
     return Object.freeze({
-        ...NO_CAPABILITIES,
-        ...declared,
         ...CORE_DELIVERED_CAPABILITIES,
         // Derived, never declared: a target has grammar support exactly when it
         // ships grammar rules. Same principle as the block above — the capability
@@ -151,6 +142,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
     const normalizeText = spec.normalizeText ?? defaultNormalizeText;
     const segment = spec.segment ?? ((text: string) => defaultSegment(text, language));
     const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+    const experiences = learningTargetExperiences(spec);
 
     return Object.freeze({
         interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
@@ -158,7 +150,8 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         language,
         direction,
         collationLocale: spec.collationLocale ?? language,
-        capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+        capabilities: learningTargetCapabilities(grammar.rules.length > 0),
+        experiences,
         featureSemantics: Object.freeze({
             ...spec.featureSemantics,
             phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts]),
@@ -166,7 +159,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         typography: Object.freeze({
             contentLocale: language,
             direction,
-            readingAnnotationMode: 'none' as const,
+            readingAnnotationMode: 'ruby' as const,
             supportsVerticalWriting: false,
             ...spec.typography,
         }),
@@ -178,6 +171,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         audio: Object.freeze({
             speechSynthesisLocale: regionalTag,
             templateLanguageToken: base,
+            recordedWordAudio: false,
             ...spec.audio,
         }),
         ocr: Object.freeze({
@@ -211,6 +205,30 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         compareLookupCandidates: spec.compareLookupCandidates ?? defaultCompareLookupCandidates,
         matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
         normalizeReading: spec.normalizeReading ?? defaultNormalizeReading,
+    });
+}
+
+/**
+ * Resolve the seven target-shaped experiences once, at the Module boundary.
+ * Consumers ask the Module how to fulfil a feature instead of reverse-
+ * engineering a language tag or a capability boolean.
+ */
+function learningTargetExperiences(spec: LearningTargetSpec): Readonly<LearningTargetExperiences> {
+    const morphology: LearningTargetExperiences['morphology'] = spec.experiences?.morphology
+        ?? (spec.lookupCandidates ? 'deinflection'
+            : spec.lookupRewrites?.length || spec.lookupSubsegments ? 'bounded-rewrites'
+                : 'dictionary-forms');
+    const recordedWordAudio = spec.audio?.recordedWordAudio ?? false;
+
+    return Object.freeze({
+        characterLookup: 'term-dictionary',
+        morphology,
+        readingAnnotation: 'dictionary-reading',
+        frequency: 'dictionary-rank-or-context-occurrences',
+        audio: recordedWordAudio ? 'recorded-and-speech-synthesis' : 'speech-synthesis',
+        ocr: 'target-locale',
+        handwriting: 'self-check',
+        ...spec.experiences,
     });
 }
 

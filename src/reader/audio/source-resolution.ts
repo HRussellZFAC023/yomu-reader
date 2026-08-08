@@ -1,5 +1,6 @@
 import { ShuffledAudioDeck } from './playback-queue';
 import { YOMU_HOSTED_AUDIO_URL } from '../app/constants';
+import { activeLearningTarget } from '../languages/target-runtime';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 export interface AudioCandidate {
@@ -29,15 +30,26 @@ export interface OrderedAudioSource {
 
 const YOMU_HOSTED_AUDIO_SOURCE: AudioSourceSetting =
     { type: 'custom-json', url: YOMU_HOSTED_AUDIO_URL, voice: '', enabled: true };
+const TARGET_SPEECH_SYNTHESIS_SOURCE: AudioSourceSetting =
+    { type: 'text-to-speech', url: '', voice: '', enabled: true };
 
 export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSetting[] {
     const sources = settings.audioSources.filter(source => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
 
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    const target = activeLearningTarget();
+    const hosted = target.audio.recordedWordAudio
+        ? settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE
+        : null;
+    const configured = sources.filter(source => !isYomuHostedAudioSource(source));
+    const targetSpeechSynthesis = target.experiences.audio === 'speech-synthesis'
+        && !configured.some(isBrowserTextToSpeechSource)
+        ? [TARGET_SPEECH_SYNTHESIS_SOURCE]
+        : [];
     return [
-        ...(hosted.enabled ? [{ ...hosted }] : []),
-        ...sources.filter(source => !isYomuHostedAudioSource(source)),
+        ...(hosted?.enabled ? [{ ...hosted }] : []),
+        ...configured,
+        ...targetSpeechSynthesis,
     ];
 }
 

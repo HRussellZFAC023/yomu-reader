@@ -22,7 +22,7 @@ export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean
  * speaks. Bump it whenever the shape below gains, loses, or changes the
  * meaning of a member.
  */
-export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9 as const;
+export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10 as const;
 
 /**
  * Revisions core can still drive. A target module declares the revision it was
@@ -31,7 +31,7 @@ export const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9 as const;
  * out-of-tree target) fails loudly at registration instead of silently
  * missing a capability at some call site months later.
  */
-export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9] as const;
+export const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10] as const;
 
 export type LearningTargetModuleInterfaceVersion =
     typeof SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS[number];
@@ -181,6 +181,34 @@ export interface LearningTargetFeatureSemantics {
     readingAnnotation: string;
 }
 
+/**
+ * How the target fulfils the seven depth capabilities whose implementation
+ * legitimately varies by language.
+ *
+ * A boolean cannot distinguish a missing feature from a feature supplied by a
+ * different Adapter.  That was the source of the old capability drift: OCR,
+ * frequency evidence and dictionary readings worked for targets that declared
+ * them false, while `character-lookup` was treated as if it always meant a
+ * Japanese kanji card.  Core derives the compatibility booleans from these
+ * concrete modes; target Modules declare the Adapter they actually use.
+ */
+export interface LearningTargetExperiences {
+    /** Dedicated character-bank lookup, or a one-grapheme term lookup. */
+    readonly characterLookup: 'character-dictionary' | 'term-dictionary';
+    /** Lemma candidates supplied by code, or inflected surface rows supplied by the dictionary. */
+    readonly morphology: 'deinflection' | 'bounded-rewrites' | 'dictionary-forms';
+    /** Dictionary-owned readings rendered over the exact matched surface. */
+    readonly readingAnnotation: 'dictionary-reading';
+    /** Imported/provider ranks when present; otherwise an explicitly labelled count in the lookup context. */
+    readonly frequency: 'dictionary-rank-or-context-occurrences';
+    /** Recorded clips when available, with target-locale speech synthesis as the universal path. */
+    readonly audio: 'recorded-and-speech-synthesis' | 'speech-synthesis';
+    /** OCR requests and rendered lines use the target Module's locale and direction. */
+    readonly ocr: 'target-locale';
+    /** Reference-backed stroke feedback, or an explicit learner self-check. */
+    readonly handwriting: 'stroke-feedback' | 'self-check';
+}
+
 /** How target-language text must be marked up and laid out on a page. */
 export interface LearningTargetTypography {
     /** BCP-47 value stamped in `lang=` on rendered target-language content. */
@@ -206,6 +234,8 @@ export interface LearningTargetAudio {
     speechSynthesisLocale: LanguageTag;
     /** Value substituted for `{language}` in user audio URL templates. */
     templateLanguageToken: string;
+    /** Whether Yomu ships a target-specific recorded-word source. */
+    recordedWordAudio: boolean;
 }
 
 /** OCR request facts for providers that need a language up front. */
@@ -306,6 +336,7 @@ export interface LearningTargetModule {
     /** Locale used to sort target-language strings (mining lists, browse). */
     readonly collationLocale: LanguageTag;
     readonly capabilities: LearningTargetCapabilities;
+    readonly experiences: LearningTargetExperiences;
     readonly featureSemantics: LearningTargetFeatureSemantics;
     readonly typography: LearningTargetTypography;
     readonly typing: LearningTargetTyping;

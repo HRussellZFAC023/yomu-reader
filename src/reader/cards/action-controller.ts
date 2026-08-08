@@ -29,7 +29,7 @@ import type { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import type { YomuSrsAdapter } from '../srs';
 import type { GrammarHint } from '../study/tools';
 import { outputLanguageOf } from '../languages';
-import { targetSupportsCharacterLookup } from '../languages/character-lookup';
+import { targetUsesCharacterDictionary } from '../languages/character-lookup';
 
 interface ShowCardOptions {
     autoPlay?: boolean;
@@ -774,7 +774,7 @@ export class CardActionController {
     }
 
     private lookupAnkiLocalKanji(card: JPDBCard, settings: ReaderSettings) {
-        return targetSupportsCharacterLookup() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji
+        return targetUsesCharacterDictionary() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji
             ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => [])
             : Promise.resolve([]);
     }

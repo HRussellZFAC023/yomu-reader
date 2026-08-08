@@ -20,19 +20,18 @@ describe('shared study-target picker', () => {
         expect(japanese).toMatchObject({
             readiness: 'full',
             disabled: false,
-            reason: 'Everything, including pitch accent, kanji and grammar.',
+            reason: 'Lookup, readings, grammar, audio, OCR, handwriting and study are ready for this target.',
         });
         expect(japanese?.label).toContain('Full Yomu support');
         expect(spanish).toMatchObject({
-            readiness: 'reading-only',
+            readiness: 'full',
             disabled: false,
-            reason: 'Reading, lookup, mining and review are ready.',
+            reason: 'Lookup, readings, grammar, audio, OCR, handwriting and study are ready for this target.',
         });
         expect(spanish?.label).toContain('Español');
-        expect(spanish?.label).toContain('Read, mine and review');
-        // Neither label may claim a language cannot be mined or reviewed.
+        expect(spanish?.label).toContain('Full Yomu support');
         for (const option of options) {
-            expect(option.reason, `${option.id} reason`).toMatch(/mining|kanji/u);
+            expect(option.reason, `${option.id} reason`).toContain('study');
         }
     });
 
@@ -61,7 +60,7 @@ describe('shared study-target picker', () => {
         expect(spanish.selected).toBe(true);
         expect(spanish.lang).toBe('es');
         expect(spanish.dir).toBe('ltr');
-        expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
+        expect(spanish.dataset.studyTargetReadiness).toBe('full');
         expect(spanish.getAttribute('aria-label')).toBe(`${spanish.textContent}. ${spanish.title}`);
     });
 });

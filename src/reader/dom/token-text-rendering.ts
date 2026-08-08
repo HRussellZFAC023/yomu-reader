@@ -1,6 +1,5 @@
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
-import { HAS_JAPANESE_LETTER } from './constants';
 import { escapeHtml } from './html';
 import {
     KANJI_RE,
@@ -9,6 +8,8 @@ import {
 } from '../lookup/japanese-script';
 import { effectiveFuriganaMode } from '../settings/index';
 import { isUnifiedIdeograph } from '../languages/han';
+import { activeLearningTarget, learningTargetModuleFor } from '../languages/target-runtime';
+import type { LearningTargetModule } from '../languages/types';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 
 const EASY_FURIGANA_KANJI = new Set(
@@ -146,7 +147,7 @@ function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolea
         || token.start < 0
         || token.end <= token.start
         || token.end > text.length) return false;
-    return HAS_JAPANESE_LETTER.test(text.slice(token.start, token.end));
+    return learningTargetForToken(token).isLookupableText(text.slice(token.start, token.end));
 }
 
 export function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
@@ -220,7 +221,12 @@ function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken,
     if (mode === 'off') return false;
     if (mode === 'hover') return true;
     if (mode === 'known-status') return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== 'difficult-kanji' || hasDifficultKanji(surface);
+    if (mode !== 'difficult-kanji') return true;
+    // The curated difficulty list is a Japanese learning aid, not a universal
+    // script heuristic. Targets without the Japanese input Adapter keep their
+    // dictionary readings visible instead of silently losing all annotations.
+    return learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana'
+        || hasDifficultKanji(surface);
 }
 
 function hasDifficultKanji(surface: string): boolean {
@@ -386,7 +392,12 @@ export function effectiveTokenRubies(
     token: JPDBToken,
     preserveTokenRubies = false,
 ): JPDBToken['rubies'] {
+    const target = learningTargetForToken(token);
+    if (target.typography.readingAnnotationMode === 'none') return [];
     const sources = sourceTokenRubies(surface, token);
+    if (target.experiences.characterLookup === 'term-dictionary') {
+        return sources.filter(ruby => localRubyRange(surface, token, ruby));
+    }
     if (preserveTokenRubies) {
         return sources.flatMap(ruby => {
             const range = localRubyRange(surface, token, ruby);
@@ -405,7 +416,16 @@ function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies
     if (token.rubies.length) return token.rubies;
 
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
+    if (!surface || !reading || reading === surface) return [];
+    if (surface.trim() === token.card.spelling.trim()) {
+        return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+    }
+    // Inflected-surface inference is a Japanese Adapter. Other targets render
+    // exact dictionary-owned spans and never guess how a reading maps across a
+    // changed surface.
+    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana'
+        || !KANJI_RE.test(surface)
+        || !KANA_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
         return inferred.map(ruby => ({
@@ -414,8 +434,11 @@ function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies
             end: token.start + ruby.end,
         }));
     }
-    if (surface.trim() !== token.card.spelling.trim()) return [];
-    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+    return [];
+}
+
+function learningTargetForToken(token: JPDBToken): LearningTargetModule {
+    return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
 }
 
 function kanjiOnlyRubySegments(

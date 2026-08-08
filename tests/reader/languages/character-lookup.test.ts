@@ -6,6 +6,7 @@ import {
 } from '../../../src/reader/languages/active';
 import {
     targetCanLookupCharacter,
+    targetCanLookupWritingUnit,
     targetSupportsCharacterLookup,
     usesJapaneseProviders,
 } from '../../../src/reader/languages/character-lookup';
@@ -62,12 +63,14 @@ describe('character lookup capability', () => {
         }
     });
 
-    it('still refuses character lookup for a target with no per-character script', () => {
-        // The capability must not become "true everywhere" by accident: Spanish has
-        // no characters to look up, and the gate has to keep saying so.
-        for (const target of ['es', 'ru', 'th'] as const) {
+    it('uses a one-grapheme term lookup when a target has no character bank', () => {
+        for (const [target, unit] of [['es', 'ñ'], ['ru', 'ё'], ['th', 'น้ำ']] as const) {
             expect(setActiveLearningTargetLanguage(target)).not.toBeNull();
-            expect(targetSupportsCharacterLookup()).toBe(false);
+            expect(targetSupportsCharacterLookup()).toBe(true);
+            expect(targetCanLookupWritingUnit(unit)).toBe(true);
+            expect(targetCanLookupWritingUnit(`${unit}${unit}`)).toBe(false);
+            // Dedicated character-bank UI remains off; this Adapter enters the
+            // ordinary term dictionary with one intact grapheme.
             expect(targetCanLookupCharacter('漢')).toBe(false);
             expect(usesJapaneseProviders()).toBe(false);
         }
