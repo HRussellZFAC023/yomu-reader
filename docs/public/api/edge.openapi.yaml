@@ -1,7 +1,7 @@
 "openapi": "3.1.0"
 "info":
   "title": "Yomu Edge API"
-  "version": "1.8.86"
+  "version": "1.8.87"
   "description": "Anonymous, read-only, privacy-preserving CORS gateway for a narrow allowlist of public Japanese-learning resources."
   "contact":
     "name": "Yomu"

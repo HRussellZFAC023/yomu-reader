@@ -2185,11 +2185,11 @@ function fetchWithTimeout(url, options) {
   } = options;
   if (!timeoutMs) return fetch(url, { ...init, signal });
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-  window.clearTimeout(timeout);
+  globalThis.clearTimeout(timeout);
   signal?.removeEventListener("abort", abort);
   });
 }

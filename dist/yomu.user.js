@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.86
+// @version 1.8.87
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.f2370e366b08.user.js#sha256=8jcONmsIQ0ZoMFfM+2J0WUTpBRunivEOzMfnDiIemSA=
+// @require https://yomureader.com/greasyfork/yomu-runtime.53fe5ee72751.user.js#sha256=U/5e5ydRUBuRIaCqLGzvikj/yl6pS6Y311h99Jxl97o=
 // @resource yomuCss  https://yomureader.com/yomu.0f710500cc29.css#sha256=D3EFAMwp54rB9sHQ/NP39dr+5FJHa3siw3iyJZwFsuQ=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -110,7 +110,7 @@ const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS
 function delay(ms) {
 return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
-function isPromiseLike$1(value) {
+function isPromiseLike$2(value) {
 return Boolean(value && typeof value.then === "function");
 }
 function promiseWithTimeout(promise, timeoutMs, message) {
@@ -1271,12 +1271,12 @@ committedAt
 }
 function managedStateStoredValue(value, epoch) {
 if (epoch.generation === 0) return value;
-const envelope = {
+const envelope2 = {
 __yomuManagedStateEnvelope: MANAGED_STATE_ENVELOPE_VERSION,
 epoch: managedStateEpochToken(epoch),
 value
 };
-return envelope;
+return envelope2;
 }
 function managedStateLogicalValue(stored, epoch, fallback) {
 if (epoch.generation === 0) {
@@ -1414,10 +1414,10 @@ function reconcileArea(area, epoch) {
 const storage = storageArea(area);
 const markerKey = AREA_MARKER_KEYS[area];
 const expectedToken = managedStateEpochToken(epoch);
-const marker = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
-if (marker === expectedToken) return;
-if (marker !== null) {
-const relation = managedStateEpochTokenRelation(marker, epoch);
+const marker2 = readStorageValue(storage, markerKey, `${area}Storage epoch marker`);
+if (marker2 === expectedToken) return;
+if (marker2 !== null) {
+const relation = managedStateEpochTokenRelation(marker2, epoch);
 if (relation === "newer" || relation === "conflict" || relation === "malformed") {
 throw new Error(`${area}Storage belongs to a newer or conflicting managed-state epoch.`);
 }
@@ -1509,8 +1509,8 @@ assertAreaCertificate(area, epoch);
 return { storage: storageArea(area), epoch };
 }
 function assertAreaCertificate(area, epoch) {
-const marker = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
-if (marker !== managedStateEpochToken(epoch)) {
+const marker2 = readStorageValue(storageArea(area), AREA_MARKER_KEYS[area], `${area}Storage epoch marker`);
+if (marker2 !== managedStateEpochToken(epoch)) {
 throw new Error(`${area}Storage is not certified for the captured managed-state epoch.`);
 }
 }
@@ -1919,7 +1919,7 @@ await assertRealmManagedStateEpoch(getValue);
 }
 function managedStateEpochFromSynchronousGetter(getValue) {
 const stored = getValue(MANAGED_STATE_EPOCH_KEY, MISSING);
-if (isPromiseLike$1(stored)) return null;
+if (isPromiseLike$2(stored)) return null;
 const shared = parseManagedStateEpoch(isMissingSentinel(stored) ? void 0 : stored);
 managedStateEpochSession.assertCurrentSync(shared.generation === 0 ? void 0 : shared);
 cacheManagedStateEpochForLocalFallback(shared);
@@ -2115,11 +2115,11 @@ const epoch = managedStateEpochFromSynchronousGetter(getValue);
 if (!epoch) return fallback;
 const storageKey = managedStateStorageKey(key, epoch);
 let stored = getValue(storageKey, MISSING);
-if (isPromiseLike$1(stored)) return fallback;
+if (isPromiseLike$2(stored)) return fallback;
 if (isMissingSentinel(stored) && storageKey !== key) {
 stored = getValue(key, MISSING);
 }
-if (isPromiseLike$1(stored) || isMissingSentinel(stored)) return fallback;
+if (isPromiseLike$2(stored) || isMissingSentinel(stored)) return fallback;
 const unreadable = Symbol("unreadable-managed-state");
 const logical = managedStateLogicalValue(stored, epoch, unreadable);
 return logical === unreadable || isMissingSentinel(logical) ? fallback : logical;
@@ -2132,11 +2132,11 @@ function gmStorageSyncRead(key, getValue, epoch) {
 try {
 const storageKey = managedStateStorageKey(key, epoch);
 let stored = getValue(storageKey, MISSING);
-if (isPromiseLike$1(stored)) return { kind: "fallback" };
+if (isPromiseLike$2(stored)) return { kind: "fallback" };
 const readFromCurrentSlot = !isMissingSentinel(stored);
 if (isMissingSentinel(stored) && storageKey !== key) {
 stored = getValue(key, MISSING);
-if (isPromiseLike$1(stored)) return { kind: "fallback" };
+if (isPromiseLike$2(stored)) return { kind: "fallback" };
 }
 if (!isMissingSentinel(stored)) {
 const unreadable = Symbol("unreadable-managed-state");
@@ -2260,7 +2260,7 @@ return;
 const stored = managedStateStoredValue(value, epoch);
 const storageKey = managedStateStorageKey(key, epoch);
 const result = setValue(storageKey, stored);
-if (isPromiseLike$1(result)) {
+if (isPromiseLike$2(result)) {
 void result.then(async () => {
 await assertRealmManagedStateEpoch(getValue);
 mirrorManagedValueToHostedStorage(key, value, epoch);
@@ -2395,7 +2395,7 @@ if (result === void 0 && (storageKey === key ? !deleteValue : !setValue)) {
 void gmStorageDelete(key).catch((error) => debugStorageError("GM storage async delete failed", key, error));
 return;
 }
-if (isPromiseLike$1(result)) {
+if (isPromiseLike$2(result)) {
 void result.then(async () => {
 await assertRealmManagedStateEpoch(getValue);
 removeLocalManagedValue(key);
@@ -9042,8 +9042,9 @@ return root;
 const tagName = host.localName.toLowerCase();
 const isCustomElement = tagName.includes("-");
 if (!isCustomElement) return null;
-if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
-subscribeToCustomElementUpgrade(tagName);
+const registry = customElementRegistry();
+if (registry && !registry.get(tagName)) {
+subscribeToCustomElementUpgrade(registry, tagName);
 return null;
 }
 if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
@@ -9215,11 +9216,17 @@ pendingUpgradeWakeup = false;
 hook();
 }
 }
-function subscribeToCustomElementUpgrade(tagName) {
+function customElementRegistry() {
+const registry = Reflect.get(globalThis, "customElements");
+if (!registry) return null;
+const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+return callableMethods.length === 2 ? registry : null;
+}
+function subscribeToCustomElementUpgrade(registry, tagName) {
 if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
 subscribedUpgradeNames.add(tagName);
 const generation = customElementLifecycleGeneration;
-void customElements.whenDefined(tagName).then(() => {
+void registry.whenDefined(tagName).then(() => {
 if (generation !== customElementLifecycleGeneration) return;
 subscribedUpgradeNames.delete(tagName);
 notifyCustomElementLifecycle();
@@ -14908,7 +14915,7 @@ return candidates;
 function asUserscriptRequest(value) {
 return typeof value === "function" ? value : void 0;
 }
-function isPromiseLike(value) {
+function isPromiseLike$1(value) {
 return Boolean(value) && typeof value.then === "function";
 }
 function directUserscriptGlobals() {
@@ -14995,7 +15002,7 @@ ontimeout: () => send("timeout", void 0, "Request timed out.")
 };
 try {
 const result = request(options);
-if (isPromiseLike(result)) {
+if (isPromiseLike$1(result)) {
 result.then((response) => send("load", response), (error) => send("error", void 0, error instanceof Error ? error.message : String(error || "Request failed.")));
 }
 } catch (error) {
@@ -15253,7 +15260,7 @@ ontimeout: handleTimeout
 if (result && typeof result.abort === "function") {
 handle = result;
 }
-if (isPromiseLike(result)) result.then(handleLoad, handleError);
+if (isPromiseLike$1(result)) result.then(handleLoad, handleError);
 } catch (error) {
 handleError(error);
 }
@@ -17237,12 +17244,91 @@ return null;
 function minContrast(color, backgrounds) {
 return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
 }
+const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+const LIGHT_TEXT_MAX_CONTRAST_ON_WHITE = 2;
+const OPAQUE_WHITE = { red: 255, green: 255, blue: 255, alpha: 1 };
+function probePageBackground(element) {
+const ancestors = [];
+for (let node = element.parentElement; node; node = node.parentElement) ancestors.push(node);
+let painted = false;
+let imageBackdrop = false;
+let unknownBase = false;
+let rgba = OPAQUE_WHITE;
+for (const ancestor of ancestors.reverse()) {
+const style = getComputedStyle(ancestor);
+imageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+const color = cssColorToRgba(style.backgroundColor);
+if (!color) {
+unknownBase = true;
+continue;
+}
+if (color.alpha <= 0) continue;
+if (color.alpha >= 1) unknownBase = false;
+rgba = blendRgba(color, rgba);
+painted = true;
+}
+if (painted && !unknownBase) return { background: pageBackgroundFromRgba(rgba), imageBackdrop: false };
+return { background: unpaintedBackground(element.parentElement ?? element), imageBackdrop };
+}
+function documentBackgroundLooksDark() {
+if (typeof document === "undefined" || !document.body) return false;
+let rgba = OPAQUE_WHITE;
+let found = false;
+for (const element of [document.documentElement, document.body]) {
+const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
+if (!color || color.alpha <= 0) continue;
+rgba = blendRgba(color, rgba);
+found = true;
+}
+const background = found ? pageBackgroundFromRgba(rgba) : unpaintedBackground(document.body);
+return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
+}
+function unpaintedBackground(context) {
+if (darkColorSchemeCanvas(context)) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+const text2 = nearestParsedTextColor(context);
+return text2 && contrastRatio(text2, CORE_COLOR_TOKENS.white) < LIGHT_TEXT_MAX_CONTRAST_ON_WHITE ? pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK) : pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+}
+function nearestParsedTextColor(context) {
+for (const scope of [context, document.body, document.documentElement]) {
+if (!scope) continue;
+const hex = cssColorToHex(getComputedStyle(scope).color);
+if (hex) return hex;
+}
+return null;
+}
+function darkColorSchemeCanvas(context) {
+for (const scope of [context, document.body, document.documentElement]) {
+if (!scope) continue;
+const tokens = new Set(getComputedStyle(scope).colorScheme.toLowerCase().split(/\s+/).filter(Boolean));
+if (!tokens.has("dark")) {
+if (tokens.has("light")) return false;
+continue;
+}
+if (tokens.has("light")) return prefersDarkColorScheme();
+return true;
+}
+return false;
+}
+function prefersDarkColorScheme() {
+if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+try {
+return window.matchMedia("(prefers-color-scheme: dark)").matches;
+} catch {
+return false;
+}
+}
+function pageBackgroundFromCss(color) {
+return pageBackgroundFromRgba(cssColorToRgba(color) ?? OPAQUE_WHITE);
+}
+function pageBackgroundFromRgba(rgba) {
+const hex = rgbaToHex(rgba);
+return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+}
 const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
 const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
 const TEXT_CONTRAST = 4.5;
 const DECORATION_CONTRAST = 3;
 const HIGHLIGHT_CONTRAST = 1.45;
-const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
 const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
 const COLORED_READER_WORD_CLASSES = new Set([
 "jpdb-new",
@@ -17277,17 +17363,19 @@ const words = readerWords(root);
 const activeWords = [];
 const activeBackgrounds = [];
 const unknownBackgroundWords = [];
+const unknownBackgrounds = [];
 const neutralWords = [];
 const neutralPageWords = [];
 const neutralPageBackgrounds = [];
 const backgroundByParent = new Map();
 const cachedPageBackgroundFor = (word) => {
 const parent = word.parentElement;
-if (!parent) return pageBackgroundFor(word);
-if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-const background = pageBackgroundFor(word);
-backgroundByParent.set(parent, background);
-return background;
+if (!parent) return probePageBackground(word);
+const cached = backgroundByParent.get(parent);
+if (cached) return cached;
+const probed = probePageBackground(word);
+backgroundByParent.set(parent, probed);
+return probed;
 };
 for (const word of words) {
 const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
@@ -17301,19 +17389,16 @@ neutralWords.push(word);
 continue;
 }
 if (isNeutralReaderWord(word)) {
-const neutralBackground = cachedPageBackgroundFor(word);
-if (neutralBackground) {
 neutralPageWords.push(word);
-neutralPageBackgrounds.push(neutralBackground);
-} else {
-neutralWords.push(word);
-}
+neutralPageBackgrounds.push(cachedPageBackgroundFor(word).background);
 continue;
 }
-const background = cachedPageBackgroundFor(word);
-if (!background) {
+const probed = cachedPageBackgroundFor(word);
+const background = probed.background;
+if (probed.imageBackdrop) {
 if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
 unknownBackgroundWords.push(word);
+unknownBackgrounds.push(background);
 continue;
 }
 const isHovered = word.matches(":hover, :focus");
@@ -17354,7 +17439,7 @@ hovered: word.matches(":hover, :focus")
 });
 neutralWords.forEach((word) => clearContrastVars(word));
 neutralPageWords.forEach((word, i) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i]));
-unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+unknownBackgroundWords.forEach((word, i) => applyUnknownBackgroundFallback(word, unknownBackgrounds[i]));
 activeWords.forEach((word, i) => {
 savedVars[i].forEach(({ name, value, priority: priority2 }) => {
 if (value) word.style.setProperty(name, value, priority2);
@@ -17473,64 +17558,6 @@ if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(r
 root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
 return [...words];
 }
-function pageBackgroundFor(word) {
-const ancestors = [];
-for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
-let found = false;
-let hasImageBackdrop = false;
-let unknownBase = false;
-let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-for (const element of ancestors.reverse()) {
-const style = getComputedStyle(element);
-hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
-const color = cssColorToRgba(style.backgroundColor);
-if (!color) {
-unknownBase = true;
-continue;
-}
-if (color.alpha <= 0) continue;
-if (color.alpha >= 1) unknownBase = false;
-rgba = blendRgba(color, rgba);
-found = true;
-}
-if (unknownBase || !found) {
-if (hasImageBackdrop) return null;
-return inferredTransparentPageBackground(word);
-}
-return pageBackgroundFromRgba(rgba);
-}
-function inferredTransparentPageBackground(word) {
-const style = getComputedStyle(word.parentElement ?? word);
-const rootStyle = getComputedStyle(document.documentElement);
-const bodyStyle = getComputedStyle(document.body);
-const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
-if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-}
-return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-}
-function documentBackgroundLooksDark() {
-if (typeof document === "undefined" || !document.body) return false;
-let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-let found = false;
-for (const element of [document.documentElement, document.body]) {
-const color = cssColorToRgba(getComputedStyle(element).backgroundColor);
-if (!color || color.alpha <= 0) continue;
-rgba = blendRgba(color, rgba);
-found = true;
-}
-const background = found ? pageBackgroundFromRgba(rgba) : inferredTransparentPageBackground(document.body);
-return contrastRatio(CORE_COLOR_TOKENS.white, background.hex) > contrastRatio(CORE_COLOR_TOKENS.black, background.hex);
-}
-function pageBackgroundFromCss(color) {
-return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-}
-function pageBackgroundFromRgba(rgba) {
-const hex = rgbaToHex(rgba);
-return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-}
 function bestTextColor(background) {
 return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
 }
@@ -17543,8 +17570,9 @@ if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
 }
 return color;
 }
-function applyUnknownBackgroundFallback(word) {
+function applyUnknownBackgroundFallback(word, background) {
 RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
 word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
 }
 function applyNeutralPageBackdrop(word, background) {
@@ -19342,8 +19370,8 @@ function numericFrequencyRank(value) {
 return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
 }
 function normalizeFrequencyChipValue(label, value) {
-const marker = label.match(/[㋕㋐]$/u)?.[0];
-return marker && value.endsWith(marker) ? value.slice(0, -marker.length) : value;
+const marker2 = label.match(/[㋕㋐]$/u)?.[0];
+return marker2 && value.endsWith(marker2) ? value.slice(0, -marker2.length) : value;
 }
 function stableHue(value) {
 let hash = 0;
@@ -19432,6 +19460,91 @@ function nestedFrequencyValue(value) {
 if (!value || typeof value !== "object") return void 0;
 const record2 = value;
 return record2.frequency ?? record2.value ?? record2.displayValue;
+}
+function firefoxXrayWaiver(value) {
+if (typeof value !== "object" && typeof value !== "function" || value === null) return value;
+try {
+const wrapped = value.wrappedJSObject;
+return wrapped !== void 0 && wrapped !== null ? wrapped : value;
+} catch {
+return value;
+}
+}
+function localBytesFromArrayBuffer(value) {
+return localBytesFromBufferSource(value);
+}
+function localBytesFromBufferSource(value) {
+if (firefoxXrayWaiver(value) === value) {
+const local = safelyOwnBufferSource(value);
+if (local) return local;
+}
+return cloneForeignBufferSource(value);
+}
+async function localBytesFromBlob(value) {
+if (typeof value.arrayBuffer === "function") {
+return localBytesFromArrayBuffer(await value.arrayBuffer());
+}
+const buffer = await new Promise((resolve, reject) => {
+const reader = new FileReader();
+reader.onload = () => resolve(reader.result);
+reader.onerror = () => reject(reader.error ?? new Error("Could not read binary data."));
+reader.readAsArrayBuffer(value);
+});
+return localBytesFromArrayBuffer(buffer);
+}
+function safelyOwnBufferSource(value) {
+try {
+if (ArrayBuffer.isView(value)) {
+const view = value;
+const backing = view.buffer;
+const length = view.byteLength;
+if (view instanceof Uint8Array && backing instanceof ArrayBuffer) return view;
+const bytes2 = new Uint8Array(length);
+bytes2.set(view);
+return bytes2;
+}
+if (value instanceof ArrayBuffer) return new Uint8Array(value);
+const source = new Uint8Array(value);
+const bytes = new Uint8Array(source.byteLength);
+bytes.set(source);
+return bytes;
+} catch {
+return void 0;
+}
+}
+function cloneForeignBufferSource(value) {
+const clone = globalThis.structuredClone;
+if (typeof clone === "function") {
+const waived = firefoxXrayWaiver(value);
+for (const candidate of waived === value ? [value] : [value, waived]) {
+try {
+const copied = clone(candidate);
+if (isArrayBufferValue(copied) || ArrayBuffer.isView(copied)) {
+const bytes = copyClonedBufferSource(copied);
+if (bytes) return bytes;
+}
+} catch {
+}
+}
+}
+throw new Error("This browser could not copy a cross-realm dictionary BufferSource. Update Firefox or import the ZIP with the extension.");
+}
+function isArrayBufferValue(value) {
+try {
+return value instanceof ArrayBuffer || Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+} catch {
+return false;
+}
+}
+function copyClonedBufferSource(value) {
+try {
+const source = ArrayBuffer.isView(value) ? value : new Uint8Array(value);
+const bytes = new Uint8Array(source.byteLength);
+bytes.set(source);
+return bytes;
+} catch {
+return void 0;
+}
 }
 Logger.scope("DictionaryArchiveCache");
 const PRIVATE_IPV4_RANGES = [
@@ -19807,11 +19920,11 @@ signal,
 } = options;
 if (!timeoutMs) return fetch(url, { ...init, signal });
 const controller = new AbortController();
-const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
 const abort = () => controller.abort();
 signal?.addEventListener("abort", abort, { once: true });
 return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-window.clearTimeout(timeout);
+globalThis.clearTimeout(timeout);
 signal?.removeEventListener("abort", abort);
 });
 }
@@ -21168,8 +21281,8 @@ return reviewButtons.includes("data-review-target-gutter");
 function renderReviewTargetGutter(target, language, canSwitchTarget, switchProviderTarget) {
 const label = uiText(language, "showMiningActions");
 const switchLabel = uiText(language, "switchReviewTarget");
-const currentTarget = switchProviderTarget || canSwitchTarget ? renderReviewTargetCurrent(target) : "";
-const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget) : currentTarget;
+const currentTarget2 = switchProviderTarget || canSwitchTarget ? renderReviewTargetCurrent(target) : "";
+const targetControl = switchProviderTarget ? renderProviderToggle(switchProviderTarget, language, currentTarget2) : currentTarget2;
 return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
 ${targetControl}
 ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ""}
@@ -24700,13 +24813,13 @@ completed: true
 log$7.warn("Local metadata lookup failed", { term: card.spelling }, error);
 return { entries: [], completed: false };
 });
-return Promise.race([
+return cardRenderDetailWithFallback(
+"local metadata dictionary",
+card,
 lookup,
-delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-log$7.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
-return { entries: [], completed: false };
-})
-]);
+{ entries: [], completed: false },
+CARD_RENDER_LOCAL_TIMEOUT_MS
+);
 }
 loadPublicPitch(card) {
 const settings = this.settings();
@@ -24717,7 +24830,7 @@ return [];
 }), []);
 }
 async loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries) {
-await Promise.race([localMetaEntries, delay(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
+await settleBeforeDeadline(localMetaEntries, CARD_RENDER_LOCAL_PITCH_GRACE_MS);
 return this.loadPublicPitch(card);
 }
 loadJpdbVocabularyInfo(card) {
@@ -25074,13 +25187,25 @@ return this.dependencies.getSettings();
 }
 }
 function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
+let timeoutId = 0;
 return Promise.race([
 promise,
-delay(timeoutMs).then(() => {
+new Promise((resolve) => {
+timeoutId = window.setTimeout(() => {
 log$7.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
-return fallback;
+resolve(fallback);
+}, timeoutMs);
 })
-]);
+]).finally(() => window.clearTimeout(timeoutId));
+}
+function settleBeforeDeadline(promise, timeoutMs) {
+let timeoutId = 0;
+return Promise.race([
+promise.then(() => void 0),
+new Promise((resolve) => {
+timeoutId = window.setTimeout(resolve, timeoutMs);
+})
+]).finally(() => window.clearTimeout(timeoutId));
 }
 function isKanaCharacter(character) {
 const code = character.codePointAt(0) ?? 0;
@@ -33711,6 +33836,80 @@ const nearestX = origin.x + segmentX * projection;
 const nearestY = origin.y + segmentY * projection;
 return Math.hypot(point.x - nearestX, point.y - nearestY) <= HOVER_POPOVER_TRANSIT_RADIUS_PX;
 }
+const HOVER_WATCH_PERIOD_MS = 90;
+const domHoverCloseTimers = {
+now: () => Date.now(),
+setTimeout: (handler, delayMs) => window.setTimeout(handler, delayMs),
+clearTimeout: (handle) => window.clearTimeout(handle)
+};
+class HoverCloseController {
+constructor(timers, host) {
+this.timers = timers;
+this.host = host;
+}
+closeTimer;
+deadline = 0;
+watchTimer;
+get pending() {
+return this.closeTimer !== void 0;
+}
+/** Milliseconds until the armed close, or undefined when none is armed. */
+get remainingMs() {
+return this.pending ? Math.max(0, this.deadline - this.timers.now()) : void 0;
+}
+/**
+* Ask for the popover to close in `delayMs`. Earliest deadline wins, so the repeat
+* arming a moving pointer produces is a no-op rather than an extension.
+*/
+arm(delayMs, query = {}) {
+const delay2 = Math.max(0, delayMs);
+const deadline = this.timers.now() + delay2;
+if (this.pending && deadline >= this.deadline) return;
+this.timers.clearTimeout(this.closeTimer);
+this.deadline = deadline;
+this.closeTimer = this.timers.setTimeout(() => {
+this.closeTimer = void 0;
+if (!this.host.isHoverPopoverActive() || this.host.isHoverContextActive(query)) return;
+this.host.close();
+}, delay2);
+}
+cancel() {
+this.timers.clearTimeout(this.closeTimer);
+this.closeTimer = void 0;
+this.deadline = 0;
+}
+/**
+* Start watching for a departure no exit event reported — a re-render can detach
+* the node the pointer was over before the browser dispatches its pointerleave, and
+* a hover popover would then have nothing left to close it.
+*
+* The watchdog only ARMS the close, and keeps polling either way. It used to
+* dismiss on the spot, which is how it ended up deciding close latency instead of
+* merely detecting the departure. Arming is strictly less eager to close than
+* dismissing was, because the deadline re-checks the hover context before acting.
+*/
+startWatch() {
+this.stopWatch();
+const tick = () => {
+this.watchTimer = void 0;
+if (!this.host.isHoverPopoverActive()) return;
+if (!this.host.isHoverContextActive({ ignorePointerPosition: true })) {
+this.arm(this.host.closeDelayMs(), { ignoreCssHover: true });
+}
+this.watchTimer = this.timers.setTimeout(tick, HOVER_WATCH_PERIOD_MS);
+};
+this.watchTimer = this.timers.setTimeout(tick, HOVER_WATCH_PERIOD_MS);
+}
+stopWatch() {
+this.timers.clearTimeout(this.watchTimer);
+this.watchTimer = void 0;
+}
+/** Both timers, for teardown paths that drop the popover entirely. */
+stop() {
+this.cancel();
+this.stopWatch();
+}
+}
 class DisabledReaderAudioActions {
 playTermAudio() {
 return Promise.resolve();
@@ -34639,8 +34838,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.86"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.86"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.87"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.87"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34783,7 +34982,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.86"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.87"}`;
 } catch {
 return null;
 }
@@ -35282,19 +35481,25 @@ observer.observe(document.body);
 scheduleLateAnnotationRefresh(roots, geometryRoots = roots) {
 if (this.destroyed || typeof window === "undefined") return;
 for (const root of roots) {
-if (root instanceof Node && root.isConnected) this.lateAnnotationStateRoots.add(root);
+if (isConnectedNode(root)) this.lateAnnotationStateRoots.add(root);
 }
 for (const root of geometryRoots) {
-if (root instanceof Node && root.isConnected) this.lateAnnotationGeometryRoots.add(root);
+if (isConnectedNode(root)) this.lateAnnotationGeometryRoots.add(root);
 }
 if (!this.lateAnnotationStateRoots.size && !this.lateAnnotationGeometryRoots.size) return;
 if (this.lateAnnotationRefreshTimer !== void 0) return;
 this.lateAnnotationRefreshTimer = window.setTimeout(() => {
 this.lateAnnotationRefreshTimer = void 0;
+if (this.destroyed) return;
 this.flushLateAnnotationRefresh();
 }, LATE_ANNOTATION_REFRESH_WINDOW_MS);
 }
 flushLateAnnotationRefresh() {
+if (this.destroyed) {
+this.lateAnnotationStateRoots.clear();
+this.lateAnnotationGeometryRoots.clear();
+return;
+}
 const stateRoots = compactConnectedRoots(this.lateAnnotationStateRoots);
 const geometryRoots = compactConnectedRoots(this.lateAnnotationGeometryRoots);
 this.lateAnnotationStateRoots.clear();
@@ -35901,8 +36106,14 @@ summary.iPlusOne.add([word.dataset.sentence, visiblePageCoverageInsightSurface(w
 function visiblePageCoverageInsightSurface(word, key) {
 return key || word.dataset.expression || word.textContent || "";
 }
+function isConnectedNode(root) {
+if (typeof Node !== "undefined" && root instanceof Node) {
+return Boolean(root.isConnected);
+}
+return Boolean(root && typeof root === "object" && "isConnected" in root && root.isConnected);
+}
 function compactConnectedRoots(roots) {
-const connected = [...new Set(roots)].filter((root) => root instanceof Node && root.isConnected);
+const connected = [...new Set(roots)].filter(isConnectedNode);
 return connected.filter((root) => !connected.some((other) => other !== root && other.contains(root)));
 }
 function nextVisibleScanParseBatch(targets, startCursor, charBudget = VISIBLE_SCAN_PARSE_CHAR_BUDGET) {
@@ -35923,10 +36134,436 @@ cursor += 1;
 }
 return { batch, cursor };
 }
+const EXTENSION_DICTIONARY_RPC_CHANNEL = "yomu.dictionary-store.v1";
+const EXTENSION_DICTIONARY_RPC_PORT = `${EXTENSION_DICTIONARY_RPC_CHANNEL}.operation`;
+const EXTENSION_DICTIONARY_RPC_VERSION = 1;
+const EXTENSION_DICTIONARY_BACKGROUND_MARKER = "yomu-extension-dictionary-background";
+const EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS = 250;
+const EXTENSION_DICTIONARY_KEEPALIVE_MS = 2e4;
+const BINARY_CHUNK_BYTES = 256 * 1024;
+const VALUE_TAG = "__yomuDictionaryRpcValue";
+function prepareDictionaryRpcValue(input, options = {}) {
+const binaries = [];
+const ancestors = new Set();
+let binarySequence = 0;
+const encode = (value) => {
+if (value === void 0) return marker("undefined");
+if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+if (typeof value === "number") {
+if (Number.isFinite(value)) return value;
+return { ...marker("number"), value: String(value) };
+}
+if (typeof value === "function") {
+if (!options.callbackId) throw new TypeError("Dictionary RPC cannot serialize a function outside a callback slot.");
+return { ...marker("callback"), id: options.callbackId(value) };
+}
+if (typeof value !== "object") throw new TypeError(`Dictionary RPC cannot serialize ${typeof value}.`);
+if (isLearningTargetModule(value)) {
+return {
+...marker("target"),
+id: value.id,
+language: value.language,
+interfaceVersion: value.interfaceVersion
+};
+}
+if (isBlobLike(value)) {
+const id = `binary-${++binarySequence}`;
+binaries.push({ id, value });
+const file = isFileLike(value);
+return {
+...marker("binary"),
+id,
+binaryKind: file ? "file" : "blob",
+size: value.size,
+type: value.type || "",
+...file ? { name: value.name, lastModified: value.lastModified } : {}
+};
+}
+if (value instanceof Date) return { ...marker("date"), value: value.toISOString() };
+if (ancestors.has(value)) throw new TypeError("Dictionary RPC cannot serialize a cyclic value.");
+ancestors.add(value);
+try {
+if (Array.isArray(value)) return value.map(encode);
+const encoded = {};
+for (const [key, child] of Object.entries(value)) encoded[key] = encode(child);
+return encoded;
+} finally {
+ancestors.delete(value);
+}
+};
+return { value: encode(input), binaries };
+}
+function decodeDictionaryRpcValue(input, options = {}) {
+const decode = (value) => {
+if (value === null || typeof value !== "object") return value;
+if (Array.isArray(value)) return value.map(decode);
+const tagged = value;
+switch (tagged[VALUE_TAG]) {
+case "undefined":
+return void 0;
+case "number":
+return Number(tagged.value);
+case "date":
+return new Date(String(tagged.value));
+case "binary":
+if (!options.binary) throw new Error("Dictionary RPC binary payload was not supplied.");
+return options.binary(tagged);
+case "callback":
+if (!options.callback) throw new Error("Dictionary RPC callback channel was not supplied.");
+return options.callback(tagged.id);
+case "target":
+if (!options.target) throw new Error("Dictionary RPC learning-target resolver was not supplied.");
+return options.target(tagged);
+default: {
+const decoded = {};
+for (const [key, child] of Object.entries(value)) decoded[key] = decode(child);
+return decoded;
+}
+}
+};
+return decode(input);
+}
+async function sendDictionaryRpcBinaries(binaries, send) {
+for (const attachment of binaries) {
+const size = attachment.value.size;
+if (size === 0) {
+send({ kind: "binary", id: attachment.id, data: "", final: true });
+continue;
+}
+for (let offset = 0; offset < size; offset += BINARY_CHUNK_BYTES) {
+const end = Math.min(size, offset + BINARY_CHUNK_BYTES);
+const bytes = await localBytesFromBlob(attachment.value.slice(offset, end));
+send({
+kind: "binary",
+id: attachment.id,
+data: bytesToBase64(bytes),
+final: end >= size
+});
+}
+}
+}
+class DictionaryRpcBinaryReceiver {
+chunks = new Map();
+completed = new Set();
+accept(message) {
+if (this.completed.has(message.id)) throw new Error(`Dictionary RPC binary ${message.id} was already complete.`);
+const chunks = this.chunks.get(message.id) ?? [];
+chunks.push(base64ToBytes(message.data));
+this.chunks.set(message.id, chunks);
+if (message.final) this.completed.add(message.id);
+}
+has(id) {
+return this.completed.has(id);
+}
+value(marker2) {
+if (!this.has(marker2.id)) throw new Error(`Dictionary RPC binary ${marker2.id} is incomplete.`);
+const parts = this.chunks.get(marker2.id) ?? [];
+const blob = new Blob(parts, { type: marker2.type });
+if (blob.size !== marker2.size) {
+throw new Error(`Dictionary RPC binary ${marker2.id} has ${blob.size} bytes; expected ${marker2.size}.`);
+}
+if (marker2.binaryKind !== "file") return blob;
+if (typeof File === "function") {
+return new File([blob], marker2.name || "dictionary.bin", {
+type: marker2.type,
+lastModified: marker2.lastModified
+});
+}
+Object.defineProperties(blob, {
+name: { value: marker2.name || "dictionary.bin", configurable: true },
+lastModified: { value: marker2.lastModified ?? Date.now(), configurable: true }
+});
+return blob;
+}
+}
+function reviveDictionaryRpcError(value) {
+const error = new Error(value.message, value.cause ? { cause: reviveDictionaryRpcError(value.cause) } : void 0);
+error.name = value.name || "Error";
+if (value.stack) error.stack = value.stack;
+const record2 = error;
+if (value.code) record2.code = value.code;
+if (value.yomuUiCopyKey) record2.yomuUiCopyKey = value.yomuUiCopyKey;
+if (value.epochMayHaveCommitted !== void 0) record2.epochMayHaveCommitted = value.epochMayHaveCommitted;
+return error;
+}
+function rebindDictionaryRpcInputReferences(args, result) {
+const requests = Array.isArray(args[0]) ? args[0] : null;
+if (!requests || !Array.isArray(result)) return result;
+return result.map((item) => {
+if (!item || typeof item !== "object") return item;
+const record2 = item;
+const index = record2.requestIndex;
+if (!Number.isInteger(index) || index < 0 || index >= requests.length || !("request" in record2)) {
+return item;
+}
+return { ...record2, request: requests[index] };
+});
+}
+function isDictionaryRpcBinaryChunk(value) {
+const record2 = value && typeof value === "object" ? value : null;
+return record2?.kind === "binary" && typeof record2.id === "string" && typeof record2.data === "string" && typeof record2.final === "boolean";
+}
+function marker(kind) {
+return { [VALUE_TAG]: kind };
+}
+function isBlobLike(value) {
+try {
+const candidate = value;
+return typeof candidate.size === "number" && typeof candidate.type === "string" && typeof candidate.slice === "function";
+} catch {
+return false;
+}
+}
+function isFileLike(value) {
+try {
+const candidate = value;
+return typeof candidate.name === "string" && typeof candidate.lastModified === "number";
+} catch {
+return false;
+}
+}
+function isLearningTargetModule(value) {
+const candidate = value;
+return typeof candidate.id === "string" && typeof candidate.language === "string" && typeof candidate.interfaceVersion === "number" && typeof candidate.normalizeText === "function" && typeof candidate.lookupCandidates === "function";
+}
+function bytesToBase64(bytes) {
+let binary = "";
+for (let offset = 0; offset < bytes.length; offset += 32768) {
+binary += String.fromCharCode(...bytes.subarray(offset, offset + 32768));
+}
+return btoa(binary);
+}
+function base64ToBytes(encoded) {
+const binary = atob(encoded);
+const bytes = new Uint8Array(binary.length);
+for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+return bytes;
+}
+function extensionDictionaryStoreProxy(directStore, root = globalThis) {
+const extension = extensionRuntime(root);
+if (!extension) return directStore;
+const capability = probeDictionaryBackground(extension);
+const wrappers = new Map();
+return new Proxy(directStore, {
+get(target, property, receiver) {
+const direct = Reflect.get(target, property, receiver);
+if (typeof direct !== "function") return direct;
+const existing = wrappers.get(property);
+if (existing) return existing;
+if (property === "invalidateCaches") {
+const invalidate = (...args) => {
+const result = Reflect.apply(direct, target, args);
+void capability.then((available) => {
+if (available) return invokeRemote(extension, String(property), args);
+return void 0;
+}).catch(() => void 0);
+return result;
+};
+wrappers.set(property, invalidate);
+return invalidate;
+}
+const invoke = (...args) => capability.then((available) => available ? invokeRemote(extension, String(property), args) : Reflect.apply(direct, target, args));
+wrappers.set(property, invoke);
+return invoke;
+},
+has: (target, property) => Reflect.has(target, property)
+});
+}
+function probeDictionaryBackground(extension) {
+return sendExtensionMessage(extension, envelope("ping"), EXTENSION_DICTIONARY_PROBE_TIMEOUT_MS).then((value) => {
+const response = dictionaryRpcResponse(value);
+return Boolean(
+response?.ok && response.kind === "capability" && response.marker === EXTENSION_DICTIONARY_BACKGROUND_MARKER
+);
+}, () => false);
+}
+function invokeRemote(extension, method, args) {
+return invokeRemoteViaPort(extension, method, args);
+}
+function invokeRemoteViaPort(extension, method, args) {
+return new Promise((resolve, reject) => {
+let port;
+try {
+port = extension.runtime.connect({ name: EXTENSION_DICTIONARY_RPC_PORT });
+} catch (error) {
+reject(error);
+return;
+}
+let closed = false;
+let resultDelivered = false;
+let backgroundPending = false;
+let completionReceived = false;
+let resultValue;
+let resultBinaryIds;
+const receiver = new DictionaryRpcBinaryReceiver();
+const callbacks = new Map();
+let callbackSequence = 0;
+const prepared = prepareDictionaryRpcValue(args, {
+callbackId: (callback) => {
+const id = ++callbackSequence;
+callbacks.set(id, callback);
+return id;
+}
+});
+const keepalive = globalThis.setInterval(() => {
+safePortPost(port, { kind: "keepalive" });
+}, EXTENSION_DICTIONARY_KEEPALIVE_MS);
+const close = (callback) => {
+if (closed) return;
+closed = true;
+globalThis.clearInterval(keepalive);
+callback();
+try {
+port.disconnect();
+} catch {
+}
+};
+const fail = (error) => close(() => {
+if (!resultDelivered) reject(error);
+});
+const finishResultIfReady = () => {
+if (resultDelivered) return;
+if (resultBinaryIds === void 0 || resultValue === void 0) return;
+if (resultBinaryIds.some((id) => !receiver.has(id))) return;
+try {
+const decoded = decodeDictionaryRpcValue(resultValue, {
+binary: (marker2) => receiver.value(marker2)
+});
+resultDelivered = true;
+const rebound = rebindDictionaryRpcInputReferences(args, decoded);
+if (backgroundPending) {
+resolve(rebound);
+if (completionReceived) close(() => void 0);
+} else {
+close(() => resolve(rebound));
+}
+} catch (error) {
+fail(error);
+}
+};
+port.onDisconnect.addListener(() => {
+if (!closed) fail(new Error("Dictionary background operation disconnected before completion."));
+});
+port.onMessage.addListener((message) => {
+if (closed) return;
+if (isDictionaryRpcBinaryChunk(message)) {
+try {
+receiver.accept(message);
+finishResultIfReady();
+} catch (error) {
+fail(error);
+}
+return;
+}
+const record2 = message && typeof message === "object" ? message : {};
+if (record2.kind === "callback" && Number.isInteger(record2.id)) {
+const callback = callbacks.get(record2.id);
+if (!callback) return;
+try {
+const values = decodeDictionaryRpcValue(record2.args);
+Reflect.apply(callback, void 0, Array.isArray(values) ? values : []);
+} catch {
+}
+return;
+}
+if (record2.kind === "error") {
+fail(reviveDictionaryRpcError(record2.error));
+return;
+}
+if (record2.kind === "complete") {
+completionReceived = true;
+if (resultDelivered) close(() => void 0);
+return;
+}
+if (record2.kind === "result") {
+resultValue = record2.value;
+backgroundPending = record2.backgroundPending === true;
+resultBinaryIds = Array.isArray(record2.binaryIds) ? record2.binaryIds.filter((id) => typeof id === "string") : [];
+finishResultIfReady();
+}
+});
+safePortPost(port, envelope("invoke", {
+method,
+args: prepared.value,
+target: currentTarget()
+}));
+void sendDictionaryRpcBinaries(prepared.binaries, (message) => safePortPost(port, message)).catch(fail);
+});
+}
+function sendExtensionMessage(extension, message, timeoutMs) {
+return new Promise((resolve, reject) => {
+let settled = false;
+const finish = (callback) => {
+if (settled) return;
+settled = true;
+globalThis.clearTimeout(timer);
+callback();
+};
+const timer = globalThis.setTimeout(
+() => finish(() => reject(new Error("Dictionary background request timed out."))),
+timeoutMs
+);
+const done = (value) => finish(() => {
+const lastError = extension.runtime.lastError;
+if (lastError) reject(new Error(lastError.message || "Dictionary background request failed."));
+else resolve(value);
+});
+try {
+const maybePromise = extension.promiseBased ? extension.runtime.sendMessage(message) : extension.runtime.sendMessage(message, done);
+if (isPromiseLike(maybePromise)) void maybePromise.then(done, (error) => finish(() => reject(error)));
+} catch (error) {
+finish(() => reject(error));
+}
+});
+}
+function currentTarget() {
+const target = activeLearningTarget();
+return {
+id: target.id,
+language: target.language,
+interfaceVersion: target.interfaceVersion
+};
+}
+function envelope(kind, detail = {}) {
+return {
+channel: EXTENSION_DICTIONARY_RPC_CHANNEL,
+version: EXTENSION_DICTIONARY_RPC_VERSION,
+kind,
+...detail
+};
+}
+function dictionaryRpcResponse(value) {
+if (!value || typeof value !== "object") return null;
+const response = value;
+return response.channel === EXTENSION_DICTIONARY_RPC_CHANNEL && response.version === EXTENSION_DICTIONARY_RPC_VERSION ? response : null;
+}
+function extensionRuntime(root) {
+const global = root;
+try {
+if (global.browser?.runtime?.id && typeof global.browser.runtime.sendMessage === "function" && typeof global.browser.runtime.connect === "function") {
+return { promiseBased: true, runtime: global.browser.runtime };
+}
+if (global.chrome?.runtime?.id && typeof global.chrome.runtime.sendMessage === "function" && typeof global.chrome.runtime.connect === "function") {
+return { promiseBased: false, runtime: global.chrome.runtime };
+}
+} catch {
+return null;
+}
+return null;
+}
+function safePortPost(port, message) {
+try {
+port.postMessage(message);
+} catch {
+}
+}
+function isPromiseLike(value) {
+return Boolean(value && typeof value.then === "function");
+}
 function createLocalDictionaryStore(getCorsProxyUrl, getInterfaceLanguage) {
 const companion = yomuLocalDictionaries();
-if (companion) return new companion.YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage);
-return inertLocalDictionaryStore();
+const direct = companion ? new companion.YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage) : inertLocalDictionaryStore();
+return extensionDictionaryStoreProxy(direct);
 }
 function inertLocalDictionaryStore() {
 const inert = {
@@ -37536,8 +38173,15 @@ this.scheduleAutoScan(throttled, { force: true });
 };
 asbScanTimer;
 hoverLookupTimer;
-hoverCloseTimer;
-hoverWatchTimer;
+hoverClose = new HoverCloseController(domHoverCloseTimers, {
+isHoverPopoverActive: () => this.activePopoverMode === "hover",
+closeDelayMs: () => this.settings.hoverCloseDelayMs,
+isHoverContextActive: (query) => this.isHoverContextActive(query),
+close: () => this.dismiss({
+suppressHoverTarget: false,
+deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
+})
+});
 hoverResizeStickyPointer;
 hoverResizeStickyExpiry = 0;
 hoverPendingWord;
@@ -39021,8 +39665,7 @@ window.clearTimeout(this.jpdbPageEnhanceTimer);
 this.jpdbPageEnhanceDeadline = 0;
 window.clearTimeout(this.nearbyReaderAudioPreloadTimer);
 window.clearTimeout(this.hoverLookupTimer);
-window.clearTimeout(this.hoverCloseTimer);
-window.clearTimeout(this.hoverWatchTimer);
+this.hoverClose.stop();
 this.nestedParseContentCache.clear();
 this.pitchEnrichmentLocalCache.clear();
 this.localPitchDictionaryAvailability = void 0;
@@ -40051,8 +40694,7 @@ this.activePopover.focus({ preventScroll: true });
 }
 pinActiveHoverPopoverForPendingModalLookup() {
 if (this.activePopoverMode !== "hover" || !this.activePopover) return;
-window.clearTimeout(this.hoverWatchTimer);
-this.hoverWatchTimer = void 0;
+this.hoverClose.stopWatch();
 this.clearHoverPopoverResizeSticky();
 this.hoverPopoverPointerPosition = void 0;
 this.activePopoverMode = "modal";
@@ -40949,8 +41591,7 @@ isPointerTextLookupAlreadyQueued(hoverLookupKey) {
 return Boolean(hoverLookupKey && (this.hoverPendingLookupKey === hoverLookupKey && this.hoverLookupTimer || this.hoverLookupInFlightKey === hoverLookupKey));
 }
 cancelHoverClose() {
-window.clearTimeout(this.hoverCloseTimer);
-this.hoverCloseTimer = void 0;
+this.hoverClose.cancel();
 }
 markHoverPopoverSelfResize() {
 if (this.activePopoverMode !== "hover" || !this.activePopover || !this.lastPointerPosition) return;
@@ -40976,15 +41617,7 @@ this.hoverResizeStickyExpiry = 0;
 }
 scheduleHoverClose(delay2 = this.settings.hoverCloseDelayMs, options = {}) {
 if (this.activePopoverMode !== "hover") return;
-this.cancelHoverClose();
-this.hoverCloseTimer = window.setTimeout(() => {
-this.hoverCloseTimer = void 0;
-if (this.isHoverContextActive(options)) return;
-this.dismiss({
-suppressHoverTarget: false,
-deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
-});
-}, Math.max(0, delay2));
+this.hoverClose.arm(delay2, options);
 }
 shouldDeferSubtitleMiningResumeForHoverClose() {
 if (this.activePopoverMode !== "hover" || !this.subtitleMiningPausedVideo) return false;
@@ -44506,7 +45139,7 @@ return state.mode === "modal" && this.settings.stickyBottomSheet && popover.clas
 finishMountedPopoverLifecycle(popover, mode, options) {
 if (mode === "hover") {
 this.installHoverPopoverLifecycle(popover);
-this.startHoverWatch();
+this.hoverClose.startWatch();
 return;
 }
 if (options.focusOnMount === false) return;
@@ -44628,7 +45261,7 @@ if (event.target instanceof HTMLDetailsElement) this.markHoverPopoverSelfResize(
 * must STAY true until a real exit event says otherwise.
 *
 * 1. The pointer is inside. The hover watchdog re-asks that question every
-*    max(90, hoverCloseDelayMs) ms by hit-testing the last known pointer point,
+*    HOVER_WATCH_PERIOD_MS by hit-testing the last known pointer point,
 *    which is a *sample* of a moving DOM: a re-render between two samples can
 *    put a different element under a parked cursor, and Firefox transiently
 *    clears CSS :hover while a scroll changes the descendant beneath it. Over a
@@ -44659,22 +45292,6 @@ return this.hoverPopoverPointerLatched && this.activePopoverMode === "hover" && 
 clearLatchedHoverPopoverPointerForOutsideEvent(target) {
 if (!this.hoverPopoverPointerLatched || this.isInsideActivePopover(target)) return;
 this.hoverPopoverPointerLatched = false;
-}
-startHoverWatch() {
-window.clearTimeout(this.hoverWatchTimer);
-const tick = () => {
-this.hoverWatchTimer = void 0;
-if (this.activePopoverMode !== "hover") return;
-if (!this.isHoverContextActive({ ignorePointerPosition: true })) {
-this.dismiss({
-suppressHoverTarget: false,
-deferSubtitleMiningResume: this.shouldDeferSubtitleMiningResumeForHoverClose()
-});
-return;
-}
-this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
-};
-this.hoverWatchTimer = window.setTimeout(tick, Math.max(90, this.settings.hoverCloseDelayMs));
 }
 dismiss(options = { suppressHoverTarget: true }) {
 if (!options.forceAll && this.shouldDismissStackedLookupOnly()) {
@@ -44735,15 +45352,12 @@ this.cardRenderRequest++;
 }
 clearHoverDismissState(options) {
 window.clearTimeout(this.hoverLookupTimer);
-window.clearTimeout(this.hoverCloseTimer);
-window.clearTimeout(this.hoverWatchTimer);
+this.hoverClose.stop();
 if (this.popoverRepositionFrame !== void 0) {
 window.cancelAnimationFrame(this.popoverRepositionFrame);
 this.popoverRepositionFrame = void 0;
 }
 this.hoverLookupTimer = void 0;
-this.hoverCloseTimer = void 0;
-this.hoverWatchTimer = void 0;
 this.clearHoverPopoverResizeSticky();
 this.hoverPopoverPointerLatched = false;
 this.hoverPopoverPointerPosition = void 0;
@@ -44906,20 +45520,20 @@ missing
 };
 }
 function publishReaderRuntimeHealth(ownerId, root = document) {
-const marker = root.querySelector(`#${READER_RUNTIME_MARKER_ID}`);
-if (!marker || marker.dataset.yomuRuntimeOwner !== ownerId) return null;
+const marker2 = root.querySelector(`#${READER_RUNTIME_MARKER_ID}`);
+if (!marker2 || marker2.dataset.yomuRuntimeOwner !== ownerId) return null;
 const health = currentReaderRuntimeHealth();
-marker.dataset.yomuRuntimeHealth = health.state;
-marker.dataset.yomuRuntimeHealthVersion = String(health.version);
-marker.dataset.yomuRuntimeServices = health.services.join(",");
-marker.dataset.yomuRuntimeMissingServices = health.missing.join(",");
+marker2.dataset.yomuRuntimeHealth = health.state;
+marker2.dataset.yomuRuntimeHealthVersion = String(health.version);
+marker2.dataset.yomuRuntimeServices = health.services.join(",");
+marker2.dataset.yomuRuntimeMissingServices = health.missing.join(",");
 return health;
 }
-function clearReaderRuntimeHealth(marker) {
-delete marker.dataset.yomuRuntimeHealth;
-delete marker.dataset.yomuRuntimeHealthVersion;
-delete marker.dataset.yomuRuntimeServices;
-delete marker.dataset.yomuRuntimeMissingServices;
+function clearReaderRuntimeHealth(marker2) {
+delete marker2.dataset.yomuRuntimeHealth;
+delete marker2.dataset.yomuRuntimeHealthVersion;
+delete marker2.dataset.yomuRuntimeServices;
+delete marker2.dataset.yomuRuntimeMissingServices;
 }
 const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
 const RUNTIME_MARKER_OBSERVER_OPTIONS = {
@@ -44993,16 +45607,16 @@ return runtimeKind === "userscript" || runtimeKind === "extension";
 function reconcileActiveRuntimeMarker() {
 const runtime2 = activeRuntime;
 if (!runtime2) return;
-const marker = document.getElementById(RUNTIME_MARKER_ID);
-if (marker?.dataset.yomuRuntimeOwner === runtime2.ownerId) return;
+const marker2 = document.getElementById(RUNTIME_MARKER_ID);
+if (marker2?.dataset.yomuRuntimeOwner === runtime2.ownerId) return;
 releaseActiveRuntime(runtime2);
-removeOwnerlessDisplacedMarker(marker);
+removeOwnerlessDisplacedMarker(marker2);
 }
-function removeOwnerlessDisplacedMarker(marker) {
-if (!marker?.isConnected) return;
+function removeOwnerlessDisplacedMarker(marker2) {
+if (!marker2?.isConnected) return;
 const bootWindow = window;
-if (bootWindow.__yomuRuntimeOwnerId === marker.dataset.yomuRuntimeOwner) return;
-marker.remove();
+if (bootWindow.__yomuRuntimeOwnerId === marker2.dataset.yomuRuntimeOwner) return;
+marker2.remove();
 }
 function canReplaceExistingRuntime(bootWindow, runtimeKind) {
 if (activeRuntime) return canClaimOverExistingRuntime(activeRuntime.kind, runtimeKind);
@@ -45141,12 +45755,12 @@ if (existing && !canClaimOverExistingRuntime(existing.dataset.yomuRuntimeKind, k
 return null;
 }
 dispatchWindowEvent(createWindowCustomEvent("yomu-reader-runtime-claim", { ownerId, kind, priority: priority(kind) }));
-const marker = existing ?? document.createElement("meta");
-marker.id = RUNTIME_MARKER_ID;
-clearReaderRuntimeHealth(marker);
-marker.dataset.yomuRuntimeKind = kind;
-marker.dataset.yomuRuntimeOwner = ownerId;
-if (!marker.isConnected) appendToDocumentHead(marker);
+const marker2 = existing ?? document.createElement("meta");
+marker2.id = RUNTIME_MARKER_ID;
+clearReaderRuntimeHealth(marker2);
+marker2.dataset.yomuRuntimeKind = kind;
+marker2.dataset.yomuRuntimeOwner = ownerId;
+if (!marker2.isConnected) appendToDocumentHead(marker2);
 return ownerId;
 }
 function canClaimOverExistingRuntime(existingKind, nextKind) {
@@ -45161,12 +45775,12 @@ if (!existing || !isStaleRuntimeMarker(existing)) return existing;
 existing.remove();
 return null;
 }
-function isStaleRuntimeMarker(marker) {
+function isStaleRuntimeMarker(marker2) {
 const bootWindow = window;
 if (activeRuntime) return false;
 if (bootWindow.__yomuReaderAppInitialized || bootWindow.__yomuRealApp) return false;
-if (marker.dataset.yomuRuntimeKind === "dev") return true;
-return Boolean(bootWindow.__yomuRuntimeOwnerId && marker.dataset.yomuRuntimeOwner === bootWindow.__yomuRuntimeOwnerId);
+if (marker2.dataset.yomuRuntimeKind === "dev") return true;
+return Boolean(bootWindow.__yomuRuntimeOwnerId && marker2.dataset.yomuRuntimeOwner === bootWindow.__yomuRuntimeOwnerId);
 }
 function bindClaims(runtime2) {
 const { app, ownerId, kind } = runtime2;
@@ -45194,15 +45808,15 @@ return release;
 }
 function observeRuntimeMarker(ownerId, kind, release) {
 if (typeof MutationObserver === "undefined") return void 0;
-const marker = document.getElementById(RUNTIME_MARKER_ID);
-if (!marker) return void 0;
+const marker2 = document.getElementById(RUNTIME_MARKER_ID);
+if (!marker2) return void 0;
 const observer = new MutationObserver(() => {
-if (marker.dataset.yomuRuntimeOwner === ownerId) return;
-if (priority(marker.dataset.yomuRuntimeKind) < priority(kind)) return;
+if (marker2.dataset.yomuRuntimeOwner === ownerId) return;
+if (priority(marker2.dataset.yomuRuntimeKind) < priority(kind)) return;
 release();
-removeOwnerlessDisplacedMarker(marker);
+removeOwnerlessDisplacedMarker(marker2);
 });
-observer.observe(marker, RUNTIME_MARKER_OBSERVER_OPTIONS);
+observer.observe(marker2, RUNTIME_MARKER_OBSERVER_OPTIONS);
 return observer;
 }
 function clearBootWindowOwner(app, ownerId) {
@@ -45218,8 +45832,8 @@ function clearActiveRuntime(app, ownerId) {
 if (activeRuntime?.app === app && (!ownerId || activeRuntime.ownerId === ownerId)) activeRuntime = void 0;
 }
 function releaseRuntime(ownerId) {
-const marker = document.getElementById(RUNTIME_MARKER_ID);
-if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
+const marker2 = document.getElementById(RUNTIME_MARKER_ID);
+if (marker2?.dataset.yomuRuntimeOwner === ownerId) marker2.remove();
 }
 const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
 function detectInstalledReaderRuntime(globals = globalThis) {
@@ -45238,28 +45852,28 @@ return kind;
 }
 function markInstalledReaderRuntime(kind, root = document) {
 const existing = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
-const marker = existing instanceof HTMLElement ? existing : root.createElement("meta");
-marker.id = INSTALLED_READER_RUNTIME_MARKER_ID;
-marker.dataset.yomuInstalledRuntimeKind = kind;
-if (!marker.isConnected) appendInstalledRuntimeMarker(marker, root);
-return marker;
+const marker2 = existing instanceof HTMLElement ? existing : root.createElement("meta");
+marker2.id = INSTALLED_READER_RUNTIME_MARKER_ID;
+marker2.dataset.yomuInstalledRuntimeKind = kind;
+if (!marker2.isConnected) appendInstalledRuntimeMarker(marker2, root);
+return marker2;
 }
-function appendInstalledRuntimeMarker(marker, root) {
+function appendInstalledRuntimeMarker(marker2, root) {
 const append = () => {
 const parent = root.head || root.documentElement || root.body;
 if (!parent) return false;
-parent.append(marker);
+parent.append(marker2);
 return true;
 };
 if (append()) return;
 const observer = typeof MutationObserver === "function" ? new MutationObserver(() => {
-if (!marker.isConnected && !append()) return;
+if (!marker2.isConnected && !append()) return;
 observer?.disconnect();
 }) : void 0;
 observer?.observe(root, { childList: true, subtree: true });
 root.addEventListener("DOMContentLoaded", () => {
 observer?.disconnect();
-if (!marker.isConnected) append();
+if (!marker2.isConnected) append();
 }, { once: true });
 }
 announceInstalledReaderRuntime();

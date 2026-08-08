@@ -9316,11 +9316,11 @@ function fetchWithTimeout(url, options) {
   } = options;
   if (!timeoutMs) return fetch(url, { ...init, signal });
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-  window.clearTimeout(timeout);
+  globalThis.clearTimeout(timeout);
   signal?.removeEventListener("abort", abort);
   });
 }
@@ -15450,8 +15450,9 @@ function watchPotentialOpenShadowRootHost(host) {
   const tagName = host.localName.toLowerCase();
   const isCustomElement = tagName.includes("-");
   if (!isCustomElement) return null;
-  if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
-  subscribeToCustomElementUpgrade(tagName);
+  const registry = customElementRegistry();
+  if (registry && !registry.get(tagName)) {
+  subscribeToCustomElementUpgrade(registry, tagName);
   return null;
   }
   if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
@@ -15462,10 +15463,16 @@ function watchPotentialOpenShadowRootHost(host) {
   });
   return null;
 }
-function subscribeToCustomElementUpgrade(tagName) {
+function customElementRegistry() {
+  const registry = Reflect.get(globalThis, "customElements");
+  if (!registry) return null;
+  const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+  return callableMethods.length === 2 ? registry : null;
+}
+function subscribeToCustomElementUpgrade(registry, tagName) {
   if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
   subscribedUpgradeNames.add(tagName);
-  void customElements.whenDefined(tagName).then(() => {
+  void registry.whenDefined(tagName).then(() => {
   subscribedUpgradeNames.delete(tagName);
   }, () => {
   subscribedUpgradeNames.delete(tagName);
@@ -16198,7 +16205,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.86".trim() ? "1.8.86".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.87".trim() ? "1.8.87".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

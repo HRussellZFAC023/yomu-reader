@@ -7194,11 +7194,11 @@ function fetchWithTimeout(url, options) {
   } = options;
   if (!timeoutMs) return fetch(url, { ...init, signal });
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort, { once: true });
   return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-  window.clearTimeout(timeout);
+  globalThis.clearTimeout(timeout);
   signal?.removeEventListener("abort", abort);
   });
 }
@@ -28136,7 +28136,6 @@ const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
 let alternateRedirectCleanup;
 let preferenceRevision = 0;
 let currentPreferenceEnabled = false;
-let pendingStartupOptOutCleanup = false;
 let deferredCookieResponseReload = false;
 function installPreferredJapaneseSiteLanguageFromStoredSettings() {
   const revision = ++preferenceRevision;
@@ -28148,8 +28147,6 @@ function installPreferredJapaneseSiteLanguageFromStoredSettings() {
 }
 function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision) {
   if (revision !== preferenceRevision) return;
-  const cachedPreference = readCachedPreferenceEnabled();
-  pendingStartupOptOutCleanup ||= cachedPreference === true;
   const syncPreference = readStoredPreferenceSync();
   if (syncPreference) {
   applyPreferredJapaneseSiteLanguageAtRevision(
@@ -28189,8 +28186,7 @@ function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, 
   if (typeof window === "undefined") return;
   if (revision !== preferenceRevision) return;
   const effectiveEnabled = enabled && languageFamilyIncludes("jp-only", targetLanguage);
-  const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
-  pendingStartupOptOutCleanup = false;
+  const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable);
   currentPreferenceEnabled = effectiveEnabled;
   writeCachedPreferenceEnabled(effectiveEnabled);
   applyPageContextJapanesePreferences(effectiveEnabled, revision);
@@ -28204,6 +28200,7 @@ function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, 
   const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
   deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
   cancelPreferredJapaneseSiteRedirectWatcher();
+  if (!shouldRevert) forgetSessionRedirectState();
   if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
   reloadCurrentLocation();
   }

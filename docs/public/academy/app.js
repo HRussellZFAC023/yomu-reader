@@ -37477,11 +37477,11 @@ ${spelling}`);
     } = options;
     if (!timeoutMs) return fetch(url, { ...init, signal });
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
     return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-      window.clearTimeout(timeout);
+      globalThis.clearTimeout(timeout);
       signal?.removeEventListener("abort", abort);
     });
   }
@@ -46216,8 +46216,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const tagName = host2.localName.toLowerCase();
     const isCustomElement = tagName.includes("-");
     if (!isCustomElement) return null;
-    if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
-      subscribeToCustomElementUpgrade(tagName);
+    const registry = customElementRegistry();
+    if (registry && !registry.get(tagName)) {
+      subscribeToCustomElementUpgrade(registry, tagName);
       return null;
     }
     if (seenPotentialShadowHosts.has(host2) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
@@ -46242,10 +46243,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
       callback2(root);
     }
   }
-  function subscribeToCustomElementUpgrade(tagName) {
+  function customElementRegistry() {
+    const registry = Reflect.get(globalThis, "customElements");
+    if (!registry) return null;
+    const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+    return callableMethods.length === 2 ? registry : null;
+  }
+  function subscribeToCustomElementUpgrade(registry, tagName) {
     if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
     subscribedUpgradeNames.add(tagName);
-    void customElements.whenDefined(tagName).then(() => {
+    void registry.whenDefined(tagName).then(() => {
       subscribedUpgradeNames.delete(tagName);
     }, () => {
       subscribedUpgradeNames.delete(tagName);
@@ -290467,12 +290474,78 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function minContrast(color, backgrounds) {
     return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
   }
+  const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+  const LIGHT_TEXT_MAX_CONTRAST_ON_WHITE = 2;
+  const OPAQUE_WHITE = { red: 255, green: 255, blue: 255, alpha: 1 };
+  function probePageBackground(element2) {
+    const ancestors = [];
+    for (let node2 = element2.parentElement; node2; node2 = node2.parentElement) ancestors.push(node2);
+    let painted = false;
+    let imageBackdrop = false;
+    let unknownBase = false;
+    let rgba = OPAQUE_WHITE;
+    for (const ancestor of ancestors.reverse()) {
+      const style = getComputedStyle(ancestor);
+      imageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+      const color = cssColorToRgba(style.backgroundColor);
+      if (!color) {
+        unknownBase = true;
+        continue;
+      }
+      if (color.alpha <= 0) continue;
+      if (color.alpha >= 1) unknownBase = false;
+      rgba = blendRgba(color, rgba);
+      painted = true;
+    }
+    if (painted && !unknownBase) return { background: pageBackgroundFromRgba(rgba), imageBackdrop: false };
+    return { background: unpaintedBackground(element2.parentElement ?? element2), imageBackdrop };
+  }
+  function unpaintedBackground(context2) {
+    if (darkColorSchemeCanvas(context2)) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+    const text2 = nearestParsedTextColor(context2);
+    return text2 && contrastRatio(text2, CORE_COLOR_TOKENS.white) < LIGHT_TEXT_MAX_CONTRAST_ON_WHITE ? pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK) : pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+  }
+  function nearestParsedTextColor(context2) {
+    for (const scope2 of [context2, document.body, document.documentElement]) {
+      if (!scope2) continue;
+      const hex = cssColorToHex(getComputedStyle(scope2).color);
+      if (hex) return hex;
+    }
+    return null;
+  }
+  function darkColorSchemeCanvas(context2) {
+    for (const scope2 of [context2, document.body, document.documentElement]) {
+      if (!scope2) continue;
+      const tokens = new Set(getComputedStyle(scope2).colorScheme.toLowerCase().split(/\s+/).filter(Boolean));
+      if (!tokens.has("dark")) {
+        if (tokens.has("light")) return false;
+        continue;
+      }
+      if (tokens.has("light")) return prefersDarkColorScheme();
+      return true;
+    }
+    return false;
+  }
+  function prefersDarkColorScheme() {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    try {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } catch {
+      return false;
+    }
+  }
+  function pageBackgroundFromCss(color) {
+    return pageBackgroundFromRgba(cssColorToRgba(color) ?? OPAQUE_WHITE);
+  }
+  function pageBackgroundFromRgba(rgba) {
+    const hex = rgbaToHex(rgba);
+    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+  }
   const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
   const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
   const TEXT_CONTRAST = 4.5;
   const DECORATION_CONTRAST = 3;
   const HIGHLIGHT_CONTRAST = 1.45;
-  const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
   const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
   const COLORED_READER_WORD_CLASSES = /* @__PURE__ */ new Set([
     "jpdb-new",
@@ -290507,17 +290580,19 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const activeWords = [];
     const activeBackgrounds = [];
     const unknownBackgroundWords = [];
+    const unknownBackgrounds = [];
     const neutralWords = [];
     const neutralPageWords = [];
     const neutralPageBackgrounds = [];
     const backgroundByParent = /* @__PURE__ */ new Map();
     const cachedPageBackgroundFor = (word) => {
       const parent = word.parentElement;
-      if (!parent) return pageBackgroundFor(word);
-      if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-      const background = pageBackgroundFor(word);
-      backgroundByParent.set(parent, background);
-      return background;
+      if (!parent) return probePageBackground(word);
+      const cached = backgroundByParent.get(parent);
+      if (cached) return cached;
+      const probed = probePageBackground(word);
+      backgroundByParent.set(parent, probed);
+      return probed;
     };
     for (const word of words) {
       const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
@@ -290531,19 +290606,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
         continue;
       }
       if (isNeutralReaderWord(word)) {
-        const neutralBackground = cachedPageBackgroundFor(word);
-        if (neutralBackground) {
-          neutralPageWords.push(word);
-          neutralPageBackgrounds.push(neutralBackground);
-        } else {
-          neutralWords.push(word);
-        }
+        neutralPageWords.push(word);
+        neutralPageBackgrounds.push(cachedPageBackgroundFor(word).background);
         continue;
       }
-      const background = cachedPageBackgroundFor(word);
-      if (!background) {
+      const probed = cachedPageBackgroundFor(word);
+      const background = probed.background;
+      if (probed.imageBackdrop) {
         if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
         unknownBackgroundWords.push(word);
+        unknownBackgrounds.push(background);
         continue;
       }
       const isHovered = word.matches(":hover, :focus");
@@ -290584,7 +290656,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
     neutralWords.forEach((word) => clearContrastVars(word));
     neutralPageWords.forEach((word, i2) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i2]));
-    unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+    unknownBackgroundWords.forEach((word, i2) => applyUnknownBackgroundFallback(word, unknownBackgrounds[i2]));
     activeWords.forEach((word, i2) => {
       savedVars[i2].forEach(({ name, value, priority }) => {
         if (value) word.style.setProperty(name, value, priority);
@@ -290703,51 +290775,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
     return [...words];
   }
-  function pageBackgroundFor(word) {
-    const ancestors = [];
-    for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
-    let found = false;
-    let hasImageBackdrop = false;
-    let unknownBase = false;
-    let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-    for (const element2 of ancestors.reverse()) {
-      const style = getComputedStyle(element2);
-      hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
-      const color = cssColorToRgba(style.backgroundColor);
-      if (!color) {
-        unknownBase = true;
-        continue;
-      }
-      if (color.alpha <= 0) continue;
-      if (color.alpha >= 1) unknownBase = false;
-      rgba = blendRgba(color, rgba);
-      found = true;
-    }
-    if (unknownBase || !found) {
-      if (hasImageBackdrop) return null;
-      return inferredTransparentPageBackground(word);
-    }
-    return pageBackgroundFromRgba(rgba);
-  }
-  function inferredTransparentPageBackground(word) {
-    const style = getComputedStyle(word.parentElement ?? word);
-    const rootStyle = getComputedStyle(document.documentElement);
-    const bodyStyle = getComputedStyle(document.body);
-    const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-    if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
-    if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-      return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    }
-    return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-  }
-  function pageBackgroundFromCss(color) {
-    return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-  }
-  function pageBackgroundFromRgba(rgba) {
-    const hex = rgbaToHex(rgba);
-    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-  }
   function bestTextColor(background) {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
   }
@@ -290760,8 +290787,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return color;
   }
-  function applyUnknownBackgroundFallback(word) {
+  function applyUnknownBackgroundFallback(word, background) {
     RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
     word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
   }
   function applyNeutralPageBackdrop(word, background) {
@@ -304484,13 +304512,13 @@ ${entry2.reading}`);
         log$j.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return { entries: [], completed: false };
       });
-      return Promise.race([
+      return cardRenderDetailWithFallback(
+        "local metadata dictionary",
+        card,
         lookup,
-        delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-          log$j.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
-          return { entries: [], completed: false };
-        })
-      ]);
+        { entries: [], completed: false },
+        CARD_RENDER_LOCAL_TIMEOUT_MS
+      );
     }
     loadPublicPitch(card) {
       const settings = this.settings();
@@ -304501,7 +304529,7 @@ ${entry2.reading}`);
       }), []);
     }
     async loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries) {
-      await Promise.race([localMetaEntries, delay(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
+      await settleBeforeDeadline(localMetaEntries, CARD_RENDER_LOCAL_PITCH_GRACE_MS);
       return this.loadPublicPitch(card);
     }
     loadJpdbVocabularyInfo(card) {
@@ -304869,13 +304897,25 @@ ${entry2.reading}`);
     }
   }
   function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
+    let timeoutId = 0;
     return Promise.race([
       promise,
-      delay(timeoutMs).then(() => {
-        log$j.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
-        return fallback;
+      new Promise((resolve) => {
+        timeoutId = window.setTimeout(() => {
+          log$j.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+          resolve(fallback);
+        }, timeoutMs);
       })
-    ]);
+    ]).finally(() => window.clearTimeout(timeoutId));
+  }
+  function settleBeforeDeadline(promise, timeoutMs) {
+    let timeoutId = 0;
+    return Promise.race([
+      promise.then(() => void 0),
+      new Promise((resolve) => {
+        timeoutId = window.setTimeout(resolve, timeoutMs);
+      })
+    ]).finally(() => window.clearTimeout(timeoutId));
   }
   function isKanaCharacter(character) {
     const code = character.codePointAt(0) ?? 0;

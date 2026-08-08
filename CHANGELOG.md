@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.87] - 2026-08-08
+
+### Fixed
+
+- The Chrome and Edge extensions start reliably on YouTube again. Chromium can expose a null custom-element registry inside an extension content script; よむ now treats that as an unavailable browser capability instead of aborting before the puck appears.
+- Turning off “Prefer Japanese site language” no longer lets an old per-site cache navigate between Japanese and default-language URLs during startup. Only an explicit settings change may roll back the current URL, and turning the preference back on in the same tab still works.
+- Completed dictionary and enrichment lookups cancel their fallback timers immediately instead of leaving callbacks alive for up to 6.5 seconds and later logging false timeout messages, reducing needless background wakeups during repeated lookups.
+
 ## [1.8.86] - 2026-08-05
 
 ### Changed

@@ -111,11 +111,10 @@
       elementPaint: /* @__PURE__ */ new Map(),
       occludingPaint: /* @__PURE__ */ new Map(),
       projectionLayers: /* @__PURE__ */ new Map(),
-      scrollLayerOrigins: /* @__PURE__ */ new Map(),
+      layerOrigins: /* @__PURE__ */ new Map(),
       viewportCoordinateSafety: /* @__PURE__ */ new Map(),
       styleReads: /* @__PURE__ */ new Map()
     };
-    overlay.documentLayerOrigin = null;
     for (const [source, record2] of records) {
       if (currentSources.has(source)) continue;
       removeRecord(record2, overlay);
@@ -230,7 +229,6 @@
     const overlay = {
       layer,
       documentLayer,
-      documentLayerOrigin: null,
       scrollLayers: /* @__PURE__ */ new Map(),
       scrolledContainers: /* @__PURE__ */ new WeakSet(),
       records: /* @__PURE__ */ new Set(),
@@ -505,12 +503,14 @@
     return Number.isFinite(fontSize) ? fontSize * (record2.clone.textContent ?? "").length : 0;
   }
   function projectionPaintOrigin(record2, context) {
-    const target = record2.layerTarget;
-    if (target?.mode === "document") return documentLayerOrigin(context.overlay);
-    if (target?.mode === "scroll" && target.scrollLayerHost) {
-      return scrollLayerOrigin(target.scrollLayerHost, context);
-    }
-    return { x: 0, y: 0 };
+    const layer = record2.clone.parentElement;
+    if (!layer) return { x: 0, y: 0 };
+    const cached = context.layerOrigins.get(layer);
+    if (cached) return cached;
+    const rect = layer.getBoundingClientRect();
+    const origin = { x: -rect.left, y: -rect.top };
+    context.layerOrigins.set(layer, origin);
+    return origin;
   }
   function graceProjectionRect(record2, context) {
     const stored = record2.lastGoodRect ?? null;
@@ -566,24 +566,6 @@
     const { overlay } = context;
     if (record2.scrollContextEpoch === overlay.scrollContextEpoch && record2.layerTarget) return record2.layerTarget;
     return projectionLayerTarget(record2.anchor, context);
-  }
-  function documentLayerOrigin(overlay) {
-    if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
-    const rect = overlay.documentLayer.getBoundingClientRect();
-    const origin = { x: -rect.left, y: -rect.top };
-    overlay.documentLayerOrigin = origin;
-    return origin;
-  }
-  function scrollLayerOrigin(host, context) {
-    const cached = context.scrollLayerOrigins.get(host);
-    if (cached) return cached;
-    const scrollLayer = context.overlay.scrollLayers.get(host);
-    if (!scrollLayer) return { x: 0, y: 0 };
-    const { layer } = scrollLayer;
-    const rect = layer.getBoundingClientRect();
-    const origin = { x: -rect.left, y: -rect.top };
-    context.scrollLayerOrigins.set(host, origin);
-    return origin;
   }
   function projectionLayerTarget(element2, context) {
     const { projectionLayers: cache2, styleReads: styles } = context;
@@ -752,7 +734,6 @@
     pruneDisconnectedRecords(overlay);
     overlay.hitTestBudgetRemaining = 12;
     overlay.occlusionRefreshNeeded = false;
-    overlay.documentLayerOrigin = null;
     if (overlay.rootsDirty) {
       overlay.rootsDirty = false;
       [...overlay.anchorRecords.keys()].forEach((anchor) => refreshProjectionAnchorRoot(anchor, overlay));
@@ -763,7 +744,9 @@
       elementPaint: /* @__PURE__ */ new Map(),
       occludingPaint: /* @__PURE__ */ new Map(),
       projectionLayers: /* @__PURE__ */ new Map(),
-      scrollLayerOrigins: /* @__PURE__ */ new Map(),
+      // A layer's viewport box moves with every scroll, so the map is rebuilt
+      // per pass: only its value WITHIN one pass may be reused.
+      layerOrigins: /* @__PURE__ */ new Map(),
       viewportCoordinateSafety: /* @__PURE__ */ new Map(),
       styleReads: /* @__PURE__ */ new Map()
     };
@@ -1930,11 +1913,11 @@
     } = options;
     if (!timeoutMs) return fetch(url, { ...init, signal });
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
     const abort = () => controller.abort();
     signal?.addEventListener("abort", abort, { once: true });
     return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-      window.clearTimeout(timeout);
+      globalThis.clearTimeout(timeout);
       signal?.removeEventListener("abort", abort);
     });
   }
@@ -20517,8 +20500,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const tagName = host.localName.toLowerCase();
     const isCustomElement = tagName.includes("-");
     if (!isCustomElement) return null;
-    if (isCustomElement && typeof customElements !== "undefined" && typeof customElements.whenDefined === "function" && !customElements.get(tagName)) {
-      subscribeToCustomElementUpgrade(tagName);
+    const registry = customElementRegistry();
+    if (registry && !registry.get(tagName)) {
+      subscribeToCustomElementUpgrade(registry, tagName);
       return null;
     }
     if (seenPotentialShadowHosts.has(host) || potentialShadowHosts.size >= MAX_POTENTIAL_SHADOW_HOSTS) return null;
@@ -20543,10 +20527,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       callback(root);
     }
   }
-  function subscribeToCustomElementUpgrade(tagName) {
+  function customElementRegistry() {
+    const registry = Reflect.get(globalThis, "customElements");
+    if (!registry) return null;
+    const callableMethods = [registry.get, registry.whenDefined].filter((method) => typeof method === "function");
+    return callableMethods.length === 2 ? registry : null;
+  }
+  function subscribeToCustomElementUpgrade(registry, tagName) {
     if (subscribedUpgradeNames.has(tagName) || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
     subscribedUpgradeNames.add(tagName);
-    void customElements.whenDefined(tagName).then(() => {
+    void registry.whenDefined(tagName).then(() => {
       subscribedUpgradeNames.delete(tagName);
     }, () => {
       subscribedUpgradeNames.delete(tagName);
@@ -47348,12 +47338,78 @@ ${normalizedReading}`;
   function minContrast(color, backgrounds) {
     return Math.min(...backgrounds.map((background) => contrastRatio(color, background)));
   }
+  const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
+  const LIGHT_TEXT_MAX_CONTRAST_ON_WHITE = 2;
+  const OPAQUE_WHITE = { red: 255, green: 255, blue: 255, alpha: 1 };
+  function probePageBackground(element2) {
+    const ancestors = [];
+    for (let node = element2.parentElement; node; node = node.parentElement) ancestors.push(node);
+    let painted = false;
+    let imageBackdrop = false;
+    let unknownBase = false;
+    let rgba = OPAQUE_WHITE;
+    for (const ancestor of ancestors.reverse()) {
+      const style = getComputedStyle(ancestor);
+      imageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+      const color = cssColorToRgba(style.backgroundColor);
+      if (!color) {
+        unknownBase = true;
+        continue;
+      }
+      if (color.alpha <= 0) continue;
+      if (color.alpha >= 1) unknownBase = false;
+      rgba = blendRgba(color, rgba);
+      painted = true;
+    }
+    if (painted && !unknownBase) return { background: pageBackgroundFromRgba(rgba), imageBackdrop: false };
+    return { background: unpaintedBackground(element2.parentElement ?? element2), imageBackdrop };
+  }
+  function unpaintedBackground(context) {
+    if (darkColorSchemeCanvas(context)) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
+    const text2 = nearestParsedTextColor(context);
+    return text2 && contrastRatio(text2, CORE_COLOR_TOKENS.white) < LIGHT_TEXT_MAX_CONTRAST_ON_WHITE ? pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK) : pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
+  }
+  function nearestParsedTextColor(context) {
+    for (const scope of [context, document.body, document.documentElement]) {
+      if (!scope) continue;
+      const hex = cssColorToHex(getComputedStyle(scope).color);
+      if (hex) return hex;
+    }
+    return null;
+  }
+  function darkColorSchemeCanvas(context) {
+    for (const scope of [context, document.body, document.documentElement]) {
+      if (!scope) continue;
+      const tokens = new Set(getComputedStyle(scope).colorScheme.toLowerCase().split(/\s+/).filter(Boolean));
+      if (!tokens.has("dark")) {
+        if (tokens.has("light")) return false;
+        continue;
+      }
+      if (tokens.has("light")) return prefersDarkColorScheme();
+      return true;
+    }
+    return false;
+  }
+  function prefersDarkColorScheme() {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    try {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    } catch {
+      return false;
+    }
+  }
+  function pageBackgroundFromCss(color) {
+    return pageBackgroundFromRgba(cssColorToRgba(color) ?? OPAQUE_WHITE);
+  }
+  function pageBackgroundFromRgba(rgba) {
+    const hex = rgbaToHex(rgba);
+    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+  }
   const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
   const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
   const TEXT_CONTRAST = 4.5;
   const DECORATION_CONTRAST = 3;
   const HIGHLIGHT_CONTRAST = 1.45;
-  const TRANSPARENT_DARK_PAGE_FALLBACK = "#181b20";
   const PASSIVE_CHROME_SELECTOR = 'button, [role="button"], [role="tab"], summary, label, .jpdb-reader-control-text-mirror, [data-jpdb-reader-passive-chrome="true"]';
   const COLORED_READER_WORD_CLASSES = /* @__PURE__ */ new Set([
     "jpdb-new",
@@ -47388,17 +47444,19 @@ ${normalizedReading}`;
     const activeWords = [];
     const activeBackgrounds = [];
     const unknownBackgroundWords = [];
+    const unknownBackgrounds = [];
     const neutralWords = [];
     const neutralPageWords = [];
     const neutralPageBackgrounds = [];
     const backgroundByParent = /* @__PURE__ */ new Map();
     const cachedPageBackgroundFor = (word) => {
       const parent = word.parentElement;
-      if (!parent) return pageBackgroundFor(word);
-      if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
-      const background = pageBackgroundFor(word);
-      backgroundByParent.set(parent, background);
-      return background;
+      if (!parent) return probePageBackground(word);
+      const cached = backgroundByParent.get(parent);
+      if (cached) return cached;
+      const probed = probePageBackground(word);
+      backgroundByParent.set(parent, probed);
+      return probed;
     };
     for (const word of words) {
       const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
@@ -47412,19 +47470,16 @@ ${normalizedReading}`;
         continue;
       }
       if (isNeutralReaderWord(word)) {
-        const neutralBackground = cachedPageBackgroundFor(word);
-        if (neutralBackground) {
-          neutralPageWords.push(word);
-          neutralPageBackgrounds.push(neutralBackground);
-        } else {
-          neutralWords.push(word);
-        }
+        neutralPageWords.push(word);
+        neutralPageBackgrounds.push(cachedPageBackgroundFor(word).background);
         continue;
       }
-      const background = cachedPageBackgroundFor(word);
-      if (!background) {
+      const probed = cachedPageBackgroundFor(word);
+      const background = probed.background;
+      if (probed.imageBackdrop) {
         if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
         unknownBackgroundWords.push(word);
+        unknownBackgrounds.push(background);
         continue;
       }
       const isHovered = word.matches(":hover, :focus");
@@ -47465,7 +47520,7 @@ ${normalizedReading}`;
     });
     neutralWords.forEach((word) => clearContrastVars(word));
     neutralPageWords.forEach((word, i2) => applyNeutralPageBackdrop(word, neutralPageBackgrounds[i2]));
-    unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+    unknownBackgroundWords.forEach((word, i2) => applyUnknownBackgroundFallback(word, unknownBackgrounds[i2]));
     activeWords.forEach((word, i2) => {
       savedVars[i2].forEach(({ name, value, priority }) => {
         if (value) word.style.setProperty(name, value, priority);
@@ -47584,51 +47639,6 @@ ${normalizedReading}`;
     root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
     return [...words];
   }
-  function pageBackgroundFor(word) {
-    const ancestors = [];
-    for (let element2 = word.parentElement; element2; element2 = element2.parentElement) ancestors.push(element2);
-    let found = false;
-    let hasImageBackdrop = false;
-    let unknownBase = false;
-    let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
-    for (const element2 of ancestors.reverse()) {
-      const style = getComputedStyle(element2);
-      hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
-      const color = cssColorToRgba(style.backgroundColor);
-      if (!color) {
-        unknownBase = true;
-        continue;
-      }
-      if (color.alpha <= 0) continue;
-      if (color.alpha >= 1) unknownBase = false;
-      rgba = blendRgba(color, rgba);
-      found = true;
-    }
-    if (unknownBase || !found) {
-      if (hasImageBackdrop) return null;
-      return inferredTransparentPageBackground(word);
-    }
-    return pageBackgroundFromRgba(rgba);
-  }
-  function inferredTransparentPageBackground(word) {
-    const style = getComputedStyle(word.parentElement ?? word);
-    const rootStyle = getComputedStyle(document.documentElement);
-    const bodyStyle = getComputedStyle(document.body);
-    const colorScheme = `${style.colorScheme} ${rootStyle.colorScheme} ${bodyStyle.colorScheme}`.toLowerCase();
-    if (colorScheme.includes("dark")) return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    const pageTextColors = [style.color, bodyStyle.color, rootStyle.color].map((color) => cssColorToHex(color)).filter((color) => Boolean(color));
-    if (pageTextColors.some((color) => contrastRatio(color, CORE_COLOR_TOKENS.black) > contrastRatio(color, CORE_COLOR_TOKENS.white))) {
-      return pageBackgroundFromCss(TRANSPARENT_DARK_PAGE_FALLBACK);
-    }
-    return pageBackgroundFromCss(CORE_COLOR_TOKENS.white);
-  }
-  function pageBackgroundFromCss(color) {
-    return pageBackgroundFromRgba(cssColorToRgba(color) ?? { red: 255, green: 255, blue: 255, alpha: 1 });
-  }
-  function pageBackgroundFromRgba(rgba) {
-    const hex = rgbaToHex(rgba);
-    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
-  }
   function bestTextColor(background) {
     return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
   }
@@ -47641,8 +47651,9 @@ ${normalizedReading}`;
     }
     return color;
   }
-  function applyUnknownBackgroundFallback(word) {
+  function applyUnknownBackgroundFallback(word, background) {
     RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
     word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
   }
   function applyNeutralPageBackdrop(word, background) {
@@ -61065,7 +61076,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.86".trim() ? "1.8.86".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.87".trim() ? "1.8.87".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -123781,7 +123792,6 @@ ${reading}`);
   let alternateRedirectCleanup;
   let preferenceRevision = 0;
   let currentPreferenceEnabled = false;
-  let pendingStartupOptOutCleanup = false;
   let deferredCookieResponseReload = false;
   function installPreferredJapaneseSiteLanguageFromStoredSettings() {
     const revision2 = ++preferenceRevision;
@@ -123793,8 +123803,6 @@ ${reading}`);
   }
   function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision2) {
     if (revision2 !== preferenceRevision) return;
-    const cachedPreference = readCachedPreferenceEnabled();
-    pendingStartupOptOutCleanup ||= cachedPreference === true;
     const syncPreference = readStoredPreferenceSync();
     if (syncPreference) {
       applyPreferredJapaneseSiteLanguageAtRevision(
@@ -123834,8 +123842,7 @@ ${reading}`);
     if (typeof window === "undefined") return;
     if (revision2 !== preferenceRevision) return;
     const effectiveEnabled = enabled && languageFamilyIncludes("jp-only", targetLanguage2);
-    const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
-    pendingStartupOptOutCleanup = false;
+    const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable);
     currentPreferenceEnabled = effectiveEnabled;
     writeCachedPreferenceEnabled(effectiveEnabled);
     applyPageContextJapanesePreferences(effectiveEnabled, revision2);
@@ -123849,6 +123856,7 @@ ${reading}`);
     const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
     deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
     cancelPreferredJapaneseSiteRedirectWatcher();
+    if (!shouldRevert) forgetSessionRedirectState();
     if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
       reloadCurrentLocation();
     }
@@ -129054,13 +129062,13 @@ ${component.reading}`;
         log$7.warn("Local metadata lookup failed", { term: card.spelling }, error);
         return { entries: [], completed: false };
       });
-      return Promise.race([
+      return cardRenderDetailWithFallback(
+        "local metadata dictionary",
+        card,
         lookup,
-        delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-          log$7.debug("local metadata dictionary timed out while rendering card", { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
-          return { entries: [], completed: false };
-        })
-      ]);
+        { entries: [], completed: false },
+        CARD_RENDER_LOCAL_TIMEOUT_MS
+      );
     }
     loadPublicPitch(card) {
       const settings = this.settings();
@@ -129071,7 +129079,7 @@ ${component.reading}`;
       }), []);
     }
     async loadPublicPitchAfterLocalPitchGrace(card, localMetaEntries) {
-      await Promise.race([localMetaEntries, delay(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
+      await settleBeforeDeadline(localMetaEntries, CARD_RENDER_LOCAL_PITCH_GRACE_MS);
       return this.loadPublicPitch(card);
     }
     loadJpdbVocabularyInfo(card) {
@@ -129439,13 +129447,25 @@ ${component.reading}`;
     }
   }
   function cardRenderDetailWithFallback(detail, card, promise, fallback, timeoutMs) {
+    let timeoutId = 0;
     return Promise.race([
       promise,
-      delay(timeoutMs).then(() => {
-        log$7.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
-        return fallback;
+      new Promise((resolve) => {
+        timeoutId = window.setTimeout(() => {
+          log$7.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+          resolve(fallback);
+        }, timeoutMs);
       })
-    ]);
+    ]).finally(() => window.clearTimeout(timeoutId));
+  }
+  function settleBeforeDeadline(promise, timeoutMs) {
+    let timeoutId = 0;
+    return Promise.race([
+      promise.then(() => void 0),
+      new Promise((resolve) => {
+        timeoutId = window.setTimeout(resolve, timeoutMs);
+      })
+    ]).finally(() => window.clearTimeout(timeoutId));
   }
   function isKanaCharacter(character) {
     const code = character.codePointAt(0) ?? 0;

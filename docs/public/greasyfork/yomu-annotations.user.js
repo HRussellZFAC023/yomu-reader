@@ -111,11 +111,10 @@ function syncProjectedReadings(owner, projections) {
   elementPaint: /* @__PURE__ */ new Map(),
   occludingPaint: /* @__PURE__ */ new Map(),
   projectionLayers: /* @__PURE__ */ new Map(),
-  scrollLayerOrigins: /* @__PURE__ */ new Map(),
+  layerOrigins: /* @__PURE__ */ new Map(),
   viewportCoordinateSafety: /* @__PURE__ */ new Map(),
   styleReads: /* @__PURE__ */ new Map()
   };
-  overlay.documentLayerOrigin = null;
   for (const [source, record] of records) {
   if (currentSources.has(source)) continue;
   removeRecord(record, overlay);
@@ -230,7 +229,6 @@ function documentOverlay(document2) {
   const overlay = {
   layer,
   documentLayer,
-  documentLayerOrigin: null,
   scrollLayers: /* @__PURE__ */ new Map(),
   scrolledContainers: /* @__PURE__ */ new WeakSet(),
   records: /* @__PURE__ */ new Set(),
@@ -505,12 +503,14 @@ function naturalReadingWidth(record) {
   return Number.isFinite(fontSize) ? fontSize * (record.clone.textContent ?? "").length : 0;
 }
 function projectionPaintOrigin(record, context) {
-  const target = record.layerTarget;
-  if (target?.mode === "document") return documentLayerOrigin(context.overlay);
-  if (target?.mode === "scroll" && target.scrollLayerHost) {
-  return scrollLayerOrigin(target.scrollLayerHost, context);
-  }
-  return { x: 0, y: 0 };
+  const layer = record.clone.parentElement;
+  if (!layer) return { x: 0, y: 0 };
+  const cached = context.layerOrigins.get(layer);
+  if (cached) return cached;
+  const rect = layer.getBoundingClientRect();
+  const origin = { x: -rect.left, y: -rect.top };
+  context.layerOrigins.set(layer, origin);
+  return origin;
 }
 function graceProjectionRect(record, context) {
   const stored = record.lastGoodRect ?? null;
@@ -566,24 +566,6 @@ function projectionLayerTargetForRecord(record, context) {
   const { overlay } = context;
   if (record.scrollContextEpoch === overlay.scrollContextEpoch && record.layerTarget) return record.layerTarget;
   return projectionLayerTarget(record.anchor, context);
-}
-function documentLayerOrigin(overlay) {
-  if (overlay.documentLayerOrigin) return overlay.documentLayerOrigin;
-  const rect = overlay.documentLayer.getBoundingClientRect();
-  const origin = { x: -rect.left, y: -rect.top };
-  overlay.documentLayerOrigin = origin;
-  return origin;
-}
-function scrollLayerOrigin(host, context) {
-  const cached = context.scrollLayerOrigins.get(host);
-  if (cached) return cached;
-  const scrollLayer = context.overlay.scrollLayers.get(host);
-  if (!scrollLayer) return { x: 0, y: 0 };
-  const { layer } = scrollLayer;
-  const rect = layer.getBoundingClientRect();
-  const origin = { x: -rect.left, y: -rect.top };
-  context.scrollLayerOrigins.set(host, origin);
-  return origin;
 }
 function projectionLayerTarget(element, context) {
   const { projectionLayers: cache, styleReads: styles } = context;
@@ -752,7 +734,6 @@ function runProjectionRefreshPass(overlay) {
   pruneDisconnectedRecords(overlay);
   overlay.hitTestBudgetRemaining = 12;
   overlay.occlusionRefreshNeeded = false;
-  overlay.documentLayerOrigin = null;
   if (overlay.rootsDirty) {
   overlay.rootsDirty = false;
   [...overlay.anchorRecords.keys()].forEach((anchor) => refreshProjectionAnchorRoot(anchor, overlay));
@@ -763,7 +744,9 @@ function runProjectionRefreshPass(overlay) {
   elementPaint: /* @__PURE__ */ new Map(),
   occludingPaint: /* @__PURE__ */ new Map(),
   projectionLayers: /* @__PURE__ */ new Map(),
-  scrollLayerOrigins: /* @__PURE__ */ new Map(),
+  // A layer's viewport box moves with every scroll, so the map is rebuilt
+  // per pass: only its value WITHIN one pass may be reused.
+  layerOrigins: /* @__PURE__ */ new Map(),
   viewportCoordinateSafety: /* @__PURE__ */ new Map(),
   styleReads: /* @__PURE__ */ new Map()
   };
