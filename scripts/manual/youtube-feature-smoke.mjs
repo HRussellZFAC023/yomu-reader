@@ -283,8 +283,10 @@ function youtubeShortsWatchHtml() {
     <ytd-reel-video-renderer data-case="shorts-watch-current" class="jpdb-youtube-filtered" data-yomu-youtube-filtered="true">
       <div id="movie_player" class="html5-video-player ytp-autohide">
         <video class="html5-main-video" controls muted></video>
-        <button id="shorts-share" class="shorts-native-action" type="button" aria-label="共有"><span id="shorts-share-label" class="shorts-native-action-label">共有</span></button>
-        <button id="shorts-fullscreen" class="shorts-native-action" type="button" aria-label="Fullscreen">⛶</button>
+        <ytd-reel-player-overlay-renderer>
+          <button id="shorts-share" class="shorts-native-action" type="button" aria-label="共有"><span id="shorts-share-label" class="shorts-native-action-label">共有</span></button>
+          <button id="shorts-fullscreen" class="shorts-native-action" type="button" aria-label="Fullscreen">⛶</button>
+        </ytd-reel-player-overlay-renderer>
       </div>
       <a id="video-title" href="/shorts/watch-en">English short in snap feed</a>
     </ytd-reel-video-renderer>
@@ -1563,7 +1565,7 @@ async function waitForVisibleWatchSidebarParsing(page) {
                 return rect.width > 0 && rect.height > 0;
             });
         if (!visibleCards.length) return false;
-        return visibleCards.some(card => card.querySelector('.jpdb-reader-word'));
+        return window.__yomuFeatureReaderWordsInSurface('#secondary ytd-compact-video-renderer') > 0;
     }, null, { timeout: 8000 });
     return readWatchState(page);
 }
@@ -1679,9 +1681,20 @@ async function clickDictionaryActionPillAndAssertOpen(page, query, label, urlPre
 }
 
 async function clickTeacherCommentWord(page) {
-    const word = page.locator('ytd-comment-view-model #content-text .jpdb-reader-word').filter({ hasText: '先生' }).first();
-    await word.waitFor({ state: 'visible', timeout: 10000 });
-    const box = await word.boundingBox();
+    const source = page.locator('ytd-comment-view-model #content-text');
+    await source.scrollIntoViewIfNeeded();
+    const box = await source.evaluate((element, expected) => {
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const start = node.data.indexOf(expected);
+            if (start < 0) continue;
+            const range = document.createRange();
+            range.setStart(node, start);
+            range.setEnd(node, start + expected.length);
+            return range.getBoundingClientRect().toJSON();
+        }
+        return null;
+    }, '先生');
     assert(box, 'Teacher comment word has no clickable geometry');
     // Source-preserving mirrors deliberately do not intercept input. Click the
     // painted coordinate so the page-owned host receives the pointer and Yomu
