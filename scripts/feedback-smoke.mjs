@@ -1390,7 +1390,8 @@ async function enterHostedInlineFullscreenFallback(page) {
         const stage = document.querySelector('[data-yomu-video-frame]');
         const root = document.querySelector('.jpdb-subtitle-player');
         return stage?.getAttribute('data-yomu-inline-fullscreen') === 'true'
-            && root?.parentElement === stage
+            && root?.parentElement === document.body
+            && !stage.contains(root)
             && root?.classList.contains('jpdb-subtitle-fullscreen')
             && !root?.classList.contains('jpdb-subtitle-video-out-of-view');
     }, null, { timeout: 6000 });
@@ -1463,7 +1464,8 @@ async function readHostedFullscreenPausedOcrTapState(page) {
         return {
             stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
             stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
-            rootParentIsStage: Boolean(stage && root?.parentElement === stage),
+            rootParentIsBody: root?.parentElement === document.body,
+            stageContainsRoot: Boolean(stage && root && stage.contains(root)),
             rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
             rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
             railActions: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => button.getAttribute('data-action')),
@@ -1495,7 +1497,8 @@ async function readHostedFullscreenPausedOcrTapState(page) {
 function hostedFullscreenPausedOcrReady(state) {
     return state.stageInline === 'true'
         && state.stageActive === true
-        && state.rootParentIsStage
+        && state.rootParentIsBody
+        && !state.stageContainsRoot
         && state.rootFullscreenClass
         && !state.rootOutOfView
         // The rail is transport-free (no fullscreen/playback buttons); the
@@ -1566,6 +1569,8 @@ async function readHostedFullscreenSubtitleState(page) {
             stageInline: stage?.getAttribute('data-yomu-inline-fullscreen') ?? null,
             stageActive: stage?.hasAttribute('data-fullscreen-active') ?? false,
             rootParentIsStage: Boolean(stage && root?.parentElement === stage),
+            rootParentIsBody: root?.parentElement === document.body,
+            stageContainsRoot: Boolean(stage && root && stage.contains(root)),
             rootFullscreenClass: root?.classList.contains('jpdb-subtitle-fullscreen') ?? false,
             rootOutOfView: root?.classList.contains('jpdb-subtitle-video-out-of-view') ?? true,
             rootRect: rect(root),
@@ -1605,7 +1610,8 @@ function hostedInlineFullscreenSubtitleReady(state) {
         && state.documentInlineClass
         && state.stageInline === 'true'
         && state.stageActive === true
-        && state.rootParentIsStage
+        && state.rootParentIsBody
+        && !state.stageContainsRoot
         && state.rootFullscreenClass
         && !state.rootOutOfView
         && state.panelHidden === true
