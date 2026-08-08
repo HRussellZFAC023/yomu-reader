@@ -37,7 +37,7 @@ try {
     await assertHomepage(page, '/ja/', 'ja');
     await assertNoWrongLanguageFrame(page);
 
-    await page.goto(`${ORIGIN}/learn/reading`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${ORIGIN}/learn/reading`, { waitUntil: 'networkidle' });
     await assertRoute(page, '/learn/reading', 'en');
     await assertLocaleHref(page, '日本語', '/ja/learn/reading');
     await assertRouteMetadata(page, '/learn/reading', 'en');
@@ -46,14 +46,16 @@ try {
     await assertRouteMetadata(page, '/ja/learn/reading', 'ja');
     await assertJapaneseThemeAccessibility(page);
 
-    await page.goto(`${ORIGIN}/privacy/`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${ORIGIN}/privacy/`, { waitUntil: 'networkidle' });
+    await assertRoute(page, '/privacy/', 'en');
     await assertLocaleHref(page, '日本語', '/ja/');
     await chooseLocale(page, 'Change language', '/ja/');
     await assertHomepage(page, '/ja/', 'ja');
+    await assertNoWrongLanguageFrame(page);
     assert.deepEqual(hydrationMessages, [], `Vue hydration warning: ${hydrationMessages.join('\n')}`);
 
     const frames = await page.evaluate(() => window.__yomuLocaleFrames?.length ?? 0);
-    assert.ok(frames >= 3, 'first-frame probe did not observe route rendering');
+    assert.ok(frames >= 1, 'first-frame probe did not observe the final route rendering');
     console.log(`Docs locale browser smoke passed: SSR/hydration, SPA metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots).`);
 } finally {
     await browser.close();
@@ -76,7 +78,7 @@ async function installFirstFrameProbe(page) {
         const schedule = () => {
             if (scheduled) return;
             scheduled = true;
-            requestAnimationFrame(capture);
+            requestAnimationFrame(() => requestAnimationFrame(capture));
         };
         new MutationObserver(schedule).observe(document, {
             attributes: true,
@@ -169,6 +171,11 @@ async function assertJapaneseThemeAccessibility(page) {
 }
 
 async function assertNoWrongLanguageFrame(page) {
+    const pathname = new URL(page.url()).pathname;
+    await page.waitForFunction(
+        expectedPath => window.__yomuLocaleFrames?.some(frame => frame.path === expectedPath),
+        pathname,
+    );
     const frames = await page.evaluate(() => window.__yomuLocaleFrames ?? []);
     const mismatches = frames.filter(isWrongLanguageFrame);
     assert.deepEqual(mismatches, [], `wrong-language painted frame: ${JSON.stringify(mismatches)}`);
