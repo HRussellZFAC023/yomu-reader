@@ -21,18 +21,13 @@ const bundlePath = path.join(tempDir, 'probe.js');
 writeFileSync(entryPath, `
     import ${JSON.stringify(path.join(ROOT, 'src/reader/companions/annotations.ts'))};
     import {
-        NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
         applyTokensToScanTarget,
         collectFragmentTextTargetsIn,
         collectTextTargetsIn,
-        documentPortalProjectionCountsForTest,
         documentPortalReaderWordScopeForSource,
-        documentPortalSourceHostForReaderWord,
         healTextMirrorPageVisibility,
         makeRoomForRubyInCroppedRows,
         projectAdditiveTextMirrors,
-        readerWordAtSourcePointInScope,
-        readerWordSourcePointScore,
         removeNonDestructiveScanMirrors,
         resetDecorationPolicyCachesForTest,
         setRubyDistortsConstrainedRowsForTest,
@@ -66,24 +61,6 @@ writeFileSync(entryPath, `
         return [
             { card: card('新しい', 'あたらしい'), start: 0, end: 3, length: 3, rubies: [{ text: 'あたら', start: 0, end: 1, length: 1 }], pitchClass: 'nakadaka', sentence: TEXT },
             { card: card('順', 'じゅん'), start: 3, end: 4, length: 1, rubies: [{ text: 'じゅん', start: 3, end: 4, length: 1 }], pitchClass: 'heiban', sentence: TEXT },
-        ];
-    }
-
-    function youtubeShelfMoreTokens(text: string): JPDBToken[] {
-        const otherStart = text.indexOf('他');
-        const itemStart = text.indexOf('件');
-        if (otherStart < 0 || itemStart < 0) throw new Error('shelf expander token surfaces missing');
-        return [
-            {
-                card: card('他', 'ほか'), start: otherStart, end: otherStart + 1, length: 1,
-                rubies: [{ text: 'ほか', start: otherStart, end: otherStart + 1, length: 1 }],
-                pitchClass: 'heiban', sentence: text,
-            },
-            {
-                card: card('件', 'けん'), start: itemStart, end: itemStart + 1, length: 1,
-                rubies: [{ text: 'けん', start: itemStart, end: itemStart + 1, length: 1 }],
-                pitchClass: 'atamadaka', sentence: text,
-            },
         ];
     }
 
@@ -336,28 +313,10 @@ writeFileSync(entryPath, `
         '[data-yomu-source-projected]',
     ].join(',');
 
-    function countYomuAnnotationNodes(node: Node): number {
-        if (!(node instanceof Element)) return 0;
-        return Number(node.matches(YOMU_ANNOTATION_SELECTOR))
-            + node.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length;
-    }
-
-    function countMatchingNodes(node: Node, selector: string): number {
-        if (!(node instanceof Element)) return 0;
-        return Number(node.matches(selector)) + node.querySelectorAll(selector).length;
-    }
-
     function sourceGlyphRect(root: Element, surface: string): DOMRect {
         const node = findTextNode(root, surface);
         const start = node.data.indexOf(surface);
         return rectOfText(node, start, start + surface.length);
-    }
-
-    function portalWordForSurface(portal: ParentNode, surface: string): HTMLElement {
-        const word = [...portal.querySelectorAll<HTMLElement>('.jpdb-reader-word')]
-            .find(candidate => candidate.dataset.expression === surface || candidate.dataset.surface === surface);
-        if (!word) throw new Error('portal word missing: ' + surface);
-        return word;
     }
 
     function projectedReadingByExpression(expression: string): HTMLElement | null {
@@ -939,6 +898,7 @@ writeFileSync(entryPath, `
             const shorts = document.getElementById('shorts-root')!;
             const button = document.getElementById('shorts-share-button')!;
             const label = document.getElementById('shorts-share-label')!;
+            const content = document.getElementById('shorts-content-host')!;
             const before = {
                 text: label.textContent,
                 html: label.innerHTML,
@@ -947,15 +907,14 @@ writeFileSync(entryPath, `
                 buttonAttributes: sortedAttributes(button),
                 labelAttributes: sortedAttributes(label),
             };
-            paintSingleWord(label, '共有', '共有', 'きょうゆう');
+            const actionTargetCount = collectTextTargetsIn(button, 40, false)
+                .filter(target => target.text.trim() === '共有').length;
+            paintSingleWord(content, '日本語の説明', '日本語', 'にほんご');
             await nextPaint();
             await nextPaint();
             const portal = documentPortalReaderWordScopeForSource(label);
-            const word = portal?.querySelector<HTMLElement>('.jpdb-reader-word') ?? null;
-            const fragment = word?.querySelector<HTMLElement>('.jpdb-reader-source-fragment') ?? null;
-            const source = sourceGlyphRect(label, '共有');
-            const fragmentRect = fragment?.getBoundingClientRect();
-            const reading = projectedReadingByExpression('共有');
+            const contentWord = content.querySelector<HTMLElement>('.jpdb-reader-word');
+            const contentReading = contentWord?.querySelector<HTMLElement>('rt, .jpdb-reader-detached-furi') ?? null;
             const after = {
                 text: label.textContent,
                 html: label.innerHTML,
@@ -965,474 +924,72 @@ writeFileSync(entryPath, `
                 labelAttributes: sortedAttributes(label),
             };
             return {
-                portal: Boolean(portal?.classList.contains('jpdb-reader-youtube-chrome-portal')),
+                actionTargetCount,
+                portal: Boolean(portal),
                 portalDecoration: portal?.getAttribute('data-yomu-decoration') ?? null,
-                nativeAnnotationNodes: shorts.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length,
+                nativeAnnotationNodes: button.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length,
+                contentWordCount: content.querySelectorAll('.jpdb-reader-word').length,
+                contentReading: contentReading?.textContent ?? '',
                 before,
                 after,
-                fragmentCount: portal?.querySelectorAll('.jpdb-reader-source-fragment').length ?? 0,
-                readingVisible: Boolean(reading && visibleElement(reading)),
-                fragmentDelta: fragmentRect
-                    ? { top: fragmentRect.top - source.top, left: fragmentRect.left - source.left }
-                    : { top: 1_000, left: 1_000 },
             };
         },
         async runYouTubeShelfExpansionProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
             removeNonDestructiveScanMirrors(document);
             const shelf = document.getElementById('youtube-shelf-expansion')!;
-            const label = shelf.querySelector<HTMLElement>(YOUTUBE_SHELF_MORE_SELECTOR)!;
-            const scrollShell = document.getElementById('youtube-shelf-scroll-shell')!;
-            const selectorMatched = Boolean(label);
+            const label = shelf.querySelector<HTMLElement>(YOUTUBE_SHELF_MORE_SELECTOR);
             if (!label) throw new Error('exact YouTube shelf expansion control missing');
 
-            const staleTargets: string[] = [];
-            const onStale = (event: Event): void => {
-                if (!(event.target instanceof Node) || !shelf.contains(event.target)) return;
-                staleTargets.push(event.target instanceof Element
-                    ? event.target.tagName.toLowerCase() + (event.target.id ? '#' + event.target.id : '')
-                    : event.target.nodeName);
-            };
-            document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);
+            const baseline = youtubeShelfMoreSnapshot(shelf, label);
+            const initialScan = youtubeShelfMoreScanTargets(shelf, label);
+            const targetCollected = Boolean(youtubeShelfMoreTarget(label));
+            const replacementIdentityChanged: boolean[] = [];
+            let maxGeometryDelta = 0;
+            let nativeTextStable = true;
+            let nativeHtmlStable = true;
+            let nativeBoxGeometryStable = true;
+            let nativeStyleStable = true;
+            let nativeAttributesStable = true;
 
-            let portalMounts = 0;
-            let portalRetirements = 0;
-            let portalMutationRecords = 0;
-            let projectedReadingMutationRecords = 0;
-            let totalMutationRecords = 0;
-            const portalSelector = '.jpdb-reader-document-annotation-portal';
-            const bodyMutations = new MutationObserver(mutations => {
-                totalMutationRecords += mutations.length;
-                for (const mutation of mutations) {
-                    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-                    if (target?.closest(portalSelector)) portalMutationRecords += 1;
-                    if (target?.closest('[data-yomu-projected-reading="true"],.jpdb-reader-detached-reading-overlay')) {
-                        projectedReadingMutationRecords += 1;
-                    }
-                    mutation.addedNodes.forEach(node => {
-                        portalMounts += countMatchingNodes(node, portalSelector);
-                    });
-                    mutation.removedNodes.forEach(node => {
-                        portalRetirements += countMatchingNodes(node, portalSelector);
-                    });
-                }
-            });
-            bodyMutations.observe(document.body, { childList: true, subtree: true, attributes: true });
-
-            let nativeAnnotationMounts = 0;
-            let nativeStyleMutations = 0;
-            const mutationTouchesNativeLabel = (mutation: MutationRecord): boolean =>
-                mutation.target === label
-                || (mutation.target instanceof Node && label.contains(mutation.target));
-            const nativeMutations = new MutationObserver(mutations => {
-                for (const mutation of mutations) {
-                    if (mutation.type === 'attributes'
-                        && mutation.attributeName === 'style'
-                        && mutationTouchesNativeLabel(mutation)) nativeStyleMutations += 1;
-                    mutation.addedNodes.forEach(node => nativeAnnotationMounts += countYomuAnnotationNodes(node));
-                }
-            });
-            nativeMutations.observe(shelf, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
-
-            const originalGetClientRects = Range.prototype.getClientRects;
-            let rangeReads = 0;
-            Range.prototype.getClientRects = function() {
-                rangeReads += 1;
-                return originalGetClientRects.call(this);
-            };
-
-            const drainMutationRecords = () => {
-                const bodyRecords = bodyMutations.takeRecords();
-                if (bodyRecords.length) {
-                    totalMutationRecords += bodyRecords.length;
-                    for (const mutation of bodyRecords) {
-                        const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-                        if (target?.closest(portalSelector)) portalMutationRecords += 1;
-                        if (target?.closest('[data-yomu-projected-reading="true"],.jpdb-reader-detached-reading-overlay')) {
-                            projectedReadingMutationRecords += 1;
-                        }
-                        mutation.addedNodes.forEach(node => portalMounts += countMatchingNodes(node, portalSelector));
-                        mutation.removedNodes.forEach(node => portalRetirements += countMatchingNodes(node, portalSelector));
-                    }
-                }
-                for (const mutation of nativeMutations.takeRecords()) {
-                    if (mutation.type === 'attributes'
-                        && mutation.attributeName === 'style'
-                        && mutationTouchesNativeLabel(mutation)) nativeStyleMutations += 1;
-                    mutation.addedNodes.forEach(node => nativeAnnotationMounts += countYomuAnnotationNodes(node));
-                }
-            };
-
-            try {
-                const baseline = youtubeShelfMoreSnapshot(shelf, label);
-                const initialScan = youtubeShelfMoreScanTargets(shelf, label);
-                const target = youtubeShelfMoreTarget(label);
-                if (!target) throw new Error('exact shelf expansion target not collected: ' + JSON.stringify(initialScan));
-                applyTokensToScanTarget(
-                    { ...target, nonDestructive: true, passiveInteraction: true },
-                    youtubeShelfMoreTokens(target.text),
-                    { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' },
-                );
-                makeRoomForRubyInCroppedRows(document);
-                projectAdditiveTextMirrors(document);
-                await nextPaint();
-                await nextPaint();
-                await Promise.resolve();
-                drainMutationRecords();
-
-                const portal = document.querySelector<HTMLElement>('.jpdb-reader-youtube-chrome-portal')!;
-                if (!portal) throw new Error('YouTube shelf portal missing after annotation');
-                const portalWords = ['他', '件'].map(surface => portalWordForSurface(portal, surface));
-                const portalIdentity = portal;
-                const annotatedBaseline = youtubeShelfMoreSnapshot(shelf, label);
-                const mutationProjectionBefore = documentPortalProjectionCountsForTest().mirrors;
-                const authoredLabelClass = label.getAttribute('class');
-                label.classList.add('yt-theme-restamp');
-                await Promise.resolve();
-                const portalPaintAfterHostMutation = getComputedStyle(
-                    portal.querySelector<HTMLElement>('.jpdb-reader-document-annotation-paint')!,
-                );
-                const portalAfterHostMutation = getComputedStyle(portal);
-                const hostMutationAlignment = ['他', '件'].map(surface => {
-                    const word = portalWordForSurface(portal, surface);
-                    const fragment = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')!;
-                    const source = sourceGlyphRect(label, surface);
-                    const rect = fragment.getBoundingClientRect();
-                    return { top: rect.top - source.top, left: rect.left - source.left };
-                });
-                const mutationProjectionAfter = documentPortalProjectionCountsForTest().mirrors;
-                const hostMutationVisiblePitchUnderlines = pitchUnderlineSurfaces(portal)
-                    .filter(paintsPitchUnderline).length;
-                const hostMutationReadingsVisible = ['他', '件'].every(surface => {
-                    const reading = projectedReadingByExpression(surface);
-                    return Boolean(reading && visibleElement(reading));
-                });
-                if (authoredLabelClass === null) label.removeAttribute('class');
-                else label.setAttribute('class', authoredLabelClass);
+            for (let cycle = 0; cycle < 5; cycle += 1) {
+                const previousChildren = [...label.children];
+                label.replaceChildren(...freshYouTubeShelfMoreChildren());
+                replacementIdentityChanged.push(previousChildren.length === label.children.length
+                    && previousChildren.every((child, index) => child !== label.children[index]));
                 await Promise.resolve();
                 await nextPaint();
-                await nextPaint();
-                const mutationProjectionSettled = documentPortalProjectionCountsForTest().mirrors;
-                const hostMutationSettledAlignment = ['他', '件'].map(surface => {
-                    const word = portalWordForSurface(portal, surface);
-                    const fragment = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')!;
-                    const source = sourceGlyphRect(label, surface);
-                    const rect = fragment.getBoundingClientRect();
-                    return { top: rect.top - source.top, left: rect.left - source.left };
-                });
-                const projectionCountsBeforeCycles = documentPortalProjectionCountsForTest();
-                const rangeReadsBeforeCycles = rangeReads;
-                const replacementIdentityChanged: boolean[] = [];
-                let maxAnnotationNodes = shelf.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length;
-                let maxGeometryDelta = 0;
-                let nativeTextStable = true;
-                let nativeHtmlStable = true;
-                let nativeBoxGeometryStable = true;
-                let nativeStyleStable = true;
-                let nativeAttributesStable = true;
-                let portalIdentityStable = true;
-                for (let cycle = 0; cycle < 5; cycle += 1) {
-                    const previousChildren = [...label.children];
-                    label.replaceChildren(...freshYouTubeShelfMoreChildren());
-                    replacementIdentityChanged.push(previousChildren.length === label.children.length
-                        && previousChildren.every((child, index) => child !== label.children[index]));
-                    await Promise.resolve();
 
-                    await nextPaint();
-                    await nextPaint();
-                    await Promise.resolve();
-                    drainMutationRecords();
-
-                    maxAnnotationNodes = Math.max(
-                        maxAnnotationNodes,
-                        shelf.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length,
-                    );
-                    const snapshot = youtubeShelfMoreSnapshot(shelf, label);
-                    maxGeometryDelta = Math.max(maxGeometryDelta, youtubeShelfMoreGeometryDelta(baseline, snapshot));
-                    nativeTextStable &&= snapshot.text === baseline.text;
-                    nativeHtmlStable &&= snapshot.html === baseline.html;
-                    nativeBoxGeometryStable &&= JSON.stringify(snapshot.moreBox) === JSON.stringify(baseline.moreBox)
-                        && JSON.stringify(snapshot.labelBox) === JSON.stringify(baseline.labelBox);
-                    nativeStyleStable &&= JSON.stringify(snapshot.labelStyle) === JSON.stringify(baseline.labelStyle)
-                        && JSON.stringify(snapshot.spanStyles) === JSON.stringify(baseline.spanStyles);
-                    nativeAttributesStable &&= JSON.stringify(snapshot.shelfAttributes) === JSON.stringify(baseline.shelfAttributes)
-                        && JSON.stringify(snapshot.moreAttributes) === JSON.stringify(baseline.moreAttributes)
-                        && JSON.stringify(snapshot.labelAttributes) === JSON.stringify(baseline.labelAttributes);
-                    portalIdentityStable &&= document.querySelector('.jpdb-reader-youtube-chrome-portal') === portalIdentity;
-                }
-                const projectionCountsAfterCycles = documentPortalProjectionCountsForTest();
-                const rangeReadsAfterCycles = rangeReads;
-
-                const scope = documentPortalReaderWordScopeForSource(label);
-                const geometryMappings = portalWords.map(word => {
-                    const fragment = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')!;
-                    const rect = fragment.getBoundingClientRect();
-                    const x = rect.left + rect.width / 2;
-                    const y = rect.top + rect.height / 2;
-                    return {
-                        surface: word.dataset.expression ?? word.dataset.surface ?? '',
-                        mapped: Boolean(scope && readerWordAtSourcePointInScope(scope, x, y) === word),
-                        sourceHostMapped: documentPortalSourceHostForReaderWord(word) === label,
-                        sourcePointScore: readerWordSourcePointScore(word, x, y),
-                    };
-                });
-
-                const alignmentSnapshot = () => ['他', '件'].map(surface => {
-                    const word = portalWordForSurface(portal, surface);
-                    const fragment = word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')!;
-                    const source = sourceGlyphRect(label, surface);
-                    const reading = projectedReadingByExpression(surface);
-                    const fragmentRect = fragment.getBoundingClientRect();
-                    const readingRect = reading?.getBoundingClientRect();
-                    return {
-                        surface,
-                        fragmentTopDelta: fragmentRect.top - source.top,
-                        fragmentLeftDelta: fragmentRect.left - source.left,
-                        readingBaseDelta: readingRect ? readingRect.bottom - source.top : 1_000,
-                        readingVisible: Boolean(reading && visibleElement(reading)),
-                    };
-                });
-
-                const rapidScrollProjectionStart = documentPortalProjectionCountsForTest();
-                const rapidScrollRangeStart = rangeReads;
-                let maxImmediateVerticalDelta = 0;
-                for (let step = 0; step < 8; step += 1) {
-                    window.scrollBy(0, 8);
-                    window.dispatchEvent(new Event('scroll'));
-                    for (const alignment of alignmentSnapshot()) {
-                        maxImmediateVerticalDelta = Math.max(
-                            maxImmediateVerticalDelta,
-                            Math.abs(alignment.fragmentTopDelta),
-                            Math.abs(alignment.readingBaseDelta),
-                        );
-                    }
-                }
-                const rapidScrollImmediateRangeReads = rangeReads - rapidScrollRangeStart;
-                const portalPaint = portal.querySelector<HTMLElement>('.jpdb-reader-document-annotation-paint')!;
-                const immediatePortalTransform = portalPaint?.style.getPropertyValue('transform') ?? '';
-                const immediateReadingTranslations = ['他', '件']
-                    .map(surface => projectedReadingByExpression(surface)?.style.getPropertyValue('translate') ?? '');
-                await nextPaint();
-                await nextPaint();
-                await Promise.resolve();
-                drainMutationRecords();
-                const settledWindowAlignment = alignmentSnapshot();
-                const rapidScrollProjectionEnd = documentPortalProjectionCountsForTest();
-                const rapidScrollRangeReads = rangeReads - rapidScrollRangeStart;
-
-                const nestedProjectionStart = documentPortalProjectionCountsForTest();
-                const nestedRangeStart = rangeReads;
-                scrollShell.scrollTop += 36;
-                scrollShell.dispatchEvent(new Event('scroll', { bubbles: false }));
-                const immediateNestedAlignment = alignmentSnapshot();
-                const immediateNestedRangeReads = rangeReads - nestedRangeStart;
-                await nextPaint();
-                await nextPaint();
-                await Promise.resolve();
-                drainMutationRecords();
-                const settledNestedAlignment = alignmentSnapshot();
-                const nestedProjectionEnd = documentPortalProjectionCountsForTest();
-                const nestedRangeReads = rangeReads - nestedRangeStart;
-
-                let visualViewportOffsetApplied = false;
-                let visualViewportOffsetTransform = '';
-                let visualViewportReadingTranslations: string[] = [];
-                let visualViewportReadingsUntranslated = false;
-                let visualViewportScaleImmediate = false;
-                let visualViewportOverrideSupported = false;
-                const visualViewport = window.visualViewport;
-                if (visualViewport) {
-                    const ownOffset = Object.getOwnPropertyDescriptor(visualViewport, 'offsetTop');
-                    const ownScale = Object.getOwnPropertyDescriptor(visualViewport, 'scale');
-                    const offsetTop = visualViewport.offsetTop;
-                    const scale = visualViewport.scale;
-                    try {
-                        Object.defineProperty(visualViewport, 'offsetTop', { configurable: true, value: offsetTop + 13 });
-                        visualViewportOverrideSupported = visualViewport.offsetTop === offsetTop + 13;
-                        visualViewport.dispatchEvent(new Event('scroll'));
-                        visualViewportOffsetTransform = portalPaint?.style.getPropertyValue('transform') ?? '';
-                        visualViewportReadingTranslations = ['他', '件']
-                            .map(surface => projectedReadingByExpression(surface)?.style.getPropertyValue('translate') ?? '');
-                        // A synthetic VisualViewport property write does not
-                        // move either real source geometry or the fixed portal
-                        // root. The measured lane must therefore stay neutral;
-                        // modelling offsetTop here locked in engine-specific
-                        // drift instead of testing page geometry.
-                        visualViewportOffsetApplied = !visualViewportOffsetTransform
-                            || visualViewportOffsetTransform === 'initial'
-                            || visualViewportOffsetTransform === 'none';
-                        // Detached readings already live in the same document/
-                        // scroller compositor layer as their native source.
-                        // Translating them again would double document and
-                        // element scroll movement.
-                        visualViewportReadingsUntranslated = visualViewportReadingTranslations.every(
-                            value => !value || value === 'initial' || value === 'none' || value === 'unset',
-                        );
-                        const scaleProjectionBefore = documentPortalProjectionCountsForTest().mirrors;
-                        Object.defineProperty(visualViewport, 'scale', { configurable: true, value: scale + 0.25 });
-                        visualViewport.dispatchEvent(new Event('resize'));
-                        const scaleTransform = portalPaint?.style.getPropertyValue('transform') ?? '';
-                        visualViewportScaleImmediate = documentPortalProjectionCountsForTest().mirrors === scaleProjectionBefore
-                            && (!scaleTransform || scaleTransform === 'initial' || scaleTransform === 'none');
-                    } finally {
-                        if (ownOffset) Object.defineProperty(visualViewport, 'offsetTop', ownOffset);
-                        else Reflect.deleteProperty(visualViewport, 'offsetTop');
-                        if (ownScale) Object.defineProperty(visualViewport, 'scale', ownScale);
-                        else Reflect.deleteProperty(visualViewport, 'scale');
-                        visualViewport.dispatchEvent(new Event('resize'));
-                    }
-                }
-
-                const more = label.parentElement!;
-                const authoredMoreStyle = more.getAttribute('style');
-                more.style.setProperty('display', 'none');
-                projectAdditiveTextMirrors(document);
-                const sourceHideConcealed = portal.style.getPropertyValue('visibility') === 'hidden';
-                if (authoredMoreStyle === null) more.removeAttribute('style');
-                else more.setAttribute('style', authoredMoreStyle);
-                projectAdditiveTextMirrors(document);
-                // CSSStyleDeclaration access in the projection path may
-                // materialize an empty style attribute after exact teardown;
-                // remove that probe-only artifact so the final native snapshot
-                // remains byte-for-byte authored.
-                if (authoredMoreStyle === null) more.removeAttribute('style');
-                const sourceRestoreVisible = portal.style.getPropertyValue('visibility') !== 'hidden';
-
-                const dialog = document.createElement('dialog');
-                document.body.append(dialog);
-                let topLayerSupported = false;
-                let topLayerConcealed = false;
-                if (typeof dialog.showModal === 'function') {
-                    dialog.showModal();
-                    topLayerSupported = true;
-                    projectAdditiveTextMirrors(document);
-                    topLayerConcealed = portal.style.getPropertyValue('visibility') === 'hidden';
-                    dialog.close();
-                    projectAdditiveTextMirrors(document);
-                }
-                dialog.remove();
-
-                const authoredOverlay = document.createElement('div');
-                authoredOverlay.setAttribute('aria-modal', 'true');
-                authoredOverlay.style.cssText = 'position:fixed;inset:0;z-index:100;background:white;';
-                document.body.append(authoredOverlay);
-                projectAdditiveTextMirrors(document);
-                const authoredOverlayConcealed = portal.style.getPropertyValue('visibility') === 'hidden';
-                authoredOverlay.remove();
-                projectAdditiveTextMirrors(document);
-                const authoredOverlayRestored = portal.style.getPropertyValue('visibility') !== 'hidden';
-
-                window.scrollTo(0, 0);
-                scrollShell.scrollTop = 0;
-                window.dispatchEvent(new Event('scroll'));
-                scrollShell.dispatchEvent(new Event('scroll'));
-                await nextPaint();
-                await nextPaint();
-                await nextPaint();
-                await new Promise(resolve => setTimeout(resolve, 40));
-                await nextPaint();
-                await Promise.resolve();
-                drainMutationRecords();
-                const quiescentBefore = {
-                    totalMutationRecords,
-                    portalMutationRecords,
-                    projectedReadingMutationRecords,
-                    rangeReads,
-                    projections: documentPortalProjectionCountsForTest(),
-                };
-                await new Promise(resolve => setTimeout(resolve, 80));
-                await nextPaint();
-                await nextPaint();
-                await Promise.resolve();
-                drainMutationRecords();
-                const quiescentAfter = {
-                    totalMutationRecords,
-                    portalMutationRecords,
-                    projectedReadingMutationRecords,
-                    rangeReads,
-                    projections: documentPortalProjectionCountsForTest(),
-                };
-
-                const projectedShelfReadings = [...document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]')]
-                    .map(reading => reading.textContent ?? '')
-                    .filter(text => text === 'ほか' || text === 'けん');
-                const finalSnapshot = youtubeShelfMoreSnapshot(shelf, label);
-                return {
-                    selectorMatched,
-                    baseline,
-                    annotatedBaseline,
-                    portalRootTextFillAfterHostMutation: portalAfterHostMutation.webkitTextFillColor,
-                    portalPaintTextFillAfterHostMutation: portalPaintAfterHostMutation.webkitTextFillColor,
-                    hostMutationAlignment,
-                    hostMutationVisiblePitchUnderlines,
-                    hostMutationReadingsVisible,
-                    hostMutationProjectionDeferred: mutationProjectionAfter === mutationProjectionBefore,
-                    hostMutationProjectionDelta: mutationProjectionSettled - mutationProjectionBefore,
-                    hostMutationSettledAlignment,
-                    portalZIndex: getComputedStyle(portal).zIndex,
-                    cycleCount: 5,
-                    initialScan,
-                    replacementIdentityChanged,
-                    maxGeometryDelta,
-                    nativeTextStable,
-                    nativeHtmlStable,
-                    nativeBoxGeometryStable,
-                    nativeStyleStable,
-                    nativeAttributesStable,
-                    maxAnnotationNodes,
-                    nativeAnnotationMounts,
-                    nativeStyleMutations,
-                    portalMounts,
-                    portalRetirements,
-                    portalMutationRecords,
-                    projectedReadingMutationRecords,
-                    totalMutationRecords,
-                    portalIdentityStable,
-                    staleTargets,
-                    projectedShelfReadings,
-                    portalWordCount: portalWords.length,
-                    sourceFragmentCount: portal.querySelectorAll('.jpdb-reader-source-fragment').length,
-                    visiblePitchUnderlines: pitchUnderlineSurfaces(portal).filter(paintsPitchUnderline).length,
-                    geometryMappings,
-                    cycleProjectionPasses: projectionCountsAfterCycles.passes - projectionCountsBeforeCycles.passes,
-                    cycleMirrorProjections: projectionCountsAfterCycles.mirrors - projectionCountsBeforeCycles.mirrors,
-                    cycleRangeReads: rangeReadsAfterCycles - rangeReadsBeforeCycles,
-                    rapidScrollImmediateRangeReads,
-                    rapidScrollRangeReads,
-                    rapidScrollProjectionPasses: rapidScrollProjectionEnd.passes - rapidScrollProjectionStart.passes,
-                    rapidScrollMirrorProjections: rapidScrollProjectionEnd.mirrors - rapidScrollProjectionStart.mirrors,
-                    maxImmediateVerticalDelta,
-                    immediatePortalTransform,
-                    immediateReadingTranslations,
-                    settledWindowAlignment,
-                    immediateNestedAlignment,
-                    settledNestedAlignment,
-                    immediateNestedRangeReads,
-                    nestedRangeReads,
-                    nestedProjectionPasses: nestedProjectionEnd.passes - nestedProjectionStart.passes,
-                    nestedMirrorProjections: nestedProjectionEnd.mirrors - nestedProjectionStart.mirrors,
-                    visualViewportOffsetApplied,
-                    visualViewportOffsetTransform,
-                    visualViewportReadingTranslations,
-                    visualViewportReadingsUntranslated,
-                    visualViewportScaleImmediate,
-                    visualViewportOverrideSupported,
-                    sourceHideConcealed,
-                    sourceRestoreVisible,
-                    topLayerSupported,
-                    topLayerConcealed,
-                    authoredOverlayConcealed,
-                    authoredOverlayRestored,
-                    quiescentBefore,
-                    quiescentAfter,
-                    finalSnapshot,
-                };
-            } finally {
-                Range.prototype.getClientRects = originalGetClientRects;
-                bodyMutations.disconnect();
-                nativeMutations.disconnect();
-                document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, onStale);
+                const snapshot = youtubeShelfMoreSnapshot(shelf, label);
+                maxGeometryDelta = Math.max(maxGeometryDelta, youtubeShelfMoreGeometryDelta(baseline, snapshot));
+                nativeTextStable &&= snapshot.text === baseline.text;
+                nativeHtmlStable &&= snapshot.html === baseline.html;
+                nativeBoxGeometryStable &&= JSON.stringify(snapshot.moreBox) === JSON.stringify(baseline.moreBox)
+                    && JSON.stringify(snapshot.labelBox) === JSON.stringify(baseline.labelBox);
+                nativeStyleStable &&= JSON.stringify(snapshot.labelStyle) === JSON.stringify(baseline.labelStyle)
+                    && JSON.stringify(snapshot.spanStyles) === JSON.stringify(baseline.spanStyles);
+                nativeAttributesStable &&= JSON.stringify(snapshot.shelfAttributes) === JSON.stringify(baseline.shelfAttributes)
+                    && JSON.stringify(snapshot.moreAttributes) === JSON.stringify(baseline.moreAttributes)
+                    && JSON.stringify(snapshot.labelAttributes) === JSON.stringify(baseline.labelAttributes);
             }
+
+            return {
+                selectorMatched: true,
+                baseline,
+                initialScan,
+                targetCollected,
+                cycleCount: 5,
+                replacementIdentityChanged,
+                maxGeometryDelta,
+                nativeTextStable,
+                nativeHtmlStable,
+                nativeBoxGeometryStable,
+                nativeStyleStable,
+                nativeAttributesStable,
+                nativeAnnotationNodes: shelf.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length,
+                portalCount: document.querySelectorAll('.jpdb-reader-youtube-chrome-portal').length,
+                finalSnapshot: youtubeShelfMoreSnapshot(shelf, label),
+            };
         },
         runShowMoreProbe() {
             setRubyDistortsConstrainedRowsForTest(null);
@@ -1646,6 +1203,7 @@ body { font: 14px/1.4 Roboto, sans-serif; width: 400px; min-height: 2400px; marg
   <div id="shorts-actions" role="toolbar">
     <button id="shorts-share-button" aria-label="共有"><span id="shorts-share-label">共有</span></button>
   </div>
+  <div id="shorts-content-host">日本語の説明</div>
 </ytm-shorts>
 <ytm-slim-video-metadata-section-renderer>
   <ytm-button-renderer><button id="ask-chip" style="box-sizing:border-box;display:inline-flex;align-items:center;height:48px;padding:0 18px;border:0;border-radius:24px;overflow:visible;font:600 16px/20px Roboto,sans-serif"><yt-formatted-string id="ask-label">質問する</yt-formatted-string></button></ytm-button-renderer>
@@ -1705,6 +1263,12 @@ let failed = false;
 function fail(message, details) {
     console.error('FAIL:', message, JSON.stringify(details));
     failed = true;
+}
+
+function verifyProbeChecks(name, details, checks) {
+    checks
+        .filter(check => check.failed)
+        .forEach(check => fail(`${name}: ${check.message}`, details));
 }
 
 function transparentPaint(value) {
@@ -1804,152 +1368,73 @@ function verifyLateClip(name, lateClip) {
 function verifyYouTubeShelfExpansion(name, result) {
     const expectedText = '+ 他 3 件';
     const expectedHtml = '<span>+ 他 </span><span>3</span><span> 件</span>';
-    verifyYouTubeShelfNativeOwnership(name, result, expectedText, expectedHtml);
-    verifyYouTubeShelfPortalPaint(name, result);
-    verifyYouTubeShelfScrollProjection(name, result);
-    verifyYouTubeShelfWorkBounds(name, result, expectedText, expectedHtml);
-}
-
-function verifyYouTubeShelfNativeOwnership(name, result, expectedText, expectedHtml) {
-    if (!result.selectorMatched) fail(`${name}: exact YouTube shelf expansion selector did not match`, result);
-    if (result.baseline.text !== expectedText || result.baseline.html !== expectedHtml) {
-        fail(`${name}: YouTube shelf expansion native segmented label changed before scanning`, result);
-    }
-    if (!Object.values(result.initialScan).some(targets => targets.includes(expectedText))) {
-        fail(`${name}: exact YouTube shelf expansion control was not collected for annotation`, result);
-    }
-    if (result.maxAnnotationNodes !== 0
-        || result.nativeAnnotationMounts !== 0
-        || result.nativeStyleMutations !== 0) {
-        fail(`${name}: YouTube shelf expansion native subtree was mutated by annotation`, result);
-    }
-    if (result.portalMounts !== 1
-        || result.portalRetirements !== 0
-        || !result.portalIdentityStable
-        || result.staleTargets.length !== 0) {
-        fail(`${name}: YouTube shelf expansion portal did not retain one stable mount`, result);
-    }
-    if (result.replacementIdentityChanged.some(changed => !changed)) {
-        fail(`${name}: YouTube shelf expansion probe did not replace every native child`, result);
-    }
-    if (result.cycleCount !== 5 || !result.nativeTextStable || !result.nativeHtmlStable) {
-        fail(`${name}: YouTube shelf expansion native text changed across same-text replacement`, result);
-    }
-    if (result.maxGeometryDelta > MAX_GEOMETRY_DELTA_PX || !result.nativeBoxGeometryStable) {
-        fail(`${name}: YouTube shelf expansion native geometry changed across replacement`, result);
-    }
-    if (!result.nativeStyleStable || !result.nativeAttributesStable) {
-        fail(`${name}: YouTube shelf expansion native style or attributes changed`, result);
-    }
-}
-
-function verifyYouTubeShelfPortalPaint(name, result) {
-    if (!transparentPaint(result.portalRootTextFillAfterHostMutation)
-        || !transparentPaint(result.portalPaintTextFillAfterHostMutation)
-        || !result.hostMutationProjectionDeferred
-        || result.hostMutationProjectionDelta !== 1
-        || result.hostMutationVisiblePitchUnderlines !== 2
-        || !result.hostMutationReadingsVisible
-        || result.hostMutationAlignment.some(alignment => Math.abs(alignment.top) > MAX_GEOMETRY_DELTA_PX
-            || Math.abs(alignment.left) > MAX_GEOMETRY_DELTA_PX)
-        || result.hostMutationSettledAlignment.some(alignment => Math.abs(alignment.top) > MAX_GEOMETRY_DELTA_PX
-            || Math.abs(alignment.left) > MAX_GEOMETRY_DELTA_PX)) {
-        fail(`${name}: host attribute restamp did not retain paint through one queued exact reprojection`, result);
-    }
-    if (Number.parseInt(result.portalZIndex, 10) >= 2_147_482_000) {
-        fail(`${name}: portal escaped ordinary authored stacking with a global maximum z-index`, result);
-    }
-    if (result.portalWordCount !== 2
-        || result.sourceFragmentCount !== 2
-        || result.projectedShelfReadings.length !== 2
-        || !result.projectedShelfReadings.includes('ほか')
-        || !result.projectedShelfReadings.includes('けん')
-        || result.visiblePitchUnderlines !== 2) {
-        fail(`${name}: YouTube shelf expansion portal lost word, source-fragment, reading, or pitch paint`, result);
-    }
-    if (result.geometryMappings.some(mapping => !mapping.mapped
-        || !mapping.sourceHostMapped
-        || mapping.sourcePointScore !== 0)) {
-        fail(`${name}: YouTube shelf expansion portal lookup geometry did not map to the native source`, result);
-    }
-}
-
-function verifyYouTubeShelfScrollProjection(name, result) {
-    const aligned = alignment => alignment.readingVisible
-        && Math.abs(alignment.fragmentTopDelta) <= MAX_GEOMETRY_DELTA_PX
-        && Math.abs(alignment.fragmentLeftDelta) <= MAX_GEOMETRY_DELTA_PX
-        && Math.abs(alignment.readingBaseDelta) <= MAX_GEOMETRY_DELTA_PX;
-    const neutralTranslation = value => !value || value === 'initial' || value === 'none' || value === 'unset';
-    if (result.maxImmediateVerticalDelta > MAX_GEOMETRY_DELTA_PX
-        || result.rapidScrollImmediateRangeReads !== 0
-        || result.immediateReadingTranslations.some(value => !neutralTranslation(value))
-        || result.settledWindowAlignment.some(alignment => !aligned(alignment))) {
-        fail(`${name}: YouTube shelf portal/readings did not follow rapid document scroll immediately`, result);
-    }
-    if (result.immediateNestedRangeReads !== 0
-        || result.immediateNestedAlignment.some(alignment => !aligned(alignment))
-        || result.settledNestedAlignment.some(alignment => !aligned(alignment))) {
-        fail(`${name}: YouTube shelf portal/readings did not follow independent element scrolling`, result);
-    }
-    if (!result.visualViewportOverrideSupported
-        || !result.visualViewportOffsetApplied
-        || !result.visualViewportReadingsUntranslated
-        || !result.visualViewportScaleImmediate) {
-        fail(`${name}: YouTube shelf portal did not handle VisualViewport offset and scale immediately`, result);
-    }
-    if (!result.sourceHideConcealed
-        || !result.sourceRestoreVisible
-        || !result.topLayerSupported
-        || !result.topLayerConcealed
-        || !result.authoredOverlayConcealed
-        || !result.authoredOverlayRestored) {
-        fail(`${name}: YouTube shelf portal ignored source or top-layer visibility`, result);
-    }
-}
-
-function verifyYouTubeShelfWorkBounds(name, result, expectedText, expectedHtml) {
-    if (result.cycleProjectionPasses > 10
-        || result.cycleMirrorProjections > 10
-        || result.cycleRangeReads > 80
-        || result.rapidScrollProjectionPasses > 3
-        || result.rapidScrollMirrorProjections > 3
-        || result.rapidScrollRangeReads > 24
-        || result.nestedProjectionPasses > 3
-        || result.nestedMirrorProjections > 3
-        || result.nestedRangeReads > 24
-        || result.portalMutationRecords > 500
-        || result.projectedReadingMutationRecords > 500
-        || result.totalMutationRecords > 1_000) {
-        fail(`${name}: YouTube shelf portal exceeded bounded projection or mutation work`, result);
-    }
-    if (JSON.stringify(result.quiescentBefore) !== JSON.stringify(result.quiescentAfter)) {
-        fail(`${name}: YouTube shelf portal continued mutating or projecting while quiescent`, result);
-    }
-    if (result.finalSnapshot.text !== expectedText || result.finalSnapshot.html !== expectedHtml) {
-        fail(`${name}: YouTube shelf expansion native segmented label changed after scroll/visibility probes`, result);
-    }
+    const fixtureState = [result.selectorMatched, result.baseline.text, result.baseline.html];
+    const ownershipState = [
+        result.targetCollected,
+        Object.values(result.initialScan).flat(),
+        result.nativeAnnotationNodes,
+        result.portalCount,
+    ];
+    const recyclingState = [
+        result.cycleCount,
+        result.replacementIdentityChanged,
+        result.nativeTextStable,
+        result.nativeHtmlStable,
+        result.nativeBoxGeometryStable,
+        result.nativeStyleStable,
+        result.nativeAttributesStable,
+    ];
+    verifyProbeChecks(name, result, [
+        {
+            failed: JSON.stringify(fixtureState) !== JSON.stringify([true, expectedText, expectedHtml]),
+            message: 'exact YouTube shelf expansion fixture changed',
+        },
+        {
+            failed: JSON.stringify(ownershipState) !== JSON.stringify([false, [], 0, 0]),
+            message: 'YouTube shelf expansion escaped the page-owned chrome boundary',
+        },
+        {
+            failed: JSON.stringify(recyclingState)
+                !== JSON.stringify([5, [true, true, true, true, true], true, true, true, true, true]),
+            message: 'recycled YouTube shelf expansion changed native ownership or geometry',
+        },
+        {
+            failed: result.maxGeometryDelta > MAX_GEOMETRY_DELTA_PX,
+            message: 'recycled YouTube shelf expansion moved native geometry',
+        },
+        {
+            failed: JSON.stringify([result.finalSnapshot.text, result.finalSnapshot.html])
+                !== JSON.stringify([expectedText, expectedHtml]),
+            message: 'recycled YouTube shelf expansion changed its segmented label',
+        },
+    ]);
 }
 
 function verifyYouTubeShortsAction(name, result) {
-    if (!result.portal || result.portalDecoration !== 'interactive-passive') {
-        fail(`${name}: ytm-shorts action row outside the reel overlay missed the page-owned portal lane`, result);
-    }
-    if (result.nativeAnnotationNodes !== 0
-        || result.before.text !== '共有'
-        || result.after.text !== result.before.text
-        || result.after.html !== result.before.html
-        || JSON.stringify(result.after.rootAttributes) !== JSON.stringify(result.before.rootAttributes)
-        || JSON.stringify(result.after.buttonAttributes) !== JSON.stringify(result.before.buttonAttributes)
-        || JSON.stringify(result.after.labelAttributes) !== JSON.stringify(result.before.labelAttributes)
-        || maxRectDelta(result.before.rect, result.after.rect) > MAX_GEOMETRY_DELTA_PX) {
-        fail(`${name}: ytm-shorts action annotation changed native text, attributes, descendants, or geometry`, result);
-    }
-    if (result.fragmentCount < 1
-        || !result.readingVisible
-        || Math.abs(result.fragmentDelta.top) > MAX_GEOMETRY_DELTA_PX
-        || Math.abs(result.fragmentDelta.left) > MAX_GEOMETRY_DELTA_PX) {
-        fail(`${name}: ytm-shorts action portal lost aligned annotation paint`, result);
-    }
+    const ownershipState = [result.actionTargetCount, result.portal, result.portalDecoration];
+    const beforeNative = [result.before.text, result.before.html, result.before.rootAttributes,
+        result.before.buttonAttributes, result.before.labelAttributes];
+    const afterNative = [result.after.text, result.after.html, result.after.rootAttributes,
+        result.after.buttonAttributes, result.after.labelAttributes];
+    verifyProbeChecks(name, result, [
+        {
+            failed: JSON.stringify(ownershipState) !== JSON.stringify([0, false, null]),
+            message: 'ytm-shorts native action escaped the page-owned chrome boundary',
+        },
+        {
+            failed: JSON.stringify([...beforeNative, '共有']) !== JSON.stringify([...afterNative, result.before.text]),
+            message: 'ytm-shorts action annotation changed native text, attributes, or descendants',
+        },
+        {
+            failed: maxRectDelta(result.before.rect, result.after.rect) > MAX_GEOMETRY_DELTA_PX,
+            message: 'ytm-shorts action annotation moved native geometry',
+        },
+        {
+            failed: JSON.stringify([result.contentWordCount, result.contentReading])
+                !== JSON.stringify([1, 'にほんご']),
+            message: 'ytm-shorts chrome exclusion swallowed adjacent learner content',
+        },
+    ]);
 }
 
 function verifyDescription(name, description) {
