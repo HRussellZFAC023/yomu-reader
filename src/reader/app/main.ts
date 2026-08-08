@@ -400,6 +400,7 @@ import {
     waitForHoverCardInitialPaint,
 } from './main-lookup-helpers';
 import { ReaderCardLookupSession, type CardLookupTargetSnapshot } from './card-lookup-session';
+import { HoverWordOwnership } from './hover-word-ownership';
 import {
     DeferredPublicJitenReadingCoordinator,
     resolvePublicFallbackPitchTokens as resolvePublicFallbackPitchTokensWithPublicJiten,
@@ -430,7 +431,6 @@ import {
     LINK_PRESS_LOOKUP_MS,
     SUBTITLE_HOVER_MINING_RESUME_GRACE_MS,
     HOVER_POPOVER_RESIZE_STICKY_MS,
-    HOVER_WORD_HOST_CONTROL_SELECTOR,
     HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR,
     JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY,
     REVIEW_PAGE_TARGET_SETTLE_MS,
@@ -841,6 +841,16 @@ export class ReaderApp {
     private activePopoverResizeObserver?: ResizeObserver;
     private readonly nativeTitleGuard = new NativeTitleGuard();
     private lastPointerPosition?: { x: number; y: number };
+    private readonly hoverWordOwnership = new HoverWordOwnership({
+        wordFromPointStack: (x, y) => this.hoverReaderWordFromPointStack(x, y),
+        ocrLineWordForPointer: (target, x, y) => this.ocrLineWordForPointer(target, x, y),
+        wordFromRenderedGeometry: (target, x, y) => this.readerWordFromRenderedGeometry(
+            target,
+            x,
+            y,
+            word => this.canHoverLookupReaderWord(word),
+        ),
+    });
     private hoverPopoverPointerPosition?: { x: number; y: number };
     // Set by the popover's own `pointerenter`, cleared only by a real exit event.
     // See hasLatchedHoverPopoverPointer for why the watchdog must not re-derive
@@ -4975,6 +4985,10 @@ export class ReaderApp {
         return Boolean(relatedElement && control.contains(relatedElement));
     }
 
+    private hoverWordHostControl(word: HTMLElement): HTMLElement | null {
+        return this.hoverWordOwnership.hostControl(word);
+    }
+
     private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
         if (this.isDestroyed || !this.lastPointerPosition) return;
         const pointer = this.lastPointerPosition;
@@ -5421,86 +5435,7 @@ export class ReaderApp {
         // it is the SAME vid:sid; only do this for a disconnected node so the connected checks
         // can keep treating a live DOM node as the source of truth.
         if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
-        if (this.connectedWordHasCssHover(word, options.ignoreCssHover)) return true;
-        return this.isWordAtLastPointerPosition(word, options.ignorePointerPosition);
-    }
-
-    private connectedWordHasCssHover(word: HTMLElement, ignoreCssHover = false): boolean {
-        if (ignoreCssHover) return false;
-        return word.matches(':hover') || this.isHoverWordHostControlCssHoverActive(word);
-    }
-
-    private isWordAtLastPointerPosition(word: HTMLElement, ignorePointerPosition = false): boolean {
-        const position = this.lastPointerPosition;
-        if (!position) return false;
-        const target = document.elementFromPoint(position.x, position.y);
-        // Framework-owned words (pointer-transparent mirrors over reactive-framework text) are
-        // excluded from hit-testing, so CSS :hover above never matches them even while the
-        // pointer sits on them. The geometry re-resolution below is the same word-identity check
-        // used to open the hover in the first place, so it stays trustworthy even when the
-        // watchdog asks to ignore pointer position for the *loose* containment fallback below.
-        const renderedHover = this.activeRenderedWordHoverAtPointer(word, target, position, ignorePointerPosition);
-        if (renderedHover !== undefined) return renderedHover;
-        return !ignorePointerPosition && this.isInsideNode(target, word);
-    }
-
-    private activeRenderedWordHoverAtPointer(
-        word: HTMLElement,
-        target: Element | null,
-        position: { x: number; y: number },
-        ignorePointerPosition: boolean,
-    ): boolean | undefined {
-        if (!(target instanceof Element)) return undefined;
-        const ocrLineHover = this.activeOcrWordHoverAtPointer(word, target, ignorePointerPosition);
-        if (ocrLineHover !== undefined) return ocrLineHover;
-        return this.renderedWordMatchesPointer(word, target, position) || undefined;
-    }
-
-    private renderedWordMatchesPointer(
-        word: HTMLElement,
-        target: Element,
-        position: { x: number; y: number },
-    ): boolean {
-        return this.hoverReaderWordFromPointStack(position.x, position.y) === word
-            || this.ocrLineWordForPointer(target, position.x, position.y) === word
-            || this.readerWordFromRenderedGeometry(target, position.x, position.y, item => this.canHoverLookupReaderWord(item)) === word;
-    }
-
-    private isHoverWordHostControlCssHoverActive(word: HTMLElement): boolean {
-        return Boolean(this.hoverWordHostControl(word)?.matches(':hover'));
-    }
-
-    private hoverWordHostControl(word: HTMLElement): HTMLElement | null {
-        return word.closest<HTMLElement>(HOVER_WORD_HOST_CONTROL_SELECTOR);
-    }
-
-    private activeOcrWordHoverAtPointer(
-        word: HTMLElement,
-        target: Element,
-        ignorePointerPosition: boolean,
-    ): boolean | undefined {
-        if (!this.activeOcrLineContainsTarget(word, target, ignorePointerPosition)) return undefined;
-        const position = this.lastPointerPosition;
-        if (!position) return undefined;
-        const pointedWord = this.ocrLineWordForPointer(
-            target,
-            position.x,
-            position.y,
-        );
-        // Preserve an open card while crossing punctuation/Latin gaps inside
-        // the same OCR line, but never let that broad line ownership overrule
-        // the exact different word now under the pointer.
-        if (!pointedWord) return true;
-        return pointedWord === word;
-    }
-
-    private activeOcrLineContainsTarget(
-        word: HTMLElement,
-        target: Element,
-        ignorePointerPosition: boolean,
-    ): boolean {
-        if (ignorePointerPosition) return false;
-        return Boolean(word.closest<HTMLElement>('.jpdb-ocr-line')?.contains(target));
+        return this.hoverWordOwnership.isActive(word, this.lastPointerPosition, options);
     }
 
     private reanchorDisconnectedHoverWord(word: HTMLElement, options: { ignorePointerPosition?: boolean }): boolean {

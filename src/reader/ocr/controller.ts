@@ -1,5 +1,4 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
-import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
 import { captureOcrTargetContext, claimOcrScan, ocrFallbackCardFromText, ocrTargetWork, ocrTargetWorkKey,
     releaseOcrScan, type OcrTargetContext, type OcrTargetWork } from './target-context';
 import { ocrRuntimeActive } from './mode';
@@ -110,6 +109,10 @@ import type { ReaderParserParseOptions } from '../lookup/parser';
 import { stableHashBase36, stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { OcrWordRenderStateRegistry } from './word-render-state';
+import {
+    classifyRenderableMediaMutations,
+    type RenderableMediaMutationBatch,
+} from './renderable-media-mutations';
 
 type OcrVideoFrameStatus = 'loading' | 'ready' | 'empty' | 'failed';
 
@@ -133,11 +136,6 @@ interface ImageState {
 }
 
 type OcrRenderedImageFrame = OcrOverlayFrame;
-
-interface OcrRenderableMediaMutationSummary {
-    touched: boolean;
-    addedImage: boolean;
-}
 
 interface PendingCanvasSnapshot {
     key: string;
@@ -634,9 +632,9 @@ export class ImageOcrController {
     }
 
     private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
-        mutations = mutations.filter(mutation => !mutationContainsOnlyReaderPaint(mutation));
-        if (!mutations.length) return;
-        this.invalidatePositionTransformsForMutations(mutations);
+        const batch = classifyRenderableMediaMutations(mutations);
+        if (!batch.mutations.length) return;
+        this.invalidatePositionTransformsForMutations(batch);
         const settings = this.options.getSettings();
         if (!ocrRuntimeActive(settings)) {
             this.readerRasterFreeMemo = undefined;
@@ -644,25 +642,24 @@ export class ImageOcrController {
         }
         const memo = this.readerRasterFreeMemo;
         if (memo && (memo.free
-            ? mutationsMayAddReaderRasterCandidate(mutations)
-            : mutationsMayRemoveReaderRasterCandidate(mutations))) {
+            ? mutationsMayAddReaderRasterCandidate(batch.mutations)
+            : mutationsMayRemoveReaderRasterCandidate(batch.mutations))) {
             this.readerRasterFreeMemo = undefined;
         }
-        const summary = summarizeRenderableMediaMutations(mutations);
-        if (!summary.touched) return;
+        if (!batch.touchesRenderableMedia) return;
         this.schedulePosition();
         if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-        this.scheduleRefresh(summary.addedImage ? 0 : 40);
+        this.scheduleRefresh(batch.addedImage ? 0 : 40);
     }
 
-    private invalidatePositionTransformsForMutations(mutations: MutationRecord[]): void {
-        if (mutations.some(mutationCanRestyleEverySurface)) {
+    private invalidatePositionTransformsForMutations(batch: RenderableMediaMutationBatch): void {
+        if (batch.restylesEverySurface) {
             forgetAllComposedOcrSurfaceTransforms();
             return;
         }
         for (const image of this.states.keys()) {
             const surface = this.ocrLayerTransformSurface(image);
-            if (surface && mutations.some(({ target }) => {
+            if (surface && batch.mutations.some(({ target }) => {
                 const element = target instanceof Element ? target : target.parentElement;
                 return element === surface || Boolean(element?.contains(surface));
             })) {
@@ -4140,48 +4137,8 @@ function isHiddenByCss(element: Element): boolean {
         || Number(style.opacity || '1') <= 0;
 }
 
-function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {
-    if (mutation.type === 'childList') {
-        return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
-    }
-    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
-}
-
-function mutationCanRestyleEverySurface(mutation: MutationRecord): boolean {
-    const target = mutation.target instanceof Element
-        ? mutation.target
-        : mutation.target.parentElement;
-    if (target?.matches('style, link[rel~="stylesheet"]')) return true;
-    if (mutation.type !== 'childList') return false;
-    return [...mutation.addedNodes, ...mutation.removedNodes].some(node =>
-        node instanceof Element
-        && (node.matches('style, link[rel~="stylesheet"]')
-            || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
-}
-
-function summarizeRenderableMediaMutations(mutations: MutationRecord[]): OcrRenderableMediaMutationSummary {
-    let addedImage = false;
-    let touched = false;
-    for (const mutation of mutations) {
-        if (!mutationTouchesRenderableMedia(mutation)) continue;
-        touched = true;
-        if (mutation.type === 'childList' && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
-        if (addedImage) break;
-    }
-    return { touched, addedImage };
-}
-
 function canAutoRefreshOcrAfterMutation(settings: ReaderSettings, shouldAutoScan: (() => boolean) | undefined): boolean {
     return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-}
-
-function nodeContainsRenderableMedia(node: Node): boolean {
-    return node instanceof HTMLImageElement
-        || node instanceof HTMLVideoElement
-        || node instanceof HTMLCanvasElement
-        || node instanceof HTMLSourceElement
-        || (node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)))
-        || (node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]')));
 }
 
 function hasCanvasOcrOptInSurface(): boolean {
