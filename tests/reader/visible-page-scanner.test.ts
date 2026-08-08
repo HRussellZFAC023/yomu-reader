@@ -1033,178 +1033,6 @@ describe('VisiblePageScanner', () => {
         }
     }, 20_000);
 
-    it('enhances YouTube filter chips while preserving clicks', async () => {
-        const restoreRects = mockVisibleElementRects();
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-        });
-        document.body.innerHTML = `
-            <ytd-app>
-                <ytd-feed-filter-chip-bar-renderer>
-                    <iron-selector id="chips" role="tablist">
-                        <yt-chip-cloud-chip-renderer>
-                            <chip-shape>
-                                <button class="ytChipShapeButtonReset" role="tab" aria-selected="true">
-                                    <div class="ytChipShapeChip"><div>すべて</div></div>
-                                </button>
-                            </chip-shape>
-                        </yt-chip-cloud-chip-renderer>
-                        <yt-chip-cloud-chip-renderer>
-                            <chip-shape>
-                                <button class="ytChipShapeButtonReset" role="tab" aria-selected="false">
-                                    <div class="ytChipShapeChip"><div>最近アップロードされた動画</div></div>
-                                </button>
-                            </chip-shape>
-                        </yt-chip-cloud-chip-renderer>
-                    </iron-selector>
-                </ytd-feed-filter-chip-bar-renderer>
-            </ytd-app>
-        `;
-        const clicks: string[] = [];
-        document.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
-            const nativeLabel = button.textContent?.replace(/\s+/g, '').trim() ?? '';
-            button.addEventListener('click', () => clicks.push(nativeLabel));
-        });
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
-        const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
-            parseJapanese,
-        });
-
-        try {
-            await scanner.scanVisiblePage({ silent: true });
-
-            expect(parseJapanese).toHaveBeenCalled();
-            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word')).not.toBeNull();
-            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer')?.textContent).toContain('最近アップロードされた');
-            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
-
-            document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
-            document.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
-            expect(clicks).toEqual(['すべて', '最近アップロードされた動画']);
-        } finally {
-            scanner.destroy();
-            vi.unstubAllGlobals();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('enhances YouTube mini-guide labels while preserving link dispatch', async () => {
-        const restoreRects = mockVisibleElementRects();
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-        });
-        document.body.innerHTML = `
-            <ytd-app>
-                <ytd-mini-guide-renderer role="navigation" mini-guide-visible>
-                    <div id="items">
-                        <ytd-mini-guide-entry-renderer>
-                            <a id="endpoint" class="yt-simple-endpoint" aria-label="ホーム" title="ホーム" href="/">
-                                <span class="title">ホーム</span>
-                            </a>
-                            <tp-yt-paper-tooltip hidden><div id="tooltip">ホーム</div></tp-yt-paper-tooltip>
-                        </ytd-mini-guide-entry-renderer>
-                        <ytd-mini-guide-entry-renderer>
-                            <a id="endpoint" class="yt-simple-endpoint" aria-label="登録チャンネル" title="登録チャンネル" href="/feed/subscriptions">
-                                <span class="title">登録チャンネル</span>
-                            </a>
-                            <span hidden><button type="button" id="ally-menu-button" aria-label="登録チャンネル"></button></span>
-                        </ytd-mini-guide-entry-renderer>
-                        <ytd-mini-guide-entry-renderer>
-                            <a id="endpoint" class="yt-simple-endpoint" aria-label="マイページ" title="マイページ" href="/feed/you">
-                                <span class="title">マイページ</span>
-                            </a>
-                        </ytd-mini-guide-entry-renderer>
-                    </div>
-                </ytd-mini-guide-renderer>
-            </ytd-app>
-        `;
-        const navigations: string[] = [];
-        document.querySelectorAll<HTMLAnchorElement>('a#endpoint').forEach(anchor => {
-            anchor.addEventListener('click', event => {
-                event.preventDefault();
-                navigations.push(anchor.getAttribute('href') ?? '');
-            });
-        });
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
-        const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
-            parseJapanese,
-        });
-
-        try {
-            await scanner.scanVisiblePage({ silent: true });
-
-            const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
-            expect(parseJapanese).toHaveBeenCalledWith(['ホーム', '登録チャンネル', 'マイページ'], expect.objectContaining({
-                allowSegmentedFallback: true,
-                includeLocalPitch: false,
-            }));
-            expect(guide.querySelector('.jpdb-reader-word[data-expression="登録"]')).not.toBeNull();
-            expect(guide.querySelector('.jpdb-reader-word[data-expression="チャンネル"]')).not.toBeNull();
-            expect(guide.textContent).toContain('登録');
-            expect(guide.textContent).toContain('チャンネル');
-            expect(guide.querySelector('tp-yt-paper-tooltip .jpdb-reader-word')).toBeNull();
-            expect(guide.querySelector('span[hidden] .jpdb-reader-word')).toBeNull();
-
-            document.querySelector<HTMLAnchorElement>('a[href="/feed/subscriptions"]')?.click();
-            expect(navigations).toEqual(['/feed/subscriptions']);
-        } finally {
-            scanner.destroy();
-            vi.unstubAllGlobals();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('enhances YouTube topbar create button text while preserving button dispatch', async () => {
-        const restoreRects = mockVisibleElementRects();
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-        });
-        document.body.innerHTML = `
-            <ytd-app>
-                <ytd-masthead>
-                    <yt-button-shape>
-                        <button class="ytSpecButtonShapeNextHost" type="button" aria-label="作成">
-                            <span class="yt-core-attributed-string ytAttributedStringHost">作成</span>
-                        </button>
-                    </yt-button-shape>
-                </ytd-masthead>
-            </ytd-app>
-        `;
-        let clicked = false;
-        document.querySelector<HTMLButtonElement>('button')?.addEventListener('click', () => { clicked = true; });
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
-        const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
-            parseJapanese,
-        });
-
-        try {
-            await scanner.scanVisiblePage({ silent: true });
-
-            expect(parseJapanese).toHaveBeenCalled();
-            expect(document.querySelector('ytd-masthead .jpdb-reader-word')).not.toBeNull();
-            expect(document.querySelector('ytd-masthead button')?.textContent).toContain('作成');
-
-            document.querySelector<HTMLButtonElement>('button')?.click();
-            expect(clicked).toBe(true);
-        } finally {
-            scanner.destroy();
-            vi.unstubAllGlobals();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
     it('enhances YouTube search chrome while preserving form and button dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
@@ -1448,7 +1276,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('enhances YouTube mini-guide labels while preserving native link dispatch', async () => {
+    it('leaves YouTube mini-guide labels page-owned while preserving native link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -1494,17 +1322,15 @@ describe('VisiblePageScanner', () => {
         });
 
         try {
+            const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
+            const labels = [...guide.querySelectorAll<HTMLElement>('a#endpoint .title')];
+            const nativeHtml = guide.innerHTML;
             await scanner.scanVisiblePage({ silent: true });
 
-            const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
-            const words = [...guide.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-            expect(parseJapanese).toHaveBeenCalledWith(['ホーム', '登録チャンネル', 'マイページ'], expect.objectContaining({
-                allowSegmentedFallback: true,
-                includeLocalPitch: false,
-            }));
-            expect(words.length).toBeGreaterThan(0);
-            expect(words.some(word => word.dataset.expression === '登録')).toBe(true);
-            expect(words.some(word => word.dataset.expression === 'チャンネル')).toBe(true);
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(guide.innerHTML).toBe(nativeHtml);
+            expect(guide.querySelector('.jpdb-reader-word,.jpdb-reader-text-mirror')).toBeNull();
+            expect(labels.every(label => documentPortalReaderWordScopeForSource(label) === null)).toBe(true);
             expect(guide.textContent).toContain('ホーム');
             expect(guide.textContent).toContain('登録チャンネル');
             expect(guide.textContent).toContain('マイページ');
