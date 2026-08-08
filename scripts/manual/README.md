@@ -7,48 +7,48 @@ signed-in or live external site, a real browser profile / Firefox / display, a l
 server, machine-dependent performance thresholds, or live enrichment. Run each by hand
 with `npm run <name>` when investigating the area it covers.
 
-| npm script | verifies / prerequisites |
-|---|---|
-| `manual:academy-bookshop` | Needs the Academy dev server on :5174. |
-| `manual:academy-home` | Needs the Academy dev server on :5174. |
-| `manual:academy-park` | Needs the Academy dev server on :5174 (dev:academy). |
-| `manual:academy-profile` | Needs the Academy dev server on :5174. |
-| `manual:anki-wikipedia` | Navigates real ja.wikibooks.org. |
-| `manual:audio-csp-fallback` | Depends on real JPDB/audio-CDN network for the CSP audio chain. |
-| `manual:audio-newtab` | Depends on real hosted-audio CDN (audio.yomureader.com) source ordering. |
-| `manual:audio-popover` | Opens real youtube.com video pages for audio. |
-| `manual:audio-real-page` | Drives real Wikipedia audio/click-open. |
-| `manual:bookwalker-carousel` | BookWalker carousel overflow layout guard, currently red; kept for manual triage. |
-| `manual:bookwalker-live-firefox` | Live BookWalker trial reader in real Firefox. |
-| `manual:bunpro-live` | Hits the real Bunpro frontend API; needs YOMU_BUNPRO_FRONTEND_API_TOKEN. |
-| `manual:extension-boot` | Loads the built Chrome extension package (needs build:extension + EXT_DIR). |
-| `manual:extension-youtube` | Loads the packaged Chrome extension in a clean Chromium profile and proves a healthy runtime on real YouTube. |
-| `manual:japanese-sites` | Injects into real multilingual sites to verify JA redirects. |
-| `manual:jiten-newtab` | Needs live jiten.moe enrichment for the newtab status. |
-| `manual:jpdb-live` | Hits the real JPDB API; needs YOMU_JPDB_API_KEY. |
-| `manual:keyless-jiten-detail` | Needs live keyless jiten.moe detail lookups. |
-| `manual:keyless-popover` | Needs live keyless jiten.moe enrichment to fill the popover. |
-| `manual:live-browser` | Loads the deployed hosted reader + real jisho/cloudfront audio. |
-| `manual:live-furigana-layout` | Injects into real ecommerce pages. |
-| `manual:lookup-popover-strip` | Popover action-strip guard, currently red; needs live enrichment/triage. |
-| `manual:overlay-scroll-lock` | Overlay scroll-lock guard, currently red on both engines; kept for manual triage. |
-| `manual:popover-actions` | Depends on live enrichment to render the action pills. |
-| `manual:reader-sites` | Injects into real Ttsu/Yatsu/YouTube pages. |
-| `manual:screenshots-real` | Captures real manga/reader pages in a persistent signed-in Chrome profile. |
-| `manual:screenshots-settings` | Recaptures the docs settings shots from the built userscript on a loopback server; needs no operator. |
-| `manual:settings-layout` | Mobile settings-layout guard, currently red; kept for manual triage. |
-| `manual:subtitle-live-compat` | Compat variant of the live subtitle site sweep. |
-| `manual:subtitle-live-sites` | Live subtitle/player discovery across real video sites. |
-| `manual:subtitles` | Needs local video-player server on :5173 and mp4 server on :8766. |
-| `manual:subtitles-e2e` | Drives real youtube.com watch pages end-to-end. |
-| `manual:youtube` | Broad 1.6k-line YouTube feature harness, currently red; kept for manual triage. |
-| `manual:youtube-auto-translation` | YouTube auto-translation fixture harness, currently red; kept for manual triage. |
-| `manual:youtube-fullscreen` | Needs real Chrome + real fullscreen top-layer promotion (persistent profile). |
-| `manual:youtube-homepage-performance` | Machine-dependent performance profiler (persistent profile). |
-| `manual:youtube-performance` | Deterministic YouTube profiler with strict lookup evidence. Set `YOMU_PROFILE_CPU=1` to retain complete sampled self-time and function call counts; by default it profiles the built userscript and its matching checked-in runtime companion. |
-| `manual:youtube-real-dom-instability` | Persistent-profile harness reproducing real YouTube DOM churn. |
-| `manual:youtube-sidebar-layout` | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage. |
-| `manual:youtube-sidebar-resize-profile` | Machine-dependent resize performance profiler (persistent profile). |
+| npm script                              | verifies / prerequisites                                                                                                                                                                                                               |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `manual:academy-bookshop`               | Needs the Academy dev server on :5174.                                                                                                                                                                                                 |
+| `manual:academy-home`                   | Needs the Academy dev server on :5174.                                                                                                                                                                                                 |
+| `manual:academy-park`                   | Needs the Academy dev server on :5174 (dev:academy).                                                                                                                                                                                   |
+| `manual:academy-profile`                | Needs the Academy dev server on :5174.                                                                                                                                                                                                 |
+| `manual:anki-wikipedia`                 | Navigates real ja.wikibooks.org.                                                                                                                                                                                                       |
+| `manual:audio-csp-fallback`             | Depends on real JPDB/audio-CDN network for the CSP audio chain.                                                                                                                                                                        |
+| `manual:audio-newtab`                   | Depends on real hosted-audio CDN (audio.yomureader.com) source ordering.                                                                                                                                                               |
+| `manual:audio-popover`                  | Opens real youtube.com video pages for audio.                                                                                                                                                                                          |
+| `manual:audio-real-page`                | Drives real Wikipedia audio/click-open.                                                                                                                                                                                                |
+| `manual:bookwalker-carousel`            | BookWalker carousel overflow layout guard, currently red; kept for manual triage.                                                                                                                                                      |
+| `manual:bookwalker-live-firefox`        | Live BookWalker trial reader in real Firefox.                                                                                                                                                                                          |
+| `manual:bunpro-live`                    | Hits the real Bunpro frontend API; needs YOMU_BUNPRO_FRONTEND_API_TOKEN.                                                                                                                                                               |
+| `manual:extension-boot`                 | Loads the built Chrome extension package (needs build:extension + EXT_DIR).                                                                                                                                                            |
+| `manual:extension-youtube`              | Loads the packaged Chrome extension in a clean Chromium profile and proves a healthy runtime on real YouTube.                                                                                                                          |
+| `manual:japanese-sites`                 | Injects into real multilingual sites to verify JA redirects.                                                                                                                                                                           |
+| `manual:jiten-newtab`                   | Needs live jiten.moe enrichment for the newtab status.                                                                                                                                                                                 |
+| `manual:jpdb-live`                      | Hits the real JPDB API; needs YOMU_JPDB_API_KEY.                                                                                                                                                                                       |
+| `manual:keyless-jiten-detail`           | Needs live keyless jiten.moe detail lookups.                                                                                                                                                                                           |
+| `manual:keyless-popover`                | Needs live keyless jiten.moe enrichment to fill the popover.                                                                                                                                                                           |
+| `manual:live-browser`                   | Loads the deployed hosted reader + real jisho/cloudfront audio.                                                                                                                                                                        |
+| `manual:live-furigana-layout`           | Injects into real ecommerce pages.                                                                                                                                                                                                     |
+| `manual:lookup-popover-strip`           | Popover action-strip guard, currently red; needs live enrichment/triage.                                                                                                                                                               |
+| `manual:overlay-scroll-lock`            | Overlay scroll-lock guard, currently red on both engines; kept for manual triage.                                                                                                                                                      |
+| `manual:popover-actions`                | Depends on live enrichment to render the action pills.                                                                                                                                                                                 |
+| `manual:reader-sites`                   | Injects into real Ttsu/Yatsu/YouTube pages.                                                                                                                                                                                            |
+| `manual:screenshots-real`               | Captures real manga/reader pages in a persistent signed-in Chrome profile.                                                                                                                                                             |
+| `manual:screenshots-settings`           | Recaptures the docs settings shots from the built userscript on a loopback server; needs no operator.                                                                                                                                  |
+| `manual:settings-layout`                | Mobile settings-layout guard, currently red; kept for manual triage.                                                                                                                                                                   |
+| `manual:subtitle-live-compat`           | Compat variant of the live subtitle site sweep.                                                                                                                                                                                        |
+| `manual:subtitle-live-sites`            | Live subtitle/player discovery across real video sites.                                                                                                                                                                                |
+| `manual:subtitles`                      | Needs local video-player server on :5173 and mp4 server on :8766.                                                                                                                                                                      |
+| `manual:subtitles-e2e`                  | Drives real youtube.com watch pages end-to-end.                                                                                                                                                                                        |
+| `manual:youtube`                        | Broad 1.6k-line YouTube feature harness, currently red; kept for manual triage.                                                                                                                                                        |
+| `manual:youtube-auto-translation`       | YouTube auto-translation fixture harness, currently red; kept for manual triage.                                                                                                                                                       |
+| `manual:youtube-fullscreen`             | Needs real Chrome + real fullscreen top-layer promotion (persistent profile).                                                                                                                                                          |
+| `manual:youtube-homepage-performance`   | Machine-dependent performance profiler (persistent profile).                                                                                                                                                                           |
+| `manual:youtube-performance`            | Deterministic YouTube profiler with strict lookup evidence. `YOMU_PROFILE_CPU=1` runs fresh metrics, CPU-only, and coverage-only replays; by default it profiles the built split userscript and its exact SRI-checked companion graph. |
+| `manual:youtube-real-dom-instability`   | Persistent-profile harness reproducing real YouTube DOM churn.                                                                                                                                                                         |
+| `manual:youtube-sidebar-layout`         | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage.                                                                                                                                                  |
+| `manual:youtube-sidebar-resize-profile` | Machine-dependent resize performance profiler (persistent profile).                                                                                                                                                                    |
 
 ## Reproducible YouTube CPU comparison
 
@@ -57,7 +57,8 @@ Use the same profiler commit, Playwright Chromium version, scenario, and workloa
 ```bash
 YOMU_PROFILE_CPU=1 \
 YOMU_PROFILE_SCENARIOS=api \
-YOMU_PROFILE_AMBIENT_MS=15000 \
+YOMU_PROFILE_FIXED_CHURN_CYCLES=20 \
+YOMU_PROFILE_SOAK_MS=15000 \
 YOMU_PROFILE_LOOKUP_SAMPLES=4 \
 YOMU_PROFILE_MOBILE_CPU_THROTTLE=4 \
 YOMU_PROFILE_ARTIFACT_DIR=/absolute/path/to/baseline-worktree \
@@ -66,7 +67,8 @@ npm run manual:youtube-performance
 
 YOMU_PROFILE_CPU=1 \
 YOMU_PROFILE_SCENARIOS=api \
-YOMU_PROFILE_AMBIENT_MS=15000 \
+YOMU_PROFILE_FIXED_CHURN_CYCLES=20 \
+YOMU_PROFILE_SOAK_MS=15000 \
 YOMU_PROFILE_LOOKUP_SAMPLES=4 \
 YOMU_PROFILE_MOBILE_CPU_THROTTLE=4 \
 YOMU_PROFILE_ARTIFACT_DIR=/absolute/path/to/candidate-worktree \
@@ -74,6 +76,18 @@ YOMU_PROFILE_LABEL=candidate-cpu \
 npm run manual:youtube-performance
 ```
 
-The report records an aggregate SHA-256 for the profiler driver and its direct helpers, their Git commit and dirty paths, the browser version/executable, the artifact hashes, and the complete workload definition. `youtubeAmbientChurn` / `mobileYoutubeAmbientChurn` measure host rehydration, playback, and scrolling without popup work. `youtubeLookupTransactions` / `mobileYoutubeLookupTransactions` then run an exact number of lookups against the fixed `先生` and `今日` comment targets with ambient churn stopped.
+The comparable evidence comes from three fresh contexts. The uninstrumented metrics replay owns CDP timings and lookup latency; the CPU replay enables sampling only; the coverage replay enables precise call counts only. Their fixed-operation ambient ledger and exact lookup ledger must match before the results are merged. `youtubeAmbientThroughputSoak` remains a separate, explicitly non-comparable time-boxed throughput diagnostic.
 
-A run fails if a requested target is absent or occluded, a popup misses its deadline, any wrong popup appears before the expected one, or the resolved expression/source/lane differs from the plan. `profile.json` retains every precise-coverage call-count row and every sampled self-time row; the terminal output is only a compact view of the highest rows plus the named tracked functions. `YOMU_PROFILE_HOVER_STRESS_MS` remains a compatibility alias for `YOMU_PROFILE_AMBIENT_MS`, but it no longer controls lookup sample selection.
+A run fails if a requested body-portal target is absent or occluded, a popup misses its deadline, any wrong popup appears before the expected one, or the resolved expression/source/lane differs from the plan. CPU and coverage rows are scoped to the injected graph URL and SHA; zero-count functions and same-name functions at different offsets stay distinct. `profile.json` retains all scoped rows. `profile.partial.json` and `failure.json` retain provenance, the last step, structured workload/teardown failures, screenshot, page HTML, and DOM diagnostics when a run fails.
+
+Provenance covers the transitive local import closure, package lock and `.nvmrc`, installed/locked Playwright, Playwright Core and TypeScript versions, Node/V8/ICU/UV/OpenSSL, browser registry revision, and launched Chromium version/executable. The profiler deliberately rejects self-contained historical or extension intermediates: authoritative A/B runs must use comparable split public userscripts whose declared `@require` graph passes filename-hash and SRI validation.
+
+For a short end-to-end baseline/current proof (API scenario, desktop, two fixed churn cycles and two exact lookups), run:
+
+```bash
+YOMU_PROFILE_BASELINE_DIR=/absolute/path/to/v1.8.86-worktree \
+YOMU_PROFILE_CANDIDATE_DIR=/absolute/path/to/candidate-worktree \
+node scripts/manual/youtube-performance-comparison-smoke.mjs
+```
+
+`YOMU_PROFILE_SOAK_MS` replaces `YOMU_PROFILE_AMBIENT_MS`; the old ambient and hover-stress names remain compatibility aliases for the non-comparable soak only.

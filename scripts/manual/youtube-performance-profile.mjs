@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { join, relative, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
@@ -15,6 +14,7 @@ import {
 } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
 import { cdpMetrics, metricDelta } from '../lib/cdp-performance-metrics.mjs';
+import { configureFunctionProfiler, startFunctionProfiler, stopFunctionProfiler } from '../lib/youtube-performance-cdp.mjs';
 import {
     assertCompleteStressInteraction,
     fixedStressLookupPlan,
@@ -22,12 +22,29 @@ import {
     summarizePreciseCoverage,
     summarizeStressSamples,
 } from '../lib/youtube-performance-evidence.mjs';
-import { userscriptCompanionPaths } from '../lib/smoke-test-helpers.mjs';
+import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from '../lib/smoke-test-helpers.mjs';
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
+import { profileDriverProvenance } from '../lib/youtube-performance-provenance.mjs';
+import { capturePerformancePageFailure, createPerformanceEvidenceJournal, serializeError } from '../lib/youtube-performance-report.mjs';
+import { mergeScenarioFunctionProfiles } from '../lib/youtube-performance-replays.mjs';
+import { exerciseYoutubeAmbientSoak, exerciseYoutubeFixedChurn } from '../lib/youtube-performance-workload.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const { qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
+const repositoryRoot = resolve(import.meta.dirname, '../..');
 const artifactLabel = process.env.YOMU_PROFILE_LABEL ?? 'working';
+const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));
+const evidenceJournal = createPerformanceEvidenceJournal(outputRoot, {
+    label: artifactLabel,
+    command: process.argv,
+});
+process.on('uncaughtExceptionMonitor', error => evidenceJournal.fail(error));
+process.on('unhandledRejection', error => {
+    evidenceJournal.fail(error);
+    process.exitCode = 1;
+});
+const profilerDriver = profileDriverProvenance(import.meta.filename, repositoryRoot);
+evidenceJournal.update({ profilerDriver });
 const artifactDir = resolve(process.env.YOMU_PROFILE_ARTIFACT_DIR ?? '.');
 const userscriptPath = resolve(process.env.YOMU_PROFILE_USERSCRIPT ?? join(artifactDir, 'dist/yomu.user.js'));
 const cssPath = resolve(process.env.YOMU_PROFILE_CSS ?? join(artifactDir, 'dist/yomu.css'));
@@ -44,17 +61,29 @@ for (const path of [userscriptPath, cssPath]) {
 // mutable companion and producing credible-looking but invalid evidence.
 const companionPaths = userscriptCompanionPaths(userscriptPath);
 assertProfileCompanionGraph(userscriptPath, companionPaths);
-const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));
+const userscriptGraphSnapshot = profileArtifactGraphSnapshot([...companionPaths, userscriptPath]);
+const userscriptGraph = userscriptGraphSnapshot.descriptor;
 const headed = process.env.YOMU_PROFILE_HEADED === '1';
 const cpuProfilingEnabled = process.env.YOMU_PROFILE_CPU === '1';
+const PROFILE_PRESET = process.env.YOMU_PROFILE_PRESET ?? 'full';
+const SMOKE_PRESET = PROFILE_PRESET === 'smoke';
+if (!['full', 'smoke'].includes(PROFILE_PRESET)) throw new Error(`Unknown YOMU_PROFILE_PRESET: ${PROFILE_PRESET}`);
 const WATCH_URL = 'https://www.youtube.com/watch?v=profile123';
 const MOBILE_WATCH_URL = 'https://m.youtube.com/watch?v=profile123';
-const AMBIENT_CHURN_DURATION_MS = positiveIntegerSetting(
-    process.env.YOMU_PROFILE_AMBIENT_MS ?? process.env.YOMU_PROFILE_HOVER_STRESS_MS ?? 15_000,
-    'YOMU_PROFILE_AMBIENT_MS',
+const YOUTUBE_WATCH_HOSTS = new Set(['www.youtube.com', 'm.youtube.com']);
+const FIXED_CHURN_CYCLE_COUNT = positiveIntegerSetting(
+    process.env.YOMU_PROFILE_FIXED_CHURN_CYCLES ?? process.env.YOMU_PROFILE_AMBIENT_OPERATIONS ?? (SMOKE_PRESET ? 4 : 20),
+    'YOMU_PROFILE_FIXED_CHURN_CYCLES',
+);
+const AMBIENT_SOAK_DURATION_MS = positiveIntegerSetting(
+    process.env.YOMU_PROFILE_SOAK_MS ??
+        process.env.YOMU_PROFILE_AMBIENT_MS ??
+        process.env.YOMU_PROFILE_HOVER_STRESS_MS ??
+        (SMOKE_PRESET ? 250 : 15_000),
+    'YOMU_PROFILE_SOAK_MS',
 );
 const LOOKUP_SAMPLE_COUNT = positiveIntegerSetting(
-    process.env.YOMU_PROFILE_LOOKUP_SAMPLES ?? 4,
+    process.env.YOMU_PROFILE_LOOKUP_SAMPLES ?? (SMOKE_PRESET ? 2 : 4),
     'YOMU_PROFILE_LOOKUP_SAMPLES',
 );
 const MOBILE_CPU_THROTTLE_RATE = positiveIntegerSetting(
@@ -111,7 +140,11 @@ const YOUTUBE_TIMED_TEXT = {
     en: youtubeTimedText([
         { start: 0, duration: 1800, text: 'Thank you, teacher.' },
         { start: 2200, duration: 1800, text: 'We check Japanese subtitles.' },
-        { start: 4500, duration: 1800, text: 'A story about taping pickled plums.' },
+        {
+            start: 4500,
+            duration: 1800,
+            text: 'A story about taping pickled plums.',
+        },
         { start: 6800, duration: 1800, text: 'Today we read books too.' },
     ]),
     ja: youtubeTimedText([
@@ -123,8 +156,10 @@ const YOUTUBE_TIMED_TEXT = {
 };
 
 const scenarioNames = profileScenarioNames();
-rmSync(outputRoot, { recursive: true, force: true });
-mkdirSync(outputRoot, { recursive: true });
+evidenceJournal.update({
+    workload: profileWorkloadDescriptor(),
+    artifacts: profileArtifactsDescriptor(),
+});
 
 const baseSettings = {
     onboardingSeen: true,
@@ -197,8 +232,17 @@ const vocabulary = [
 
 function profileScenarioNames() {
     const raw = process.env.YOMU_PROFILE_SCENARIOS ?? process.env.YOMU_PROFILE_SCENARIO;
-    if (!raw || raw === 'matrix') return ['api', 'no-api', 'anki', 'all', 'all-no-api'];
-    return raw.split(',').map(name => name.trim()).filter(Boolean);
+    if (!raw) return defaultProfileScenarioNames();
+    if (raw === 'matrix') return ['api', 'no-api', 'anki', 'all', 'all-no-api'];
+    return raw
+        .split(',')
+        .map(name => name.trim())
+        .filter(Boolean);
+}
+
+function defaultProfileScenarioNames() {
+    if (SMOKE_PRESET) return ['api'];
+    return ['api', 'no-api', 'anki', 'all', 'all-no-api'];
 }
 
 function positiveIntegerSetting(value, name) {
@@ -212,10 +256,20 @@ function positiveIntegerSetting(value, name) {
 function profileScenario(name) {
     const scenarios = {
         api: { name: 'api', apiKey: true, anki: false, allFeatures: false },
-        'no-api': { name: 'no-api', apiKey: false, anki: false, allFeatures: false },
+        'no-api': {
+            name: 'no-api',
+            apiKey: false,
+            anki: false,
+            allFeatures: false,
+        },
         anki: { name: 'anki', apiKey: true, anki: true, allFeatures: false },
         all: { name: 'all', apiKey: true, anki: true, allFeatures: true },
-        'all-no-api': { name: 'all-no-api', apiKey: false, anki: true, allFeatures: true },
+        'all-no-api': {
+            name: 'all-no-api',
+            apiKey: false,
+            anki: true,
+            allFeatures: true,
+        },
     };
     const scenario = scenarios[name];
     if (!scenario) throw new Error(`Unknown YouTube profile scenario: ${name}`);
@@ -285,15 +339,24 @@ const parseRequests = [];
 const ankiRequests = [];
 const jitenPublicRequests = [];
 
+evidenceJournal.markStep({ phase: 'launch-browser' });
 const browser = await chromium.launch({ headless: !headed });
+evidenceJournal.update({
+    browser: {
+        name: 'chromium',
+        version: browser.version(),
+        executablePath: chromium.executablePath(),
+        headless: !headed,
+    },
+});
 try {
     const profiles = [];
     for (const scenario of scenarioNames.map(profileScenario)) profiles.push(await runScenario(browser, scenario));
     const report = {
-        schemaVersion: 2,
+        schemaVersion: 3,
         label: artifactLabel,
         generatedAt: new Date().toISOString(),
-        profilerDriver: profileDriverDescriptor(),
+        profilerDriver,
         runtime: {
             node: process.version,
             platform: process.platform,
@@ -305,11 +368,7 @@ try {
             executablePath: chromium.executablePath(),
             headless: !headed,
         },
-        workload: {
-            ambientChurnDurationMs: AMBIENT_CHURN_DURATION_MS,
-            lookupSampleCount: LOOKUP_SAMPLE_COUNT,
-            lookupTargetSequence: LOOKUP_TARGET_SEQUENCE,
-        },
+        workload: profileWorkloadDescriptor(),
         diagnostics: {
             allowTextMirrors: ALLOW_TEXT_MIRRORS,
             releaseEvidenceEligible: RELEASE_EVIDENCE_ELIGIBLE,
@@ -317,19 +376,15 @@ try {
                 ? null
                 : 'Known-bad baseline: in-host YouTube comment mirrors were explicitly allowed.',
         },
-        artifacts: {
-            userscript: profileArtifactDescriptor(userscriptPath),
-            css: profileArtifactDescriptor(cssPath),
-            companions: companionPaths.map(profileArtifactDescriptor),
-        },
+        artifacts: profileArtifactsDescriptor(),
         scenarios: profiles,
     };
-    const serializedReport = JSON.stringify(report, null, 2);
     const profilePath = join(outputRoot, 'profile.json');
-    writeFileSync(profilePath, serializedReport);
-    console.log(cpuProfilingEnabled
-        ? JSON.stringify(functionProfileConsoleSummary(report, profilePath), null, 2)
-        : serializedReport);
+    const completedReport = evidenceJournal.complete(report);
+    const serializedReport = JSON.stringify(completedReport, null, 2);
+    console.log(
+        cpuProfilingEnabled ? JSON.stringify(functionProfileConsoleSummary(completedReport, profilePath), null, 2) : serializedReport,
+    );
 } finally {
     await browser.close();
 }
@@ -351,67 +406,40 @@ function functionProfileConsoleSummary(report, profilePath) {
                     sampledMs: step.functionProfile.sampled.sampledMs,
                     highestSelfTime: step.functionProfile.sampled.selfTime.slice(0, 10),
                     highestCallCounts: step.functionProfile.calls.callCounts.slice(0, 15),
-                    trackedCallCounts: step.functionProfile.calls.trackedCallCounts
-                        .filter(entry => entry.callCount > 0),
+                    trackedFunctions: step.functionProfile.calls.trackedFunctions.filter(entry => entry.present),
                 })),
         })),
     };
 }
 
-function profileDriverDescriptor() {
-    const repositoryRoot = resolve(import.meta.dirname, '../..');
-    const paths = [
-        resolve(import.meta.dirname, 'youtube-performance-profile.mjs'),
-        resolve(import.meta.dirname, '../lib/youtube-performance-evidence.mjs'),
-        resolve(import.meta.dirname, '../lib/youtube-performance-stress-target.mjs'),
-        resolve(import.meta.dirname, '../lib/cdp-performance-metrics.mjs'),
-        resolve(import.meta.dirname, '../fixtures/youtube-fixtures.mjs'),
-    ];
-    const files = paths.map(path => {
-        const contents = readFileSync(path);
-        return {
-            path: relative(repositoryRoot, path),
-            bytes: contents.length,
-            sha256: createHash('sha256').update(contents).digest('hex'),
-        };
-    });
-    const aggregate = createHash('sha256');
-    for (const file of files) aggregate.update(file.path).update('\0').update(file.sha256).update('\0');
-    return {
-        sha256: aggregate.digest('hex'),
-        gitCommit: gitOutput(repositoryRoot, ['rev-parse', 'HEAD']),
-        dirtyPaths: gitOutput(repositoryRoot, ['status', '--short', '--', ...files.map(file => file.path)])
-            .split(/\r?\n/u)
-            .filter(Boolean),
-        files,
-    };
-}
-
-function gitOutput(repositoryRoot, args) {
-    try {
-        return execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim();
-    } catch (error) {
-        throw new Error(`Unable to record profiler Git provenance: git ${args.join(' ')}`, { cause: error });
-    }
-}
-
 function assertProfileCompanionGraph(corePath, resolvedPaths) {
-    const requirements = readFileSync(corePath, 'utf8')
-        .split(/\r?\n/u)
-        .flatMap(line => {
-            const match = line.match(/^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)#sha256=([^\s]+)$/u);
-            return match ? [{ fileName: match[1], sha256: match[2] }] : [];
-        });
-    if (!requirements.length) {
-        throw new Error(`Profile core has no content-addressed @require graph: ${corePath}`);
+    const metadataLines = readFileSync(corePath, 'utf8').split(/\r?\n/u);
+    const declaredRequirements = metadataLines.flatMap(line => line.match(/^\/\/ @require\s+([^\s]+)$/u)?.[1] ?? []);
+    const requirements = metadataLines.flatMap(line => {
+        const match = line.match(/^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)#sha256=([^\s]+)$/u);
+        return match ? [{ fileName: match[1], sha256: match[2] }] : [];
+    });
+    if (declaredRequirements.length === 0) {
+        throw new Error(`Self-contained historical artifacts are outside this profiler's split-userscript comparison scope: ${corePath}`);
+    }
+    if (requirements.length !== declaredRequirements.length) {
+        throw new Error(`Profile core contains an unsupported or non-content-addressed @require: ${corePath}`);
     }
     if (requirements.length !== resolvedPaths.length) {
-        throw new Error(`Profile companion graph mismatch: header requires ${requirements.length}, resolver returned ${resolvedPaths.length}.`);
+        throw new Error(
+            `Profile companion graph mismatch: header requires ${requirements.length}, resolver returned ${resolvedPaths.length}.`,
+        );
     }
     requirements.forEach((requirement, index) => {
         const companionPath = resolvedPaths[index];
         if (!existsSync(companionPath)) throw new Error(`Missing profile companion: ${companionPath}`);
-        const actualSha256 = createHash('sha256').update(readFileSync(companionPath)).digest('base64');
+        const companionContents = readFileSync(companionPath);
+        const actualSha256 = createHash('sha256').update(companionContents).digest('base64');
+        const actualSha256Hex = createHash('sha256').update(companionContents).digest('hex');
+        const fileHash = requirement.fileName.match(/\.([a-f0-9]{12})\.user\.js$/u)?.[1];
+        if (!fileHash || !actualSha256Hex.startsWith(fileHash)) {
+            throw new Error(`Profile companion filename hash mismatch for ${requirement.fileName}: ${companionPath}`);
+        }
         if (actualSha256 !== requirement.sha256) {
             throw new Error(`Profile companion SRI mismatch for ${requirement.fileName}: ${companionPath}`);
         }
@@ -420,6 +448,10 @@ function assertProfileCompanionGraph(corePath, resolvedPaths) {
 
 function profileArtifactDescriptor(path) {
     const contents = readFileSync(path);
+    return profileArtifactDescriptorFromContents(path, contents);
+}
+
+function profileArtifactDescriptorFromContents(path, contents) {
     const text = path.endsWith('.js') ? contents.toString('utf8', 0, Math.min(contents.length, 4096)) : '';
     return {
         path,
@@ -429,7 +461,71 @@ function profileArtifactDescriptor(path) {
     };
 }
 
+function profileArtifactsDescriptor() {
+    return {
+        userscript: userscriptGraph.files.at(-1),
+        css: profileArtifactDescriptor(cssPath),
+        companions: userscriptGraph.files.slice(0, -1),
+        graph: userscriptGraph,
+    };
+}
+
+function profileWorkloadDescriptor() {
+    return {
+        preset: PROFILE_PRESET,
+        fixedAmbientCycles: FIXED_CHURN_CYCLE_COUNT,
+        ambientSoakDurationMs: AMBIENT_SOAK_DURATION_MS,
+        lookupSampleCount: LOOKUP_SAMPLE_COUNT,
+        lookupTargetSequence: LOOKUP_TARGET_SEQUENCE,
+    };
+}
+
+function profileArtifactGraphSnapshot(paths) {
+    const snapshots = paths.map(path => {
+        const contents = readFileSync(path);
+        return { contents, descriptor: profileArtifactDescriptorFromContents(path, contents) };
+    });
+    const files = snapshots.map(snapshot => snapshot.descriptor);
+    const aggregate = createHash('sha256');
+    for (const file of files) aggregate.update(file.sha256).update('\0');
+    const sha256 = aggregate.digest('hex');
+    return {
+        descriptor: {
+            sha256,
+            sourceUrl: `yomu-profile://artifact-graph/${sha256}.js`,
+            files,
+        },
+        content: snapshots.map(snapshot => snapshot.contents.toString('utf8')).join('\n;\n'),
+    };
+}
+
 async function runScenario(browser, scenario) {
+    evidenceJournal.markStep({
+        scenario: scenario.name,
+        replay: 'metrics',
+        step: 'scenario',
+        phase: 'start',
+    });
+    const metricsReplay = await runScenarioReplay(browser, scenario, 'metrics');
+    if (!cpuProfilingEnabled) return metricsReplay;
+    evidenceJournal.markStep({
+        scenario: scenario.name,
+        replay: 'cpu',
+        step: 'scenario',
+        phase: 'start',
+    });
+    const cpuReplay = await runScenarioReplay(browser, scenario, 'cpu');
+    evidenceJournal.markStep({
+        scenario: scenario.name,
+        replay: 'coverage',
+        step: 'scenario',
+        phase: 'start',
+    });
+    const coverageReplay = await runScenarioReplay(browser, scenario, 'coverage');
+    return mergeScenarioFunctionProfiles(metricsReplay, cpuReplay, coverageReplay);
+}
+
+async function runScenarioReplay(browser, scenario, profileMode) {
     parseRequests.length = 0;
     ankiRequests.length = 0;
     jitenPublicRequests.length = 0;
@@ -440,118 +536,228 @@ async function runScenario(browser, scenario) {
         locale: 'en-GB',
         viewport: { width: 1600, height: 1000 },
     });
+    let pageRecord = null;
     try {
-        const page = await context.newPage();
+        pageRecord = await createProfilePage(context);
+        const { page } = pageRecord;
         const client = await context.newCDPSession(page);
         await client.send('Performance.enable');
-        await configureFunctionProfiling(client);
+        await configureFunctionProfiler(client, profileMode);
         await installInstrumentation(context);
         await installUserscriptContext(context, scenarioSettings(scenario), scenario);
         await installRoutes(page, scenario);
-
-        const profile = {
-            name: scenario.name,
-            settings: {
-                apiKey: Boolean(scenario.apiKey),
-                anki: Boolean(scenario.anki),
-                allFeatures: Boolean(scenario.allFeatures),
-            },
-            steps: [],
-        };
-
-        await page.goto(WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
-        await page.waitForTimeout(3200);
-        const beforePlaybackStep = await snapshotStep(page, client, 'beforePlayback', 0, 0);
-        validateYoutubeCommentState(beforePlaybackStep.page, scenario, 'initial');
-        profile.steps.push(beforePlaybackStep);
-
-        await resetPagePerf(page);
-        const playbackStart = await beginStep(client);
-        await page.evaluate(() => window.__yomuProfileStartPlayback?.());
-        await page.waitForTimeout(2600);
-        profile.steps.push(await finishStep(page, client, playbackStart, 'afterPlaybackStart'));
-
-        await resetPagePerf(page);
-        const autoPauseStart = await beginStep(client);
-        const autoPauseInteraction = await exerciseAutoPausePanel(page);
-        const autoPauseStep = await finishStep(page, client, autoPauseStart, 'autoPausePanelOpen');
-        autoPauseStep.interaction = autoPauseInteraction;
-        profile.steps.push(autoPauseStep);
-
-        await page.evaluate(() => window.__yomuProfileStartPlayback?.());
-        await page.waitForTimeout(260);
-
-        await resetPagePerf(page);
-        const sidePanelStart = await beginStep(client);
-        await ensureSubtitlePanelOpen(page);
-        await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0, null, { timeout: 12000 });
-        await page.evaluate(() => window.__yomuProfileStartHostRehydrate?.({ intervalMs: 180 }));
-        await page.waitForTimeout(5200);
-        await page.evaluate(() => window.__yomuProfileStopHostRehydrate?.());
-        profile.steps.push(await finishStep(page, client, sidePanelStart, 'playingWithSidePanelOpen'));
-
-        await resetPagePerf(page);
-        const resizeStart = await beginStep(client);
-        const resizeInteraction = await resizeSubtitlePanel(page);
-        const resizeStep = await finishStep(page, client, resizeStart, 'sidePanelResize');
-        resizeStep.interaction = resizeInteraction;
-        profile.steps.push(resizeStep);
-
-        await resetPagePerf(page);
-        const blurStart = await beginStep(client);
-        const blurInteraction = await exerciseSecondarySubtitleBlur(page);
-        const blurStep = await finishStep(page, client, blurStart, 'secondaryBlurHoverAndToggle');
-        blurStep.interaction = blurInteraction;
-        profile.steps.push(blurStep);
-
-        await resetPagePerf(page);
-        const ocrStart = await beginStep(client);
-        const ocrInteraction = await exerciseOcrOverlay(page);
-        const ocrStep = await finishStep(page, client, ocrStart, 'pausedOcrOverlayHover');
-        ocrStep.interaction = ocrInteraction;
-        profile.steps.push(ocrStep);
-
-        await prepareYoutubeAmbientChurn(page);
-        await resetPagePerf(page);
-        const ambientChurnStart = await beginStep(client);
-        const ambientChurnInteraction = await exerciseYoutubeAmbientChurn(page, {
-            durationMs: AMBIENT_CHURN_DURATION_MS,
-            label: 'desktop',
-        });
-        const ambientChurnStep = await finishStep(page, client, ambientChurnStart, 'youtubeAmbientChurn');
-        ambientChurnStep.interaction = ambientChurnInteraction;
-        profile.steps.push(ambientChurnStep);
-
-        await prepareYoutubeLookupTransactions(page, LOOKUP_PLAN);
-        await resetPagePerf(page);
-        const lookupTransactionsStart = await beginStep(client);
-        const lookupTransactionsInteraction = await exerciseYoutubeLookupTransactions(page, {
-            label: 'desktop',
-            plan: LOOKUP_PLAN,
-        });
-        validateStressInteraction(lookupTransactionsInteraction, scenario, 'desktop');
-        const lookupTransactionsStep = await finishStep(page, client, lookupTransactionsStart, 'youtubeLookupTransactions');
-        lookupTransactionsStep.interaction = lookupTransactionsInteraction;
-        profile.steps.push(lookupTransactionsStep);
-
-        const mobile = await runMobileStressProfiles(context, scenario, scenarioArtifactsDir);
-        profile.mobileAmbient = mobile.ambient;
-        profile.mobileStress = mobile.lookup;
-        validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile');
-        await waitForYoutubeCommentParse(page, scenario);
-        profile.finalState = await readPageState(page);
-        validateYoutubeCommentState(profile.finalState, scenario, 'desktop');
-        profile.parseRequests = parseRequestSummary(0);
-        profile.jitenPublicRequests = jitenPublicRequestSummary(0);
-        profile.ankiRequests = ankiRequestSummary(0);
-        validateParserTraffic(profile, scenario);
-        await page.screenshot({ path: join(scenarioArtifactsDir, 'youtube-performance.png'), fullPage: false }).catch(() => undefined);
-        await page.close().catch(() => undefined);
+        const profile = scenarioProfile(scenario);
+        await prepareDesktopReplay(page, client, scenario, profileMode, profile);
+        await runLegacyDiagnosticsWhenRequested(page, client, profile);
+        await runDesktopComparableWorkloads(page, client, scenario, profileMode, profile);
+        await runDesktopSoakWhenRequested(page, client, profileMode, profile);
+        const mobile = await runMobileProfilesWhenRequested(context, scenario, scenarioArtifactsDir, profileMode);
+        applyMobileProfiles(profile, mobile, scenario);
+        await finalizeScenarioProfile(page, profile, scenario, scenarioArtifactsDir);
         return profile;
+    } catch (error) {
+        await recordScenarioReplayFailure(error, pageRecord, scenario, profileMode, scenarioArtifactsDir);
+        throw error;
     } finally {
         await context.close().catch(() => undefined);
     }
+}
+
+async function createProfilePage(context) {
+    const page = await context.newPage();
+    const diagnostics = { consoleErrors: [], pageErrors: [] };
+    page.on('console', message => recordConsoleError(message, diagnostics));
+    page.on('pageerror', error => diagnostics.pageErrors.push(serializeError(error)));
+    return { page, diagnostics };
+}
+
+function recordConsoleError(message, diagnostics) {
+    if (message.type() !== 'error') return;
+    diagnostics.consoleErrors.push(message.text());
+}
+
+function scenarioProfile(scenario) {
+    return {
+        name: scenario.name,
+        settings: {
+            apiKey: Boolean(scenario.apiKey),
+            anki: Boolean(scenario.anki),
+            allFeatures: Boolean(scenario.allFeatures),
+        },
+        steps: [],
+    };
+}
+
+async function prepareDesktopReplay(page, client, scenario, profileMode, profile) {
+    markReplayStep(scenario, profileMode, 'navigation');
+    await page.goto(WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
+    await page.waitForTimeout(initialProfileSettleMs());
+    const beforePlayback = await snapshotStep(page, client, 'beforePlayback', 0, 0);
+    validateYoutubeCommentState(beforePlayback.page, scenario, 'initial');
+    profile.steps.push(beforePlayback);
+}
+
+function initialProfileSettleMs() {
+    if (SMOKE_PRESET) return 800;
+    return 3200;
+}
+
+async function runLegacyDiagnosticsWhenRequested(page, client, profile) {
+    if (SMOKE_PRESET) return;
+    await runLegacyDiagnostics(page, client, profile);
+}
+
+async function runLegacyDiagnostics(page, client, profile) {
+    await resetPagePerf(page);
+    const playbackStart = await beginStep(client, 'none');
+    await page.evaluate(() => window.__yomuProfileStartPlayback?.());
+    await page.waitForTimeout(2600);
+    profile.steps.push(await finishStep(page, client, playbackStart, 'afterPlaybackStart'));
+    profile.steps.push(await runUninstrumentedInteractionStep(page, client, 'autoPausePanelOpen', exerciseAutoPausePanel));
+    await page.evaluate(() => window.__yomuProfileStartPlayback?.());
+    await page.waitForTimeout(260);
+    await resetPagePerf(page);
+    const sidePanelStart = await beginStep(client, 'none');
+    await ensureSubtitlePanelOpen(page);
+    await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 0, null, { timeout: 12000 });
+    await page.evaluate(() => window.__yomuProfileStartHostRehydrate?.({ intervalMs: 180 }));
+    await page.waitForTimeout(5200);
+    await page.evaluate(() => window.__yomuProfileStopHostRehydrate?.());
+    profile.steps.push(await finishStep(page, client, sidePanelStart, 'playingWithSidePanelOpen'));
+    profile.steps.push(await runUninstrumentedInteractionStep(page, client, 'sidePanelResize', resizeSubtitlePanel));
+    profile.steps.push(await runUninstrumentedInteractionStep(page, client, 'secondaryBlurHoverAndToggle', exerciseSecondarySubtitleBlur));
+    profile.steps.push(await runUninstrumentedInteractionStep(page, client, 'pausedOcrOverlayHover', exerciseOcrOverlay));
+}
+
+async function runUninstrumentedInteractionStep(page, client, name, exercise) {
+    await resetPagePerf(page);
+    const started = await beginStep(client, 'none');
+    const interaction = await exercise(page);
+    const step = await finishStep(page, client, started, name);
+    step.interaction = interaction;
+    return step;
+}
+
+async function runDesktopComparableWorkloads(page, client, scenario, profileMode, profile) {
+    profile.steps.push(
+        await runMeasuredInteractionStep({
+            page,
+            client,
+            scenario,
+            profileMode,
+            name: 'youtubeFixedAmbientBenchmark',
+            preparationName: 'desktop-fixed-ambient-preparation',
+            interactionName: 'desktop-fixed-ambient-benchmark',
+            prepare: () => prepareYoutubeAmbientChurn(page),
+            exercise: () =>
+                exerciseYoutubeFixedChurn(page, {
+                    cycles: FIXED_CHURN_CYCLE_COUNT,
+                    label: 'desktop',
+                    lookupPlan: LOOKUP_PLAN,
+                    waitForLookupPlanReady,
+                }),
+        }),
+    );
+    profile.steps.push(
+        await runMeasuredInteractionStep({
+            page,
+            client,
+            scenario,
+            profileMode,
+            name: 'youtubeLookupTransactions',
+            preparationName: 'desktop-lookup-preparation',
+            interactionName: 'desktop-lookup-transactions',
+            prepare: () => prepareYoutubeLookupTransactions(page, LOOKUP_PLAN),
+            exercise: () =>
+                exerciseYoutubeLookupTransactions(page, {
+                    label: 'desktop',
+                    plan: LOOKUP_PLAN,
+                }),
+            validate: interaction => validateStressInteraction(interaction, scenario, 'desktop'),
+        }),
+    );
+}
+
+async function runDesktopSoakWhenRequested(page, client, profileMode, profile) {
+    if (SMOKE_PRESET) return;
+    if (profileMode !== 'metrics') return;
+    await prepareYoutubeAmbientChurn(page);
+    profile.ambientSoak = await runAmbientSoakStep(page, client, 'desktop', 'youtubeAmbientThroughputSoak');
+}
+
+async function runAmbientSoakStep(page, client, label, name) {
+    await resetPagePerf(page);
+    const started = await beginStep(client, 'none');
+    const interaction = await exerciseYoutubeAmbientSoak(page, {
+        durationMs: AMBIENT_SOAK_DURATION_MS,
+        label,
+    });
+    const step = await finishStep(page, client, started, name);
+    step.interaction = interaction;
+    return step;
+}
+
+async function runMobileProfilesWhenRequested(context, scenario, scenarioArtifactsDir, profileMode) {
+    markReplayStep(scenario, profileMode, mobileReplayStepName());
+    if (SMOKE_PRESET) return { ambient: null, lookup: null, soak: null };
+    return runMobileStressProfiles(context, scenario, scenarioArtifactsDir, profileMode);
+}
+
+function mobileReplayStepName() {
+    if (SMOKE_PRESET) return 'final-validation';
+    return 'mobile-workloads';
+}
+
+function applyMobileProfiles(profile, mobile, scenario) {
+    profile.mobileAmbient = mobile.ambient;
+    profile.mobileStress = mobile.lookup;
+    profile.mobileSoak = mobile.soak;
+    if (!profile.mobileStress) return;
+    validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile');
+}
+
+async function finalizeScenarioProfile(page, profile, scenario, scenarioArtifactsDir) {
+    await waitForYoutubeCommentParse(page, scenario);
+    profile.finalState = await readPageState(page);
+    validateYoutubeCommentState(profile.finalState, scenario, 'desktop');
+    profile.parseRequests = parseRequestSummary(0);
+    profile.jitenPublicRequests = jitenPublicRequestSummary(0);
+    profile.ankiRequests = ankiRequestSummary(0);
+    validateParserTraffic(profile, scenario);
+    await page
+        .screenshot({
+            path: join(scenarioArtifactsDir, 'youtube-performance.png'),
+            fullPage: false,
+        })
+        .catch(() => undefined);
+    await page.close().catch(() => undefined);
+}
+
+async function recordScenarioReplayFailure(error, pageRecord, scenario, profileMode, scenarioArtifactsDir) {
+    const capture = await scenarioFailureCapture(pageRecord, profileMode, scenarioArtifactsDir);
+    evidenceJournal.fail(error, {
+        scenarioFailure: { scenario: scenario.name, replay: profileMode, capture },
+    });
+}
+
+async function scenarioFailureCapture(pageRecord, profileMode, scenarioArtifactsDir) {
+    if (!pageRecord) return { diagnostics: { consoleErrors: [], pageErrors: [] } };
+    return capturePerformancePageFailure(
+        pageRecord.page,
+        scenarioArtifactsDir,
+        `youtube-performance-failure-${profileMode}`,
+        pageRecord.diagnostics,
+    );
+}
+
+function markReplayStep(scenario, replay, step) {
+    evidenceJournal.markStep({
+        scenario: scenario.name,
+        replay,
+        step,
+        phase: 'start',
+    });
 }
 
 function validateParserTraffic(profile, scenario) {
@@ -559,52 +765,114 @@ function validateParserTraffic(profile, scenario) {
     if (scenario.apiKey && profile.parseRequests.count <= 0) {
         throw new Error(`${scenario.name}: the JPDB API profile did not execute a parse request`);
     }
-    if (!scenario.apiKey
-        && (profile.jitenPublicRequests.parseCount <= 0 || profile.jitenPublicRequests.infoCount <= 0)) {
+    if (!scenario.apiKey && (profile.jitenPublicRequests.parseCount <= 0 || profile.jitenPublicRequests.infoCount <= 0)) {
         throw new Error(`${scenario.name}: the public Jiten profile did not execute parse and detail requests`);
     }
 }
 
-async function runMobileStressProfiles(context, scenario, scenarioArtifactsDir) {
-    const page = await context.newPage();
-    const client = await context.newCDPSession(page);
-    await client.send('Performance.enable');
-    await configureFunctionProfiling(client);
-    if (MOBILE_CPU_THROTTLE_RATE > 1) {
-        await client.send('Emulation.setCPUThrottlingRate', { rate: MOBILE_CPU_THROTTLE_RATE });
+async function runMobileStressProfiles(context, scenario, scenarioArtifactsDir, profileMode) {
+    const pageRecord = await createProfilePage(context);
+    const { page } = pageRecord;
+    try {
+        const client = await context.newCDPSession(page);
+        await client.send('Performance.enable');
+        await configureFunctionProfiler(client, profileMode);
+        await applyMobileCpuThrottle(client);
+        await page.setViewportSize({ width: 390, height: 844 });
+        await installRoutes(page, scenario);
+        await page.goto(MOBILE_WATCH_URL, {
+            waitUntil: 'domcontentloaded',
+            timeout: 30000,
+        });
+        await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
+        await page.waitForTimeout(2200);
+        const ambient = await runMeasuredInteractionStep({
+            page,
+            client,
+            scenario,
+            profileMode,
+            name: 'mobileYoutubeFixedAmbientBenchmark',
+            preparationName: 'mobile-fixed-ambient-preparation',
+            interactionName: 'mobile-fixed-ambient-benchmark',
+            prepare: () => prepareYoutubeAmbientChurn(page),
+            exercise: () =>
+                exerciseYoutubeFixedChurn(page, {
+                    cycles: FIXED_CHURN_CYCLE_COUNT,
+                    label: 'mobile',
+                    lookupPlan: LOOKUP_PLAN,
+                    waitForLookupPlanReady,
+                }),
+        });
+        ambient.viewport = mobileViewportDescriptor();
+        const lookup = await runMeasuredInteractionStep({
+            page,
+            client,
+            scenario,
+            profileMode,
+            name: 'mobileYoutubeLookupTransactions',
+            preparationName: 'mobile-lookup-preparation',
+            interactionName: 'mobile-lookup-transactions',
+            prepare: () => prepareYoutubeLookupTransactions(page, LOOKUP_PLAN),
+            exercise: () =>
+                exerciseYoutubeLookupTransactions(page, {
+                    label: 'mobile',
+                    plan: LOOKUP_PLAN,
+                    activation: 'touch',
+                }),
+            validate: interaction => validateMobileStressInteraction(interaction, page, scenario),
+        });
+        lookup.viewport = mobileViewportDescriptor();
+        const soak = await runMobileSoakWhenRequested(page, client, profileMode);
+        await page
+            .screenshot({
+                path: join(scenarioArtifactsDir, 'youtube-performance-mobile.png'),
+                fullPage: false,
+            })
+            .catch(() => undefined);
+        return { ambient, lookup, soak };
+    } catch (error) {
+        const capture = await capturePerformancePageFailure(
+            page,
+            scenarioArtifactsDir,
+            `youtube-performance-mobile-failure-${profileMode}`,
+            pageRecord.diagnostics,
+        );
+        evidenceJournal.fail(error, {
+            scenarioFailure: {
+                scenario: scenario.name,
+                replay: profileMode,
+                viewport: 'mobile',
+                capture,
+            },
+        });
+        throw error;
+    } finally {
+        await page.close().catch(() => undefined);
     }
-    await page.setViewportSize({ width: 390, height: 844 });
-    await installRoutes(page, scenario);
-    await page.goto(MOBILE_WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
-    await page.waitForTimeout(2200);
-    await prepareYoutubeAmbientChurn(page);
-    await resetPagePerf(page);
-    const ambientStarted = await beginStep(client);
-    const ambientInteraction = await exerciseYoutubeAmbientChurn(page, {
-        durationMs: AMBIENT_CHURN_DURATION_MS,
-        label: 'mobile',
-    });
-    const ambient = await finishStep(page, client, ambientStarted, 'mobileYoutubeAmbientChurn');
-    ambient.interaction = ambientInteraction;
-    ambient.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
+}
 
-    await prepareYoutubeLookupTransactions(page, LOOKUP_PLAN);
-    await resetPagePerf(page);
-    const lookupStarted = await beginStep(client);
-    const lookupInteraction = await exerciseYoutubeLookupTransactions(page, {
-        label: 'mobile',
-        plan: LOOKUP_PLAN,
-        activation: 'touch',
+async function applyMobileCpuThrottle(client) {
+    if (MOBILE_CPU_THROTTLE_RATE <= 1) return;
+    await client.send('Emulation.setCPUThrottlingRate', {
+        rate: MOBILE_CPU_THROTTLE_RATE,
     });
-    validateStressInteraction(lookupInteraction, scenario, 'mobile');
+}
+
+function mobileViewportDescriptor() {
+    return { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
+}
+
+async function validateMobileStressInteraction(interaction, page, scenario) {
+    validateStressInteraction(interaction, scenario, 'mobile');
     await waitForYoutubeCommentParse(page, scenario);
-    const lookup = await finishStep(page, client, lookupStarted, 'mobileYoutubeLookupTransactions');
-    lookup.interaction = lookupInteraction;
-    lookup.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
-    await page.screenshot({ path: join(scenarioArtifactsDir, 'youtube-performance-mobile.png'), fullPage: false }).catch(() => undefined);
-    await page.close().catch(() => undefined);
-    return { ambient, lookup };
+}
+
+async function runMobileSoakWhenRequested(page, client, profileMode) {
+    if (profileMode !== 'metrics') return null;
+    await prepareYoutubeAmbientChurn(page);
+    const soak = await runAmbientSoakStep(page, client, 'mobile', 'mobileYoutubeAmbientThroughputSoak');
+    soak.viewport = mobileViewportDescriptor();
+    return soak;
 }
 
 async function installInstrumentation(context) {
@@ -676,17 +944,25 @@ async function installInstrumentation(context) {
         const milestoneObserver = new NativeMutationObserver(sampleRubyMilestones);
         const startMilestoneObserver = () => {
             try {
-                milestoneObserver.observe(document, { subtree: true, childList: true, characterData: true });
+                milestoneObserver.observe(document, {
+                    subtree: true,
+                    childList: true,
+                    characterData: true,
+                });
                 sampleRubyMilestones();
             } catch {
                 // Document may be in an early transient state at document-start.
             }
         };
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                recordMilestone('domContentLoadedAt');
-                sampleRubyMilestones();
-            }, { once: true });
+            document.addEventListener(
+                'DOMContentLoaded',
+                () => {
+                    recordMilestone('domContentLoadedAt');
+                    sampleRubyMilestones();
+                },
+                { once: true },
+            );
         } else {
             recordMilestone('domContentLoadedAt');
         }
@@ -705,11 +981,20 @@ async function installInstrumentation(context) {
             if (JapaneseText.test(bodyText)) recordMilestone('firstJapaneseTextAt', textDetail(bodyText));
             const firstWord = document.querySelector('.jpdb-reader-word');
             if (firstWord) recordMilestone('firstReaderWordAt', elementDetail(firstWord), 'firstReaderWordDetail');
-            const firstRuby = document.querySelector('.jpdb-reader-word rt, .jpdb-reader-word .jpdb-reader-furi, .jpdb-reader-word .jpdb-reader-ruby');
+            const firstRuby = document.querySelector(
+                '.jpdb-reader-word rt, .jpdb-reader-word .jpdb-reader-furi, .jpdb-reader-word .jpdb-reader-ruby',
+            );
             if (firstRuby) recordMilestone('firstRubyAt', elementDetail(firstRuby), 'firstRubyDetail');
-            if (document.querySelector('.jpdb-subtitle-player .jpdb-reader-word rt, .jpdb-subtitle-list .jpdb-reader-word rt')) recordMilestone('firstSubtitleRubyAt');
-            if (document.querySelector('ytd-watch-metadata .jpdb-reader-word rt, ytd-comment-view-model .jpdb-reader-word rt, #secondary .jpdb-reader-word rt')) recordMilestone('firstPageRubyAt');
-            if (document.querySelector('.jpdb-ocr-line .jpdb-reader-word rt, .jpdb-ocr-line .jpdb-ocr-furi')) recordMilestone('firstOcrRubyAt');
+            if (document.querySelector('.jpdb-subtitle-player .jpdb-reader-word rt, .jpdb-subtitle-list .jpdb-reader-word rt'))
+                recordMilestone('firstSubtitleRubyAt');
+            if (
+                document.querySelector(
+                    'ytd-watch-metadata .jpdb-reader-word rt, ytd-comment-view-model .jpdb-reader-word rt, #secondary .jpdb-reader-word rt',
+                )
+            )
+                recordMilestone('firstPageRubyAt');
+            if (document.querySelector('.jpdb-ocr-line .jpdb-reader-word rt, .jpdb-ocr-line .jpdb-ocr-furi'))
+                recordMilestone('firstOcrRubyAt');
         }
 
         function recordMilestone(key, detail, detailKey) {
@@ -717,7 +1002,11 @@ async function installInstrumentation(context) {
             const t = performance.now();
             perf[key] = Math.round(t * 10) / 10;
             if (detailKey) perf[detailKey] = detail ?? null;
-            perf.events.push({ name: key, t: perf[key], detail: detail ?? undefined });
+            perf.events.push({
+                name: key,
+                t: perf[key],
+                detail: detail ?? undefined,
+            });
         }
 
         function elementDetail(element) {
@@ -755,8 +1044,10 @@ async function installUserscriptContext(context, settings, scenario) {
         requestBridgeName: REQUEST_BRIDGE_NAME,
     });
     await context.exposeFunction(REQUEST_BRIDGE_NAME, request => bridgeRequest(request, scenario));
-    for (const companionPath of companionPaths) await context.addInitScript({ path: companionPath });
-    await context.addInitScript({ path: userscriptPath });
+    await addUserscriptGraphInitScripts(context, userscriptPath, {
+        sourceUrl: userscriptGraph.sourceUrl,
+        content: userscriptGraphSnapshot.content,
+    });
 }
 
 async function bridgeRequest(request, scenario) {
@@ -779,45 +1070,98 @@ async function installRoutes(page, scenario) {
 function routeResponse(url, rawBody, scenario, method = 'GET') {
     const parsed = new URL(url);
     const target = proxiedTargetUrl(parsed) ?? parsed;
-    if (method === 'OPTIONS') return textResponse('', 'text/plain', 204);
-    if ((target.hostname === 'www.youtube.com' || target.hostname === 'm.youtube.com') && target.pathname === '/watch') {
-        return textResponse(performanceWatchFixture(target.hostname === 'm.youtube.com'), 'text/html; charset=utf-8');
-    }
-    if (target.hostname === 'www.youtube.com' && target.pathname === '/api/timedtext') {
-        return textResponse(timedTextForLanguage(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
-    }
-    if (target.hostname === 'www.youtube.com' && target.pathname === '/youtubei/v1/player') {
-        return jsonResponse(youtubePlayerResponse('profile123', { captionTracks: YOUTUBE_PROFILE_CAPTION_TRACKS }));
-    }
-    if (target.hostname === 'jpdb.io' && target.pathname === '/search') {
-        return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
-    }
-    if (target.hostname === 'api.jiten.moe') return jitenPublicResponse(target);
-    if (isAnkiConnectUrl(parsed)) return ankiConnectResponse(rawBody, scenario);
-    if (target.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
-    return textResponse('', 'text/plain', 204);
+    return (
+        firstResponse([
+            () => preflightResponse(method),
+            () => youtubeWatchResponse(target),
+            () => timedTextResponse(target),
+            () => youtubePlayerRouteResponse(target),
+            () => publicDictionaryResponse(target),
+            () => ankiRequestResponse(parsed, rawBody, scenario),
+            () => jpdbParseRequestResponse(target, rawBody),
+        ]) ?? noContentResponse()
+    );
 }
 
 function responseForRequest(url, rawBody, scenario) {
     const parsed = new URL(url);
     const target = proxiedTargetUrl(parsed) ?? parsed;
-    if (target.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
-    if (isAnkiConnectUrl(parsed)) return ankiConnectResponse(rawBody, scenario);
-    if (target.hostname === 'www.youtube.com' && target.pathname === '/api/timedtext') {
-        return textResponse(timedTextForLanguage(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
+    return (
+        firstResponse([
+            () => jpdbParseRequestResponse(target, rawBody),
+            () => ankiRequestResponse(parsed, rawBody, scenario),
+            () => timedTextResponse(target),
+            () => publicDictionaryResponse(target),
+        ]) ?? noContentResponse()
+    );
+}
+
+function firstResponse(responders) {
+    for (const respond of responders) {
+        const response = respond();
+        if (response) return response;
     }
-    if (target.hostname === 'jpdb.io' && target.pathname === '/search') {
-        return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
-    }
+    return null;
+}
+
+function preflightResponse(method) {
+    if (method !== 'OPTIONS') return null;
+    return noContentResponse();
+}
+
+function youtubeWatchResponse(target) {
+    if (target.pathname !== '/watch') return null;
+    if (!YOUTUBE_WATCH_HOSTS.has(target.hostname)) return null;
+    return textResponse(performanceWatchFixture(target.hostname === 'm.youtube.com'), 'text/html; charset=utf-8');
+}
+
+function timedTextResponse(target) {
+    if (target.hostname !== 'www.youtube.com') return null;
+    if (target.pathname !== '/api/timedtext') return null;
+    return textResponse(timedTextForLanguage(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
+}
+
+function youtubePlayerRouteResponse(target) {
+    if (target.hostname !== 'www.youtube.com') return null;
+    if (target.pathname !== '/youtubei/v1/player') return null;
+    return jsonResponse(
+        youtubePlayerResponse('profile123', {
+            captionTracks: YOUTUBE_PROFILE_CAPTION_TRACKS,
+        }),
+    );
+}
+
+function ankiRequestResponse(parsed, rawBody, scenario) {
+    if (!isAnkiConnectUrl(parsed)) return null;
+    return ankiConnectResponse(rawBody, scenario);
+}
+
+function jpdbParseRequestResponse(target, rawBody) {
+    if (!target.href.startsWith(JPDB_PARSE_URL)) return null;
+    return jpdbParseResponse(rawBody);
+}
+
+function publicDictionaryResponse(target) {
+    const jpdbSearch = jpdbPublicSearchResponse(target);
+    if (jpdbSearch) return jpdbSearch;
     if (target.hostname === 'api.jiten.moe') return jitenPublicResponse(target);
+    return null;
+}
+
+function jpdbPublicSearchResponse(target) {
+    if (target.hostname !== 'jpdb.io') return null;
+    if (target.pathname !== '/search') return null;
+    return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
+}
+
+function noContentResponse() {
     return textResponse('', 'text/plain', 204);
 }
 
 function proxiedTargetUrl(url) {
     const target = url.searchParams.get('url');
-    if (!target) return null;
     try {
-        return new URL(target);
+        return target ? new URL(target) : null;
     } catch {
         return null;
     }
@@ -838,7 +1182,14 @@ function jitenPublicResponse(url) {
     }
     const match = url.pathname.match(/^\/api\/vocabulary\/(\d+)\/(\d+)\/info$/u);
     if (match) {
-        jitenPublicRequests.push({ kind: 'info', wordId: Number(match[1]), readingIndex: Number(match[2]), chars: 0, words: 1, durationMs: 0 });
+        jitenPublicRequests.push({
+            kind: 'info',
+            wordId: Number(match[1]),
+            readingIndex: Number(match[2]),
+            chars: 0,
+            words: 1,
+            durationMs: 0,
+        });
         return jsonResponse(jitenPublicInfo(Number(match[1]), Number(match[2])));
     }
     return jsonResponse({}, 404);
@@ -887,7 +1238,9 @@ function pitchPositionFromPattern(pattern) {
 function jpdbPublicSearchHtml(query) {
     const normalized = String(query ?? '').trim();
     const exact = vocabulary.find(([, spelling, reading]) => spelling === normalized || reading === normalized);
-    const candidates = exact ? [exact] : vocabulary.filter(([, spelling, reading]) => spelling.includes(normalized) || reading.includes(normalized)).slice(0, 4);
+    const candidates = exact
+        ? [exact]
+        : vocabulary.filter(([, spelling, reading]) => spelling.includes(normalized) || reading.includes(normalized)).slice(0, 4);
     return `<!doctype html><html><head><meta charset="utf-8"></head><body><div class="results search">${candidates.map(jpdbPublicSearchResultHtml).join('')}</div></body></html>`;
 }
 
@@ -906,20 +1259,26 @@ function jpdbPublicSearchResultHtml(entry, index) {
 
 function jpdbPitchRowsHtml(reading, pattern) {
     const kana = Array.from(reading);
-    return kana.map((character, index) => {
-        const level = pattern[index] === 'H' ? '--pitch-high' : '--pitch-low';
-        return `<div style="${level}: 1">${escapeHtmlForFixture(character)}</div>`;
-    }).join('');
+    return kana
+        .map((character, index) => {
+            const level = pattern[index] === 'H' ? '--pitch-high' : '--pitch-low';
+            return `<div style="${level}: 1">${escapeHtmlForFixture(character)}</div>`;
+        })
+        .join('');
 }
 
 function escapeHtmlForFixture(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;',
-    }[char]));
+    return String(value ?? '').replace(
+        /[&<>"']/g,
+        char =>
+            ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            })[char],
+    );
 }
 
 function jpdbParseResponse(rawBody) {
@@ -1034,21 +1393,15 @@ function textResponse(responseText, contentType, status = 200) {
     };
 }
 
-async function beginStep(client) {
-    if (cpuProfilingEnabled) {
-        await client.send('Profiler.startPreciseCoverage', {
-            callCount: true,
-            detailed: true,
-            allowTriggeredUpdates: false,
-        });
-        await client.send('Profiler.start');
-    }
-    return {
+async function beginStep(client, profileMode) {
+    const started = {
         cdp: await cdpMetrics(client),
         parseIndex: parseRequests.length,
         ankiIndex: ankiRequests.length,
-        functionProfiling: cpuProfilingEnabled,
+        profileMode: profileMode === 'cpu' || profileMode === 'coverage' ? profileMode : 'none',
     };
+    await startFunctionProfiler(client, profileMode);
+    return started;
 }
 
 async function snapshotStep(page, client, name, parseIndex, ankiIndex) {
@@ -1061,14 +1414,90 @@ async function snapshotStep(page, client, name, parseIndex, ankiIndex) {
     };
 }
 
+async function runMeasuredInteractionStep(options) {
+    const {
+        page,
+        client,
+        scenario,
+        profileMode,
+        name,
+        preparationName,
+        interactionName,
+        prepare,
+        exercise,
+        validate = acceptMeasuredInteraction,
+    } = options;
+    markReplayStep(scenario, profileMode, preparationName);
+    await prepare();
+    await resetPagePerf(page);
+    const started = await beginStep(client, profileMode);
+    markReplayStep(scenario, profileMode, interactionName);
+    const workload = await captureOperation(() => exerciseMeasuredInteraction(exercise, validate));
+    const teardown = await captureOperation(() => finishStep(page, client, started, name));
+    const failure = combinedMeasuredStepFailure(name, workload.error, teardown.error);
+    if (failure) {
+        recordMeasuredStepFailure({
+            scenario,
+            profileMode,
+            name,
+            workload,
+            teardown,
+            failure,
+        });
+        throw failure;
+    }
+    teardown.value.interaction = workload.value;
+    return teardown.value;
+}
+
+async function exerciseMeasuredInteraction(exercise, validate) {
+    const interaction = await exercise();
+    await validate(interaction);
+    return interaction;
+}
+
+async function acceptMeasuredInteraction() {}
+
+async function captureOperation(operation) {
+    try {
+        return { value: await operation(), error: null };
+    } catch (error) {
+        return { value: null, error };
+    }
+}
+
+function combinedMeasuredStepFailure(name, workloadFailure, teardownFailure) {
+    const failures = [workloadFailure, teardownFailure].filter(Boolean);
+    if (failures.length === 0) return null;
+    if (failures.length === 1) return failures[0];
+    return new AggregateError(failures, `${name} workload and profiler teardown failed.`);
+}
+
+function recordMeasuredStepFailure({ scenario, profileMode, name, workload, teardown, failure }) {
+    evidenceJournal.fail(failure, {
+        measuredStepFailure: {
+            scenario: scenario.name,
+            replay: profileMode,
+            step: name,
+            workloadFailure: serializedNullableError(workload.error),
+            teardownFailure: serializedNullableError(teardown.error),
+            recoveredFunctionProfile: teardown.value?.functionProfile ?? null,
+            interaction: workload.value,
+        },
+    });
+}
+
+function serializedNullableError(error) {
+    if (!error) return null;
+    return serializeError(error);
+}
+
 async function finishStep(page, client, started, name) {
-    // Capture the logical end of the scenario before profiler teardown. Both
-    // precise-coverage serialization and Profiler.stop can be expensive enough
-    // to distort the Performance-domain deltas we report for the page action.
+    // Function replays contribute only their scoped profile. Stop them before
+    // CDP metrics or DOM inspection so profiler-driver work is not attributed
+    // to Yomu. The uninstrumented metrics replay supplies authoritative timing.
+    const functionProfile = started.profileMode !== 'none' ? await finishFunctionProfile(client, started.profileMode) : null;
     const cdp = await cdpMetrics(client);
-    const functionProfile = started.functionProfiling
-        ? await finishFunctionProfile(client)
-        : null;
     return {
         name,
         cdpDelta: metricDelta(started.cdp, cdp),
@@ -1079,22 +1508,10 @@ async function finishStep(page, client, started, name) {
     };
 }
 
-async function configureFunctionProfiling(client) {
-    if (!cpuProfilingEnabled) return;
-    await client.send('Profiler.enable');
-    await client.send('Profiler.setSamplingInterval', { interval: 250 });
-}
-
-async function finishFunctionProfile(client) {
-    // Stop sampling before asking V8 to serialize precise coverage so sampled
-    // self-time cannot be attributed to the profiler's own teardown work.
-    const { profile } = await client.send('Profiler.stop');
-    const coverage = await client.send('Profiler.takePreciseCoverage');
-    await client.send('Profiler.stopPreciseCoverage');
-    return {
-        sampled: summarizeCpuProfile(profile),
-        calls: summarizePreciseCoverage(coverage.result),
-    };
+async function finishFunctionProfile(client, profileMode) {
+    const evidence = await stopFunctionProfiler(client, profileMode);
+    if (evidence.mode === 'cpu') return { sampled: summarizeCpuProfile(evidence.profile, userscriptGraph) };
+    return { calls: summarizePreciseCoverage(evidence.scripts, userscriptGraph) };
 }
 
 function parseRequestSummary(startIndex) {
@@ -1144,10 +1561,14 @@ async function ensureSubtitlePanelOpen(page) {
         const panel = document.querySelector('.jpdb-subtitle-list');
         if (!panel || panel.hidden) document.querySelector('.jpdb-subtitle-rail [data-action="panel"]')?.click();
     });
-    await page.waitForFunction(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        return Boolean(panel && !panel.hidden);
-    }, null, { timeout: 12000 });
+    await page.waitForFunction(
+        () => {
+            const panel = document.querySelector('.jpdb-subtitle-list');
+            return Boolean(panel && !panel.hidden);
+        },
+        null,
+        { timeout: 12000 },
+    );
 }
 
 async function exerciseAutoPausePanel(page) {
@@ -1209,16 +1630,7 @@ async function resizeSubtitlePanel(page) {
     if (!box) return { resized: false };
     const startX = box.x + box.width / 2;
     const startY = box.y + box.height / 2;
-    const before = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        const player = document.querySelector('#movie_player');
-        const video = document.querySelector('video');
-        return {
-            panel: panel ? panel.getBoundingClientRect().width : 0,
-            player: player ? player.getBoundingClientRect().width : 0,
-            video: video ? video.getBoundingClientRect().width : 0,
-        };
-    });
+    const before = await page.evaluate(subtitleGeometrySnapshot);
     const during = [];
     const startedAt = Date.now();
     await page.mouse.move(startX, startY);
@@ -1226,30 +1638,12 @@ async function resizeSubtitlePanel(page) {
     for (let index = 1; index <= 8; index += 1) {
         await page.mouse.move(startX - index * 16, startY, { steps: 1 });
         if (index === 4 || index === 8) {
-            during.push(await page.evaluate(() => {
-                const panel = document.querySelector('.jpdb-subtitle-list');
-                const player = document.querySelector('#movie_player');
-                const video = document.querySelector('video');
-                return {
-                    panel: panel ? panel.getBoundingClientRect().width : 0,
-                    player: player ? player.getBoundingClientRect().width : 0,
-                    video: video ? video.getBoundingClientRect().width : 0,
-                };
-            }));
+            during.push(await page.evaluate(subtitleGeometrySnapshot));
         }
     }
     await page.mouse.up();
     await page.waitForTimeout(180);
-    const after = await page.evaluate(() => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        const player = document.querySelector('#movie_player');
-        const video = document.querySelector('video');
-        return {
-            panel: panel ? panel.getBoundingClientRect().width : 0,
-            player: player ? player.getBoundingClientRect().width : 0,
-            video: video ? video.getBoundingClientRect().width : 0,
-        };
-    });
+    const after = await page.evaluate(subtitleGeometrySnapshot);
     return {
         resized: Math.abs(after.panel - before.panel) > 4,
         beforeWidth: Math.round(before.panel),
@@ -1264,6 +1658,17 @@ async function resizeSubtitlePanel(page) {
             video: Math.round(sample.video),
         })),
         durationMs: Date.now() - startedAt,
+    };
+}
+
+function subtitleGeometrySnapshot() {
+    const panel = document.querySelector('.jpdb-subtitle-list');
+    const player = document.querySelector('#movie_player');
+    const video = document.querySelector('video');
+    return {
+        panel: panel ? panel.getBoundingClientRect().width : 0,
+        player: player ? player.getBoundingClientRect().width : 0,
+        video: video ? video.getBoundingClientRect().width : 0,
     };
 }
 
@@ -1311,17 +1716,25 @@ async function exerciseOcrOverlay(page) {
     // Fast OCR builds can paint their text layer in the same turn as fixture
     // installation. Once present, that intended overlay intercepts the source
     // image; do not spend the profile timeout trying to hover through it.
-    const paintedWithoutHover = await page.waitForSelector('.jpdb-ocr-line .jpdb-reader-word', {
-        timeout: 1200,
-    }).then(() => true, () => false);
-    if (!paintedWithoutHover) await page.evaluate(() => {
-        const image = document.querySelector('#profile-ocr-image');
-        if (!(image instanceof HTMLElement)) return;
-        for (const type of ['pointerover', 'mouseover', 'pointerenter', 'mouseenter']) {
-            image.dispatchEvent(new MouseEvent(type, { bubbles: true }));
-        }
+    const paintedWithoutHover = await page
+        .waitForSelector('.jpdb-ocr-line .jpdb-reader-word', {
+            timeout: 1200,
+        })
+        .then(
+            () => true,
+            () => false,
+        );
+    if (!paintedWithoutHover)
+        await page.evaluate(() => {
+            const image = document.querySelector('#profile-ocr-image');
+            if (!(image instanceof HTMLElement)) return;
+            for (const type of ['pointerover', 'mouseover', 'pointerenter', 'mouseenter']) {
+                image.dispatchEvent(new MouseEvent(type, { bubbles: true }));
+            }
+        });
+    await page.waitForSelector('.jpdb-ocr-line .jpdb-reader-word', {
+        timeout: 12000,
     });
-    await page.waitForSelector('.jpdb-ocr-line .jpdb-reader-word', { timeout: 12000 });
     const started = Date.now();
     await page.locator('.jpdb-ocr-line .jpdb-reader-word').first().hover();
     await page.waitForTimeout(120);
@@ -1342,52 +1755,6 @@ async function exerciseOcrOverlay(page) {
     };
 }
 
-async function exerciseYoutubeAmbientChurn(page, options = {}) {
-    const durationMs = Number(options.durationMs);
-    const label = String(options.label);
-    const initialHostRestores = await page.evaluate(() => {
-        window.__yomuProfileStartPlayback?.();
-        window.__yomuProfileStartHostRehydrate?.({ intervalMs: 150 });
-        return window.__yomuProfileHostRestores ?? 0;
-    });
-    const startedAt = Date.now();
-    let cycles = 0;
-    let playbackPhase = 'playing';
-    try {
-        while (Date.now() - startedAt < durationMs) {
-            const elapsed = Date.now() - startedAt;
-            const nextPlaybackPhase = ambientPlaybackPhase(elapsed / durationMs);
-            if (nextPlaybackPhase !== playbackPhase) {
-                playbackPhase = nextPlaybackPhase;
-                await setAmbientPlaybackPhase(page, playbackPhase);
-            }
-            await page.evaluate(index => {
-                const comments = document.querySelector('#comments, ytm-comment-section-renderer');
-                const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
-                window.scrollTo({ top: Math.max(0, top + (index % 5) * 180), behavior: 'instant' });
-            }, cycles);
-            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
-            cycles += 1;
-            await page.waitForTimeout(90);
-        }
-    } finally {
-        await page.evaluate(() => {
-            window.__yomuProfileStopHostRehydrate?.();
-            window.__yomuProfileStopPlayback?.();
-        });
-    }
-    const finalHostRestores = await page.evaluate(() => window.__yomuProfileHostRestores ?? 0);
-    assertAmbientChurnExecuted(label, cycles, finalHostRestores - initialHostRestores);
-    return {
-        label,
-        workload: 'ambient-churn',
-        requestedDurationMs: durationMs,
-        durationMs: Date.now() - startedAt,
-        cycles,
-        hostRestores: finalHostRestores - initialHostRestores,
-    };
-}
-
 async function exerciseYoutubeLookupTransactions(page, options = {}) {
     const { label, activation, plan } = options;
     const samples = [];
@@ -1396,7 +1763,10 @@ async function exerciseYoutubeLookupTransactions(page, options = {}) {
         await page.evaluate(scrollOffset => {
             const comments = document.querySelector('#comments, ytm-comment-section-renderer');
             const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
-            window.scrollTo({ top: Math.max(0, top + scrollOffset), behavior: 'instant' });
+            window.scrollTo({
+                top: Math.max(0, top + scrollOffset),
+                behavior: 'instant',
+            });
         }, request.scrollOffset);
         // Input must target the same painted expression on every run. Settle the
         // fixed scroll, then let the resolver prove that exact source owns it.
@@ -1414,24 +1784,6 @@ async function exerciseYoutubeLookupTransactions(page, options = {}) {
         samples,
         summary: summarizeStressSamples(samples),
     };
-}
-
-function ambientPlaybackPhase(progress) {
-    if (progress < 0.38) return 'playing';
-    if (progress < 0.68) return 'paused';
-    return 'playing';
-}
-
-async function setAmbientPlaybackPhase(page, phase) {
-    await page.evaluate(playing => {
-        if (playing) window.__yomuProfileStartPlayback?.();
-        else window.__yomuProfileStopPlayback?.();
-    }, phase === 'playing');
-}
-
-function assertAmbientChurnExecuted(label, cycles, hostRestores) {
-    if (cycles <= 0) throw new Error(`${label}: ambient churn completed no scroll cycles.`);
-    if (hostRestores <= 0) throw new Error(`${label}: ambient churn completed no host restores.`);
 }
 
 async function finishLookupPointer(page, activation) {
@@ -1461,59 +1813,80 @@ async function prepareYoutubeLookupTransactions(page, plan) {
 async function prepareYoutubeStressSurface(page) {
     await ensureSubtitlePanelOpen(page);
     await page.evaluate(() => window.__yomuProfileExpandDescription?.());
-    await page.waitForFunction(() => document.querySelectorAll([
-        'ytd-watch-metadata .jpdb-reader-word',
-        'ytd-comment-view-model .jpdb-reader-word',
-        'ytm-comment-renderer .jpdb-reader-word',
-        'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
-        '#secondary .jpdb-reader-word',
-    ].join(',')).length > 6, null, { timeout: 16000 });
+    await page.waitForFunction(
+        () =>
+            document.querySelectorAll(
+                [
+                    'ytd-watch-metadata .jpdb-reader-word',
+                    'ytd-comment-view-model .jpdb-reader-word',
+                    'ytm-comment-renderer .jpdb-reader-word',
+                    'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
+                    '#secondary .jpdb-reader-word',
+                    'body > .jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"] .jpdb-reader-word',
+                ].join(','),
+            ).length > 6,
+        null,
+        { timeout: 16000 },
+    );
 }
 
 async function waitForLookupPlanReady(page, plan) {
-    await page.waitForFunction(({ selector, targets }) => {
-        const words = [...document.querySelectorAll(selector)];
-        return targets.every(request => words.some(word => {
-            const lane = word.closest('.jpdb-reader-document-annotation-portal')
-                ? 'portal'
-                : word.closest('.jpdb-reader-additive-text-mirror')
-                    ? 'mirror'
-                    : word.closest('.jpdb-ocr-line')
-                        ? 'ocr'
-                        : 'word';
-            const expression = word.dataset.expression
-                || word.dataset.surface
-                || word.textContent?.replace(/\s+/gu, '').slice(0, 6)
-                || '';
-            const sourceText = word.closest('.jpdb-reader-additive-text-mirror')?.dataset.sourceText ?? '';
-            return lane === request.lane
-                && expression === request.expression
-                && (!request.sourceText || sourceText === request.sourceText);
-        }));
-    }, { selector: STRESS_WORD_SELECTOR, targets: plan }, { timeout: 16000 });
+    await page.waitForFunction(
+        ({ selector, targets }) => {
+            const words = [...document.querySelectorAll(selector)];
+            return targets.every(request =>
+                words.some(word => {
+                    const lane = word.closest('.jpdb-reader-document-annotation-portal')
+                        ? 'portal'
+                        : word.closest('.jpdb-reader-additive-text-mirror')
+                          ? 'mirror'
+                          : word.closest('.jpdb-ocr-line')
+                            ? 'ocr'
+                            : 'word';
+                    const expression =
+                        word.dataset.expression || word.dataset.surface || word.textContent?.replace(/\s+/gu, '').slice(0, 6) || '';
+                    const sourceText = word.closest('.jpdb-reader-additive-text-mirror')?.dataset.sourceText ?? '';
+                    return (
+                        lane === request.lane &&
+                        expression === request.expression &&
+                        (!request.sourceText || sourceText === request.sourceText)
+                    );
+                }),
+            );
+        },
+        { selector: STRESS_WORD_SELECTOR, targets: plan },
+        { timeout: 16000 },
+    );
 }
 
 async function waitForYoutubeCommentParse(page, scenario) {
-    await page.waitForFunction(requireRuby => {
-        const words = [...document.querySelectorAll([
-            'ytd-comment-view-model #content-text .jpdb-reader-word',
-            'ytm-comment-renderer #content-text .jpdb-reader-word',
-            '.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"] .jpdb-reader-word',
-        ].join(','))];
-        if (!words.length) return false;
-        return !requireRuby || words.some(word => word.querySelector('rt,.jpdb-reader-detached-furi'));
-    }, Boolean(scenario.apiKey), { timeout: 20_000 });
+    await page.waitForFunction(
+        requireRuby => {
+            const words = [
+                ...document.querySelectorAll(
+                    [
+                        'ytd-comment-view-model #content-text .jpdb-reader-word',
+                        'ytm-comment-renderer #content-text .jpdb-reader-word',
+                        '.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"] .jpdb-reader-word',
+                    ].join(','),
+                ),
+            ];
+            if (!words.length) return false;
+            return !requireRuby || words.some(word => word.querySelector('rt,.jpdb-reader-detached-furi'));
+        },
+        Boolean(scenario.apiKey),
+        { timeout: 20_000 },
+    );
 }
 
 async function hoverStressSample(page, request, label, activation = 'hover') {
     await closeStressPopover(page);
     if (activation === 'touch') return await touchStressSample(page, request, label);
-    const target = await page.evaluate(({ targetRequest, selector }) => (
-        window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null
-    ), { targetRequest: request, selector: STRESS_WORD_SELECTOR });
-    if (!target) {
-        return { label, request, index: request.sampleIndex, skipped: true, reason: 'requested-target-not-visible' };
-    }
+    const target = await page.evaluate(
+        ({ targetRequest, selector }) => window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null,
+        { targetRequest: request, selector: STRESS_WORD_SELECTOR },
+    );
+    if (!target) return skippedStressSample(label, request);
 
     const started = await page.evaluate(expected => {
         window.__yomuProfileHoverProbe = {
@@ -1530,6 +1903,20 @@ async function hoverStressSample(page, request, label, activation = 'hover') {
     await page.mouse.move(target.x, target.y);
     const seen = await waitForStressPopover(page, target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
+    return stressSampleResult({ label, request, activation, target, seen, probe, started });
+}
+
+function skippedStressSample(label, request) {
+    return {
+        label,
+        request,
+        index: request.sampleIndex,
+        skipped: true,
+        reason: 'requested-target-not-visible',
+    };
+}
+
+function stressSampleResult({ label, request, activation, target, seen, probe, started }) {
     return {
         label,
         request,
@@ -1537,87 +1924,117 @@ async function hoverStressSample(page, request, label, activation = 'hover') {
         activation,
         target,
         opened: seen,
-        popoverVisible: Boolean(probe?.seenAt),
-        wrongPopoverVisible: Boolean(probe?.wrongAt),
-        wrongPopoverText: probe?.wrongText ?? '',
-        ms: probe?.seenAt ? Math.round((probe.seenAt - started) * 10) / 10 : null,
-        expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - started) * 10) / 10 : null,
-        popoverText: probe?.text ?? '',
+        popoverVisible: Boolean(probeValue(probe, 'seenAt', null)),
+        wrongPopoverVisible: Boolean(probeValue(probe, 'wrongAt', null)),
+        wrongPopoverText: probeValue(probe, 'wrongText', ''),
+        ms: probeLatency(probe, 'seenAt', started),
+        expectedMs: probeLatency(probe, 'expectedAt', started),
+        popoverText: probeValue(probe, 'text', ''),
     };
+}
+
+function probeValue(probe, field, fallback) {
+    if (!probe) return fallback;
+    return probe[field] ?? fallback;
+}
+
+function probeLatency(probe, field, started) {
+    const timestamp = probeValue(probe, field, null);
+    if (typeof timestamp !== 'number') return null;
+    return Math.round((timestamp - started) * 10) / 10;
 }
 
 async function closeStressPopover(page) {
-    const hasPopover = await page.locator('.jpdb-reader-popover').count().then(count => count > 0);
-    if (!hasPopover) return;
+    const hasVisiblePopover = await page.evaluate(() =>
+        [...document.querySelectorAll('.jpdb-reader-popover')].some(
+            popover =>
+                !popover.hidden &&
+                getComputedStyle(popover).display !== 'none' &&
+                getComputedStyle(popover).visibility !== 'hidden' &&
+                popover.getClientRects().length > 0,
+        ),
+    );
+    if (!hasVisiblePopover) return;
+    // A fresh replay can inherit Chromium's last pointer coordinates from the
+    // preceding context. Move off the word before dismissal so hover cannot
+    // reopen the popover in the same task as Escape.
+    await page.mouse.move(8, 8);
     await page.keyboard.press('Escape');
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 500 });
+    await page.waitForFunction(
+        () =>
+            [...document.querySelectorAll('.jpdb-reader-popover')].every(
+                popover =>
+                    popover.hidden ||
+                    getComputedStyle(popover).display === 'none' ||
+                    getComputedStyle(popover).visibility === 'hidden' ||
+                    popover.getClientRects().length === 0,
+            ),
+        null,
+        { timeout: 1200 },
+    );
 }
 
 async function touchStressSample(page, request, label) {
-    const result = await page.evaluate(({ targetRequest, selector }) => {
-        const target = window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null;
-        if (!target) return null;
-        const { x, y } = target;
-        // Portal paint is pointer-transparent. Dispatch through the element a
-        // real touch would hit at that coordinate so this profiles the source
-        // geometry bridge rather than an impossible event targeted directly at
-        // the out-of-tree annotation word.
-        const eventTarget = document.elementFromPoint(x, y);
-        if (!(eventTarget instanceof Element)) return null;
-        window.__yomuProfileHoverProbe = {
-            startedAt: performance.now(),
-            expected: target.expected,
-            seenAt: null,
-            expectedAt: null,
-            wrongAt: null,
-            wrongText: '',
-            text: '',
-        };
-        const base = {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            pointerId: 817,
-            pointerType: 'touch',
-            isPrimary: true,
-            clientX: x,
-            clientY: y,
-            screenX: x,
-            screenY: y,
-            width: 18,
-            height: 18,
-            pressure: 0.5,
-            button: 0,
-        };
-        eventTarget.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
-        eventTarget.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0, pressure: 0 }));
-        return {
-            started: window.__yomuProfileHoverProbe.startedAt,
-            target: {
-                ...target,
-                eventTarget: `${eventTarget.tagName.toLowerCase()}${eventTarget.id ? `#${eventTarget.id}` : ''}`,
-            },
-        };
-    }, { targetRequest: request, selector: STRESS_WORD_SELECTOR });
-    if (!result) {
-        return { label, request, index: request.sampleIndex, skipped: true, reason: 'requested-target-not-visible' };
-    }
+    const result = await page.evaluate(
+        ({ targetRequest, selector }) => {
+            const target = window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null;
+            if (!target) return null;
+            const { x, y } = target;
+            // Portal paint is pointer-transparent. Dispatch through the element a
+            // real touch would hit at that coordinate so this profiles the source
+            // geometry bridge rather than an impossible event targeted directly at
+            // the out-of-tree annotation word.
+            const eventTarget = document.elementFromPoint(x, y);
+            if (!(eventTarget instanceof Element)) return null;
+            window.__yomuProfileHoverProbe = {
+                startedAt: performance.now(),
+                expected: target.expected,
+                seenAt: null,
+                expectedAt: null,
+                wrongAt: null,
+                wrongText: '',
+                text: '',
+            };
+            const base = {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                pointerId: 817,
+                pointerType: 'touch',
+                isPrimary: true,
+                clientX: x,
+                clientY: y,
+                screenX: x,
+                screenY: y,
+                width: 18,
+                height: 18,
+                pressure: 0.5,
+                button: 0,
+            };
+            eventTarget.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
+            eventTarget.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0, pressure: 0 }));
+            return {
+                started: window.__yomuProfileHoverProbe.startedAt,
+                target: {
+                    ...target,
+                    eventTarget: `${eventTarget.tagName.toLowerCase()}${eventTarget.id ? `#${eventTarget.id}` : ''}`,
+                },
+            };
+        },
+        { targetRequest: request, selector: STRESS_WORD_SELECTOR },
+    );
+    if (!result) return skippedStressSample(label, request);
     const seen = await waitForStressPopover(page, result.target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
-    return {
+    return stressSampleResult({
         label,
         request,
-        index: request.sampleIndex,
         activation: 'touch',
         target: result.target,
-        opened: seen,
-        popoverVisible: Boolean(probe?.seenAt),
-        wrongPopoverVisible: Boolean(probe?.wrongAt),
-        wrongPopoverText: probe?.wrongText ?? '',
-        ms: probe?.seenAt ? Math.round((probe.seenAt - result.started) * 10) / 10 : null,
-        expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - result.started) * 10) / 10 : null,
-        popoverText: probe?.text ?? '',
-    };
+        seen,
+        probe,
+        started: result.started,
+    });
 }
 
 /**
@@ -1628,44 +2045,85 @@ async function touchStressSample(page, request, label) {
  * the verdict deterministic without extending the 3.2 s user-visible budget.
  */
 async function waitForStressPopover(page, expected, timeoutMs = 3200) {
-    return page.evaluate(({ expectedText, deadlineMs }) => new Promise(resolve => {
-        let settled = false;
-        let timer = 0;
-        const finish = value => {
-            if (settled) return;
-            settled = true;
-            window.clearTimeout(timer);
-            resolve(value);
-        };
-        const sample = () => {
-            if (settled) return;
-            const probe = window.__yomuProfileHoverProbe;
-            if (!probe) return finish(false);
-            const now = performance.now();
-            const popover = document.querySelector('.jpdb-reader-popover');
-            const text = popover?.textContent?.replace(/\s+/gu, '') ?? '';
-            const headwordText = popover?.querySelector('[data-yomu-headword]')?.textContent?.replace(/\s+/gu, '') ?? '';
-            const hasExpectedText = expectedText ? headwordText.includes(expectedText) : Boolean(headwordText);
-            if (popover && probe.seenAt === null) {
-                probe.seenAt = now;
-                probe.text = text.slice(0, 120);
-            }
-            if (headwordText && !hasExpectedText && probe.wrongAt === null) {
-                probe.wrongAt = now;
-                probe.wrongText = headwordText.slice(0, 120);
-            }
-            if (popover && hasExpectedText && probe.expectedAt === null) {
-                probe.expectedAt = now;
-                probe.text = text.slice(0, 120);
-            }
-            const observedAt = expectedText ? probe.expectedAt : probe.seenAt;
-            if (observedAt !== null) return finish(observedAt - probe.startedAt <= deadlineMs);
-            if (now - probe.startedAt >= deadlineMs) return finish(false);
-            requestAnimationFrame(sample);
-        };
-        timer = window.setTimeout(sample, deadlineMs);
-        requestAnimationFrame(sample);
-    }), { expectedText: expected, deadlineMs: timeoutMs });
+    return page.evaluate(
+        ({ expectedText, deadlineMs }) =>
+            new Promise(resolve => {
+                let settled = false;
+                let timer = 0;
+                const finish = value => {
+                    if (settled) return;
+                    settled = true;
+                    window.clearTimeout(timer);
+                    resolve(value);
+                };
+                const sample = () => {
+                    const probe = window.__yomuProfileHoverProbe;
+                    if (settled || !probe) return finish(false);
+                    const now = performance.now();
+                    const observation = readPopoverObservation(expectedText);
+                    recordPopoverObservation(probe, observation, now);
+                    const verdict = observationVerdict(probe, expectedText, now, deadlineMs);
+                    if (verdict !== null) return finish(verdict);
+                    requestAnimationFrame(sample);
+                };
+                const readPopoverObservation = expected => {
+                    const popover = [...document.querySelectorAll('.jpdb-reader-popover')].find(isRenderedPopover) ?? null;
+                    const headword = popover ? popover.querySelector('[data-yomu-headword]') : null;
+                    const headwordText = normalizedText(headword);
+                    return {
+                        popover,
+                        text: normalizedText(popover),
+                        headwordText,
+                        hasExpectedText: expected ? headwordText.includes(expected) : Boolean(headwordText),
+                    };
+                };
+                const isRenderedPopover = popover => {
+                    const style = getComputedStyle(popover);
+                    return [
+                        !popover.hidden,
+                        style.display !== 'none',
+                        style.visibility !== 'hidden',
+                        popover.getClientRects().length > 0,
+                    ].every(Boolean);
+                };
+                const normalizedText = node => {
+                    if (!node) return '';
+                    return node.textContent ? node.textContent.replace(/\s+/gu, '') : '';
+                };
+                const recordPopoverObservation = (probe, observation, now) => {
+                    recordFirstPopover(probe, observation, now);
+                    recordWrongPopover(probe, observation, now);
+                    recordExpectedPopover(probe, observation, now);
+                };
+                const recordFirstPopover = (probe, observation, now) => {
+                    if (observation.popover && probe.seenAt === null) {
+                        probe.seenAt = now;
+                        probe.text = observation.text.slice(0, 120);
+                    }
+                };
+                const recordWrongPopover = (probe, observation, now) => {
+                    if (observation.headwordText && !observation.hasExpectedText && probe.wrongAt === null) {
+                        probe.wrongAt = now;
+                        probe.wrongText = observation.headwordText.slice(0, 120);
+                    }
+                };
+                const recordExpectedPopover = (probe, observation, now) => {
+                    if (observation.popover && observation.hasExpectedText && probe.expectedAt === null) {
+                        probe.expectedAt = now;
+                        probe.text = observation.text.slice(0, 120);
+                    }
+                };
+                const observationVerdict = (probe, expected, now, deadline) => {
+                    const observedAt = expected ? probe.expectedAt : probe.seenAt;
+                    if (observedAt !== null) return observedAt - probe.startedAt <= deadline;
+                    if (now - probe.startedAt >= deadline) return false;
+                    return null;
+                };
+                timer = window.setTimeout(sample, deadlineMs);
+                requestAnimationFrame(sample);
+            }),
+        { expectedText: expected, deadlineMs: timeoutMs },
+    );
 }
 
 function validateStressInteraction(interaction, scenario, label) {
@@ -1675,34 +2133,40 @@ function validateStressInteraction(interaction, scenario, label) {
 async function readPageState(page) {
     return page.evaluate(() => {
         const normalizeText = value => value.replace(/\s+/gu, ' ').trim();
-        const commentHosts = [...document.querySelectorAll(
-            'ytd-comment-view-model #content-text, ytm-comment-renderer #content-text',
-        )];
-        const commentSourceTexts = new Set(commentHosts
-            .map(host => normalizeText(host.textContent ?? ''))
-            .filter(Boolean));
-        const commentPortals = [...document.querySelectorAll(
-            '.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"]',
-        )].filter(portal => commentSourceTexts.has(normalizeText(portal.dataset.sourceText ?? '')));
-        const inlineCommentWords = [...document.querySelectorAll(
-            'ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word',
-        )];
+        const commentHosts = [...document.querySelectorAll('ytd-comment-view-model #content-text, ytm-comment-renderer #content-text')];
+        const commentSourceTexts = new Set(commentHosts.map(host => normalizeText(host.textContent ?? '')).filter(Boolean));
+        const commentPortals = [
+            ...document.querySelectorAll('.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"]'),
+        ].filter(portal => commentSourceTexts.has(normalizeText(portal.dataset.sourceText ?? '')));
+        const inlineCommentWords = [
+            ...document.querySelectorAll(
+                'ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word',
+            ),
+        ];
         const commentPortalWords = commentPortals.flatMap(portal => [...portal.querySelectorAll('.jpdb-reader-word')]);
         const commentWords = [...inlineCommentWords, ...commentPortalWords];
         const hasReading = word => Boolean(word.querySelector('rt,.jpdb-reader-detached-furi'));
-        const subtitleWords = [...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word, .jpdb-subtitle-list .jpdb-reader-word')];
+        const subtitleWords = [
+            ...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word, .jpdb-subtitle-list .jpdb-reader-word'),
+        ];
         const pageWords = [
-            ...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, #secondary .jpdb-reader-word'),
+            ...document.querySelectorAll(
+                'ytd-watch-metadata .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, #secondary .jpdb-reader-word',
+            ),
             ...commentPortalWords,
         ];
         return {
             perf: { ...window.__yomuProfilePerf },
             hostRestores: window.__yomuProfileHostRestores ?? 0,
             readerWords: document.querySelectorAll('.jpdb-reader-word').length,
-            descriptionWords: document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word, ytm-expandable-video-description-body-renderer.jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word').length,
+            descriptionWords: document.querySelectorAll(
+                'ytd-watch-metadata #description-inline-expander .jpdb-reader-word, ytm-expandable-video-description-body-renderer.jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word',
+            ).length,
             commentWords: commentWords.length,
             commentRubyWords: commentWords.filter(hasReading).length,
-            commentTextMirrors: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-text-mirror, ytm-comment-renderer #content-text .jpdb-reader-text-mirror').length,
+            commentTextMirrors: document.querySelectorAll(
+                'ytd-comment-view-model #content-text .jpdb-reader-text-mirror, ytm-comment-renderer #content-text .jpdb-reader-text-mirror',
+            ).length,
             commentPortalMirrors: commentPortals.length,
             commentPortalWords: commentPortalWords.length,
             commentPortalRubyWords: commentPortalWords.filter(hasReading).length,
@@ -1714,8 +2178,12 @@ async function readPageState(page) {
             rubyPageWords: pageWords.filter(hasReading).length,
             ankiStateWords: document.querySelectorAll('.jpdb-reader-word[data-anki-state], .jpdb-reader-word[class*="anki-"]').length,
             ocrWords: document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word').length,
-            ocrRubyWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => word.querySelector('.jpdb-ocr-furi, rt')).length,
-            ocrPitchWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka)/u.test(word.className)).length,
+            ocrRubyWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word =>
+                word.querySelector('.jpdb-ocr-furi, rt'),
+            ).length,
+            ocrPitchWords: [...document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')].filter(word =>
+                /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka)/u.test(word.className),
+            ).length,
             panelOpen: Boolean(document.querySelector('.jpdb-subtitle-list') && !document.querySelector('.jpdb-subtitle-list')?.hidden),
             panelRows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
             panelEntering: document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-panel-entering') ?? false,
@@ -1725,12 +2193,26 @@ async function readPageState(page) {
 }
 
 function validateYoutubeCommentState(state, scenario, label) {
+    assertCommentWords(state, scenario, label);
+    assertNoCommentTextMirrors(state, scenario, label);
+    assertCommentRuby(state, scenario, label);
+}
+
+function assertCommentWords(state, scenario, label) {
     if (!state || state.commentWords <= 0) {
         throw new Error(`${scenario.name} ${label}: YouTube comment text was not parsed`);
     }
+}
+
+function assertNoCommentTextMirrors(state, scenario, label) {
     if (state.commentTextMirrors !== 0 && !ALLOW_TEXT_MIRRORS) {
-        throw new Error(`${scenario.name} ${label}: YouTube comment bodies used text mirrors (${state.commentTextMirrors}), which can trigger false 詳細 overflow`);
+        throw new Error(
+            `${scenario.name} ${label}: YouTube comment bodies used text mirrors (${state.commentTextMirrors}), which can trigger false 詳細 overflow`,
+        );
     }
+}
+
+function assertCommentRuby(state, scenario, label) {
     if (scenario.apiKey && state.commentRubyWords <= 0 && RELEASE_EVIDENCE_ELIGIBLE) {
         throw new Error(`${scenario.name} ${label}: YouTube comments did not receive API furigana`);
     }
@@ -1745,10 +2227,14 @@ function performanceWatchFixture(mobile) {
     return youtubeWatchHtml({
         fixture: 'performance',
         mobile,
-        playerResponse: youtubePlayerResponse('profile123', { captionTracks: YOUTUBE_PROFILE_CAPTION_TRACKS }),
+        playerResponse: youtubePlayerResponse('profile123', {
+            captionTracks: YOUTUBE_PROFILE_CAPTION_TRACKS,
+        }),
         shortDescription: escapeHtmlForFixture(shortDescription),
         longDescription: escapeHtmlForFixture(youtubeLongDescriptionText()),
-        commentsHtml: youtubeCommentFixtures().map((text, index) => commentHtml(text, index, mobile)).join(''),
+        commentsHtml: youtubeCommentFixtures()
+            .map((text, index) => commentHtml(text, index, mobile))
+            .join(''),
         sidebarHtml: Array.from({ length: 18 }, (_, index) => sidebarCard(index)).join(''),
     });
 }
@@ -1784,9 +2270,7 @@ function commentHtml(text, index, mobile) {
 }
 
 function sidebarCard(index) {
-    const text = index % 2 === 0
-        ? `関連動画の発行ニュース ${index}`
-        : `梅干しを貼る話 ${index}`;
+    const text = index % 2 === 0 ? `関連動画の発行ニュース ${index}` : `梅干しを貼る話 ${index}`;
     return `<ytd-compact-video-renderer data-profile-volatile-text="${text}">
       <div class="thumb"></div><a id="video-title" href="/watch?v=side-${index}">${text}</a>
     </ytd-compact-video-renderer>`;

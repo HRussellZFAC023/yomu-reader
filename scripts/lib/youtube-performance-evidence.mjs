@@ -28,40 +28,74 @@ export function fixedStressLookupPlan(sequence, sampleCount) {
     });
 }
 
-export function summarizeCpuProfile(profile) {
+export function summarizeCpuProfile(profile, artifactGraph = null) {
     const samples = arrayValue(profile.samples);
     const timeDeltas = arrayValue(profile.timeDeltas);
     const nodes = arrayValue(profile.nodes);
-    const selfTimeByNode = sampledSelfTimeByNode(samples, timeDeltas);
+    const artifactByUrl = artifactIdentityByUrl(artifactGraph);
     const nodesById = new Map(nodes.map(node => [node.id, node]));
+    const selfTimeByNode = sampledSelfTimeByNode(samples, timeDeltas);
     const selfTimeByFrame = new Map();
-    for (const [nodeId, selfUs] of selfTimeByNode) {
-        const node = nodesById.get(nodeId);
-        if (!node) continue;
-        mergeCpuFrame(selfTimeByFrame, cpuFrameEntry(node, selfUs));
-    }
+    const scopedFrames = [...selfTimeByNode]
+        .map(([nodeId, selfUs]) => scopedCpuFrame(nodesById.get(nodeId), selfUs, artifactByUrl))
+        .filter(Boolean);
+    for (const frame of scopedFrames) mergeCpuFrame(selfTimeByFrame, frame);
     const selfTime = [...selfTimeByFrame.values()]
-        .map(({ selfUs, ...entry }) => ({ ...entry, selfMs: Math.round(selfUs / 100) / 10 }))
+        .map(({ selfUs, ...entry }) => ({
+            ...entry,
+            selfMs: Math.round(selfUs / 100) / 10,
+        }))
         .filter(entry => entry.selfMs > 0)
         .sort(compareCpuFrames);
     return {
-        sampleCount: samples.length,
-        sampledMs: Math.round(timeDeltas.reduce((sum, value) => sum + value, 0) / 100) / 10,
+        totalSampleCount: samples.length,
+        totalSampledMs: millisecondsFromMicroseconds(timeDeltas.reduce((sum, value) => sum + value, 0)),
+        sampleCount: samples.filter(nodeId => profileNodeIsInScope(nodesById.get(nodeId), artifactByUrl)).length,
+        sampledMs: millisecondsFromMicroseconds(
+            samples.reduce(
+                (sum, nodeId, index) => sum + scopedSampleDuration(nodesById.get(nodeId), artifactByUrl, numberAt(timeDeltas, index)),
+                0,
+            ),
+        ),
         framesWithSelfTime: selfTime.length,
         selfTime,
     };
 }
 
-export function summarizePreciseCoverage(scripts, trackedFunctionNames = DEFAULT_TRACKED_FUNCTION_NAMES) {
-    const callCounts = scripts.flatMap(script => arrayValue(script.functions)
-        .map(fn => preciseCoverageCall(script, fn))
-        .filter(Boolean))
+function scopedCpuFrame(node, selfUs, artifactByUrl) {
+    if (!node) return null;
+    if (!artifactByUrl) return cpuFrameEntry(node, selfUs, null);
+    const artifactSha256 = scopedArtifactSha256(cpuFrameUrl(node), artifactByUrl);
+    if (!artifactSha256) return null;
+    return cpuFrameEntry(node, selfUs, artifactSha256);
+}
+
+function cpuFrameUrl(node) {
+    return node.callFrame ? node.callFrame.url : '';
+}
+
+function scopedSampleDuration(node, artifactByUrl, duration) {
+    if (!profileNodeIsInScope(node, artifactByUrl)) return 0;
+    return duration;
+}
+
+export function summarizePreciseCoverage(scripts, artifactGraph = null, trackedFunctionNames = DEFAULT_TRACKED_FUNCTION_NAMES) {
+    const artifactByUrl = artifactIdentityByUrl(artifactGraph);
+    const callCounts = scripts
+        .flatMap(script => {
+            const artifactSha256 = scopedArtifactSha256(script.url, artifactByUrl);
+            if (artifactByUrl && !artifactSha256) return [];
+            return arrayValue(script.functions)
+                .map(fn => preciseCoverageCall(script, fn, artifactSha256))
+                .filter(Boolean);
+        })
         .sort(compareCallCounts);
     return {
-        functionsCalled: callCounts.length,
+        functionsPresent: callCounts.length,
+        functionsCalled: callCounts.filter(entry => entry.callCount > 0).length,
         totalCalls: callCounts.reduce((sum, entry) => sum + entry.callCount, 0),
         callCounts,
-        trackedCallCounts: trackedFunctionNames.map(functionName => trackedCallCount(functionName, callCounts)),
+        trackedFunctions: trackedFunctionNames.map(functionName => trackedFunctionFrames(functionName, callCounts)),
     };
 }
 
@@ -121,12 +155,13 @@ function sampledSelfTimeByNode(samples, timeDeltas) {
     }, new Map());
 }
 
-function cpuFrameEntry(node, selfUs) {
+function cpuFrameEntry(node, selfUs, artifactSha256) {
     const { callFrame: frame = {}, hitCount = 0 } = node;
     const { functionName = '', url = '', lineNumber = -1, columnNumber = -1 } = frame;
     return {
         functionName: functionName || '(anonymous)',
         url,
+        artifactSha256,
         line: lineNumber + 1,
         column: columnNumber + 1,
         selfUs,
@@ -149,13 +184,13 @@ function compareCpuFrames(left, right) {
     return right.selfMs - left.selfMs;
 }
 
-function preciseCoverageCall(script, fn) {
+function preciseCoverageCall(script, fn, artifactSha256) {
     const range = arrayValue(fn.ranges)[0];
     if (!range) return null;
-    if (range.count <= 0) return null;
     return {
         functionName: nonEmptyText(fn.functionName, '(anonymous)'),
         url: textValue(script.url),
+        artifactSha256,
         startOffset: range.startOffset,
         callCount: range.count,
     };
@@ -165,13 +200,34 @@ function compareCallCounts(left, right) {
     return right.callCount - left.callCount;
 }
 
-function trackedCallCount(functionName, callCounts) {
+function trackedFunctionFrames(functionName, callCounts) {
     const frames = callCounts.filter(entry => entry.functionName === functionName);
     return {
         functionName,
-        callCount: frames.reduce((sum, entry) => sum + entry.callCount, 0),
+        present: frames.length > 0,
         frames,
     };
+}
+
+function artifactIdentityByUrl(artifactGraph) {
+    if (!artifactGraph) return null;
+    if (!artifactGraph.sourceUrl || !artifactGraph.sha256) {
+        throw new Error('Artifact graph scope requires sourceUrl and sha256.');
+    }
+    return new Map([[artifactGraph.sourceUrl, artifactGraph.sha256]]);
+}
+
+function scopedArtifactSha256(url, artifactByUrl) {
+    if (!artifactByUrl) return null;
+    return artifactByUrl.get(textValue(url)) ?? null;
+}
+
+function profileNodeIsInScope(node, artifactByUrl) {
+    return !artifactByUrl || artifactByUrl.has(textValue(node?.callFrame?.url));
+}
+
+function millisecondsFromMicroseconds(value) {
+    return Math.round(value / 100) / 10;
 }
 
 function stressTargetMatchesRequest(sample) {
@@ -209,12 +265,7 @@ function evidenceFailure(failed, kind, diagnostic) {
 }
 
 function stressTargetIdentity(target) {
-    return [
-        target.expression,
-        target.lane,
-        Number(valueOr(target.occurrence, 0)),
-        String(valueOr(target.sourceText, '')),
-    ];
+    return [target.expression, target.lane, Number(valueOr(target.occurrence, 0)), String(valueOr(target.sourceText, ''))];
 }
 
 function interactionSamples(interaction) {

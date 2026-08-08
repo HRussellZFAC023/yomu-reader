@@ -19,36 +19,45 @@ function youtubeCaptionTrack(videoId, defaultHost, options) {
     const vssId = options.vssId === undefined ? `.${languageCode}` : options.vssId;
     if (vssId !== null) track.vssId = vssId;
     if (options.kind !== undefined) track.kind = options.kind;
-    track.name = { simpleText: options.name ?? (languageCode === 'ja' ? 'Japanese' : 'English') };
+    track.name = {
+        simpleText: options.name ?? (languageCode === 'ja' ? 'Japanese' : 'English'),
+    };
     return track;
 }
 
 export function youtubeTimedText(cues, { surroundingNewlines = true } = {}) {
-    const body = cues.map(cue => {
-        const segments = (cue.segments ?? [{ offset: 0, text: cue.text }])
-            .map(segment => `<s t="${segment.offset}">${segment.text}</s>`)
-            .join('');
-        return `<p t="${cue.start}" d="${cue.duration}">${segments}</p>`;
-    }).join('\n');
+    const body = cues
+        .map(cue => {
+            const segments = (cue.segments ?? [{ offset: 0, text: cue.text }])
+                .map(segment => `<s t="${segment.offset}">${segment.text}</s>`)
+                .join('');
+            return `<p t="${cue.start}" d="${cue.duration}">${segments}</p>`;
+        })
+        .join('\n');
     const edge = surroundingNewlines ? '\n' : '';
     return `<timedtext><body>${edge}${body}${edge}</body></timedtext>`;
 }
 
 export function youtubeWatchHtml(options) {
     switch (options.fixture) {
-        case 'keyless-jiten-detail': return keylessJitenDetailWatchHtml(options);
-        case 'feature': return featureWatchHtml(options);
-        case 'performance': return performanceWatchHtml(options);
-        case 'auto-translation': return autoTranslationWatchHtml(options);
-        case 'controls-wake': return options.mobile
-            ? controlsWakeMobileWatchHtml(options)
-            : controlsWakeDesktopWatchHtml(options);
-        case 'sidebar-layout': return sidebarLayoutWatchHtml(options);
-        case 'sidebar-resize': return sidebarResizeWatchHtml(options);
-        case 'subtitle-e2e': return options.mobile
-            ? subtitleE2eMobileWatchHtml(options)
-            : subtitleE2eDesktopWatchHtml(options);
-        default: throw new Error(`Unknown YouTube watch fixture: ${options.fixture}`);
+        case 'keyless-jiten-detail':
+            return keylessJitenDetailWatchHtml(options);
+        case 'feature':
+            return featureWatchHtml(options);
+        case 'performance':
+            return performanceWatchHtml(options);
+        case 'auto-translation':
+            return autoTranslationWatchHtml(options);
+        case 'controls-wake':
+            return options.mobile ? controlsWakeMobileWatchHtml(options) : controlsWakeDesktopWatchHtml(options);
+        case 'sidebar-layout':
+            return sidebarLayoutWatchHtml(options);
+        case 'sidebar-resize':
+            return sidebarResizeWatchHtml(options);
+        case 'subtitle-e2e':
+            return options.mobile ? subtitleE2eMobileWatchHtml(options) : subtitleE2eDesktopWatchHtml(options);
+        default:
+            throw new Error(`Unknown YouTube watch fixture: ${options.fixture}`);
     }
 }
 
@@ -291,12 +300,22 @@ function performanceWatchHtml({ mobile, playerResponse, shortDescription, longDe
       player.style.height = height + 'px';
     };
     window.__yomuProfileHostRestores = 0;
+    window.__yomuProfilePlaybackTickOnce = () => {
+      currentTime = (currentTime + 0.25) % 10;
+      video.dispatchEvent(new Event('timeupdate'));
+    };
+    window.__yomuProfileRehydrateOnce = () => {
+      let restored = 0;
+      document.querySelectorAll('[data-profile-volatile-text]').forEach(element => {
+        element.textContent = element.getAttribute('data-profile-volatile-text') || '';
+        restored += 1;
+      });
+      window.__yomuProfileHostRestores += restored;
+      return restored;
+    };
     window.__yomuProfileStartPlayback = () => {
       if (playbackTimer) return;
-      playbackTimer = window.setInterval(() => {
-        currentTime = (currentTime + 0.25) % 10;
-        video.dispatchEvent(new Event('timeupdate'));
-      }, 250);
+      playbackTimer = window.setInterval(window.__yomuProfilePlaybackTickOnce, 250);
       video.dispatchEvent(new Event('play'));
       video.dispatchEvent(new Event('playing'));
     };
@@ -308,13 +327,7 @@ function performanceWatchHtml({ mobile, playerResponse, shortDescription, longDe
     };
     window.__yomuProfileStartHostRehydrate = ({ intervalMs = 200 } = {}) => {
       if (rehydrateTimer) return;
-      rehydrateTimer = window.setInterval(() => {
-        document.querySelectorAll('[data-profile-volatile-text]').forEach(element => {
-          if (!element.querySelector('.jpdb-reader-word')) return;
-          element.textContent = element.getAttribute('data-profile-volatile-text') || '';
-          window.__yomuProfileHostRestores += 1;
-        });
-      }, intervalMs);
+      rehydrateTimer = window.setInterval(window.__yomuProfileRehydrateOnce, intervalMs);
     };
     window.__yomuProfileStopHostRehydrate = () => {
       window.clearInterval(rehydrateTimer);

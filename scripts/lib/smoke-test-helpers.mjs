@@ -4,9 +4,12 @@ import path from 'node:path';
 export async function installUserscriptCssResource(page, cssPath, resourceName = 'yomuCss') {
     const css = readFileSync(cssPath, 'utf8');
     await withNavigationRetry(page, async () => {
-        await page.evaluate(({ cssText, name }) => {
-            window.GM_getResourceText = requested => requested === name ? cssText : '';
-        }, { cssText: css, name: resourceName });
+        await page.evaluate(
+            ({ cssText, name }) => {
+                window.GM_getResourceText = requested => (requested === name ? cssText : '');
+            },
+            { cssText: css, name: resourceName },
+        );
         try {
             await page.addStyleTag({ content: css });
         } catch {
@@ -27,15 +30,29 @@ export async function addScriptTagWithCspFallback(page, scriptPath) {
     await addSingleScriptTagWithCspFallback(page, scriptPath);
 }
 
-export async function addUserscriptGraphInitScripts(page, scriptPath) {
+export async function addUserscriptGraphInitScripts(page, scriptPath, options = {}) {
     // Playwright does not guarantee ordering between separately registered
     // init scripts. A userscript's @require graph does: companions execute in
     // declaration order before main. Register one concatenated program so
     // WebKit proves the exact same dependency contract deterministically.
-    const graph = [...userscriptCompanionPaths(scriptPath), scriptPath]
-        .map(graphPath => readFileSync(graphPath, 'utf8'))
-        .join('\n;\n');
-    await page.addInitScript({ content: graph });
+    const graph = requiredUserscriptGraphContent(scriptPath, options.content);
+    await page.addInitScript({ content: taggedUserscriptGraph(graph, options.sourceUrl) });
+}
+
+function userscriptGraphContent(scriptPath) {
+    return [...userscriptCompanionPaths(scriptPath), scriptPath].map(graphPath => readFileSync(graphPath, 'utf8')).join('\n;\n');
+}
+
+function requiredUserscriptGraphContent(scriptPath, suppliedContent) {
+    const graph = suppliedContent ?? userscriptGraphContent(scriptPath);
+    if (typeof graph !== 'string') throw new Error('Userscript graph content must be a string.');
+    return graph;
+}
+
+function taggedUserscriptGraph(graph, sourceUrl) {
+    if (!sourceUrl) return graph;
+    if (/[\r\n]/u.test(sourceUrl)) throw new Error('Userscript graph source URL cannot contain a newline.');
+    return `${graph}\n//# sourceURL=${sourceUrl}`;
 }
 
 // The ONE place that answers "what does a userscript manager execute before the

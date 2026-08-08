@@ -42,16 +42,26 @@ export interface StressSummary {
     over1000Ms: number;
 }
 
+export interface ProfileArtifactGraphScope {
+    sourceUrl: string;
+    sha256: string;
+}
+
 export function fixedStressLookupPlan<T extends StressLookupTarget>(
     sequence: readonly T[],
     sampleCount: number,
 ): Array<PlannedStressLookup<T>>;
 
-export function summarizeCpuProfile(profile: {
-    nodes?: Array<Record<string, unknown>>;
-    samples?: number[];
-    timeDeltas?: number[];
-}): {
+export function summarizeCpuProfile(
+    profile: {
+        nodes?: Array<Record<string, unknown>>;
+        samples?: number[];
+        timeDeltas?: number[];
+    },
+    artifactGraph?: ProfileArtifactGraphScope | null,
+): {
+    totalSampleCount: number;
+    totalSampledMs: number;
     sampleCount: number;
     sampledMs: number;
     framesWithSelfTime: number;
@@ -60,12 +70,14 @@ export function summarizeCpuProfile(profile: {
 
 export function summarizePreciseCoverage(
     scripts: Array<Record<string, unknown>>,
+    artifactGraph?: ProfileArtifactGraphScope | null,
     trackedFunctionNames?: readonly string[],
 ): {
+    functionsPresent: number;
     functionsCalled: number;
     totalCalls: number;
     callCounts: Array<Record<string, unknown>>;
-    trackedCallCounts: Array<Record<string, unknown>>;
+    trackedFunctions: Array<Record<string, unknown>>;
 };
 
 export function summarizeStressSamples(samples: readonly StressSample[]): StressSummary;
