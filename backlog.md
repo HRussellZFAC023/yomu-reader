@@ -4979,6 +4979,13 @@ Owner: "full localisations to every language is needed - currently it just toggl
 Today `interfaceLanguage` is a two-way en/ja switch (`app/i18n.ts` holds one English map and one
 Japanese map). The ask is a real interface locale per supported language, not a toggle.
 
+**Architecture slice prepared 2026-08-08:** the public VitePress site now has static root-English and
+reviewed `/ja/` routes, build-time prose localisation, locale-owned navigation/metadata, a rendered
+publication gate, and hydration/SPA gates. Seventeen Japanese bodies are publishable; API Reference,
+Local Audio, Privacy, and the generated Settings Reference remain fail-closed pending native review.
+The other 31 Website Locales likewise remain unavailable pending the native-review, RTL, and
+maintainer-acceptance boundary in ADR 0011. This is D43 infrastructure, not D43 completion.
+
 **Do not confuse this with U105's three tiers — but note the owner has now decided the interface
 tier explicitly.** U105 recorded that Migaku ships only 3 interface languages (en/ja/es) and argued
 Korean users want Korean *definitions*, not a Korean UI. The owner is overriding that scoping: he

@@ -325,34 +325,6 @@
   min-height: 24px;
 }
 
-.yomu-language-toggle {
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-  margin-right: 4px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--vp-c-text-2);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1;
-  cursor: default !important;
-}
-
-.yomu-language-toggle:hover,
-.yomu-language-toggle:focus-visible {
-  background: var(--vp-c-bg-soft);
-  color: var(--vp-c-text-1);
-  outline: 3px solid color-mix(in srgb, var(--vp-c-brand-2) 56%, #fff);
-  outline-offset: 2px;
-}
-
 .yomu-hosted-account {
   position: relative;
   color: var(--vp-c-text-1);
@@ -675,7 +647,6 @@
 }
 
 @media (pointer: coarse) {
-  .yomu-language-toggle,
   .yomu-hosted-account-summary,
   .yomu-hosted-account-action,
   .yomu-hosted-overflow-link {
@@ -691,7 +662,7 @@
 
 /* --- Nav hand-off ---
    VitePress swaps the hamburger for the desktop nav row at 768px. Yomu's row
-   carries six sections, a language toggle, an account control and the overflow
+   carries six sections, an account control and the overflow
    flyout: measured at a 768px viewport it lays out 868px wide, so from 768px to
    about 840px EVERY docs page scrolled sideways, homepage included. Hold the
    mobile nav until the desktop row actually fits.

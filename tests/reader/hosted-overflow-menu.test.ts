@@ -41,7 +41,8 @@ describe('hosted overflow menus', () => {
         expect(theme).toContain("import { hostedOverflowLinks } from '../shared/nav';");
         expect(theme).toContain('const HOSTED_OVERFLOW_LINKS = hostedOverflowLinks();');
         expect(config).toContain("import { APPS_NAV_LABEL, docsNav } from './shared/nav';");
-        expect(config).toContain('const siteNav = docsNav();');
+        expect(config).toContain('const siteNav = docsNav() as WebsiteNavigationItem[];');
+        expect(config).toContain("localizeWebsiteNavigation(siteNav, 'ja')");
     });
 
     it('keeps one Membership route beside the GitHub and Discord navbar links', () => {

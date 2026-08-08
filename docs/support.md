@@ -26,11 +26,11 @@ Discord is the fastest way to get an answer. File bugs on GitHub so they do not 
     <strong>Study</strong>
     <span>Review the words you saved.</span>
   </a>
-  <a class="yomu-link-card" href="video-player/">
+  <a class="yomu-link-card" href="/video-player/">
     <strong>Video Player</strong>
     <span>Open your own video and subtitle files, then read along.</span>
   </a>
-  <a class="yomu-link-card" href="pdf-reader/">
+  <a class="yomu-link-card" href="/pdf-reader/">
     <strong>PDF Reader</strong>
     <span>Open a Japanese PDF and press the words in it.</span>
   </a>

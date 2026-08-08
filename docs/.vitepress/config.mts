@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import { defineConfig, type HeadConfig } from 'vitepress';
+import { defineConfig, type DefaultTheme, type HeadConfig } from 'vitepress';
 import {
     internalDocsExcludeGlobs,
     navigationRoutes,
@@ -13,6 +13,22 @@ import {
 } from '../../config/docs/legacy-redirects';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 import { APPS_NAV_LABEL, docsNav } from './shared/nav';
+import { installReviewedDocsMarkdownLocales } from './locales/markdown-localization';
+import {
+    websiteRouteForSource,
+    websiteRoutePublication,
+    type WebsiteRouteDefinition,
+} from './locales/route-catalog';
+import {
+    localizedWebsiteRoute,
+    localizeWebsiteNavigation,
+    rootWebsiteRoute,
+    websiteLocale,
+    websiteLocaleForRelativePath,
+    websiteMessage,
+    type WebsiteLocaleId,
+    type WebsiteNavigationItem,
+} from './locales/site-locales';
 import pkg from '../../package.json' with { type: 'json' };
 
 const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-appearance-boot.cjs') as {
@@ -89,9 +105,7 @@ const donationSocialLinks = [
         : []),
 ];
 
-const siteTitle = 'よむ - Japanese popup reader';
-const siteDescription =
-    'Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, game text, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.';
+const siteDescription = websiteMessage('docs.site.description', 'en');
 const siteVerificationHead = siteVerificationMetaHead([
     { name: 'google-site-verification', value: process.env.YOMU_GOOGLE_SITE_VERIFICATION },
     { name: 'msvalidate.01', value: process.env.YOMU_BING_SITE_VERIFICATION },
@@ -115,13 +129,9 @@ function siteVerificationContent(value: string | undefined): string {
     return content || trimmed;
 }
 
-// Turn a VitePress relativePath (e.g. "features.md", "tools/japanese-ocr.md",
-// "index.md") into the canonical absolute URL with cleanUrls applied.
-function canonicalUrl(relativePath: string): string {
-    const clean = relativePath
-        .replace(/(^|\/)index\.md$/, '$1')
-        .replace(/\.md$/, '');
-    return `${siteUrl}${clean}`;
+function canonicalUrl(relativePath: string, locale = websiteLocaleForRelativePath(relativePath)): string {
+    const route = localizedWebsiteRoute(rootWebsiteRoute(relativePath), locale);
+    return new URL(route.replace(/^\//, ''), siteUrl).href;
 }
 
 interface PageDataLike {
@@ -135,24 +145,26 @@ function withBrand(title: string): string {
     return /よむ|yomu/i.test(title) ? title : `${title} · よむ`;
 }
 
-function ogTitleFor(pageData: PageDataLike): string {
+function ogTitleFor(pageData: PageDataLike, locale: WebsiteLocaleId): string {
     const fmTitle = typeof pageData.frontmatter.title === 'string' ? pageData.frontmatter.title : '';
     if (fmTitle) return withBrand(fmTitle);
     const title = pageData.title?.trim();
-    if (!title || title === 'よむ' || title === 'Home') return siteTitle;
+    if (!title || title === 'よむ' || title === 'Home') return websiteMessage('docs.site.title', locale);
     return withBrand(title);
 }
 
-function ogDescriptionFor(pageData: PageDataLike): string {
+function ogDescriptionFor(pageData: PageDataLike, locale: WebsiteLocaleId): string {
     const desc = (pageData.description || (typeof pageData.frontmatter.description === 'string' ? pageData.frontmatter.description : '')).trim();
-    return desc || siteDescription;
+    return desc || websiteMessage('docs.site.description', locale);
 }
 
 // Structured data. SoftwareApplication + WebSite on the home page so search
 // engines understand what よむ is (a free educational app); BreadcrumbList on
 // every interior page for richer SERP breadcrumbs.
-function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
-    const isHome = pageData.relativePath === 'index.md';
+function jsonLdFor(pageData: PageDataLike, pageUrl: string, locale: WebsiteLocaleId): HeadConfig[] {
+    const isHome = rootWebsiteRoute(pageData.relativePath) === '/';
+    const localeDescription = websiteMessage('docs.site.description', locale);
+    const localeHome = canonicalUrl('index.md', locale);
     const blocks: object[] = [];
 
     if (isHome) {
@@ -164,12 +176,12 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
             applicationCategory: 'EducationalApplication',
             applicationSubCategory: 'Language Learning',
             operatingSystem: 'Chrome, Firefox, Safari, iOS, Android (userscript)',
-            url: siteUrl,
+            url: localeHome,
             downloadUrl: `${siteUrl}yomu.user.js`,
-            description: siteDescription,
+            description: localeDescription,
             image: socialImage,
             screenshot: `${siteUrl}screenshots/real-popup-lookup.png`,
-            inLanguage: ['en', 'ja'],
+            inLanguage: locale,
             license: 'https://opensource.org/licenses/MIT',
             isAccessibleForFree: true,
             offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -195,17 +207,17 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
             '@type': 'WebSite',
             name: 'よむ',
             alternateName: 'Yomu Japanese Reader',
-            url: siteUrl,
-            description: siteDescription,
-            inLanguage: 'en',
+            url: localeHome,
+            description: localeDescription,
+            inLanguage: locale,
         });
     } else {
-        const crumbName = ogTitleFor(pageData).replace(' · よむ', '');
+        const crumbName = ogTitleFor(pageData, locale).replace(' · よむ', '');
         blocks.push({
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',
             itemListElement: [
-                { '@type': 'ListItem', position: 1, name: 'よむ', item: siteUrl },
+                { '@type': 'ListItem', position: 1, name: 'よむ', item: localeHome },
                 { '@type': 'ListItem', position: 2, name: crumbName, item: pageUrl },
             ],
         });
@@ -223,9 +235,9 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
 // keep a second copy in theme/index.ts, and it drifted. 'Support' also appeared
 // twice here, once in the bar and once in More, which is how a nav entry stops
 // meaning anything.
-const siteNav = docsNav();
+const siteNav = docsNav() as WebsiteNavigationItem[];
 
-const siteSidebar = [
+const siteSidebar: WebsiteNavigationItem[] = [
     {
         text: 'Learn Japanese',
         items: [
@@ -272,18 +284,173 @@ const siteSidebar = [
 // Every page the site itself links to. Derived from the nav and sidebar above
 // so a new public page reaches search engines as soon as it is linked, and a
 // file that lands in docs/ without a navigation entry never does.
-const linkedRoutes = navigationRoutes([...siteNav, ...siteSidebar]);
+const localizedSiteNavigation = Object.freeze({
+    en: {
+        nav: localizeWebsiteNavigation(siteNav, 'en'),
+        sidebar: localizeWebsiteNavigation(siteSidebar, 'en'),
+    },
+    ja: {
+        nav: localizeWebsiteNavigation(siteNav, 'ja'),
+        sidebar: localizeWebsiteNavigation(siteSidebar, 'ja'),
+    },
+});
+const linkedRoutes = navigationRoutes([
+    ...localizedSiteNavigation.en.nav,
+    ...localizedSiteNavigation.en.sidebar,
+    ...localizedSiteNavigation.ja.nav,
+    ...localizedSiteNavigation.ja.sidebar,
+]);
 const hostedHeroStudyLanguages = heroStudyLanguages();
+
+function docsThemeConfig(locale: WebsiteLocaleId): DefaultTheme.Config {
+    const navigation = localizedSiteNavigation[locale];
+    return {
+        logo: { src: '/yomu-icon.svg', alt: websiteMessage('docs.site.logoAlt', locale) },
+        logoLink: localizedWebsiteRoute('/', locale),
+        siteTitle: 'yomu',
+        nav: navigation.nav as DefaultTheme.NavItem[],
+        sidebar: navigation.sidebar as DefaultTheme.SidebarItem[],
+        search: {
+            provider: 'local',
+            options: {
+                locales: {
+                    [locale === 'en' ? 'root' : locale]: {
+                        translations: searchTranslations(locale),
+                    },
+                },
+            },
+        },
+        socialLinks: [
+            { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
+            { icon: 'discord', link: 'https://discord.gg/jD6NPURewD' },
+        ],
+        footer: {
+            message: websiteMessage('docs.footer.message', locale),
+            copyright: websiteMessage('docs.footer.copyright', locale),
+        },
+        darkModeSwitchLabel: websiteMessage('docs.theme.darkMode', locale),
+        lightModeSwitchTitle: websiteMessage('docs.theme.lightMode', locale),
+        darkModeSwitchTitle: websiteMessage('docs.theme.darkTheme', locale),
+        sidebarMenuLabel: websiteMessage('docs.theme.sidebarMenu', locale),
+        returnToTopLabel: websiteMessage('docs.theme.returnTop', locale),
+        langMenuLabel: websiteMessage('docs.theme.languageMenu', locale),
+        skipToContentLabel: websiteMessage('docs.theme.skip', locale),
+        outline: { label: websiteMessage('docs.theme.outline', locale) },
+        lastUpdated: { text: websiteMessage('docs.theme.lastUpdated', locale) },
+        docFooter: {
+            prev: websiteMessage('docs.theme.previous', locale),
+            next: websiteMessage('docs.theme.next', locale),
+        },
+    };
+}
+
+function searchTranslations(locale: WebsiteLocaleId) {
+    return {
+        button: {
+            buttonText: websiteMessage('docs.search.open', locale),
+            buttonAriaLabel: websiteMessage('docs.search.openLabel', locale),
+        },
+        modal: {
+            displayDetails: websiteMessage('docs.search.displayDetails', locale),
+            resetButtonTitle: websiteMessage('docs.search.reset', locale),
+            backButtonTitle: websiteMessage('docs.search.back', locale),
+            noResultsText: websiteMessage('docs.search.noResults', locale),
+            footer: {
+                selectText: websiteMessage('docs.search.select', locale),
+                navigateText: websiteMessage('docs.search.navigate', locale),
+                closeText: websiteMessage('docs.search.close', locale),
+            },
+        },
+    };
+}
+
+function socialMetadataHead(
+    locale: WebsiteLocaleId,
+    canonicalPageUrl: string,
+    title: string,
+    description: string,
+): HeadConfig[] {
+    return [
+        ['link', { rel: 'canonical', href: canonicalPageUrl }],
+        ['meta', { property: 'og:url', content: canonicalPageUrl }],
+        ['meta', { property: 'og:locale', content: locale === 'ja' ? 'ja_JP' : 'en_US' }],
+        ['meta', { property: 'og:title', content: title }],
+        ['meta', { property: 'og:description', content: description }],
+        ['meta', { property: 'og:image:alt', content: websiteMessage('docs.site.imageAlt', locale) }],
+        ['meta', { name: 'twitter:title', content: title }],
+        ['meta', { name: 'twitter:description', content: description }],
+        ['meta', { name: 'twitter:image:alt', content: websiteMessage('docs.site.imageAlt', locale) }],
+    ];
+}
+
+function openGraphLocaleAlternateHead(
+    definition: WebsiteRouteDefinition | undefined,
+    locale: WebsiteLocaleId,
+): HeadConfig[] {
+    if (locale === 'ja') return [['meta', { property: 'og:locale:alternate', content: 'en_US' }]];
+    if (definition && websiteRoutePublication(definition, 'ja')) {
+        return [['meta', { property: 'og:locale:alternate', content: 'ja_JP' }]];
+    }
+    return [];
+}
+
+function routeAlternateHead(
+    definition: WebsiteRouteDefinition | undefined,
+    relativePath: string,
+): HeadConfig[] {
+    if (!definition) return [];
+    const sourceAlternates: HeadConfig[] = [
+        ['link', { rel: 'alternate', hreflang: 'en', href: canonicalUrl(relativePath, 'en') }],
+        ['link', { rel: 'alternate', hreflang: 'x-default', href: canonicalUrl(relativePath, 'en') }],
+    ];
+    if (!websiteRoutePublication(definition, 'ja')) return sourceAlternates;
+    return [
+        ...sourceAlternates,
+        ['link', { rel: 'alternate', hreflang: 'ja', href: canonicalUrl(relativePath, 'ja') }],
+    ];
+}
+
+function legacyRedirectHead(relativePath: string, redirect: string | undefined): HeadConfig[] {
+    if (!redirect) return [];
+    const hashRedirects = legacyDocsHashRedirects(relativePath);
+    return [
+        ['meta', { 'http-equiv': 'refresh', content: `0; url=${redirect}` }],
+        ['script', {}, `(() => { const fallback = ${JSON.stringify(redirect)}; const byHash = ${JSON.stringify(hashRedirects)}; const target = byHash[location.hash] || fallback; location.replace(target); })();`],
+    ];
+}
 
 export default defineConfig({
     title: 'よむ',
     description: siteDescription,
     base,
+    locales: {
+        root: {
+            label: 'English',
+            link: '/',
+            lang: 'en',
+            dir: websiteLocale('en')?.direction ?? 'ltr',
+            title: 'よむ',
+            description: websiteMessage('docs.site.description', 'en'),
+            themeConfig: docsThemeConfig('en'),
+        },
+        ja: {
+            label: '日本語',
+            link: '/ja/',
+            lang: 'ja',
+            dir: websiteLocale('ja')?.direction ?? 'ltr',
+            title: 'よむ',
+            description: websiteMessage('docs.site.description', 'ja'),
+            themeConfig: docsThemeConfig('ja'),
+        },
+    },
     // Internal engineering notes: kept in the repo, never routed as pages. See
     // config/docs/published-pages.ts for why each pattern is here.
     srcExclude: internalDocsExcludeGlobs,
     cleanUrls: true,
     lastUpdated: true,
+    markdown: {
+        config: installReviewedDocsMarkdownLocales,
+    },
     sitemap: {
         hostname: siteUrl,
         // Second gate behind srcExclude. scripts/submit-indexnow.mjs pushes
@@ -351,41 +518,41 @@ export default defineConfig({
         ['script', {}, hostedInstallRouteSnippet()],
         ['meta', { property: 'og:type', content: 'website' }],
         ['meta', { property: 'og:site_name', content: 'よむ' }],
-        ['meta', { property: 'og:locale', content: 'en_US' }],
         ['meta', { property: 'og:image', content: socialImage }],
         ['meta', { property: 'og:image:secure_url', content: socialImage }],
         ['meta', { property: 'og:image:type', content: 'image/png' }],
         ['meta', { property: 'og:image:width', content: '1200' }],
         ['meta', { property: 'og:image:height', content: '630' }],
-        ['meta', { property: 'og:image:alt', content: 'よむ app icon and Japanese reader preview card' }],
         ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
         ['meta', { name: 'twitter:image', content: socialImage }],
-        ['meta', { name: 'twitter:image:alt', content: 'よむ app icon and Japanese reader preview card' }],
         ...siteVerificationHead,
     ],
+    transformPageData(pageData) {
+        const definition = websiteRouteForSource(pageData.relativePath);
+        if (!definition) return;
+        const locale = websiteLocaleForRelativePath(pageData.relativePath);
+        const publication = websiteRoutePublication(definition, locale);
+        if (!publication) throw new Error(`Unreviewed ${locale} route reached VitePress: ${pageData.relativePath}`);
+        pageData.title = publication.title;
+        pageData.description = publication.description;
+        pageData.frontmatter.title = publication.title;
+        pageData.frontmatter.description = publication.description;
+    },
     transformHead({ pageData }) {
-        const pageUrl = canonicalUrl(pageData.relativePath);
-        const ogTitle = ogTitleFor(pageData);
-        const ogDescription = ogDescriptionFor(pageData);
-        const legacyRedirect = legacyDocsRedirect(pageData.relativePath);
+        const locale = websiteLocaleForRelativePath(pageData.relativePath);
+        const definition = websiteRouteForSource(pageData.relativePath);
+        const pageUrl = canonicalUrl(pageData.relativePath, locale);
+        const ogTitle = ogTitleFor(pageData, locale);
+        const ogDescription = ogDescriptionFor(pageData, locale);
+        const legacyRedirect = locale === 'en' ? legacyDocsRedirect(pageData.relativePath) : undefined;
         const canonicalPageUrl = legacyRedirect ? new URL(legacyRedirect, siteUrl).href : pageUrl;
-        const head: HeadConfig[] = [
-            ['link', { rel: 'canonical', href: canonicalPageUrl }],
-            ['meta', { property: 'og:url', content: canonicalPageUrl }],
-            ['meta', { property: 'og:title', content: ogTitle }],
-            ['meta', { property: 'og:description', content: ogDescription }],
-            ['meta', { name: 'twitter:title', content: ogTitle }],
-            ['meta', { name: 'twitter:description', content: ogDescription }],
+        return [
+            ...socialMetadataHead(locale, canonicalPageUrl, ogTitle, ogDescription),
+            ...openGraphLocaleAlternateHead(definition, locale),
+            ...routeAlternateHead(definition, pageData.relativePath),
+            ...legacyRedirectHead(pageData.relativePath, legacyRedirect),
+            ...jsonLdFor(pageData, canonicalPageUrl, locale),
         ];
-        if (legacyRedirect) {
-            const hashRedirects = legacyDocsHashRedirects(pageData.relativePath);
-            head.push(
-                ['meta', { 'http-equiv': 'refresh', content: `0; url=${legacyRedirect}` }],
-                ['script', {}, `(() => { const fallback = ${JSON.stringify(legacyRedirect)}; const byHash = ${JSON.stringify(hashRedirects)}; const target = byHash[location.hash] || fallback; location.replace(target); })();`],
-            );
-        }
-        head.push(...jsonLdFor(pageData, canonicalPageUrl));
-        return head;
     },
     transformHtml(code, id) {
         // VitePress emits `rel="preload stylesheet"` for its main CSS chunks.
@@ -407,27 +574,5 @@ export default defineConfig({
         // silently re-enabling recognition.
         return styled;
     },
-    themeConfig: {
-        logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },
-        siteTitle: 'yomu',
-        nav: siteNav,
-        sidebar: siteSidebar,
-        search: {
-            provider: 'local',
-        },
-        // Ko-fi, Patreon and Stripe used to sit here as three separate marks,
-        // one of them a payment processor's logo, each labelled "Donate to Yomu
-        // with <processor>". That named the plumbing instead of the choice and
-        // asked a learner to decide between icons they cannot tell apart. All
-        // three now live on /membership, reached from one nav entry, so this row
-        // is only the two places you can actually talk to the project.
-        socialLinks: [
-            { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
-            { icon: 'discord', link: 'https://discord.gg/jD6NPURewD' },
-        ],
-        footer: {
-            message: 'Free and open source. Install as a userscript, or as a Chrome or Firefox extension.',
-            copyright: 'Released under the MIT license.',
-        },
-    },
+    themeConfig: docsThemeConfig('en'),
 });

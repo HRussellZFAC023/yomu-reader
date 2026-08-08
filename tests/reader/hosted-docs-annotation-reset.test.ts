@@ -16,53 +16,38 @@ function readProjectFile(file: string): string {
 // layout-inert settings save (the runtime persists its full settings object
 // e.g. when the demo video's subtitle module saves state; stripping ruby on
 // each save collapsed page height and yanked the scroll position on iOS
-// Safari). Teardown is allowed only for an actual interface-language change
-// or a change to a defined set of annotation-affecting settings.
+// Safari). Website locale is route-owned, so teardown is allowed only for a
+// change to the defined set of annotation-affecting reader settings.
 describe('hosted docs annotation reset gating', () => {
     const theme = readProjectFile('docs/.vitepress/theme/index.ts');
 
-    it('compares the settings-event language against the last APPLIED language, not effective state', () => {
-        // The runtime mirrors new settings to storage BEFORE dispatching the
-        // change event, so "effective before the event" already reads the new
-        // language; the comparison must use the language localization last
-        // applied to the document.
-        expect(theme).toContain('let hostedAppliedDocsLanguage: InterfaceLanguage | undefined;');
-        expect(theme).toContain('hostedAppliedDocsLanguage = language;');
-        expect(theme).toMatch(/languageChanged = language !== undefined && effectiveInterfaceLanguage\(\) !== hostedAppliedDocsLanguage/);
+    it('keeps website locale independent from reader interface-language saves', () => {
+        expect(theme).toContain('function activeWebsiteLocale()');
+        expect(theme).toContain('websiteLocaleForPathname(window.location.pathname)');
+        expect(theme).not.toContain('localizeHostedDocsCopy');
+        expect(theme).not.toContain('hostedAppliedDocsLanguage');
+        expect(theme).not.toContain('yomu-interface-language-change');
     });
 
-    it('tears down annotations only when language or an annotation-affecting setting changed', () => {
-        expect(theme).toContain('if (!languageChanged && !annotationSettingsChanged) return;');
-        // The reset call in the settings-event handler must be behind that gate.
-        const handler = theme.slice(theme.indexOf('function syncHostedLanguageFromSettingsEvent'));
+    it('tears down annotations only when annotation-affecting settings changed', () => {
+        const handler = theme.slice(theme.indexOf('function syncHostedAnnotationSettingsFromEvent'));
         const handlerBody = handler.slice(0, handler.indexOf('\n}'));
-        expect(handlerBody).toContain('if (!languageChanged && !annotationSettingsChanged) return;');
-        expect(handlerBody.indexOf('if (!languageChanged && !annotationSettingsChanged) return;'))
-            .toBeLessThan(handlerBody.indexOf('scheduleHostedDocsLocalization({ resetReaderWords: true })'));
+        expect(handlerBody).toContain('if (!changed) return;');
+        expect(handlerBody.indexOf('if (!changed) return;'))
+            .toBeLessThan(handlerBody.indexOf('cleanupHostedDocsAnnotations(document.body);'));
     });
 
-    it('fingerprints the annotation-affecting settings that are baked into reader-word DOM', () => {
+    it('fingerprints settings whose values are baked into reader-word DOM', () => {
         for (const key of ['furiganaMode', 'showFurigana', 'hideKnownFurigana', 'showPitchAccent', 'parserProvider', 'dictionaryPreferences']) {
             expect(theme).toContain(`'${key}',`);
         }
-        // Baseline must be seeded from storage before the first change event
-        // (whose payload already carries the new values).
         expect(theme).toContain('hostedAppliedAnnotationSettings ??= hostedAnnotationSettingsFingerprint(readStoredSettings());');
     });
 
-    it('keeps explicit language toggles on the reset path', () => {
-        expect(theme).toContain("window.addEventListener(LANGUAGE_EVENT, () => {");
-        expect(theme).toContain('scheduleHostedDocsLocalization({ resetReaderWords: true });');
-    });
-
-    it('re-canonicalizes reconstructed reader text before trusting its cached fragment', () => {
-        // normalize() may merge all unwrapped Japanese word surfaces into the
-        // original leading text node. Its cached value can still be only the
-        // pre-annotation fragment (for example "Web"), which caused the rest
-        // of the translated homepage paragraph to disappear.
-        expect(theme).toContain('const current = node.nodeValue ?? \'\';');
-        expect(theme).toContain('canonicalHostedDocsSourceString(current, textNodeOriginals.get(node))');
-        expect(theme).not.toContain('const original = textNodeOriginals.get(node) ?? node.nodeValue ?? \'\';');
+    it('re-applies annotation scope after VitePress SPA route changes', () => {
+        expect(theme).toContain('ctx.router.onAfterRouteChange = async to => {');
+        expect(theme).toContain('window.requestAnimationFrame(syncHostedRouteEnhancements);');
+        expect(theme).toContain("const japanese = activeWebsiteLocale() === 'ja';");
     });
 });
 

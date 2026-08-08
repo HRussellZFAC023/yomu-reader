@@ -32,17 +32,16 @@
  * stamp it as `data-nav-ja`, then their `applyInterfaceLanguage` loops update
  * `[data-site-nav-item]`. Study renders `link.ja` directly in
  * `renderSiteNavLink`; its anchors use `data-newtab-action="site-nav"` and do
- * not run through either static-shell loop. docs/.vitepress/theme/index.ts
- * keeps its own flat copy map (its i18n guards parse that object literal line
- * by line, so it cannot take a spread); a test in
- * tests/reader/docs-published-pages.test.ts asserts the two agree, so a
- * relabelled entry cannot land in one and not the other.
+ * not run through either static-shell loop. VitePress resolves these labels
+ * through the semantic website catalogue and only rewrites a destination when
+ * that route has reviewed Japanese body copy. The published-page test asserts
+ * the shared labels and route ledger agree.
  */
 
 export interface NavRoute {
     /** English label. Every label needs a ja entry in the theme's copy map. */
     text: string;
-    /** Japanese label, shown by every surface that has a language toggle. */
+    /** Japanese label, shown by hosted app interface toggles and Japanese docs routes. */
     ja: string;
     /** VitePress-style route, used by the docs nav. */
     link: string;

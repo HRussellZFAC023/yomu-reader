@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nextExplicitUiLanguage, resolveUiLanguage } from '../../src/reader/app/i18n';
+import { publishedWebsiteRouteDefinitions } from '../../docs/.vitepress/locales/route-catalog';
 
 describe('interface language resolution', () => {
     afterEach(() => {
@@ -56,7 +57,7 @@ describe('interface language resolution', () => {
     // check below still walks the whole homepage.
 
     it('keeps hosted homepage hero and media chrome covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const homeSource = readFileSync('docs/index.md', 'utf8');
         const homepageCopy = uniqueEnglishCopy([
             ...frontmatterTextCopy(homeSource),
@@ -68,7 +69,7 @@ describe('interface language resolution', () => {
     });
 
     it('keeps hosted support actions covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const supportSource = readFileSync('docs/support.md', 'utf8');
         const supportCopy = uniqueEnglishCopy([
             ...frontmatterTextCopy(supportSource),
@@ -81,14 +82,14 @@ describe('interface language resolution', () => {
     });
 
     it('keeps Study source guidance covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const calloutCopy = ['Study reviews Anki when it is reachable, connected Japanese services when selected, and local dictionary words without an account. Library searches the words. Stats shows the work over time.'];
 
         expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
     it('keeps Study setup and offline guidance covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const studySource = readFileSync('docs/learn/keeping-words.md', 'utf8');
         const studySection = between(studySource, '## Open Study', '## Review by doing');
         const studyCopy = [
@@ -101,7 +102,7 @@ describe('interface language resolution', () => {
     });
 
     it('keeps the hosted apps overview covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const referenceSource = readFileSync('docs/learn/reference.md', 'utf8');
         const appsSection = between(referenceSource, '## Apps', '## Feature map');
         const appsCopy = [
@@ -113,19 +114,19 @@ describe('interface language resolution', () => {
         expect(appsCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
-    it('keeps dynamic hosted docs attributes covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
-        const dynamicCopy = [
-            'Switch to dark theme',
-            'Switch to light theme',
-        ];
+    it('keeps dynamic hosted docs attributes in the build-time locale pipeline', () => {
+        const catalogue = readFileSync('docs/.vitepress/locales/site-locales.ts', 'utf8');
+        const markdown = readFileSync('docs/.vitepress/locales/markdown-localization.ts', 'utf8');
+        const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
 
-        expect(dynamicCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
-        expect(themeSource).toContain('attributeFilter: [...HOSTED_DOCS_TRANSLATED_ATTRIBUTES]');
-        expect(themeSource).toContain('canonicalHostedDocsSourceString(value, originals.get(attribute))');
-        expect(themeSource).not.toContain('未翻訳');
-        expect(themeSource).not.toContain('母国語의');
-        expect(themeSource).not.toContain("Wait, let's fix");
+        expect(catalogue).toContain("'docs.theme.darkTheme': { en: 'Switch to dark theme'");
+        expect(catalogue).toContain("'docs.theme.lightMode': { en: 'Switch to light theme'");
+        expect(markdown).toContain("const TRANSLATED_ATTRIBUTES = new Set(['aria-label', 'title', 'alt', 'placeholder'])");
+        expect(markdown).toContain("md.core.ruler.after('inline', 'yomu-reviewed-docs-locales'");
+        expect(theme).not.toContain('MutationObserver(mutations =>');
+        expect(theme).not.toContain('localizeHostedDocsCopy');
+        expect([catalogue, markdown].join('\n')).not.toContain('未翻訳');
+        expect([catalogue, markdown].join('\n')).not.toContain('母国語의');
     });
 
     it('keeps localized copy free of foreign-script anomalies', () => {
@@ -136,6 +137,8 @@ describe('interface language resolution', () => {
         const sources = [
             'src/reader/app/i18n.ts',
             'src/reader/newtab/i18n.ts',
+            'docs/.vitepress/locales/docs-prose-catalog.ts',
+            'docs/.vitepress/locales/site-locales.ts',
         ];
         for (const path of sources) {
             const offending = readFileSync(path, 'utf8')
@@ -145,18 +148,6 @@ describe('interface language resolution', () => {
 
             expect(offending).toEqual([]);
         }
-        // Hosted-docs keys are English source copy and may deliberately quote
-        // a target-language construction. Inspect only the Japanese values;
-        // scanning the whole source line mistakes a Korean term in the key for
-        // a Japanese-translation defect.
-        const { entries, unparsed } = hostedDocsJaCopyEntries(
-            readFileSync('docs/.vitepress/theme/index.ts', 'utf8'),
-        );
-        expect(unparsed).toEqual([]);
-        expect(entries
-            .filter(([, japanese]) => anomaly.test(japanese))
-            .map(([english, japanese]) => `${english}: ${japanese}`))
-            .toEqual([]);
     });
 
     // Split every line into the text-node segments the theme's
@@ -169,27 +160,12 @@ describe('interface language resolution', () => {
     // false for an absent key and leaves the English text node in place, so an
     // uncovered segment is a visible English hole on the ja site. Every page
     // rendered in Japanese belongs in this list.
-    const JAPANESE_DOCS_PAGES = [
-        'docs/index.md',
-        'docs/learn/index.md',
-        'docs/learn/approach.md',
-        'docs/learn/week-one.md',
-        'docs/learn/building-a-core.md',
-        'docs/learn/reading.md',
-        'docs/learn/watching.md',
-        'docs/learn/manga-and-games.md',
-        'docs/learn/keeping-words.md',
-        'docs/learn/staying-with-it.md',
-        'docs/learn/your-own-setup.md',
-        'docs/learn/reference.md',
-        'docs/support.md',
-        'docs/faq.md',
-        'docs/membership.md',
-        'docs/reference/grammar.md',
-    ];
+    const JAPANESE_DOCS_PAGES = publishedWebsiteRouteDefinitions('ja')
+        .filter(definition => definition.source !== 'changelog.md')
+        .map(definition => `docs/${definition.source}`);
 
     it.each(JAPANESE_DOCS_PAGES)('keeps %s covered by Japanese docs copy', page => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const copy = markdownPageTextCopy(readFileSync(page, 'utf8'));
 
         expect(copy.length).toBeGreaterThan(20);
@@ -213,7 +189,7 @@ describe('interface language resolution', () => {
     });
 
     it('keeps hosted docs Japanese copy keys unique', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);
 
         expect(unparsed).toEqual([]);
@@ -247,7 +223,7 @@ describe('interface language resolution', () => {
         // to carry kana or kanji unless the key is a proper noun, a URL, a
         // verbatim UI label, or an English function word the Japanese sentence
         // folds into a neighbouring segment.
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const { entries, unparsed } = hostedDocsJaCopyEntries(themeSource);
 
         expect(unparsed).toEqual([]);
@@ -267,7 +243,7 @@ describe('interface language resolution', () => {
     });
 
     it('keeps latest changelog entries covered by Japanese docs copy', () => {
-        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const themeSource = readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8');
         const changelogSource = readFileSync('CHANGELOG.md', 'utf8');
         const latestRelease = latestChangelogRelease(changelogSource);
         const latestCopy = [

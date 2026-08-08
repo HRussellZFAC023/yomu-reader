@@ -41,7 +41,7 @@ const NOT_DESCRIBED = 'Not yet described';
 const NO_DESCRIPTION = '—';
 // The page's own words, in one place. Each of these, plus the four column labels
 // and the marker above, has a Japanese entry keyed by the exact English string in
-// docs/.vitepress/theme/index.ts. Change one and add the matching entry.
+// docs/.vitepress/locales/docs-prose-catalog.ts. Change one and add the matching entry.
 const PAGE_COPY = Object.freeze({
     description: 'Every Yomu setting, its default, and the part of the settings dialog that holds it.',
     intro: 'Every setting Yomu stores is listed here, in the order the settings dialog presents them.',

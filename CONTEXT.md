@@ -12,6 +12,7 @@ Interfaces, tests, and docs.
 ## Core Terms
 
 - Reader Surface: Any page area Yomu can scan, annotate, or use as lookup context.
+- Website Locale: One human-reviewed public-site route tree with its own prose, navigation, metadata, links, `lang`, and `dir`. It is independent of Learning Target, Definition Language, and Reader Interface Language; a machine draft is not a publishable Website Locale.
 - Managed State Epoch: The durable reset generation captured once by a JavaScript realm and shared by every Yomu bundle in that realm. Managed values, database markers, and page-cache certificates from another generation are unreadable; an old realm must reload rather than advance its capture.
 - Annotation Scope: A page-owned boundary that restricts Yomu's generic scan to explicitly declared Reader Surfaces; pages that do not declare one retain whole-document scanning.
 - Annotation Pass: One lossless, coalescing scan of a Reader Surface. Ordinary page mutations and lookups may queue another pass but never discard the active pass; only an explicit reader shutdown or annotations-off transition cancels it. Each parse batch preserves one result per input and isolates fallback from later batches.
