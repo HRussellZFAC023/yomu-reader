@@ -19,6 +19,17 @@ export function mergeScenarioFunctionProfiles(metricsReplay, cpuReplay, coverage
     };
 }
 
+/**
+ * Legacy timing diagnostics are intentionally uninstrumented. Run them only
+ * in the metrics replay: a CDP session configured for CPU sampling or precise
+ * coverage cannot be switched back to the uninstrumented mode, and repeating
+ * these non-comparable steps would not contribute evidence to the merged
+ * report anyway.
+ */
+export function shouldRunUninstrumentedDiagnostics(profileMode, smokePreset) {
+    return !smokePreset && profileMode === 'metrics';
+}
+
 function replayDescriptor(replay, instrumentation) {
     return {
         freshContext: true,

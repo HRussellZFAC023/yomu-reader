@@ -10,3 +10,8 @@ export function mergeScenarioFunctionProfiles(
     cpuReplay: ProfileReplay,
     coverageReplay: ProfileReplay,
 ): ProfileReplay;
+
+export function shouldRunUninstrumentedDiagnostics(
+    profileMode: string,
+    smokePreset: boolean,
+): boolean;

@@ -26,7 +26,10 @@ import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from '../lib/
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { profileDriverProvenance } from '../lib/youtube-performance-provenance.mjs';
 import { capturePerformancePageFailure, createPerformanceEvidenceJournal, serializeError } from '../lib/youtube-performance-report.mjs';
-import { mergeScenarioFunctionProfiles } from '../lib/youtube-performance-replays.mjs';
+import {
+    mergeScenarioFunctionProfiles,
+    shouldRunUninstrumentedDiagnostics,
+} from '../lib/youtube-performance-replays.mjs';
 import { exerciseYoutubeAmbientSoak, exerciseYoutubeFixedChurn } from '../lib/youtube-performance-workload.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
@@ -548,7 +551,7 @@ async function runScenarioReplay(browser, scenario, profileMode) {
         await installRoutes(page, scenario);
         const profile = scenarioProfile(scenario);
         await prepareDesktopReplay(page, client, scenario, profileMode, profile);
-        await runLegacyDiagnosticsWhenRequested(page, client, profile);
+        await runLegacyDiagnosticsWhenRequested(page, client, profileMode, profile);
         await runDesktopComparableWorkloads(page, client, scenario, profileMode, profile);
         await runDesktopSoakWhenRequested(page, client, profileMode, profile);
         const mobile = await runMobileProfilesWhenRequested(context, scenario, scenarioArtifactsDir, profileMode);
@@ -603,8 +606,8 @@ function initialProfileSettleMs() {
     return 3200;
 }
 
-async function runLegacyDiagnosticsWhenRequested(page, client, profile) {
-    if (SMOKE_PRESET) return;
+async function runLegacyDiagnosticsWhenRequested(page, client, profileMode, profile) {
+    if (!shouldRunUninstrumentedDiagnostics(profileMode, SMOKE_PRESET)) return;
     await runLegacyDiagnostics(page, client, profile);
 }
 

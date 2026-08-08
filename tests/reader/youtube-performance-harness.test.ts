@@ -6,7 +6,10 @@ import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { addUserscriptGraphInitScripts } from '../../scripts/lib/smoke-test-helpers.mjs';
 import { profileDriverProvenance, transitiveLocalImportFiles } from '../../scripts/lib/youtube-performance-provenance.mjs';
-import { mergeScenarioFunctionProfiles } from '../../scripts/lib/youtube-performance-replays.mjs';
+import {
+    mergeScenarioFunctionProfiles,
+    shouldRunUninstrumentedDiagnostics,
+} from '../../scripts/lib/youtube-performance-replays.mjs';
 import { createPerformanceEvidenceJournal } from '../../scripts/lib/youtube-performance-report.mjs';
 import { fixedAmbientOperationPlan } from '../../scripts/lib/youtube-performance-workload.mjs';
 
@@ -17,6 +20,13 @@ afterEach(() => {
 });
 
 describe('YouTube performance harness', () => {
+    it('runs uninstrumented legacy diagnostics only in the full metrics replay', () => {
+        expect(shouldRunUninstrumentedDiagnostics('metrics', false)).toBe(true);
+        expect(shouldRunUninstrumentedDiagnostics('cpu', false)).toBe(false);
+        expect(shouldRunUninstrumentedDiagnostics('coverage', false)).toBe(false);
+        expect(shouldRunUninstrumentedDiagnostics('metrics', true)).toBe(false);
+    });
+
     it('injects the declared companion graph and core as one ordered init script', async () => {
         const root = temporaryDirectory();
         const dist = join(root, 'dist');
