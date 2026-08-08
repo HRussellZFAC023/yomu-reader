@@ -121,6 +121,7 @@
     "manual:settings-persistence": "node scripts/manual/settings-persistence-smoke.mjs",
     "manual:multilingual-lookup-coverage": "vite-node scripts/manual/multilingual-lookup-coverage.ts",
     "manual:multilingual-parity": "vite-node --mode production scripts/manual/multilingual-parity.ts",
+    "quality:multilingual-capabilities": "vite-node scripts/manual/multilingual-capability-audit.ts",
     "quality:multilingual-parity": "vite-node --mode production scripts/multilingual-parity-ratchet.ts",
     "manual:subtitles-e2e": "node scripts/manual/subtitle-player-e2e.mjs",
     "favicons:generate": "node scripts/generate-favicons.mjs",

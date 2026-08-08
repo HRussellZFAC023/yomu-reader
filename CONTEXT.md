@@ -1,8 +1,11 @@
 # Yomu Domain Context
 
-Yomu is a self-contained reading userscript. Japanese is the full study target;
-the multilingual roster also exposes targets whose current promise is reading
-and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
+Yomu is a self-contained reading userscript. All 33 learning targets own the
+complete read, look up, annotate, listen, mine, review, type, write, OCR,
+subtitle, and grammar loop. Japanese remains the deepest target through its
+mature deinflection, pitch accent, recorded audio, stroke feedback, and larger
+grammar inventory; depth is not feature availability. Use these terms when
+naming Modules, Interfaces, tests, and docs.
 
 ## Core Terms
 
@@ -20,6 +23,7 @@ and lookup. Use these terms when naming Modules, Interfaces, tests, and docs.
 - Dictionary Store Protocol: The versioned extension message contract that capability-probes the Shared Dictionary Host with one short message, then keeps every store call alive and ordered over a chunked runtime Port. Its client is a Proxy over the derived public store facade, never a second method inventory, so future methods inherit the durable path automatically.
 - Dictionary Preference: User ordering, aliases, and enablement for local dictionaries.
 - Study Target Readiness: The explicit product promise attached to every target in the hand-maintained language roster: `full`, `reading-only`, or `planned`. Pickers and claims consume that one value; a planned target is named, disabled, and accompanied by its reason.
+- Capability Behavior Audit: The fail-closed 33-target by 18-capability executable contract. Every row calls the production Adapter or target-aware shared path and records evidence; a capability boolean or product claim alone never passes the gate.
 - Target Grammar: The active learning target's level scale, checked rule inventory, detector, and optional external reference. Grammar capability means the inventory contains rules; a reference-only target remains explicitly reference-only.
 - Learner-Target Dictionary Pair: The recommendation contract keyed by both the learner's definition language and the selected headword language. A released pair provides target-headword terms and, when present, target-headword IPA instead of inheriting Japanese defaults.
 - Pronunciation Row: The target-aware popup surface for pronunciation evidence. Japanese selects the pitch-accent variant; IPA targets select imported Yomitan `ipa` metadata. A target with no exact evidence renders no foreign-language fallback status.

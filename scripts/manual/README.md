@@ -1,11 +1,13 @@
 # Manual / live smoke harnesses
 
-These scripts are **not** run by any automated gate (ci.yml / check / smoke:release /
-smoke:p0 / smoke:layout-regressions / smoke:nightly). They were moved out of the `smoke:`
-namespace by NB-50 because they cannot run as hermetic headless CI guards: they need a
-signed-in or live external site, a real browser profile / Firefox / display, a local dev
-server, machine-dependent performance thresholds, or live enrichment. Run each by hand
-with `npm run <name>` when investigating the area it covers.
+Most scripts in this folder are **not** run end-to-end by an automated gate
+(ci.yml / check / smoke:release / smoke:p0 / smoke:layout-regressions /
+smoke:nightly). They were moved out of the `smoke:` namespace by NB-50 because
+they need a signed-in or live external site, a real browser profile / Firefox /
+display, a local dev server, machine-dependent performance thresholds, or live
+enrichment. Deterministic audit entry points are the exception: their reusable
+engines may also run under Vitest. Run each command by hand when investigating
+the area it covers.
 
 | npm script                              | verifies / prerequisites                                                                                                                                                                                                               |
 | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -33,6 +35,7 @@ with `npm run <name>` when investigating the area it covers.
 | `manual:lookup-popover-strip`           | Popover action-strip guard, currently red; needs live enrichment/triage.                                                                                                                                                               |
 | `manual:overlay-scroll-lock`            | Overlay scroll-lock guard, currently red on both engines; kept for manual triage.                                                                                                                                                      |
 | `manual:popover-actions`                | Depends on live enrichment to render the action pills.                                                                                                                                                                                 |
+| `quality:multilingual-capabilities`     | Offline, fail-closed 33-target × 18-capability behavior audit. Prints per-target evidence as JSON; the same engine runs in the normal Vitest gate.                                                                                     |
 | `manual:reader-sites`                   | Injects into real Ttsu/Yatsu/YouTube pages.                                                                                                                                                                                            |
 | `manual:screenshots-real`               | Captures real manga/reader pages in a persistent signed-in Chrome profile.                                                                                                                                                             |
 | `manual:screenshots-settings`           | Recaptures the docs settings shots from the built userscript on a loopback server; needs no operator.                                                                                                                                  |
@@ -41,12 +44,12 @@ with `npm run <name>` when investigating the area it covers.
 | `manual:subtitle-live-sites`            | Live subtitle/player discovery across real video sites.                                                                                                                                                                                |
 | `manual:subtitles`                      | Needs local video-player server on :5173 and mp4 server on :8766.                                                                                                                                                                      |
 | `manual:subtitles-e2e`                  | Drives real youtube.com watch pages end-to-end.                                                                                                                                                                                        |
-| `manual:youtube`                        | Deterministic YouTube feature harness covering desktop/mobile/Shorts filtering, source-preserving annotation portals, subtitle pause/resume, native controls, and iPad layout.                                                                                                                        |
+| `manual:youtube`                        | Deterministic YouTube feature harness covering desktop/mobile/Shorts filtering, source-preserving annotation portals, subtitle pause/resume, native controls, and iPad layout.                                                         |
 | `manual:youtube-auto-translation`       | YouTube auto-translation fixture harness, currently red; kept for manual triage.                                                                                                                                                       |
 | `manual:youtube-fullscreen`             | Needs real Chrome + real fullscreen top-layer promotion (persistent profile).                                                                                                                                                          |
 | `manual:youtube-homepage-performance`   | Machine-dependent performance profiler (persistent profile).                                                                                                                                                                           |
 | `manual:youtube-performance`            | Deterministic YouTube profiler with strict lookup evidence. `YOMU_PROFILE_CPU=1` runs fresh metrics, CPU-only, and coverage-only replays; by default it profiles the built split userscript and its exact SRI-checked companion graph. |
-| `manual:youtube-performance-compare`    | Short two-artifact A/B proof using fixed churn and lookup ledgers; set `YOMU_PROFILE_BASELINE_DIR` and `YOMU_PROFILE_CANDIDATE_DIR` to clean split-userscript worktrees.                                                                 |
+| `manual:youtube-performance-compare`    | Short two-artifact A/B proof using fixed churn and lookup ledgers; set `YOMU_PROFILE_BASELINE_DIR` and `YOMU_PROFILE_CANDIDATE_DIR` to clean split-userscript worktrees.                                                               |
 | `manual:youtube-real-dom-instability`   | Persistent-profile harness reproducing real YouTube DOM churn.                                                                                                                                                                         |
 | `manual:youtube-sidebar-layout`         | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage.                                                                                                                                                  |
 | `manual:youtube-sidebar-resize-profile` | Machine-dependent resize performance profiler (persistent profile).                                                                                                                                                                    |
