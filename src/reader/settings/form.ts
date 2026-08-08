@@ -168,7 +168,7 @@ function renderStudyTargetOptions(
     `).join('');
 }
 
-export const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = 'data-interface-locale-blocked';
+const INTERFACE_LOCALE_BLOCKED_ATTRIBUTE = 'data-interface-locale-blocked';
 
 /**
  * D43 — the interface-language picker over the full 33-locale manifest.

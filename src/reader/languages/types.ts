@@ -11,7 +11,7 @@ export const LANGUAGE_PROFILE_SCHEMA_VERSION = 2 as const;
  * defaults, which is how a target, a definition language, and an installed
  * dictionary set all disappear at once.
  */
-export const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2] as const;
+const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2] as const;
 
 export function isSupportedLanguageProfileSchemaVersion(value: unknown): boolean {
     return (SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS as readonly unknown[]).includes(value);
