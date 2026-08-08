@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.9670e000faff.user.js#sha256=lnDgAPr/qZrpjTzxbYUhjiQInBVOeai8i7U+9YGkBC4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.bb44759fc2e9.user.js#sha256=u0R1n8LpX7EotdoT9UP3+RccsnFc7zPLejS3XdIzC3E=
 // @resource yomuCss  https://yomureader.com/yomu.7dae25bff8c9.css#sha256=fa4lv/jJgFdHdmqWphmWJG+coy5FUHf7yUVgl1af1qU=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -8916,6 +8916,37 @@ current = typeof ShadowRoot !== "undefined" && root instanceof ShadowRoot && roo
 }
 return ancestors;
 }
+const DOCUMENT_PORTAL_PROSE_DECORATIONS = new Set(["prose-full", "content-ruby"]);
+const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
+const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
+function sourcePreservingProseNeedsDocumentPortal(host, candidate) {
+return documentPortalProseCandidateIsEligible(host, candidate) && hasDocumentPortalProseAncestor(host);
+}
+function documentPortalProseCandidateIsEligible(host, candidate) {
+return [
+!candidate.insideShadowDOM,
+host.getRootNode() === host.ownerDocument,
+DOCUMENT_PORTAL_PROSE_DECORATIONS.has(candidate.decoration ?? "skip"),
+!candidate.interactivePassive,
+candidate.preservesSource,
+!documentAnnotationPortalHasNonTranslationTransform(host)
+].every(Boolean);
+}
+function hasDocumentPortalProseAncestor(host) {
+for (let current = host, depth = 0; current && depth < 8; current = composedAncestorElement(current), depth += 1) {
+if (isDocumentPortalProseAncestor(current, host)) return true;
+}
+return false;
+}
+function isDocumentPortalProseAncestor(current, host) {
+const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+return [
+isLikelyProseElement(current),
+safeElementMatches$1(current, 'p,article,blockquote,figcaption,[role="article"]'),
+VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
+current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
+].some(Boolean);
+}
 function syncProjectedReadings(owner, projections) {
 yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
 }
@@ -11779,7 +11810,12 @@ if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = "true";
 return mirror;
 }
 function textMirrorMount(host, clipRow, target) {
-if (sourcePreservingProseNeedsDocumentPortal(host, target)) {
+if (sourcePreservingProseNeedsDocumentPortal(host, {
+decoration: target.decoration,
+insideShadowDOM: Boolean(target.insideShadowDOM),
+interactivePassive: Boolean(interactivePassiveControl(host)),
+preservesSource: Boolean(target.nonDestructive || scanHostRequiresSourcePreservingMirror(host))
+})) {
 return {
 configure(mirror) {
 mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
@@ -11805,39 +11841,6 @@ return state;
 append: (mirror) => host.append(mirror),
 projectionRoot: host.getRootNode()
 };
-}
-const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
-const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
-function sourcePreservingProseNeedsDocumentPortal(host, target) {
-if (!sourcePreservingProseCanUseDocumentPortal(host, target)) return false;
-return hasDocumentPortalProseAncestor(host);
-}
-const DOCUMENT_PORTAL_PROSE_DECORATIONS = new Set(["prose-full", "content-ruby"]);
-function sourcePreservingProseCanUseDocumentPortal(host, target) {
-return [
-!target.insideShadowDOM,
-host.getRootNode() === host.ownerDocument,
-DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target.decoration ?? "skip"),
-!interactivePassiveControl(host),
-target.nonDestructive || scanHostRequiresSourcePreservingMirror(host),
-!documentAnnotationPortalHasNonTranslationTransform(host)
-].every(Boolean);
-}
-function hasDocumentPortalProseAncestor(host) {
-let current = host;
-for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
-if (isDocumentPortalProseAncestor(current, host)) return true;
-}
-return false;
-}
-function isDocumentPortalProseAncestor(current, host) {
-const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
-return [
-isLikelyProseElement(current),
-safeElementMatches$1(current, 'p,article,blockquote,figcaption,[role="article"]'),
-VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
-current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
-].some(Boolean);
 }
 function mountNonDestructiveTextMirror(host, target, settings, context) {
 const mirror = createNonDestructiveTextMirror(context);
@@ -37199,6 +37202,294 @@ textLookupCardOptions(context)
 );
 }
 }
+function currentFullscreenElement() {
+const fullscreenDocument = document;
+return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
+}
+const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
+const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2500;
+const VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS = 1500;
+function eventTargetsReaderRoot(event) {
+return Boolean(event.target?.closest?.(READER_ROOT_SELECTOR));
+}
+function reviewShortcutTargetKind(value) {
+if (value === "both" || value === "anki") return value;
+if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "yomu-local") return value;
+return void 0;
+}
+function pointOverReaderRoot(event) {
+const touch = event.changedTouches?.[0] ?? event.touches?.[0];
+const x = touch ? touch.clientX : event.clientX;
+const y = touch ? touch.clientY : event.clientY;
+if (typeof x !== "number" || typeof y !== "number") return false;
+return Boolean(document.elementFromPoint?.(x, y)?.closest?.(READER_ROOT_SELECTOR));
+}
+function readerRootGestureLeaks(event) {
+return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
+}
+const READER_ROOT_SCROLL_BODY_SELECTOR = ".jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding";
+function readerScrollBodyForEvent(event) {
+return event.target?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR) ?? null;
+}
+const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+function eventTargetsInteractiveControl(event) {
+return Boolean(event.target?.closest?.(READER_INTERACTIVE_CONTROL_SELECTOR));
+}
+function knownStateBackfillSurface(word) {
+const surface = (word.dataset.expression || readerWordSurfaceText(word)).trim();
+return surface && isTargetLanguageText(surface) ? surface : "";
+}
+function knownStateBackfillCardForSurface(surface, tokens) {
+const card = (tokens.find((token) => token.card.spelling === surface) ?? tokens.find((token) => token.start === 0) ?? tokens[0])?.card;
+if (!card || card.provisionalState) return null;
+const wordId = card.jitenWordId ?? card.vid;
+return Number.isInteger(wordId) && wordId > 0 ? card : null;
+}
+function manualScrollReaderBody(body, deltaY) {
+const maxTop = body.scrollHeight - body.clientHeight;
+if (maxTop <= 0 || !deltaY) return false;
+body.scrollTop = Math.max(0, Math.min(maxTop, body.scrollTop + deltaY));
+return true;
+}
+const HOST_THEME_ENFORCE_STEPS = 12;
+const HOST_THEME_ENFORCE_STEP_MS = 200;
+const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
+const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1500;
+const KNOWN_STATE_BACKFILL_DELAY_MS = 2e3;
+const KNOWN_STATE_BACKFILL_IDLE_TIMEOUT_MS = 5e3;
+const KNOWN_STATE_BACKFILL_BATCH_LIMIT = 60;
+const KNOWN_STATE_BACKFILL_BACKOFF_MS = 6e4;
+const LINK_PRESS_LOOKUP_MS = 450;
+const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
+const HOVER_POPOVER_RESIZE_STICKY_MS = 4e3;
+const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
+const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
+".textBox",
+".ocr-line",
+".markdown",
+".markdown-body",
+".markdown-content",
+".message",
+".message-body",
+".message-content",
+".messageContent",
+".chat-message",
+".conversation-turn",
+".model-response",
+".model-response-text",
+".response-content",
+".lesson-canvas-clipper",
+"p",
+"li",
+"blockquote",
+"td",
+"th",
+"article",
+"main",
+"[data-jpdb-reader-root]",
+'[role="article"]',
+"[data-message-author-role]",
+"[data-message-id]",
+'[data-testid*="conversation-turn" i]',
+'[data-testid*="chat-message" i]',
+'[data-testid*="message-content" i]',
+'[data-testid*="message-bubble" i]',
+'[data-test-id*="chat-message" i]',
+'[data-test-id*="message-content" i]',
+"a[href]",
+"button",
+"summary",
+'[role="link"]',
+'[role="button"]',
+'[role="tab"]',
+'[role="menuitem"]'
+].join(",");
+const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = "yomu:jpdb-review-examples-visible:v1";
+const REVIEW_PAGE_TARGET_SETTLE_MS = 20;
+const READER_POINTER_SURFACE_SELECTOR = [
+".jpdb-reader-popover",
+".jpdb-reader-settings",
+".jpdb-subtitle-player",
+".jpdb-subtitle-list",
+".jpdb-ocr-layer",
+"[data-jpdb-reader-root]"
+].join(",");
+const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
+".jpdb-reader-popover button[data-token-choice]",
+".jpdb-reader-popover [data-action]",
+".jpdb-reader-popover a.jpdb-reader-pill",
+".jpdb-reader-popover .jpdb-reader-action-pill"
+].join(",");
+const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
+".ytp-caption-segment",
+".caption-window",
+".caption-visual-line",
+".captions-text",
+'[data-purpose="captions-text"]'
+].join(", ");
+const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
+SUBTITLE_SURFACE_SELECTOR,
+NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
+].join(", ");
+const PLAIN_SUBTITLE_HOVER_PAUSE_SELECTOR = [
+".jpdb-subtitle-primary",
+".jpdb-subtitle-secondary",
+".jpdb-subtitle-row-text",
+".jpdb-subtitle-row-secondary",
+".asbplayer-subtitles-container-bottom",
+".jpdb-reader-subtitle-surface",
+NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
+].join(", ");
+function createNoopImageOcrController() {
+const noop2 = () => void 0;
+return {
+init: noop2,
+refresh: noop2,
+destroy: noop2,
+scanVisible: noop2,
+refreshForModeChange: noop2,
+pinLineForElement: noop2,
+unpinLineForElement: noop2,
+retainLineForLookup: () => void 0,
+captureSourceImageForElement: () => void 0,
+reconcileRenderedWordVocabulary: noop2
+};
+}
+function ocrModeToastKey(mode) {
+if (mode === "auto") return "ocrModeAutoToast";
+if (mode === "manual") return "ocrModeManualToast";
+return "ocrModeOffToast";
+}
+function noopKanjiPracticeDoodle() {
+const noop2 = () => void 0;
+return { reassess: noop2, clear: noop2 };
+}
+const READER_SURFACE_INTERACTIVE_SELECTOR = [
+"button",
+"a[href]",
+"input",
+"select",
+"textarea",
+"summary",
+'[role="button"]',
+'[role="checkbox"]',
+'[role="switch"]',
+'[role="tab"]',
+'[role="menuitem"]',
+'[role="slider"]',
+'[contenteditable=""]',
+'[contenteditable="true"]',
+'[contenteditable="plaintext-only"]',
+"[data-action]",
+"[data-immersion-action]",
+"[data-yomu-immersion-action]",
+"[data-uchisen-action]",
+".jpdb-reader-word",
+".jpdb-reader-popover"
+].join(",");
+const CONTENT_OVERLAY_READER_SURFACE_SELECTOR = [
+".jpdb-ocr-layer",
+SUBTITLE_SURFACE_SELECTOR,
+".yomu-jpdb-page-addon",
+".jpdb-reader-toast"
+].join(", ");
+function isPointerOnInertReaderSurface(element) {
+const surface = element?.closest(CONTENT_OVERLAY_READER_SURFACE_SELECTOR);
+if (!surface) return false;
+const control = element?.closest(READER_SURFACE_INTERACTIVE_SELECTOR);
+return !(control && surface.contains(control));
+}
+const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
+"[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)",
+".jpdb-ocr-layer",
+".jpdb-subtitle-player",
+".jpdb-subtitle-list",
+".jpdb-reader-toast"
+].join(",");
+const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
+".review-reveal",
+".answer-box",
+".review-hidden",
+'form[action*="/review"]',
+'button[name="r"]',
+'input[name="r"]'
+].join(",");
+function keepsModalPopoverForOwnedSurface(element) {
+if (isPointerOnInertReaderSurface(element)) return false;
+return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
+}
+function fullscreenPopoverMountParent(anchor) {
+const fullscreenElement = currentFullscreenElement();
+if (!(fullscreenElement instanceof HTMLElement) || fullscreenElement instanceof HTMLVideoElement) return void 0;
+if (anchor && fullscreenElement.contains(anchor)) return fullscreenElement;
+return void 0;
+}
+function isJsdomRuntime() {
+return navigator.userAgent.includes("jsdom");
+}
+function firstLocalPitchPattern(resolution) {
+return resolution.patterns[0] ?? "";
+}
+function japaneseSiteLanguageDisabled(previous, next) {
+return previous.preferJapaneseSiteLanguage && !next.preferJapaneseSiteLanguage;
+}
+function pageAddonKeysMatch(expected, mounted) {
+if (expected === mounted) return true;
+const expectedParts = expected.split(":");
+const mountedParts = mounted.split(":");
+if (expectedParts.length !== mountedParts.length || expectedParts[0] !== mountedParts[0] || expectedParts[1] !== mountedParts[1]) return false;
+if (expectedParts.length < 3) return true;
+const [, spelling, expectedReading] = expectedParts;
+return expectedReading === spelling;
+}
+class HoverWordOwnership {
+constructor(queries) {
+this.queries = queries;
+}
+hostControl(word) {
+return word.closest(HOVER_WORD_HOST_CONTROL_SELECTOR);
+}
+isActive(word, position, options = {}) {
+if (this.hasCssHover(word, options.ignoreCssHover)) return true;
+return this.pointerOwnsWord(word, position, options);
+}
+pointerOwnsWord(word, position, options) {
+if (!position) return false;
+const target = document.elementFromPoint(position.x, position.y);
+const renderedHover = this.renderedHoverAtPointer(
+word,
+target,
+position,
+Boolean(options.ignorePointerPosition)
+);
+if (renderedHover !== void 0) return renderedHover;
+return this.hasLooseContainment(word, target, Boolean(options.ignorePointerPosition));
+}
+hasCssHover(word, ignoreCssHover = false) {
+if (ignoreCssHover) return false;
+return word.matches(":hover") || Boolean(this.hostControl(word)?.matches(":hover"));
+}
+renderedHoverAtPointer(word, target, position, ignorePointerPosition) {
+if (!(target instanceof Element)) return void 0;
+const ocrLineHover = this.ocrLineHoverAtPointer(word, target, position, ignorePointerPosition);
+if (ocrLineHover !== void 0) return ocrLineHover;
+return this.matchesExactWordGeometry(word, target, position) || void 0;
+}
+ocrLineHoverAtPointer(word, target, position, ignorePointerPosition) {
+const line = word.closest(".jpdb-ocr-line");
+if (ignorePointerPosition || !line?.contains(target)) return void 0;
+const pointedWord = this.queries.ocrLineWordForPointer(target, position.x, position.y);
+return pointedWord ? pointedWord === word : true;
+}
+matchesExactWordGeometry(word, target, position) {
+return this.queries.wordFromPointStack(position.x, position.y) === word || this.queries.ocrLineWordForPointer(target, position.x, position.y) === word || this.queries.wordFromRenderedGeometry(target, position.x, position.y) === word;
+}
+hasLooseContainment(word, target, ignorePointerPosition) {
+if (ignorePointerPosition || !target) return false;
+return target === word || word.contains(target);
+}
+}
 const log$1 = Logger.scope("DeferredPublicJitenReadings");
 const FOREGROUND_WAIT_MS = 1200;
 const MAX_ATTEMPTS_PER_ID = 2;
@@ -37692,247 +37983,6 @@ queuedTokens.push(token);
 dependencies.queueSubtitleRefresh(token.sentence);
 }
 }
-function currentFullscreenElement() {
-const fullscreenDocument = document;
-return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
-}
-const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
-const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
-const MIRROR_STALE_SCAN_MIN_INTERVAL_MS = 2500;
-const VISIBLE_AUTO_SCAN_WORK_VERDICT_TTL_MS = 1500;
-function eventTargetsReaderRoot(event) {
-return Boolean(event.target?.closest?.(READER_ROOT_SELECTOR));
-}
-function reviewShortcutTargetKind(value) {
-if (value === "both" || value === "anki") return value;
-if (value === "jpdb" || value === "jiten" || value === "bunpro" || value === "yomu-local") return value;
-return void 0;
-}
-function pointOverReaderRoot(event) {
-const touch = event.changedTouches?.[0] ?? event.touches?.[0];
-const x = touch ? touch.clientX : event.clientX;
-const y = touch ? touch.clientY : event.clientY;
-if (typeof x !== "number" || typeof y !== "number") return false;
-return Boolean(document.elementFromPoint?.(x, y)?.closest?.(READER_ROOT_SELECTOR));
-}
-function readerRootGestureLeaks(event) {
-return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
-}
-const READER_ROOT_SCROLL_BODY_SELECTOR = ".jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding";
-function readerScrollBodyForEvent(event) {
-return event.target?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR) ?? null;
-}
-const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
-function eventTargetsInteractiveControl(event) {
-return Boolean(event.target?.closest?.(READER_INTERACTIVE_CONTROL_SELECTOR));
-}
-function knownStateBackfillSurface(word) {
-const surface = (word.dataset.expression || readerWordSurfaceText(word)).trim();
-return surface && isTargetLanguageText(surface) ? surface : "";
-}
-function knownStateBackfillCardForSurface(surface, tokens) {
-const card = (tokens.find((token) => token.card.spelling === surface) ?? tokens.find((token) => token.start === 0) ?? tokens[0])?.card;
-if (!card || card.provisionalState) return null;
-const wordId = card.jitenWordId ?? card.vid;
-return Number.isInteger(wordId) && wordId > 0 ? card : null;
-}
-function manualScrollReaderBody(body, deltaY) {
-const maxTop = body.scrollHeight - body.clientHeight;
-if (maxTop <= 0 || !deltaY) return false;
-body.scrollTop = Math.max(0, Math.min(maxTop, body.scrollTop + deltaY));
-return true;
-}
-const HOST_THEME_ENFORCE_STEPS = 12;
-const HOST_THEME_ENFORCE_STEP_MS = 200;
-const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
-const BUNPRO_WORD_STATE_WARMUP_DELAY_MS = 1500;
-const KNOWN_STATE_BACKFILL_DELAY_MS = 2e3;
-const KNOWN_STATE_BACKFILL_IDLE_TIMEOUT_MS = 5e3;
-const KNOWN_STATE_BACKFILL_BATCH_LIMIT = 60;
-const KNOWN_STATE_BACKFILL_BACKOFF_MS = 6e4;
-const LINK_PRESS_LOOKUP_MS = 450;
-const SUBTITLE_HOVER_MINING_RESUME_GRACE_MS = 520;
-const HOVER_POPOVER_RESIZE_STICKY_MS = 4e3;
-const HOVER_WORD_HOST_CONTROL_SELECTOR = 'button,[role="button"],a[href],[aria-controls],[aria-expanded]';
-const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
-".textBox",
-".ocr-line",
-".markdown",
-".markdown-body",
-".markdown-content",
-".message",
-".message-body",
-".message-content",
-".messageContent",
-".chat-message",
-".conversation-turn",
-".model-response",
-".model-response-text",
-".response-content",
-".lesson-canvas-clipper",
-"p",
-"li",
-"blockquote",
-"td",
-"th",
-"article",
-"main",
-"[data-jpdb-reader-root]",
-'[role="article"]',
-"[data-message-author-role]",
-"[data-message-id]",
-'[data-testid*="conversation-turn" i]',
-'[data-testid*="chat-message" i]',
-'[data-testid*="message-content" i]',
-'[data-testid*="message-bubble" i]',
-'[data-test-id*="chat-message" i]',
-'[data-test-id*="message-content" i]',
-"a[href]",
-"button",
-"summary",
-'[role="link"]',
-'[role="button"]',
-'[role="tab"]',
-'[role="menuitem"]'
-].join(",");
-const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = "yomu:jpdb-review-examples-visible:v1";
-const REVIEW_PAGE_TARGET_SETTLE_MS = 20;
-const READER_POINTER_SURFACE_SELECTOR = [
-".jpdb-reader-popover",
-".jpdb-reader-settings",
-".jpdb-subtitle-player",
-".jpdb-subtitle-list",
-".jpdb-ocr-layer",
-"[data-jpdb-reader-root]"
-].join(",");
-const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
-".jpdb-reader-popover button[data-token-choice]",
-".jpdb-reader-popover [data-action]",
-".jpdb-reader-popover a.jpdb-reader-pill",
-".jpdb-reader-popover .jpdb-reader-action-pill"
-].join(",");
-const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
-".ytp-caption-segment",
-".caption-window",
-".caption-visual-line",
-".captions-text",
-'[data-purpose="captions-text"]'
-].join(", ");
-const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
-SUBTITLE_SURFACE_SELECTOR,
-NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
-].join(", ");
-const PLAIN_SUBTITLE_HOVER_PAUSE_SELECTOR = [
-".jpdb-subtitle-primary",
-".jpdb-subtitle-secondary",
-".jpdb-subtitle-row-text",
-".jpdb-subtitle-row-secondary",
-".asbplayer-subtitles-container-bottom",
-".jpdb-reader-subtitle-surface",
-NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
-].join(", ");
-function createNoopImageOcrController() {
-const noop2 = () => void 0;
-return {
-init: noop2,
-refresh: noop2,
-destroy: noop2,
-scanVisible: noop2,
-refreshForModeChange: noop2,
-pinLineForElement: noop2,
-unpinLineForElement: noop2,
-retainLineForLookup: () => void 0,
-captureSourceImageForElement: () => void 0,
-reconcileRenderedWordVocabulary: noop2
-};
-}
-function ocrModeToastKey(mode) {
-if (mode === "auto") return "ocrModeAutoToast";
-if (mode === "manual") return "ocrModeManualToast";
-return "ocrModeOffToast";
-}
-function noopKanjiPracticeDoodle() {
-const noop2 = () => void 0;
-return { reassess: noop2, clear: noop2 };
-}
-const READER_SURFACE_INTERACTIVE_SELECTOR = [
-"button",
-"a[href]",
-"input",
-"select",
-"textarea",
-"summary",
-'[role="button"]',
-'[role="checkbox"]',
-'[role="switch"]',
-'[role="tab"]',
-'[role="menuitem"]',
-'[role="slider"]',
-'[contenteditable=""]',
-'[contenteditable="true"]',
-'[contenteditable="plaintext-only"]',
-"[data-action]",
-"[data-immersion-action]",
-"[data-yomu-immersion-action]",
-"[data-uchisen-action]",
-".jpdb-reader-word",
-".jpdb-reader-popover"
-].join(",");
-const CONTENT_OVERLAY_READER_SURFACE_SELECTOR = [
-".jpdb-ocr-layer",
-SUBTITLE_SURFACE_SELECTOR,
-".yomu-jpdb-page-addon",
-".jpdb-reader-toast"
-].join(", ");
-function isPointerOnInertReaderSurface(element) {
-const surface = element?.closest(CONTENT_OVERLAY_READER_SURFACE_SELECTOR);
-if (!surface) return false;
-const control = element?.closest(READER_SURFACE_INTERACTIVE_SELECTOR);
-return !(control && surface.contains(control));
-}
-const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
-"[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)",
-".jpdb-ocr-layer",
-".jpdb-subtitle-player",
-".jpdb-subtitle-list",
-".jpdb-reader-toast"
-].join(",");
-const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
-".review-reveal",
-".answer-box",
-".review-hidden",
-'form[action*="/review"]',
-'button[name="r"]',
-'input[name="r"]'
-].join(",");
-function keepsModalPopoverForOwnedSurface(element) {
-if (isPointerOnInertReaderSurface(element)) return false;
-return Boolean(element?.closest(OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR) || element?.closest(REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR));
-}
-function fullscreenPopoverMountParent(anchor) {
-const fullscreenElement = currentFullscreenElement();
-if (!(fullscreenElement instanceof HTMLElement) || fullscreenElement instanceof HTMLVideoElement) return void 0;
-if (anchor && fullscreenElement.contains(anchor)) return fullscreenElement;
-return void 0;
-}
-function isJsdomRuntime() {
-return navigator.userAgent.includes("jsdom");
-}
-function firstLocalPitchPattern(resolution) {
-return resolution.patterns[0] ?? "";
-}
-function japaneseSiteLanguageDisabled(previous, next) {
-return previous.preferJapaneseSiteLanguage && !next.preferJapaneseSiteLanguage;
-}
-function pageAddonKeysMatch(expected, mounted) {
-if (expected === mounted) return true;
-const expectedParts = expected.split(":");
-const mountedParts = mounted.split(":");
-if (expectedParts.length !== mountedParts.length || expectedParts[0] !== mountedParts[0] || expectedParts[1] !== mountedParts[1]) return false;
-if (expectedParts.length < 3) return true;
-const [, spelling, expectedReading] = expectedParts;
-return expectedReading === spelling;
-}
 const log = Logger.scope("ReaderApp");
 class ReaderApp {
 abortController = new AbortController();
@@ -38267,6 +38317,16 @@ activePopoverLockedPosition;
 activePopoverResizeObserver;
 nativeTitleGuard = new NativeTitleGuard();
 lastPointerPosition;
+hoverWordOwnership = new HoverWordOwnership({
+wordFromPointStack: (x, y) => this.hoverReaderWordFromPointStack(x, y),
+ocrLineWordForPointer: (target, x, y) => this.ocrLineWordForPointer(target, x, y),
+wordFromRenderedGeometry: (target, x, y) => this.readerWordFromRenderedGeometry(
+target,
+x,
+y,
+(word) => this.canHoverLookupReaderWord(word)
+)
+});
 hoverPopoverPointerPosition;
 hoverPopoverPointerLatched = false;
 hoverPointerMoveFrame;
@@ -41425,6 +41485,9 @@ if (!control) return false;
 const relatedElement = related instanceof HTMLElement ? related : related.parentElement;
 return Boolean(relatedElement && control.contains(relatedElement));
 }
+hoverWordHostControl(word) {
+return this.hoverWordOwnership.hostControl(word);
+}
 scheduleHoverLookupAtPointer(event) {
 if (this.isDestroyed || !this.lastPointerPosition) return;
 const pointer = this.lastPointerPosition;
@@ -41761,51 +41824,7 @@ return this.isInsideActivePopover(target) || Boolean(anchor && (this.isInsideNod
 }
 isWordHoverActive(word, options = {}) {
 if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
-if (this.connectedWordHasCssHover(word, options.ignoreCssHover)) return true;
-return this.isWordAtLastPointerPosition(word, options.ignorePointerPosition);
-}
-connectedWordHasCssHover(word, ignoreCssHover = false) {
-if (ignoreCssHover) return false;
-return word.matches(":hover") || this.isHoverWordHostControlCssHoverActive(word);
-}
-isWordAtLastPointerPosition(word, ignorePointerPosition = false) {
-const position = this.lastPointerPosition;
-if (!position) return false;
-const target = document.elementFromPoint(position.x, position.y);
-const renderedHover = this.activeRenderedWordHoverAtPointer(word, target, position, ignorePointerPosition);
-if (renderedHover !== void 0) return renderedHover;
-return !ignorePointerPosition && this.isInsideNode(target, word);
-}
-activeRenderedWordHoverAtPointer(word, target, position, ignorePointerPosition) {
-if (!(target instanceof Element)) return void 0;
-const ocrLineHover = this.activeOcrWordHoverAtPointer(word, target, ignorePointerPosition);
-if (ocrLineHover !== void 0) return ocrLineHover;
-return this.renderedWordMatchesPointer(word, target, position) || void 0;
-}
-renderedWordMatchesPointer(word, target, position) {
-return this.hoverReaderWordFromPointStack(position.x, position.y) === word || this.ocrLineWordForPointer(target, position.x, position.y) === word || this.readerWordFromRenderedGeometry(target, position.x, position.y, (item) => this.canHoverLookupReaderWord(item)) === word;
-}
-isHoverWordHostControlCssHoverActive(word) {
-return Boolean(this.hoverWordHostControl(word)?.matches(":hover"));
-}
-hoverWordHostControl(word) {
-return word.closest(HOVER_WORD_HOST_CONTROL_SELECTOR);
-}
-activeOcrWordHoverAtPointer(word, target, ignorePointerPosition) {
-if (!this.activeOcrLineContainsTarget(word, target, ignorePointerPosition)) return void 0;
-const position = this.lastPointerPosition;
-if (!position) return void 0;
-const pointedWord = this.ocrLineWordForPointer(
-target,
-position.x,
-position.y
-);
-if (!pointedWord) return true;
-return pointedWord === word;
-}
-activeOcrLineContainsTarget(word, target, ignorePointerPosition) {
-if (ignorePointerPosition) return false;
-return Boolean(word.closest(".jpdb-ocr-line")?.contains(target));
+return this.hoverWordOwnership.isActive(word, this.lastPointerPosition, options);
 }
 reanchorDisconnectedHoverWord(word, options) {
 if (!this.lastPointerPosition) return false;

@@ -20415,6 +20415,37 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return ancestors;
   }
+  const DOCUMENT_PORTAL_PROSE_DECORATIONS = /* @__PURE__ */ new Set(["prose-full", "content-ruby"]);
+  const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
+  const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
+  function sourcePreservingProseNeedsDocumentPortal(host, candidate) {
+    return documentPortalProseCandidateIsEligible(host, candidate) && hasDocumentPortalProseAncestor(host);
+  }
+  function documentPortalProseCandidateIsEligible(host, candidate) {
+    return [
+      !candidate.insideShadowDOM,
+      host.getRootNode() === host.ownerDocument,
+      DOCUMENT_PORTAL_PROSE_DECORATIONS.has(candidate.decoration ?? "skip"),
+      !candidate.interactivePassive,
+      candidate.preservesSource,
+      !documentAnnotationPortalHasNonTranslationTransform(host)
+    ].every(Boolean);
+  }
+  function hasDocumentPortalProseAncestor(host) {
+    for (let current = host, depth = 0; current && depth < 8; current = composedAncestorElement(current), depth += 1) {
+      if (isDocumentPortalProseAncestor(current, host)) return true;
+    }
+    return false;
+  }
+  function isDocumentPortalProseAncestor(current, host) {
+    const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+    return [
+      isLikelyProseElement(current),
+      safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
+      VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
+      current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
+    ].some(Boolean);
+  }
   function syncProjectedReadings(owner, projections) {
     yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
   }
@@ -22150,7 +22181,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return mirror;
   }
   function textMirrorMount(host, clipRow, target) {
-    if (sourcePreservingProseNeedsDocumentPortal(host, target)) {
+    if (sourcePreservingProseNeedsDocumentPortal(host, {
+      decoration: target.decoration,
+      insideShadowDOM: Boolean(target.insideShadowDOM),
+      interactivePassive: Boolean(interactivePassiveControl(host)),
+      preservesSource: Boolean(target.nonDestructive || scanHostRequiresSourcePreservingMirror(host))
+    })) {
       return {
         configure(mirror) {
           mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
@@ -22176,39 +22212,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       append: (mirror) => host.append(mirror),
       projectionRoot: host.getRootNode()
     };
-  }
-  const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
-  const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
-  function sourcePreservingProseNeedsDocumentPortal(host, target) {
-    if (!sourcePreservingProseCanUseDocumentPortal(host, target)) return false;
-    return hasDocumentPortalProseAncestor(host);
-  }
-  const DOCUMENT_PORTAL_PROSE_DECORATIONS = /* @__PURE__ */ new Set(["prose-full", "content-ruby"]);
-  function sourcePreservingProseCanUseDocumentPortal(host, target) {
-    return [
-      !target.insideShadowDOM,
-      host.getRootNode() === host.ownerDocument,
-      DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target.decoration ?? "skip"),
-      !interactivePassiveControl(host),
-      target.nonDestructive || scanHostRequiresSourcePreservingMirror(host),
-      !documentAnnotationPortalHasNonTranslationTransform(host)
-    ].every(Boolean);
-  }
-  function hasDocumentPortalProseAncestor(host) {
-    let current = host;
-    for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
-      if (isDocumentPortalProseAncestor(current, host)) return true;
-    }
-    return false;
-  }
-  function isDocumentPortalProseAncestor(current, host) {
-    const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
-    return [
-      isLikelyProseElement(current),
-      safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
-      VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
-      current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
-    ].some(Boolean);
   }
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
@@ -54103,40 +54106,6 @@ ${entry.reading}`);
     recorderBootstrap(pageWindow(), opts);
     if (recorderAlreadyInstalled()) markRecorderMethod("current");
   }
-  function mutationNodes(mutation, options = {}) {
-    const nodes = [
-      mutation.target,
-      ...Array.from(mutation.addedNodes)
-    ];
-    if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
-    return nodes;
-  }
-  const READER_PAINT_CONTAINER_SELECTOR = [
-    "[data-jpdb-reader-root]",
-    ".jpdb-reader-text-mirror",
-    ".jpdb-reader-control-text-mirror",
-    ".jpdb-reader-detached-reading-overlay",
-    "[data-yomu-projected-reading]"
-  ].join(",");
-  const READER_PAINT_ATTRIBUTE_SELECTOR = `${READER_PAINT_CONTAINER_SELECTOR},.jpdb-reader-word`;
-  function mutationContainsOnlyReaderPaint(mutation) {
-    if (mutation.type !== "childList") {
-      return nodeMatchesOrIsInside(mutation.target, READER_PAINT_ATTRIBUTE_SELECTOR);
-    }
-    if (nodeMatchesOrIsInside(mutation.target, READER_PAINT_CONTAINER_SELECTOR)) return true;
-    const changed = [...mutation.addedNodes, ...mutation.removedNodes];
-    return changed.length > 0 && changed.every((node) => nodeMatchesOrIsInside(node, READER_PAINT_CONTAINER_SELECTOR));
-  }
-  function nodeMatchesOrIsInside(node, selector) {
-    const element2 = node instanceof Element ? node : node.parentElement;
-    return Boolean(element2?.matches(selector) || element2?.closest(selector));
-  }
-  function mutationInsideClosest(mutation, selector) {
-    return mutationNodes(mutation, { removed: true }).every((node) => {
-      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean(element2?.closest?.(selector));
-    });
-  }
   function claimOcrScan(owner) {
     const token = Symbol("ocr-scan");
     owner.scan = token;
@@ -57274,6 +57243,86 @@ ${spelling}`);
   function ocrRenderedWordKey(word) {
     return `${word.dataset.tokenStart ?? ""}:${word.dataset.tokenEnd ?? ""}:${word.dataset.vid ?? ""}:${word.dataset.sid ?? ""}`;
   }
+  function mutationNodes(mutation, options = {}) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes)
+    ];
+    if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
+    return nodes;
+  }
+  const READER_PAINT_CONTAINER_SELECTOR = [
+    "[data-jpdb-reader-root]",
+    ".jpdb-reader-text-mirror",
+    ".jpdb-reader-control-text-mirror",
+    ".jpdb-reader-detached-reading-overlay",
+    "[data-yomu-projected-reading]"
+  ].join(",");
+  const READER_PAINT_ATTRIBUTE_SELECTOR = `${READER_PAINT_CONTAINER_SELECTOR},.jpdb-reader-word`;
+  function mutationContainsOnlyReaderPaint(mutation) {
+    if (mutation.type !== "childList") {
+      return nodeMatchesOrIsInside(mutation.target, READER_PAINT_ATTRIBUTE_SELECTOR);
+    }
+    if (nodeMatchesOrIsInside(mutation.target, READER_PAINT_CONTAINER_SELECTOR)) return true;
+    const changed = [...mutation.addedNodes, ...mutation.removedNodes];
+    return changed.length > 0 && changed.every((node) => nodeMatchesOrIsInside(node, READER_PAINT_CONTAINER_SELECTOR));
+  }
+  function nodeMatchesOrIsInside(node, selector) {
+    const element2 = node instanceof Element ? node : node.parentElement;
+    return Boolean(element2?.matches(selector) || element2?.closest(selector));
+  }
+  function mutationInsideClosest(mutation, selector) {
+    return mutationNodes(mutation, { removed: true }).every((node) => {
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element2?.closest?.(selector));
+    });
+  }
+  function classifyRenderableMediaMutations(observed) {
+    const mutations = observed.filter((mutation) => !mutationContainsOnlyReaderPaint(mutation));
+    let touchesRenderableMedia = false;
+    let addedImage = false;
+    for (const mutation of mutations) {
+      if (!mutationTouchesRenderableMedia(mutation)) continue;
+      touchesRenderableMedia = true;
+      if (mutationAddsRenderableMedia(mutation)) {
+        addedImage = true;
+        break;
+      }
+    }
+    return {
+      mutations,
+      touchesRenderableMedia,
+      addedImage,
+      restylesEverySurface: mutations.some(mutationCanRestyleEverySurface)
+    };
+  }
+  function mutationTouchesRenderableMedia(mutation) {
+    if (mutation.type === "childList") {
+      return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
+    }
+    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
+  }
+  function mutationAddsRenderableMedia(mutation) {
+    return mutation.type === "childList" && [...mutation.addedNodes].some(nodeContainsRenderableMedia);
+  }
+  function mutationCanRestyleEverySurface(mutation) {
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+    if (target?.matches('style, link[rel~="stylesheet"]')) return true;
+    if (mutation.type !== "childList") return false;
+    return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
+  }
+  function nodeContainsRenderableMedia(node) {
+    return isRenderableMediaNode(node) || isBackgroundImageReaderNode(node) || hasRenderableMediaDescendant(node);
+  }
+  function isRenderableMediaNode(node) {
+    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement;
+  }
+  function isBackgroundImageReaderNode(node) {
+    return node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node));
+  }
+  function hasRenderableMediaDescendant(node) {
+    return node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
+  }
   function isTerminalOcrStatus(status) {
     return status === "empty" || status === "failed";
   }
@@ -57662,32 +57711,31 @@ ${spelling}`);
       return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
     }
     handleRenderableMediaMutations(mutations) {
-      mutations = mutations.filter((mutation) => !mutationContainsOnlyReaderPaint(mutation));
-      if (!mutations.length) return;
-      this.invalidatePositionTransformsForMutations(mutations);
+      const batch = classifyRenderableMediaMutations(mutations);
+      if (!batch.mutations.length) return;
+      this.invalidatePositionTransformsForMutations(batch);
       const settings = this.options.getSettings();
       if (!ocrRuntimeActive(settings)) {
         this.readerRasterFreeMemo = void 0;
         return;
       }
       const memo = this.readerRasterFreeMemo;
-      if (memo && (memo.free ? mutationsMayAddReaderRasterCandidate(mutations) : mutationsMayRemoveReaderRasterCandidate(mutations))) {
+      if (memo && (memo.free ? mutationsMayAddReaderRasterCandidate(batch.mutations) : mutationsMayRemoveReaderRasterCandidate(batch.mutations))) {
         this.readerRasterFreeMemo = void 0;
       }
-      const summary = summarizeRenderableMediaMutations(mutations);
-      if (!summary.touched) return;
+      if (!batch.touchesRenderableMedia) return;
       this.schedulePosition();
       if (!canAutoRefreshOcrAfterMutation(settings, this.options.shouldAutoScan)) return;
-      this.scheduleRefresh(summary.addedImage ? 0 : 40);
+      this.scheduleRefresh(batch.addedImage ? 0 : 40);
     }
-    invalidatePositionTransformsForMutations(mutations) {
-      if (mutations.some(mutationCanRestyleEverySurface)) {
+    invalidatePositionTransformsForMutations(batch) {
+      if (batch.restylesEverySurface) {
         forgetAllComposedOcrSurfaceTransforms();
         return;
       }
       for (const image of this.states.keys()) {
         const surface = this.ocrLayerTransformSurface(image);
-        if (surface && mutations.some(({ target }) => {
+        if (surface && batch.mutations.some(({ target }) => {
           const element2 = target instanceof Element ? target : target.parentElement;
           return element2 === surface || Boolean(element2?.contains(surface));
         })) {
@@ -60445,34 +60493,8 @@ ${reading}`);
     const style = getComputedStyle(element2);
     return style.visibility === "hidden" || style.display === "none" || Number(style.opacity || "1") <= 0;
   }
-  function mutationTouchesRenderableMedia(mutation) {
-    if (mutation.type === "childList") {
-      return [...mutation.addedNodes, ...mutation.removedNodes].some(nodeContainsRenderableMedia);
-    }
-    return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
-  }
-  function mutationCanRestyleEverySurface(mutation) {
-    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-    if (target?.matches('style, link[rel~="stylesheet"]')) return true;
-    if (mutation.type !== "childList") return false;
-    return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
-  }
-  function summarizeRenderableMediaMutations(mutations) {
-    let addedImage = false;
-    let touched = false;
-    for (const mutation of mutations) {
-      if (!mutationTouchesRenderableMedia(mutation)) continue;
-      touched = true;
-      if (mutation.type === "childList" && [...mutation.addedNodes].some(nodeContainsRenderableMedia)) addedImage = true;
-      if (addedImage) break;
-    }
-    return { touched, addedImage };
-  }
   function canAutoRefreshOcrAfterMutation(settings, shouldAutoScan) {
     return settings.ocrAutoScanImages && (shouldAutoScan?.() !== false || hasCanvasOcrOptInSurface());
-  }
-  function nodeContainsRenderableMedia(node) {
-    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement || node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)) || node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
   }
   function hasCanvasOcrOptInSurface() {
     return Boolean(document.querySelector('canvas[data-yomu-canvas-ocr="on"], [data-yomu-canvas-ocr="on"] canvas'));
@@ -112339,6 +112361,114 @@ ${reading}`);
   function loadedTrackState(cues) {
     return cues.length ? "ready" : "waiting";
   }
+  function subtitleFilesFromHostEvent(event) {
+    const rawDetail = event instanceof CustomEvent ? event.detail : void 0;
+    const detail = isNonNullObject(rawDetail) ? rawDetail : {};
+    const explicitJobs = [
+      ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
+      ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
+    ];
+    return {
+      jobs: explicitJobs.length ? explicitJobs : inferHostedSubtitleFileJobs(hostedFiles(detail.files)),
+      openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel)
+    };
+  }
+  function readHostedSubtitleFileText(file) {
+    if (typeof file.text === "function") return file.text();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read subtitle file."));
+      reader.readAsText(file);
+    });
+  }
+  function subtitleFilePickerJobs(kind, files) {
+    if (files.length <= 1 || kind === "secondary") return files.map((file) => ({ kind, file }));
+    return inferHostedSubtitleFileJobs(files);
+  }
+  function createPageSubtitleTrack(source, index) {
+    return {
+      id: `remote-${index}`,
+      label: source.label,
+      kind: "remote",
+      language: source.language,
+      url: source.url,
+      sourceKey: source.sourceKey
+    };
+  }
+  function ensureTranslatedJapaneseTrack(tracks, interfaceLanguage) {
+    if (tracks.some((track) => isTargetLanguageSubtitleTrack(track))) return false;
+    const source = tracks.filter((track) => isEnglishSubtitleTrack(track)).sort(compareSubtitleTrackOptions)[0];
+    if (!source || tracks.some((track) => track.translatedFromTrackId === source.id)) return false;
+    tracks.push({
+      id: `translated-${source.id}`,
+      label: `${uiText(interfaceLanguage, "translation")} (${source.label})`,
+      kind: source.kind,
+      language: "ja",
+      autoGenerated: true,
+      translatedFromTrackId: source.id
+    });
+    return true;
+  }
+  function isSyntheticTranslatedSelection(tracks, selectedTrackId) {
+    return Boolean(selectedTrackId && tracks.find((track) => track.id === selectedTrackId)?.translatedFromTrackId);
+  }
+  function autoSelectablePageTrackRole(option, state2) {
+    if (isTargetLanguageSubtitleTrack(option) && (!state2.selectedTrackId || Boolean(state2.selected?.translatedFromTrackId) || shouldReplaceWaitingNativeTrack(state2.selected, option, state2.cues))) return "primary";
+    if (isEnglishSubtitleTrack(option) && (!state2.secondaryTrackId || shouldReplaceWaitingNativeTrack(state2.secondary, option, state2.secondaryCues))) return "secondary";
+    return null;
+  }
+  function autoSelectableNativeTrackRole(option, tracks, selectedTrackId, secondaryTrackId) {
+    if (isTargetLanguageSubtitleTrack(option) && (!selectedTrackId || isSyntheticTranslatedSelection(tracks, selectedTrackId))) return "primary";
+    return !secondaryTrackId && isEnglishSubtitleTrack(option) ? "secondary" : null;
+  }
+  function findAutoPrimaryYouTubeTrack(tracks, selectedTrackId, autoSelectSuppressedVideoId, videoId) {
+    if (selectedTrackId && !isSyntheticTranslatedSelection(tracks, selectedTrackId)) return void 0;
+    if (autoSelectSuppressedVideoId && autoSelectSuppressedVideoId === videoId) return void 0;
+    const candidate = [...tracks].filter((track) => track.kind === "youtube" && isTargetLanguageSubtitleTrack(track)).sort((a, b) => Number(Boolean(a.translatedFromTrackId)) - Number(Boolean(b.translatedFromTrackId)) || compareSubtitleTrackOptions(a, b))[0];
+    return candidate?.id === selectedTrackId ? void 0 : candidate;
+  }
+  function findAutoSecondaryYouTubeTrack(tracks, primaryTrackId, secondaryTrackId) {
+    if (!primaryTrackId || secondaryTrackId) return void 0;
+    return [...tracks].filter((track) => track.kind === "youtube" && track.id !== primaryTrackId && isEnglishSubtitleTrack(track)).sort(compareNativeOverlaySubtitleTrackOptions)[0];
+  }
+  function hostedSubtitleFileJobs(kind, value) {
+    return hostedFiles(value).map((file) => ({ kind, file }));
+  }
+  function hostedFiles(value) {
+    if (isHostedFile(value)) return [value];
+    if (!value || typeof value !== "object") return [];
+    if (typeof value.length === "number") {
+      return Array.from(value).filter(isHostedFile);
+    }
+    if (Symbol.iterator in value) return Array.from(value).filter(isHostedFile);
+    return [];
+  }
+  function isHostedFile(value) {
+    if (typeof File !== "undefined" && value instanceof File) return true;
+    return Boolean(value && typeof value === "object" && typeof value.name === "string" && typeof value.slice === "function");
+  }
+  function inferHostedSubtitleFileJobs(files) {
+    const subtitleFiles = files.filter((file) => /\.(?:srt|vtt|ass|ssa)$/iu.test(file.name));
+    if (!subtitleFiles.length) return [];
+    const primary = subtitleFiles.filter((file) => isJapaneseSubtitleFile(file.name));
+    const secondary = subtitleFiles.filter((file) => isTranslationSubtitleFile(file.name));
+    const fallback = subtitleFiles.filter((file) => !primary.includes(file) && !secondary.includes(file));
+    const selected = primary.shift() ?? fallback.shift() ?? secondary.shift();
+    return selected ? [
+      { kind: "primary", file: selected },
+      ...[...primary, ...fallback, ...secondary].map((file) => ({ kind: "secondary", file }))
+    ] : [];
+  }
+  function isTranslationSubtitleFile(name) {
+    return isEnglishSubtitleTrack({ label: name }) || /(^|[.\-_\s()[\]])(?:translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
+  }
+  function isJapaneseSubtitleFile(name) {
+    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
+  }
+  function normalizeHostedSubtitleOpenPanel(value) {
+    return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
+  }
   function planTranscriptHydrationIndexes(options) {
     const indexes = /* @__PURE__ */ new Set();
     addVisibleIndexes(indexes, options);
@@ -115006,76 +115136,6 @@ ${reading}`);
     row.append(primary);
     return row;
   }
-  function subtitleFilesFromHostEvent(event) {
-    const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
-    const detail = isNonNullObject(rawDetail) ? rawDetail : {};
-    const explicitJobs = [
-      ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
-      ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
-    ];
-    const inferredJobs = explicitJobs.length ? [] : inferHostedSubtitleFileJobs(hostedFiles(detail.files));
-    return {
-      jobs: [...explicitJobs, ...inferredJobs],
-      openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel)
-    };
-  }
-  function detailValue(event) {
-    return event.detail;
-  }
-  function hostedSubtitleFileJobs(kind, value) {
-    return hostedFiles(value).map((file) => ({ kind, file }));
-  }
-  function hostedFiles(value) {
-    if (isHostedFile(value)) return [value];
-    if (!value || typeof value !== "object") return [];
-    if (typeof value.length === "number") {
-      return Array.from(value).filter(isHostedFile);
-    }
-    if (Symbol.iterator in value) return Array.from(value).filter(isHostedFile);
-    return [];
-  }
-  function isHostedFile(value) {
-    if (typeof File !== "undefined" && value instanceof File) return true;
-    return Boolean(value && typeof value === "object" && typeof value.name === "string" && typeof value.slice === "function");
-  }
-  function readHostedSubtitleFileText(file) {
-    if (typeof file.text === "function") return file.text();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read subtitle file."));
-      reader.readAsText(file);
-    });
-  }
-  function inferHostedSubtitleFileJobs(files) {
-    const subtitleFiles = files.filter((file) => isSubtitleFileName(file.name));
-    if (!subtitleFiles.length) return [];
-    const primaryCandidates = subtitleFiles.filter((file) => looksLikeJapaneseSubtitleFile(file.name));
-    const secondaryCandidates = subtitleFiles.filter((file) => looksLikeNativeSubtitleFile(file.name));
-    const fallbackCandidates = subtitleFiles.filter((file) => !primaryCandidates.includes(file) && !secondaryCandidates.includes(file));
-    const primary = primaryCandidates.shift() ?? fallbackCandidates.shift() ?? secondaryCandidates.shift();
-    if (!primary) return [];
-    return [
-      { kind: "primary", file: primary },
-      ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map((file) => ({ kind: "secondary", file }))
-    ];
-  }
-  function subtitleFilePickerJobs(kind, files) {
-    if (files.length <= 1 || kind === "secondary") return files.map((file) => ({ kind, file }));
-    return inferHostedSubtitleFileJobs(files);
-  }
-  function isSubtitleFileName(name) {
-    return /\.(?:srt|vtt|ass|ssa)$/iu.test(name);
-  }
-  function looksLikeJapaneseSubtitleFile(name) {
-    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
-  }
-  function looksLikeNativeSubtitleFile(name) {
-    return /(^|[.\-_\s()[\]])(?:en|eng|english|native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
-  }
-  function normalizeHostedSubtitleOpenPanel(value) {
-    return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
-  }
   class SubtitlePlayerController {
     constructor(options) {
       this.options = options;
@@ -116009,7 +116069,9 @@ ${reading}`);
       this.markNativeCueListsDirty();
       this.observeNativeTrack(track);
       this.maybeAutoSelectNativeTrack(option);
-      if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
+      if (ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage)) {
+        this.maybeAutoSelectTranslatedJapaneseTrack();
+      }
       window.setTimeout(() => {
         if (this.destroyed) return;
         this.setNativeTrackModes();
@@ -116042,7 +116104,7 @@ ${reading}`);
       return changes;
     }
     finishPageSubtitleTrackDiscovery(changes) {
-      const generated = this.ensureTranslatedJapaneseTrack();
+      const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
       if (generated) this.maybeAutoSelectTranslatedJapaneseTrack();
       if (changes.added || changes.updated || changes.removed || generated) {
         this.renderTrackPanel();
@@ -116052,7 +116114,7 @@ ${reading}`);
     addOrUpdatePageSubtitleTrack(source) {
       const existing = this.findPageSubtitleTrack(source);
       if (existing) return { added: 0, updated: updatePageSubtitleTrack(existing, source) ? 1 : 0 };
-      const track = this.createPageSubtitleTrack(source);
+      const track = createPageSubtitleTrack(source, this.tracks.length);
       this.tracks.push(track);
       this.maybeAutoSelectPageSubtitleTrack(track);
       return { added: 1, updated: 0 };
@@ -116060,49 +116122,36 @@ ${reading}`);
     findPageSubtitleTrack(source) {
       return this.tracks.find((track) => track.sourceKey === source.sourceKey || track.url && sameSubtitleUrl(track.url, source.url));
     }
-    createPageSubtitleTrack(source) {
-      return {
-        id: `remote-${this.tracks.length}`,
-        label: source.label,
-        kind: "remote",
-        language: source.language,
-        url: source.url,
-        sourceKey: source.sourceKey
-      };
-    }
     maybeAutoSelectPageSubtitleTrack(option) {
       if (option.kind !== "remote" || !option.url) return;
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       const secondary = this.tracks.find((track) => track.id === this.secondaryTrackId);
-      if (this.shouldAutoSelectPrimaryPageTrack(option, selected)) {
+      const role = autoSelectablePageTrackRole(option, {
+        selectedTrackId: this.selectedTrackId,
+        secondaryTrackId: this.secondaryTrackId,
+        selected,
+        secondary,
+        cues: this.cues,
+        secondaryCues: this.secondaryCues
+      });
+      if (role === "primary") {
         void this.selectTrack(option.id, { auto: true });
         return;
       }
-      if (this.shouldAutoSelectSecondaryPageTrack(option, secondary)) {
+      if (role === "secondary") {
         void this.selectSecondaryTrack(option.id, { auto: true });
       }
-    }
-    shouldAutoSelectPrimaryPageTrack(option, selected) {
-      return isTargetLanguageSubtitleTrack(option) && (!this.selectedTrackId || this.isSyntheticTranslatedSelection() || shouldReplaceWaitingNativeTrack(selected, option, this.cues));
-    }
-    shouldAutoSelectSecondaryPageTrack(option, secondary) {
-      return isEnglishSubtitleTrack(option) && (!this.secondaryTrackId || shouldReplaceWaitingNativeTrack(secondary, option, this.secondaryCues));
     }
     maybeAutoSelectNativeTrack(option) {
       const track = option.track;
       if (!track) return;
-      const role = this.autoSelectableNativeTrackRole(option);
+      const role = autoSelectableNativeTrackRole(
+        option,
+        this.tracks,
+        this.selectedTrackId,
+        this.secondaryTrackId
+      );
       if (role) this.autoSelectNativeTrack(option, track, role);
-    }
-    autoSelectableNativeTrackRole(option) {
-      if (isTargetLanguageSubtitleTrack(option) && (!this.selectedTrackId || this.isSyntheticTranslatedSelection())) return "primary";
-      if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) return "secondary";
-      return null;
-    }
-    isSyntheticTranslatedSelection() {
-      if (!this.selectedTrackId) return false;
-      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
-      return Boolean(selected?.translatedFromTrackId);
     }
     maybeAutoSelectTranslatedJapaneseTrack() {
       if (this.selectedTrackId) return;
@@ -118787,10 +118836,19 @@ ${reading}`);
       });
     }
     finishYouTubeTrackDiscovery(added, updatedSelectedTrack) {
-      const generated = this.ensureTranslatedJapaneseTrack();
-      const autoPrimaryTrack = this.findAutoPrimaryYouTubeTrack();
-      const autoSecondaryTrack = this.findAutoSecondaryYouTubeTrack(autoPrimaryTrack?.id);
-      const primaryTrackId = autoPrimaryTrack?.id || (this.shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) ? this.selectedTrackId : "");
+      const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
+      const autoPrimaryTrack = findAutoPrimaryYouTubeTrack(
+        this.tracks,
+        this.selectedTrackId,
+        this.youtubeAutoSelectSuppressedVideoId,
+        this.youtubeVideoId
+      );
+      const primaryTrackId = autoPrimaryTrack?.id || (updatedSelectedTrack && this.selectedTrackId ? this.selectedTrackId : "");
+      const autoSecondaryTrack = findAutoSecondaryYouTubeTrack(
+        this.tracks,
+        autoPrimaryTrack?.id ?? this.selectedTrackId,
+        this.secondaryTrackId
+      );
       if (primaryTrackId) {
         void this.selectTrack(primaryTrackId, { auto: true });
         if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
@@ -118803,39 +118861,6 @@ ${reading}`);
       if (!added && !generated) return;
       this.renderTrackPanel();
       this.syncControls();
-    }
-    ensureTranslatedJapaneseTrack() {
-      const hasJapanese = this.tracks.some((track) => isTargetLanguageSubtitleTrack(track));
-      if (hasJapanese) return false;
-      const englishTracks = this.tracks.filter((track) => isEnglishSubtitleTrack(track)).sort(compareSubtitleTrackOptions);
-      if (!englishTracks.length) return false;
-      const source = englishTracks[0];
-      const existing = this.tracks.find((t) => t.translatedFromTrackId === source.id);
-      if (existing) return false;
-      const settings = this.options.getSettings();
-      const synthetic = {
-        id: `translated-${source.id}`,
-        label: `${uiText(settings.interfaceLanguage, "translation")} (${source.label})`,
-        kind: source.kind,
-        language: "ja",
-        autoGenerated: true,
-        translatedFromTrackId: source.id
-      };
-      this.tracks.push(synthetic);
-      return true;
-    }
-    shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) {
-      return updatedSelectedTrack && Boolean(this.selectedTrackId);
-    }
-    findAutoPrimaryYouTubeTrack() {
-      if (this.selectedTrackId && !this.isSyntheticTranslatedSelection()) return void 0;
-      if (this.youtubeAutoSelectSuppressedVideoId && this.youtubeAutoSelectSuppressedVideoId === this.youtubeVideoId) return void 0;
-      const candidate = [...this.tracks].filter((track) => track.kind === "youtube" && isTargetLanguageSubtitleTrack(track)).sort((a, b) => Number(Boolean(a.translatedFromTrackId)) - Number(Boolean(b.translatedFromTrackId)) || compareSubtitleTrackOptions(a, b))[0];
-      return candidate?.id === this.selectedTrackId ? void 0 : candidate;
-    }
-    findAutoSecondaryYouTubeTrack(primaryTrackId = this.selectedTrackId) {
-      if (!primaryTrackId || this.secondaryTrackId) return void 0;
-      return [...this.tracks].filter((track) => track.kind === "youtube" && track.id !== primaryTrackId && isEnglishSubtitleTrack(track)).sort(compareNativeOverlaySubtitleTrackOptions)[0];
     }
     syncControls() {
       const hasLines = this.hasVisibleSubtitleLines();
@@ -121674,6 +121699,89 @@ ${reading}`);
     if (isYouTubeShortsWatchPage()) return false;
     return isYouTubeHomePage() || location.pathname === "/results" || location.pathname.startsWith("/feed/subscriptions");
   }
+  function withYouTubeFeedScrollAnchor(mutated, mutate) {
+    const restore = captureFeedScrollAnchor(mutated);
+    mutate();
+    restore();
+  }
+  const noFeedScrollRestore = () => void 0;
+  function captureFeedScrollAnchor(mutated) {
+    const anchor = feedScrollAnchorElement(mutated);
+    if (!anchor) return noFeedScrollRestore;
+    const before = anchor.getBoundingClientRect().top;
+    if (before === void 0) return noFeedScrollRestore;
+    const scroller = feedScrollerFor(anchor);
+    if (!scroller) return noFeedScrollRestore;
+    return () => restoreFeedScrollAnchor(anchor, before, scroller);
+  }
+  function restoreFeedScrollAnchor(anchor, before, scroller) {
+    if (!anchor.isConnected) return;
+    const delta = anchor.getBoundingClientRect().top - before;
+    if (Math.abs(delta) > 0.5) scroller(delta);
+  }
+  function feedScrollerFor(anchor) {
+    for (const current of feedAncestors(anchor)) {
+      const style = computedStyleOrNull(current);
+      if (!style) return null;
+      if (isScrollableFeedSurface(current, style)) {
+        const scroller = current;
+        return (delta) => {
+          scroller.scrollTop += delta;
+        };
+      }
+    }
+    return (delta) => window.scrollBy(0, delta);
+  }
+  function feedHasScrolled(mutated) {
+    return window.scrollY > 0 || feedAncestors(mutated).some((current) => current.scrollTop > 0);
+  }
+  function feedScrollAnchorElement(mutated) {
+    if (!canProbeFeedScrollAnchor(mutated)) return null;
+    for (const ratio of [0.35, 0.55, 0.8]) {
+      const probe = document.elementFromPoint(
+        Math.floor(window.innerWidth / 2),
+        Math.floor(window.innerHeight * ratio)
+      );
+      if (usableFeedScrollAnchor(probe, mutated)) return probe;
+    }
+    return null;
+  }
+  function feedAncestors(anchor) {
+    const ancestors = [];
+    let current = anchor.parentElement;
+    while (isFeedAncestor(current)) {
+      ancestors.push(current);
+      current = current.parentElement;
+    }
+    return ancestors;
+  }
+  function isFeedAncestor(candidate) {
+    return [
+      candidate instanceof HTMLElement,
+      candidate !== document.body,
+      candidate !== document.documentElement
+    ].every(Boolean);
+  }
+  function computedStyleOrNull(element2) {
+    try {
+      return getComputedStyle(element2);
+    } catch {
+      return null;
+    }
+  }
+  function isScrollableFeedSurface(element2, style) {
+    return ["auto", "scroll"].includes(style.overflowY) && element2.scrollHeight > element2.clientHeight + 1;
+  }
+  function canProbeFeedScrollAnchor(mutated) {
+    return [feedHasScrolled(mutated), typeof document.elementFromPoint === "function"].every(Boolean);
+  }
+  function usableFeedScrollAnchor(probe, mutated) {
+    if (!(probe instanceof HTMLElement)) return false;
+    return [probe.isConnected, !isMutationRelative(probe, mutated)].every(Boolean);
+  }
+  function isMutationRelative(probe, mutated) {
+    return [probe === mutated, mutated.contains(probe), probe.contains(mutated)].some(Boolean);
+  }
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
   const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
@@ -122216,7 +122324,7 @@ ${reading}`);
       this.clearPendingCard(card);
       if (alreadyFiltered) return;
       this.prepareFilteredCard(card);
-      withFeedScrollAnchor(card, () => {
+      withYouTubeFeedScrollAnchor(card, () => {
         card.classList.add(YOUTUBE_FILTERED_CLASS);
         card.dataset.yomuYoutubeFiltered = "true";
       });
@@ -122229,7 +122337,7 @@ ${reading}`);
       const changedLayout = cardHasFilteredLayoutState(card);
       this.clearCardTimers(card);
       this.clearPendingCard(card);
-      withFeedScrollAnchor(card, () => {
+      withYouTubeFeedScrollAnchor(card, () => {
         card.classList.remove(YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS);
       });
       card.style.removeProperty(YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY);
@@ -123438,56 +123546,6 @@ ${reading}`);
   }
   function cleanYouTubeAriaTitle(title) {
     return title.split(/\s+by\s+/i)[0].split(/\s+視聴回数\s*/)[0].split(/\s+再生回数\s*/)[0].split(/\s+回視聴\s*/)[0].split(/\s+views?\s*/i)[0].split(/\s+•\s*/)[0].split(/\s+·\s*/)[0].split(/\s*,\s*/)[0].trim();
-  }
-  function withFeedScrollAnchor(mutated, mutate) {
-    const anchor = feedScrollAnchorElement(mutated);
-    const before = anchor?.getBoundingClientRect().top;
-    const scroller = anchor ? feedScrollerFor(anchor) : null;
-    mutate();
-    if (!anchor || before === void 0 || !anchor.isConnected || !scroller) return;
-    const delta = anchor.getBoundingClientRect().top - before;
-    if (Math.abs(delta) > 0.5) scroller(delta);
-  }
-  function feedScrollerFor(anchor) {
-    let current = anchor.parentElement;
-    while (current && current !== document.body && current !== document.documentElement) {
-      let style;
-      try {
-        style = getComputedStyle(current);
-      } catch {
-        return null;
-      }
-      if ((style.overflowY === "auto" || style.overflowY === "scroll") && current.scrollHeight > current.clientHeight + 1) {
-        const scroller = current;
-        return (delta) => {
-          scroller.scrollTop += delta;
-        };
-      }
-      current = current.parentElement;
-    }
-    return (delta) => window.scrollBy(0, delta);
-  }
-  function feedHasScrolled(mutated) {
-    if (window.scrollY > 0) return true;
-    let current = mutated.parentElement;
-    while (current && current !== document.body && current !== document.documentElement) {
-      if (current.scrollTop > 0) return true;
-      current = current.parentElement;
-    }
-    return false;
-  }
-  function feedScrollAnchorElement(mutated) {
-    if (!feedHasScrolled(mutated) || typeof document.elementFromPoint !== "function") return null;
-    for (const ratio of [0.35, 0.55, 0.8]) {
-      const probe = document.elementFromPoint(
-        Math.floor(window.innerWidth / 2),
-        Math.floor(window.innerHeight * ratio)
-      );
-      if (!(probe instanceof HTMLElement) || !probe.isConnected) continue;
-      if (probe === mutated || mutated.contains(probe) || probe.contains(mutated)) continue;
-      return probe;
-    }
-    return null;
   }
   function collectYouTubeFilterItems(root = document) {
     if (isInsideReaderRoot(root)) return [];

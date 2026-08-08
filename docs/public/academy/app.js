@@ -46125,6 +46125,37 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return ancestors;
   }
+  const DOCUMENT_PORTAL_PROSE_DECORATIONS = /* @__PURE__ */ new Set(["prose-full", "content-ruby"]);
+  const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
+  const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
+  function sourcePreservingProseNeedsDocumentPortal(host2, candidate2) {
+    return documentPortalProseCandidateIsEligible(host2, candidate2) && hasDocumentPortalProseAncestor(host2);
+  }
+  function documentPortalProseCandidateIsEligible(host2, candidate2) {
+    return [
+      !candidate2.insideShadowDOM,
+      host2.getRootNode() === host2.ownerDocument,
+      DOCUMENT_PORTAL_PROSE_DECORATIONS.has(candidate2.decoration ?? "skip"),
+      !candidate2.interactivePassive,
+      candidate2.preservesSource,
+      !documentAnnotationPortalHasNonTranslationTransform(host2)
+    ].every(Boolean);
+  }
+  function hasDocumentPortalProseAncestor(host2) {
+    for (let current = host2, depth = 0; current && depth < 8; current = composedAncestorElement(current), depth += 1) {
+      if (isDocumentPortalProseAncestor(current, host2)) return true;
+    }
+    return false;
+  }
+  function isDocumentPortalProseAncestor(current, host2) {
+    const identity2 = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+    return [
+      isLikelyProseElement(current),
+      safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
+      VOLATILE_CONVERSATION_IDENTITY_RE.test(identity2),
+      current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)
+    ].some(Boolean);
+  }
   function syncProjectedReadings(owner, projections) {
     yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
   }
@@ -47860,7 +47891,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return mirror;
   }
   function textMirrorMount(host2, clipRow, target2) {
-    if (sourcePreservingProseNeedsDocumentPortal(host2, target2)) {
+    if (sourcePreservingProseNeedsDocumentPortal(host2, {
+      decoration: target2.decoration,
+      insideShadowDOM: Boolean(target2.insideShadowDOM),
+      interactivePassive: Boolean(interactivePassiveControl(host2)),
+      preservesSource: Boolean(target2.nonDestructive || scanHostRequiresSourcePreservingMirror(host2))
+    })) {
       return {
         configure(mirror) {
           mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
@@ -47886,39 +47922,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       append: (mirror) => host2.append(mirror),
       projectionRoot: host2.getRootNode()
     };
-  }
-  const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
-  const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
-  function sourcePreservingProseNeedsDocumentPortal(host2, target2) {
-    if (!sourcePreservingProseCanUseDocumentPortal(host2, target2)) return false;
-    return hasDocumentPortalProseAncestor(host2);
-  }
-  const DOCUMENT_PORTAL_PROSE_DECORATIONS = /* @__PURE__ */ new Set(["prose-full", "content-ruby"]);
-  function sourcePreservingProseCanUseDocumentPortal(host2, target2) {
-    return [
-      !target2.insideShadowDOM,
-      host2.getRootNode() === host2.ownerDocument,
-      DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target2.decoration ?? "skip"),
-      !interactivePassiveControl(host2),
-      target2.nonDestructive || scanHostRequiresSourcePreservingMirror(host2),
-      !documentAnnotationPortalHasNonTranslationTransform(host2)
-    ].every(Boolean);
-  }
-  function hasDocumentPortalProseAncestor(host2) {
-    let current = host2;
-    for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
-      if (isDocumentPortalProseAncestor(current, host2)) return true;
-    }
-    return false;
-  }
-  function isDocumentPortalProseAncestor(current, host2) {
-    const identity2 = `${current.tagName} ${current.id} ${String(current.className || "")}`;
-    return [
-      isLikelyProseElement(current),
-      safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
-      VOLATILE_CONVERSATION_IDENTITY_RE.test(identity2),
-      current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)
-    ].some(Boolean);
   }
   function mountNonDestructiveTextMirror(host2, target2, settings, context2) {
     const mirror = createNonDestructiveTextMirror(context2);
