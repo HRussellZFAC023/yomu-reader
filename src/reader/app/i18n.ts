@@ -18,6 +18,8 @@ const COPY = {
         onboardingEyebrow: '{language}, wherever it appears',
         onboardingCopy: 'Make {language} text, subtitles, and images tappable.',
         onboardingLanguage: 'Settings language',
+        onboardingOutputLanguage: 'Definition and translation language (output)',
+        onboardingTargetLanguage: 'Language you are reading (target)',
         onboardingAccentColor: 'Accent color',
         customAccentColor: 'Custom color',
         onboardingImmersionOptions: 'Immersion defaults',
@@ -1276,6 +1278,8 @@ welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	{language}がある場所ならどこでも
 onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値

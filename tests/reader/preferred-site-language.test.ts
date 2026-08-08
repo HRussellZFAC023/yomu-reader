@@ -221,6 +221,37 @@ describe('preferred Japanese site language', () => {
         expect(preferredJapaneseSiteUrl('https://en.wikipedia.org/wiki/Japanese_language', document)).toBe('https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E8%AA%9E');
     });
 
+    it('never leaves a local development origin through production hreflang metadata', () => {
+        for (const [hreflang, href] of [
+            ['ja', 'https://yomureader.com/ja/'],
+            ['x-default', 'https://yomureader.com/'],
+        ]) {
+            const link = document.createElement('link');
+            link.dataset.testJapaneseAlternate = 'true';
+            link.rel = 'alternate';
+            link.hreflang = hreflang;
+            link.href = href;
+            document.head.append(link);
+        }
+
+        expect(preferredJapaneseSiteUrl('http://127.0.0.1:4199/', document)).toBeNull();
+        expect(preferredJapaneseSiteUrl('http://localhost:4199/en/docs', document)).toBeNull();
+        expect(preferredJapaneseSiteUrl('http://preview.localhost:4199/en/docs', document)).toBeNull();
+
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'http://127.0.0.1:4199/ja/',
+            hostname: '127.0.0.1',
+            protocol: 'http:',
+            replace,
+        });
+        applyPreferredJapaneseSiteLanguage(true);
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).not.toHaveBeenCalled();
+    });
+
     it('uses Japanese hreflang anchors for Wikipedia-style interlanguage links', () => {
         const anchor = document.createElement('a');
         anchor.dataset.testJapaneseAlternate = 'true';

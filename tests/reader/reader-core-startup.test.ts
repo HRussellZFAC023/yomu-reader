@@ -14,6 +14,8 @@ interface StartupInternals {
     installFab: () => void;
 }
 
+type CompanionHost = typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
+
 describe('ReaderApp core startup', () => {
     let app: ReaderApp | undefined;
 
@@ -120,5 +122,31 @@ describe('ReaderApp core startup', () => {
 
         expect(Boolean(document.querySelector('[data-radial-id="subtitles"]')))
             .toBe(showsSubtitleAction);
+    });
+
+    it('keeps the puck safe and hides subtitle discovery when the video companion is missing', () => {
+        const host = globalThis as CompanionHost;
+        const previous = Object.getOwnPropertyDescriptor(host, '__yomuCompanions');
+        const withoutVideo = { ...(host.__yomuCompanions ?? {}) };
+        delete withoutVideo.video;
+        Object.defineProperty(host, '__yomuCompanions', {
+            configurable: true,
+            writable: true,
+            value: withoutVideo,
+        });
+
+        try {
+            app = new ReaderApp();
+            (app as unknown as StartupInternals).installFab();
+
+            expect(() => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click())
+                .not.toThrow();
+            expect(document.querySelector('[data-radial-id="subtitles"]')).toBeNull();
+        } finally {
+            app?.destroy();
+            app = undefined;
+            if (previous) Object.defineProperty(host, '__yomuCompanions', previous);
+            else Reflect.deleteProperty(host, '__yomuCompanions');
+        }
     });
 });

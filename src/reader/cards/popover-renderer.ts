@@ -27,7 +27,7 @@ import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan
 import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
-import { activeContentLanguageAxes } from '../app/target-language-name';
+import { activeContentLanguageAxes } from './content-language-axes';
 
 interface MiningActionState {
     isNeverForget: boolean;

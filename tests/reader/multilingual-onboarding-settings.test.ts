@@ -108,6 +108,23 @@ describe('Slice 1 multilingual onboarding and settings', () => {
             .toContain('スペイン語');
     });
 
+    it('resolves automatic interface copy through the browser locale', async () => {
+        vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['ja-JP']);
+        vi.spyOn(navigator, 'language', 'get').mockReturnValue('ja-JP');
+        const harness = createOnboardingHarness(normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            onboardingSeen: false,
+            interfaceLanguage: 'auto',
+        }));
+
+        await harness.controller.showIfNeeded();
+
+        expect(document.querySelector('[data-onboarding-multilingual-copy="learnerLanguage"]')?.textContent)
+            .toBe('定義・翻訳の言語（出力）');
+        expect(document.querySelector('[data-onboarding-multilingual-copy="targetLanguage"]')?.textContent)
+            .toBe('ページで読む言語（対象）');
+    });
+
     it('uses the same readiness-labelled target options in Settings', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(multilingualSettings('en'), 'https://jpdb.io/settings');

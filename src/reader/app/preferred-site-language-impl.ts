@@ -159,7 +159,7 @@ function applyPreferredJapaneseSiteLanguageAtRevision(
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
     const current = parseHttpUrl(sourceHref);
-    if (!current) return null;
+    if (!current || isLocalDevelopmentUrl(current)) return null;
     const alternate = japaneseAlternateLinkUrl(current, root);
     const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
     if (target) applyParams(target);
@@ -174,7 +174,7 @@ export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): 
 // to add is the honest inverse: the site then serves its own default again.
 function preferredDefaultSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
     const current = parseHttpUrl(sourceHref);
-    if (!current) return null;
+    if (!current || isLocalDevelopmentUrl(current)) return null;
     const target = defaultAlternateLinkUrl(current, root) ?? withoutJapaneseMarkers(current);
     if (!target || target.href === current.href) return null;
     return target.href;
@@ -633,6 +633,16 @@ function parseHttpUrl(sourceHref: string): URL | null {
     } catch {
         return null;
     }
+}
+
+function isLocalDevelopmentUrl(url: URL): boolean {
+    const hostname = url.hostname.toLowerCase();
+    return hostname === 'localhost'
+        || hostname.endsWith('.localhost')
+        || hostname === '0.0.0.0'
+        || hostname === '[::]'
+        || hostname === '[::1]'
+        || /^127(?:\.\d{1,3}){3}$/.test(hostname);
 }
 
 function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {

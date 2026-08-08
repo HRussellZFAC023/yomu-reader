@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { LEARNER_LANGUAGE_IDS } from '../../../src/reader/locales/types';
 import { studyTargetOptions } from '../../../src/reader/app/study-target-picker';
-import { activeContentLanguageAxes, targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
+import { targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
+import { activeContentLanguageAxes } from '../../../src/reader/cards/content-language-axes';
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
@@ -102,19 +103,30 @@ describe('target-language settings', () => {
     });
 
     it.each([
-        { target: 'sh', english: 'Serbo-Croatian', japanese: 'セルボ・クロアチア語' },
-        { target: 'tl', english: 'Tagalog', japanese: 'タガログ語' },
+        { target: 'sh', output: 'sr-Latn', english: 'Serbo-Croatian', japanese: 'セルボ・クロアチア語' },
+        { target: 'tl', output: 'fil', english: 'Tagalog', japanese: 'タガログ語' },
     ])('preserves the $english roster identity across picker, puck, and popup copy', ({
         target,
+        output,
         english,
         japanese,
     }) => {
         setActiveLearningTargetLanguage(target);
         try {
+            const outputSettings = {
+                ...DEFAULT_SETTINGS,
+                languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
+                    profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
+                        ? { ...profile, outputLanguage: output, learnerLanguage: output }
+                        : profile),
+            };
             expect(studyTargetOptions('en').find(option => option.id === target)?.label).toContain(english);
             expect(targetLanguageDisplayName(DEFAULT_SETTINGS)).toBe(english);
             expect(activeContentLanguageAxes(DEFAULT_SETTINGS).targetName).toBe(english);
+            expect(activeContentLanguageAxes(outputSettings).outputName).toBe(english);
             expect(targetLanguageDisplayName({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja' })).toBe(japanese);
+            expect(activeContentLanguageAxes({ ...outputSettings, interfaceLanguage: 'ja' }).outputName)
+                .toBe(japanese);
         } finally {
             resetActiveLearningTargetLanguage();
         }

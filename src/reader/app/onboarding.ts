@@ -716,15 +716,10 @@ type OnboardingLanguageProfileCopy = {
 };
 
 function onboardingLanguageProfileCopy(language: InterfaceLanguage): OnboardingLanguageProfileCopy {
-    return language === 'ja'
-        ? {
-            learnerLanguage: '定義・翻訳の言語（出力）',
-            targetLanguage: 'ページで読む言語（対象）',
-        }
-        : {
-            learnerLanguage: 'Definition and translation language (output)',
-            targetLanguage: 'Language you are reading (target)',
-        };
+    return {
+        learnerLanguage: uiText(language, 'onboardingOutputLanguage'),
+        targetLanguage: uiText(language, 'onboardingTargetLanguage'),
+    };
 }
 
 function learnerLanguageOptionLabel(language: {
