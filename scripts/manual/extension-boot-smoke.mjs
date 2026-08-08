@@ -4,8 +4,8 @@
 // page, storage, and a real lookup popover on a Japanese page.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import http from 'node:http';
 import { chromium } from 'playwright';
+import { closeServer, startLoopbackServer } from '../lib/smoke-harness.mjs';
 import {
     chromiumExtensionSmokeConfig,
     createChromiumExtensionSmokeScope,
@@ -17,7 +17,6 @@ import {
 const smokeConfig = chromiumExtensionSmokeConfig(import.meta.url, 'manual-extension-boot');
 const EXT_PACKAGE = smokeConfig.extensionPackage;
 const temporaryDirectories = createChromiumExtensionSmokeScope();
-const EXT_DIR = temporaryDirectories.extensionDirectory(EXT_PACKAGE);
 const ART = smokeConfig.artifactDirectory;
 const CONTENT_WAIT_MS = Number(process.env.CONTENT_WAIT_MS || 5_000);
 const SCAN_WAIT_MS = Number(process.env.SCAN_WAIT_MS || 25_000);
@@ -28,31 +27,31 @@ mkdirSync(ART, { recursive: true });
 const PAGE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>probe</title></head>
 <body><main><p id="target">日本語を読む練習です。図書館で勉強します。</p></main></body></html>`;
 
-const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(PAGE);
-});
-await new Promise(resolve => server.listen(8977, '127.0.0.1', resolve));
-
-const userDataDir = temporaryDirectories.createDirectory('yomu-ext-probe-');
-const context = await chromium.launchPersistentContext(userDataDir, {
-    headless: false,
-    viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
-    // Playwright's default --disable-extensions flag can leave the service
-    // worker visible while suppressing manifest content-script injection.
-    ignoreDefaultArgs: ['--disable-extensions'],
-    args: [
-        `--disable-extensions-except=${EXT_DIR}`,
-        `--load-extension=${EXT_DIR}`,
-        '--no-first-run',
-        '--window-size=1280,900',
-    ],
-});
-
 const report = { steps: [], consoleErrors: [], swErrors: [], diagnostics: {} };
 const step = (name, ok, detail = '') => { report.steps.push({ name, ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${detail ? ' — ' + detail : ''}`); };
+let context;
+let fixture;
 
 try {
+    const extensionDirectory = temporaryDirectories.extensionDirectory(EXT_PACKAGE);
+    fixture = await startLoopbackServer((_request, response) => {
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        response.end(PAGE);
+    }, 'Could not bind extension smoke fixture server');
+    const userDataDir = temporaryDirectories.createDirectory('yomu-ext-probe-');
+    context = await chromium.launchPersistentContext(userDataDir, {
+        headless: false,
+        viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
+        // Playwright's default --disable-extensions flag can leave the service
+        // worker visible while suppressing manifest content-script injection.
+        ignoreDefaultArgs: ['--disable-extensions'],
+        args: [
+            `--disable-extensions-except=${extensionDirectory}`,
+            `--load-extension=${extensionDirectory}`,
+            '--no-first-run',
+            '--window-size=1280,900',
+        ],
+    });
     // 1. Service worker boots
     let [sw] = context.serviceWorkers();
     if (!sw) sw = await context.waitForEvent('serviceworker', { timeout: 15_000 }).catch(() => null);
@@ -67,7 +66,7 @@ try {
     // Serve from a non-root path so the synthetic Japanese page is treated as a
     // third-party site, not a local Yomu dev app (root "/" on 127.0.0.1 is
     // recognized as the hosted reader, which suppresses first-run onboarding).
-    await page.goto('http://127.0.0.1:8977/article/read.html', { waitUntil: 'domcontentloaded' });
+    await page.goto(`${fixture.origin}/article/read.html`, { waitUntil: 'domcontentloaded' });
     page.on('console', message => console.log('[page-console]', message.type(), message.text().slice(0, 200)));
     const injected = await page.waitForFunction(
         () => Boolean(
@@ -178,13 +177,24 @@ try {
         await popup.screenshot({ path: path.join(ART, 'ext-study.png') });
     }
 } finally {
-    writeFileSync(path.join(ART, 'ext-probe-report.json'), JSON.stringify(report, null, 2));
-    await Promise.race([
-        context.close(),
-        new Promise(resolve => setTimeout(resolve, 5_000)),
-    ]);
-    server.close();
-    temporaryDirectories.cleanup();
+    try {
+        writeFileSync(path.join(ART, 'ext-probe-report.json'), JSON.stringify(report, null, 2));
+    } finally {
+        try {
+            if (context) {
+                await Promise.race([
+                    context.close(),
+                    new Promise(resolve => setTimeout(resolve, 5_000)),
+                ]).catch(() => undefined);
+            }
+        } finally {
+            try {
+                if (fixture) await closeServer(fixture.server);
+            } finally {
+                temporaryDirectories.cleanup();
+            }
+        }
+    }
 }
 const failed = report.steps.filter(item => !item.ok);
 console.log(JSON.stringify({ failed: failed.length, consoleErrors: report.consoleErrors.slice(0, 8) }, null, 1));

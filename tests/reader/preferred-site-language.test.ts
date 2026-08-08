@@ -539,6 +539,28 @@ describe('preferred Japanese site language', () => {
         expect(replace).toHaveBeenCalledWith('https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP');
     });
 
+    it('restores the exact pre-redirect locale markers on an active opt-out', () => {
+        const originalHref = 'https://www.youtube.com/watch?v=abc123&hl=en&gl=GB';
+        const japaneseHref = 'https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP';
+        const siteLocation = {
+            href: originalHref,
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace: vi.fn((href: string) => { siteLocation.href = href; }),
+        };
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', siteLocation);
+
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(siteLocation.href).toBe(japaneseHref);
+
+        applyPreferredJapaneseSiteLanguage(false);
+
+        expect(siteLocation.href).toBe(originalHref);
+        expect(siteLocation.replace).toHaveBeenNthCalledWith(1, japaneseHref);
+        expect(siteLocation.replace).toHaveBeenNthCalledWith(2, originalHref);
+    });
+
     it('reloads once when a cleared Japanese preference cookie already shaped the response', () => {
         const replace = vi.fn();
         let cookie = 'PREF=hl=ja&gl=JP&keep=1';

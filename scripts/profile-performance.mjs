@@ -365,7 +365,7 @@ profileUrl.searchParams.set('apiKey', API_KEY || 'profile-key');
 if (!LIVE) profileUrl.searchParams.set('audio', 'https://audio.profile.test/source?term={term}&reading={reading}');
 const profileTarget = await openProfileTarget(page, profileUrl);
 if (profileTarget.skipped) {
-    console.log(JSON.stringify({
+    const skippedReport = {
         skipped: true,
         reason: profileTarget.reason,
         origin: ORIGIN,
@@ -375,8 +375,12 @@ if (profileTarget.skipped) {
         actionable: LIVE
             ? 'Start the configured YOMU_PROFILE_ORIGIN newtab page or run without YOMU_PROFILE_LIVE=1 so the harness can use its deterministic fixture.'
             : 'Run npm run build first so dist/yomu.user.js exists, then rerun the profiler. The mock fixture is available at /__yomu-profile-fixture/.',
-    }, null, 2));
+    };
+    console.log(JSON.stringify(skippedReport, null, 2));
     await browser.close();
+    if (!LIVE) {
+        throw new Error(`Deterministic performance fixture was not profiled: ${profileTarget.reason}`);
+    }
     process.exit(0);
 }
 

@@ -1,7 +1,6 @@
 import { ankiLookupWithUnavailableDetails, type AnkiConnectClient, type AnkiLookupResult, type AnkiNoteFieldTargetPlan } from '../anki/index';
 import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLookupOrEmpty } from './render-state';
 import { cardKey } from './utils';
-import { delay } from '../core/async-utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
 import { enrichCardFromJitenVocabularyInfo, type JitenApiClient, type JitenVocabularyInfo, type JitenVocabularyWordSummary } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
@@ -506,7 +505,7 @@ export class CardRenderDataLoader {
     }
 
     private async loadPublicPitchAfterLocalPitchGrace(card: JPDBCard, localMetaEntries: Promise<YomitanMetaEntry[]>): Promise<string[]> {
-        await Promise.race([localMetaEntries, delay(CARD_RENDER_LOCAL_PITCH_GRACE_MS)]);
+        await settleBeforeDeadline(localMetaEntries, CARD_RENDER_LOCAL_PITCH_GRACE_MS);
         return this.loadPublicPitch(card);
     }
 
@@ -1002,6 +1001,16 @@ function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise
                 log.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
                 resolve(fallback);
             }, timeoutMs);
+        }),
+    ]).finally(() => window.clearTimeout(timeoutId));
+}
+
+function settleBeforeDeadline(promise: Promise<unknown>, timeoutMs: number): Promise<void> {
+    let timeoutId = 0;
+    return Promise.race([
+        promise.then(() => undefined),
+        new Promise<void>(resolve => {
+            timeoutId = window.setTimeout(resolve, timeoutMs);
         }),
     ]).finally(() => window.clearTimeout(timeoutId));
 }

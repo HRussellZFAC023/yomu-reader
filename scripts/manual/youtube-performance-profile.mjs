@@ -14,6 +14,7 @@ import {
 } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
 import { cdpMetrics, metricDelta } from '../lib/cdp-performance-metrics.mjs';
+import { userscriptCompanionPaths } from '../lib/smoke-test-helpers.mjs';
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
@@ -22,21 +23,19 @@ const artifactLabel = process.env.YOMU_PROFILE_LABEL ?? 'working';
 const artifactDir = resolve(process.env.YOMU_PROFILE_ARTIFACT_DIR ?? '.');
 const userscriptPath = resolve(process.env.YOMU_PROFILE_USERSCRIPT ?? join(artifactDir, 'dist/yomu.user.js'));
 const cssPath = resolve(process.env.YOMU_PROFILE_CSS ?? join(artifactDir, 'dist/yomu.css'));
-const builtCompanionDir = join(artifactDir, 'dist/greasyfork');
-const hostedCompanionDir = join(artifactDir, 'docs/public/greasyfork');
-const defaultCompanionDir = existsSync(join(builtCompanionDir, 'yomu-runtime.user.js'))
-    ? builtCompanionDir
-    : hostedCompanionDir;
-const companionDir = resolve(process.env.YOMU_PROFILE_COMPANION_DIR ?? defaultCompanionDir);
+for (const path of [userscriptPath, cssPath]) {
+    if (!existsSync(path)) throw new Error(`Missing profile artifact: ${path}`);
+}
 // yomu-ocr-manga carries the OCR controller + raster detectors; without it the
 // profile never executes the code whose heat it is meant to measure.
 // Tampermonkey loads the runtime through @require before the core userscript.
 // Playwright addInitScript does not interpret metadata, so include that exact
-// full companion explicitly; without it the profile silently exercises core's
-// degraded parser stubs and records zero JPDB/Jiten traffic.
-const companionPaths = ['yomu-runtime.user.js']
-    .map(name => join(companionDir, name))
-    .filter(existsSync);
+// graph derived from the core header; without it the profile silently exercises
+// core's degraded parser stubs and records zero JPDB/Jiten traffic. The SRI
+// validation below also prevents a released core from being paired with a newer
+// mutable companion and producing credible-looking but invalid evidence.
+const companionPaths = userscriptCompanionPaths(userscriptPath);
+assertProfileCompanionGraph(userscriptPath, companionPaths);
 const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));
 const headed = process.env.YOMU_PROFILE_HEADED === '1';
 const cpuProfilingEnabled = process.env.YOMU_PROFILE_CPU === '1';
@@ -85,10 +84,6 @@ const YOUTUBE_TIMED_TEXT = {
         { start: 6800, duration: 1800, text: '今日も本を読みます。' },
     ]),
 };
-
-for (const path of [userscriptPath, cssPath]) {
-    if (!existsSync(path)) throw new Error(`Missing profile artifact: ${path}`);
-}
 
 const scenarioNames = profileScenarioNames();
 rmSync(outputRoot, { recursive: true, force: true });
@@ -293,6 +288,29 @@ function functionProfileConsoleSummary(report, profilePath) {
                 })),
         })),
     };
+}
+
+function assertProfileCompanionGraph(corePath, resolvedPaths) {
+    const requirements = readFileSync(corePath, 'utf8')
+        .split(/\r?\n/u)
+        .flatMap(line => {
+            const match = line.match(/^\/\/ @require https:\/\/yomureader\.com\/greasyfork\/([^#\s]+)#sha256=([^\s]+)$/u);
+            return match ? [{ fileName: match[1], sha256: match[2] }] : [];
+        });
+    if (!requirements.length) {
+        throw new Error(`Profile core has no content-addressed @require graph: ${corePath}`);
+    }
+    if (requirements.length !== resolvedPaths.length) {
+        throw new Error(`Profile companion graph mismatch: header requires ${requirements.length}, resolver returned ${resolvedPaths.length}.`);
+    }
+    requirements.forEach((requirement, index) => {
+        const companionPath = resolvedPaths[index];
+        if (!existsSync(companionPath)) throw new Error(`Missing profile companion: ${companionPath}`);
+        const actualSha256 = createHash('sha256').update(readFileSync(companionPath)).digest('base64');
+        if (actualSha256 !== requirement.sha256) {
+            throw new Error(`Profile companion SRI mismatch for ${requirement.fileName}: ${companionPath}`);
+        }
+    });
 }
 
 function profileArtifactDescriptor(path) {
@@ -911,10 +929,13 @@ async function snapshotStep(page, client, name, parseIndex, ankiIndex) {
 }
 
 async function finishStep(page, client, started, name) {
+    // Capture the logical end of the scenario before profiler teardown. Both
+    // precise-coverage serialization and Profiler.stop can be expensive enough
+    // to distort the Performance-domain deltas we report for the page action.
+    const cdp = await cdpMetrics(client);
     const functionProfile = started.functionProfiling
         ? await finishFunctionProfile(client)
         : null;
-    const cdp = await cdpMetrics(client);
     return {
         name,
         cdpDelta: metricDelta(started.cdp, cdp),
@@ -932,9 +953,11 @@ async function configureFunctionProfiling(client) {
 }
 
 async function finishFunctionProfile(client) {
+    // Stop sampling before asking V8 to serialize precise coverage so sampled
+    // self-time cannot be attributed to the profiler's own teardown work.
+    const { profile } = await client.send('Profiler.stop');
     const coverage = await client.send('Profiler.takePreciseCoverage');
     await client.send('Profiler.stopPreciseCoverage');
-    const { profile } = await client.send('Profiler.stop');
     return {
         sampled: summarizeCpuProfile(profile),
         calls: summarizePreciseCoverage(coverage.result),

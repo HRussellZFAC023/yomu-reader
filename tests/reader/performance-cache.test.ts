@@ -228,6 +228,28 @@ describe('performance cache bounds', () => {
         }
     });
 
+    it('cancels the public-pitch grace timer when local metadata settles first', async () => {
+        vi.useFakeTimers();
+        try {
+            const publicPitch = vi.fn(async () => ['HLL']);
+            const loader = createCardRenderDataLoader({
+                settings: { showPitchAccent: true },
+                lookupTermMeta: vi.fn(async () => []),
+                publicPitch,
+            });
+
+            const load = loader.load({ ...cardFor(1), spelling: '読む', reading: 'よむ', pitchAccent: [] });
+
+            await load.pitchAccent;
+            await load.all;
+
+            expect(publicPitch).toHaveBeenCalledWith('読む', 'よむ');
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('uses local pitch metadata without waiting for public JPDB pitch', async () => {
         const lookupTermMeta = vi.fn(async () => [{
             expression: '計量',
