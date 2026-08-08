@@ -5,6 +5,30 @@
  */
 export function installYoutubePerformanceStressTargetSelector() {
     window.__yomuProfileSelectStressTarget = selectStressTarget;
+    window.__yomuProfileWaitForStressTarget = waitForStressTarget;
+
+    // Scrolling moves the source immediately, while its pointer-transparent
+    // annotation portal catches up on a later paint. Precise coverage can
+    // stretch that reconciliation beyond one frame. Start the lookup clock
+    // only after this exact source occurrence owns its painted point.
+    function waitForStressTarget(selector, request, timeoutMs) {
+        return new Promise(resolve => {
+            const startedAt = performance.now();
+            let timer = 0;
+            const finish = target => {
+                window.clearTimeout(timer);
+                resolve(target);
+            };
+            const sample = () => {
+                const target = selectStressTarget(selector, request);
+                if (target) return finish(target);
+                if (performance.now() - startedAt >= timeoutMs) return finish(null);
+                requestAnimationFrame(sample);
+            };
+            timer = window.setTimeout(sample, timeoutMs);
+            requestAnimationFrame(sample);
+        });
+    }
 
     function selectStressTarget(selector, request) {
         if (!validTargetRequest(request)) return null;

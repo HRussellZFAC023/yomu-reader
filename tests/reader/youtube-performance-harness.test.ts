@@ -12,6 +12,7 @@ import {
     shouldRunUninstrumentedDiagnostics,
 } from '../../scripts/lib/youtube-performance-replays.mjs';
 import { createPerformanceEvidenceJournal } from '../../scripts/lib/youtube-performance-report.mjs';
+import { installYoutubePerformanceStressTargetSelector } from '../../scripts/lib/youtube-performance-stress-target.mjs';
 import { fixedAmbientOperationPlan } from '../../scripts/lib/youtube-performance-workload.mjs';
 
 const temporaryDirectories: string[] = [];
@@ -196,6 +197,36 @@ describe('YouTube performance harness', () => {
             { cycle: 4, phase: 'playing', scrollOffset: 720, playbackTicks: 1 },
         ]);
         expect(() => fixedAmbientOperationPlan(0)).toThrow(/must be positive/u);
+    });
+
+    it('waits for the requested stress target to own painted geometry', async () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.expression = '今日';
+        word.getClientRects = () => [new DOMRect(20, 20, 40, 20)] as unknown as DOMRectList;
+        const originalElementFromPoint = document.elementFromPoint;
+        document.elementFromPoint = () => word;
+        installYoutubePerformanceStressTargetSelector();
+        const profileWindow = window as typeof window & {
+            __yomuProfileWaitForStressTarget?: (
+                selector: string,
+                request: { expression: string; lane: string },
+                timeoutMs: number,
+            ) => Promise<{ expression: string } | null>;
+        };
+
+        try {
+            const targetPromise = profileWindow.__yomuProfileWaitForStressTarget!(
+                '.jpdb-reader-word',
+                { expression: '今日', lane: 'word' },
+                1000,
+            );
+            requestAnimationFrame(() => document.body.append(word));
+
+            await expect(targetPromise).resolves.toMatchObject({ expression: '今日' });
+        } finally {
+            document.elementFromPoint = originalElementFromPoint;
+        }
     });
 
     it('merges only CPU samples and coverage calls into authoritative metrics', () => {

@@ -1891,10 +1891,7 @@ async function waitForYoutubeCommentParse(page, scenario) {
 
 async function hoverStressSample(page, request, label, activation = 'hover', priorClose = { attempted: false }) {
     if (activation === 'touch') return await touchStressSample(page, request, label, priorClose);
-    const target = await page.evaluate(
-        ({ targetRequest, selector }) => window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null,
-        { targetRequest: request, selector: STRESS_WORD_SELECTOR },
-    );
+    const target = await waitForReadyStressTarget(page, request);
     if (!target) return skippedStressSample(label, request);
 
     const started = await page.evaluate(expected => {
@@ -1980,8 +1977,8 @@ async function closeStressPopover(page) {
 
 async function touchStressSample(page, request, label, priorClose) {
     const result = await page.evaluate(
-        ({ targetRequest, selector }) => {
-            const target = window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null;
+        async ({ targetRequest, selector }) => {
+            const target = await window.__yomuProfileWaitForStressTarget?.(selector, targetRequest, 12_000) ?? null;
             if (!target) return null;
             const { x, y } = target;
             // Portal paint is pointer-transparent. Dispatch through the element a
@@ -2040,6 +2037,13 @@ async function touchStressSample(page, request, label, priorClose) {
         started: result.started,
         priorClose,
     });
+}
+
+async function waitForReadyStressTarget(page, request) {
+    return page.evaluate(
+        ({ targetRequest, selector }) => window.__yomuProfileWaitForStressTarget?.(selector, targetRequest, 12_000) ?? null,
+        { targetRequest: request, selector: STRESS_WORD_SELECTOR },
+    );
 }
 
 /**
