@@ -305,6 +305,7 @@ const hostedHeroStudyLanguages = heroStudyLanguages();
 function docsThemeConfig(locale: WebsiteLocaleId): DefaultTheme.Config {
     const navigation = localizedSiteNavigation[locale];
     return {
+        i18nRouting: false,
         logo: { src: '/yomu-icon.svg', alt: websiteMessage('docs.site.logoAlt', locale) },
         logoLink: localizedWebsiteRoute('/', locale),
         siteTitle: 'yomu',
@@ -417,6 +418,50 @@ function legacyRedirectHead(relativePath: string, redirect: string | undefined):
         ['meta', { 'http-equiv': 'refresh', content: `0; url=${redirect}` }],
         ['script', {}, `(() => { const fallback = ${JSON.stringify(redirect)}; const byHash = ${JSON.stringify(hashRedirects)}; const target = byHash[location.hash] || fallback; location.replace(target); })();`],
     ];
+}
+
+function websiteRouteHead(pageData: PageDataLike): HeadConfig[] {
+    const locale = websiteLocaleForRelativePath(pageData.relativePath);
+    const definition = websiteRouteForSource(pageData.relativePath);
+    const pageUrl = canonicalUrl(pageData.relativePath, locale);
+    const title = ogTitleFor(pageData, locale);
+    const description = ogDescriptionFor(pageData, locale);
+    const legacyRedirect = locale === 'en' ? legacyDocsRedirect(pageData.relativePath) : undefined;
+    const canonicalPageUrl = legacyRedirect ? new URL(legacyRedirect, siteUrl).href : pageUrl;
+    return markRouteHead([
+        ...socialMetadataHead(locale, canonicalPageUrl, title, description),
+        ...openGraphLocaleAlternateHead(definition, locale),
+        ...routeAlternateHead(definition, pageData.relativePath),
+        ...jsonLdFor(pageData, canonicalPageUrl, locale),
+        ...legacyRedirectHead(pageData.relativePath, legacyRedirect),
+    ]);
+}
+
+function markRouteHead(entries: HeadConfig[]): HeadConfig[] {
+    return entries.map(entry => {
+        const [tag, attributes, content] = entry;
+        const marked = { ...attributes, 'data-yomu-route-head': '' };
+        return content === undefined
+            ? [tag, marked] as HeadConfig
+            : [tag, marked, content] as HeadConfig;
+    });
+}
+
+function localizeDefaultThemeAccessibility(code: string): string {
+    if (!/<html[^>]+lang="ja"/u.test(code)) return code;
+    return code
+        .replace(
+            /(<span id="main-nav-aria-label"[^>]*>)\s*Main Navigation\s*(<\/span>)/u,
+            `$1${websiteMessage('docs.theme.mainNavigation', 'ja')}$2`,
+        )
+        .replaceAll(
+            'aria-label="extra navigation"',
+            `aria-label="${websiteMessage('docs.theme.extraNavigation', 'ja')}"`,
+        )
+        .replaceAll(
+            'aria-label="mobile navigation"',
+            `aria-label="${websiteMessage('docs.theme.mobileNavigation', 'ja')}"`,
+        );
 }
 
 export default defineConfig({
@@ -537,22 +582,10 @@ export default defineConfig({
         pageData.description = publication.description;
         pageData.frontmatter.title = publication.title;
         pageData.frontmatter.description = publication.description;
+        pageData.frontmatter.yomuWebsiteRouteHead = websiteRouteHead(pageData);
     },
     transformHead({ pageData }) {
-        const locale = websiteLocaleForRelativePath(pageData.relativePath);
-        const definition = websiteRouteForSource(pageData.relativePath);
-        const pageUrl = canonicalUrl(pageData.relativePath, locale);
-        const ogTitle = ogTitleFor(pageData, locale);
-        const ogDescription = ogDescriptionFor(pageData, locale);
-        const legacyRedirect = locale === 'en' ? legacyDocsRedirect(pageData.relativePath) : undefined;
-        const canonicalPageUrl = legacyRedirect ? new URL(legacyRedirect, siteUrl).href : pageUrl;
-        return [
-            ...socialMetadataHead(locale, canonicalPageUrl, ogTitle, ogDescription),
-            ...openGraphLocaleAlternateHead(definition, locale),
-            ...routeAlternateHead(definition, pageData.relativePath),
-            ...legacyRedirectHead(pageData.relativePath, legacyRedirect),
-            ...jsonLdFor(pageData, canonicalPageUrl, locale),
-        ];
+        return websiteRouteHead(pageData);
     },
     transformHtml(code, id) {
         // VitePress emits `rel="preload stylesheet"` for its main CSS chunks.
@@ -572,7 +605,7 @@ export default defineConfig({
         // a11y audit asserts the panel is the ONLY readable image, so a new
         // screenshot added without the attribute fails the gate instead of
         // silently re-enabling recognition.
-        return styled;
+        return localizeDefaultThemeAccessibility(styled);
     },
     themeConfig: docsThemeConfig('en'),
 });

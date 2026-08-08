@@ -68,6 +68,7 @@ function checkRouteAlternates(
 ): void {
     const expected = routeUrl(definition.route, locale);
     assert.equal(link(document, 'canonical'), expected, `${file}: canonical`);
+    assert.equal(attribute(linkElement(document, 'canonical'), 'data-yomu-route-head'), '', `${file}: SPA head marker`);
     assert.equal(alternate(document, 'en'), routeUrl(definition.route, 'en'), `${file}: English alternate`);
     const japanesePublication = websiteRoutePublication(definition, 'ja');
     assert.equal(alternate(document, 'ja'), japanesePublication ? routeUrl(definition.route, 'ja') : undefined, `${file}: Japanese alternate`);
@@ -86,7 +87,18 @@ function checkLocalizedChrome(
     assert.ok(pageText.includes(navigationLabel), `${file}: localized navigation`);
     assert.ok(pageText.includes(footer), `${file}: localized footer`);
     assert.equal(source.includes('yomu-hud-language-toggle'), false, `${file}: retired client copy toggle`);
-    if (locale === 'ja') checkJapaneseRouteLinks(source, file);
+    const targetLocale = locale === 'ja' ? ['English', '/'] : ['日本語', '/ja/'];
+    assert.equal(localeMenuHref(document, targetLocale[0]), targetLocale[1], `${file}: safe locale switch`);
+    if (locale === 'ja') {
+        checkJapaneseRouteLinks(source, file);
+        assert.equal(text(elementById(document, 'main-nav-aria-label')).trim(), 'メインナビゲーション', `${file}: main navigation label`);
+        assert.equal(attribute(elementByClass(document, 'VPNavBarHamburger'), 'aria-label'), 'モバイルナビゲーション', `${file}: mobile navigation label`);
+        assert.equal(
+            attribute(descendantElementByAttribute(elementByClass(document, 'VPNavBarExtra'), 'aria-label'), 'aria-label'),
+            'メニュー',
+            `${file}: extra navigation label`,
+        );
+    }
 }
 
 function checkJapaneseRouteLinks(source: string, file: string): void {
@@ -140,12 +152,55 @@ function meta(root: DefaultTreeAdapterTypes.Node, attributeName: string, attribu
 }
 
 function link(root: DefaultTreeAdapterTypes.Node, rel: string): string | undefined {
+    const node = linkElement(root, rel);
+    return attribute(node, 'href');
+}
+
+function linkElement(root: DefaultTreeAdapterTypes.Node, rel: string): DefaultTreeAdapterTypes.Element {
     const node = descendants(root).find(candidate =>
         'tagName' in candidate
         && candidate.tagName === 'link'
         && attribute(candidate, 'rel') === rel,
     );
-    return node && 'tagName' in node ? attribute(node, 'href') : undefined;
+    assert.ok(node && 'tagName' in node, `missing link[rel="${rel}"]`);
+    return node;
+}
+
+function localeMenuHref(root: DefaultTreeAdapterTypes.Node, label: string): string | undefined {
+    const menu = elementByClass(root, 'VPNavBarTranslations');
+    const link = descendants(menu).find(candidate =>
+        'tagName' in candidate
+        && candidate.tagName === 'a'
+        && text(candidate).trim() === label,
+    );
+    return link && 'tagName' in link ? attribute(link, 'href') : undefined;
+}
+
+function elementById(root: DefaultTreeAdapterTypes.Node, id: string): DefaultTreeAdapterTypes.Element {
+    return descendantElementByAttribute(root, 'id', id);
+}
+
+function elementByClass(root: DefaultTreeAdapterTypes.Node, className: string): DefaultTreeAdapterTypes.Element {
+    const found = descendants(root).find(candidate =>
+        'tagName' in candidate
+        && (attribute(candidate, 'class') ?? '').split(/\s+/u).includes(className),
+    );
+    assert.ok(found && 'tagName' in found, `missing .${className}`);
+    return found;
+}
+
+function descendantElementByAttribute(
+    root: DefaultTreeAdapterTypes.Node,
+    name: string,
+    value?: string,
+): DefaultTreeAdapterTypes.Element {
+    const found = descendants(root).find(candidate =>
+        'tagName' in candidate
+        && attribute(candidate, name) !== undefined
+        && (value === undefined || attribute(candidate, name) === value),
+    );
+    assert.ok(found && 'tagName' in found, `missing [${name}${value === undefined ? '' : `="${value}"`}]`);
+    return found;
 }
 
 function alternate(root: DefaultTreeAdapterTypes.Node, language: string): string | undefined {

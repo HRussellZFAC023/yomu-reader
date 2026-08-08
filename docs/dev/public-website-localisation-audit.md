@@ -10,23 +10,25 @@ Reader-interface readiness and website readiness are separate measurements:
 
 - Reader interface: 2 of 33 selectable (`en`, `ja`), 31 blocked by the review
   ledger; Arabic and Farsi also remain blocked by the RTL gate.
-- Public website: English is the only fully authored locale. Japanese is a
-  client-side exact-string overlay with checked copy for 16 of the 21 active
-  Markdown routes. The other 31 have no website copy or locale routes.
-- Locale route architecture: 0 of 33. VitePress has no `locales` configuration,
-  no locale-prefixed routes, and no per-locale nav/sidebar configuration.
+- Public website: English publishes all 21 authored routes. Japanese publishes
+  17 statically localised routes; API Reference, Local Audio, Privacy, and the
+  generated Settings Reference remain unavailable pending body-copy review.
+  The other 31 locales have no public website copy or route tree.
+- Locale route architecture: the official VitePress locale router now owns root
+  English and `/ja/`, including per-locale navigation, sidebar, footer, search,
+  `lang`, metadata, canonical and reciprocal `hreflang`. The 31 unreviewed
+  locales remain fail-closed in the shared publication ledger.
 
-The Japanese overlay is useful, but it is not a generated locale site. It
-changes text nodes after hydration on the same canonical English URL. Search
-engines and no-JavaScript visitors receive the English document, there are no
-`hreflang` alternates, and the static structured data still declares English
-and Japanese rather than a route-specific locale.
+The old Japanese post-hydration text swapper has been deleted. Published
+Japanese is present in the server response and matching page-data chunk, with
+rendered and JavaScript-enabled route gates. This is a complete locale
+architecture for the reviewed EN/JA subset, not D43 completion.
 
 ## Measured public coverage
 
 The active Markdown route roster is pinned by
 `tests/reader/docs-published-pages.test.ts`. It contains 21 routes. The Japanese
-copy gate in `tests/reader/i18n.test.ts` covers these 16:
+publication ledger covers these 17:
 
 - `/`
 - the 11 `/learn/` routes
@@ -34,21 +36,20 @@ copy gate in `tests/reader/i18n.test.ts` covers these 16:
 - `/faq`
 - `/membership`
 - `/reference/grammar`
+- `/changelog`
 
-Five active routes are not under the full Japanese page-copy gate:
-`/api/`, `/changelog`, `/local-audio`, `/privacy/`, and
-`/reference/settings`. The latest changelog release has a narrower Japanese
-copy check; that is not whole-route localisation.
+Four active routes are not published in Japanese: `/api/`, `/local-audio`,
+`/privacy/`, and `/reference/settings`.
 
 | Surface required by D43 | English | Japanese | Other 31 |
 |---|---|---|---|
-| Locale route | Single source route | Same English route, client overlay | None |
-| Navigation | Authored | Hand-maintained labels | None |
+| Locale route | 21 root routes | 17 checked `/ja/` routes | None |
+| Navigation | Authored | Static reviewed locale config | None |
 | Homepage hero | Authored | Hand-maintained template | None |
-| Install guidance | Authored | Exact-string overlay on checked learning pages | None |
-| Capability/reference copy | Authored | Grammar/reference pages checked; route set incomplete | None |
-| SEO (`lang`, canonical, `hreflang`, JSON-LD) | Static English baseline | Client mutation only; no alternate route | None |
-| Rendered-page gate | Normal docs build | No all-route locale-render matrix | None |
+| Install guidance | Authored | Reviewed static route copy | None |
+| Capability/reference copy | Authored | Grammar/reference routes checked; 4 bodies blocked | None |
+| SEO (`lang`, canonical, `hreflang`, JSON-LD) | Static route-specific output | Static route-specific output | None |
+| Rendered-page gate | 21 routes | 17 routes plus SPA/hydration smoke | 31 absent by contract |
 | RTL route/layout proof | Not applicable | Not applicable | Arabic/Farsi: none |
 
 The standalone Study, PDF Reader, Video Player, and Academy shells share some
@@ -83,23 +84,20 @@ where a narrow data-backed feature exists.
 
 ### 1. Locale contract and route generator
 
-- Extract public copy from the 4,403-entry English-to-Japanese exact-string map
-  into stable message IDs shared with the existing locale registry.
-- Add VitePress locale routes and per-locale nav/sidebar configuration while
-  retaining one canonical source-page topology.
-- Define fallback explicitly (`requested locale -> reviewed parent -> en`) and
-  render a visible build diagnostic for every fallback; never silently present
-  fallback English as translated copy.
-- Generate `lang`, `dir`, canonical, `hreflang`, Open Graph locale, and JSON-LD
-  from the same locale row.
+**Implemented in the static-locale architecture slice.** Public prose is now a
+build-only 4,404-ID catalogue; VitePress owns root EN and `/ja/`; locale identity,
+direction, navigation and metadata derive from one manifest row. Missing
+corresponding routes fall back to a reviewed locale home in the locale picker
+and remain absent from `hreflang`, rather than silently rendering English under
+a translated URL.
 
 ### 2. Migrate the two proven locales without changing copy
 
-- Move English source and the reviewed Japanese catalogue to stable IDs.
-- Generate and render all 21 Markdown routes plus the hosted shells in both
-  locales.
-- Delete the post-hydration text-node replacement path only after route parity,
-  saved interface choice, and reader-annotation teardown tests pass.
+**Partly implemented.** English renders all 21 routes and Japanese renders the
+17 bodies that pass the existing review boundary. The post-hydration text-node
+replacement path is deleted; SSR, hydration and SPA route gates cover the
+published subset. The four named Japanese bodies and the separately rendered
+Study, PDF, Video and Academy shells remain work, so this step is not complete.
 
 ### 3. Translation production with a human-review ledger
 

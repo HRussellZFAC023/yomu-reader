@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
     WEBSITE_ROUTE_CATALOG,
     publishedWebsiteRouteDefinitions,
@@ -8,6 +8,7 @@ import {
 import {
     PUBLISHED_WEBSITE_ROUTES,
     WEBSITE_LOCALE_MANIFEST,
+    correspondingWebsiteLocaleHref,
     localizedWebsiteHref,
     localizedWebsiteRoute,
     publishedWebsiteLocales,
@@ -24,8 +25,15 @@ import {
     localizeHtmlFragment,
     localizeMarkdownTokens,
 } from '../../docs/.vitepress/locales/markdown-localization';
+import { syncWebsiteRouteLocalization } from '../../docs/.vitepress/theme/website-route-localization';
 
 describe('reviewed website locale contract', () => {
+    afterEach(() => {
+        document.head.replaceChildren();
+        document.body.replaceChildren();
+        window.history.replaceState({}, '', '/');
+    });
+
     it('publishes only reviewed English and Japanese locale identities', () => {
         expect(WEBSITE_LOCALE_MANIFEST).toHaveLength(33);
         expect(publishedWebsiteLocales().map(locale => locale.id)).toEqual(['en', 'ja']);
@@ -65,6 +73,65 @@ describe('reviewed website locale contract', () => {
         expect(localizedWebsiteHref('/study/', 'ja')).toBe('/study/');
         expect(localizedWebsiteHref('https://example.com/', 'ja')).toBe('https://example.com/');
         expect(() => localizedWebsiteRoute('/privacy/', 'ja')).toThrow(/not reviewed/u);
+        expect(correspondingWebsiteLocaleHref('/learn/reading', 'ja')).toBe('/ja/learn/reading');
+        expect(correspondingWebsiteLocaleHref('/privacy/', 'ja')).toBe('/ja/');
+        expect(correspondingWebsiteLocaleHref('/ja/learn/reading', 'en')).toBe('/learn/reading');
+    });
+
+    it('reconciles SPA locale links, route metadata, and hardcoded theme labels', () => {
+        window.history.replaceState({}, '', '/ja/learn/reading');
+        document.head.innerHTML = '<link rel="canonical" href="https://yomureader.com/learn/reading" data-yomu-route-head>';
+        document.body.innerHTML = `
+            <nav class="VPNavBarMenu" aria-labelledby="main-nav-aria-label">
+                <span id="main-nav-aria-label">Main Navigation</span>
+            </nav>
+            <div class="VPNavBarTranslations"><a href="/">English</a></div>
+            <div class="VPNavBarExtra"><button aria-label="extra navigation"></button></div>
+            <button class="VPNavBarHamburger" aria-label="mobile navigation"></button>
+        `;
+        syncWebsiteRouteLocalization([
+            ['link', {
+                rel: 'canonical',
+                href: 'https://yomureader.com/ja/learn/reading',
+                'data-yomu-route-head': '',
+            }],
+            ['meta', {
+                property: 'og:locale',
+                content: 'ja_JP',
+                'data-yomu-route-head': '',
+            }],
+            ['script', {
+                type: 'application/ld+json',
+                'data-yomu-route-head': '',
+            }, '{"inLanguage":"ja"}'],
+        ]);
+
+        expect(document.querySelector('.VPNavBarTranslations a')?.getAttribute('href'))
+            .toBe('/learn/reading');
+        expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href'))
+            .toBe('https://yomureader.com/ja/learn/reading');
+        expect(document.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('ja_JP');
+        expect(document.querySelector('script[type="application/ld+json"]')?.textContent)
+            .toBe('{"inLanguage":"ja"}');
+        expect(document.head.querySelectorAll('[data-yomu-route-head]')).toHaveLength(3);
+        expect(document.getElementById('main-nav-aria-label')?.textContent).toBe('メインナビゲーション');
+        expect(document.querySelector('.VPNavBarExtra > button')?.getAttribute('aria-label'))
+            .toBe('メニュー');
+        expect(document.querySelector('.VPNavBarHamburger')?.getAttribute('aria-label'))
+            .toBe('モバイルナビゲーション');
+    });
+
+    it('keeps client locale navigation away from an unpublished corresponding route', () => {
+        window.history.replaceState({}, '', '/privacy/');
+        document.body.innerHTML = `
+            <div class="VPNavBarTranslations">
+                <a href="/ja/privacy/">日本語</a>
+            </div>
+        `;
+
+        syncWebsiteRouteLocalization(undefined);
+
+        expect(document.querySelector('.VPNavBarTranslations a')?.getAttribute('href')).toBe('/ja/');
     });
 
     it('uses stable semantic messages and route publications', () => {

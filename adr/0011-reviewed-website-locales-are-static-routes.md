@@ -37,8 +37,8 @@ a public locale.
 6. The rendered-route gate requires every English route, exactly the reviewed
    Japanese route set, no unreviewed Japanese route, and no unavailable locale
    directory. A JavaScript smoke requires Japanese in the initial response, no
-   wrong-language painted frame during hydration, and correct EN-to-JA-to-EN
-   SPA navigation.
+   wrong-language painted frame during hydration, route-correct metadata and
+   locale links, and correct EN-to-JA-to-EN SPA navigation.
 
 ## Human-review boundary
 
@@ -71,7 +71,9 @@ for a 1.9.0 claim.
 - Site-locale navigation no longer changes the reader's saved interface
   preference.
 - Root English URLs remain stable. Reviewed Japanese pages have deterministic
-  counterparts; links to the four unreviewed bodies remain on the English URL.
+  counterparts; content links to the four unreviewed bodies remain on the
+  English URL, while the locale picker falls back to the reviewed Japanese home
+  instead of advertising a missing corresponding route.
 - The large legacy prose catalogue is isolated behind a small build-time
   interface. Page prose can migrate from source-hash compatibility IDs to
   semantic IDs route by route without returning translation logic to the theme.

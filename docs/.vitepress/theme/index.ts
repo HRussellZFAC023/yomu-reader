@@ -24,6 +24,7 @@ import {
     websiteMessage,
 } from '../locales/site-locales';
 import { installMembershipPopover } from './membership-popover';
+import { syncWebsiteRouteLocalization } from './website-route-localization';
 import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
@@ -122,6 +123,7 @@ let hostedSupportBannerStatus: HostedSupportStatus | undefined;
 let accentSyncBound = false;
 let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
+let hostedRouteFrontmatter: Ref<Record<string, unknown>> | undefined;
 let hostedSettingsEventPatch: Record<string, any> = {};
 let hostedSharedSettingsWrite: Promise<void> = Promise.resolve();
 let themeClassObserver: MutationObserver | undefined;
@@ -533,6 +535,7 @@ function installHostedDocsEnhancements(): void {
 }
 
 function syncHostedRouteEnhancements(): void {
+    syncWebsiteRouteLocalization(hostedRouteFrontmatter?.value?.yomuWebsiteRouteHead);
     declareHostedAnnotationScope();
     syncLandmarks();
     syncHostedAcademyAccountControls(activeWebsiteLocale());
@@ -1480,9 +1483,10 @@ function clearLocalHostedRuntimeCaches(): void {
 const YomuLayout = defineComponent({
     name: 'YomuLayout',
     setup(_, { slots }) {
-        const { isDark } = useData();
+        const { frontmatter, isDark } = useData();
         installHostedAppearanceProvider();
         onMounted(() => {
+            hostedRouteFrontmatter = frontmatter;
             installHostedThemeSync(isDark);
             installHostedDocsEnhancements();
         });

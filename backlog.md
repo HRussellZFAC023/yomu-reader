@@ -832,7 +832,14 @@ The remaining gate, precisely:
   **Not started:** geometry verification, the 320/768/1440 × 100/200% matrix, real-app RTL screenshots,
   owner acceptance. `rtlGatePasses()` returns **false** and is asserted false.
   **Still open for D43:** MT drafts + native review for the human-critical tier across 31 locales, the
-  per-page docs migration off prose keys, and the six unfinished RTL gate items.
+  four unreviewed Japanese website bodies, the other 31 website locale trees,
+  the separately rendered hosted shells, and the six unfinished RTL gate items.
+  **WEBSITE ARCHITECTURE CHECKPOINT 2026-08-08:** root English and `/ja/` now use
+  official static VitePress locales rather than the client text swapper. English
+  publishes 21 routes and Japanese publishes the 17 bodies that passed the
+  existing review ledger, with static/SPA metadata, route-safe locale links and
+  rendered browser gates. This closes the route architecture, not D43: the four
+  blocked Japanese bodies and 31 unavailable locale rows remain explicit.
 - ~~**`U105`**~~ **DONE 2026-07-30.** The three axes are separately persisted, migrated and consumed;
   `target=ja, output=ko, interface=en` is a passing regression in
   `tests/reader/languages/language-tiers.test.ts`.
@@ -2400,12 +2407,13 @@ The measured picture, all re-verified this pass:
       dictionary/capability gating, CSS/DOM gating, and source adapters — see the plan of record.
 - [ ] **D43 — full UI localisation for every target language** (owner's explicit decision, overriding
       U105's scoping — **both** are in scope, do not quietly drop one). Today `interfaceLanguage` is a
-      two-way en/ja switch. Plan before starting: `app/i18n.ts` is a hand-maintained flat map already
-      gated by a CI test; the docs site has a **second, separate** ja map in
-      `docs/.vitepress/theme/index.ts` — unify or explicitly decide not to before adding 30 locales;
-      MT is the only realistic first pass but will not honour the copy-voice rules; **RTL** (Arabic,
-      Farsi are on the roster) has never been tested against the overlay and popover geometry — scope
-      it explicitly or exclude it deliberately, do not discover it late.
+      two-way en/ja switch. The website's former in-theme Japanese map has now
+      moved into a build-only reviewed catalogue behind official static locale
+      routes, but reader chrome still has only two selectable locales and the
+      website publishes only EN plus 17 reviewed JA routes. MT is the only
+      realistic first pass for the other 31, but cannot satisfy the copy-voice
+      or native-review gate by itself; Arabic/Farsi also remain blocked on six
+      unfinished RTL items. Do not convert draft availability into a claim.
 - [x] **U79 — language-family DOM gating shipped in v1.8.38.** Every reader root carries
       `data-language`; the shared `jp-only` / `jpzhyue-only` / `jpzhyueko-only` /
       `not-jpzhyueko` mechanism physically detaches unsupported nodes. Tests switch to Korean and prove

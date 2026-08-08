@@ -124,6 +124,18 @@ export function localizedWebsiteRoute(route: string, locale: WebsiteLocaleId): s
     return rooted === '/' ? '/ja/' : `/ja${rooted}`;
 }
 
+/**
+ * VitePress assumes every locale publishes the same route. Our review ledger is
+ * deliberately stricter, so an absent translation falls back to that locale's
+ * home instead of advertising a 404 as a corresponding page.
+ */
+export function correspondingWebsiteLocaleHref(pathname: string, locale: WebsiteLocaleId): string {
+    const sourcePath = pathname.replace(/^\/ja(?=\/|$)/, '') || '/';
+    return websiteRouteIsPublished(sourcePath, locale)
+        ? localizedWebsiteRoute(sourcePath, locale)
+        : locale === 'ja' ? '/ja/' : '/';
+}
+
 export function rootWebsiteRoute(relativePath: string): string {
     const withoutLocale = relativePath.replace(/^ja\//, '');
     return rootRoute(withoutLocale
@@ -263,6 +275,9 @@ const WEBSITE_MESSAGES = Object.freeze({
     'docs.footer.copyright': { en: 'Released under the MIT license.', ja: 'MITライセンスで公開しています。' },
     'docs.theme.menu': { en: 'Menu', ja: 'メニュー' },
     'docs.theme.languageMenu': { en: 'Change language', ja: '言語を変更' },
+    'docs.theme.mainNavigation': { en: 'Main Navigation', ja: 'メインナビゲーション' },
+    'docs.theme.extraNavigation': { en: 'extra navigation', ja: 'メニュー' },
+    'docs.theme.mobileNavigation': { en: 'mobile navigation', ja: 'モバイルナビゲーション' },
     'docs.theme.sidebarMenu': { en: 'Menu', ja: 'メニュー' },
     'docs.theme.returnTop': { en: 'Return to top', ja: 'ページ上部へ戻る' },
     'docs.theme.outline': { en: 'On this page', ja: 'このページの内容' },
