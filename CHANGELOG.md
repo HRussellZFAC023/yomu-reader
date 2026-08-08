@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.89] - 2026-08-08
+
+### Fixed
+
+- Nightly browser checks now wait for the actual visible popup and selected Study mode, preserve their full timeout budgets while collecting diagnostics, and tolerate expected startup variance without hiding real assertion failures.
+- Automated userscript builds regenerate the Academy shell after the Reader and companion assets have their final names, so its cache revision always identifies the bytes that will be deployed.
+
 ## [1.8.88] - 2026-08-08
 
 ### Fixed
