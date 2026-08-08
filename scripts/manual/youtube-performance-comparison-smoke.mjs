@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-// fallow-ignore-file unused-file
 // Standalone browser entrypoint executed by the opt-in E2E test through a child
 // process; importing it would defeat the fresh-process provenance boundary.
 import { execFile } from 'node:child_process';
