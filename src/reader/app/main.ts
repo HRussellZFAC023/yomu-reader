@@ -471,10 +471,7 @@ export class ReaderApp {
     private hostThemeEnforceTimer?: number;
     private themeContrastRefreshFrame?: number;
     private themeContrastRefreshTimer?: number;
-    private cardHydrationRenderPasses = new WeakMap<
-        CardPopoverHydrationContext['state'],
-        ReturnType<typeof createPostPaintPass>
-    >();
+    private cardHydrationRenderPasses = new WeakMap<CardPopoverHydrationContext['state'], ReturnType<typeof createPostPaintPass>>();
     private setImmersionTranslationBlurred = (blurred: boolean): void => {
         if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
         this.settings = {
@@ -5982,17 +5979,8 @@ export class ReaderApp {
         });
     }
 
-    /**
-     * Re-offer an unconfirmed rendered span to the span authority.
-     *
-     * A page can hold spans an older parse produced — a partial run rendered
-     * before enrichment landed, or annotations stamped by a previous version.
-     * Those words carry a fallback card: nothing confirmed them. Interacting
-     * with one resolves it through the same authority as hover and tap, so the
-     * learner gets the whole word rather than the fragment they touched. Words
-     * already carrying a confirmed card skip this entirely, so no extra lookup
-     * runs on normal interaction.
-     */
+    /** Re-resolve only unconfirmed fallback spans so stale fragments can widen;
+     * provider-confirmed cards skip this authority pass. */
     private async showAuthoritativeSpanForRenderedWord(
         word: HTMLElement,
         card: JPDBCard | undefined,
@@ -6624,10 +6612,7 @@ export class ReaderApp {
         card: JPDBCard,
         context: { trigger: 'modal' | 'hover'; options: CardDisplayOptions },
     ): Promise<JPDBCard> {
-        // The card shell has already mounted with this exact card. Hover autoplay
-        // should provide instant feedback from that cached/prepared card instead
-        // of waiting for fallback/public resolution and letting the caption move
-        // under the cursor.
+        // The mounted card gives hover autoplay instant feedback without another resolution.
         void context;
         return card;
     }
@@ -6868,11 +6853,8 @@ export class ReaderApp {
         });
         this.applyPitchAccentToRenderedWords(card, undefined, renderedRoots);
         const preservedImmersion = this.preserveImmersionMountForRerender(popover);
-        // Six late-hydration promises re-enter here seconds apart on the SAME
-        // popover element (Anki detail, local dictionary, Jiten vocabulary, pitch,
-        // provider frequency, Bunpro definition). Every navigation gets a freshly
-        // created popover, so a non-zero offset here can only be a scroll the
-        // learner performed on the entry they are still reading.
+        // Late providers re-enter on the same popover; a non-zero offset is the
+        // learner's scroll on that still-active entry.
         const scrollOffset = capturePopoverScrollOffset(popover);
         clearNestedParseState(popover);
         setInnerHtml(popover, this.cardPopoverRenderer.render(card, sentence, trigger, { ...data, loading: false }));
@@ -6955,10 +6937,8 @@ export class ReaderApp {
         hydrate();
     }
 
-    // A cold local-dictionary lookup (IndexedDB on WebKit/iPad, large dicts)
-    // can lose the render-capped race; the capped promise then resolves []
-    // permanently and the local source never appears in the popover. Wait on
-    // the uncapped lookup and re-render late instead.
+    // A cold local lookup can lose the capped race; its uncapped hydration must
+    // still add the source later.
     private renderHydratedCardLocalEntries(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
         const { popover, card, state, requestId, isCurrentHoverCard } = context;
         if (state.data.localEntries.length || !renderData.hydrateLocalEntries) return;
@@ -6971,11 +6951,8 @@ export class ReaderApp {
             .catch(error => log.debug('Popup local dictionary hydration failed', { term: card.spelling, error }));
     }
 
-    // Jiten details for a non-Jiten card take search → info → examples; over a
-    // slow link or the hosted proxy that overruns the render timeout, so the full
-    // render lands with no Jiten frequency rank and no Jiten source. Mirror the
-    // Bunpro hydration: when the capped result was empty, wait on the uncapped
-    // lookup and re-render once it arrives instead of dropping it on the floor.
+    // Jiten search → info → examples may overrun the capped render; preserve its
+    // uncapped hydration like Bunpro rather than dropping the source.
     private renderHydratedCardJitenVocabulary(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
         const { popover, card, state, requestId, isCurrentHoverCard } = context;
         if (!usesJapaneseProviders() || state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
@@ -7034,12 +7011,8 @@ export class ReaderApp {
             .catch(error => log.debug('Popup Bunpro definition hydration failed', { term: card.spelling, error }));
     }
 
-    /**
-     * Merge provider completions that land before the same paint. A card can
-     * hydrate from six independent promises, and repainting synchronously from
-     * each promise microtask repeatedly forces scroll/layout reads and replaces
-     * the same large dictionary tree before the browser can service input.
-     */
+    /** Merge same-frame provider completions so independent microtasks do not
+     * repeat layout reads and large dictionary-tree replacements before input. */
     private scheduleHydratedCardPopoverRender(context: CardPopoverHydrationContext): void {
         let pass = this.cardHydrationRenderPasses.get(context.state);
         if (!pass) {
