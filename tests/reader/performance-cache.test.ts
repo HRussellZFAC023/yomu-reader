@@ -210,6 +210,24 @@ describe('performance cache bounds', () => {
         expect(publicPitch).not.toHaveBeenCalled();
     });
 
+    it('cancels fallback timers when card data resolves before its deadline', async () => {
+        vi.useFakeTimers();
+        try {
+            const loader = createCardRenderDataLoader();
+            const load = loader.loadDefinitionSources(cardFor(1), {
+                includeJpdbDefinition: false,
+                includeJitenDefinition: false,
+                includeBunproDefinition: false,
+            });
+
+            await load.settled;
+
+            expect(vi.getTimerCount()).toBe(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it('uses local pitch metadata without waiting for public JPDB pitch', async () => {
         const lookupTermMeta = vi.fn(async () => [{
             expression: '計量',

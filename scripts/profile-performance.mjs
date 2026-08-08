@@ -434,6 +434,10 @@ const pendingSlowRequests = requests
     .map(request => ({ url: request.url.replace(/profile-key/g, '[redacted]'), pendingMs: Math.round(performance.now() - request.start) }))
     .sort((a, b) => b.pendingMs - a.pendingMs)
     .slice(0, 12);
+const invariantFailures = [];
+if (!LIVE && !localDictionaryLoaded) {
+    invariantFailures.push('The deterministic fixture did not render its seeded local dictionary; the local latency metric is invalid.');
+}
 
 console.log(JSON.stringify({
     origin: ORIGIN,
@@ -466,9 +470,11 @@ console.log(JSON.stringify({
     dictionaryShellDebug,
     hoverCloseDebug: hoverProfile.closeDebug,
     localDictionaryDebug,
+    invariantFailures,
 }, null, 2));
 
 await browser.close();
+if (invariantFailures.length) throw new Error(invariantFailures.join(' '));
 
 async function profileHoverPopover(page) {
     const startedAt = await page.evaluate(() => performance.now());
@@ -955,6 +961,11 @@ async function seedProfileDictionaries(page) {
             { name: 'dictionaryInfo', options: { keyPath: 'title' }, indexes: [] },
             { name: 'termSearch', options: { keyPath: 'id', autoIncrement: true }, indexes: [['token', 'token'], ['dictionary', 'dictionary']] },
             { name: 'termKanji', options: { keyPath: 'id', autoIncrement: true }, indexes: [['character', 'character'], ['dictionary', 'dictionary']] },
+            // v7 fences dictionary data against factory-reset epochs. Omitting
+            // this store makes reconcileYomitanManagedStateEpoch() reject the
+            // seeded database, which silently turns this profiler's local
+            // lookup metric into a remote-fallback measurement.
+            { name: 'managedState', options: { keyPath: 'key' }, indexes: [] },
         ];
         await new Promise(resolve => {
             const deleteRequest = indexedDB.deleteDatabase(dbName);

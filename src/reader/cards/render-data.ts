@@ -481,13 +481,13 @@ export class CardRenderDataLoader {
             log.warn('Local metadata lookup failed', { term: card.spelling }, error);
             return { entries: [], completed: false };
         });
-        return Promise.race([
+        return cardRenderDetailWithFallback(
+            'local metadata dictionary',
+            card,
             lookup,
-            delay(CARD_RENDER_LOCAL_TIMEOUT_MS).then(() => {
-                log.debug('local metadata dictionary timed out while rendering card', { term: card.spelling, timeoutMs: CARD_RENDER_LOCAL_TIMEOUT_MS });
-                return { entries: [], completed: false };
-            }),
-        ]);
+            { entries: [], completed: false },
+            CARD_RENDER_LOCAL_TIMEOUT_MS,
+        );
     }
 
     private loadPublicPitch(card: JPDBCard): Promise<string[]> {
@@ -994,13 +994,16 @@ export class CardRenderDataLoader {
 }
 
 function cardRenderDetailWithFallback<T>(detail: string, card: JPDBCard, promise: Promise<T>, fallback: T, timeoutMs: number): Promise<T> {
+    let timeoutId = 0;
     return Promise.race([
         promise,
-        delay(timeoutMs).then(() => {
-            log.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
-            return fallback;
+        new Promise<T>(resolve => {
+            timeoutId = window.setTimeout(() => {
+                log.debug(`${detail} timed out while rendering card`, { term: card.spelling, timeoutMs });
+                resolve(fallback);
+            }, timeoutMs);
         }),
-    ]);
+    ]).finally(() => window.clearTimeout(timeoutId));
 }
 
 function isKanaCharacter(character: string): boolean {
