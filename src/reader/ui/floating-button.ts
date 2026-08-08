@@ -8,6 +8,7 @@ import {
     RadialMenuController,
     radialAudioMutedIcon,
     radialAudioOnIcon,
+    radialCaptionsIcon,
     radialFuriganaHiddenIcon,
     radialOcrIcon,
     radialOcrOnIcon,
@@ -256,17 +257,17 @@ export class FloatingButtonController {
                 run: () => actions.openStudyPage(),
             },
         ];
-        // This puck action is the legacy Japanese page-subtitle auto-detection
-        // workflow, not the target-routed subtitle track picker.  General
-        // subtitle playback supports the wider roster; exposing this separate
-        // Japanese action for every target was a false UI capability claim.
-        if (usesJapaneseProviders() && actions.hasSubtitleVideo()) {
+        // Page-track discovery is target-routed. Keep it visible for every
+        // target and name that TARGET explicitly so it cannot be mistaken for
+        // Japanese OCR or for the definition/translation language.
+        if (actions.hasSubtitleVideo()) {
             const subtitlesOn = actions.isAutoSubtitlesEnabled();
             items.push({
                 id: 'subtitles',
-                label: uiText(language, 'subtitleAutoDetect'),
-                icon: '字',
-                glyph: true,
+                label: formatUiText(language, 'puckAutoDetectTargetSubtitles', {
+                    language: targetLanguageDisplayName(settings),
+                }),
+                icon: radialCaptionsIcon(),
                 tone: subtitlesOn ? 'on' : 'off',
                 keepOpen: true,
                 run: () => actions.toggleAutoSubtitles(),
@@ -276,7 +277,9 @@ export class FloatingButtonController {
             const enabled = actions.isYoutubeFilterEnabled();
             items.push({
                 id: 'youtube',
-                label: uiText(language, 'toggleYoutubeImmersion'),
+                label: formatUiText(language, 'puckFilterYoutubeTarget', {
+                    language: targetLanguageDisplayName(settings),
+                }),
                 icon: radialYoutubeIcon(),
                 tone: enabled ? 'on' : 'off',
                 keepOpen: true,

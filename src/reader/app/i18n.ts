@@ -271,6 +271,8 @@ const COPY = {
         puckStudyPage: 'Study page',
         puckStudyTarget: 'Study {language}',
         puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+        puckAutoDetectTargetSubtitles: 'Auto-detect {language} subtitles',
+        puckFilterYoutubeTarget: 'Filter YouTube for {language}',
         puckPauseAnnotations: 'Pause annotations',
         puckResumeAnnotations: 'Resume annotations',
         puckOcrAuto: 'OCR: Auto',
@@ -707,7 +709,8 @@ const COPY = {
         blankPlainHover: 'Blank = hover, no key',
         openSettings: 'Open settings',
         resizeSettings: 'Resize settings',
-        playAudio: 'Play audio', contextOccurrences: 'In context ×{count}',
+        playAudio: 'Play audio',
+        contextOccurrences: 'In context ×{count}',
         playingAudioPreview: `Playing ${APP_NAME}...`,
         audioPreviewFailed: 'Audio preview failed.',
         audioPlaybackDisabled: 'Audio playback is disabled',
@@ -1992,6 +1995,8 @@ puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckStudyTarget	{language}を学習
 puckLearningTarget	よむ — 学習対象：{language}
+puckAutoDetectTargetSubtitles	{language}の字幕を自動検出
+puckFilterYoutubeTarget	YouTubeを{language}向けに絞る
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動

@@ -52,6 +52,8 @@ import {
     resetActiveLearningTargetLanguage,
     setActiveLearningTargetLanguage,
 } from '../../../src/reader/languages/active';
+import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages/roster';
+import { targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
 
 registerReaderHelpersCleanup();
 
@@ -1287,13 +1289,15 @@ describe('reader helpers', () => {
             }));
 
             const subtitlesButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]');
-            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect page subtitles');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect Japanese subtitles');
             expect(subtitlesButton()?.classList.contains('is-on')).toBe(true);
+            expect(subtitlesButton()?.querySelector('svg')).not.toBeNull();
+            expect(subtitlesButton()?.textContent).not.toContain('字');
 
             subtitlesButton()?.click();
 
             expect(toggleAutoSubtitles).toHaveBeenCalledTimes(1);
-            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect page subtitles');
+            expect(subtitlesButton()?.getAttribute('aria-label')).toBe('Auto-detect Japanese subtitles');
             expect(subtitlesButton()?.classList.contains('is-off')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
         } finally {
@@ -1325,7 +1329,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('shows the active target and hides Japanese-only puck actions for Spanish', () => {
+    it('shows the active target and keeps target-routed puck actions for Spanish', () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);
         const settings = { ...DEFAULT_SETTINGS, showFloatingButton: true };
@@ -1344,11 +1348,76 @@ describe('reader helpers', () => {
             expect(puck?.getAttribute('aria-label')).toBe('よむ — learning target: Spanish');
             expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('Study Spanish');
             expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Pause annotations');
-            expect(document.querySelector('[data-radial-id="subtitles"]')).toBeNull();
+            expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'))
+                .toBe('Auto-detect Spanish subtitles');
             // The site-language action remains target-routed, rather than
             // pretending this is Japanese or following OUTPUT English.
             expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label'))
                 .toBe('Open Spanish versions of sites');
+        } finally {
+            resetActiveLearningTargetLanguage();
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('shows target-labelled subtitle and YouTube actions for all 33 targets', () => {
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        try {
+            for (const target of LEARNING_TARGET_ROSTER) {
+                const controller = new FloatingButtonController();
+                expect(setActiveLearningTargetLanguage(target.id), target.id).not.toBeNull();
+                document.body.innerHTML = '';
+                withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                    controller.install(
+                        { ...DEFAULT_SETTINGS, showFloatingButton: true },
+                        vi.fn(),
+                        stubFloatingButtonActions({
+                            hasSubtitleVideo: () => true,
+                            isYouTube: () => true,
+                        }),
+                    );
+                    document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+                }));
+                const targetName = targetLanguageDisplayName(DEFAULT_SETTINGS);
+
+                expect(
+                    document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'),
+                    target.id,
+                ).toBe(`Auto-detect ${targetName} subtitles`);
+                expect(
+                    document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label'),
+                    target.id,
+                ).toBe(`Filter YouTube for ${targetName}`);
+                expect(document.querySelector('[data-radial-id="subtitles"] svg'), target.id).not.toBeNull();
+                controller.destroy();
+            }
+        } finally {
+            resetActiveLearningTargetLanguage();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('names target-routed puck actions in the Japanese interface too', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(
+                    { ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', showFloatingButton: true },
+                    vi.fn(),
+                    stubFloatingButtonActions({ hasSubtitleVideo: () => true, isYouTube: () => true }),
+                );
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'))
+                .toBe('スペイン語の字幕を自動検出');
+            expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label'))
+                .toBe('YouTubeをスペイン語向けに絞る');
         } finally {
             resetActiveLearningTargetLanguage();
             controller.destroy();

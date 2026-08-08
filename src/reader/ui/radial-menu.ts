@@ -308,6 +308,11 @@ export function radialOcrOnIcon(): string {
     return `${SVG_OPEN}<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M7 12h10"></path></svg>`;
 }
 
+/** Language-neutral captions — discover subtitle tracks for the active target. */
+export function radialCaptionsIcon(): string {
+    return `${SVG_OPEN}<rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M7 10h3"></path><path d="M14 10h3"></path><path d="M7 14h4"></path><path d="M13 14h4"></path></svg>`;
+}
+
 /** Video filter — toggle YouTube immersion filtering (YouTube only). */
 export function radialYoutubeIcon(): string {
     return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
