@@ -65,7 +65,7 @@ import {
     waitForTextTrackCues,
     type SubtitleTrackLoadOptions,
 } from './subtitle-track-loader';
-import { isJapaneseSubtitleTrack } from './subtitle-track-metadata';
+import { isTargetLanguageSubtitleTrack } from './subtitle-track-metadata';
 import { renderSubtitleTrackPanel, subtitleDrawerMetaText } from './subtitle-track-panel';
 import {
     hasSelectedSubtitleTrackOrLines,
@@ -115,7 +115,7 @@ import {
     autoSelectableNativeTrackRole,
     autoSelectablePageTrackRole,
     createPageSubtitleTrack,
-    ensureTranslatedJapaneseTrack,
+    ensureTranslatedTargetTrack,
     findAutoPrimaryYouTubeTrack,
     findAutoSecondaryYouTubeTrack,
     readHostedSubtitleFileText,
@@ -1801,8 +1801,8 @@ export class SubtitlePlayerController {
         // just made the next tick normalize the same list a second time.
         this.observeNativeTrack(track);
         this.maybeAutoSelectNativeTrack(option);
-        if (ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage)) {
-            this.maybeAutoSelectTranslatedJapaneseTrack();
+        if (ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage)) {
+            this.maybeAutoSelectTranslatedTargetTrack();
         }
         window.setTimeout(() => {
             if (this.destroyed) return;
@@ -1842,8 +1842,8 @@ export class SubtitlePlayerController {
     }
 
     private finishPageSubtitleTrackDiscovery(changes: { added: number; updated: number; removed: number }): void {
-        const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
-        if (generated) this.maybeAutoSelectTranslatedJapaneseTrack();
+        const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage);
+        if (generated) this.maybeAutoSelectTranslatedTargetTrack();
         if (changes.added || changes.updated || changes.removed || generated) {
             this.renderTrackPanel();
             this.syncControls();
@@ -1896,9 +1896,9 @@ export class SubtitlePlayerController {
         if (role) this.autoSelectNativeTrack(option, track, role);
     }
 
-    private maybeAutoSelectTranslatedJapaneseTrack(): void {
+    private maybeAutoSelectTranslatedTargetTrack(): void {
         if (this.selectedTrackId) return;
-        const synthetic = this.tracks.find(track => track.translatedFromTrackId && isJapaneseSubtitleTrack(track));
+        const synthetic = this.tracks.find(track => track.translatedFromTrackId && isTargetLanguageSubtitleTrack(track));
         if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
     }
 
@@ -2509,7 +2509,7 @@ export class SubtitlePlayerController {
         selected = this.ensureDomCaptionFallbackTrack(selected);
         this.ensureYouTubeDomCaptionFallbackActive(selected);
         const text = readPageCaptionText(this.video, this.root, {
-            allowNonJapanese: this.shouldAllowNonJapaneseDomCaptionFallback(selected),
+            allowAnyLanguage: this.shouldAllowAnyLanguageDomCaptionFallback(selected),
         });
         if (!text) {
             this.clearDomCaptionFallbackIfExpired();
@@ -2580,14 +2580,14 @@ export class SubtitlePlayerController {
         };
     }
 
-    private shouldAllowNonJapaneseDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
-        // While a Japanese track is still loading its cues, YouTube's own
+    private shouldAllowAnyLanguageDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
+        // While a target-language track is still loading its cues, YouTube's own
         // caption overlay shows whatever language the player defaulted to
         // (e.g. Arabic); mirroring that flashes foreign subs before the
-        // Japanese ones arrive (user-reported).
+        // requested ones arrive (user-reported).
         return Boolean(selected?.kind === 'youtube'
             && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY
-            && !isJapaneseSubtitleTrack(selected));
+            && !isTargetLanguageSubtitleTrack(selected));
     }
 
     private clearDomCaptionFallbackIfExpired(): void {
@@ -5337,7 +5337,7 @@ export class SubtitlePlayerController {
     }
 
     private finishYouTubeTrackDiscovery(added: number, updatedSelectedTrack: boolean): void {
-        const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
+        const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage);
         const autoPrimaryTrack = findAutoPrimaryYouTubeTrack(
             this.tracks,
             this.selectedTrackId,

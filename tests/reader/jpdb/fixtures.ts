@@ -100,7 +100,7 @@ import { createSubtitleVideoInsetAdapter } from '../../../src/reader/subtitles/s
 import { discoverYouTubeCaptionTracks, getYouTubeCaptionTracks, getYouTubeVideoId, loadYouTubeTrackCues } from '../../../src/reader/subtitles/subtitle-youtube';
 import { applySubtitleNativeTrackModes } from '../../../src/reader/subtitles/subtitle-native-track-modes';
 import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, parseUchisenData, parseUchisenImages, parseUchisenKanjiKeyword } from '../../../src/reader/dictionaries/uchisen';
-import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../../src/reader/subtitles/subtitle-track-metadata';
+import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isTargetLanguageSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../../src/reader/subtitles/subtitle-track-metadata';
 import { loadSubtitleTrackCues, type SubtitleTrackLoadable } from '../../../src/reader/subtitles/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../../src/reader/subtitles/subtitle-rendering';
 import { renderControllerPrimarySubtitle } from '../../../src/reader/subtitles/subtitle-primary-render';
@@ -3230,7 +3230,7 @@ export {
     isAllowedPublicProxyTarget,
     isCurrentKanjiSurface,
     isEnglishSubtitleTrack,
-    isJapaneseSubtitleTrack,
+    isTargetLanguageSubtitleTrack,
     isKanjiReviewBack,
     isKanjiReviewFront,
     isUnavailableJapanesePod101Audio,

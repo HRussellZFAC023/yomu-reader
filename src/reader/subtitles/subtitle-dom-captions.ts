@@ -1,3 +1,4 @@
+import { isTargetLanguageText } from '../lookup/target-text';
 import { normalizeCaptionText } from './subtitle-cues';
 import { isYouTubePage } from './subtitle-youtube';
 
@@ -86,7 +87,7 @@ const PAGE_METADATA_TEXT_SELECTOR = [
 const PAGE_METADATA_TEXT_NAME_PATTERN = /(^|[-_\s])(?:title|metadata|meta|tag|tags|category|categories|breadcrumb|nav|navbar|menu|channel|author|username|user-name|description)([-_\s]|$)/iu;
 
 export interface PageCaptionReadOptions {
-    allowNonJapanese?: boolean;
+    allowAnyLanguage?: boolean;
 }
 
 export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
@@ -252,11 +253,7 @@ function elementNameForMetadataCheck(element: HTMLElement): string {
 }
 
 function isAllowedCaptionText(text: string, options: PageCaptionReadOptions): boolean {
-    return hasCaptionTextLength(text) && (options.allowNonJapanese || isJapaneseCaptionText(text));
-}
-
-function isJapaneseCaptionText(text: string): boolean {
-    return Boolean(text && /[\u3040-\u30ff\u3400-\u9fff]/.test(text));
+    return hasCaptionTextLength(text) && (options.allowAnyLanguage || isTargetLanguageText(text));
 }
 
 function hasCaptionTextLength(text: string): boolean {

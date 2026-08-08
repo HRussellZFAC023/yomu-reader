@@ -1,9 +1,77 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { collectPageSubtitleSources, inferSubtitleLanguage } from '../../src/reader/subtitles/subtitle-sources';
-import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isJapaneseSubtitleTrack } from '../../src/reader/subtitles/subtitle-track-metadata';
+import { languageSubtag } from '../../src/reader/languages/locale';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
+import { LEARNING_TARGET_ROSTER, type LearningTargetRosterId } from '../../src/reader/languages/roster';
+import { collectPageSubtitleSources } from '../../src/reader/subtitles/subtitle-sources';
+import { inferSubtitleLanguage, normalizeSubtitleLanguage } from '../../src/reader/subtitles/subtitle-language';
+import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isTargetLanguageSubtitleTrack } from '../../src/reader/subtitles/subtitle-track-metadata';
+
+const ISO_639_2_ALIAS: Readonly<Record<LearningTargetRosterId, string>> = Object.freeze({
+    ja: 'jpn',
+    sq: 'sqi',
+    grc: 'grc',
+    ar: 'ara',
+    yue: 'yue',
+    zh: 'zho',
+    da: 'dan',
+    nl: 'nld',
+    en: 'eng',
+    fi: 'fin',
+    fr: 'fra',
+    de: 'deu',
+    el: 'ell',
+    hu: 'hun',
+    id: 'ind',
+    it: 'ita',
+    km: 'khm',
+    ko: 'kor',
+    lo: 'lao',
+    la: 'lat',
+    mn: 'mon',
+    fa: 'fas',
+    pl: 'pol',
+    pt: 'por',
+    ro: 'ron',
+    ru: 'rus',
+    sh: 'srp',
+    es: 'spa',
+    sv: 'swe',
+    tl: 'tgl',
+    th: 'tha',
+    tr: 'tur',
+    vi: 'vie',
+});
 
 describe('subtitle language inference', () => {
+    afterEach(() => resetActiveLearningTargetLanguage());
+
+    it('normalizes codes and recognizes names for every one of the 33 learning targets', () => {
+        expect(LEARNING_TARGET_ROSTER).toHaveLength(33);
+
+        for (const target of LEARNING_TARGET_ROSTER) {
+            const expectedTag = languageSubtag(target.runtimeLocale)!;
+            const regionalTag = new Intl.Locale(target.runtimeLocale).maximize().baseName;
+            const isoAlias = ISO_639_2_ALIAS[target.id];
+
+            expect(normalizeSubtitleLanguage(target.id), `${target.id} roster code`).toBe(expectedTag);
+            expect(normalizeSubtitleLanguage(regionalTag), `${target.id} regional code`).toBe(expectedTag);
+            expect(normalizeSubtitleLanguage(isoAlias), `${target.id} ISO-639-2 alias`).toBe(expectedTag);
+            expect(inferSubtitleLanguage(`${target.englishName} subtitles`), `${target.id} English name`).toBe(expectedTag);
+            expect(inferSubtitleLanguage(target.nativeName), `${target.id} native name`).toBe(expectedTag);
+            expect(
+                inferSubtitleLanguage('', `https://media.example/episode.${isoAlias}.vtt`),
+                `${target.id} filename alias`,
+            ).toBe(expectedTag);
+
+            expect(setActiveLearningTargetLanguage(target.runtimeLocale), `${target.id} activation`).not.toBeNull();
+            expect(isTargetLanguageSubtitleTrack({
+                kind: 'remote',
+                label: target.nativeName,
+            }), `${target.id} active target match`).toBe(true);
+        }
+    });
+
     it('recognizes fuzzy Japanese and native-language subtitle labels generically', () => {
         const tracks = [
             { kind: 'native' as const, label: '[Fansub] Show.Name.S01E02.JPN.ass' },
@@ -13,13 +81,13 @@ describe('subtitle language inference', () => {
             { kind: 'remote' as const, label: 'native.en-US.srt' },
         ];
 
-        expect(tracks.slice(0, 3).every(isJapaneseSubtitleTrack)).toBe(true);
+        expect(tracks.slice(0, 3).every(isTargetLanguageSubtitleTrack)).toBe(true);
         expect(isEnglishSubtitleTrack(tracks[3])).toBe(true);
-        expect(isJapaneseSubtitleTrack(tracks[3])).toBe(false);
+        expect(isTargetLanguageSubtitleTrack(tracks[3])).toBe(false);
         expect(isEnglishSubtitleTrack(tracks[4])).toBe(true);
 
         const sorted = [...tracks].sort(compareSubtitleTrackOptions);
-        expect(sorted.slice(0, 3).every(isJapaneseSubtitleTrack)).toBe(true);
+        expect(sorted.slice(0, 3).every(isTargetLanguageSubtitleTrack)).toBe(true);
         expect(sorted.slice(3).every(isEnglishSubtitleTrack)).toBe(true);
     });
 
@@ -74,6 +142,13 @@ describe('subtitle language inference', () => {
 
     it('keeps explicit English hints ahead of Japanese title fallback', () => {
         expect(inferSubtitleLanguage('English subtitles for 葬送のフリーレン')).toBe('en');
+        expect(inferSubtitleLanguage('英文字幕')).toBe('en');
         expect(inferSubtitleLanguage('葬送のフリーレン')).toBe('ja');
+    });
+
+    it('distinguishes named Han languages instead of treating all Han as Japanese', () => {
+        expect(inferSubtitleLanguage('中文字幕')).toBe('zh');
+        expect(inferSubtitleLanguage('粵語字幕')).toBe('yue');
+        expect(inferSubtitleLanguage('漢字')).toBeUndefined();
     });
 });

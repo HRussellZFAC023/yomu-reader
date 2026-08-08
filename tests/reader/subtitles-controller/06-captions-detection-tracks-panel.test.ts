@@ -1,8 +1,10 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import {
     DEFAULT_SETTINGS,
     registerSubtitleControllerCleanup,
     SUBTITLES_YOUTUBE_CSS,
+    mockElementRect,
     mockNetflixCaptionGeometry,
     controllerInternals,
     createInstalledSubtitleController,
@@ -21,10 +23,22 @@ import type {
     SubtitleParsedHtmlCache,
 } from './fixtures';
 
+function nearbyPageCaption(text: string): HTMLVideoElement {
+    document.body.innerHTML = '<video></video><div class="lesson-player"><span></span></div>';
+    const video = document.querySelector('video') as HTMLVideoElement;
+    const caption = document.querySelector('span') as HTMLElement;
+    caption.textContent = text;
+    mockElementRect(video, { left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 } as DOMRect);
+    mockElementRect(caption, { left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 } as DOMRect);
+    return video;
+}
+
 describe('SubtitlePlayerController — page-caption detection & tracks panel', () => {
     registerSubtitleControllerCleanup();
+    beforeEach(() => resetActiveLearningTargetLanguage());
 
     afterEach(() => {
+        resetActiveLearningTargetLanguage();
         vi.useRealTimers();
         document.body.innerHTML = '';
     });
@@ -609,7 +623,7 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             value: () => ({ left: 40, right: 984, top: 650, bottom: 730, width: 944, height: 80 }),
         });
 
-        expect(readPageCaptionText(video, readerRoot, { allowNonJapanese: true })).toBe('');
+        expect(readPageCaptionText(video, readerRoot, { allowAnyLanguage: true })).toBe('');
     });
 
     it('does not treat text-only fullscreen control labels as non-Japanese captions', () => {
@@ -627,19 +641,11 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             value: () => ({ left: 40, right: 984, top: 650, bottom: 700, width: 944, height: 50 }),
         });
 
-        expect(readPageCaptionText(video, undefined, { allowNonJapanese: true })).toBe('');
+        expect(readPageCaptionText(video, undefined, { allowAnyLanguage: true })).toBe('');
     });
 
     it('detects Japanese page captions near a video without site-specific selectors', () => {
-        document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
-        const video = document.querySelector('video') as HTMLVideoElement;
-        const caption = document.querySelector('span') as HTMLElement;
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
-        });
-        Object.defineProperty(caption, 'getBoundingClientRect', {
-            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
-        });
+        const video = nearbyPageCaption('今日は花を見ます。');
 
         expect(readPageCaptionText(video)).toBe('今日は花を見ます。');
     });
@@ -835,19 +841,18 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         expect(readPageCaptionText(video)).toBe('エンジニア プログラミング する');
     });
 
-    it('allows non-Japanese page captions only when a real selected caption track asks for them', () => {
-        document.body.innerHTML = '<video></video><div class="lesson-player"><span>today we read subtitles</span></div>';
-        const video = document.querySelector('video') as HTMLVideoElement;
-        const caption = document.querySelector('span') as HTMLElement;
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
-        });
-        Object.defineProperty(caption, 'getBoundingClientRect', {
-            value: () => ({ left: 180, right: 660, top: 380, bottom: 420, width: 480, height: 40 }),
-        });
+    it('allows otherwise foreign page captions only when a real selected caption track asks for them', () => {
+        const video = nearbyPageCaption('today we read subtitles');
 
         expect(readPageCaptionText(video)).toBe('');
-        expect(readPageCaptionText(video, undefined, { allowNonJapanese: true })).toBe('today we read subtitles');
+        expect(readPageCaptionText(video, undefined, { allowAnyLanguage: true })).toBe('today we read subtitles');
+    });
+
+    it('accepts DOM captions recognized by the active non-Japanese target', () => {
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        const video = nearbyPageCaption('hoy leemos subtítulos');
+
+        expect(readPageCaptionText(video)).toBe('hoy leemos subtítulos');
     });
 
     it('does not treat asbplayer helper DOM as page captions', () => {
