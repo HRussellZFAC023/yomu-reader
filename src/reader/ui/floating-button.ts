@@ -83,6 +83,154 @@ interface PuckPosition {
     y: number;
 }
 
+interface PowerActionPresentation {
+    label: 'puckHideFurigana' | 'puckPauseAnnotations' | 'puckResumeAnnotations';
+    icon: () => string;
+    tone: 'on' | 'off' | 'partial';
+}
+
+const JAPANESE_POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
+    on: { label: 'puckHideFurigana', icon: radialPowerIcon, tone: 'on' },
+    'no-furigana': { label: 'puckPauseAnnotations', icon: radialFuriganaHiddenIcon, tone: 'partial' },
+    paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
+});
+
+const GENERIC_POWER_ACTION: Readonly<Record<PuckPowerState, PowerActionPresentation>> = Object.freeze({
+    on: { label: 'puckPauseAnnotations', icon: radialPowerIcon, tone: 'on' },
+    'no-furigana': { label: 'puckPauseAnnotations', icon: radialPowerIcon, tone: 'on' },
+    paused: { label: 'puckResumeAnnotations', icon: radialPausedIcon, tone: 'off' },
+});
+
+function floatingButtonRadialActions(
+    settings: ReaderSettings,
+    actions: FloatingButtonActions,
+    syncButtonState: () => void,
+): RadialAction[] {
+    const items = [
+        powerRadialAction(settings, actions, syncButtonState),
+        audioRadialAction(settings, actions),
+        ocrRadialAction(settings, actions),
+    ];
+    if (usesJapaneseProviders()) items.push(japaneseSiteRadialAction(settings, actions));
+    items.push(settingsRadialAction(settings, actions), studyRadialAction(settings, actions));
+    if (actions.hasSubtitleVideo()) items.push(subtitleRadialAction(settings, actions));
+    if (actions.isYouTube()) items.push(youtubeRadialAction(settings, actions));
+    return items;
+}
+
+function powerRadialAction(
+    settings: ReaderSettings,
+    actions: FloatingButtonActions,
+    syncButtonState: () => void,
+): RadialAction {
+    const state = actions.powerState();
+    const presentation = (usesJapaneseProviders() ? JAPANESE_POWER_ACTION : GENERIC_POWER_ACTION)[state];
+    return {
+        id: 'power',
+        label: uiText(settings.interfaceLanguage, presentation.label),
+        icon: presentation.icon(),
+        tone: presentation.tone,
+        primary: true,
+        keepOpen: true,
+        run: () => void actions.cyclePowerState().finally(syncButtonState),
+    };
+}
+
+function audioRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    const enabled = actions.isAutoPlayAudioEnabled();
+    return {
+        id: 'audio',
+        label: uiText(settings.interfaceLanguage, enabled ? 'puckMuteAudio' : 'puckUnmuteAudio'),
+        icon: enabled ? radialAudioOnIcon() : radialAudioMutedIcon(),
+        tone: enabled ? 'on' : 'off',
+        keepOpen: true,
+        run: () => actions.toggleAutoPlayAudio(),
+    };
+}
+
+function ocrRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    const mode = actions.ocrMode();
+    return {
+        id: 'ocr',
+        label: ocrModeLabel(settings.interfaceLanguage, mode),
+        icon: mode === 'manual' ? radialOcrOnIcon() : radialOcrIcon(),
+        tone: ocrRadialTone(mode, actions.powerState()),
+        keepOpen: true,
+        run: () => actions.toggleOcrMode(),
+    };
+}
+
+function ocrRadialTone(mode: OcrInteractionMode, powerState: PuckPowerState): 'on' | 'off' {
+    if (powerState === 'paused') return 'off';
+    return mode === 'off' ? 'off' : 'on';
+}
+
+function japaneseSiteRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    return {
+        id: 'japanese-site',
+        label: formatUiText(settings.interfaceLanguage, 'preferJapaneseSiteLanguage', {
+            language: targetLanguageDisplayName(settings),
+        }),
+        icon: '日',
+        glyph: true,
+        tone: settings.preferJapaneseSiteLanguage ? 'on' : 'off',
+        keepOpen: true,
+        run: () => actions.toggleJapaneseSiteLanguage(),
+    };
+}
+
+function settingsRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    return {
+        id: 'settings',
+        label: uiText(settings.interfaceLanguage, 'settings'),
+        icon: radialSettingsIcon(),
+        run: () => actions.openSettings(),
+    };
+}
+
+function studyRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    return {
+        id: 'study',
+        label: targetActionLabel(settings, 'puckStudyTarget'),
+        icon: 'よ',
+        glyph: true,
+        run: () => actions.openStudyPage(),
+    };
+}
+
+function subtitleRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    const enabled = actions.isAutoSubtitlesEnabled();
+    return {
+        id: 'subtitles',
+        label: targetActionLabel(settings, 'puckAutoDetectTargetSubtitles'),
+        icon: radialCaptionsIcon(),
+        tone: enabled ? 'on' : 'off',
+        keepOpen: true,
+        run: () => actions.toggleAutoSubtitles(),
+    };
+}
+
+function youtubeRadialAction(settings: ReaderSettings, actions: FloatingButtonActions): RadialAction {
+    const enabled = actions.isYoutubeFilterEnabled();
+    return {
+        id: 'youtube',
+        label: targetActionLabel(settings, 'puckFilterYoutubeTarget'),
+        icon: radialYoutubeIcon(),
+        tone: enabled ? 'on' : 'off',
+        keepOpen: true,
+        run: () => actions.toggleYoutubeFilter(),
+    };
+}
+
+function targetActionLabel(
+    settings: ReaderSettings,
+    key: 'puckStudyTarget' | 'puckAutoDetectTargetSubtitles' | 'puckFilterYoutubeTarget',
+): string {
+    return formatUiText(settings.interfaceLanguage, key, {
+        language: targetLanguageDisplayName(settings),
+    });
+}
+
 export class FloatingButtonController {
     private button?: HTMLButtonElement;
     private abortController?: AbortController;
@@ -187,106 +335,7 @@ export class FloatingButtonController {
         const settings = this.settings;
         const actions = this.actions;
         if (!settings || !actions) return [];
-        const language = settings.interfaceLanguage;
-        const powerState = actions.powerState();
-        const ocrMode = actions.ocrMode();
-        const audioOn = actions.isAutoPlayAudioEnabled();
-        const japaneseSiteLanguage = settings.preferJapaneseSiteLanguage;
-        // Power steps on → furigana hidden → paused → on; the label always
-        // names the NEXT state so a press does what the button says.
-        const powerLabelKey = !usesJapaneseProviders()
-            ? powerState === 'paused' ? 'puckResumeAnnotations' : 'puckPauseAnnotations'
-            : powerState === 'on' ? 'puckHideFurigana'
-                : powerState === 'no-furigana' ? 'puckPauseAnnotations'
-                    : 'puckResumeAnnotations';
-        const items: RadialAction[] = [
-            {
-                id: 'power',
-                label: uiText(language, powerLabelKey),
-                icon: powerState === 'on' ? radialPowerIcon()
-                    : powerState === 'no-furigana' ? radialFuriganaHiddenIcon()
-                        : radialPausedIcon(),
-                tone: powerState === 'on' ? 'on' : powerState === 'no-furigana' ? 'partial' : 'off',
-                primary: true,
-                keepOpen: true,
-                run: () => void actions.cyclePowerState().finally(() => this.syncButtonState()),
-            },
-            {
-                id: 'audio',
-                label: uiText(language, audioOn ? 'puckMuteAudio' : 'puckUnmuteAudio'),
-                icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
-                tone: audioOn ? 'on' : 'off',
-                keepOpen: true,
-                run: () => actions.toggleAutoPlayAudio(),
-            },
-            {
-                id: 'ocr',
-                label: ocrModeLabel(language, ocrMode),
-                icon: ocrMode === 'manual' ? radialOcrOnIcon() : radialOcrIcon(),
-                // The master pause silences OCR, so show it off rather than
-                // claiming "OCR on" while nothing scans.
-                tone: ocrMode === 'off' || powerState === 'paused' ? 'off' : 'on',
-                keepOpen: true,
-                run: () => actions.toggleOcrMode(),
-            },
-            {
-                id: 'japanese-site',
-                // Names the active target: the redirect follows it, not Japanese.
-                label: formatUiText(language, 'preferJapaneseSiteLanguage', {
-                    language: targetLanguageDisplayName(settings),
-                }),
-                icon: '日',
-                glyph: true,
-                tone: japaneseSiteLanguage ? 'on' : 'off',
-                keepOpen: true,
-                run: () => actions.toggleJapaneseSiteLanguage(),
-            },
-            {
-                id: 'settings',
-                label: uiText(language, 'settings'),
-                icon: radialSettingsIcon(),
-                run: () => actions.openSettings(),
-            },
-            {
-                id: 'study',
-                label: formatUiText(language, 'puckStudyTarget', {
-                    language: targetLanguageDisplayName(settings),
-                }),
-                icon: 'よ',
-                glyph: true,
-                run: () => actions.openStudyPage(),
-            },
-        ];
-        // Page-track discovery is target-routed. Keep it visible for every
-        // target and name that TARGET explicitly so it cannot be mistaken for
-        // Japanese OCR or for the definition/translation language.
-        if (actions.hasSubtitleVideo()) {
-            const subtitlesOn = actions.isAutoSubtitlesEnabled();
-            items.push({
-                id: 'subtitles',
-                label: formatUiText(language, 'puckAutoDetectTargetSubtitles', {
-                    language: targetLanguageDisplayName(settings),
-                }),
-                icon: radialCaptionsIcon(),
-                tone: subtitlesOn ? 'on' : 'off',
-                keepOpen: true,
-                run: () => actions.toggleAutoSubtitles(),
-            });
-        }
-        if (actions.isYouTube()) {
-            const enabled = actions.isYoutubeFilterEnabled();
-            items.push({
-                id: 'youtube',
-                label: formatUiText(language, 'puckFilterYoutubeTarget', {
-                    language: targetLanguageDisplayName(settings),
-                }),
-                icon: radialYoutubeIcon(),
-                tone: enabled ? 'on' : 'off',
-                keepOpen: true,
-                run: () => actions.toggleYoutubeFilter(),
-            });
-        }
-        return items;
+        return floatingButtonRadialActions(settings, actions, () => this.syncButtonState());
     }
 
     private installVideoAvoidance(button: HTMLButtonElement): void {

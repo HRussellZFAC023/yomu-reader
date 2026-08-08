@@ -291,6 +291,22 @@ describe('U46 per-target lookup hotlinks', () => {
     });
 
     describe('switching target', () => {
+        const japaneseOnlyIds = [
+            'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency',
+            'bunpro', 'bunpro-frequency', 'jisho', 'weblio',
+            'kotobank', 'takoboto', 'wiktionary-ja', 'immersion-kit',
+            'nadeshiko', 'uchisen',
+        ];
+
+        function expectSpanishDefaultsOnly(links: ReturnType<typeof normalizeDictionaryLookupLinkSettings>): void {
+            const ids = links.map(link => link.id);
+            expect(ids).toContain('rae');
+            expect(ids).toEqual(expect.arrayContaining(
+                defaultDictionaryLookupLinks('local', 'es').map(link => link.id),
+            ));
+            expect(ids).not.toEqual(expect.arrayContaining(japaneseOnlyIds));
+        }
+
         it('reconciles a pre-target Japanese row at startup for every non-Japanese target', () => {
             const custom = {
                 id: 'custom-mine',
@@ -310,13 +326,64 @@ describe('U46 per-target lookup hotlinks', () => {
                 expect(ids, target).toEqual(expect.arrayContaining(
                     defaultDictionaryLookupLinks('local', target).map(link => link.id),
                 ));
-                expect(ids, target).not.toEqual(expect.arrayContaining([
-                    'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency',
-                    'bunpro', 'bunpro-frequency', 'jisho', 'weblio',
-                    'kotobank', 'takoboto', 'wiktionary-ja', 'immersion-kit',
-                    'nadeshiko', 'uchisen',
-                ]));
+                expect(ids, target).not.toEqual(expect.arrayContaining(japaneseOnlyIds));
             }
+        });
+
+        it('does not turn an exact previous Japanese default row back into Japanese providers for Spanish', () => {
+            const previousDefault = defaultDictionaryLookupLinks('local', 'ja')
+                .filter(link => link.id !== 'nadeshiko');
+
+            const spanish = normalizeDictionaryLookupLinkSettings({
+                dictionaryLookupLinks: previousDefault,
+            }, 'es');
+
+            expectSpanishDefaultsOnly(spanish);
+        });
+
+        it('does not run the exact three-row Japanese legacy upgrade for Spanish', () => {
+            const legacy = [
+                { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: false },
+                { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
+                { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' as const },
+            ];
+
+            const spanish = normalizeDictionaryLookupLinkSettings({
+                dictionaryLookupLinks: legacy,
+            }, 'es');
+
+            expectSpanishDefaultsOnly(spanish);
+        });
+
+        it('canonicalizes shared built-ins for the active target while keeping learner choices', () => {
+            const outgoing = defaultDictionaryLookupLinks('local', 'en').map(link => {
+                if (link.id === 'wiktionary-en') return { ...link, enabled: false, priority: 7 };
+                if (link.id === 'tatoeba') return { ...link, priority: 8 };
+                return link;
+            });
+            const custom = {
+                id: 'custom-mine',
+                label: 'Mine',
+                urlTemplate: 'https://example.com/{query}',
+                enabled: true,
+                priority: 2,
+            };
+
+            const spanish = normalizeDictionaryLookupLinkSettings({
+                dictionaryLookupLinks: [...outgoing, custom],
+            }, 'es');
+
+            expectSpanishDefaultsOnly(spanish);
+            expect(spanish.find(link => link.id === 'wiktionary-en')).toMatchObject({
+                enabled: false,
+                priority: 7,
+                urlTemplate: 'https://en.wiktionary.org/wiki/{query}#Spanish',
+            });
+            expect(spanish.find(link => link.id === 'tatoeba')).toMatchObject({
+                priority: 8,
+                urlTemplate: expect.stringContaining('from=spa&to=eng'),
+            });
+            expect(spanish.find(link => link.id === 'custom-mine')).toMatchObject(custom);
         });
 
         it('adopts the incoming target set and drops the outgoing one', () => {

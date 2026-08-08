@@ -48,10 +48,12 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')?.dataset.studyTargetReadiness)
             .toBe('reading-only');
         expect(document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')?.checked).toBe(true);
+        expect(document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')).not.toBeNull();
 
         learnerLanguage.value = 'ko';
         targetLanguage.value = 'es';
         targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')).toBeNull();
         expect(document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')?.checked)
             .toBe(false);
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();

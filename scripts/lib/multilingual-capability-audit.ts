@@ -149,24 +149,35 @@ export async function runMultilingualCapabilityAudit(
   const modules = options.modules ?? registeredLearningTargetModules();
   const contractFailures = registryContractFailures(modules);
   const modulesByTarget = moduleMap(modules, contractFailures);
-
   const targets: MultilingualTargetCapabilityAudit[] = [];
   try {
     // Active-target resolvers are intentionally global runtime state. Run
     // target probes in roster order so one capability cannot observe the
     // target another concurrent probe just activated.
     for (const rosterTarget of LEARNING_TARGET_ROSTER) {
-      const target = modulesByTarget.get(rosterTarget.id);
-      targets.push(
-        target
-          ? await auditTarget(rosterTarget, target)
-          : missingTargetAudit(rosterTarget),
-      );
+      targets.push(await auditRosterTarget(rosterTarget, modulesByTarget));
     }
   } finally {
     resetActiveLearningTargetLanguage();
   }
 
+  return buildCapabilityAuditReport(targets, contractFailures);
+}
+
+async function auditRosterTarget(
+  rosterTarget: LearningTargetRosterEntry,
+  modulesByTarget: ReadonlyMap<LearningTargetRosterId, LearningTargetModule>,
+): Promise<MultilingualTargetCapabilityAudit> {
+  const target = modulesByTarget.get(rosterTarget.id);
+  return target
+    ? auditTarget(rosterTarget, target)
+    : missingTargetAudit(rosterTarget);
+}
+
+function buildCapabilityAuditReport(
+  targets: readonly MultilingualTargetCapabilityAudit[],
+  contractFailures: readonly MultilingualCapabilityAuditFailure[],
+): MultilingualCapabilityAuditReport {
   const capabilityFailures = targets.flatMap((target) =>
     Object.values(target.capabilities).flatMap((check) =>
       check.failure ? [check.failure] : [],
@@ -249,11 +260,11 @@ async function auditCapability(
   capability: LearningTargetCapability,
 ): Promise<MultilingualCapabilityAuditCheck> {
   const evidenceKind = capabilityEvidenceKind(target, capability);
-  const declaredSupported = target.capabilities[capability] === true;
+  const declaredSupported = target.capabilities[capability];
 
   try {
     ensure(
-      declaredSupported === (evidenceKind !== "unavailable"),
+      declaredSupported === capabilityEvidenceAvailable(evidenceKind),
       "support-declaration-mismatch",
       `Target ${rosterTarget.id} declares ${capability}=${String(declaredSupported)} but its evidence is ${evidenceKind}.`,
     );
@@ -275,13 +286,7 @@ async function auditCapability(
       ),
     };
   } catch (error) {
-    const failure =
-      error instanceof CapabilityProbeError
-        ? error
-        : new CapabilityProbeError(
-            "probe-threw",
-            error instanceof Error ? error.message : String(error),
-          );
+    const failure = capabilityProbeFailure(error);
     return failedCheck(
       rosterTarget.id,
       capability,
@@ -293,47 +298,46 @@ async function auditCapability(
   }
 }
 
+function capabilityEvidenceAvailable(evidenceKind: CapabilityEvidenceKind): boolean {
+  return evidenceKind !== "unavailable";
+}
+
+function capabilityProbeFailure(error: unknown): CapabilityProbeError {
+  if (error instanceof CapabilityProbeError) return error;
+  const message = error instanceof Error ? error.message : String(error);
+  return new CapabilityProbeError("probe-threw", message);
+}
+
 function capabilityEvidenceKind(
   target: LearningTargetModule,
   capability: LearningTargetCapability,
 ): CapabilityEvidenceKind {
-  switch (capability) {
-    case "mining":
-    case "srs":
-    case "grading":
-      return "core-delivered";
-    case "segmentation":
-    case "text-to-speech":
-    case "ocr":
-    case "subtitles":
-    case "typing":
-      return "target-adapted";
-    case "morphology":
-      return target.experiences.morphology === "dictionary-forms"
-        ? "unavailable"
-        : "target-adapted";
-    case "character-lookup":
-      return target.experiences.characterLookup === "character-dictionary"
-        ? "data-backed"
-        : "fallback";
-    case "frequency":
-      // Rank dictionaries are optional data. The universally executable path
-      // is the explicitly labelled count of exact occurrences in this context.
-      return "fallback";
-    case "audio":
-      return target.audio.recordedWordAudio ? "data-backed" : "fallback";
-    case "handwriting":
-      return target.experiences.handwriting === "stroke-feedback"
-        ? "data-backed"
-        : "fallback";
-    case "term-lookup":
-    case "reading-annotation":
-    case "pronunciation":
-    case "examples":
-    case "grammar":
-      return "data-backed";
-  }
+  return CAPABILITY_EVIDENCE[capability](target);
 }
+
+type CapabilityEvidenceResolver = (target: LearningTargetModule) => CapabilityEvidenceKind;
+const fixedEvidence = (kind: CapabilityEvidenceKind): CapabilityEvidenceResolver => () => kind;
+
+const CAPABILITY_EVIDENCE: Readonly<Record<LearningTargetCapability, CapabilityEvidenceResolver>> = Object.freeze({
+  mining: fixedEvidence("core-delivered"),
+  srs: fixedEvidence("core-delivered"),
+  grading: fixedEvidence("core-delivered"),
+  segmentation: fixedEvidence("target-adapted"),
+  "text-to-speech": fixedEvidence("target-adapted"),
+  ocr: fixedEvidence("target-adapted"),
+  subtitles: fixedEvidence("target-adapted"),
+  typing: fixedEvidence("target-adapted"),
+  morphology: target => target.experiences.morphology === "dictionary-forms" ? "unavailable" : "target-adapted",
+  "character-lookup": target => target.experiences.characterLookup === "character-dictionary" ? "data-backed" : "fallback",
+  frequency: fixedEvidence("fallback"),
+  audio: target => target.audio.recordedWordAudio ? "data-backed" : "fallback",
+  handwriting: target => target.experiences.handwriting === "stroke-feedback" ? "data-backed" : "fallback",
+  "term-lookup": fixedEvidence("data-backed"),
+  "reading-annotation": fixedEvidence("data-backed"),
+  pronunciation: fixedEvidence("data-backed"),
+  examples: fixedEvidence("data-backed"),
+  grammar: fixedEvidence("data-backed"),
+});
 
 async function probeCapability(
   capability: LearningTargetCapability,
@@ -475,23 +479,7 @@ function probeMorphology(
   );
 
   const morphology = fixture.morphology;
-  if (!morphology) {
-    ensure(
-      target.experiences.morphology === "dictionary-forms",
-      "morphology-fixture-missing",
-      `Adapter ${target.experiences.morphology} needs a checked rewrite fixture.`,
-    );
-    ensure(
-      surfaceCandidates.every((candidate) => candidate.depth === 0),
-      "undeclared-morphology-rewrite",
-      "A dictionary-forms-only target produced a rewrite without checked morphology evidence.",
-    );
-    return {
-      adapter: target.experiences.morphology,
-      surfaceAnalyses: surfaceCandidates.length,
-      limitation: "literal dictionary-form lookup only; no morphology Adapter",
-    };
-  }
+  if (!morphology) return probeDictionaryFormMorphology(target, surfaceCandidates);
 
   ensure(
     target.experiences.morphology !== "dictionary-forms",
@@ -499,12 +487,7 @@ function probeMorphology(
     "A checked rewrite fixture exists but the target declares only dictionary forms.",
   );
 
-  const results =
-    morphology.via === "subsegments"
-      ? (target.lookupSubsegments?.(morphology.input, 40) ?? [])
-      : target
-          .lookupCandidates(morphology.input)
-          .map((candidate) => candidate.term);
+  const results = morphologyProbeResults(target, morphology);
   ensure(
     results.includes(morphology.expected),
     "morphology-rewrite-missing",
@@ -516,6 +499,37 @@ function probeMorphology(
     expected: morphology.expected,
     results,
   };
+}
+
+function probeDictionaryFormMorphology(
+  target: LearningTargetModule,
+  surfaceCandidates: ReturnType<LearningTargetModule["lookupCandidates"]>,
+): AuditEvidence {
+  ensure(
+    target.experiences.morphology === "dictionary-forms",
+    "morphology-fixture-missing",
+    `Adapter ${target.experiences.morphology} needs a checked rewrite fixture.`,
+  );
+  ensure(
+    surfaceCandidates.every((candidate) => candidate.depth === 0),
+    "undeclared-morphology-rewrite",
+    "A dictionary-forms-only target produced a rewrite without checked morphology evidence.",
+  );
+  return {
+    adapter: target.experiences.morphology,
+    surfaceAnalyses: surfaceCandidates.length,
+    limitation: "literal dictionary-form lookup only; no morphology Adapter",
+  };
+}
+
+function morphologyProbeResults(
+  target: LearningTargetModule,
+  morphology: NonNullable<TargetAuditFixture["morphology"]>,
+): readonly string[] {
+  if (morphology.via === "subsegments") {
+    return target.lookupSubsegments?.(morphology.input, 40) ?? [];
+  }
+  return target.lookupCandidates(morphology.input).map((candidate) => candidate.term);
 }
 
 function probeReadingAnnotation(
@@ -531,7 +545,12 @@ function probeReadingAnnotation(
   );
   const rubies = effectiveTokenRubies(fixture.probe, token);
   ensure(
-    rubies.length === 1 && rubies[0]?.text === reading,
+    rubies.length === 1,
+    "dictionary-reading-count-mismatch",
+    "The dictionary token did not produce exactly one annotation span.",
+  );
+  ensure(
+    rubies[0]?.text === reading,
     "dictionary-reading-missing",
     "The dictionary reading did not become an annotation span.",
   );
@@ -620,59 +639,51 @@ async function probeExamples(
   target: LearningTargetModule,
   fixture: TargetAuditFixture,
 ): Promise<AuditEvidence> {
-  const controller = new AbortController();
-  if (target.language === "ja") {
-    const searchedTerms: string[] = [];
-    const adapter = createImmersionKitExampleSource(async (term) => {
-      searchedTerms.push(term);
-      return [
-        {
-          id: "capability-audit",
-          sentence: fixture.probe,
-          sentenceWithFurigana: fixture.probe,
-          translation: "behavior audit",
-          sourceTitle: "Capability audit fixture",
-          titleSlug: "capability-audit",
-          category: "fixture",
-          soundFile: "",
-          imageFile: "",
-          soundUrl: "",
-          imageUrl: "",
-        },
-      ];
-    });
-    const capabilities = adapter.supports(target.language);
-    const result = await adapter.search({
-      term: fixture.probe,
-      targetLanguage: target.language,
-      outputLanguage: "en",
-      signal: controller.signal,
-      limit: 1,
-    });
-    ensure(
-      capabilities.supported && capabilities.text.availability === "available",
-      "example-adapter-unsupported",
-      "The Immersion Kit Adapter does not support Japanese sentence text.",
-    );
-    ensure(
-      result.availability === "loaded" &&
-        result.items[0]?.text.language === target.language,
-      "example-search-failed",
-      "The Immersion Kit Adapter did not return target-language sentence text.",
-    );
-    ensure(
-      searchedTerms[0] === fixture.probe,
-      "example-term-routing-failed",
-      "The Immersion Kit Adapter did not receive the target term.",
-    );
-    return {
-      source: adapter.id,
-      availability: result.availability,
-      targetLanguage: result.items[0]?.text.language ?? null,
-      searchedTerm: searchedTerms[0] ?? null,
-    };
-  }
+  return target.language === "ja"
+    ? probeImmersionKitExamples(target, fixture)
+    : probeTatoebaExamples(target, fixture);
+}
 
+async function probeImmersionKitExamples(
+  target: LearningTargetModule,
+  fixture: TargetAuditFixture,
+): Promise<AuditEvidence> {
+  const searchedTerms: string[] = [];
+  const adapter = createImmersionKitExampleSource(async (term) => {
+    searchedTerms.push(term);
+    return [{
+      id: "capability-audit",
+      sentence: fixture.probe,
+      sentenceWithFurigana: fixture.probe,
+      translation: "behavior audit",
+      sourceTitle: "Capability audit fixture",
+      titleSlug: "capability-audit",
+      category: "fixture",
+      soundFile: "",
+      imageFile: "",
+      soundUrl: "",
+      imageUrl: "",
+    }];
+  });
+  const capabilities = adapter.supports(target.language);
+  const result = await adapter.search(exampleSearchRequest(target, fixture));
+  ensure(capabilities.supported, "example-adapter-unsupported", "The Immersion Kit Adapter does not support Japanese sentence text.");
+  ensure(capabilities.text.availability === "available", "example-text-unavailable", "The Immersion Kit Adapter has no Japanese sentence text.");
+  ensure(result.availability === "loaded", "example-search-failed", "The Immersion Kit Adapter did not load its checked fixture.");
+  ensure(result.items[0]?.text.language === target.language, "example-language-mismatch", "The Immersion Kit sentence has the wrong target language.");
+  ensure(searchedTerms[0] === fixture.probe, "example-term-routing-failed", "The Immersion Kit Adapter did not receive the target term.");
+  return {
+    source: adapter.id,
+    availability: result.availability,
+    targetLanguage: result.items[0]?.text.language ?? null,
+    searchedTerm: searchedTerms[0] ?? null,
+  };
+}
+
+async function probeTatoebaExamples(
+  target: LearningTargetModule,
+  fixture: TargetAuditFixture,
+): Promise<AuditEvidence> {
   const requestedUrls: string[] = [];
   const adapter = createTatoebaExampleSource({
     requestAudio: false,
@@ -682,31 +693,27 @@ async function probeExamples(
     },
   });
   const capabilities = adapter.supports(target.language);
-  const result = await adapter.search({
-    term: fixture.probe,
-    targetLanguage: target.language,
-    outputLanguage: "en",
-    signal: controller.signal,
-    limit: 1,
-  });
+  const result = await adapter.search(exampleSearchRequest(target, fixture));
   const requestedLanguages = requestedUrls.map(
     (url) => new URL(url).searchParams.get("lang") ?? "",
   );
   ensure(
-    capabilities.supported && capabilities.text.availability === "available",
+    capabilities.supported,
     "example-adapter-unsupported",
     "The Tatoeba Adapter does not support target-language sentence text.",
   );
+  ensure(capabilities.text.availability === "available", "example-text-unavailable", "The Tatoeba Adapter has no target-language sentence text.");
   ensure(
     result.availability === "empty",
     "example-search-failed",
     "The deterministic empty Tatoeba response did not complete as an empty search.",
   );
   ensure(
-    requestedLanguages.length > 0 && requestedLanguages.every(Boolean),
+    requestedLanguages.length > 0,
     "example-language-routing-failed",
     "The Tatoeba Adapter did not issue a target-language corpus query.",
   );
+  ensure(requestedLanguages.every(Boolean), "example-language-empty", "A Tatoeba corpus request omitted its language.");
   ensure(
     requestedUrls.every(
       (url) => new URL(url).searchParams.get("q") === `"${fixture.probe}"`,
@@ -719,6 +726,16 @@ async function probeExamples(
     availability: result.availability,
     requestCount: requestedUrls.length,
     requestedLanguages,
+  };
+}
+
+function exampleSearchRequest(target: LearningTargetModule, fixture: TargetAuditFixture) {
+  return {
+    term: fixture.probe,
+    targetLanguage: target.language,
+    outputLanguage: "en",
+    signal: new AbortController().signal,
+    limit: 1,
   };
 }
 
@@ -904,13 +921,14 @@ async function probeMining(
     "mining-adapter-disabled",
     "The local Study Adapter does not allow mining.",
   );
+  const request = requiredMiningRequest(captured.request);
   ensure(
-    captured.request?.language === target.language,
+    request.language === target.language,
     "mining-language-lost",
     "The mining Adapter did not receive the target language.",
   );
   ensure(
-    captured.request?.sentence === sentence,
+    request.sentence === sentence,
     "mining-sentence-lost",
     "The mining Adapter did not receive the target-bounded sentence.",
   );
@@ -918,9 +936,14 @@ async function probeMining(
     adapter: adapter.id,
     terminator,
     sentence,
-    language: captured.request?.language ?? null,
+    language: request.language,
     whitespaceIsBoundary: target.sentenceBoundaries.whitespaceIsBoundary,
   };
+}
+
+function requiredMiningRequest(request: YomuSrsMiningRequest | null): YomuSrsMiningRequest {
+  if (!request) throw new CapabilityProbeError("mining-request-missing", "The mining Adapter did not receive a request.");
+  return request;
 }
 
 function probeSrs(
@@ -1049,43 +1072,40 @@ function probeHandwriting(
 function registryContractFailures(
   modules: readonly LearningTargetModule[],
 ): MultilingualCapabilityAuditFailure[] {
-  const failures: MultilingualCapabilityAuditFailure[] = [];
   const rosterIds = LEARNING_TARGET_ROSTER.map((target) => target.id);
   const fixtureIds = Object.keys(TARGET_AUDIT_FIXTURES).sort();
   const expectedRosterIds = [...new Set(rosterIds)].sort();
-  if (LEARNING_TARGET_ROSTER.length !== EXPECTED_TARGET_COUNT) {
-    failures.push(
-      registryFailure(
+  const checks = [
+    {
+      passes: LEARNING_TARGET_ROSTER.length === EXPECTED_TARGET_COUNT,
+      failure: registryFailure(
         "target-count-drift",
         `The fixed roster contains ${LEARNING_TARGET_ROSTER.length} targets; expected ${EXPECTED_TARGET_COUNT}.`,
       ),
-    );
-  }
-  if (expectedRosterIds.length !== rosterIds.length) {
-    failures.push(
-      registryFailure(
+    },
+    {
+      passes: expectedRosterIds.length === rosterIds.length,
+      failure: registryFailure(
         "duplicate-roster-target",
         "The learning-target roster contains duplicate IDs.",
       ),
-    );
-  }
-  if (fixtureIds.join("\u0000") !== expectedRosterIds.join("\u0000")) {
-    failures.push(
-      registryFailure(
+    },
+    {
+      passes: fixtureIds.join("\u0000") === expectedRosterIds.join("\u0000"),
+      failure: registryFailure(
         "fixture-roster-drift",
         "Behavior fixtures and the learning-target roster do not contain the same target IDs.",
       ),
-    );
-  }
-  if (modules.length !== LEARNING_TARGET_ROSTER.length) {
-    failures.push(
-      registryFailure(
+    },
+    {
+      passes: modules.length === LEARNING_TARGET_ROSTER.length,
+      failure: registryFailure(
         "module-count-drift",
         `The registry exposes ${modules.length} modules for ${LEARNING_TARGET_ROSTER.length} roster targets.`,
       ),
-    );
-  }
-  return failures;
+    },
+  ];
+  return checks.filter((check) => !check.passes).map((check) => check.failure);
 }
 
 function moduleMap(
@@ -1094,38 +1114,40 @@ function moduleMap(
 ): Map<LearningTargetRosterId, LearningTargetModule> {
   const result = new Map<LearningTargetRosterId, LearningTargetModule>();
   for (const target of modules) {
-    const id = learningTargetRosterIdForTag(target.language);
-    if (!id) {
-      failures.push(
-        registryFailure(
-          "unmapped-module",
-          `Module ${target.id} (${target.language}) is outside the fixed roster.`,
-        ),
-      );
-      continue;
-    }
-    if (result.has(id)) {
-      failures.push(
-        registryFailure(
-          "duplicate-module",
-          `More than one active module maps to target ${id}.`,
-        ),
-      );
-      continue;
-    }
-    result.set(id, target);
-    const declared = Object.keys(target.capabilities).sort();
-    const expected = [...LEARNING_TARGET_CAPABILITY_IDS].sort();
-    if (declared.join("\u0000") !== expected.join("\u0000")) {
-      failures.push({
-        targetId: id,
-        capability: null,
-        code: "capability-shape-drift",
-        message: `Module ${target.id} does not declare exactly the supported capability IDs.`,
-      });
-    }
+    registerModule(result, target, failures);
   }
   return result;
+}
+
+function registerModule(
+  result: Map<LearningTargetRosterId, LearningTargetModule>,
+  target: LearningTargetModule,
+  failures: MultilingualCapabilityAuditFailure[],
+): void {
+  const id = learningTargetRosterIdForTag(target.language);
+  if (!id) {
+    failures.push(registryFailure("unmapped-module", `Module ${target.id} (${target.language}) is outside the fixed roster.`));
+    return;
+  }
+  if (result.has(id)) {
+    failures.push(registryFailure("duplicate-module", `More than one active module maps to target ${id}.`));
+    return;
+  }
+  result.set(id, target);
+  if (!moduleCapabilityShapeMatches(target)) {
+    failures.push({
+      targetId: id,
+      capability: null,
+      code: "capability-shape-drift",
+      message: `Module ${target.id} does not declare exactly the supported capability IDs.`,
+    });
+  }
+}
+
+function moduleCapabilityShapeMatches(target: LearningTargetModule): boolean {
+  const declared = Object.keys(target.capabilities).sort();
+  const expected = [...LEARNING_TARGET_CAPABILITY_IDS].sort();
+  return declared.join("\u0000") === expected.join("\u0000");
 }
 
 function missingTargetAudit(

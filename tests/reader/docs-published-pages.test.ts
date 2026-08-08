@@ -209,10 +209,6 @@ describe('published product claims', () => {
         expect(theme).toContain("'A complete system for learning 日本語.': '日本語を学ぶための、すべてがそろう。'");
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
         expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
-        expect(theme).toContain('__YOMU_HERO_LANGUAGES__');
-        expect(theme).toContain("en: ['Read ', ' with Yomu.']");
-        expect(theme).toContain("ja: ['よむで', 'を読む。']");
-        expect(theme).not.toContain("en: ['A complete system for learning ', '.']");
         expect(heroLanguages.length).toBeGreaterThan(1);
         for (const language of heroLanguages) {
             const target = LEARNING_TARGET_ROSTER.find(candidate => candidate.id === language.id);

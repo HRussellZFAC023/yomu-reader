@@ -1350,10 +1350,7 @@ describe('reader helpers', () => {
             expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Pause annotations');
             expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'))
                 .toBe('Auto-detect Spanish subtitles');
-            // The site-language action remains target-routed, rather than
-            // pretending this is Japanese or following OUTPUT English.
-            expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label'))
-                .toBe('Open Spanish versions of sites');
+            expect(document.querySelector('[data-radial-id="japanese-site"]')).toBeNull();
         } finally {
             resetActiveLearningTargetLanguage();
             controller.destroy();
@@ -1391,6 +1388,8 @@ describe('reader helpers', () => {
                     target.id,
                 ).toBe(`Filter YouTube for ${targetName}`);
                 expect(document.querySelector('[data-radial-id="subtitles"] svg'), target.id).not.toBeNull();
+                expect(Boolean(document.querySelector('[data-radial-id="japanese-site"]')), target.id)
+                    .toBe(target.id === 'ja');
                 controller.destroy();
             }
         } finally {

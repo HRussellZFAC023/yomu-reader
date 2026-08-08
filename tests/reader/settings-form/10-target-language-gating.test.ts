@@ -103,22 +103,19 @@ describe('target-language settings', () => {
 
     it('keeps pronunciation and reading controls universal, and restores Japanese-only nodes', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
-        // Japanese-only means "the DATA behind it is Japanese", not "it mentions
-        // Japanese". The YouTube immersion filter and the site-language redirect both
-        // follow the active target now (A48 and preferred-site-language-impl), so they
-        // are offered to every learner and only their labels name the target. The
-        // channel suggestions stay here because their corpus really is 100 Japanese
-        // channels graded N5..N1 with no equivalent for any other language.
+        // Japanese-only means the data/adapter behind it is Japanese. The YouTube
+        // immersion filter follows the active target, while site redirects and
+        // channel suggestions still own Japanese-only adapters/corpora.
         const japaneseOnlySelectors = [
             '[data-language-family="pitch-colouring"]',
             '[data-language-family="pitch-legend"]',
             '[data-language-family="provider-pills"]',
             'input[name="youtubeShowChannelRecommendations"]',
+            'input[name="preferJapaneseSiteLanguage"]',
         ] as const;
         const everyTargetSelectors = [
             'input[name="youtubeImmersionEnabled"]',
             'input[name="youtubeShowFilterNotice"]',
-            'input[name="preferJapaneseSiteLanguage"]',
         ] as const;
         const japaneseNodes = japaneseOnlySelectors.map(selector => form.querySelector(selector));
         const reading = form.querySelector('[data-language-family="reading-annotation"]');

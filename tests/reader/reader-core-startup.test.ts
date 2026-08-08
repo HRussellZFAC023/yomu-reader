@@ -11,6 +11,7 @@ interface StartupInternals {
     installCoreSurfaces: () => Promise<void>;
     loadInitialSettings: () => Promise<boolean>;
     applyReaderThemeClasses: (theme: 'dark' | 'light') => void;
+    installFab: () => void;
 }
 
 describe('ReaderApp core startup', () => {
@@ -20,6 +21,7 @@ describe('ReaderApp core startup', () => {
         app?.destroy();
         app = undefined;
         vi.restoreAllMocks();
+        vi.unstubAllGlobals();
         document.head.replaceChildren();
         document.body.replaceChildren();
     });
@@ -79,5 +81,29 @@ describe('ReaderApp core startup', () => {
         expect(() => internals.applyReaderThemeClasses('dark')).not.toThrow();
 
         rootSpy.mockRestore();
+    });
+
+    it.each([
+        { route: '/', hasVideo: false, showsSubtitleAction: false },
+        { route: '/watch?v=target-video', hasVideo: true, showsSubtitleAction: true },
+        { route: '/shorts/target-video', hasVideo: true, showsSubtitleAction: true },
+    ])('shows subtitle discovery only for an actual YouTube video candidate at $route', ({
+        route,
+        hasVideo,
+        showsSubtitleAction,
+    }) => {
+        vi.stubGlobal('location', {
+            hostname: 'www.youtube.com',
+            pathname: route,
+            href: `https://www.youtube.com${route}`,
+        });
+        if (hasVideo) document.body.append(document.createElement('video'));
+
+        app = new ReaderApp();
+        (app as unknown as StartupInternals).installFab();
+        document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+
+        expect(Boolean(document.querySelector('[data-radial-id="subtitles"]')))
+            .toBe(showsSubtitleAction);
     });
 });

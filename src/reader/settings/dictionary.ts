@@ -249,8 +249,10 @@ export function normalizeDictionaryLookupLinkSettings(
         !hasOwn(value, 'dictionaryLookupLinks') && Boolean(value?.apiKey?.trim()),
         targetLanguage,
     );
-    if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
-    return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
+    if (targetLanguage === 'ja' && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+        return savedLookupLinksInDefaultOrder(links);
+    }
+    return targetLanguage === 'ja' && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks)
         ? legacyDefaultLookupLinksWithNewBuiltIns(links)
         : links;
 }
@@ -432,12 +434,13 @@ export function normalizeDictionaryLookupLinks(
 
     const normalized: DictionaryLookupLink[] = [];
     const seen = new Set<string>();
-    const defaults = new Set(builtIns.map(link => link.id));
+    const defaults = new Map(builtIns.map(link => [link.id, link]));
     let extras = 0;
     const add = (link: DictionaryLookupLink) => {
         const id = link.id.trim();
         if (!id || seen.has(id)) return;
-        const known = defaults.has(id);
+        const builtIn = defaults.get(id);
+        const known = Boolean(builtIn);
         // A built-in belongs to the target whose catalogue/default row names
         // it.  Before target-aware lookup links shipped, every stored payload
         // already carried Japanese defaults.  Merely changing `builtIns` above
@@ -452,7 +455,12 @@ export function normalizeDictionaryLookupLinks(
         if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
         if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
         seen.add(id);
-        normalized.push({ ...link, id });
+        // Stored built-ins carry only learner choices. Their provider payload
+        // belongs to the active target's checked catalogue: otherwise a shared
+        // ID such as Wiktionary or Tatoeba keeps the outgoing target's URL.
+        normalized.push(builtIn
+            ? { ...builtIn, enabled: link.enabled, priority: link.priority }
+            : { ...link, id });
         if (!known) extras++;
     };
 

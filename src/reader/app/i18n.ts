@@ -4,6 +4,7 @@ import { formatIsolated, isRtlInterface } from '../locales/direction';
 import { GRAMMAR_UI_COPY } from '../study/grammar-copy';
 import { SUBTITLE_SETTINGS_COPY } from './subtitle-settings-copy';
 import { LOCAL_DICTIONARY_STORAGE_COPY } from './local-dictionary-storage-copy';
+import { TARGET_AWARE_UI_COPY } from './target-aware-copy';
 import type { AudioSourceType, InterfaceLanguage } from './types';
 export { academyCopyHasMissingJapanese, academyText } from './academy-copy';
 export type { AcademyCopyKey, AcademyLanguage } from './academy-copy';
@@ -268,11 +269,7 @@ const COPY = {
         ocrInteractionModeManual: 'Tap or hover',
         ocrInteractionModeOff: 'Off',
         puckMenuLabel: `${APP_NAME} menu`,
-        puckStudyPage: 'Study page',
-        puckStudyTarget: 'Study {language}',
-        puckLearningTarget: `${APP_NAME} — learning target: {language}`,
-        puckAutoDetectTargetSubtitles: 'Auto-detect {language} subtitles',
-        puckFilterYoutubeTarget: 'Filter YouTube for {language}',
+        ...TARGET_AWARE_UI_COPY.en,
         puckPauseAnnotations: 'Pause annotations',
         puckResumeAnnotations: 'Resume annotations',
         puckOcrAuto: 'OCR: Auto',
@@ -285,7 +282,6 @@ const COPY = {
         autoplayAudioOnToast: 'Auto-play audio on.',
         autoplayAudioOffToast: 'Auto-play audio muted.',
         puckHideFurigana: 'Hide furigana',
-        popupLanguageAxes: 'Reading {target} · Definitions/translation: {output}',
         furiganaOffToast: 'Furigana off. Lookups stay active.',
         showFurigana: 'Enable furigana annotations',
         furiganaMode: 'Furigana',
@@ -710,7 +706,6 @@ const COPY = {
         openSettings: 'Open settings',
         resizeSettings: 'Resize settings',
         playAudio: 'Play audio',
-        contextOccurrences: 'In context ×{count}',
         playingAudioPreview: `Playing ${APP_NAME}...`,
         audioPreviewFailed: 'Audio preview failed.',
         audioPlaybackDisabled: 'Audio playback is disabled',
@@ -753,8 +748,6 @@ const COPY = {
         enableSubtitleAutoHide: 'Auto-hide panel while playing',
         disableSubtitleAutoHide: 'Keep panel open while playing',
         subtitlePanelOptions: 'Panel options',
-        loadTargetSubtitles: 'Load {language} subtitles',
-        loadOutputSubtitles: 'Load {language} subtitles',
         searchAnimeSubtitles: 'Search anime subtitles',
         toggleNativeSubtitleBlur: 'Toggle native subtitle blur',
         subtitleTrackDetectedSingular: '1 subtitle track detected',
@@ -1514,7 +1507,6 @@ previousKanji	前の漢字
 nextKanji	次の漢字
 openKanjiOnJpdb	JPDBで漢字を開く
 playAudio	音声を再生
-contextOccurrences	文脈内 ×{count}
 audioPlaybackDisabled	音声再生は無効です
 audioPlaybackDisabledToast	音声再生は無効です。
 audioPlaybackFailed	音声の再生に失敗しました。
@@ -1551,8 +1543,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadTargetSubtitles	{language}字幕を読み込む
-loadOutputSubtitles	{language}字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -1992,11 +1982,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
-puckStudyTarget	{language}を学習
-puckLearningTarget	よむ — 学習対象：{language}
-puckAutoDetectTargetSubtitles	{language}の字幕を自動検出
-puckFilterYoutubeTarget	YouTubeを{language}向けに絞る
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -2007,7 +1992,6 @@ annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート
 puckUnmuteAudio	音声の自動再生のミュートを解除
 puckHideFurigana	ふりがなを隠す
-popupLanguageAxes	学習対象：{target}・定義/翻訳：{output}
 furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
 autoplayAudioOnToast	音声の自動再生をオンにしました。
 autoplayAudioOffToast	音声の自動再生をミュートしました。
@@ -2500,6 +2484,7 @@ recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
     ...SUBTITLE_SETTINGS_COPY.ja,
+    ...TARGET_AWARE_UI_COPY.ja,
 };
 
 export interface GrammarRuleCopy {

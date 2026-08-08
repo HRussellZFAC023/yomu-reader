@@ -134,6 +134,11 @@ import {
 import { isTargetLanguageText } from '../lookup/target-text';
 import { hasPaintablePitchComponents, hasResolvedPitchComponents, inferredAnnotatedPitchComponents } from '../lookup/pitch-components';
 import { publishCardStateSignal, subscribeToCardStateSignals } from './card-state-signal';
+import {
+    annotationPowerState,
+    applyAnnotationPowerTransition,
+    planAnnotationPowerTransition,
+} from './annotation-power-policy';
 import { configureLogger, Logger } from './logger';
 import {
     cardMatchesRenderedLookupValue,
@@ -2455,7 +2460,7 @@ export class ReaderApp {
                 toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
                 isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
                 hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled
-                    && (isYouTubeHostname() || Boolean(document.querySelector('video'))),
+                    && Boolean(document.querySelector('video')),
             },
         );
     }
@@ -2540,18 +2545,8 @@ export class ReaderApp {
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
     }
 
-    private isFuriganaEnabled(): boolean {
-        return this.settings.showFurigana && this.settings.furiganaMode !== 'off';
-    }
-
     private puckPowerState(): 'on' | 'no-furigana' | 'paused' {
-        if (this.settings.annotationsPaused) return 'paused';
-        // Furigana is a Japanese reader channel. Other targets still receive
-        // visible word wrappers, learning-state decoration and hover lookup,
-        // but their master action is an honest on/off annotations switch — it
-        // must not pass through a meaningless "furigana hidden" state.
-        if (!usesJapaneseProviders()) return 'on';
-        return this.isFuriganaEnabled() ? 'on' : 'no-furigana';
+        return annotationPowerState(this.settings, usesJapaneseProviders());
     }
 
     // Puck power cycle — three states, always reachable in order:
@@ -2562,34 +2557,22 @@ export class ReaderApp {
     // user reaches the furigana-on state by cycling, then hides it again next
     // press.
     private async cyclePowerState(): Promise<void> {
-        const state = this.puckPowerState();
-        if (!usesJapaneseProviders()) {
-            await this.setAnnotationsPaused(state !== 'paused');
-            return;
-        }
-        if (state === 'on') {
-            // Persisted (not an instance field): the hide itself saves
-            // furiganaMode='off' globally, so the restore marker must survive
-            // navigation too or the cycle degrades to a two-state loop.
-            this.settings.puckFuriganaModeBeforeHide = this.settings.furiganaMode === 'off' ? '' : this.settings.furiganaMode;
-            await this.applyFuriganaMode('off');
-            this.toast(uiText(this.settings.interfaceLanguage, 'furiganaOffToast'));
-            return;
-        }
-        if (state === 'no-furigana') {
-            await this.setAnnotationsPaused(true);
-            return;
-        }
-        // Resume to a genuine furigana-ON "on" state. Restore the mode the cycle
-        // hid; if none was hidden (furigana-off preference, or a mid-cycle
-        // reload dropped the marker), fall back to the current mode when it is a
-        // real one, else the default — never leave furigana off here, or "on"
-        // and "furigana off" collapse into one state.
-        const hiddenMode = this.settings.puckFuriganaModeBeforeHide;
-        this.settings.puckFuriganaModeBeforeHide = '';
-        await this.applyFuriganaMode(hiddenMode
-            || (this.settings.furiganaMode !== 'off' ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode));
-        await this.setAnnotationsPaused(false);
+        await applyAnnotationPowerTransition(
+            planAnnotationPowerTransition(this.settings, usesJapaneseProviders(), DEFAULT_SETTINGS.furiganaMode),
+            {
+                hideFurigana: async rememberedMode => {
+                    this.settings.puckFuriganaModeBeforeHide = rememberedMode;
+                    await this.applyFuriganaMode('off');
+                    this.toast(uiText(this.settings.interfaceLanguage, 'furiganaOffToast'));
+                },
+                pause: () => this.setAnnotationsPaused(true),
+                resume: async furiganaMode => {
+                    this.settings.puckFuriganaModeBeforeHide = '';
+                    if (furiganaMode) await this.applyFuriganaMode(furiganaMode);
+                    await this.setAnnotationsPaused(false);
+                },
+            },
+        );
     }
 
     private async applyFuriganaMode(mode: ReaderSettings['furiganaMode']): Promise<void> {

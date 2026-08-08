@@ -14,8 +14,8 @@ import type { ReaderSettings } from '../app/types';
  * - The **immersion filter** and its notice ask the ACTIVE target whether text is its
  *   language (A48), so every learner gets them. They were `jp-only` DETACHED, which
  *   meant 31 of 32 targets could not reach a feature that already worked for them.
- * - The **site-language redirect** threads the active target too
- *   (`app/preferred-site-language-impl.ts`), so it is offered to every learner.
+ * - The **site-language redirect** remains Japanese-only. Its implementation
+ *   owns Japanese URL/cookie adapters and fails closed for every other target.
  * - The **channel suggestions** stay Japanese-only, because their corpus is 100
  *   Japanese channels graded N5..N1 and there is no equivalent list for any other
  *   language. Recommending the wrong language is worse than recommending nothing.
@@ -46,7 +46,7 @@ export function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
                         ${checkbox('youtubeShowChannelRecommendations', text('youtubeShowChannelRecommendations'), settings.youtubeShowChannelRecommendations)}
                     </div>
-                    <div data-language-family="preferred-target-sites">
+                    <div class="jp-only" data-language-family="preferred-target-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox('preferJapaneseSiteLanguage', text('preferJapaneseSiteLanguage'), settings.preferJapaneseSiteLanguage)}
                     </div>

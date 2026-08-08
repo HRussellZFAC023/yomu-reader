@@ -2,7 +2,7 @@ import { APP_NAME } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
-import { jpOnlyOn, languageFamilyIncludes } from '../settings/language-gating';
+import { jpOnlyOn, languageFamilyIncludes, syncLanguageFamilyDom } from '../settings/language-gating';
 import { settingsText } from '../settings/settings-text';
 import { changedSettingsKeys, defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
@@ -298,9 +298,15 @@ export class OnboardingController {
         immersionGrid.className = 'jpdb-reader-onboarding-immersion-grid';
         const defaultColumn = document.createElement('div');
         defaultColumn.className = 'jpdb-reader-onboarding-option-column';
+        const preferredSiteLanguageLabel = checkboxLabel(
+            this.preferJapaneseSiteLanguageInput,
+            this.text('preferJapaneseSiteLanguage'),
+        );
+        preferredSiteLanguageLabel.classList.add('jp-only');
+        preferredSiteLanguageLabel.dataset.languageFamily = 'preferred-target-sites';
         defaultColumn.append(
             checkboxLabel(this.youtubeImmersionInput, this.text( 'youtubeImmersionEnabled')),
-            checkboxLabel(this.preferJapaneseSiteLanguageInput, this.text( 'preferJapaneseSiteLanguage')),
+            preferredSiteLanguageLabel,
             checkboxLabel(this.offlineDictionariesInput, this.text( 'onboardingInstallOfflineDictionaries')),
         );
         const scanColumn = document.createElement('div');
@@ -353,19 +359,7 @@ export class OnboardingController {
             this.learnerLanguageSelect?.setAttribute('lang', selected.runtimeLocale);
             this.learnerLanguageSelect?.setAttribute('dir', selected.direction);
         });
-        this.targetLanguageSelect.addEventListener('change', () => {
-            const selected = this.targetLanguageSelect?.selectedOptions[0];
-            if (selected) {
-                this.targetLanguageSelect!.lang = selected.lang;
-                this.targetLanguageSelect!.dir = selected.dir;
-                if (this.youtubeImmersionInput && !this.youtubeImmersionChoiceTouched) {
-                    const settings = this.options.getSettings();
-                    this.youtubeImmersionInput.checked = settings.youtubeImmersionEnabled
-                        && (settings.youtubeImmersionEnabledChosen
-                            || languageFamilyIncludes('jp-only', selected.value));
-                }
-            }
-        });
+        this.targetLanguageSelect.addEventListener('change', () => this.syncTargetLanguageSelection());
         this.panel.addEventListener('click', event => {
             this.handleWordLookup(event);
         });
@@ -375,6 +369,7 @@ export class OnboardingController {
         });
 
         this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
+        syncLanguageFamilyDom(this.panel, this.targetLanguageSelect.value);
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         this.syncManualPageScanShortcut();
@@ -402,6 +397,25 @@ export class OnboardingController {
         event.stopPropagation();
         this.options.lookupText(expression, word.dataset.sentence || expression, word);
         return true;
+    }
+
+    private syncTargetLanguageSelection(): void {
+        const select = this.targetLanguageSelect;
+        if (!select) return;
+        const selected = select.selectedOptions[0];
+        if (!selected) return;
+        select.lang = selected.lang;
+        select.dir = selected.dir;
+        this.syncYoutubeImmersionChoice(selected.value);
+        syncLanguageFamilyDom(this.panel!, selected.value);
+        this.localize(this.options.getSettings().interfaceLanguage);
+    }
+
+    private syncYoutubeImmersionChoice(targetLanguage: string): void {
+        const input = this.youtubeImmersionInput;
+        if (!input) return;
+        if (this.youtubeImmersionChoiceTouched) return;
+        input.checked = defaultYoutubeImmersionChoice(this.options.getSettings(), targetLanguage);
     }
 
     private localize(language: InterfaceLanguage): void {
@@ -675,6 +689,12 @@ export class OnboardingController {
         if (!this.manualPageScanShortcutLabel) return;
         this.manualPageScanShortcutLabel.hidden = selectedMode<PageScanMode>(this.pageScanModeInputs, 'auto') !== 'manual';
     }
+}
+
+function defaultYoutubeImmersionChoice(settings: ReaderSettings, targetLanguage: string): boolean {
+    if (!settings.youtubeImmersionEnabled) return false;
+    if (settings.youtubeImmersionEnabledChosen) return true;
+    return languageFamilyIncludes('jp-only', targetLanguage);
 }
 
 function pageScanModeFromSettings(settings: ReaderSettings): PageScanMode {

@@ -218,22 +218,34 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
  * engineering a language tag or a capability boolean.
  */
 function learningTargetExperiences(spec: LearningTargetSpec): Readonly<LearningTargetExperiences> {
-    const morphology: LearningTargetExperiences['morphology'] = spec.experiences?.morphology
-        ?? (spec.lookupCandidates ? 'deinflection'
-            : spec.lookupRewrites?.length || spec.lookupSubsegments ? 'bounded-rewrites'
-                : 'dictionary-forms');
-    const recordedWordAudio = spec.audio?.recordedWordAudio ?? false;
-
     return Object.freeze({
         characterLookup: 'term-dictionary',
-        morphology,
+        morphology: morphologyExperience(spec),
         readingAnnotation: 'dictionary-reading',
         frequency: 'dictionary-rank-or-context-occurrences',
-        audio: recordedWordAudio ? 'recorded-and-speech-synthesis' : 'speech-synthesis',
+        audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
         ocr: 'target-locale',
         handwriting: 'self-check',
         ...spec.experiences,
     });
+}
+
+function morphologyExperience(spec: LearningTargetSpec): LearningTargetExperiences['morphology'] {
+    return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+}
+
+function inferredMorphologyExperience(spec: LearningTargetSpec): LearningTargetExperiences['morphology'] {
+    if (spec.lookupCandidates) return 'deinflection';
+    return hasBoundedMorphology(spec) ? 'bounded-rewrites' : 'dictionary-forms';
+}
+
+function hasBoundedMorphology(spec: LearningTargetSpec): boolean {
+    if (spec.lookupRewrites?.length) return true;
+    return Boolean(spec.lookupSubsegments);
+}
+
+function audioExperience(recordedWordAudio: boolean): LearningTargetExperiences['audio'] {
+    return recordedWordAudio ? 'recorded-and-speech-synthesis' : 'speech-synthesis';
 }
 
 /**
