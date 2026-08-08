@@ -18,6 +18,12 @@ const BW_FIXTURE = 'file://' + new URL('./fixtures/bookwalker-viewer.html', impo
 const BRIDGE = '__yomuOcrMatrixRequest';
 const LENS_REAL = process.env.LENS_REAL !== '0';
 const HAS_JP = /[぀-ヿ㐀-鿿]/;
+const MOCK_RESULT_TIMEOUT_MS = 9_000;
+// The production provider spends one 30s attempt budget across protobuf and
+// upload transports (src/reader/ocr/ocr-shared.ts). Leave startup/paint
+// headroom around that budget: a fixed 14s snapshot used to close the page
+// while the protobuf request was still pending, before the upload fallback.
+const LENS_RESULT_TIMEOUT_MS = 35_000;
 
 const MOCK_OCR = { width: 800, height: 1130, lines: [
     { text: 'プロバイダーのOCRテスト', box: { x: 60, y: 120, w: 600, h: 60 }, vertical: false },
@@ -53,14 +59,20 @@ async function runProvider({ label, settings, expectUrl, real }) {
     await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
     for (const c of COMPANIONS) await addScriptTagWithCspFallback(page, c).catch(() => {});
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-    await page.waitForTimeout(real ? 14000 : 9000);
+    const resultTimeoutMs = real ? LENS_RESULT_TIMEOUT_MS : MOCK_RESULT_TIMEOUT_MS;
+    const resultStartedAt = Date.now();
+    await page.waitForFunction(
+        () => document.querySelectorAll('.jpdb-ocr-line').length > 0,
+        undefined,
+        { timeout: resultTimeoutMs },
+    ).catch(() => {});
     const r = await page.evaluate(() => ({
         canvasFrames: document.querySelectorAll('.jpdb-ocr-canvas-frame').length,
         ocrLines: document.querySelectorAll('.jpdb-ocr-line').length,
         text: Array.from(document.querySelectorAll('.jpdb-ocr-line')).map(l => l.dataset.ocrText).filter(Boolean),
     }));
     const hitExpected = requests.some(u => expectUrl.test(u));
-    console.log(`\n[${label}] frames=${r.canvasFrames} lines=${r.ocrLines} text=${JSON.stringify(r.text.slice(0, 4))} reqs=${requests.length}`);
+    console.log(`\n[${label}] frames=${r.canvasFrames} lines=${r.ocrLines} text=${JSON.stringify(r.text.slice(0, 4))} reqs=${requests.length} wait=${Date.now() - resultStartedAt}ms/${resultTimeoutMs}ms`);
     pass(`${label}: request hit ${expectUrl}`, hitExpected, requests.find(u => expectUrl.test(u))?.slice(0, 70));
     pass(`${label}: OCR overlay rendered`, r.ocrLines >= 1);
     pass(`${label}: overlay text is Japanese`, r.text.some(t => HAS_JP.test(t)), r.text[0] || '(none)');

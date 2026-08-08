@@ -15,6 +15,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { newTabModeButton } from './lib/smoke-test-helpers.mjs';
 
 const { root: ROOT, dist: DIST, artifacts: ARTIFACTS, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const ARTIFACT_SUFFIX = (process.env.YOMU_JITEN_KEYLESS_ARTIFACT_SUFFIX || '').replace(/[^a-z0-9._-]+/gi, '-').replace(/^-|-$/g, '');
@@ -120,7 +121,7 @@ async function runScenario(scenario) {
     await page.goto(`${server.origin}/seed`, { waitUntil: 'domcontentloaded' });
     await seedJitendexDictionary(page);
     await page.goto(`${server.origin}/newtab/index.html?smoke=jiten-full-${scenario.id}-${Date.now()}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-newtab-action="mode"][data-mode="search"]').click({ timeout: 90_000 });
+    await newTabModeButton(page, 'search').click({ timeout: 90_000 });
     await page.locator('[data-newtab-search-input]').fill(TERM);
     await page.locator('[data-newtab-search]').evaluate(form => form.requestSubmit());
     await page.waitForSelector('[data-newtab-search-results]', { timeout: 90_000 });

@@ -18,6 +18,7 @@ import {
     routeMockedHttpRequests,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup } from './lib/smoke-wait-helpers.mjs';
 
 const {
@@ -30,7 +31,6 @@ const {
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 const DOCS_PATH = '/ja-docs-perf-fixture.html';
-const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
 const TRY_ME_SENTENCE = '今日は静かな喫茶店で新しい本を読みました。';
 const TRY_ME_TARGET_EXPRESSION = '喫茶店';
 // Shared GitHub runners have repeatedly added 220-255 ms of wall time to a
@@ -92,7 +92,7 @@ const CHROME_ROWS = Array.from({ length: 60 }, (_, index) => `
     </a>`).join('\n');
 
 mkdirSync(ARTIFACTS, { recursive: true });
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, SETTINGS_COMPANION_PATH], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ...userscriptCompanionPaths(SCRIPT_PATH)], ROOT, 'Run npm run build first.');
 
 const fixture = await createFixtureServer(handleFixtureRequest, 'Could not bind Japanese docs performance fixture server');
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
@@ -182,8 +182,7 @@ async function runJaDocsPerfSmoke(browser, fixtureServer) {
         await page.goto(`${fixtureServer.origin}${DOCS_PATH}`, { waitUntil: 'domcontentloaded' });
         await page.addStyleTag({ path: CSS_PATH });
         const runtimeStart = await page.evaluate(() => performance.now());
-        await page.addScriptTag({ path: SETTINGS_COMPANION_PATH });
-        await page.addScriptTag({ path: SCRIPT_PATH });
+        await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         try {
             await page.waitForFunction(targetExpression => {
                 const words = [...document.querySelectorAll('[data-try-me-sentence] .jpdb-reader-word')];

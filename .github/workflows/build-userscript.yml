@@ -30,6 +30,10 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: node scripts/sync-docs-userscript.cjs
+      # The Academy cache revision hashes the hosted Reader and companion
+      # bytes. Build/sync it only after those dependencies have their final
+      # names, or the generated commit carries a provably stale shell token.
+      - run: npm run build:academy:prevalidated
       - run: npm run docs:build
       - run: npm run verify
       - name: Commit bundled userscript

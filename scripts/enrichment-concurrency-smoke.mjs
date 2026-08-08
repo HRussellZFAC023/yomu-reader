@@ -15,41 +15,41 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const {
     root: ROOT,
-    dist: DIST,
     artifacts: ARTIFACTS,
     scriptPath: SCRIPT_PATH,
     cssPath: CSS_PATH,
 } = createSmokePaths(import.meta.dirname);
-const COMPANION_SCRIPT_PATHS = [
-    path.join(DIST, 'greasyfork', 'yomu-anki.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-kanji-study.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js'),
-    path.join(DIST, 'greasyfork', 'yomu-video.user.js'),
-];
+const COMPANION_SCRIPT_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ...COMPANION_SCRIPT_PATHS], ROOT, 'Run npm run build first.');
 mkdirSync(ARTIFACTS, { recursive: true });
 
-const CAT_SURFACE = '猫'.repeat(90);
-const DOG_SURFACE = '犬'.repeat(90);
-const BIRD_SURFACE = '鳥'.repeat(90);
-const FIRST_PARAGRAPH = Array.from({ length: 25 }, () => CAT_SURFACE).join(' ');
-const SECOND_PARAGRAPH = Array.from({ length: 25 }, () => DOG_SURFACE).join(' ');
-const THIRD_PARAGRAPH = Array.from({ length: 25 }, () => BIRD_SURFACE).join(' ');
+// Keep each fixture term inside the parser's maximum lexeme length. The old
+// 90-character pseudo-words could never be an authoritative span after the
+// span resolver was introduced, so the smoke timed out while testing an
+// impossible dictionary entry instead of testing request concurrency.
+const CAT_SURFACE = '猫'.repeat(12);
+const DOG_SURFACE = '犬'.repeat(12);
+const BIRD_SURFACE = '鳥'.repeat(12);
+const FIRST_PARAGRAPH = Array.from({ length: 200 }, () => CAT_SURFACE).join(' ');
+const SECOND_PARAGRAPH = Array.from({ length: 200 }, () => DOG_SURFACE).join(' ');
+const THIRD_PARAGRAPH = Array.from({ length: 200 }, () => BIRD_SURFACE).join(' ');
 const VOCABULARY = [
-    [CAT_SURFACE, '猫', 'ねこ', 'cat', ['n'], 800, ['not-in-deck'], ['LH']],
-    [DOG_SURFACE, '犬', 'いぬ', 'dog', ['n'], 900, ['not-in-deck'], ['LH']],
-    [BIRD_SURFACE, '鳥', 'とり', 'bird', ['n'], 1000, ['not-in-deck'], ['LH']],
+    [CAT_SURFACE, CAT_SURFACE, 'ねこ', 'cat', ['n'], 800, ['not-in-deck'], ['LH']],
+    [DOG_SURFACE, DOG_SURFACE, 'いぬ', 'dog', ['n'], 900, ['not-in-deck'], ['LH']],
+    [BIRD_SURFACE, BIRD_SURFACE, 'とり', 'bird', ['n'], 1000, ['not-in-deck'], ['LH']],
 ];
 const SETTINGS = {
     onboardingSeen: true,
     interfaceLanguage: 'ja',
     apiKey: 'mock-jpdb-token',
     jitenApiKey: '',
+    parserProvider: 'jpdb',
     jpdbDefinitionsEnabled: false,
+    jitenDefinitionsEnabled: false,
     localDictionariesEnabled: false,
     ankiEnabled: false,
     ankiSectionEnabled: false,
@@ -74,6 +74,7 @@ const SETTINGS = {
 const REQUEST_HANDLERS = new Map([
     ['https://jpdb.io/api/v1/parse', handleJpdbParseRequest],
     ['https://jpdb.io/search', handlePublicPitchRequest],
+    ['https://api.jiten.moe/api/vocabulary/parse', handleJitenReadingFallbackRequest],
 ]);
 
 const server = await startLoopbackServer(serveFixture, 'Could not bind enrichment concurrency smoke server');
@@ -83,6 +84,7 @@ const parseState = {
     active: 0,
     maxActive: 0,
     firstReleasedAfterRequestCount: 0,
+    firstRequestHeld: false,
     releaseFirst: undefined,
 };
 
@@ -106,22 +108,22 @@ try {
 
     await page.goto(`${server.origin}/concurrency/`, { waitUntil: 'domcontentloaded' });
     await installUserscriptCssResource(page, CSS_PATH);
-    for (const companionPath of COMPANION_SCRIPT_PATHS) await addScriptTagWithCspFallback(page, companionPath);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
-    await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-reader-word[data-expression="鳥"]')), null, { timeout: 20_000 });
+    await page.waitForFunction(bird => [...document.querySelectorAll('.jpdb-reader-word')]
+        .some(word => word.getAttribute('data-expression') === bird), BIRD_SURFACE, { timeout: 20_000 });
 
-    const state = await page.evaluate(() => {
+    const state = await page.evaluate(({ cat, dog, bird }) => {
         const words = [...document.querySelectorAll('.jpdb-reader-word')].filter(word => word instanceof HTMLElement);
         return {
             wordCount: words.length,
             surfaces: words.slice(0, 10).map(word => word.dataset.expression || word.textContent?.trim() || ''),
-            hasCat: words.some(word => word.dataset.expression === '猫'),
-            hasDog: words.some(word => word.dataset.expression === '犬'),
-            hasBird: words.some(word => word.dataset.expression === '鳥'),
+            hasCat: words.some(word => word.dataset.expression === cat),
+            hasDog: words.some(word => word.dataset.expression === dog),
+            hasBird: words.some(word => word.dataset.expression === bird),
             pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)\b/u.test(word.className)).length,
         };
-    });
+    }, { cat: CAT_SURFACE, dog: DOG_SURFACE, bird: BIRD_SURFACE });
     const report = {
         ...state,
         parseRequestCount: requests.filter(request => request.kind === 'jpdb-parse').length,
@@ -133,6 +135,7 @@ try {
     assert(report.maxConcurrentParseRequests >= 2, 'JPDB parse batches were fetched strictly one-by-one', report);
     assert(report.firstReleasedAfterRequestCount >= 2, 'Second JPDB parse request did not start before the first response was released', report);
     assert(report.hasCat && report.hasDog && report.hasBird, 'Concurrent parse results did not map back to every visible paragraph', report);
+    assert(!requests.some(request => request.kind === 'unexpected'), 'Concurrency fixture received an unhandled request', report);
 
     const reportPath = path.join(ARTIFACTS, 'enrichment-concurrency.json');
     writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -155,7 +158,7 @@ async function handleJpdbParseRequest(request, requestsLog, state) {
     const text = Array.isArray(body.text) ? body.text.map(value => String(value)) : [];
     const entry = { kind: 'jpdb-parse', textLengths: text.map(value => value.length), firstCharacter: text[0]?.slice(0, 1) ?? '' };
     requestsLog.push(entry);
-    return withActiveParse(state, () => parseResponseForEntry(entry, body, requestsLog, state));
+    return withActiveParse(state, () => parseResponseForEntry(body, requestsLog, state));
 }
 
 function requestHandlerFor(request) {
@@ -177,10 +180,12 @@ async function withActiveParse(state, task) {
     }
 }
 
-function parseResponseForEntry(entry, body, requestsLog, state) {
-    return entry.firstCharacter === '猫'
-        ? holdFirstParseResponse(body, requestsLog, state)
-        : releaseHeldParseAndRespond(body, state);
+function parseResponseForEntry(body, requestsLog, state) {
+    if (!state.firstRequestHeld) {
+        state.firstRequestHeld = true;
+        return holdFirstParseResponse(body, requestsLog, state);
+    }
+    return releaseHeldParseAndRespond(body, state);
 }
 
 function releaseHeldParseAndRespond(body, state) {
@@ -210,6 +215,12 @@ function jpdbParseResponse(body) {
 function handlePublicPitchRequest(request, requestsLog) {
     requestsLog.push({ kind: 'jpdb-public-pitch', url: request.url });
     return { status: 200, responseText: '<!doctype html><html><body></body></html>', contentType: 'text/html; charset=utf-8' };
+}
+
+function handleJitenReadingFallbackRequest(request, requestsLog) {
+    const textLength = new URL(request.url).searchParams.get('text')?.length ?? 0;
+    requestsLog.push({ kind: 'jiten-reading-fallback', textLength });
+    return { status: 404, responseText: '' };
 }
 
 function handleUnexpectedRequest(request, requestsLog) {

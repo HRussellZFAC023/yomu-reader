@@ -26,6 +26,7 @@ import {
     serveFile,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 import { assertPopoverHeadwordMatchesLookup, waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
 
 const {
@@ -35,7 +36,6 @@ const {
     cssPath: CSS_PATH,
     newTabDir: NEWTAB_DIR,
 } = createSmokePaths(import.meta.dirname);
-const ANKI_COMPANION_PATH = path.join(ROOT, 'dist/greasyfork/yomu-anki.user.js');
 const SETTINGS_KEY = YOMU_SETTINGS_KEY;
 const ANKI_URL = DEFAULT_ANKI_CONNECT_URL;
 const JPDB_API_ORIGIN = 'https://jpdb.io';
@@ -129,7 +129,13 @@ const jpdbMixedReviewVocabulary = [
     [303, 403, 0, '新語', 'しんご', 700, ['n'], [['new word']], [['n']], ['new'], ['LHH']],
 ];
 
-const BUILT_ARTIFACTS = [SCRIPT_PATH, CSS_PATH, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')];
+const BUILT_ARTIFACTS = [
+    SCRIPT_PATH,
+    CSS_PATH,
+    ...userscriptCompanionPaths(SCRIPT_PATH),
+    path.join(NEWTAB_DIR, 'index.html'),
+    path.join(NEWTAB_DIR, 'app.js'),
+];
 const JPDB_PARSE_OPTIONS = {
     tokenReading: entry => /[\u3400-\u9fff]/u.test(entry.surface) ? [[entry.surface, entry.reading]] : null,
 };
@@ -557,14 +563,16 @@ function mockAnkiCardInfo(cardId) {
 
 async function injectUserscript(page) {
     await page.addStyleTag({ path: CSS_PATH });
-    await page.addScriptTag({ path: ANKI_COMPANION_PATH });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
 }
 
 function assertRenderedStatePreserved(before, after, interaction) {
     assert(before.state === 'due' && after.state === 'due', `${interaction} cleared rendered Anki state`, { before, after });
     assert(after.classes.includes('anki-due'), `${interaction} removed rendered Anki due class`, { before, after });
-    assert(after.color === before.color, `${interaction} changed Anki word color`, { before, after });
+    // Hover contrast is deliberately recomputed against the hover wash, so the
+    // accessible RGB may change while the semantic Anki colour remains active.
+    assert(after.accessibleColor && after.color !== after.parentColor,
+        `${interaction} replaced the Anki colour with native page text`, { before, after });
 }
 
 function assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, interaction) {
@@ -675,6 +683,9 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         state: element.dataset.ankiState,
         classes: [...element.classList],
         color: getComputedStyle(element).color,
+        parentColor: getComputedStyle(element.parentElement ?? element).color,
+        accessibleColor: getComputedStyle(element).getPropertyValue('--jpdb-reader-word-accessible-color').trim(),
+        style: element.getAttribute('style') ?? '',
         title: element.title,
     }));
     const hoverStartedAt = Date.now();
@@ -690,6 +701,9 @@ async function runReaderMiningSmoke(browser, baseUrl) {
         state: element.dataset.ankiState,
         classes: [...element.classList],
         color: getComputedStyle(element).color,
+        parentColor: getComputedStyle(element.parentElement ?? element).color,
+        accessibleColor: getComputedStyle(element).getPropertyValue('--jpdb-reader-word-accessible-color').trim(),
+        style: element.getAttribute('style') ?? '',
         title: element.title,
     }));
     assertRenderedStatePreserved(beforeHover, afterHover, 'Hover');
@@ -722,7 +736,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     // Deconjugated: the surface is かきます, the dictionary form is 書く. The
     // headword must be the dictionary form, which is what data-expression holds.
     await assertPopoverHeadwordMatchesLookup(page, missingWord, {
-        popoverSelector: VISIBLE_WRITING_POPOVER_SELECTOR,
+        visibleOnly: true,
         label: 'anki deconjugated click',
     });
     await waitForVisibleAddButton(page, requests);
@@ -1025,7 +1039,7 @@ async function runMobileNewTabLayoutSmoke(browser, baseUrl) {
     assert(layout.modeBelowHeader, 'Mobile newtab tabs overlapped the brand or theme controls', layout);
     assert(!layout.modeOverlapsBrand && !layout.modeOverlapsControls, 'Mobile newtab mode tabs collided with topbar controls', layout);
     assert(!layout.buttonOverlaps.length, 'Mobile newtab mode buttons overlapped each other', layout);
-    assert(layout.modeWithinTopbar, 'Mobile newtab tabs overflowed the topbar width', layout);
+    assert(layout.modeWithinViewport, 'Mobile newtab app navigation overflowed the viewport', layout);
     assert(layout.buttonsShareWidth, 'Mobile newtab mode tabs do not take equal space', layout);
     assert(layout.buttonsFillMode, 'Mobile newtab mode tabs leave phantom grid space', layout);
 
@@ -1377,13 +1391,17 @@ async function readNewTabState(page) {
     });
 }
 
-async function readNewTabModeLayout(page) {
-    return page.evaluate(() => {
+async function readNewTabModeLayout(page, {
+    modeSelector = '.jpdb-reader-newtab-mode',
+    buttonSelector = '.jpdb-reader-newtab-mode button',
+    expectedButtonCount = 3,
+} = {}) {
+    return page.evaluate(({ modeSelector: containerSelector, buttonSelector: itemSelector, expectedButtonCount: expectedCount }) => {
         const topbar = rectFor('.jpdb-reader-newtab-topbar');
         const brand = rectFor('.jpdb-reader-newtab-brand');
         const controls = rectFor('.jpdb-reader-newtab-theme-controls');
-        const mode = rectFor('.jpdb-reader-newtab-mode');
-        const buttons = [...document.querySelectorAll('.jpdb-reader-newtab-mode button')].map(rectFromElement);
+        const mode = rectFor(containerSelector);
+        const buttons = [...document.querySelectorAll(itemSelector)].map(rectFromElement);
         const widths = buttons.map(button => button.width);
         const totalButtonWidth = buttons.reduce((sum, button) => sum + button.width, 0);
         const expectedGapWidth = buttons.length > 1 ? mode.width - totalButtonWidth : 0;
@@ -1397,10 +1415,12 @@ async function readNewTabModeLayout(page) {
             modeOverlapsBrand: rectsOverlap(mode, brand),
             modeOverlapsControls: rectsOverlap(mode, controls),
             modeWithinTopbar: mode.left >= topbar.left - 1 && mode.right <= topbar.right + 1,
+            modeWithinViewport: mode.left >= -1 && mode.right <= window.innerWidth + 1
+                && mode.top >= -1 && mode.bottom <= window.innerHeight + 1,
             buttonOverlaps: overlappingPairs(buttons),
-            buttonLabels: [...document.querySelectorAll('.jpdb-reader-newtab-mode button')].map(button => button.textContent?.trim() ?? ''),
+            buttonLabels: [...document.querySelectorAll(itemSelector)].map(button => button.textContent?.trim() ?? ''),
             buttonsShareWidth: widths.every(width => Math.abs(width - widths[0]) <= 1),
-            buttonsFillMode: buttons.length === 3 && expectedGapWidth <= (buttons.length - 1) * 4 + 14,
+            buttonsFillMode: buttons.length === expectedCount && expectedGapWidth <= (buttons.length - 1) * 4 + 14,
             buttonWidths: widths,
             expectedGapWidth,
         };
@@ -1441,10 +1461,16 @@ async function readNewTabModeLayout(page) {
             }
             return pairs;
         }
-    });
+    }, { modeSelector, buttonSelector, expectedButtonCount });
 }
 
-const readMobileNewTabTopbarLayout = readNewTabModeLayout;
+function readMobileNewTabTopbarLayout(page) {
+    return readNewTabModeLayout(page, {
+        modeSelector: '.jpdb-reader-newtab-app-nav',
+        buttonSelector: '.jpdb-reader-newtab-app-nav-item',
+        expectedButtonCount: 4,
+    });
+}
 
 async function assertNewTabAnkiCardAudioButton(page, requests) {
     const selector = `[data-newtab-prompt] [data-action="anki-media-audio"][data-anki-media-name="${ANKI_MEDIA_FILENAME}"]`;

@@ -32,10 +32,13 @@ function selectorTextMatches({ selector, includes = [], excludes = [] }) {
  *    so 大変 reads as `大(たい)変(へん)`. `rt`/`rp` are stripped before comparing.
  *  - the kanji-detail view replaces the title row, so `.jpdb-reader-spelling`
  *    does not exist there. Call this at first open, before any kanji click.
+ *  - `popoverSelector` executes in the page and must be standard CSS. Use
+ *    `visibleOnly` instead of Playwright's `:visible` pseudo-class.
  */
 export async function assertPopoverHeadwordMatchesLookup(page, wordLocator, options = {}) {
     const {
         popoverSelector = '.jpdb-reader-popover',
+        visibleOnly = false,
         timeout = 12_000,
         label = 'popover',
     } = options;
@@ -46,8 +49,9 @@ export async function assertPopoverHeadwordMatchesLookup(page, wordLocator, opti
         return { skipped: true, reason: 'hovered element carries no data-expression' };
     }
     await page.waitForFunction(
-        ({ selector, want }) => {
-            const roots = [...document.querySelectorAll(selector)];
+        ({ selector, want, visible }) => {
+            const roots = [...document.querySelectorAll(selector)]
+                .filter(root => !visible || (root.getClientRects().length > 0 && getComputedStyle(root).visibility !== 'hidden'));
             return roots.some(root => {
                 const spelling = root.querySelector('.jpdb-reader-spelling');
                 if (!spelling) return false;
@@ -56,16 +60,18 @@ export async function assertPopoverHeadwordMatchesLookup(page, wordLocator, opti
                 return (clone.textContent ?? '').replace(/\s+/gu, '') === want;
             });
         },
-        { selector: popoverSelector, want: expected },
+        { selector: popoverSelector, want: expected, visible: visibleOnly },
         { timeout },
     ).catch(async error => {
-        const actual = await page.evaluate(selector => [...document.querySelectorAll(selector)].map(root => {
-            const spelling = root.querySelector('.jpdb-reader-spelling');
-            if (!spelling) return '(no .jpdb-reader-spelling)';
-            const clone = spelling.cloneNode(true);
-            clone.querySelectorAll('rt, rp').forEach(node => node.remove());
-            return (clone.textContent ?? '').replace(/\s+/gu, '');
-        }), popoverSelector);
+        const actual = await page.evaluate(({ selector, visible }) => [...document.querySelectorAll(selector)]
+            .filter(root => !visible || (root.getClientRects().length > 0 && getComputedStyle(root).visibility !== 'hidden'))
+            .map(root => {
+                const spelling = root.querySelector('.jpdb-reader-spelling');
+                if (!spelling) return '(no .jpdb-reader-spelling)';
+                const clone = spelling.cloneNode(true);
+                clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+                return (clone.textContent ?? '').replace(/\s+/gu, '');
+            }), { selector: popoverSelector, visible: visibleOnly });
         throw new Error(`${label} headword mismatch: expected ${JSON.stringify(expected)}, popovers showed ${JSON.stringify(actual)} (${String(error).split('\n')[0]})`);
     });
     return { skipped: false, headword: expected };

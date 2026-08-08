@@ -16,6 +16,7 @@ import {
     serveFile,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, userscriptCompanionPaths } from './lib/smoke-test-helpers.mjs';
 
 const {
     root: ROOT,
@@ -34,11 +35,10 @@ const MOBILE_VIEWPORT = MOBILE_CONTEXT_OPTIONS.viewport;
 const TRY_ME_LABEL = 'Try me';
 const TRY_ME_SENTENCE = '今日は静かな喫茶店で新しい本を読みました。音声や色も見えます。';
 const TRY_ME_TARGET_EXPRESSION = '喫茶店';
-const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
 const BUILT_ARTIFACTS = [
     SCRIPT_PATH,
     CSS_PATH,
-    SETTINGS_COMPANION_PATH,
+    ...userscriptCompanionPaths(SCRIPT_PATH),
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
@@ -282,8 +282,7 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
 async function loadDocsPageWithYomu(page, fixtureServer, search = '') {
     await page.goto(`${fixtureServer.origin}${DOCS_PATH}${search}`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ path: CSS_PATH });
-    await page.addScriptTag({ path: SETTINGS_COMPANION_PATH });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
 }
 
 async function runMobileNewTabFallbackSmoke(browser, fixtureServer) {

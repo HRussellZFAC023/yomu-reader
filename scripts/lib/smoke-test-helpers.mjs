@@ -62,6 +62,12 @@ function taggedUserscriptGraph(graph, sourceUrl) {
     return `${graph}\n//# sourceURL=${sourceUrl}`;
 }
 
+/** The top mode switcher, excluding equivalent shortcuts in app navigation. */
+export function newTabModeButton(page, mode) {
+    if (!['word', 'search', 'stats'].includes(mode)) throw new Error(`Unsupported new-tab mode: ${mode}`);
+    return page.locator(`.jpdb-reader-newtab-mode [data-newtab-action="mode"][data-mode="${mode}"]`);
+}
+
 // The ONE place that answers "what does a userscript manager execute before the
 // core script". Read it from the built @require header rather than listing
 // companion bundles by hand: every capability core delegates to a companion slot

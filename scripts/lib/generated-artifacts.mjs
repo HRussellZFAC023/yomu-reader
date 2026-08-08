@@ -40,8 +40,9 @@ export const GENERATED_ARTIFACT_PATHS = [
     // duplicate bought nothing and cost 239 MB; .gitignore now keeps it out. Only
     // these four are still committed, so only these four belong here -- naming the
     // directory would make the Build Userscript workflow's `git add -f` re-commit
-    // all 859 ignored files, and would fail outright in that workflow, which never
-    // runs build:academy and so has no such directory on disk.
+    // all 859 ignored mirror files. The workflow rebuilds that mirror so these
+    // four published shell files stay coherent, but only these four are release
+    // artifacts Git needs to own.
     'docs/public/academy/app.js',
     'docs/public/academy/style.css',
     'docs/public/academy/index.html',

@@ -20,6 +20,7 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { newTabModeButton } from './lib/smoke-test-helpers.mjs';
 
 const { root: ROOT, dist: DIST, newTabDir: NEWTAB_DIR } = createSmokePaths(import.meta.dirname);
 const NEW_TAB_CACHE_KEY = 'jpdb-reader-newtab-card-cache';
@@ -112,7 +113,7 @@ async function runQueryStudyMode(browser, baseUrl, query, mode) {
     });
     const startedAt = Date.now();
     await page.goto(`${baseUrl}/newtab/index.html?q=${encodeURIComponent(query)}&query-study=${mode}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-newtab-action="mode"][data-mode="word"]').click();
+    await newTabModeButton(page, 'word').click();
     await selectStudyStep(page, mode === 'kanji' ? 'kanji-doodle' : 'word');
     try {
         await page.waitForFunction(() => {
@@ -325,11 +326,16 @@ async function runKeylessLocalGrading(browser, baseUrl) {
         const gradedSpelling = await page.evaluate(() => document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-card') ?? '');
         await page.locator('[data-newtab-action="grade"][data-grade="okay"], [data-newtab-action="grade"][data-grade="pass"]').first().click();
         await page.waitForFunction(() => {
-            const deck = window.GM_getValue?.('yomu:srs-local:v1', null);
-            return Boolean(deck && deck.cards && Object.keys(deck.cards).length > 0);
+            const index = window.GM_getValue?.('yomu:srs-local:v2:index', null);
+            return index?.version === 2 && index.cardIds?.length > 0;
         }, null, { timeout: 10_000 });
-        const deck = await page.evaluate(() => window.GM_getValue?.('yomu:srs-local:v1', null));
-        const cards = Object.values(deck?.cards ?? {});
+        const cards = await page.evaluate(() => {
+            const index = window.GM_getValue?.('yomu:srs-local:v2:index', null);
+            if (index?.version !== 2 || !Array.isArray(index.cardIds)) return [];
+            return index.cardIds
+                .map(id => window.GM_getValue?.(`yomu:srs-local:v2:card:${encodeURIComponent(id)}`, null))
+                .filter(Boolean);
+        });
         assert(cards.length > 0, 'grade click did not create a card in the local Yomu deck');
         assert(cards.some(card => (card.reviews ?? 0) > 0), 'local deck card was created but its review was not recorded');
         return { ok: true, gradedSpelling, localDeckCards: cards.length };

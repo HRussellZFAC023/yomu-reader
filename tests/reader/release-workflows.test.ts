@@ -115,15 +115,17 @@ describe('release workflow safety', () => {
         expect(finalAttempt).not.toContain('continue-on-error:');
     });
 
-    it('rebuilds Academy after hosted Reader assets so its revision hashes deployed bytes', () => {
+    it('rebuilds Academy after hosted Reader assets in every generated-asset workflow', () => {
         const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
-        const readerSync = deployPagesWorkflow.indexOf('node scripts/sync-docs-userscript.cjs');
-        const academyBuild = deployPagesWorkflow.indexOf('npm run build:academy');
-        const docsBuild = deployPagesWorkflow.indexOf('npm run docs:build');
+        for (const workflow of [buildUserscriptWorkflow, deployPagesWorkflow]) {
+            const readerSync = workflow.indexOf('node scripts/sync-docs-userscript.cjs');
+            const academyBuild = workflow.indexOf('npm run build:academy');
+            const docsBuild = workflow.indexOf('npm run docs:build');
 
-        expect(readerSync).toBeGreaterThan(-1);
-        expect(academyBuild).toBeGreaterThan(readerSync);
-        expect(docsBuild).toBeGreaterThan(academyBuild);
+            expect(readerSync).toBeGreaterThan(-1);
+            expect(academyBuild).toBeGreaterThan(readerSync);
+            expect(docsBuild).toBeGreaterThan(academyBuild);
+        }
         expect(deployPagesWorkflow).toContain('- academy/**');
         expect(deployPagesWorkflow).toContain('- public/academy/**');
     });

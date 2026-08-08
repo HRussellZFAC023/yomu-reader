@@ -18,6 +18,11 @@ import {
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import {
+    addScriptTagWithCspFallback,
+    addUserscriptGraphInitScripts,
+    userscriptCompanionPaths,
+} from './lib/smoke-test-helpers.mjs';
 
 const {
     root: ROOT,
@@ -30,6 +35,7 @@ const INJECT_USERSCRIPT = process.env.YOMU_HOSTED_SETTINGS_INJECT_USERSCRIPT ===
 assertBuiltArtifacts([
     SCRIPT_PATH,
     CSS_PATH,
+    ...userscriptCompanionPaths(SCRIPT_PATH),
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
@@ -129,7 +135,7 @@ try {
             storagePrefix: GM_STORAGE_PREFIX,
             initialize: 'ifMissing',
         });
-        await page.addInitScript({ path: SCRIPT_PATH });
+        await addUserscriptGraphInitScripts(page, SCRIPT_PATH);
     }
     await routeMockedHttpRequests(page, {
         requests,
@@ -327,7 +333,7 @@ async function verifyDurableHostedSettings({ page, requests }) {
         storagePrefix: GM_STORAGE_PREFIX,
         initialize: 'ifMissing',
     });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.evaluate(readyEvent => {
         delete window.GM;
         delete window.GM_getValue;
@@ -364,7 +370,7 @@ async function verifyDurableHostedSettings({ page, requests }) {
         storagePrefix: GM_STORAGE_PREFIX,
         initialize: 'ifMissing',
     });
-    await page.addInitScript({ path: SCRIPT_PATH });
+    await addUserscriptGraphInitScripts(page, SCRIPT_PATH);
     await page.evaluate(key => localStorage.removeItem(key), YOMU_SETTINGS_KEY);
     await page.reload({ waitUntil: 'domcontentloaded' });
     await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { state: 'attached', timeout: 15_000 });
