@@ -4,6 +4,7 @@ import { escapeHtml } from '../dom/index';
 import { escapeWithBreaks, formatSubtitleTime, type SubtitleCue } from './subtitle-cues';
 import { subtitleContentAttributes, type SubtitleContentLanguage } from './subtitle-language-context';
 import { SUBTITLE_SECONDARY_BLURRED_CLASS, SUBTITLE_SECONDARY_CLEAR_CLASS } from './subtitle-rendering';
+import { subtitleIcon, type SubtitleIconName } from './subtitle-surface';
 
 export interface SubtitleShadowParsedLine {
     html: string;
@@ -58,11 +59,94 @@ export function renderSubtitleShadowCueCard(options: {
     `;
 }
 
-export function subtitleShadowActionLabel(
+function subtitleShadowActionLabel(
     language: InterfaceLanguage,
     action: SubtitleShadowAction,
 ): string {
     return SHADOW_ACTION_LABELS[action][resolveUiLanguage(language)];
+}
+
+export interface SubtitleShadowActionsState {
+    language: InterfaceLanguage;
+    recording: boolean;
+    loopEnabled: boolean;
+    autoPause: boolean;
+    textVisible: boolean;
+    hasRecording: boolean;
+    recordingUnavailable: boolean;
+}
+
+interface SubtitleShadowActionButton {
+    action: string;
+    label: string;
+    icon: SubtitleIconName;
+    pressed: boolean;
+}
+
+export function renderSubtitleShadowActions(state: SubtitleShadowActionsState): string {
+    const actions = [
+        replayShadowAction(state),
+        loopShadowAction(state),
+        autoPauseShadowAction(state),
+        toggleTextShadowAction(state),
+        recordShadowAction(state),
+        ...optionalPlayRecordingAction(state),
+    ];
+    return `${actions.map(renderSubtitleShadowAction).join('')}${renderShadowRecordingNote(state)}`;
+}
+
+function replayShadowAction(state: SubtitleShadowActionsState): SubtitleShadowActionButton {
+    return shadowActionButton('shadow-replay', subtitleShadowActionLabel(state.language, 'replay'), 'repeat', false);
+}
+
+function loopShadowAction(state: SubtitleShadowActionsState): SubtitleShadowActionButton {
+    const action: SubtitleShadowAction = state.loopEnabled ? 'stop' : 'loop';
+    return shadowActionButton('shadow-loop', subtitleShadowActionLabel(state.language, action), 'repeat', state.loopEnabled);
+}
+
+function autoPauseShadowAction(state: SubtitleShadowActionsState): SubtitleShadowActionButton {
+    return shadowActionButton('shadow-auto-pause', subtitleShadowActionLabel(state.language, 'auto-pause'), 'pause', state.autoPause);
+}
+
+function toggleTextShadowAction(state: SubtitleShadowActionsState): SubtitleShadowActionButton {
+    const action = state.textVisible ? 'hide' : 'show';
+    const icon = state.textVisible ? 'eye-off' : 'eye';
+    return shadowActionButton('shadow-toggle-text', uiText(state.language, action), icon, !state.textVisible);
+}
+
+function recordShadowAction(state: SubtitleShadowActionsState): SubtitleShadowActionButton {
+    const action: SubtitleShadowAction = state.recording ? 'stop-record' : 'record';
+    const icon = state.recording ? 'stop' : 'mic';
+    return shadowActionButton('shadow-record', subtitleShadowActionLabel(state.language, action), icon, state.recording);
+}
+
+function optionalPlayRecordingAction(state: SubtitleShadowActionsState): SubtitleShadowActionButton[] {
+    if (!state.hasRecording) return [];
+    return [shadowActionButton(
+        'shadow-play-recording',
+        subtitleShadowActionLabel(state.language, 'play-recording'),
+        'play',
+        false,
+    )];
+}
+
+function shadowActionButton(
+    action: string,
+    label: string,
+    icon: SubtitleIconName,
+    pressed: boolean,
+): SubtitleShadowActionButton {
+    return { action, label, icon, pressed };
+}
+
+function renderSubtitleShadowAction(action: SubtitleShadowActionButton): string {
+    return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action.action}" title="${escapeHtml(action.label)}" aria-label="${escapeHtml(action.label)}" aria-pressed="${action.pressed}">${subtitleIcon(action.icon)}<span>${escapeHtml(action.label)}</span></button>`;
+}
+
+function renderShadowRecordingNote(state: SubtitleShadowActionsState): string {
+    if (!state.recordingUnavailable) return '';
+    if (state.recording) return '';
+    return `<span class="jpdb-subtitle-shadow-note">${escapeHtml(subtitleShadowActionLabel(state.language, 'record-unavailable'))}</span>`;
 }
 
 function renderOptionalShadowContextLine(

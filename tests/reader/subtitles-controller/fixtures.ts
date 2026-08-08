@@ -98,6 +98,10 @@ export function mockElementRect(element: Element, rect: DOMRect): void {
     });
 }
 
+export function expectSubtitlePanelActionsAbsent(panel: ParentNode, actions: readonly string[]): void {
+    actions.forEach(action => expect(panel.querySelector(`[data-action="panel-${action}"]`)).toBeNull());
+}
+
 export function mockNetflixCaptionGeometry(element: HTMLElement): void {
     Object.defineProperty(element, 'innerText', {
         configurable: true,

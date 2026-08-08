@@ -124,7 +124,39 @@ export function createSubtitleSecondaryLine(): HTMLButtonElement {
     return button;
 }
 
-export function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleContentLanguage): HTMLElement {
+export function reconcileSubtitleSecondaryLine(options: {
+    host: HTMLElement | undefined;
+    text: string | undefined;
+    visible: boolean;
+    content: SubtitleContentLanguage;
+    blurred: boolean;
+    language: InterfaceLanguage;
+}): void {
+    if (!options.host) return;
+    const existing = options.host.querySelector<HTMLElement>(`.${SUBTITLE_SECONDARY_CLASS}`);
+    const text = visibleSubtitleSecondaryText(options.visible, options.text);
+    if (!text) return removeSubtitleSecondaryLine(existing);
+    const line = existingSubtitleSecondaryLine(existing);
+    syncSubtitleContentLanguage(line, options.content);
+    syncSubtitleSecondaryText(line, text);
+    syncSubtitleSecondaryBlurState(line, options.blurred, options.language);
+    if (!existing) options.host.append(line);
+}
+
+function visibleSubtitleSecondaryText(visible: boolean, text: string | undefined): string {
+    if (!visible) return '';
+    return text ?? '';
+}
+
+function removeSubtitleSecondaryLine(existing: HTMLElement | null): void {
+    existing?.remove();
+}
+
+function existingSubtitleSecondaryLine(existing: HTMLElement | null): HTMLElement {
+    return existing ?? createSubtitleSecondaryLine();
+}
+
+function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleContentLanguage): HTMLElement {
     const row = document.createElement('div');
     row.className = 'jpdb-subtitle-primary-row';
     const primary = document.createElement('div');
@@ -133,6 +165,60 @@ export function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleC
     setInnerHtml(primary, primaryHtml);
     row.append(primary);
     return row;
+}
+
+export interface SubtitlePrimaryRowReconcileInput {
+    host: HTMLElement | undefined;
+    html: string | null;
+    appliedHtml: string;
+    content: SubtitleContentLanguage;
+}
+
+export interface SubtitlePrimaryRowReconcileResult {
+    changed: boolean;
+    appliedHtml: string;
+}
+
+// The primary and secondary subtitle rows have independent DOM lifetimes. This
+// Module owns the primary row's whole reconcile transaction so controller ticks
+// cannot accidentally rebuild the secondary button while it is under a finger.
+export function reconcileSubtitlePrimaryRow(input: SubtitlePrimaryRowReconcileInput): SubtitlePrimaryRowReconcileResult {
+    if (!input.host) return { changed: false, appliedHtml: input.appliedHtml };
+    const row = input.host.querySelector<HTMLElement>('.jpdb-subtitle-primary-row');
+    if (input.html === null) return clearSubtitlePrimaryRow(row);
+    return reconcileVisibleSubtitlePrimaryRow({
+        host: input.host,
+        html: input.html,
+        appliedHtml: input.appliedHtml,
+        content: input.content,
+    }, row);
+}
+
+function clearSubtitlePrimaryRow(row: HTMLElement | null): SubtitlePrimaryRowReconcileResult {
+    if (!row) return { changed: false, appliedHtml: '' };
+    row.remove();
+    return { changed: true, appliedHtml: '' };
+}
+
+function reconcileVisibleSubtitlePrimaryRow(
+    input: SubtitlePrimaryRowReconcileInput & { host: HTMLElement; html: string },
+    row: HTMLElement | null,
+): SubtitlePrimaryRowReconcileResult {
+    const primary = row?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+    if (!primary) return createVisibleSubtitlePrimaryRow(input, row);
+    syncSubtitleContentLanguage(primary, input.content);
+    if (input.appliedHtml === input.html) return { changed: false, appliedHtml: input.appliedHtml };
+    setInnerHtml(primary, input.html);
+    return { changed: true, appliedHtml: input.html };
+}
+
+function createVisibleSubtitlePrimaryRow(
+    input: SubtitlePrimaryRowReconcileInput & { host: HTMLElement; html: string },
+    row: HTMLElement | null,
+): SubtitlePrimaryRowReconcileResult {
+    row?.remove();
+    input.host.prepend(createSubtitlePrimaryRow(input.html, input.content));
+    return { changed: true, appliedHtml: input.html };
 }
 
 // Caption text carries newlines, so the children are markup rather than a

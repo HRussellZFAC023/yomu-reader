@@ -10,6 +10,7 @@ import {
     setSingleJapaneseSubtitleTrack,
     subtitlePanelToggleElements,
     expectJapaneseTracksPanelOpen,
+    expectSubtitlePanelActionsAbsent,
     pointerEvent,
     makeSubtitleToken,
     OPEN_SUBTITLE_TRACKS_EVENT,
@@ -473,10 +474,7 @@ describe('SubtitlePlayerController — shadowing, transcript virtualization & pa
             expect(jimakuSearch.href).toBe('https://jimaku.cc/opensearch/redirect?anime=true&query=Sousou%20no%20Frieren%20S01E01');
             expect(jimakuSearch.target).toBe('_blank');
             expect(jimakuSearch.rel).toContain('noopener');
-            expect(panel.querySelector('[data-action="panel-tracks"]')).toBeNull();
-            expect(panel.querySelector('[data-action="panel-lines"]')).toBeNull();
-            expect(panel.querySelector('[data-action="panel-shadow"]')).toBeNull();
-            expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
+            expectSubtitlePanelActionsAbsent(panel, ['tracks', 'lines', 'shadow', 'mine']);
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);
             expect(settings.subtitleTranscriptVisible).toBe(false);
             // Opening the tracks drawer is page-scoped runtime state, not a

@@ -10,6 +10,7 @@ import {
     controllerInternals,
     createSubtitleController,
     createInstalledSubtitleController,
+    expectSubtitlePanelActionsAbsent,
     attachVideo,
     setSingleJapaneseSubtitleTrack,
     setSubtitleStyleControlValue,
@@ -810,9 +811,7 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
             expect(panel.textContent).toContain('Load Japanese subtitles');
             expect(panel.textContent).toContain('Load English subtitles');
-            expect(panel.querySelector('[data-action="panel-lines"]')).toBeNull();
-            expect(panel.querySelector('[data-action="panel-shadow"]')).toBeNull();
-            expect(panel.querySelector('[data-action="panel-mine"]')).toBeNull();
+            expectSubtitlePanelActionsAbsent(panel, ['lines', 'shadow', 'mine']);
             // Placement lives in the panel-options menu; the close (X) is now a
             // standalone one-click head button OUTSIDE that menu. Both appear even
             // before a transcript exists — only the mode tabs need a surface.

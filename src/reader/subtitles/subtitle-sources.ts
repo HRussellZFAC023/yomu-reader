@@ -11,6 +11,14 @@ export interface PageSubtitleSource {
     sourceKey: string;
 }
 
+interface PageSubtitleSourceDescriptor {
+    url: string;
+    label: string;
+    rawLabel: string;
+    explicitLanguage?: string;
+    sourceKind: string;
+}
+
 export function collectPageSubtitleSources(root: ParentNode = document): PageSubtitleSource[] {
     const pageTitle = pageSubtitleTitle(root);
     return dedupeSubtitleSources([
@@ -29,15 +37,14 @@ function collectTrackSubtitleSources(root: ParentNode, pageTitle: string): PageS
 function subtitleSourceFromTrack(track: HTMLTrackElement, pageTitle: string): PageSubtitleSource | null {
     if (!isSubtitleTrackElement(track)) return null;
     const url = subtitleTrackSourceUrl(track);
-    if (!url) return null;
-    const rawLabel = track.label || track.srclang || track.getAttribute('aria-label') || '';
-    const label = subtitleTrackSourceLabel(track, url, pageTitle);
-    return {
+    const rawLabel = firstSubtitleText([track.label, track.srclang, track.getAttribute('aria-label')]);
+    return pageSubtitleSource({
         url,
-        label,
-        language: normalizeSubtitleLanguage(track.srclang || inferSubtitleLanguage(rawLabel, url) || inferSubtitleLanguage(label, url)),
-        sourceKey: pageSubtitleSourceKey('track', url),
-    };
+        rawLabel,
+        label: subtitleTrackSourceLabel(track, url, pageTitle),
+        explicitLanguage: track.srclang,
+        sourceKind: 'track',
+    });
 }
 
 function isSubtitleTrackElement(track: HTMLTrackElement): boolean {
@@ -45,11 +52,11 @@ function isSubtitleTrackElement(track: HTMLTrackElement): boolean {
 }
 
 function subtitleTrackSourceUrl(track: HTMLTrackElement): string {
-    return subtitleSourceUrl(track.src || track.getAttribute('src') || '');
+    return subtitleSourceUrl(firstSubtitleText([track.src, track.getAttribute('src')]));
 }
 
 function subtitleTrackSourceLabel(track: HTMLTrackElement, url: string, pageTitle: string): string {
-    return subtitleSourceLabel(track.label || track.srclang || track.getAttribute('aria-label') || '', url, {
+    return subtitleSourceLabel(firstSubtitleText([track.label, track.srclang, track.getAttribute('aria-label')]), url, {
         pageTitle,
         preferPageTitleForGeneric: true,
     });
@@ -62,16 +69,15 @@ function collectLinkSubtitleSources(root: ParentNode, pageTitle: string): PageSu
 }
 
 function subtitleSourceFromLink(link: HTMLAnchorElement, pageTitle: string): PageSubtitleSource | null {
-    const url = subtitleSourceUrl(link.href || link.getAttribute('href') || '');
-    if (!url) return null;
+    const url = subtitleSourceUrl(firstSubtitleText([link.href, link.getAttribute('href')]));
     const rawLabel = linkSubtitleLabelText(link);
-    const label = subtitleSourceLabel(rawLabel, url, { pageTitle });
-    return {
+    return pageSubtitleSource({
         url,
-        label,
-        language: normalizeSubtitleLanguage(link.lang || inferSubtitleLanguage(rawLabel, url) || inferSubtitleLanguage(label, url)),
-        sourceKey: pageSubtitleSourceKey('link', url),
-    };
+        rawLabel,
+        label: subtitleSourceLabel(rawLabel, url, { pageTitle }),
+        explicitLanguage: link.lang,
+        sourceKind: 'link',
+    });
 }
 
 function collectConfigSubtitleSources(root: ParentNode, pageTitle: string): PageSubtitleSource[] {
@@ -132,26 +138,40 @@ function parseSubtitleConfigJson(text: string): unknown {
 function subtitleSourcesFromConfigValue(value: unknown, pageTitle: string, keyPrefix: string): PageSubtitleSource[] {
     const sources: PageSubtitleSource[] = [];
     const seenObjects = new Set<object>();
-    const visit = (current: unknown, path: string[]): void => {
-        const decoded = subtitleConfigTaggedValue(current);
-        if (decoded !== current) {
-            visit(decoded, path);
-            return;
-        }
-        if (Array.isArray(current)) {
-            for (const item of current) visit(item, path);
-            return;
-        }
-        if (!current || typeof current !== 'object') return;
-        if (seenObjects.has(current)) return;
-        seenObjects.add(current);
-        const record = current as Record<string, unknown>;
-        const source = subtitleSourceFromConfigRecord(record, pageTitle, keyPrefix, sources.length, path);
-        if (source) sources.push(source);
-        for (const [key, child] of Object.entries(record)) visit(child, [...path, key]);
-    };
-    visit(value, []);
+    const collect: SubtitleConfigCollector = { pageTitle, keyPrefix, sources, seenObjects };
+    visitSubtitleConfigValue(value, [], collect);
     return sources;
+}
+
+interface SubtitleConfigCollector {
+    pageTitle: string;
+    keyPrefix: string;
+    sources: PageSubtitleSource[];
+    seenObjects: Set<object>;
+}
+
+function visitSubtitleConfigValue(current: unknown, path: string[], collect: SubtitleConfigCollector): void {
+    const decoded = subtitleConfigTaggedValue(current);
+    if (decoded !== current) return visitSubtitleConfigValue(decoded, path, collect);
+    if (Array.isArray(current)) return visitSubtitleConfigArray(current, path, collect);
+    const record = subtitleConfigObject(current);
+    if (record) visitSubtitleConfigRecord(record, path, collect);
+}
+
+function visitSubtitleConfigArray(values: unknown[], path: string[], collect: SubtitleConfigCollector): void {
+    values.forEach(value => visitSubtitleConfigValue(value, path, collect));
+}
+
+function visitSubtitleConfigRecord(record: Record<string, unknown>, path: string[], collect: SubtitleConfigCollector): void {
+    if (collect.seenObjects.has(record)) return;
+    collect.seenObjects.add(record);
+    const source = subtitleSourceFromConfigRecord(record, collect.pageTitle, collect.keyPrefix, collect.sources.length, path);
+    if (source) collect.sources.push(source);
+    Object.entries(record).forEach(([key, child]) => visitSubtitleConfigValue(child, [...path, key], collect));
+}
+
+function subtitleConfigObject(value: unknown): Record<string, unknown> | undefined {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
 }
 
 function subtitleSourceFromConfigRecord(
@@ -161,16 +181,35 @@ function subtitleSourceFromConfigRecord(
     index: number,
     path: string[],
 ): PageSubtitleSource | null {
+    if (!isSubtitleConfigRecord(record, path)) return null;
     const url = subtitleConfigRecordUrl(record);
-    if (!url || !isSubtitleConfigRecord(record, path)) return null;
     const rawLabel = subtitleConfigRecordLabel(record);
-    const label = subtitleConfigSourceLabel(rawLabel, url, pageTitle);
-    return {
+    return pageSubtitleSource({
         url,
-        label,
-        language: normalizeSubtitleLanguage(subtitleConfigRecordLanguage(record) || inferSubtitleLanguage(rawLabel, url) || inferSubtitleLanguage(label, url)),
-        sourceKey: pageSubtitleSourceKey(`${keyPrefix}-${index}`, url),
+        rawLabel,
+        label: subtitleConfigSourceLabel(rawLabel, url, pageTitle),
+        explicitLanguage: subtitleConfigRecordLanguage(record),
+        sourceKind: `${keyPrefix}-${index}`,
+    });
+}
+
+function pageSubtitleSource(descriptor: PageSubtitleSourceDescriptor): PageSubtitleSource | null {
+    if (!descriptor.url) return null;
+    return {
+        url: descriptor.url,
+        label: descriptor.label,
+        language: subtitleSourceLanguage(descriptor),
+        sourceKey: pageSubtitleSourceKey(descriptor.sourceKind, descriptor.url),
     };
+}
+
+function subtitleSourceLanguage(descriptor: PageSubtitleSourceDescriptor): string | undefined {
+    const inferred = [
+        descriptor.explicitLanguage,
+        inferSubtitleLanguage(descriptor.rawLabel, descriptor.url),
+        inferSubtitleLanguage(descriptor.label, descriptor.url),
+    ].find((language): language is string => Boolean(language));
+    return normalizeSubtitleLanguage(inferred);
 }
 
 function subtitleConfigRecordUrl(record: Record<string, unknown>): string {
@@ -219,17 +258,23 @@ function subtitleConfigString(value: unknown): string {
 }
 
 function subtitleConfigTaggedValue(value: unknown): unknown {
-    if (!Array.isArray(value) || value.length !== 2) return value;
-    if (typeof value[0] !== 'number' && typeof value[0] !== 'string') return value;
+    if (!Array.isArray(value)) return value;
+    if (value.length !== 2) return value;
+    if (!['number', 'string'].includes(typeof value[0])) return value;
     return value[1];
 }
 
 function linkSubtitleLabelText(link: HTMLAnchorElement): string {
-    return link.getAttribute('download')
-        || link.getAttribute('aria-label')
-        || link.getAttribute('title')
-        || link.textContent
-        || '';
+    return firstSubtitleText([
+        link.getAttribute('download'),
+        link.getAttribute('aria-label'),
+        link.getAttribute('title'),
+        link.textContent,
+    ]);
+}
+
+function firstSubtitleText(values: readonly (string | null | undefined)[]): string {
+    return values.find((value): value is string => Boolean(value)) ?? '';
 }
 
 function subtitleSourceUrl(value: string): string {
@@ -297,7 +342,7 @@ function subtitleSourceLabel(value: string, url: string, options: { pageTitle?: 
 
 function genericSubtitleLabel(cleaned: string, filename: string, options: { pageTitle?: string; preferPageTitleForGeneric?: boolean }): string {
     if (shouldUsePageTitleForGeneric(cleaned, options)) return options.pageTitle ?? '';
-    return cleaned || filename || 'Subtitle file';
+    return firstSubtitleText([cleaned, filename, 'Subtitle file']);
 }
 
 function shouldUsePageTitleForGeneric(cleaned: string, options: { pageTitle?: string; preferPageTitleForGeneric?: boolean }): boolean {
@@ -306,9 +351,11 @@ function shouldUsePageTitleForGeneric(cleaned: string, options: { pageTitle?: st
 }
 
 function specificSubtitleLabel(cleaned: string, filename: string): string {
-    if (cleaned && !isGenericSubtitleLabel(cleaned)) return cleaned;
-    if (filename && !isGenericSubtitleLabel(filename)) return filename;
-    return '';
+    return [cleaned, filename].find(isSpecificSubtitleLabel) ?? '';
+}
+
+function isSpecificSubtitleLabel(value: string): boolean {
+    return Boolean(value) && !isGenericSubtitleLabel(value);
 }
 
 function subtitleSourceFilenameLabel(url: string): string {

@@ -84,8 +84,7 @@ export class SubtitleTranscriptPanel {
     renderPanelHtml(state: TranscriptPanelRenderState): string {
         const settings = this.deps.getSettings();
         const language = settings.interfaceLanguage;
-        const rowCount = state.totalRowCount ?? state.rows.length;
-        const rowIndexOffset = state.rowIndexOffset ?? 0;
+        const { rowCount, rowIndexOffset } = transcriptPanelRowBounds(state);
         const transcriptRows = this.deps.getTranscriptRows();
         const primaryContent = this.primaryContentLanguage();
         return `
@@ -113,15 +112,33 @@ export class SubtitleTranscriptPanel {
                 options: this.deps.panelOptionsState(settings.subtitlePausePanel, language),
                 extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}" aria-label="${escapeHtml(uiText(language, 'jumpToCurrentSubtitle'))}">${subtitleIcon('locate')}</button>`,
             })}
-            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
-                ${state.virtual ? this.renderVirtualSpacer(state.virtual.topSpacer) : ''}
-                ${state.rows.length
-                    ? state.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows, primaryContent)).join('')
-                    : this.renderWaitingState()}
-                ${state.virtual ? this.renderVirtualSpacer(state.virtual.bottomSpacer) : ''}
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${transcriptVirtualizedAttribute(state.virtual)}>
+                ${this.renderTranscriptVirtualSpacer(state.virtual, 'topSpacer')}
+                ${this.renderTranscriptRows(state, rowIndexOffset, transcriptRows, primaryContent)}
+                ${this.renderTranscriptVirtualSpacer(state.virtual, 'bottomSpacer')}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>
         `;
+    }
+
+    private renderTranscriptRows(
+        state: TranscriptPanelRenderState,
+        rowIndexOffset: number,
+        transcriptRows: TranscriptRow[],
+        primaryContent: SubtitleContentLanguage,
+    ): string {
+        if (!state.rows.length) return this.renderWaitingState();
+        return state.rows
+            .map((row, index) => this.renderRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows, primaryContent))
+            .join('');
+    }
+
+    private renderTranscriptVirtualSpacer(
+        virtual: TranscriptPanelVirtualWindow | undefined,
+        side: 'topSpacer' | 'bottomSpacer',
+    ): string {
+        if (!virtual) return '';
+        return this.renderVirtualSpacer(virtual[side]);
     }
 
     renderVirtualSpacer(height: number): string {
@@ -142,13 +159,12 @@ export class SubtitleTranscriptPanel {
         const htmlCache = this.deps.getHtmlCache();
         const parsedKey = this.deps.transcriptRowParseKey(row, index, rows, settings);
         const parsed = this.parsedRowHtml(parsedKey, settings, htmlCache);
-        const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parsedKey)}"` : '';
-        const provisionalAttribute = parsed && !htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : '';
+        const parsedAttributes = transcriptParsedAttributes(parsed, parsedKey, htmlCache);
         const seekLabel = `${uiText(settings.interfaceLanguage, 'seekSubtitleLine')} ${formatSubtitleTime(cue.start)}`;
         return `
-            <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml(seekLabel)}">
+            <div class="jpdb-subtitle-list-row ${transcriptActiveRowClass(index, currentIndex)}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml(seekLabel)}">
                 <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" ${subtitleContentAttributes(primaryContent)} data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
+                    <strong class="jpdb-subtitle-row-text" ${subtitleContentAttributes(primaryContent)} data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedAttributes}>${transcriptRowHtml(parsed, cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
                     ${this.renderRowPeekButton(cue, index, settings)}
@@ -180,38 +196,45 @@ export class SubtitleTranscriptPanel {
     renderWaitingState(): string {
         const selected = this.deps.getTracks().find(track => track.id === this.deps.getSelectedTrackId());
         const language = this.deps.getSettings().interfaceLanguage;
-        const label = selected?.label ? `: ${escapeHtml(selected.label)}` : '';
-        const status = selected?.loadingState === 'loading' ? uiText(language, 'loadingSubtitleLines') : uiText(language, 'waitingForCaptionLines');
+        const label = transcriptWaitingTrackLabel(selected);
+        const status = transcriptWaitingStatus(selected, language);
         return `<div class="jpdb-subtitle-list-empty">${escapeHtml(status)}${label}. ${escapeHtml(uiText(language, 'subtitleCurrentLineWillAppear'))}</div>`;
     }
 
     toggleRowTranslationPeek(target: HTMLElement): void {
-        const button = target.closest<HTMLElement>('[data-action="peek-row"]');
-        const row = target.closest<HTMLElement>('.jpdb-subtitle-list-row');
-        if (!button || !row) return;
-        const existing = row.querySelector<HTMLElement>('.jpdb-subtitle-row-secondary');
-        const language = this.deps.getSettings().interfaceLanguage;
-        if (existing) {
-            existing.remove();
-            button.setAttribute('aria-pressed', 'false');
-            button.setAttribute('title', uiText(language, 'peekSubtitleTranslation'));
-            button.setAttribute('aria-label', uiText(language, 'peekSubtitleTranslation'));
-            setInnerHtml(button, subtitleIcon('eye'));
-            return;
-        }
-        const cue = this.deps.getTranscriptRows()[this.deps.rowIndexFromTarget(button)]?.cue;
-        const secondary = cue ? findAlignedCue(this.deps.getSecondaryCues(), cue) : undefined;
+        const targets = transcriptTranslationPeekTargets(target);
+        if (!targets) return;
+        if (targets.existing) return this.closeRowTranslationPeek(targets);
+        this.openRowTranslationPeek(targets);
+    }
+
+    private closeRowTranslationPeek(targets: TranscriptTranslationPeekTargets): void {
+        targets.existing?.remove();
+        const label = uiText(this.deps.getSettings().interfaceLanguage, 'peekSubtitleTranslation');
+        targets.button.setAttribute('aria-pressed', 'false');
+        targets.button.setAttribute('title', label);
+        targets.button.setAttribute('aria-label', label);
+        setInnerHtml(targets.button, subtitleIcon('eye'));
+    }
+
+    private openRowTranslationPeek(targets: TranscriptTranslationPeekTargets): void {
+        const secondary = alignedPeekSubtitleCue(
+            this.deps.getTranscriptRows(),
+            this.deps.getSecondaryCues(),
+            this.deps.rowIndexFromTarget(targets.button),
+        );
         if (!secondary?.text.trim()) return;
-        const body = row.querySelector<HTMLElement>('.jpdb-subtitle-row-body') ?? row;
+        const body = transcriptPeekRowBody(targets.row);
         const peek = document.createElement('div');
         peek.className = 'jpdb-subtitle-row-secondary';
         syncSubtitleContentLanguage(peek, this.secondaryContentLanguage());
         peek.textContent = secondary.text.trim();
         body.append(peek);
-        button.setAttribute('aria-pressed', 'true');
-        button.setAttribute('title', uiText(language, 'hideSubtitleTranslation'));
-        button.setAttribute('aria-label', uiText(language, 'hideSubtitleTranslation'));
-        setInnerHtml(button, subtitleIcon('eye-off'));
+        const label = uiText(this.deps.getSettings().interfaceLanguage, 'hideSubtitleTranslation');
+        targets.button.setAttribute('aria-pressed', 'true');
+        targets.button.setAttribute('title', label);
+        targets.button.setAttribute('aria-label', label);
+        setInnerHtml(targets.button, subtitleIcon('eye-off'));
     }
 
     private primaryContentLanguage(): SubtitleContentLanguage {
@@ -236,14 +259,22 @@ export class SubtitleTranscriptPanel {
     }
 
     handlePanelKeydown(event: KeyboardEvent): void {
-        if (event.key === 'Escape' && this.deps.isPanelOptionsMenuOpen()) {
-            event.preventDefault();
-            event.stopPropagation();
-            this.deps.closePanelOptionsMenu();
-            this.deps.getPanel()?.querySelector<HTMLButtonElement>('[data-action="panel-options"]')?.focus();
-            return;
-        }
-        if (event.key !== 'Enter' && event.key !== ' ') return;
+        if (this.handlePanelOptionsEscape(event)) return;
+        this.handleTranscriptRowActivation(event);
+    }
+
+    private handlePanelOptionsEscape(event: KeyboardEvent): boolean {
+        if (event.key !== 'Escape') return false;
+        if (!this.deps.isPanelOptionsMenuOpen()) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        this.deps.closePanelOptionsMenu();
+        this.deps.getPanel()?.querySelector<HTMLButtonElement>('[data-action="panel-options"]')?.focus();
+        return true;
+    }
+
+    private handleTranscriptRowActivation(event: KeyboardEvent): void {
+        if (!TRANSCRIPT_ROW_ACTIVATION_KEYS.has(event.key)) return;
         const target = event.target as HTMLElement;
         if (target.closest('button, input, [data-resize-transcript], .jpdb-reader-word')) return;
         const row = target.closest<HTMLElement>('.jpdb-subtitle-list-row[data-row-index]');
@@ -252,4 +283,73 @@ export class SubtitleTranscriptPanel {
         event.stopPropagation();
         this.deps.seekToTranscriptRow(this.deps.rowIndexFromTarget(row));
     }
+}
+
+const TRANSCRIPT_ROW_ACTIVATION_KEYS = new Set(['Enter', ' ']);
+
+function transcriptPanelRowBounds(state: TranscriptPanelRenderState): { rowCount: number; rowIndexOffset: number } {
+    return {
+        rowCount: state.totalRowCount ?? state.rows.length,
+        rowIndexOffset: state.rowIndexOffset ?? 0,
+    };
+}
+
+function transcriptVirtualizedAttribute(virtual: TranscriptPanelVirtualWindow | undefined): string {
+    return virtual ? ' data-virtualized="true"' : '';
+}
+
+function transcriptParsedAttributes(
+    parsed: string | undefined,
+    parsedKey: string,
+    htmlCache: SubtitleParsedHtmlCache,
+): string {
+    if (!parsed) return '';
+    const provisional = htmlCache.parsedHtmlCache.has(parsedKey) ? '' : ' data-parsed-provisional="true"';
+    return ` data-parsed-key="${escapeHtml(parsedKey)}"${provisional}`;
+}
+
+function transcriptActiveRowClass(index: number, currentIndex: number): string {
+    return index === currentIndex ? 'active' : '';
+}
+
+function transcriptRowHtml(parsed: string | undefined, text: string): string {
+    return parsed ?? escapeWithBreaks(text);
+}
+
+function transcriptWaitingTrackLabel(track: SubtitleTrackPanelTrack | undefined): string {
+    return track?.label ? `: ${escapeHtml(track.label)}` : '';
+}
+
+function transcriptWaitingStatus(track: SubtitleTrackPanelTrack | undefined, language: InterfaceLanguage): string {
+    return uiText(language, track?.loadingState === 'loading' ? 'loadingSubtitleLines' : 'waitingForCaptionLines');
+}
+
+interface TranscriptTranslationPeekTargets {
+    button: HTMLElement;
+    row: HTMLElement;
+    existing: HTMLElement | null;
+}
+
+function transcriptTranslationPeekTargets(target: HTMLElement): TranscriptTranslationPeekTargets | undefined {
+    const button = target.closest<HTMLElement>('[data-action="peek-row"]');
+    const row = target.closest<HTMLElement>('.jpdb-subtitle-list-row');
+    if (!button || !row) return undefined;
+    return {
+        button,
+        row,
+        existing: row.querySelector<HTMLElement>('.jpdb-subtitle-row-secondary'),
+    };
+}
+
+function alignedPeekSubtitleCue(
+    rows: TranscriptRow[],
+    secondaryCues: SubtitleCue[],
+    rowIndex: number,
+): SubtitleCue | undefined {
+    const cue = rows[rowIndex]?.cue;
+    return cue ? findAlignedCue(secondaryCues, cue) : undefined;
+}
+
+function transcriptPeekRowBody(row: HTMLElement): HTMLElement {
+    return row.querySelector<HTMLElement>('.jpdb-subtitle-row-body') ?? row;
 }

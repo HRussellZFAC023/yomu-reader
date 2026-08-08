@@ -221,6 +221,80 @@ export function findAutoSecondaryYouTubeTrack(
         .sort(compareNativeOverlaySubtitleTrackOptions)[0];
 }
 
+export interface YouTubeTrackDiscoverySelection {
+    role: 'primary' | 'secondary';
+    trackId: string;
+}
+
+export interface YouTubeTrackDiscoveryPlan {
+    selections: YouTubeTrackDiscoverySelection[];
+    refreshPanel: boolean;
+}
+
+export function planYouTubeTrackDiscovery(options: {
+    tracks: SubtitleTrackOption[];
+    selectedTrackId: string;
+    secondaryTrackId: string;
+    autoSelectSuppressedVideoId: string;
+    videoId: string;
+    languages: SubtitleLanguageSelection;
+    updatedSelectedTrack: boolean;
+    tracksChanged: boolean;
+}): YouTubeTrackDiscoveryPlan {
+    const primary = findAutoPrimaryYouTubeTrack(
+        options.tracks,
+        options.selectedTrackId,
+        options.autoSelectSuppressedVideoId,
+        options.videoId,
+        options.languages,
+    );
+    const primaryTrackId = rediscoveredPrimaryTrackId(primary, options);
+    const secondary = findAutoSecondaryYouTubeTrack(
+        options.tracks,
+        selectedPrimaryTrackId(primary, options.selectedTrackId),
+        options.secondaryTrackId,
+        options.languages,
+    );
+    const selections = youtubeTrackDiscoverySelections(primaryTrackId, optionalSubtitleTrackId(secondary));
+    return {
+        selections,
+        refreshPanel: shouldRefreshYouTubeTrackPanel(selections, options.tracksChanged),
+    };
+}
+
+function selectedPrimaryTrackId(primary: SubtitleTrackOption | undefined, selectedTrackId: string): string {
+    return primary ? primary.id : selectedTrackId;
+}
+
+function optionalSubtitleTrackId(track: SubtitleTrackOption | undefined): string {
+    return track ? track.id : '';
+}
+
+function rediscoveredPrimaryTrackId(
+    primary: SubtitleTrackOption | undefined,
+    options: Pick<YouTubeTrackDiscoveryPlanOptions, 'updatedSelectedTrack' | 'selectedTrackId'>,
+): string {
+    if (primary) return primary.id;
+    if (options.updatedSelectedTrack) return options.selectedTrackId;
+    return '';
+}
+
+type YouTubeTrackDiscoveryPlanOptions = Parameters<typeof planYouTubeTrackDiscovery>[0];
+
+function youtubeTrackDiscoverySelections(primaryTrackId: string, secondaryTrackId: string): YouTubeTrackDiscoverySelection[] {
+    const selections: YouTubeTrackDiscoverySelection[] = [];
+    if (primaryTrackId) selections.push({ role: 'primary', trackId: primaryTrackId });
+    if (secondaryTrackId) selections.push({ role: 'secondary', trackId: secondaryTrackId });
+    return selections;
+}
+
+function shouldRefreshYouTubeTrackPanel(
+    selections: YouTubeTrackDiscoverySelection[],
+    tracksChanged: boolean,
+): boolean {
+    return selections.length === 0 && tracksChanged;
+}
+
 function hostedSubtitleFileJobs(kind: 'primary' | 'secondary', value: unknown): HostedSubtitleFileJob[] {
     return hostedFiles(value).map(file => ({ kind, file }));
 }

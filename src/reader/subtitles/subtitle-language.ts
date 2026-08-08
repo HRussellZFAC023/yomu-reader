@@ -75,16 +75,20 @@ const SUBTITLE_LANGUAGE_TAGS = new Set(SUBTITLE_LANGUAGE_DESCRIPTORS.map(descrip
  * arbitrary video titles into language declarations.
  */
 export function inferSubtitleLanguage(label: string, url = ''): string | undefined {
-    const named = inferNamedSubtitleLanguage(label) ?? inferNamedSubtitleLanguage(subtitleUrlHintText(url));
-    if (named) return named;
+    const urlHint = subtitleUrlHintText(url);
+    return [
+        inferNamedSubtitleLanguage(label),
+        inferNamedSubtitleLanguage(urlHint),
+        inferSubtitleLanguageCode(label, hasSubtitleMarker(label)),
+        inferSubtitleLanguageCode(urlHint, true),
+        inferKanaSubtitleLanguage(label),
+    ].find((language): language is string => Boolean(language));
+}
 
-    const coded = inferSubtitleLanguageCode(label, hasSubtitleMarker(label))
-        ?? inferSubtitleLanguageCode(subtitleUrlHintText(url), true);
-    if (coded) return coded;
-
-    // Kana is unambiguously Japanese. Han alone is not: treating every Han
-    // title as Japanese made Chinese and Cantonese tracks impossible to infer.
-    return /[\u3040-\u30ff]/u.test(label) ? 'ja' : undefined;
+// Kana is unambiguously Japanese. Han alone is not: treating every Han title
+// as Japanese made Chinese and Cantonese tracks impossible to infer.
+function inferKanaSubtitleLanguage(value: string): string | undefined {
+    return /[\u3040-\u30ff]/u.test(value) ? 'ja' : undefined;
 }
 
 /**
@@ -94,11 +98,16 @@ export function inferSubtitleLanguage(label: string, url = ''): string | undefin
  */
 export function normalizeSubtitleLanguage(language: string | undefined): string | undefined {
     if (!language) return undefined;
-    const exact = SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.get(foldSubtitleLanguageText(language));
-    if (exact) return exact;
+    return [
+        SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.get(foldSubtitleLanguageText(language)),
+        normalizedRosterSubtitleLanguage(language),
+        language,
+    ].find((candidate): candidate is string => Boolean(candidate));
+}
 
+function normalizedRosterSubtitleLanguage(language: string): string | undefined {
     const rosterId = learningTargetRosterIdForTag(language);
-    return rosterId ? SUBTITLE_LANGUAGE_BY_ID.get(rosterId)?.tag : language;
+    return rosterId ? SUBTITLE_LANGUAGE_BY_ID.get(rosterId)?.tag : undefined;
 }
 
 /** Whether a label is only a language/generic caption marker, not a title. */
@@ -167,23 +176,41 @@ function escapeRegExp(value: string): string {
 
 function inferSubtitleLanguageCode(value: string, allowWhitespaceDelimited: boolean): string | undefined {
     const text = decodeSubtitleLanguageText(value);
-    for (const match of text.matchAll(/[a-z]{2,3}/giu)) {
-        const token = match[0];
-        const start = match.index;
-        const end = start + token.length;
-        if (isLatinLetterOrNumber(text[start - 1] ?? '') || isLatinLetterOrNumber(text[end] ?? '')) continue;
-        if (!allowWhitespaceDelimited && !hasStructuredCodeBoundary(text, start, end)) continue;
-        const normalized = normalizeSubtitleLanguage(token);
-        if (normalized && SUBTITLE_LANGUAGE_TAGS.has(normalized)) return normalized;
-    }
-    return undefined;
+    return [...text.matchAll(/[a-z]{2,3}/giu)]
+        .map(match => subtitleLanguageCodeCandidate(text, match, allowWhitespaceDelimited))
+        .find((language): language is string => Boolean(language));
+}
+
+function subtitleLanguageCodeCandidate(
+    text: string,
+    match: RegExpMatchArray,
+    allowWhitespaceDelimited: boolean,
+): string | undefined {
+    const start = Number(match.index);
+    const end = start + match[0].length;
+    if (!hasSubtitleLanguageCodeBoundary(text, start, end, allowWhitespaceDelimited)) return undefined;
+    return knownSubtitleLanguageCode(normalizeSubtitleLanguage(match[0]));
+}
+
+function knownSubtitleLanguageCode(language: string | undefined): string | undefined {
+    if (!language) return undefined;
+    return SUBTITLE_LANGUAGE_TAGS.has(language) ? language : undefined;
+}
+
+function hasSubtitleLanguageCodeBoundary(
+    text: string,
+    start: number,
+    end: number,
+    allowWhitespaceDelimited: boolean,
+): boolean {
+    const adjacent = [text.charAt(start - 1), text.charAt(end)];
+    if (adjacent.some(isLatinLetterOrNumber)) return false;
+    return allowWhitespaceDelimited || hasStructuredCodeBoundary(text, start, end);
 }
 
 function hasStructuredCodeBoundary(text: string, start: number, end: number): boolean {
-    const before = text[start - 1] ?? '';
-    const after = text[end] ?? '';
-    return /[._/()[\]{}-]/u.test(before) || /[._/()[\]{}-]/u.test(after)
-        || (start === 0 && end === text.length);
+    return [text.charAt(start - 1), text.charAt(end)].some(character => /[._/()[\]{}-]/u.test(character))
+        || isWholeSubtitleLabelMatch(text, start, end);
 }
 
 function hasSubtitleMarker(value: string): boolean {
