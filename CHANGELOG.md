@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.8.90] - 2026-08-09
+
+### Fixed
+
+- Switching learning targets now reconciles every target-owned surface together: page annotations, popup lookup providers, subtitles, OCR, Study, onboarding, and the floating puck no longer retain Japanese or a previous language's actions, labels, tracks, or provider URLs.
+- OCR fallback words are segmented with the active learning target instead of the Japanese segmenter, so recognised Spanish and other supported text remains hoverable even when a parser returns no tokens. Text from a different target is reported as absent rather than appearing ready but non-interactive.
+- YouTube subtitle discovery follows the active target and definition/translation language, invalidates stale generated tracks after a target switch, and keeps language and writing direction correct across the overlay, transcript, fullscreen mirror, and mined text.
+- Subtitle discovery is offered only when the page contains a video the subtitle controller can actually use. YouTube feed previews no longer expose an action that cannot activate.
+- Japanese-site navigation is available only for the Japanese target and never follows production language links on loopback development origins, including IPv6, trailing-dot localhost, and IPv4-mapped loopback addresses.
+- English and other non-Japanese targets no longer inherit Japanese-only lookup pills, the Japanese site-language action, kana/kanji wording, or a Japanese OCR glyph. Built-in providers are regenerated for the current target while custom links and their enabled state are preserved.
+- Website locale changes keep the document language, direction, accessible navigation labels, canonical URL, Open Graph metadata, hreflang links, and structured breadcrumbs in sync during client-side navigation. Routes without reviewed Japanese copy fall back to the Japanese homepage instead of linking to a translated 404.
+
+### Changed
+
+- All 33 learning targets now have executable grammar, lookup, annotation, subtitle, OCR, mining, grading, and Study capability evidence. The audit distinguishes data-backed, target-adapted, generic-fallback, and unavailable behavior instead of declaring shallow boolean parity; morphology remains explicitly unavailable for targets without a real adapter.
+- The public site now uses static, hydration-safe English and Japanese locale routes with server-rendered copy and locale-specific navigation, metadata, search, and accessibility text. Seventeen Japanese routes are published from reviewed copy; four Japanese routes and the other 31 website locales remain unavailable until their prose and RTL requirements are reviewed.
+- Touch popup hydration coalesces late provider results into one post-paint render per card state. In the fixed YouTube mobile profile, popup scroll-state capture fell from 202.5 ms across 349 samples to 5.0 ms across 6 samples, while all four lookups opened and Escape removal completed in 25.6–36.5 ms.
+- The YouTube profiler now separates normal timing, CPU sampling, and precise call coverage, waits for the exact painted target occurrence, records popup mount and dismissal in page time, and fails with structured diagnostics when a replay cannot be compared.
+
 ## [1.8.89] - 2026-08-08
 
 ### Fixed
