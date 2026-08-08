@@ -237,17 +237,28 @@ describe('preferred Japanese site language', () => {
         expect(preferredJapaneseSiteUrl('http://127.0.0.1:4199/', document)).toBeNull();
         expect(preferredJapaneseSiteUrl('http://localhost:4199/en/docs', document)).toBeNull();
         expect(preferredJapaneseSiteUrl('http://preview.localhost:4199/en/docs', document)).toBeNull();
+        expect(preferredJapaneseSiteUrl('http://localhost.:4199/en/docs', document)).toBeNull();
+        expect(preferredJapaneseSiteUrl('http://preview.localhost.:4199/en/docs', document)).toBeNull();
+        expect(preferredJapaneseSiteUrl('http://[::1]:4199/en/docs', document)).toBeNull();
+        expect(preferredJapaneseSiteUrl('http://[::ffff:127.0.0.1]:4199/en/docs', document)).toBeNull();
 
         const replace = vi.fn();
         vi.stubGlobal('unsafeWindow', window);
-        vi.stubGlobal('location', {
-            href: 'http://127.0.0.1:4199/ja/',
-            hostname: '127.0.0.1',
-            protocol: 'http:',
-            replace,
-        });
-        applyPreferredJapaneseSiteLanguage(true);
-        applyPreferredJapaneseSiteLanguage(false, true);
+        for (const href of [
+            'http://127.0.0.1:4199/ja/',
+            'http://localhost.:4199/ja/',
+            'http://[::ffff:127.0.0.1]:4199/ja/',
+        ]) {
+            const current = new URL(href);
+            vi.stubGlobal('location', {
+                href: current.href,
+                hostname: current.hostname,
+                protocol: current.protocol,
+                replace,
+            });
+            applyPreferredJapaneseSiteLanguage(true);
+            applyPreferredJapaneseSiteLanguage(false, true);
+        }
 
         expect(replace).not.toHaveBeenCalled();
     });

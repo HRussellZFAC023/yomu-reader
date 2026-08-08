@@ -38,6 +38,10 @@ const JA_MARKER_PARAM_KEYS = [
 ];
 const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
 const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
+const LOCAL_DEVELOPMENT_HOSTS = new Set(['0.0.0.0', '[::]', '[::1]']);
+const LOCALHOST_NAME_RE = /(?:^|\.)localhost$/u;
+const IPV4_LOOPBACK_HOST_RE = /^127(?:\.\d{1,3}){3}$/u;
+const IPV4_MAPPED_LOOPBACK_HOST_RE = /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/u;
 
 type StoredSettings = Partial<Pick<
     ReaderSettings,
@@ -636,13 +640,13 @@ function parseHttpUrl(sourceHref: string): URL | null {
 }
 
 function isLocalDevelopmentUrl(url: URL): boolean {
-    const hostname = url.hostname.toLowerCase();
-    return hostname === 'localhost'
-        || hostname.endsWith('.localhost')
-        || hostname === '0.0.0.0'
-        || hostname === '[::]'
-        || hostname === '[::1]'
-        || /^127(?:\.\d{1,3}){3}$/.test(hostname);
+    const hostname = url.hostname.toLowerCase().replace(/\.+$/u, '');
+    return [
+        LOCAL_DEVELOPMENT_HOSTS.has(hostname),
+        LOCALHOST_NAME_RE.test(hostname),
+        IPV4_LOOPBACK_HOST_RE.test(hostname),
+        IPV4_MAPPED_LOOPBACK_HOST_RE.test(hostname),
+    ].some(Boolean);
 }
 
 function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {
