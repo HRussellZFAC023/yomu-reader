@@ -84,12 +84,13 @@ describe('ReaderApp core startup', () => {
     });
 
     it.each([
-        { route: '/', hasVideo: false, showsSubtitleAction: false },
-        { route: '/watch?v=target-video', hasVideo: true, showsSubtitleAction: true },
-        { route: '/shorts/target-video', hasVideo: true, showsSubtitleAction: true },
+        { route: '/', videoKind: 'none', showsSubtitleAction: false },
+        { route: '/', videoKind: 'feed-preview', showsSubtitleAction: false },
+        { route: '/watch?v=target-video', videoKind: 'main-player', showsSubtitleAction: true },
+        { route: '/shorts/target-video', videoKind: 'main-player', showsSubtitleAction: true },
     ])('shows subtitle discovery only for an actual YouTube video candidate at $route', ({
         route,
-        hasVideo,
+        videoKind,
         showsSubtitleAction,
     }) => {
         vi.stubGlobal('location', {
@@ -97,7 +98,21 @@ describe('ReaderApp core startup', () => {
             pathname: route,
             href: `https://www.youtube.com${route}`,
         });
-        if (hasVideo) document.body.append(document.createElement('video'));
+        if (videoKind !== 'none') {
+            const video = document.createElement('video');
+            Object.defineProperty(video, 'readyState', { configurable: true, value: 2 });
+            if (videoKind === 'feed-preview') {
+                const preview = document.createElement('ytd-video-preview');
+                preview.append(video);
+                document.body.append(preview);
+            } else {
+                const player = document.createElement('div');
+                player.id = 'movie_player';
+                video.className = 'html5-main-video';
+                player.append(video);
+                document.body.append(player);
+            }
+        }
 
         app = new ReaderApp();
         (app as unknown as StartupInternals).installFab();

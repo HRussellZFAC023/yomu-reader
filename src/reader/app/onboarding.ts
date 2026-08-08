@@ -421,7 +421,7 @@ export class OnboardingController {
     private localize(language: InterfaceLanguage): void {
         // Same factory as first paint, or a `{language}` label relabels into its raw
         // token on a live interface-language switch (b20).
-        const text = settingsText(language);
+        const text = settingsText(language, this.targetLanguageSelect?.value);
         const panel = this.panel;
         if (!panel) return;
         panel.setAttribute('aria-label', text('welcomeLabel'));

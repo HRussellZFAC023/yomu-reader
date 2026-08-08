@@ -10,6 +10,22 @@ import {
     renderSettingsForm,
 } from '../../src/reader/settings/form';
 
+function createOnboardingHarness(settings: ReaderSettings): {
+    controller: OnboardingController;
+    state: { current: ReaderSettings };
+} {
+    const state = { current: settings };
+    return {
+        state,
+        controller: new OnboardingController({
+            getSettings: () => state.current,
+            setSettings: next => { state.current = next; },
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+        }),
+    };
+}
+
 describe('Slice 1 multilingual onboarding and settings', () => {
     afterEach(() => {
         document.body.innerHTML = '';
@@ -18,19 +34,13 @@ describe('Slice 1 multilingual onboarding and settings', () => {
     });
 
     it('lets a new learner choose a named target with an honest readiness label', async () => {
-        let settings: ReaderSettings = normalizeReaderSettings({
+        const harness = createOnboardingHarness(normalizeReaderSettings({
             ...DEFAULT_SETTINGS,
             onboardingSeen: false,
             interfaceLanguage: 'en',
-        });
-        const controller = new OnboardingController({
-            getSettings: () => settings,
-            setSettings: next => { settings = next; },
-            showSettings: vi.fn(),
-            parseJapanese: vi.fn(),
-        });
+        }));
 
-        await controller.showIfNeeded();
+        await harness.controller.showIfNeeded();
 
         const learnerLanguage = document.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
         expect(Array.from(learnerLanguage.options, option => option.value)).toEqual(LEARNER_LANGUAGE_IDS);
@@ -59,6 +69,7 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
         await new Promise(resolve => setTimeout(resolve, 0));
 
+        const settings = harness.state.current;
         const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
         expect(profile).toMatchObject({
             learnerLanguage: 'ko',
@@ -68,6 +79,33 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         expect(settings.interfaceLanguage).toBe('en');
         expect(settings.youtubeImmersionEnabled).toBe(true);
         expect(settings.youtubeImmersionEnabledChosen).toBe(false);
+    });
+
+    it('uses the pending target for live onboarding copy before that target is saved', async () => {
+        const harness = createOnboardingHarness(normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            onboardingSeen: false,
+            interfaceLanguage: 'en',
+        }));
+        await harness.controller.showIfNeeded();
+
+        const target = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        target.value = 'es';
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('.jpdb-reader-onboarding-eyebrow')!.textContent)
+            .toBe('Spanish, wherever it appears');
+        expect(document.querySelector('.jpdb-reader-onboarding p')!.textContent)
+            .toBe('Make Spanish text, subtitles, and images tappable.');
+        expect(document.querySelector('.jpdb-reader-onboarding-features li span')!.textContent)
+            .toBe('Hover or tap scanned Spanish.');
+
+        const interfaceLanguage = document.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+        interfaceLanguage.value = 'ja';
+        interfaceLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(document.querySelector('.jpdb-reader-onboarding-eyebrow')!.textContent)
+            .toBe('スペイン語がある場所ならどこでも');
+        expect(document.querySelector('[data-onboarding-mode-label="pageScanMode.manual"]')!.textContent)
+            .toContain('スペイン語');
     });
 
     it('uses the same readiness-labelled target options in Settings', () => {

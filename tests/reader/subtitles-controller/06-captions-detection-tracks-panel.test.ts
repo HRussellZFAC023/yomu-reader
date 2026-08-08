@@ -33,6 +33,19 @@ function nearbyPageCaption(text: string): HTMLVideoElement {
     return video;
 }
 
+function readySubtitleCandidate(video: HTMLVideoElement, rect: DOMRect): void {
+    Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+    mockElementRect(video, rect);
+}
+
+function subtitleCandidateController(settings: ReaderSettings): SubtitlePlayerController {
+    return new SubtitlePlayerController({
+        getSettings: () => settings,
+        parseJapanese: async () => [],
+        onSettingsChange: () => undefined,
+    });
+}
+
 describe('SubtitlePlayerController — page-caption detection & tracks panel', () => {
     registerSubtitleControllerCleanup();
     beforeEach(() => resetActiveLearningTargetLanguage());
@@ -444,18 +457,11 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             </ytd-rich-item-renderer>
         `;
         const video = document.querySelector('video')!;
-        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            configurable: true,
-            value: () => new DOMRect(0, 0, 640, 360),
-        });
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
+        readySubtitleCandidate(video, new DOMRect(0, 0, 640, 360));
+        const controller = subtitleCandidateController(settings);
 
         try {
+            expect(controller.hasDiscoverableVideoCandidate()).toBe(false);
             controller.init();
             await vi.advanceTimersByTimeAsync(800);
 
@@ -498,18 +504,11 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         const player = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { getVideoData?: () => { video_id?: string } };
         player.getVideoData = () => ({ video_id: 'abc123' });
         const video = document.querySelector('video')!;
-        Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
-        Object.defineProperty(video, 'getBoundingClientRect', {
-            configurable: true,
-            value: () => new DOMRect(0, 0, 960, 540),
-        });
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
+        readySubtitleCandidate(video, new DOMRect(0, 0, 960, 540));
+        const controller = subtitleCandidateController(settings);
 
         try {
+            expect(controller.hasDiscoverableVideoCandidate()).toBe(true);
             controller.init();
 
             expect((controller as unknown as { video?: HTMLVideoElement }).video).toBe(video);

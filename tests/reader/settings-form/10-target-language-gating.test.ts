@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { LEARNER_LANGUAGE_IDS } from '../../../src/reader/locales/types';
 import { studyTargetOptions } from '../../../src/reader/app/study-target-picker';
-import { targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
+import { activeContentLanguageAxes, targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
 import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
@@ -96,6 +96,25 @@ describe('target-language settings', () => {
             // authority for live behaviour and its labels after startup adopts
             // persisted settings, so a stale object cannot make the copy lie.
             expect(targetLanguageDisplayName(DEFAULT_SETTINGS)).toBe('Russian');
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
+    it.each([
+        { target: 'sh', english: 'Serbo-Croatian', japanese: 'セルボ・クロアチア語' },
+        { target: 'tl', english: 'Tagalog', japanese: 'タガログ語' },
+    ])('preserves the $english roster identity across picker, puck, and popup copy', ({
+        target,
+        english,
+        japanese,
+    }) => {
+        setActiveLearningTargetLanguage(target);
+        try {
+            expect(studyTargetOptions('en').find(option => option.id === target)?.label).toContain(english);
+            expect(targetLanguageDisplayName(DEFAULT_SETTINGS)).toBe(english);
+            expect(activeContentLanguageAxes(DEFAULT_SETTINGS).targetName).toBe(english);
+            expect(targetLanguageDisplayName({ ...DEFAULT_SETTINGS, interfaceLanguage: 'ja' })).toBe(japanese);
         } finally {
             resetActiveLearningTargetLanguage();
         }

@@ -15,8 +15,8 @@ const COPY = {
     en: {
         settingsTitle: `${APP_NAME} Settings`,
         welcomeLabel: `${APP_NAME} welcome`,
-        onboardingEyebrow: 'Japanese, wherever it appears',
-        onboardingCopy: 'Make Japanese text, subtitles, and images tappable.',
+        onboardingEyebrow: '{language}, wherever it appears',
+        onboardingCopy: 'Make {language} text, subtitles, and images tappable.',
         onboardingLanguage: 'Settings language',
         onboardingAccentColor: 'Accent color',
         customAccentColor: 'Custom color',
@@ -36,7 +36,7 @@ const COPY = {
         onboardingUseWithoutApiKey: 'Use without API key',
         closeOnboarding: 'Close welcome',
         featureText: 'Text',
-        featureTextBody: 'Hover or tap scanned Japanese.',
+        featureTextBody: 'Hover or tap scanned {language}.',
         featureImages: 'Images',
         featureImagesBody: 'Read any image by tapping it.',
         featureVideo: 'Video',
@@ -44,7 +44,7 @@ const COPY = {
         featureControl: 'Control',
         featureControlBody: 'Tune features, shortcuts, and color.',
         featureStudy: 'Study',
-        featureStudyBody: 'Review words and kanji on the study page.',
+        featureStudyBody: 'Review words and characters on the study page.',
         featureGame: 'Game',
         featureGameBody: 'Install the Yomu app to use in games or anywhere on the PC.',
         scanPage: 'Scan page',
@@ -1273,8 +1273,8 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
@@ -1293,7 +1293,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -1301,7 +1301,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -1974,7 +1974,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン

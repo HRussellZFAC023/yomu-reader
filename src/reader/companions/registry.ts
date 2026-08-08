@@ -38,7 +38,6 @@ type WanikaniSourceControllerClass = typeof import('../wanikani/wanikani-source'
 type RenderWanikaniDefinitionMountFn = typeof import('../wanikani/wanikani-source').renderWanikaniDefinitionMount;
 type CreateWanikaniSrsAdapterFn = typeof import('../srs/wanikani').createWanikaniSrsAdapter;
 export type SubtitlePlayerControllerClass = typeof import('../subtitles/controller').SubtitlePlayerController;
-export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerControllerClass>;
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
 export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;

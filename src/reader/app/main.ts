@@ -27,7 +27,6 @@ import {
     yomuSubtitlePlayerController,
     yomuYoutubeImmersionFilter,
     type SettingsDialogControllerInstance,
-    type SubtitlePlayerControllerInstance,
     type YoutubeImmersionFilterInstance,
 } from '../companions/registry';
 import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from './constants';
@@ -1032,13 +1031,15 @@ export class ReaderApp {
         });
     }
 
-    private createSubtitlePlayer(): SubtitlePlayerControllerInstance | ReaderLifecycleSurface {
+    private createSubtitlePlayer() {
         const Controller = yomuSubtitlePlayerController();
-        if (!Controller) return this.missingCompanionSurface('Video companion', 'subtitles');
+        if (!Controller) return {
+            ...this.missingCompanionSurface('Video companion', 'subtitles'),
+            hasDiscoverableVideoCandidate: () => false,
+        };
         return new Controller({
             getSettings: () => this.settings,
-            parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
-            parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+            ...this.targetTextParserDependencies(),
             beforeRenderTokens: tokens => this.enrichSubtitleTokensBeforeRender(tokens),
             afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
             showBatchMiningCard: candidate => this.showCard(candidate.card, candidate.sentence, undefined, {
@@ -1054,6 +1055,14 @@ export class ReaderApp {
                 clearExplicitUserChoiceKeys,
             }),
         });
+    }
+
+    private targetTextParserDependencies() {
+        return {
+            parseJapanese: async (text: string, options: Parameters<typeof this.parseJapanese>[1]) =>
+                (await this.parseJapanese([text], options))[0] ?? [],
+            parseJapaneseBatch: (texts: string[], options: Parameters<typeof this.parseJapanese>[1]) => this.parseJapanese(texts, options),
+        };
     }
 
     private createYoutubeFilter(): YoutubeImmersionFilterInstance | ReaderLifecycleSurface {
@@ -1083,8 +1092,7 @@ export class ReaderApp {
         }
         return new Controller({
             getSettings: () => this.settings,
-            parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
-            parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+            ...this.targetTextParserDependencies(),
             onToast: message => this.toast(message),
             shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
             shouldScanInlineImages: () => true,
@@ -2460,7 +2468,7 @@ export class ReaderApp {
                 toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
                 isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
                 hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled
-                    && Boolean(document.querySelector('video')),
+                    && this.subtitles.hasDiscoverableVideoCandidate(),
             },
         );
     }

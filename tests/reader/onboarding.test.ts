@@ -41,22 +41,22 @@ describe('OnboardingController', () => {
 
         await expect(controller.showIfNeeded()).resolves.toBe(true);
 
-        const youtubeFilter = document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]');
-        const siteLanguage = document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]');
-        const pageScanAuto = document.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="auto"]');
-        const pageScanManual = document.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]');
-        const hoverShortcut = document.querySelector<HTMLInputElement>('input[name="shortcuts.hoverLookup"]');
-        const scanShortcutLabel = document.querySelector<HTMLElement>('[data-manual-page-scan-shortcut]');
-        const accentColor = document.querySelector<HTMLInputElement>('input[name="accentColor"]');
-        const themeSwitch = document.querySelector<HTMLButtonElement>('[data-onboarding-theme-switch]');
-        const defaultAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#5ea780"]');
-        const blueAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#2563eb"]');
+        const youtubeFilter = document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
+        const siteLanguage = document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')!;
+        const pageScanAuto = document.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="auto"]')!;
+        const pageScanManual = document.querySelector<HTMLInputElement>('input[name="pageScanMode"][value="manual"]')!;
+        const hoverShortcut = document.querySelector<HTMLInputElement>('input[name="shortcuts.hoverLookup"]')!;
+        const scanShortcutLabel = document.querySelector<HTMLElement>('[data-manual-page-scan-shortcut]')!;
+        const accentColor = document.querySelector<HTMLInputElement>('input[name="accentColor"]')!;
+        const themeSwitch = document.querySelector<HTMLButtonElement>('[data-onboarding-theme-switch]')!;
+        const defaultAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#5ea780"]')!;
+        const blueAccentSwatch = document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#2563eb"]')!;
         const featureItems = Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li'));
-        const featureText = () => Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li span'), item => item.textContent);
-        expect(youtubeFilter?.checked).toBe(true);
-        expect(siteLanguage?.checked).toBe(true);
-        expect(pageScanAuto?.checked).toBe(true);
-        expect(pageScanManual?.checked).toBe(false);
+        const featureText = () => Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li span'), item => String(item.textContent));
+        expect(youtubeFilter.checked).toBe(true);
+        expect(siteLanguage.checked).toBe(true);
+        expect(pageScanAuto.checked).toBe(true);
+        expect(pageScanManual.checked).toBe(false);
         expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
         expect(document.body.textContent).toContain('Leave pages unchanged');
         expect(document.body.textContent).toContain('Scan Japanese automatically');
@@ -68,39 +68,39 @@ describe('OnboardingController', () => {
         expect(document.body.textContent).not.toMatch(/\{[a-z][A-Za-z]*\}/u);
         expect(document.body.textContent).toContain('Scan only when I ask');
         expect(document.querySelector('.jpdb-reader-onboarding-immersion-grid')).not.toBeNull();
-        expect(hoverShortcut?.type).toBe('text');
-        expect(hoverShortcut?.placeholder).toBe('Blank = hover, no key');
+        expect(hoverShortcut.type).toBe('text');
+        expect(hoverShortcut.placeholder).toBe('Blank = hover, no key');
         // Scan shortcut only matters in manual mode; it stays hidden until then.
-        expect(scanShortcutLabel?.hidden).toBe(true);
+        expect(scanShortcutLabel.hidden).toBe(true);
         expect(document.querySelector('[name="shortcuts.captureScreen"], [data-onboarding-capture-shortcut]')).toBeNull();
-        expect(accentColor?.value).toBe(DEFAULT_SETTINGS.accentColor);
-        expect(themeSwitch?.getAttribute('aria-checked')).toBe('false');
-        expect(themeSwitch?.title).toBe('Switch to dark theme');
-        expect(themeSwitch?.getAttribute('aria-labelledby')).toBe('jpdb-reader-onboarding-theme-label');
-        expect(defaultAccentSwatch?.getAttribute('aria-pressed')).toBe('true');
+        expect(accentColor.value).toBe(DEFAULT_SETTINGS.accentColor);
+        expect(themeSwitch.getAttribute('aria-checked')).toBe('false');
+        expect(themeSwitch.title).toBe('Switch to dark theme');
+        expect(themeSwitch.getAttribute('aria-labelledby')).toBe('jpdb-reader-onboarding-theme-label');
+        expect(defaultAccentSwatch.getAttribute('aria-pressed')).toBe('true');
         expect(featureItems).toHaveLength(6);
         expect(featureText()).toContain('Read any image by tapping it.');
-        expect(featureText()).toContain('Review words and kanji on the study page.');
+        expect(featureText()).toContain('Review words and characters on the study page.');
         expect(featureText()).toContain('Install the Yomu app to use in games or anywhere on the PC.');
         expect(document.querySelector('.jpdb-reader-onboarding-grid > div')).toBeNull();
 
-        youtubeFilter!.checked = false;
-        youtubeFilter!.dispatchEvent(new Event('change', { bubbles: true }));
-        siteLanguage!.checked = false;
-        pageScanManual!.checked = true;
-        pageScanManual!.dispatchEvent(new Event('change', { bubbles: true }));
-        expect(scanShortcutLabel?.hidden).toBe(false);
-        themeSwitch!.click();
+        youtubeFilter.checked = false;
+        youtubeFilter.dispatchEvent(new Event('change', { bubbles: true }));
+        siteLanguage.checked = false;
+        pageScanManual.checked = true;
+        pageScanManual.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(scanShortcutLabel.hidden).toBe(false);
+        themeSwitch.click();
         expect(settings.theme).toBe('dark');
-        expect(themeSwitch?.getAttribute('aria-checked')).toBe('true');
-        blueAccentSwatch!.click();
-        expect(accentColor?.value).toBe('#2563eb');
+        expect(themeSwitch.getAttribute('aria-checked')).toBe('true');
+        blueAccentSwatch.click();
+        expect(accentColor.value).toBe('#2563eb');
         expect(settings.accentColor).toBe('#2563eb');
         accentColor!.value = '#336699';
         accentColor!.dispatchEvent(new Event('input', { bubbles: true }));
         expect(settings.accentColor).toBe('#2563eb');
         accentColor!.dispatchEvent(new Event('change', { bubbles: true }));
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
         await settleAsyncHandlers();
 
         expect(settings.onboardingSeen).toBe(true);
@@ -112,7 +112,7 @@ describe('OnboardingController', () => {
         expect(settings.accentColor).toBe('#336699');
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
-        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) ?? '{}')).toMatchObject({
+        expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!)).toMatchObject({
             youtubeImmersionEnabled: false,
             preferJapaneseSiteLanguage: false,
             manualScanEnabled: true,
@@ -120,7 +120,7 @@ describe('OnboardingController', () => {
             accentColor: '#336699',
         });
         expect(JSON.parse(
-            localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) ?? 'null',
+            localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)!,
         )).toBe(false);
     });
 

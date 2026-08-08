@@ -1512,10 +1512,10 @@ export class SubtitlePlayerController {
     }
 
     private discoverVideoCandidate(): HTMLVideoElement | undefined {
-        return Array.from(document.querySelectorAll<HTMLVideoElement>('video'))
-            .filter(video => this.isSubtitleVideoCandidate(video))
-            .sort(compareSubtitleVideoCandidates)[0];
+        return Array.from(document.querySelectorAll<HTMLVideoElement>('video')).filter(video => this.isSubtitleVideoCandidate(video)).sort(compareSubtitleVideoCandidates)[0];
     }
+
+    hasDiscoverableVideoCandidate(): boolean { return Boolean(this.discoverVideoCandidate()); }
 
     private isSubtitleVideoCandidate(video: HTMLVideoElement): boolean {
         if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;

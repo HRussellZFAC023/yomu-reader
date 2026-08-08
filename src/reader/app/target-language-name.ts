@@ -31,7 +31,19 @@ export function targetLanguageDisplayName(settings: ReaderSettings): string {
  * adopted runtime target instead.
  */
 export function activeTargetLanguageDisplayName(interfaceLanguage: InterfaceLanguage): string {
-    return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+    return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+}
+
+/** Resolve a selected or adopted target without erasing catalogue identities such as sh/tl. */
+export function targetLanguageDisplayNameFor(tag: string, interfaceLanguage: InterfaceLanguage): string {
+    const uiLanguage = resolveUiLanguage(interfaceLanguage);
+    const subtag = languageSubtag(tag) ?? 'ja';
+    return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
+}
+
+function rosterIdentityDisplayName(subtag: string, uiLanguage: 'en' | 'ja'): string | undefined {
+    const identity = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
+    return TARGET_IDENTITY_NAMES[identity]?.[uiLanguage];
 }
 
 /**
@@ -53,12 +65,16 @@ export function activeContentLanguageAxes(settings: ReaderSettings): {
     const outputLanguage = outputLanguageOf(settings);
     return {
         targetLanguage,
-        targetName: languageDisplayNameFor(targetLanguage, settings.interfaceLanguage),
+        targetName: targetLanguageDisplayNameFor(targetLanguage, settings.interfaceLanguage),
         outputLanguage,
-        outputName: languageDisplayNameFor(outputLanguage, settings.interfaceLanguage),
+        outputName: targetLanguageDisplayNameFor(outputLanguage, settings.interfaceLanguage),
     };
 }
 
-function languageDisplayNameFor(tag: string, interfaceLanguage: InterfaceLanguage): string {
-    return headwordLanguageName(languageSubtag(tag) ?? 'ja', resolveUiLanguage(interfaceLanguage));
-}
+const TARGET_IDENTITY_NAMES: Partial<Record<string, Readonly<Record<'en' | 'ja', string>>>> = {
+    sh: { en: 'Serbo-Croatian', ja: 'セルボ・クロアチア語' },
+    tl: { en: 'Tagalog', ja: 'タガログ語' },
+};
+const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG: Readonly<Record<string, string>> = {
+    bs: 'sh', fil: 'tl', hr: 'sh', sr: 'sh',
+};

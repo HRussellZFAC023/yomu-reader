@@ -1,5 +1,5 @@
 import { formatUiText, uiText } from '../app/i18n';
-import { activeTargetLanguageDisplayName } from '../app/target-language-name';
+import { activeTargetLanguageDisplayName, targetLanguageDisplayNameFor } from '../app/target-language-name';
 import type { InterfaceLanguage } from '../app/types';
 
 export type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
@@ -20,8 +20,10 @@ export type SettingsText = (key: Parameters<typeof uiText>[1]) => string;
  * paint and the live interface-language relabel both resolve labels through this one
  * function, so neither can drift from the other or leak a raw `{language}` token.
  */
-export function settingsText(language: InterfaceLanguage): SettingsText {
-    const targetName = activeTargetLanguageDisplayName(language);
+export function settingsText(language: InterfaceLanguage, targetLanguage?: string): SettingsText {
+    const targetName = targetLanguage
+        ? targetLanguageDisplayNameFor(targetLanguage, language)
+        : activeTargetLanguageDisplayName(language);
     return key => {
         const message = uiText(language, key);
         return message.includes('{language}') ? formatUiText(language, key, { language: targetName }) : message;
