@@ -5,7 +5,7 @@
 //
 // The check pipeline regenerates these artifacts before anything inspects them:
 //
-//   build -> sync-docs-userscript -> docs:build -> verify
+//   build -> sync-docs-userscript -> build:academy -> docs:build -> verify
 //
 // scripts/sync-docs-userscript.cjs copies dist/newtab into docs/public/study,
 // and scripts/build-openapi.mjs rewrites docs/public/api, so by the time
