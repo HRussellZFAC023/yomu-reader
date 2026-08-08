@@ -222,6 +222,7 @@
     "smoke:popup-lifecycle": "node scripts/popup-lifecycle-smoke.mjs",
     "manual:popover-actions": "node scripts/manual/popover-action-pills-smoke.mjs",
     "manual:youtube-performance": "node scripts/manual/youtube-performance-profile.mjs",
+    "manual:youtube-performance-compare": "node scripts/manual/youtube-performance-comparison-smoke.mjs",
     "smoke:youtube-ruby-proof": "node scripts/youtube-ruby-coverage-proof.mjs",
     "smoke:youtube-title-recycler": "node scripts/youtube-title-recycler-smoke.mjs",
     "smoke:enrichment-concurrency": "node scripts/enrichment-concurrency-smoke.mjs",
