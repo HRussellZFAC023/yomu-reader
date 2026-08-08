@@ -45,7 +45,35 @@ with `npm run <name>` when investigating the area it covers.
 | `manual:youtube-auto-translation` | YouTube auto-translation fixture harness, currently red; kept for manual triage. |
 | `manual:youtube-fullscreen` | Needs real Chrome + real fullscreen top-layer promotion (persistent profile). |
 | `manual:youtube-homepage-performance` | Machine-dependent performance profiler (persistent profile). |
-| `manual:youtube-performance` | Deterministic YouTube profiler with timing thresholds. Set `YOMU_PROFILE_CPU=1` to record sampled self-time and exact function call counts; by default it profiles the built userscript and its matching checked-in runtime companion. |
+| `manual:youtube-performance` | Deterministic YouTube profiler with strict lookup evidence. Set `YOMU_PROFILE_CPU=1` to retain complete sampled self-time and function call counts; by default it profiles the built userscript and its matching checked-in runtime companion. |
 | `manual:youtube-real-dom-instability` | Persistent-profile harness reproducing real YouTube DOM churn. |
 | `manual:youtube-sidebar-layout` | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage. |
 | `manual:youtube-sidebar-resize-profile` | Machine-dependent resize performance profiler (persistent profile). |
+
+## Reproducible YouTube CPU comparison
+
+Use the same profiler commit, Playwright Chromium version, scenario, and workload for both sides of an A/B comparison. The only intended differences are `YOMU_PROFILE_ARTIFACT_DIR` and `YOMU_PROFILE_LABEL`:
+
+```bash
+YOMU_PROFILE_CPU=1 \
+YOMU_PROFILE_SCENARIOS=api \
+YOMU_PROFILE_AMBIENT_MS=15000 \
+YOMU_PROFILE_LOOKUP_SAMPLES=4 \
+YOMU_PROFILE_MOBILE_CPU_THROTTLE=4 \
+YOMU_PROFILE_ARTIFACT_DIR=/absolute/path/to/baseline-worktree \
+YOMU_PROFILE_LABEL=baseline-v1.8.86-cpu \
+npm run manual:youtube-performance
+
+YOMU_PROFILE_CPU=1 \
+YOMU_PROFILE_SCENARIOS=api \
+YOMU_PROFILE_AMBIENT_MS=15000 \
+YOMU_PROFILE_LOOKUP_SAMPLES=4 \
+YOMU_PROFILE_MOBILE_CPU_THROTTLE=4 \
+YOMU_PROFILE_ARTIFACT_DIR=/absolute/path/to/candidate-worktree \
+YOMU_PROFILE_LABEL=candidate-cpu \
+npm run manual:youtube-performance
+```
+
+The report records an aggregate SHA-256 for the profiler driver and its direct helpers, their Git commit and dirty paths, the browser version/executable, the artifact hashes, and the complete workload definition. `youtubeAmbientChurn` / `mobileYoutubeAmbientChurn` measure host rehydration, playback, and scrolling without popup work. `youtubeLookupTransactions` / `mobileYoutubeLookupTransactions` then run an exact number of lookups against the fixed `先生` and `今日` comment targets with ambient churn stopped.
+
+A run fails if a requested target is absent or occluded, a popup misses its deadline, any wrong popup appears before the expected one, or the resolved expression/source/lane differs from the plan. `profile.json` retains every precise-coverage call-count row and every sampled self-time row; the terminal output is only a compact view of the highest rows plus the named tracked functions. `YOMU_PROFILE_HOVER_STRESS_MS` remains a compatibility alias for `YOMU_PROFILE_AMBIENT_MS`, but it no longer controls lookup sample selection.

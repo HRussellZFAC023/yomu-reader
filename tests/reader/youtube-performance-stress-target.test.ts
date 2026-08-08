@@ -3,7 +3,10 @@ import { installYoutubePerformanceStressTargetSelector } from '../../scripts/lib
 
 interface StressTarget {
     expected: string;
+    expression: string;
     lane: string;
+    occurrence: number;
+    sourceText: string;
     x: number;
     y: number;
     geometry: {
@@ -14,8 +17,15 @@ interface StressTarget {
     };
 }
 
+interface StressTargetRequest {
+    expression: string;
+    lane: string;
+    occurrence?: number;
+    sourceText?: string;
+}
+
 type StressTargetWindow = Window & typeof globalThis & {
-    __yomuProfileSelectStressTarget?: (selector: string, sampleIndex?: number) => StressTarget | null;
+    __yomuProfileSelectStressTarget?: (selector: string, request: StressTargetRequest) => StressTarget | null;
 };
 
 let rangeRectsDescriptor: PropertyDescriptor | undefined;
@@ -49,11 +59,18 @@ describe('YouTube performance stress target selection', () => {
         stubClientRects(word, [new DOMRect(0, 0, 900, 500)]);
         stubElementFromPoint(() => source);
 
-        const target = selectTarget('.stress-candidate');
+        const target = selectTarget('.stress-candidate', {
+            expression: '日本語',
+            lane: 'portal',
+            sourceText: '日本語を読む',
+        });
 
         expect(target).toMatchObject({
             expected: '日本語',
+            expression: '日本語',
             lane: 'portal',
+            occurrence: 0,
+            sourceText: '日本語を読む',
             x: 44,
             y: 30,
             geometry: {
@@ -65,7 +82,7 @@ describe('YouTube performance stress target selection', () => {
         });
     });
 
-    it('rejects a projected word covered by the fixed OCR layer and selects a word that owns its point', () => {
+    it('rejects a covered requested target instead of substituting another expression', () => {
         const source = document.createElement('span');
         source.textContent = '日本語を読む';
         const { word: portalWord, fragment } = projectedPortalWord('日本語を読む', '日本語', 0, 3);
@@ -89,14 +106,36 @@ describe('YouTube performance stress target selection', () => {
         );
         stubElementFromPoint((x: number) => x < 100 ? ocrWord : visibleWord);
 
-        const target = selectTarget('.stress-candidate');
-
-        expect(target).toMatchObject({
-            expected: '先生',
-            lane: 'word',
-            x: 140,
-            y: 50,
+        const target = selectTarget('.stress-candidate', {
+            expression: '日本語',
+            lane: 'portal',
+            sourceText: '日本語を読む',
         });
+
+        expect(target).toBeNull();
+    });
+
+    it('selects the requested expression and lane regardless of DOM priority', () => {
+        const first = directWord('先生', new DOMRect(20, 20, 40, 20));
+        const second = directWord('今日', new DOMRect(120, 40, 40, 20));
+        document.body.append(first, second);
+        stubElementFromPoint((x: number) => x < 100 ? first : second);
+
+        const target = selectTarget('.stress-candidate', { expression: '今日', lane: 'word' });
+
+        expect(target).toMatchObject({ expression: '今日', lane: 'word', occurrence: 0, x: 140, y: 50 });
+    });
+
+    it('uses an exact occurrence and does not fall through when it is absent', () => {
+        const first = directWord('先生', new DOMRect(20, 20, 40, 20));
+        const second = directWord('先生', new DOMRect(120, 40, 40, 20));
+        document.body.append(first, second);
+        stubElementFromPoint((x: number) => x < 100 ? first : second);
+
+        expect(selectTarget('.stress-candidate', { expression: '先生', lane: 'word', occurrence: 1 }))
+            .toMatchObject({ expression: '先生', occurrence: 1, x: 140, y: 50 });
+        expect(selectTarget('.stress-candidate', { expression: '先生', lane: 'word', occurrence: 2 }))
+            .toBeNull();
     });
 });
 
@@ -119,8 +158,17 @@ function projectedPortalWord(sourceText: string, expression: string, start: numb
     return { word, fragment };
 }
 
-function selectTarget(selector: string): StressTarget | null {
-    return (window as StressTargetWindow).__yomuProfileSelectStressTarget?.(selector, 0) ?? null;
+function directWord(expression: string, rect: DOMRect): HTMLElement {
+    const word = document.createElement('span');
+    word.className = 'jpdb-reader-word stress-candidate';
+    word.dataset.expression = expression;
+    word.textContent = expression;
+    stubClientRects(word, [rect]);
+    return word;
+}
+
+function selectTarget(selector: string, request: StressTargetRequest): StressTarget | null {
+    return (window as StressTargetWindow).__yomuProfileSelectStressTarget?.(selector, request) ?? null;
 }
 
 function stubClientRects(element: Element, rects: DOMRect[]): void {

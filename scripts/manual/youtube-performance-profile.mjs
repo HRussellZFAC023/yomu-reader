@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { join, resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { join, relative, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
@@ -14,6 +15,13 @@ import {
 } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
 import { cdpMetrics, metricDelta } from '../lib/cdp-performance-metrics.mjs';
+import {
+    assertCompleteStressInteraction,
+    fixedStressLookupPlan,
+    summarizeCpuProfile,
+    summarizePreciseCoverage,
+    summarizeStressSamples,
+} from '../lib/youtube-performance-evidence.mjs';
 import { userscriptCompanionPaths } from '../lib/smoke-test-helpers.mjs';
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
@@ -41,8 +49,18 @@ const headed = process.env.YOMU_PROFILE_HEADED === '1';
 const cpuProfilingEnabled = process.env.YOMU_PROFILE_CPU === '1';
 const WATCH_URL = 'https://www.youtube.com/watch?v=profile123';
 const MOBILE_WATCH_URL = 'https://m.youtube.com/watch?v=profile123';
-const HOVER_STRESS_DURATION_MS = Number(process.env.YOMU_PROFILE_HOVER_STRESS_MS ?? 15_000);
-const MOBILE_CPU_THROTTLE_RATE = Number(process.env.YOMU_PROFILE_MOBILE_CPU_THROTTLE ?? 4);
+const AMBIENT_CHURN_DURATION_MS = positiveIntegerSetting(
+    process.env.YOMU_PROFILE_AMBIENT_MS ?? process.env.YOMU_PROFILE_HOVER_STRESS_MS ?? 15_000,
+    'YOMU_PROFILE_AMBIENT_MS',
+);
+const LOOKUP_SAMPLE_COUNT = positiveIntegerSetting(
+    process.env.YOMU_PROFILE_LOOKUP_SAMPLES ?? 4,
+    'YOMU_PROFILE_LOOKUP_SAMPLES',
+);
+const MOBILE_CPU_THROTTLE_RATE = positiveIntegerSetting(
+    process.env.YOMU_PROFILE_MOBILE_CPU_THROTTLE ?? 4,
+    'YOMU_PROFILE_MOBILE_CPU_THROTTLE',
+);
 const STRESS_WORD_SELECTOR = [
     'ytd-watch-metadata .jpdb-reader-word',
     'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
@@ -53,6 +71,25 @@ const STRESS_WORD_SELECTOR = [
     '.jpdb-reader-document-annotation-portal .jpdb-reader-word',
     '.jpdb-ocr-line .jpdb-reader-word',
 ].join(',');
+const LOOKUP_TARGET_SEQUENCE = Object.freeze([
+    Object.freeze({
+        id: 'first-comment-teacher',
+        expression: '先生',
+        lane: 'portal',
+        occurrence: 0,
+        scrollOffset: 0,
+        sourceText: '先生いつも配信ありがとうございました。日本語の字幕が本当に助かります。質問する',
+    }),
+    Object.freeze({
+        id: 'second-comment-today',
+        expression: '今日',
+        lane: 'portal',
+        occurrence: 0,
+        scrollOffset: 160,
+        sourceText: '今日の説明は分かりやすいです。復習してから本を読みます。',
+    }),
+]);
+const LOOKUP_PLAN = fixedStressLookupPlan(LOOKUP_TARGET_SEQUENCE, LOOKUP_SAMPLE_COUNT);
 // Baseline-only escape hatch: released/source candidates keep the strict
 // no-mirror assertion unless the profiler invocation says it is deliberately
 // measuring an already-known bad build. This lets a before/after run retain
@@ -164,6 +201,14 @@ function profileScenarioNames() {
     return raw.split(',').map(name => name.trim()).filter(Boolean);
 }
 
+function positiveIntegerSetting(value, name) {
+    const parsed = Number(value);
+    if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+        throw new Error(`${name} must be a positive integer; received ${value}.`);
+    }
+    return parsed;
+}
+
 function profileScenario(name) {
     const scenarios = {
         api: { name: 'api', apiKey: true, anki: false, allFeatures: false },
@@ -245,8 +290,26 @@ try {
     const profiles = [];
     for (const scenario of scenarioNames.map(profileScenario)) profiles.push(await runScenario(browser, scenario));
     const report = {
+        schemaVersion: 2,
         label: artifactLabel,
         generatedAt: new Date().toISOString(),
+        profilerDriver: profileDriverDescriptor(),
+        runtime: {
+            node: process.version,
+            platform: process.platform,
+            architecture: process.arch,
+        },
+        browser: {
+            name: 'chromium',
+            version: browser.version(),
+            executablePath: chromium.executablePath(),
+            headless: !headed,
+        },
+        workload: {
+            ambientChurnDurationMs: AMBIENT_CHURN_DURATION_MS,
+            lookupSampleCount: LOOKUP_SAMPLE_COUNT,
+            lookupTargetSequence: LOOKUP_TARGET_SEQUENCE,
+        },
         diagnostics: {
             allowTextMirrors: ALLOW_TEXT_MIRRORS,
             releaseEvidenceEligible: RELEASE_EVIDENCE_ELIGIBLE,
@@ -275,19 +338,61 @@ function functionProfileConsoleSummary(report, profilePath) {
     return {
         label: report.label,
         profilePath,
+        profilerDriver: report.profilerDriver,
+        browser: report.browser,
+        workload: report.workload,
         artifacts: report.artifacts,
         scenarios: report.scenarios.map(scenario => ({
             name: scenario.name,
-            steps: scenario.steps
-                .filter(step => step.functionProfile)
+            steps: [...scenario.steps, scenario.mobileAmbient, scenario.mobileStress]
+                .filter(step => step?.functionProfile)
                 .map(step => ({
                     name: step.name,
                     sampledMs: step.functionProfile.sampled.sampledMs,
-                    topSelfTime: step.functionProfile.sampled.topSelfTime.slice(0, 10),
-                    topCallCounts: step.functionProfile.calls.topCallCounts.slice(0, 15),
+                    highestSelfTime: step.functionProfile.sampled.selfTime.slice(0, 10),
+                    highestCallCounts: step.functionProfile.calls.callCounts.slice(0, 15),
+                    trackedCallCounts: step.functionProfile.calls.trackedCallCounts
+                        .filter(entry => entry.callCount > 0),
                 })),
         })),
     };
+}
+
+function profileDriverDescriptor() {
+    const repositoryRoot = resolve(import.meta.dirname, '../..');
+    const paths = [
+        resolve(import.meta.dirname, 'youtube-performance-profile.mjs'),
+        resolve(import.meta.dirname, '../lib/youtube-performance-evidence.mjs'),
+        resolve(import.meta.dirname, '../lib/youtube-performance-stress-target.mjs'),
+        resolve(import.meta.dirname, '../lib/cdp-performance-metrics.mjs'),
+        resolve(import.meta.dirname, '../fixtures/youtube-fixtures.mjs'),
+    ];
+    const files = paths.map(path => {
+        const contents = readFileSync(path);
+        return {
+            path: relative(repositoryRoot, path),
+            bytes: contents.length,
+            sha256: createHash('sha256').update(contents).digest('hex'),
+        };
+    });
+    const aggregate = createHash('sha256');
+    for (const file of files) aggregate.update(file.path).update('\0').update(file.sha256).update('\0');
+    return {
+        sha256: aggregate.digest('hex'),
+        gitCommit: gitOutput(repositoryRoot, ['rev-parse', 'HEAD']),
+        dirtyPaths: gitOutput(repositoryRoot, ['status', '--short', '--', ...files.map(file => file.path)])
+            .split(/\r?\n/u)
+            .filter(Boolean),
+        files,
+    };
+}
+
+function gitOutput(repositoryRoot, args) {
+    try {
+        return execFileSync('git', args, { cwd: repositoryRoot, encoding: 'utf8' }).trim();
+    } catch (error) {
+        throw new Error(`Unable to record profiler Git provenance: git ${args.join(' ')}`, { cause: error });
+    }
 }
 
 function assertProfileCompanionGraph(corePath, resolvedPaths) {
@@ -407,18 +512,32 @@ async function runScenario(browser, scenario) {
         ocrStep.interaction = ocrInteraction;
         profile.steps.push(ocrStep);
 
+        await prepareYoutubeAmbientChurn(page);
         await resetPagePerf(page);
-        const hoverStressStart = await beginStep(client);
-        const hoverStressInteraction = await exerciseYoutubeHoverStress(page, {
-            durationMs: HOVER_STRESS_DURATION_MS,
+        const ambientChurnStart = await beginStep(client);
+        const ambientChurnInteraction = await exerciseYoutubeAmbientChurn(page, {
+            durationMs: AMBIENT_CHURN_DURATION_MS,
             label: 'desktop',
         });
-        validateStressInteraction(hoverStressInteraction, scenario, 'desktop');
-        const hoverStressStep = await finishStep(page, client, hoverStressStart, 'youtubeHoverStress');
-        hoverStressStep.interaction = hoverStressInteraction;
-        profile.steps.push(hoverStressStep);
+        const ambientChurnStep = await finishStep(page, client, ambientChurnStart, 'youtubeAmbientChurn');
+        ambientChurnStep.interaction = ambientChurnInteraction;
+        profile.steps.push(ambientChurnStep);
 
-        profile.mobileStress = await runMobileHoverStress(context, scenario, scenarioArtifactsDir);
+        await prepareYoutubeLookupTransactions(page, LOOKUP_PLAN);
+        await resetPagePerf(page);
+        const lookupTransactionsStart = await beginStep(client);
+        const lookupTransactionsInteraction = await exerciseYoutubeLookupTransactions(page, {
+            label: 'desktop',
+            plan: LOOKUP_PLAN,
+        });
+        validateStressInteraction(lookupTransactionsInteraction, scenario, 'desktop');
+        const lookupTransactionsStep = await finishStep(page, client, lookupTransactionsStart, 'youtubeLookupTransactions');
+        lookupTransactionsStep.interaction = lookupTransactionsInteraction;
+        profile.steps.push(lookupTransactionsStep);
+
+        const mobile = await runMobileStressProfiles(context, scenario, scenarioArtifactsDir);
+        profile.mobileAmbient = mobile.ambient;
+        profile.mobileStress = mobile.lookup;
         validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile');
         await waitForYoutubeCommentParse(page, scenario);
         profile.finalState = await readPageState(page);
@@ -446,32 +565,46 @@ function validateParserTraffic(profile, scenario) {
     }
 }
 
-async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
+async function runMobileStressProfiles(context, scenario, scenarioArtifactsDir) {
     const page = await context.newPage();
     const client = await context.newCDPSession(page);
     await client.send('Performance.enable');
     await configureFunctionProfiling(client);
-    if (MOBILE_CPU_THROTTLE_RATE > 1) await client.send('Emulation.setCPUThrottlingRate', { rate: MOBILE_CPU_THROTTLE_RATE }).catch(() => undefined);
+    if (MOBILE_CPU_THROTTLE_RATE > 1) {
+        await client.send('Emulation.setCPUThrottlingRate', { rate: MOBILE_CPU_THROTTLE_RATE });
+    }
     await page.setViewportSize({ width: 390, height: 844 });
     await installRoutes(page, scenario);
     await page.goto(MOBILE_WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('.jpdb-subtitle-player', { timeout: 12000 });
     await page.waitForTimeout(2200);
+    await prepareYoutubeAmbientChurn(page);
     await resetPagePerf(page);
-    const started = await beginStep(client);
-    const interaction = await exerciseYoutubeHoverStress(page, {
-        durationMs: HOVER_STRESS_DURATION_MS,
+    const ambientStarted = await beginStep(client);
+    const ambientInteraction = await exerciseYoutubeAmbientChurn(page, {
+        durationMs: AMBIENT_CHURN_DURATION_MS,
         label: 'mobile',
+    });
+    const ambient = await finishStep(page, client, ambientStarted, 'mobileYoutubeAmbientChurn');
+    ambient.interaction = ambientInteraction;
+    ambient.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
+
+    await prepareYoutubeLookupTransactions(page, LOOKUP_PLAN);
+    await resetPagePerf(page);
+    const lookupStarted = await beginStep(client);
+    const lookupInteraction = await exerciseYoutubeLookupTransactions(page, {
+        label: 'mobile',
+        plan: LOOKUP_PLAN,
         activation: 'touch',
     });
-    validateStressInteraction(interaction, scenario, 'mobile');
+    validateStressInteraction(lookupInteraction, scenario, 'mobile');
     await waitForYoutubeCommentParse(page, scenario);
-    const step = await finishStep(page, client, started, 'mobileYoutubeHoverStress');
-    step.interaction = interaction;
-    step.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
+    const lookup = await finishStep(page, client, lookupStarted, 'mobileYoutubeLookupTransactions');
+    lookup.interaction = lookupInteraction;
+    lookup.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
     await page.screenshot({ path: join(scenarioArtifactsDir, 'youtube-performance-mobile.png'), fullPage: false }).catch(() => undefined);
     await page.close().catch(() => undefined);
-    return step;
+    return { ambient, lookup };
 }
 
 async function installInstrumentation(context) {
@@ -964,81 +1097,6 @@ async function finishFunctionProfile(client) {
     };
 }
 
-function sampledSelfTimeByNode(profile) {
-    return (profile.samples ?? []).reduce((selfTimeByNode, nodeId, index) => {
-        const deltaUs = profile.timeDeltas?.[index] ?? 0;
-        selfTimeByNode.set(nodeId, (selfTimeByNode.get(nodeId) ?? 0) + deltaUs);
-        return selfTimeByNode;
-    }, new Map());
-}
-
-function cpuFrameEntry(node, selfUs) {
-    const { callFrame: frame, hitCount = 0 } = node;
-    const { functionName = '', url = '', lineNumber = -1, columnNumber = -1 } = frame;
-    return {
-        functionName: functionName || '(anonymous)',
-        url,
-        line: lineNumber + 1,
-        column: columnNumber + 1,
-        selfUs,
-        samples: hitCount,
-    };
-}
-
-function mergeCpuFrame(selfTimeByFrame, entry) {
-    const key = `${entry.url}\n${entry.line}:${entry.column}\n${entry.functionName}`;
-    const current = selfTimeByFrame.get(key);
-    if (!current) {
-        selfTimeByFrame.set(key, entry);
-        return;
-    }
-    current.selfUs += entry.selfUs;
-    current.samples += entry.samples;
-}
-
-function summarizedCpuFrames(profile) {
-    const nodesById = new Map(profile.nodes.map(node => [node.id, node]));
-    const selfTimeByFrame = new Map();
-    for (const [nodeId, selfUs] of sampledSelfTimeByNode(profile)) {
-        mergeCpuFrame(selfTimeByFrame, cpuFrameEntry(nodesById.get(nodeId), selfUs));
-    }
-    return [...selfTimeByFrame.values()]
-        .map(({ selfUs, ...entry }) => ({ ...entry, selfMs: Math.round(selfUs / 100) / 10 }))
-        .filter(entry => entry.selfMs > 0)
-        .sort((left, right) => right.selfMs - left.selfMs)
-        .slice(0, 40);
-}
-
-function summarizeCpuProfile(profile) {
-    return {
-        sampleCount: profile.samples?.length ?? 0,
-        sampledMs: Math.round((profile.timeDeltas ?? []).reduce((sum, value) => sum + value, 0) / 100) / 10,
-        topSelfTime: summarizedCpuFrames(profile),
-    };
-}
-
-function preciseCoverageCall(script, fn) {
-    const range = fn.ranges[0];
-    if (!range || range.count <= 0) return null;
-    return {
-        functionName: fn.functionName,
-        url: script.url,
-        startOffset: range.startOffset,
-        callCount: range.count,
-    };
-}
-
-function summarizePreciseCoverage(scripts) {
-    const calls = scripts.flatMap(script => script.functions
-        .map(fn => preciseCoverageCall(script, fn))
-        .filter(Boolean));
-    calls.sort((left, right) => right.callCount - left.callCount);
-    return {
-        functionsCalled: calls.length,
-        topCallCounts: calls.slice(0, 80),
-    };
-}
-
 function parseRequestSummary(startIndex) {
     const slice = parseRequests.slice(startIndex);
     return {
@@ -1284,52 +1342,155 @@ async function exerciseOcrOverlay(page) {
     };
 }
 
-async function exerciseYoutubeHoverStress(page, options = {}) {
-    const durationMs = Number(options.durationMs ?? HOVER_STRESS_DURATION_MS);
-    const label = options.label ?? 'desktop';
-    const activation = options.activation ?? 'hover';
-    await ensureSubtitlePanelOpen(page).catch(() => undefined);
-    await page.evaluate(() => {
-        window.__yomuProfileExpandDescription?.();
+async function exerciseYoutubeAmbientChurn(page, options = {}) {
+    const durationMs = Number(options.durationMs);
+    const label = String(options.label);
+    const initialHostRestores = await page.evaluate(() => {
         window.__yomuProfileStartPlayback?.();
         window.__yomuProfileStartHostRehydrate?.({ intervalMs: 150 });
+        return window.__yomuProfileHostRestores ?? 0;
     });
-    await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, #secondary .jpdb-reader-word').length > 6, null, { timeout: 16000 }).catch(() => undefined);
-
-    const samples = [];
     const startedAt = Date.now();
-    let iteration = 0;
-    let paused = false;
-    while (Date.now() - startedAt < durationMs) {
-        const elapsed = Date.now() - startedAt;
-        if (!paused && elapsed > durationMs * 0.38) {
-            paused = true;
-            await page.evaluate(() => window.__yomuProfileStopPlayback?.());
-        } else if (paused && elapsed > durationMs * 0.68) {
-            paused = false;
-            await page.evaluate(() => window.__yomuProfileStartPlayback?.());
+    let cycles = 0;
+    let playbackPhase = 'playing';
+    try {
+        while (Date.now() - startedAt < durationMs) {
+            const elapsed = Date.now() - startedAt;
+            const nextPlaybackPhase = ambientPlaybackPhase(elapsed / durationMs);
+            if (nextPlaybackPhase !== playbackPhase) {
+                playbackPhase = nextPlaybackPhase;
+                await setAmbientPlaybackPhase(page, playbackPhase);
+            }
+            await page.evaluate(index => {
+                const comments = document.querySelector('#comments, ytm-comment-section-renderer');
+                const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
+                window.scrollTo({ top: Math.max(0, top + (index % 5) * 180), behavior: 'instant' });
+            }, cycles);
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
+            cycles += 1;
+            await page.waitForTimeout(90);
         }
-        await page.evaluate(index => {
-            const comments = document.querySelector('#comments, ytm-comment-section-renderer');
-            const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
-            window.scrollTo({ top: Math.max(0, top + (index % 5) * 180), behavior: 'instant' });
-        }, iteration);
-        // User input can only target a painted frame. Let scroll projection and
-        // fixed overlay geometry settle, then require the resolver below to
-        // prove that the chosen word actually owns its point.
-        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
-        samples.push(await hoverStressSample(page, iteration, label, activation));
-        iteration += 1;
-        await page.waitForTimeout(90);
+    } finally {
+        await page.evaluate(() => {
+            window.__yomuProfileStopHostRehydrate?.();
+            window.__yomuProfileStopPlayback?.();
+        });
     }
-    await page.evaluate(() => window.__yomuProfileStopHostRehydrate?.());
-    if (activation === 'hover') await page.mouse.move(8, 8).catch(() => undefined);
+    const finalHostRestores = await page.evaluate(() => window.__yomuProfileHostRestores ?? 0);
+    assertAmbientChurnExecuted(label, cycles, finalHostRestores - initialHostRestores);
     return {
         label,
+        workload: 'ambient-churn',
+        requestedDurationMs: durationMs,
         durationMs: Date.now() - startedAt,
-        samples,
-        summary: hoverStressSummary(samples),
+        cycles,
+        hostRestores: finalHostRestores - initialHostRestores,
     };
+}
+
+async function exerciseYoutubeLookupTransactions(page, options = {}) {
+    const { label, activation, plan } = options;
+    const samples = [];
+    const startedAt = Date.now();
+    for (const request of plan) {
+        await page.evaluate(scrollOffset => {
+            const comments = document.querySelector('#comments, ytm-comment-section-renderer');
+            const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
+            window.scrollTo({ top: Math.max(0, top + scrollOffset), behavior: 'instant' });
+        }, request.scrollOffset);
+        // Input must target the same painted expression on every run. Settle the
+        // fixed scroll, then let the resolver prove that exact source owns it.
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
+        samples.push(await hoverStressSample(page, request, label, activation));
+        await page.waitForTimeout(90);
+    }
+    await finishLookupPointer(page, activation);
+    return {
+        label,
+        workload: 'lookup-transactions',
+        durationMs: Date.now() - startedAt,
+        sampleCount: plan.length,
+        plan,
+        samples,
+        summary: summarizeStressSamples(samples),
+    };
+}
+
+function ambientPlaybackPhase(progress) {
+    if (progress < 0.38) return 'playing';
+    if (progress < 0.68) return 'paused';
+    return 'playing';
+}
+
+async function setAmbientPlaybackPhase(page, phase) {
+    await page.evaluate(playing => {
+        if (playing) window.__yomuProfileStartPlayback?.();
+        else window.__yomuProfileStopPlayback?.();
+    }, phase === 'playing');
+}
+
+function assertAmbientChurnExecuted(label, cycles, hostRestores) {
+    if (cycles <= 0) throw new Error(`${label}: ambient churn completed no scroll cycles.`);
+    if (hostRestores <= 0) throw new Error(`${label}: ambient churn completed no host restores.`);
+}
+
+async function finishLookupPointer(page, activation) {
+    if (activation !== 'hover') return;
+    await page.mouse.move(8, 8).catch(() => undefined);
+}
+
+async function prepareYoutubeAmbientChurn(page) {
+    await prepareYoutubeStressSurface(page);
+    await closeStressPopover(page);
+    await page.evaluate(() => {
+        window.__yomuProfileStopHostRehydrate?.();
+        window.__yomuProfileStopPlayback?.();
+    });
+}
+
+async function prepareYoutubeLookupTransactions(page, plan) {
+    await page.evaluate(() => {
+        window.__yomuProfileStopHostRehydrate?.();
+        window.__yomuProfileStopPlayback?.();
+    });
+    await prepareYoutubeStressSurface(page);
+    await waitForLookupPlanReady(page, plan);
+    await closeStressPopover(page);
+}
+
+async function prepareYoutubeStressSurface(page) {
+    await ensureSubtitlePanelOpen(page);
+    await page.evaluate(() => window.__yomuProfileExpandDescription?.());
+    await page.waitForFunction(() => document.querySelectorAll([
+        'ytd-watch-metadata .jpdb-reader-word',
+        'ytd-comment-view-model .jpdb-reader-word',
+        'ytm-comment-renderer .jpdb-reader-word',
+        'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
+        '#secondary .jpdb-reader-word',
+    ].join(',')).length > 6, null, { timeout: 16000 });
+}
+
+async function waitForLookupPlanReady(page, plan) {
+    await page.waitForFunction(({ selector, targets }) => {
+        const words = [...document.querySelectorAll(selector)];
+        return targets.every(request => words.some(word => {
+            const lane = word.closest('.jpdb-reader-document-annotation-portal')
+                ? 'portal'
+                : word.closest('.jpdb-reader-additive-text-mirror')
+                    ? 'mirror'
+                    : word.closest('.jpdb-ocr-line')
+                        ? 'ocr'
+                        : 'word';
+            const expression = word.dataset.expression
+                || word.dataset.surface
+                || word.textContent?.replace(/\s+/gu, '').slice(0, 6)
+                || '';
+            const sourceText = word.closest('.jpdb-reader-additive-text-mirror')?.dataset.sourceText ?? '';
+            return lane === request.lane
+                && expression === request.expression
+                && (!request.sourceText || sourceText === request.sourceText);
+        }));
+    }, { selector: STRESS_WORD_SELECTOR, targets: plan }, { timeout: 16000 });
 }
 
 async function waitForYoutubeCommentParse(page, scenario) {
@@ -1341,16 +1502,18 @@ async function waitForYoutubeCommentParse(page, scenario) {
         ].join(','))];
         if (!words.length) return false;
         return !requireRuby || words.some(word => word.querySelector('rt,.jpdb-reader-detached-furi'));
-    }, Boolean(scenario.apiKey), { timeout: 20_000 }).catch(() => undefined);
+    }, Boolean(scenario.apiKey), { timeout: 20_000 });
 }
 
-async function hoverStressSample(page, index, label, activation = 'hover') {
+async function hoverStressSample(page, request, label, activation = 'hover') {
     await closeStressPopover(page);
-    if (activation === 'touch') return await touchStressSample(page, index, label);
-    const target = await page.evaluate(({ sampleIndex, selector }) => (
-        window.__yomuProfileSelectStressTarget?.(selector, sampleIndex) ?? null
-    ), { sampleIndex: index, selector: STRESS_WORD_SELECTOR });
-    if (!target) return { label, skipped: true, reason: 'no-visible-word' };
+    if (activation === 'touch') return await touchStressSample(page, request, label);
+    const target = await page.evaluate(({ targetRequest, selector }) => (
+        window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null
+    ), { targetRequest: request, selector: STRESS_WORD_SELECTOR });
+    if (!target) {
+        return { label, request, index: request.sampleIndex, skipped: true, reason: 'requested-target-not-visible' };
+    }
 
     const started = await page.evaluate(expected => {
         window.__yomuProfileHoverProbe = {
@@ -1358,6 +1521,8 @@ async function hoverStressSample(page, index, label, activation = 'hover') {
             expected,
             seenAt: null,
             expectedAt: null,
+            wrongAt: null,
+            wrongText: '',
             text: '',
         };
         return window.__yomuProfileHoverProbe.startedAt;
@@ -1367,11 +1532,14 @@ async function hoverStressSample(page, index, label, activation = 'hover') {
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
     return {
         label,
-        index,
+        request,
+        index: request.sampleIndex,
         activation,
         target,
         opened: seen,
         popoverVisible: Boolean(probe?.seenAt),
+        wrongPopoverVisible: Boolean(probe?.wrongAt),
+        wrongPopoverText: probe?.wrongText ?? '',
         ms: probe?.seenAt ? Math.round((probe.seenAt - started) * 10) / 10 : null,
         expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - started) * 10) / 10 : null,
         popoverText: probe?.text ?? '',
@@ -1379,15 +1547,15 @@ async function hoverStressSample(page, index, label, activation = 'hover') {
 }
 
 async function closeStressPopover(page) {
-    const hasPopover = await page.locator('.jpdb-reader-popover').count().then(count => count > 0).catch(() => false);
+    const hasPopover = await page.locator('.jpdb-reader-popover').count().then(count => count > 0);
     if (!hasPopover) return;
-    await page.keyboard.press('Escape').catch(() => undefined);
-    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 500 }).catch(() => undefined);
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 500 });
 }
 
-async function touchStressSample(page, index, label) {
-    const result = await page.evaluate(({ sampleIndex, selector }) => {
-        const target = window.__yomuProfileSelectStressTarget?.(selector, sampleIndex) ?? null;
+async function touchStressSample(page, request, label) {
+    const result = await page.evaluate(({ targetRequest, selector }) => {
+        const target = window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null;
         if (!target) return null;
         const { x, y } = target;
         // Portal paint is pointer-transparent. Dispatch through the element a
@@ -1401,6 +1569,8 @@ async function touchStressSample(page, index, label) {
             expected: target.expected,
             seenAt: null,
             expectedAt: null,
+            wrongAt: null,
+            wrongText: '',
             text: '',
         };
         const base = {
@@ -1428,17 +1598,22 @@ async function touchStressSample(page, index, label) {
                 eventTarget: `${eventTarget.tagName.toLowerCase()}${eventTarget.id ? `#${eventTarget.id}` : ''}`,
             },
         };
-    }, { sampleIndex: index, selector: STRESS_WORD_SELECTOR });
-    if (!result) return { label, skipped: true, reason: 'no-visible-word' };
+    }, { targetRequest: request, selector: STRESS_WORD_SELECTOR });
+    if (!result) {
+        return { label, request, index: request.sampleIndex, skipped: true, reason: 'requested-target-not-visible' };
+    }
     const seen = await waitForStressPopover(page, result.target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
     return {
         label,
-        index,
+        request,
+        index: request.sampleIndex,
         activation: 'touch',
         target: result.target,
         opened: seen,
         popoverVisible: Boolean(probe?.seenAt),
+        wrongPopoverVisible: Boolean(probe?.wrongAt),
+        wrongPopoverText: probe?.wrongText ?? '',
         ms: probe?.seenAt ? Math.round((probe.seenAt - result.started) * 10) / 10 : null,
         expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - result.started) * 10) / 10 : null,
         popoverText: probe?.text ?? '',
@@ -1469,10 +1644,15 @@ async function waitForStressPopover(page, expected, timeoutMs = 3200) {
             const now = performance.now();
             const popover = document.querySelector('.jpdb-reader-popover');
             const text = popover?.textContent?.replace(/\s+/gu, '') ?? '';
-            const hasExpectedText = expectedText ? text.includes(expectedText) : Boolean(text);
+            const headwordText = popover?.querySelector('[data-yomu-headword]')?.textContent?.replace(/\s+/gu, '') ?? '';
+            const hasExpectedText = expectedText ? headwordText.includes(expectedText) : Boolean(headwordText);
             if (popover && probe.seenAt === null) {
                 probe.seenAt = now;
                 probe.text = text.slice(0, 120);
+            }
+            if (headwordText && !hasExpectedText && probe.wrongAt === null) {
+                probe.wrongAt = now;
+                probe.wrongText = headwordText.slice(0, 120);
             }
             if (popover && hasExpectedText && probe.expectedAt === null) {
                 probe.expectedAt = now;
@@ -1485,41 +1665,11 @@ async function waitForStressPopover(page, expected, timeoutMs = 3200) {
         };
         timer = window.setTimeout(sample, deadlineMs);
         requestAnimationFrame(sample);
-    }), { expectedText: expected, deadlineMs: timeoutMs }).catch(() => false);
-}
-
-function hoverStressSummary(samples) {
-    const opened = samples.filter(sample => sample.opened && typeof sample.expectedMs === 'number')
-        .map(sample => sample.expectedMs)
-        .sort((a, b) => a - b);
-    return {
-        count: samples.length,
-        opened: opened.length,
-        timedOut: samples.filter(sample => sample.opened === false).length,
-        visibleWrongPopover: samples.filter(sample => sample.opened === false && sample.popoverVisible).length,
-        p50Ms: percentile(opened, 0.5),
-        p95Ms: percentile(opened, 0.95),
-        maxMs: opened.at(-1) ?? null,
-        over250Ms: opened.filter(ms => ms > 250).length,
-        over1000Ms: opened.filter(ms => ms > 1000).length,
-    };
+    }), { expectedText: expected, deadlineMs: timeoutMs });
 }
 
 function validateStressInteraction(interaction, scenario, label) {
-    const summary = interaction?.summary;
-    if (!summary || summary.count <= 0) {
-        throw new Error(`${scenario.name} ${label}: no lookup interaction samples were collected`);
-    }
-    if (summary.opened <= 0 && RELEASE_EVIDENCE_ELIGIBLE) {
-        const diagnosticSamples = interaction.samples?.slice(-3) ?? [];
-        throw new Error(`${scenario.name} ${label}: no lookup popup opened during the stress profile; samples=${JSON.stringify(diagnosticSamples)}`);
-    }
-}
-
-function percentile(values, percentileValue) {
-    if (!values.length) return null;
-    const index = Math.min(values.length - 1, Math.max(0, Math.ceil(values.length * percentileValue) - 1));
-    return Math.round(values[index] * 10) / 10;
+    assertCompleteStressInteraction(interaction, LOOKUP_PLAN, `${scenario.name} ${label}`);
 }
 
 async function readPageState(page) {

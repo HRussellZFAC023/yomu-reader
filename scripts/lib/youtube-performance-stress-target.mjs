@@ -4,29 +4,56 @@
  * serializes it into the page; it must not close over module state.
  */
 export function installYoutubePerformanceStressTargetSelector() {
-    window.__yomuProfileSelectStressTarget = (selector, sampleIndex = 0) => {
+    window.__yomuProfileSelectStressTarget = selectStressTarget;
+
+    function selectStressTarget(selector, request) {
+        if (!validTargetRequest(request)) return null;
+        const occurrence = requestedOccurrence(request);
         const words = [...document.querySelectorAll(selector)].filter(word => word instanceof HTMLElement);
         const candidates = words
             .map((word, domIndex) => {
                 const lane = stressLane(word);
                 return { word, domIndex, lane, priority: targetPriority(lane, word) };
             })
+            .filter(candidate => candidateMatchesRequest(candidate, request))
             .sort((left, right) => left.priority - right.priority || left.domIndex - right.domIndex);
-        if (!candidates.length) return null;
-        // Stop on the first exact, unoccluded point. Mapping every portal on a
-        // 900-word stress page would itself force hundreds of Range layouts and
-        // contaminate the performance numbers this harness is meant to record.
-        for (let offset = 0; offset < candidates.length; offset += 1) {
-            const candidate = candidates[(sampleIndex + offset) % candidates.length];
-            const target = stressTargetForWord(candidate.word, candidate.domIndex, candidate.lane);
-            if (!target) continue;
-            const { priority, domIndex, ...result } = target;
-            void priority;
-            void domIndex;
-            return result;
-        }
-        return null;
-    };
+        const candidate = candidates[occurrence];
+        if (!candidate) return null;
+        // Resolve only the requested occurrence. Falling through to another
+        // expression or DOM position makes two profiler runs incomparable.
+        return resolveRequestedTarget(candidate, occurrence);
+    }
+
+    function validTargetRequest(request) {
+        if (!request) return false;
+        return typeof request.expression === 'string' && typeof request.lane === 'string';
+    }
+
+    function requestedOccurrence(request) {
+        if (!Number.isSafeInteger(request.occurrence)) return 0;
+        if (request.occurrence < 0) return 0;
+        return request.occurrence;
+    }
+
+    function candidateMatchesRequest(candidate, request) {
+        if (candidate.lane !== request.lane) return false;
+        if (targetExpression(candidate.word) !== request.expression) return false;
+        if (!request.sourceText) return true;
+        return sourceTextForWord(candidate.word) === request.sourceText;
+    }
+
+    function resolveRequestedTarget(candidate, occurrence) {
+        const target = stressTargetForWord(candidate.word, candidate.domIndex, candidate.lane);
+        if (!target) return null;
+        const { priority, domIndex, ...result } = target;
+        void priority;
+        void domIndex;
+        return {
+            ...result,
+            occurrence,
+            sourceText: sourceTextForWord(candidate.word),
+        };
+    }
 
     function stressTargetForWord(word, domIndex, lane) {
         const mirror = word.closest('.jpdb-reader-additive-text-mirror');
@@ -92,6 +119,17 @@ export function installYoutubePerformanceStressTargetSelector() {
         if (lane === 'ocr') return 3;
         if (lane === 'portal') return 4;
         return 5;
+    }
+
+    function targetExpression(word) {
+        return word.dataset.expression
+            || word.dataset.surface
+            || word.textContent?.replace(/\s+/gu, '').slice(0, 6)
+            || '';
+    }
+
+    function sourceTextForWord(word) {
+        return word.closest('.jpdb-reader-additive-text-mirror')?.dataset.sourceText ?? '';
     }
 
     function directWordIdentity(eventTarget, word) {
