@@ -4,12 +4,13 @@
 
 <h1>よむ <sub>· Yomu</sub></h1>
 
-<p><b>Read Japanese without leaving the page. Understand it, hear it, and save it for study.</b></p>
+<p><b>Read the language you are learning without leaving the page. Understand it and save it for study.</b></p>
 
 <p>
-  よむ is a Japanese popup reader for websites, manga, game text, PDFs, and subtitles.
-  It runs as a userscript, works on desktop and mobile, and connects to the tools
-  Japanese learners already use: Yomitan dictionaries, Anki, Jiten, Bunpro, JPDB, and WaniKani.
+  よむ is a popup reader for Japanese plus 32 reading targets across websites,
+  manga, game text, PDFs, and subtitles. Japanese remains the deepest target.
+  It runs as a userscript, works on desktop and mobile, and connects to Yomitan
+  dictionaries, Anki, Jiten, Bunpro, JPDB, and WaniKani where those sources apply.
 </p>
 
 <p>
@@ -50,10 +51,10 @@
 
 ## Why よむ
 
-- **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
+- **Lookup anywhere:** choose text in the selected target on normal pages, OCR results, subtitles, and PDFs.
 - **Choose what you read:** first-run setup and Settings name every study target and show its readiness. Japanese has the full よむ path; the other 32 targets are labelled for reading and lookup. Choose any of the 32 definition languages separately, with opt-in translation that keeps the original definition underneath.
 - **Study the selected language:** local Study queues stay on the target in your profile, and a complete example sentence gets the same Recall gap in Spanish or Japanese. Audio-dependent Listen and Speak modes show when target audio is not yet available instead of silently disappearing.
-- **Inspect grammar in context:** Japanese keeps its 307-rule local detector. Spanish, French, German, and Russian add checked CEFR starter sets. Every other learning target keeps the Grammar card visible with a substantive reference link; the [coverage table](https://yomureader.com/reference/grammar) names each state and source.
+- **Inspect grammar in context:** Japanese keeps its 307-rule local detector. Spanish, French, German, and Russian have bounded starter sets; every other target has one narrow, cited foundation construction. These are not equivalent inventories: the [coverage table](https://yomureader.com/reference/grammar) names each scope and source.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
 - **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
 - **Optional encrypted Reader account:** create an account from yomureader.com, pair Reader with a one-time code, and synchronize Academy/local SRS states without giving Yomu the decryption key. A free Reader account does not unlock the separate Academy curriculum.

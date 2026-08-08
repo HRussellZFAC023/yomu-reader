@@ -36,8 +36,9 @@ The Reader Slice 1 runtime is narrower than full UI localization: it adds 32 lea
 This directory records the original output-language/localization slice. It is
 not the current target-language feature boundary: Reader behavior now covers a
 fixed roster of 33 learning targets, including Japanese. Keep those concerns
-separate. Run the fail-closed target behavior gate for the complete
-18-capability loop and inspect its per-target evidence:
+separate. Run the fail-closed 18-capability target behavior gate and inspect
+which rows are delivered, adapted, data-backed, fallback-backed, or explicitly
+unavailable:
 
 ```bash
 npm run quality:multilingual-capabilities
@@ -46,7 +47,9 @@ npm run quality:multilingual-capabilities
 See [`../dev/multilingual-capability-audit.md`](../dev/multilingual-capability-audit.md)
 for the executable contract and its offline limits. The 32-language catalogue
 and native-review counts below still describe interface/output localization;
-they do not reduce target-language feature availability.
+they do not promote target-language readiness. Japanese remains `full`; the
+other 32 targets remain `reading-only` until their target/data depth and the
+separate D43 full-interface localization work are genuinely complete.
 
 Run:
 

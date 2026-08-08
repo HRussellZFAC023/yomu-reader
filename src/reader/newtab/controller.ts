@@ -84,14 +84,11 @@ import {
 } from '../languages/target-runtime';
 import { languageDisplayName } from '../languages/locale';
 import {
-    targetCanHandwriteText,
     targetCanLookupCharacter,
-    targetCanHandwriteCharacter,
     targetSupportsHandwriting,
     usesJapaneseCharacterStudy,
     usesJapaneseProviders,
 } from '../languages/character-lookup';
-import { isolate } from '../locales/direction';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import {
@@ -166,6 +163,18 @@ import {
     type NewTabReviewSourceSummary,
 } from './review-controls';
 import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallCloze, type NewTabRecallOutcome } from './recall-practice';
+import {
+    applyTypeWordSelfCheckAction,
+    installSelfCheckDoodle,
+    nextTypeWordHandwritingIndex,
+    renderSelfCheckHandwriting,
+    renderStrokeFeedbackHandwriting,
+    renderTypeWordKeyboard,
+    renderTypeWordModeToggle,
+    targetSupportsTypeWordHandwriting,
+    typeWordOutcomeLabel,
+    type TypeWordSelfCheckAction,
+} from './type-word-rendering';
 import { normalizeLearningTargetInput } from './typing-input';
 import { PitchSrsStore, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
 import { renderListenCard, type ListenCardView, type ListenOutcome } from './listen-render';
@@ -857,9 +866,9 @@ export class NewTabController {
         'dismiss-study-tour': root => { void this.dismissStudyTour(root); },
         'recall-submit': root => this.submitRecallAnswer(root),
         'type-word-submit': root => this.submitTypeWordAnswer(root),
-        'type-word-handwriting-check': root => this.revealTypeWordHandwritingCheck(root),
-        'type-word-handwriting-match': root => this.acceptTypeWordHandwritingCheck(root),
-        'type-word-handwriting-retry': root => this.retryTypeWordHandwritingCheck(root),
+        'type-word-handwriting-check': root => this.handleTypeWordHandwritingSelfCheck(root, 'reveal'),
+        'type-word-handwriting-match': root => this.handleTypeWordHandwritingSelfCheck(root, 'match'),
+        'type-word-handwriting-retry': root => this.handleTypeWordHandwritingSelfCheck(root, 'retry'),
         'type-word-skip': root => this.skipTypeWord(root),
         'type-word-mode': (root, target) => this.handleTypeWordModeClick(root, target),
         'listen-pick': (root, target) => this.handleListenPick(root, target),
@@ -6523,7 +6532,7 @@ export class NewTabController {
                 dataset: { newtabTypeResult: feedback },
                 role: 'status',
                 'aria-live': 'polite',
-            }, this.typeWordOutcomeLabel(feedback, card)) : null,
+            }, typeWordOutcomeLabel(feedback, this.typeWordTarget(card), key => this.text(key))) : null,
             el('div', { class: 'jpdb-reader-newtab-type-secondary' },
                 this.renderTypeWordModeToggle(mode, card),
                 el('button', {
@@ -6533,58 +6542,24 @@ export class NewTabController {
                 }, this.text('typeWordSkip'))),
         );
         if (mode === 'handwriting') this.installTypeWordDoodle(answer, card);
-        else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer);
+        else if (!this.state.revealAnswer) this.focusStudyInputSoon(answer, '[data-newtab-type-input]');
     }
 
     private renderTypeWordModeToggle(mode: NewTabTypeWordInputMode, card: JPDBCard): HTMLElement {
-        const supportsHandwriting = this.typeWordSupportsHandwriting(card);
-        const button = (value: NewTabTypeWordInputMode, label: string) => el('button', {
-            class: 'jpdb-reader-newtab-type-mode',
-            type: 'button',
-            dataset: { newtabAction: newTabAction('type-word-mode'), typeWordMode: value, active: String(mode === value) },
-            'aria-pressed': String(mode === value),
-            disabled: value === 'handwriting' && !supportsHandwriting,
-            title: value === 'handwriting' && !supportsHandwriting ? this.text('typeWordHandwritingUnavailable') : undefined,
-        }, label);
-        return el('div', { class: 'jpdb-reader-newtab-type-modes', role: 'group', 'aria-label': this.text('typeWordModeGroup') },
-            button('keyboard', this.text('typeWordModeKeyboard')),
-            button('handwriting', this.text('typeWordModeHandwriting')),
-        );
+        return renderTypeWordModeToggle({ mode, supportsHandwriting: this.typeWordSupportsHandwriting(card), text: key => this.text(key) });
     }
 
     private renderTypeWordKeyboard(card: JPDBCard, feedback?: NewTabRecallOutcome): HTMLElement {
-        const readyToContinue = feedback === 'correct' || feedback === 'accepted';
         const target = newTabCardTarget(card);
-        return el('form', { class: 'jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form', dataset: { newtabTypeForm: true } },
-            this.renderStudyWordAudioButton(card),
-            el('input', {
-                class: 'jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input',
-                dataset: { newtabTypeInput: true },
-                value: this.stepState(cardKey(card))?.type?.answer ?? '',
-                placeholder: this.text('typeWordPlaceholder'),
-                autocomplete: 'off',
-                autocapitalize: 'none',
-                autocorrect: 'off',
-                spellcheck: false,
-                inputmode: 'text',
-                enterkeyhint: 'done',
-                lang: target.typography.contentLocale,
-                dir: target.direction,
-                'aria-label': this.text('typeWordPlaceholder'),
-                disabled: this.state.revealAnswer,
-                readOnly: readyToContinue,
-            }),
-            el('button', {
-                class: 'jpdb-reader-newtab-recall-check',
-                type: 'button',
-                dataset: { newtabAction: newTabAction('type-word-submit') },
-                'aria-label': this.text(readyToContinue ? 'continueStudying' : 'recallCheck'),
-            }, readyToContinue ? `${this.text('continueStudying')} →` : `${this.text('recallCheck')} →`),
-        );
+        return renderTypeWordKeyboard({
+            answer: this.stepState(cardKey(card))?.type?.answer ?? '', feedback,
+            language: target.typography.contentLocale, direction: target.direction,
+            revealAnswer: this.state.revealAnswer, audioButton: this.renderStudyWordAudioButton(card),
+            text: key => this.text(key),
+        });
     }
 
-    // Handwriting grades only the word's kanji. Kana remains visible as fixed
-    // scaffolding, so 飲み物 is presented as ＿み＿ and never asks the learner
+    // Grade only kanji; kana scaffolding stays visible (飲み物 -> ＿み＿) and never asks for token strokes.
     // to scribble a token stroke merely to advance past み.
     private renderTypeWordHandwriting(card: JPDBCard): HTMLElement {
         if (this.typeWordUsesSelfCheck(card)) {
@@ -6593,22 +6568,10 @@ export class NewTabController {
         const target = this.typeWordTarget(card);
         const chars = Array.from(target);
         const progress = this.typeWordHandwritingProgress(card, chars);
-        return el('div', { class: 'jpdb-reader-newtab-type-handwriting', dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
-            el('div', { class: 'jpdb-reader-newtab-type-handwriting-track', 'aria-label': this.text('typeWordProgress') },
-                chars.map((character, index) => {
-                    const fixed = !isKanjiCharacter(character);
-                    const done = !fixed && index < progress;
-                    return el('span', {
-                        class: 'jpdb-reader-newtab-type-handwriting-cell',
-                        lang: 'ja',
-                        dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === progress) },
-                    }, fixed || done ? character : '＿');
-                })),
-            progress >= chars.length
-                ? el('div', { class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result', dataset: { newtabTypeResult: 'correct' } }, this.text('typeWordAllDone'))
-                : el('div', { class: 'jpdb-reader-newtab-type-handwriting-prompt', lang: 'ja' }, this.text('typeWordWriteChar')),
-            this.kanjiDoodleFront(),
-        );
+        return renderStrokeFeedbackHandwriting({
+            chars, progress, doodleFront: this.kanjiDoodleFront(),
+            isFixed: character => !isKanjiCharacter(character), text: key => this.text(key),
+        });
     }
 
     private installTypeWordDoodle(answer: HTMLElement, card: JPDBCard): void {
@@ -6656,7 +6619,7 @@ export class NewTabController {
         const key = cardKey(card);
         const chars = Array.from(this.typeWordTarget(card));
         const progress = this.typeWordHandwritingProgress(card, chars);
-        const next = this.nextTypeWordHandwritingIndex(chars, progress + 1);
+        const next = nextTypeWordHandwritingIndex(chars, progress + 1);
         this.typeHandwritingProgress.set(key, next);
         if (next >= chars.length) {
             // All characters cleared -> the whole word passes. A wrong char along
@@ -6672,9 +6635,7 @@ export class NewTabController {
 
     private typeWordSupportsHandwriting(card: JPDBCard): boolean {
         const target = newTabCardTarget(card);
-        return target.experiences.handwriting === 'self-check'
-            ? targetCanHandwriteText(this.typeWordTarget(card), target)
-            : Array.from(this.typeWordTarget(card)).some(targetCanHandwriteCharacter);
+        return targetSupportsTypeWordHandwriting(target, this.typeWordTarget(card));
     }
 
     private typeWordUsesSelfCheck(card: JPDBCard): boolean {
@@ -6684,130 +6645,43 @@ export class NewTabController {
 
     private renderTypeWordSelfCheckHandwriting(card: JPDBCard): HTMLElement {
         const target = newTabCardTarget(card);
-        const state = this.stepState(cardKey(card))?.type;
-        const revealed = Boolean(state?.selfCheckRevealed);
-        const passed = state?.feedback === 'correct';
-        return el('div', {
-            class: 'jpdb-reader-newtab-type-handwriting jpdb-reader-newtab-type-handwriting-self-check',
-            dataset: { typeWordSelfCheck: true },
-        },
-            el('p', { class: 'jpdb-reader-newtab-type-handwriting-prompt' }, this.text('typeWordWriteWord')),
-            this.selfCheckDoodleFront(),
-            el('div', {
-                class: 'jpdb-reader-newtab-type-self-check-answer jpdb-reader-parseable',
-                dataset: { typeWordSelfCheckAnswer: true },
-                lang: target.typography.contentLocale,
-                dir: target.direction,
-                hidden: !revealed,
-            }, this.typeWordTarget(card)),
-            passed
-                ? el('button', {
-                    class: 'jpdb-reader-newtab-recall-check',
-                    type: 'button',
-                    dataset: { newtabAction: newTabAction('type-word-handwriting-match') },
-                }, `${this.text('continueStudying')} →`)
-                : el('div', { class: 'jpdb-reader-newtab-type-self-check-actions' },
-                    el('button', {
-                        class: 'jpdb-reader-newtab-recall-check',
-                        type: 'button',
-                        dataset: { newtabAction: newTabAction('type-word-handwriting-check') },
-                        hidden: revealed,
-                        disabled: true,
-                    }, this.text('typeWordCompare')),
-                    el('div', { dataset: { typeWordSelfCheckChoices: true }, hidden: !revealed },
-                        el('p', {}, this.text('typeWordSelfCheckPrompt')),
-                        el('button', {
-                            class: 'jpdb-reader-newtab-type-self-check-choice',
-                            type: 'button',
-                            dataset: { newtabAction: newTabAction('type-word-handwriting-match') },
-                        }, this.text('typeWordMatched')),
-                        el('button', {
-                            class: 'jpdb-reader-newtab-type-self-check-choice',
-                            type: 'button',
-                            dataset: { newtabAction: newTabAction('type-word-handwriting-retry') },
-                        }, this.text('typeWordTryAgain')),
-                    ),
-                ),
-        );
-    }
-
-    private selfCheckDoodleFront(): HTMLElement {
-        return el('div', { class: 'jpdb-reader-newtab-kanji-front' },
-            el('div', { class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden' },
-                el('canvas', { class: 'jpdb-reader-doodle-canvas', 'aria-label': this.text('drawKanji') }),
-            ),
-            el('div', { class: 'jpdb-reader-doodle-tools jpdb-reader-newtab-doodle-actions' },
-                el('button', { class: 'jpdb-reader-btn jpdb-reader-doodle-control', type: 'button', dataset: { doodleClear: true } }, this.text('clear')),
-            ),
-        );
-    }
-
-    private installTypeWordSelfCheckDoodle(answer: HTMLElement): void {
-        const check = answer.querySelector<HTMLButtonElement>(newTabActionSelector('type-word-handwriting-check'));
-        installKanjiDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage, {
-            onChange: strokes => { if (check) check.disabled = strokes.length === 0; },
-            onClear: () => { if (check) check.disabled = true; },
+        return renderSelfCheckHandwriting({
+            targetText: this.typeWordTarget(card), language: target.typography.contentLocale,
+            direction: target.direction, state: this.stepState(cardKey(card))?.type,
+            text: key => this.text(key),
         });
     }
 
-    private revealTypeWordHandwritingCheck(root: HTMLElement): void {
+    private installTypeWordSelfCheckDoodle(answer: HTMLElement): void {
+        installSelfCheckDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage);
+    }
+
+    private handleTypeWordHandwritingSelfCheck(root: HTMLElement, action: TypeWordSelfCheckAction): void {
         const card = this.visibleWords[this.index];
         if (!card || !this.typeWordUsesSelfCheck(card)) return;
         const state = this.ensureStepState(cardKey(card));
-        state.type = { ...state.type, selfCheckRevealed: true };
-        this.renderWord(root, card);
-    }
-
-    private acceptTypeWordHandwritingCheck(root: HTMLElement): void {
-        const context = this.activeTypeWordHandwritingSelfCheck();
-        if (!context) return;
-        const { card, state } = context;
-        if (state.type?.feedback === 'correct') {
+        const result = applyTypeWordSelfCheckAction(state.type, action);
+        if (result.navigate) {
             if (!this.navigateStudyStep('next')) this.renderWord(root, card);
             return;
         }
-        if (!state.type?.selfCheckRevealed) return;
-        state.type = { ...state.type, feedback: 'correct', selfCheckRevealed: true };
-        this.recordTypeOutcome(card, 'correct');
+        if (!result.state) return;
+        state.type = { ...state.type, ...result.state };
+        if (result.outcome) this.recordTypeOutcome(card, result.outcome);
         this.renderWord(root, card);
-    }
-
-    private retryTypeWordHandwritingCheck(root: HTMLElement): void {
-        const context = this.activeTypeWordHandwritingSelfCheck();
-        if (!context) return;
-        const { card, state } = context;
-        if (!state.type?.selfCheckRevealed) return;
-        state.type = { ...state.type, feedback: 'incorrect', selfCheckRevealed: false };
-        this.recordTypeOutcome(card, 'incorrect');
-        this.renderWord(root, card);
-    }
-
-    private activeTypeWordHandwritingSelfCheck(): { card: JPDBCard; state: StudyStepState } | null {
-        const card = this.visibleWords[this.index];
-        if (!card || !this.typeWordUsesSelfCheck(card)) return null;
-        return { card, state: this.ensureStepState(cardKey(card)) };
     }
 
     private typeWordHandwritingProgress(card: JPDBCard, chars = Array.from(this.typeWordTarget(card))): number {
         const key = cardKey(card);
         const stored = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
-        const normalized = this.nextTypeWordHandwritingIndex(chars, stored);
+        const normalized = nextTypeWordHandwritingIndex(chars, stored);
         if (normalized !== stored) this.typeHandwritingProgress.set(key, normalized);
         return normalized;
-    }
-
-    private nextTypeWordHandwritingIndex(chars: string[], start: number): number {
-        const relative = chars.slice(start).findIndex(targetCanLookupCharacter);
-        return relative < 0 ? chars.length : start + relative;
     }
 
     private typeWordTarget(card: JPDBCard): string {
         const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
         return (cloze.hasCloze ? cloze.answer : '').trim() || card.spelling.trim();
-    }
-
-    private focusTypeWordInputSoon(answer: HTMLElement): void {
-        this.focusStudyInputSoon(answer, '[data-newtab-type-input]');
     }
 
     private setTypeWordInputMode(root: HTMLElement, mode: NewTabTypeWordInputMode): void {
@@ -6862,14 +6736,6 @@ export class NewTabController {
         const state = this.ensureStepState(cardKey(card));
         if (state.type?.outcome !== undefined) return;
         state.type = { ...state.type, outcome };
-    }
-
-    private typeWordOutcomeLabel(outcome: NewTabRecallOutcome | 'skipped', card: JPDBCard): string {
-        if (outcome === 'correct') return `${this.text('recallCorrect')} · ${isolate(this.typeWordTarget(card))}`;
-        if (outcome === 'accepted') return `${this.text('recallAccepted')} · ${isolate(this.typeWordTarget(card))}`;
-        if (outcome === 'incorrect') return this.text('typeWordTryAgain');
-        if (outcome === 'empty') return this.text('recallEmpty');
-        return this.text('typeWordSkipped');
     }
 
     private renderWordAnswer(answer: HTMLElement | null, _card: JPDBCard): void {

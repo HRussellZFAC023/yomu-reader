@@ -99,7 +99,6 @@ const CORE_DELIVERED_CAPABILITIES = Object.freeze({
     'term-lookup': true,
     'character-lookup': true,
     segmentation: true,
-    morphology: true,
     'reading-annotation': true,
     pronunciation: true,
     frequency: true,
@@ -113,13 +112,18 @@ const CORE_DELIVERED_CAPABILITIES = Object.freeze({
     mining: true,
     srs: true,
     grading: true,
-} satisfies Omit<LearningTargetCapabilities, 'grammar'>);
+} satisfies Omit<LearningTargetCapabilities, 'morphology' | 'grammar'>);
 
 function learningTargetCapabilities(
+    experiences: Readonly<LearningTargetExperiences>,
     hasGrammarRules = false,
 ): LearningTargetCapabilities {
     return Object.freeze({
         ...CORE_DELIVERED_CAPABILITIES,
+        // A literal depth-0 dictionary candidate is lookup, not morphology.
+        // Morphology is present only when a target owns deinflection, bounded
+        // rewrite rules, or a target-specific subsegment Adapter.
+        morphology: experiences.morphology !== 'dictionary-forms',
         // Derived, never declared: a target has grammar support exactly when it
         // ships grammar rules. Same principle as the block above — the capability
         // reports the machinery instead of promising alongside it.
@@ -150,7 +154,7 @@ export function createLearningTargetModule(spec: LearningTargetSpec): LearningTa
         language,
         direction,
         collationLocale: spec.collationLocale ?? language,
-        capabilities: learningTargetCapabilities(grammar.rules.length > 0),
+        capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
         experiences,
         featureSemantics: Object.freeze({
             ...spec.featureSemantics,

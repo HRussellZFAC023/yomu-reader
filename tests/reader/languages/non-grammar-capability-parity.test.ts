@@ -28,6 +28,8 @@ const NON_GRAMMAR_CAPABILITIES: readonly LearningTargetCapability[] = [
     'handwriting',
 ];
 
+const MORPHOLOGY_TARGET_IDS = new Set(['ja', 'ar', 'de', 'ko', 'ru', 'es']);
+
 // Native-script probes double as real detection/segmentation inputs. Keep one
 // for every roster ID so adding a target makes this suite fail until its
 // browser-facing behavior is exercised.
@@ -73,22 +75,28 @@ afterEach(() => {
 });
 
 describe('A47 non-grammar capability parity', () => {
-    it('backs every non-grammar capability with a concrete experience on all 33 targets', () => {
+    it('keeps universal behavior separate from targets with actual morphology', () => {
         expect(LEARNING_TARGET_ROSTER).toHaveLength(33);
 
         for (const rosterTarget of LEARNING_TARGET_ROSTER) {
             const target = learningTargetModuleFor(rosterTarget.runtimeLocale);
             expect(target, `${rosterTarget.id} Module`).not.toBeNull();
+            expect(target!.capabilities.morphology, `${rosterTarget.id} morphology`)
+                .toBe(MORPHOLOGY_TARGET_IDS.has(rosterTarget.id));
             expect(
-                NON_GRAMMAR_CAPABILITIES.filter(capability => !target!.capabilities[capability]),
-                `${rosterTarget.id} missing capability`,
+                NON_GRAMMAR_CAPABILITIES
+                    .filter(capability => capability !== 'morphology')
+                    .filter(capability => !target!.capabilities[capability]),
+                `${rosterTarget.id} missing universal behavior`,
             ).toEqual([]);
+            expect(target!.experiences.morphology === 'dictionary-forms', `${rosterTarget.id} morphology Adapter`)
+                .toBe(!MORPHOLOGY_TARGET_IDS.has(rosterTarget.id));
             expect(Object.values(target!.experiences).every(Boolean), `${rosterTarget.id} experience modes`)
                 .toBe(true);
         }
     });
 
-    it('runs lookup, morphology, readings, frequency, audio, OCR and handwriting for each target', () => {
+    it('runs lookup, readings, frequency fallback, audio, OCR and handwriting for each target', () => {
         for (const rosterTarget of LEARNING_TARGET_ROSTER) {
             const probe = TARGET_PROBES[rosterTarget.id];
             const target = learningTargetModuleFor(rosterTarget.runtimeLocale)!;
@@ -101,7 +109,7 @@ describe('A47 non-grammar capability parity', () => {
                 .toBe(target.experiences.characterLookup === 'character-dictionary');
 
             const candidates = target.lookupCandidates(probe);
-            expect(candidates.length, `${rosterTarget.id} morphology candidates`).toBeGreaterThan(0);
+            expect(candidates.length, `${rosterTarget.id} lookup candidates`).toBeGreaterThan(0);
             expect(candidates[0]?.term, `${rosterTarget.id} surface candidate`).toBe(target.normalizeText(probe));
 
             const token = exactDictionaryReadingToken(probe, target.language, `reading-${rosterTarget.id}`);

@@ -6,6 +6,15 @@ const DEFAULT_TIMEOUT_MS = 8000;
 const TRANSLATION_CACHE_LIMIT = 320;
 const GOOGLE_TRANSLATE_ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
 
+// Audited against Google's published Cloud Translation language table on
+// 2026-08-08. Keep this roster-scoped: accepting every syntactically valid
+// BCP-47 tag would turn a locale parser into a false provider-support claim.
+const GOOGLE_TRANSLATION_LANGUAGE_CODES = new Set([
+    'sq', 'ar', 'yue', 'zh', 'da', 'nl', 'en', 'fi', 'fr', 'de', 'el',
+    'hu', 'id', 'it', 'km', 'ko', 'lo', 'la', 'mn', 'fa', 'pl', 'pt',
+    'ro', 'ru', 'bs', 'es', 'sv', 'tl', 'th', 'tr', 'vi', 'ja',
+]);
+
 const log = Logger.scope('GoogleTranslation');
 const translationCache = new Map<string, string>();
 const translationInFlight = new Map<string, Promise<string>>();
@@ -66,6 +75,13 @@ export function googleTranslationLanguageCapability(language: string): GoogleTra
             supported: false,
         };
     }
+    if (locale.language === 'fil') {
+        return {
+            logicalLanguage,
+            providerLanguage: 'tl',
+            supported: true,
+        };
+    }
     if (locale.language === 'sr' && (locale.script === 'Latn' || logicalLanguage === 'sr')) {
         return {
             logicalLanguage,
@@ -74,6 +90,13 @@ export function googleTranslationLanguageCapability(language: string): GoogleTra
             // output; the logical profile remains sr-Latn everywhere else.
             providerLanguage: 'bs',
             supported: true,
+        };
+    }
+    if (!GOOGLE_TRANSLATION_LANGUAGE_CODES.has(locale.language)) {
+        return {
+            logicalLanguage,
+            providerLanguage: null,
+            supported: false,
         };
     }
     return {

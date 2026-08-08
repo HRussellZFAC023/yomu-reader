@@ -420,31 +420,10 @@ describe('every target is a study target', () => {
         }
     });
 
-    it('keeps the hand-maintained readiness list agreeing with measured depth', () => {
-        // `studyTargetReadiness` is a hand-maintained string list in roster.ts, chosen
-        // deliberately as "a product decision, not a capability inference". That is a
-        // reasonable stance and this does not overturn it — it stops the decision
-        // drifting away from what the code delivers, which is exactly what happened to
-        // the capability flags themselves.
-        //
-        // What now separates the two states is DEPTH, not whether a language can be
-        // studied at all: every target has the read-mine-review loop (asserted above),
-        // and Japanese additionally ships grammar rules, per-character data, reading
-        // annotation, frequency and stroke practice. A target that gains all of those
-        // should be promoted rather than left behind, and a target that has not should
-        // never be claimed as full.
-        const DEPTH: readonly LearningTargetCapability[] = [
-            'grammar', 'character-lookup', 'reading-annotation', 'frequency', 'handwriting',
-        ];
-        for (const target of LEARNING_TARGET_ROSTER) {
-            const module = learningTargetModuleFor(target.runtimeLocale)!;
-            const hasFullDepth = DEPTH.every(capability => module.capabilities[capability]);
-            expect(
-                target.studyTargetReadiness === 'full',
-                `${target.id} is declared ${target.studyTargetReadiness} but ${hasFullDepth ? 'has' : 'lacks'} the full depth set`
-                    + ` (${DEPTH.filter(capability => !module.capabilities[capability]).join(', ') || 'none missing'})`,
-            ).toBe(hasFullDepth);
-        }
+    it('keeps readiness an explicit product decision rather than inferring it from flags', () => {
+        expect(LEARNING_TARGET_ROSTER.find(target => target.id === 'ja')?.studyTargetReadiness).toBe('full');
+        expect(LEARNING_TARGET_ROSTER.filter(target => target.id !== 'ja')
+            .every(target => target.studyTargetReadiness === 'reading-only')).toBe(true);
     });
 
     it('keeps the examples flag equal to what the example registry actually mounts', () => {

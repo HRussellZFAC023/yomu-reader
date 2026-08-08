@@ -25,10 +25,10 @@ describe('target-language settings', () => {
         expect(picker.querySelector<HTMLOptionElement>('option[value="ja"]')?.dataset.studyTargetReadiness)
             .toBe('full');
         const spanish = picker.querySelector<HTMLOptionElement>('option[value="es"]')!;
-        expect(spanish.dataset.studyTargetReadiness).toBe('full');
+        expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
         expect(spanish.textContent).toContain('Español');
-        expect(spanish.textContent).toContain('Full Yomu support');
-        expect(spanish.title).toContain('Lookup, readings, grammar, audio, OCR, handwriting and study');
+        expect(spanish.textContent).toContain('Read, mine and review');
+        expect(spanish.title).toContain('Reading, lookup, mining and review');
     });
 
     it('keeps a planned target visible, named, and unavailable with a reason', () => {

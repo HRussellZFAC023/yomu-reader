@@ -43,10 +43,10 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')).toMatchObject({
             disabled: false,
             textContent: expect.stringContaining('Español'),
-            title: 'Lookup, readings, grammar, audio, OCR, handwriting and study are ready for this target.',
+            title: 'Reading, lookup, mining and review are ready.',
         });
         expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')?.dataset.studyTargetReadiness)
-            .toBe('full');
+            .toBe('reading-only');
         expect(document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')?.checked).toBe(true);
 
         learnerLanguage.value = 'ko';
@@ -77,9 +77,9 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="ja"]')?.dataset.studyTargetReadiness)
             .toBe('full');
         const spanish = targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')!;
-        expect(spanish.dataset.studyTargetReadiness).toBe('full');
-        expect(spanish.textContent).toContain('Full Yomu support');
-        expect(spanish.title).toBe('Lookup, readings, grammar, audio, OCR, handwriting and study are ready for this target.');
+        expect(spanish.dataset.studyTargetReadiness).toBe('reading-only');
+        expect(spanish.textContent).toContain('Read, mine and review');
+        expect(spanish.title).toBe('Reading, lookup, mining and review are ready.');
     });
 
     it('creates an independent profile when the learner language changes', () => {

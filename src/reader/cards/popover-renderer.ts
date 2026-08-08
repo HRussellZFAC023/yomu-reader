@@ -189,8 +189,7 @@ export class CardPopoverRenderer {
         const count = contextOccurrenceCount(card, sentence);
         if (!count) return '';
         const label = formatUiText(language, 'contextOccurrences', { count });
-        const title = uiText(language, 'contextOccurrencesTitle');
-        return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle('frequency:context')}" title="${escapeHtml(title)}">${escapeHtml(label)}</span>`;
+        return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle('frequency:context')}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
     }
 
     private renderTitleRow(card: JPDBCard, data: CardRenderData & { loading: boolean }, view: CardPopoverRenderView): string {

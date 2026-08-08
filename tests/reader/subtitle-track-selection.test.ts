@@ -156,7 +156,7 @@ describe('subtitle track selection', () => {
         })).toBe(false);
     });
 
-    it('proves primary matching and honest synthetic translation across all 33 targets', () => {
+    it('proves primary matching and the provider-audited translation boundary across all 33 targets', () => {
         expect(LEARNING_TARGET_ROSTER).toHaveLength(33);
         for (const target of LEARNING_TARGET_ROSTER) expectLearningTargetSubtitleBehavior(target.runtimeLocale);
     });

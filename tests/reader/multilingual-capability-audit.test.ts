@@ -20,6 +20,12 @@ describe("33-target behavior audit", () => {
       capabilityChecks: 594,
       passedCapabilityChecks: 594,
       failedCapabilityChecks: 0,
+      supportedCapabilityRows: 567,
+      fallbackCapabilityRows: 127,
+      unavailableCapabilityRows: 27,
+      readinessChecks: 33,
+      passedReadinessChecks: 33,
+      failedReadinessChecks: 0,
       contractFailures: 0,
     });
     expect(report.failures).toEqual([]);
@@ -28,11 +34,16 @@ describe("33-target behavior audit", () => {
     );
     for (const target of report.targets) {
       expect(target.status, target.id).toBe("pass");
+      expect(target.readiness.status, `${target.id}/readiness`).toBe("pass");
+      expect(target.readiness.evidenceKind).toBe("readiness");
       expect(Object.keys(target.capabilities), target.id).toEqual([
         ...LEARNING_TARGET_CAPABILITY_IDS,
       ]);
       for (const [capability, check] of Object.entries(target.capabilities)) {
         expect(check.status, `${target.id}/${capability}`).toBe("pass");
+        expect(check.evidenceKind, `${target.id}/${capability} kind`).toMatch(
+          /^(core-delivered|target-adapted|data-backed|fallback|unavailable)$/u,
+        );
         expect(
           Object.keys(check.evidence).length,
           `${target.id}/${capability} evidence`,
@@ -63,7 +74,7 @@ describe("33-target behavior audit", () => {
     ).toBe(true);
   });
 
-  it("rejects a support declaration with no supported capability", async () => {
+  it("rejects a false declaration when executable target behavior exists", async () => {
     const modules = replaceTarget("es", (target) => ({
       ...target,
       capabilities: { ...target.capabilities, ocr: false },
@@ -74,7 +85,42 @@ describe("33-target behavior audit", () => {
       expect.objectContaining({
         targetId: "es",
         capability: "ocr",
-        code: "unsupported-declaration",
+        code: "support-declaration-mismatch",
+      }),
+    );
+  });
+
+  it("accepts an explicit morphology limitation only when no rewrite exists", async () => {
+    const report = await runMultilingualCapabilityAudit();
+    const english = report.targets.find((target) => target.id === "en");
+    const spanish = report.targets.find((target) => target.id === "es");
+
+    expect(english?.capabilities.morphology).toMatchObject({
+      status: "pass",
+      evidenceKind: "unavailable",
+      declaredSupported: false,
+      evidence: expect.objectContaining({ adapter: "dictionary-forms" }),
+    });
+    expect(spanish?.capabilities.morphology).toMatchObject({
+      status: "pass",
+      evidenceKind: "target-adapted",
+      declaredSupported: true,
+      evidence: expect.objectContaining({ expected: "hablar" }),
+    });
+  });
+
+  it("rejects force-true morphology on a dictionary-forms-only target", async () => {
+    const modules = replaceTarget("en", (target) => ({
+      ...target,
+      capabilities: { ...target.capabilities, morphology: true },
+    }));
+    const report = await runMultilingualCapabilityAudit({ modules });
+
+    expect(report.failures).toContainEqual(
+      expect.objectContaining({
+        targetId: "en",
+        capability: "morphology",
+        code: "support-declaration-mismatch",
       }),
     );
   });

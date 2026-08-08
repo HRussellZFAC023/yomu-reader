@@ -2596,8 +2596,7 @@ export class SubtitlePlayerController {
     }
 
     private shouldAllowAnyCaptionScriptDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
-        // While a target-language track is still loading its cues, YouTube's own
-        // caption overlay shows whatever language the player defaulted to
+        // While a target-language track is loading, YouTube's own caption overlay shows its default
         // (e.g. Arabic); mirroring that flashes foreign subs before the
         // requested ones arrive (user-reported).
         return Boolean(selected?.kind === 'youtube'
@@ -2689,8 +2688,7 @@ export class SubtitlePlayerController {
         const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
         this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
         if (selected?.loadingState === 'waiting') selected.loadingState = 'ready';
-        // Publish DOM-caption ownership in the same turn as the first Yomu cue.
-        // Waiting for the next tick paints native and Yomu captions together.
+        // Publish ownership with the first cue; the next tick would paint both caption layers.
         this.setNativeTrackModes();
         this.render();
         this.renderOpenSubtitlePanel();

@@ -44,6 +44,7 @@ import { DEFAULT_SETTINGS } from "../../src/reader/settings";
 import { createImmersionKitExampleSource } from "../../src/reader/sources/examples/immersion-kit";
 import { createTatoebaExampleSource } from "../../src/reader/sources/examples/tatoeba";
 import { renderFrequencyPill } from "../../src/reader/sources/definition-render";
+import { googleTranslationLanguageCapability } from "../../src/reader/translation/google";
 import {
   createYomuLocalSrsAdapter,
   type LocalYomuSrsRepository,
@@ -65,6 +66,12 @@ const EXPECTED_TARGET_COUNT = 33;
 
 type AuditEvidenceValue = string | number | boolean | null | readonly string[];
 export type AuditEvidence = Readonly<Record<string, AuditEvidenceValue>>;
+export type CapabilityEvidenceKind =
+  | "core-delivered"
+  | "target-adapted"
+  | "data-backed"
+  | "fallback"
+  | "unavailable";
 
 export interface MultilingualCapabilityAuditFailure {
   readonly targetId: LearningTargetRosterId | "registry";
@@ -75,6 +82,9 @@ export interface MultilingualCapabilityAuditFailure {
 
 export interface MultilingualCapabilityAuditCheck {
   readonly status: "pass" | "fail";
+  /** What this row actually proves. `pass` never implies full feature depth. */
+  readonly evidenceKind: CapabilityEvidenceKind;
+  readonly declaredSupported: boolean;
   readonly evidence: AuditEvidence;
   readonly failure?: MultilingualCapabilityAuditFailure;
 }
@@ -84,13 +94,21 @@ export interface MultilingualTargetCapabilityAudit {
   readonly language: string;
   readonly moduleId: string | null;
   readonly status: "pass" | "fail";
+  readonly readiness: MultilingualReadinessAuditCheck;
   readonly capabilities: Readonly<
     Record<LearningTargetCapability, MultilingualCapabilityAuditCheck>
   >;
 }
 
+export interface MultilingualReadinessAuditCheck {
+  readonly status: "pass" | "fail";
+  readonly evidenceKind: "readiness";
+  readonly evidence: AuditEvidence;
+  readonly failure?: MultilingualCapabilityAuditFailure;
+}
+
 export interface MultilingualCapabilityAuditReport {
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
   readonly status: "pass" | "fail";
   readonly targetCount: number;
   readonly capabilityCount: number;
@@ -98,6 +116,12 @@ export interface MultilingualCapabilityAuditReport {
     readonly capabilityChecks: number;
     readonly passedCapabilityChecks: number;
     readonly failedCapabilityChecks: number;
+    readonly supportedCapabilityRows: number;
+    readonly fallbackCapabilityRows: number;
+    readonly unavailableCapabilityRows: number;
+    readonly readinessChecks: number;
+    readonly passedReadinessChecks: number;
+    readonly failedReadinessChecks: number;
     readonly contractFailures: number;
   };
   readonly targets: readonly MultilingualTargetCapabilityAudit[];
@@ -148,13 +172,23 @@ export async function runMultilingualCapabilityAudit(
       check.failure ? [check.failure] : [],
     ),
   );
-  const failures = [...contractFailures, ...capabilityFailures];
+  const readinessFailures = targets.flatMap((target) =>
+    target.readiness.failure ? [target.readiness.failure] : [],
+  );
+  const failures = [...contractFailures, ...capabilityFailures, ...readinessFailures];
   const capabilityChecks =
     targets.length * LEARNING_TARGET_CAPABILITY_IDS.length;
   const failedCapabilityChecks = capabilityFailures.length;
+  const capabilityRows = targets.flatMap((target) => Object.values(target.capabilities));
+  const fallbackCapabilityRows = capabilityRows.filter(
+    (check) => check.evidenceKind === "fallback",
+  ).length;
+  const unavailableCapabilityRows = capabilityRows.filter(
+    (check) => check.evidenceKind === "unavailable",
+  ).length;
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     status: failures.length ? "fail" : "pass",
     targetCount: targets.length,
     capabilityCount: LEARNING_TARGET_CAPABILITY_IDS.length,
@@ -162,6 +196,12 @@ export async function runMultilingualCapabilityAudit(
       capabilityChecks,
       passedCapabilityChecks: capabilityChecks - failedCapabilityChecks,
       failedCapabilityChecks,
+      supportedCapabilityRows: capabilityRows.filter((check) => check.declaredSupported).length,
+      fallbackCapabilityRows,
+      unavailableCapabilityRows,
+      readinessChecks: targets.length,
+      passedReadinessChecks: targets.length - readinessFailures.length,
+      failedReadinessChecks: readinessFailures.length,
       contractFailures: contractFailures.length,
     },
     targets,
@@ -187,15 +227,17 @@ async function auditTarget(
     LearningTargetCapability,
     MultilingualCapabilityAuditCheck
   >;
+  const readiness = auditReadiness(rosterTarget);
   return {
     id: rosterTarget.id,
     language: target.language,
     moduleId: target.id,
-    status: Object.values(capabilities).every(
+    status: readiness.status === "pass" && Object.values(capabilities).every(
       (check) => check.status === "pass",
     )
       ? "pass"
       : "fail",
+    readiness,
     capabilities,
   };
 }
@@ -206,16 +248,15 @@ async function auditCapability(
   fixture: TargetAuditFixture,
   capability: LearningTargetCapability,
 ): Promise<MultilingualCapabilityAuditCheck> {
-  if (target.capabilities[capability] !== true) {
-    return failedCheck(
-      rosterTarget.id,
-      capability,
-      "unsupported-declaration",
-      `Target ${rosterTarget.id} does not declare ${capability} as supported.`,
-    );
-  }
+  const evidenceKind = capabilityEvidenceKind(target, capability);
+  const declaredSupported = target.capabilities[capability] === true;
 
   try {
+    ensure(
+      declaredSupported === (evidenceKind !== "unavailable"),
+      "support-declaration-mismatch",
+      `Target ${rosterTarget.id} declares ${capability}=${String(declaredSupported)} but its evidence is ${evidenceKind}.`,
+    );
     const active = setActiveLearningTargetLanguage(target.language);
     ensure(
       active?.id === target.id,
@@ -224,6 +265,8 @@ async function auditCapability(
     );
     return {
       status: "pass",
+      evidenceKind,
+      declaredSupported,
       evidence: await probeCapability(
         capability,
         rosterTarget,
@@ -244,7 +287,51 @@ async function auditCapability(
       capability,
       failure.code,
       failure.message,
+      evidenceKind,
+      declaredSupported,
     );
+  }
+}
+
+function capabilityEvidenceKind(
+  target: LearningTargetModule,
+  capability: LearningTargetCapability,
+): CapabilityEvidenceKind {
+  switch (capability) {
+    case "mining":
+    case "srs":
+    case "grading":
+      return "core-delivered";
+    case "segmentation":
+    case "text-to-speech":
+    case "ocr":
+    case "subtitles":
+    case "typing":
+      return "target-adapted";
+    case "morphology":
+      return target.experiences.morphology === "dictionary-forms"
+        ? "unavailable"
+        : "target-adapted";
+    case "character-lookup":
+      return target.experiences.characterLookup === "character-dictionary"
+        ? "data-backed"
+        : "fallback";
+    case "frequency":
+      // Rank dictionaries are optional data. The universally executable path
+      // is the explicitly labelled count of exact occurrences in this context.
+      return "fallback";
+    case "audio":
+      return target.audio.recordedWordAudio ? "data-backed" : "fallback";
+    case "handwriting":
+      return target.experiences.handwriting === "stroke-feedback"
+        ? "data-backed"
+        : "fallback";
+    case "term-lookup":
+    case "reading-annotation":
+    case "pronunciation":
+    case "examples":
+    case "grammar":
+      return "data-backed";
   }
 }
 
@@ -394,11 +481,23 @@ function probeMorphology(
       "morphology-fixture-missing",
       `Adapter ${target.experiences.morphology} needs a checked rewrite fixture.`,
     );
+    ensure(
+      surfaceCandidates.every((candidate) => candidate.depth === 0),
+      "undeclared-morphology-rewrite",
+      "A dictionary-forms-only target produced a rewrite without checked morphology evidence.",
+    );
     return {
       adapter: target.experiences.morphology,
       surfaceAnalyses: surfaceCandidates.length,
+      limitation: "literal dictionary-form lookup only; no morphology Adapter",
     };
   }
+
+  ensure(
+    target.experiences.morphology !== "dictionary-forms",
+    "morphology-adapter-missing",
+    "A checked rewrite fixture exists but the target declares only dictionary forms.",
+  );
 
   const results =
     morphology.via === "subsegments"
@@ -754,7 +853,13 @@ function probeSubtitles(
     "subtitle-label-inference-failed",
     `The roster label inferred ${String(inferred)} instead of ${expected}.`,
   );
-  return { languageTag: routedTag, inferredFromLabel: inferred ?? null };
+  const translation = googleTranslationLanguageCapability(routedTag);
+  return {
+    languageTag: routedTag,
+    inferredFromLabel: inferred ?? null,
+    translationAvailable: translation.supported,
+    translationProviderLanguage: translation.providerLanguage,
+  };
 }
 
 async function probeMining(
@@ -1034,6 +1139,8 @@ function missingTargetAudit(
         capability,
         "module-missing",
         `No registered module serves target ${rosterTarget.id}.`,
+        "unavailable",
+        false,
       ),
     ]),
   ) as Record<LearningTargetCapability, MultilingualCapabilityAuditCheck>;
@@ -1042,6 +1149,11 @@ function missingTargetAudit(
     language: rosterTarget.runtimeLocale,
     moduleId: null,
     status: "fail",
+    readiness: failedReadinessCheck(
+      rosterTarget,
+      "module-missing",
+      `No registered module serves target ${rosterTarget.id}.`,
+    ),
     capabilities,
   };
 }
@@ -1051,11 +1163,51 @@ function failedCheck(
   capability: LearningTargetCapability,
   code: string,
   message: string,
+  evidenceKind: CapabilityEvidenceKind,
+  declaredSupported: boolean,
 ): MultilingualCapabilityAuditCheck {
   return {
     status: "fail",
+    evidenceKind,
+    declaredSupported,
     evidence: {},
     failure: { targetId, capability, code, message },
+  };
+}
+
+function auditReadiness(
+  rosterTarget: LearningTargetRosterEntry,
+): MultilingualReadinessAuditCheck {
+  const expected = rosterTarget.id === "ja" ? "full" : "reading-only";
+  if (rosterTarget.studyTargetReadiness !== expected) {
+    return failedReadinessCheck(
+      rosterTarget,
+      "readiness-overclaim",
+      `Target ${rosterTarget.id} is ${rosterTarget.studyTargetReadiness}; the audited decision is ${expected}.`,
+    );
+  }
+  return {
+    status: "pass",
+    evidenceKind: "readiness",
+    evidence: {
+      declared: rosterTarget.studyTargetReadiness,
+      basis: rosterTarget.id === "ja"
+        ? "Japanese depth remains the full-readiness reference"
+        : "reading, lookup, mining and review; target/data depth remains constrained",
+    },
+  };
+}
+
+function failedReadinessCheck(
+  rosterTarget: LearningTargetRosterEntry,
+  code: string,
+  message: string,
+): MultilingualReadinessAuditCheck {
+  return {
+    status: "fail",
+    evidenceKind: "readiness",
+    evidence: { declared: rosterTarget.studyTargetReadiness },
+    failure: { targetId: rosterTarget.id, capability: null, code, message },
   };
 }
 

@@ -40,6 +40,29 @@ const JAPANESE_TARGET_ROSTER_ENTRY: LearningTargetRosterEntry = Object.freeze({
 });
 
 /**
+ * A product decision, not a capability inference. Every non-Japanese target is
+ * named exactly once here, and the erased type checks make a new roster ID fail
+ * the build until it receives an explicit readiness decision.
+ */
+const READING_ONLY_STUDY_TARGET_ID_LIST =
+    'sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi' as const;
+
+type SpaceSeparatedStudyTargetIds<Value extends string> =
+    Value extends `${infer Head} ${infer Tail}`
+        ? Head | SpaceSeparatedStudyTargetIds<Tail>
+        : Value;
+type ExplicitNonFullStudyTargetId =
+    SpaceSeparatedStudyTargetIds<typeof READING_ONLY_STUDY_TARGET_ID_LIST>;
+type AssertNoStudyTargets<T extends never> = T;
+/** @internal Compile-time proof that readiness decisions are exhaustive and disjoint. */
+export type StudyTargetReadinessDecisionAudit = AssertNoStudyTargets<
+    Exclude<LearnerLanguageId, ExplicitNonFullStudyTargetId>
+    | Exclude<ExplicitNonFullStudyTargetId, LearnerLanguageId>
+>;
+
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(' ');
+
+/**
  * The target picker is Japanese plus the frozen 32-language catalogue roster.
  * Japanese is not itself a learner/definition language in Slice 1, so this
  * view adds it without duplicating the other 32 rows or changing their IDs.
@@ -48,9 +71,9 @@ export const LEARNING_TARGET_ROSTER: readonly LearningTargetRosterEntry[] = Obje
     JAPANESE_TARGET_ROSTER_ENTRY,
     ...LEARNER_LANGUAGES.map(language => Object.freeze({
         ...language,
-        // A47: every roster entry owns grammar plus the same core study loop;
-        // language-shaped depth is supplied by its concrete Module Adapter.
-        studyTargetReadiness: 'full' as const,
+        studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id)
+            ? 'reading-only'
+            : 'planned',
     })),
 ]);
 

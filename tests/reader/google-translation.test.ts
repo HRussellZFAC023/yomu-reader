@@ -45,6 +45,16 @@ describe('generic Google translation transport', () => {
             providerLanguage: null,
             supported: false,
         });
+        expect(googleTranslationLanguageCapability('fil')).toEqual({
+            logicalLanguage: 'fil',
+            providerLanguage: 'tl',
+            supported: true,
+        });
+        expect(googleTranslationLanguageCapability('zz')).toEqual({
+            logicalLanguage: 'zz',
+            providerLanguage: null,
+            supported: false,
+        });
         const serboCroatian = new URL(googleTranslationUrl('読む', {
             sourceLanguage: 'ja',
             outputLanguage: 'sr-Latn',
@@ -65,6 +75,7 @@ describe('generic Google translation transport', () => {
         expect(capabilities.filter(capability => !capability.supported).map(capability => capability.id))
             .toEqual(['grc']);
         expect(capabilities.find(capability => capability.id === 'sh')?.providerLanguage).toBe('bs');
+        expect(capabilities.find(capability => capability.id === 'tl')?.providerLanguage).toBe('tl');
         expect(capabilities.filter(capability => capability.supported).every(capability => (
             Boolean(capability.providerLanguage)
         ))).toBe(true);

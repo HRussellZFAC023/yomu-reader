@@ -119,7 +119,7 @@ Yes. A free Yomu account pairs devices so local cards can follow you. Cards are 
 
 No — all 33 targets can be read, mined and reviewed. You look a word up, keep it with the sentence you found it in, and review it on a schedule, in any of them. First-run setup and Settings label the other 32 **Read, mine and review**, and the dictionary catalogue carries headwords across all of them.
 
-Japanese is labelled **Full Yomu support** because it is the deepest, not because it is the only one that works: it adds pitch accent, kanji cards, and 307 grammar points where Spanish, French and Russian currently have eight. Your recommended starter follows the selected target and definition language; for English plus Spanish, that means Spanish terms with English definitions and Spanish IPA in the pronunciation row where Japanese shows pitch accent. The interface itself speaks English and 日本語.
+Japanese is labelled **Full Yomu support** because it is the deepest, not because it is the only one that works: it adds mature deinflection, pitch accent, kanji cards, stroke feedback, recorded audio, and 307 grammar points. The other targets have much narrower target/data depth; only Arabic, German, Korean, Russian, and Spanish currently add bounded morphology beyond literal dictionary-form lookup. Your recommended starter follows the selected target and definition language; for English plus Spanish, that means Spanish terms with English definitions and Spanish IPA in the pronunciation row where Japanese shows pitch accent. The interface itself still speaks only English and 日本語.
 
 ## Your data
 
