@@ -13,6 +13,7 @@ import {
     resolveAnkiAction,
 } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
+import { cdpMetrics, metricDelta } from '../lib/cdp-performance-metrics.mjs';
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
@@ -21,7 +22,12 @@ const artifactLabel = process.env.YOMU_PROFILE_LABEL ?? 'working';
 const artifactDir = resolve(process.env.YOMU_PROFILE_ARTIFACT_DIR ?? '.');
 const userscriptPath = resolve(process.env.YOMU_PROFILE_USERSCRIPT ?? join(artifactDir, 'dist/yomu.user.js'));
 const cssPath = resolve(process.env.YOMU_PROFILE_CSS ?? join(artifactDir, 'dist/yomu.css'));
-const companionDir = resolve(process.env.YOMU_PROFILE_COMPANION_DIR ?? join(artifactDir, 'dist/greasyfork'));
+const builtCompanionDir = join(artifactDir, 'dist/greasyfork');
+const hostedCompanionDir = join(artifactDir, 'docs/public/greasyfork');
+const defaultCompanionDir = existsSync(join(builtCompanionDir, 'yomu-runtime.user.js'))
+    ? builtCompanionDir
+    : hostedCompanionDir;
+const companionDir = resolve(process.env.YOMU_PROFILE_COMPANION_DIR ?? defaultCompanionDir);
 // yomu-ocr-manga carries the OCR controller + raster detectors; without it the
 // profile never executes the code whose heat it is meant to measure.
 // Tampermonkey loads the runtime through @require before the core userscript.
@@ -33,6 +39,7 @@ const companionPaths = ['yomu-runtime.user.js']
     .filter(existsSync);
 const outputRoot = resolve(process.env.YOMU_PROFILE_OUTPUT_DIR ?? join(qaArtifactsRoot, 'youtube-performance', artifactLabel));
 const headed = process.env.YOMU_PROFILE_HEADED === '1';
+const cpuProfilingEnabled = process.env.YOMU_PROFILE_CPU === '1';
 const WATCH_URL = 'https://www.youtube.com/watch?v=profile123';
 const MOBILE_WATCH_URL = 'https://m.youtube.com/watch?v=profile123';
 const HOVER_STRESS_DURATION_MS = Number(process.env.YOMU_PROFILE_HOVER_STRESS_MS ?? 15_000);
@@ -260,10 +267,32 @@ try {
         scenarios: profiles,
     };
     const serializedReport = JSON.stringify(report, null, 2);
-    writeFileSync(join(outputRoot, 'profile.json'), serializedReport);
-    console.log(serializedReport);
+    const profilePath = join(outputRoot, 'profile.json');
+    writeFileSync(profilePath, serializedReport);
+    console.log(cpuProfilingEnabled
+        ? JSON.stringify(functionProfileConsoleSummary(report, profilePath), null, 2)
+        : serializedReport);
 } finally {
     await browser.close();
+}
+
+function functionProfileConsoleSummary(report, profilePath) {
+    return {
+        label: report.label,
+        profilePath,
+        artifacts: report.artifacts,
+        scenarios: report.scenarios.map(scenario => ({
+            name: scenario.name,
+            steps: scenario.steps
+                .filter(step => step.functionProfile)
+                .map(step => ({
+                    name: step.name,
+                    sampledMs: step.functionProfile.sampled.sampledMs,
+                    topSelfTime: step.functionProfile.sampled.topSelfTime.slice(0, 10),
+                    topCallCounts: step.functionProfile.calls.topCallCounts.slice(0, 15),
+                })),
+        })),
+    };
 }
 
 function profileArtifactDescriptor(path) {
@@ -292,6 +321,7 @@ async function runScenario(browser, scenario) {
         const page = await context.newPage();
         const client = await context.newCDPSession(page);
         await client.send('Performance.enable');
+        await configureFunctionProfiling(client);
         await installInstrumentation(context);
         await installUserscriptContext(context, scenarioSettings(scenario), scenario);
         await installRoutes(page, scenario);
@@ -402,6 +432,7 @@ async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
     const page = await context.newPage();
     const client = await context.newCDPSession(page);
     await client.send('Performance.enable');
+    await configureFunctionProfiling(client);
     if (MOBILE_CPU_THROTTLE_RATE > 1) await client.send('Emulation.setCPUThrottlingRate', { rate: MOBILE_CPU_THROTTLE_RATE }).catch(() => undefined);
     await page.setViewportSize({ width: 390, height: 844 });
     await installRoutes(page, scenario);
@@ -853,10 +884,19 @@ function textResponse(responseText, contentType, status = 200) {
 }
 
 async function beginStep(client) {
+    if (cpuProfilingEnabled) {
+        await client.send('Profiler.startPreciseCoverage', {
+            callCount: true,
+            detailed: true,
+            allowTriggeredUpdates: false,
+        });
+        await client.send('Profiler.start');
+    }
     return {
         cdp: await cdpMetrics(client),
         parseIndex: parseRequests.length,
         ankiIndex: ankiRequests.length,
+        functionProfiling: cpuProfilingEnabled,
     };
 }
 
@@ -871,28 +911,109 @@ async function snapshotStep(page, client, name, parseIndex, ankiIndex) {
 }
 
 async function finishStep(page, client, started, name) {
+    const functionProfile = started.functionProfiling
+        ? await finishFunctionProfile(client)
+        : null;
     const cdp = await cdpMetrics(client);
     return {
         name,
         cdpDelta: metricDelta(started.cdp, cdp),
+        functionProfile,
         page: await readPageState(page),
         parseRequests: parseRequestSummary(started.parseIndex),
         ankiRequests: ankiRequestSummary(started.ankiIndex),
     };
 }
 
-async function cdpMetrics(client) {
-    const result = await client.send('Performance.getMetrics');
-    return Object.fromEntries(result.metrics.map(metric => [metric.name, metric.value]));
+async function configureFunctionProfiling(client) {
+    if (!cpuProfilingEnabled) return;
+    await client.send('Profiler.enable');
+    await client.send('Profiler.setSamplingInterval', { interval: 250 });
 }
 
-function metricDelta(before, after) {
-    const keys = ['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount', 'JSHeapUsedSize', 'Nodes'];
-    return Object.fromEntries(keys.map(key => [key, roundedMetric((after[key] ?? 0) - (before[key] ?? 0))]));
+async function finishFunctionProfile(client) {
+    const coverage = await client.send('Profiler.takePreciseCoverage');
+    await client.send('Profiler.stopPreciseCoverage');
+    const { profile } = await client.send('Profiler.stop');
+    return {
+        sampled: summarizeCpuProfile(profile),
+        calls: summarizePreciseCoverage(coverage.result),
+    };
 }
 
-function roundedMetric(value) {
-    return Math.round(value * 1000) / 1000;
+function sampledSelfTimeByNode(profile) {
+    return (profile.samples ?? []).reduce((selfTimeByNode, nodeId, index) => {
+        const deltaUs = profile.timeDeltas?.[index] ?? 0;
+        selfTimeByNode.set(nodeId, (selfTimeByNode.get(nodeId) ?? 0) + deltaUs);
+        return selfTimeByNode;
+    }, new Map());
+}
+
+function cpuFrameEntry(node, selfUs) {
+    const { callFrame: frame, hitCount = 0 } = node;
+    const { functionName = '', url = '', lineNumber = -1, columnNumber = -1 } = frame;
+    return {
+        functionName: functionName || '(anonymous)',
+        url,
+        line: lineNumber + 1,
+        column: columnNumber + 1,
+        selfUs,
+        samples: hitCount,
+    };
+}
+
+function mergeCpuFrame(selfTimeByFrame, entry) {
+    const key = `${entry.url}\n${entry.line}:${entry.column}\n${entry.functionName}`;
+    const current = selfTimeByFrame.get(key);
+    if (!current) {
+        selfTimeByFrame.set(key, entry);
+        return;
+    }
+    current.selfUs += entry.selfUs;
+    current.samples += entry.samples;
+}
+
+function summarizedCpuFrames(profile) {
+    const nodesById = new Map(profile.nodes.map(node => [node.id, node]));
+    const selfTimeByFrame = new Map();
+    for (const [nodeId, selfUs] of sampledSelfTimeByNode(profile)) {
+        mergeCpuFrame(selfTimeByFrame, cpuFrameEntry(nodesById.get(nodeId), selfUs));
+    }
+    return [...selfTimeByFrame.values()]
+        .map(({ selfUs, ...entry }) => ({ ...entry, selfMs: Math.round(selfUs / 100) / 10 }))
+        .filter(entry => entry.selfMs > 0)
+        .sort((left, right) => right.selfMs - left.selfMs)
+        .slice(0, 40);
+}
+
+function summarizeCpuProfile(profile) {
+    return {
+        sampleCount: profile.samples?.length ?? 0,
+        sampledMs: Math.round((profile.timeDeltas ?? []).reduce((sum, value) => sum + value, 0) / 100) / 10,
+        topSelfTime: summarizedCpuFrames(profile),
+    };
+}
+
+function preciseCoverageCall(script, fn) {
+    const range = fn.ranges[0];
+    if (!range || range.count <= 0) return null;
+    return {
+        functionName: fn.functionName,
+        url: script.url,
+        startOffset: range.startOffset,
+        callCount: range.count,
+    };
+}
+
+function summarizePreciseCoverage(scripts) {
+    const calls = scripts.flatMap(script => script.functions
+        .map(fn => preciseCoverageCall(script, fn))
+        .filter(Boolean));
+    calls.sort((left, right) => right.callCount - left.callCount);
+    return {
+        functionsCalled: calls.length,
+        topCallCounts: calls.slice(0, 80),
+    };
 }
 
 function parseRequestSummary(startIndex) {

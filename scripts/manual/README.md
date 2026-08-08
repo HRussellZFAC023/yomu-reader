@@ -44,7 +44,7 @@ with `npm run <name>` when investigating the area it covers.
 | `manual:youtube-auto-translation` | YouTube auto-translation fixture harness, currently red; kept for manual triage. |
 | `manual:youtube-fullscreen` | Needs real Chrome + real fullscreen top-layer promotion (persistent profile). |
 | `manual:youtube-homepage-performance` | Machine-dependent performance profiler (persistent profile). |
-| `manual:youtube-performance` | Machine-dependent performance profiler with timing thresholds. |
+| `manual:youtube-performance` | Deterministic YouTube profiler with timing thresholds. Set `YOMU_PROFILE_CPU=1` to record sampled self-time and exact function call counts; by default it profiles the built userscript and its matching checked-in runtime companion. |
 | `manual:youtube-real-dom-instability` | Persistent-profile harness reproducing real YouTube DOM churn. |
 | `manual:youtube-sidebar-layout` | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage. |
 | `manual:youtube-sidebar-resize-profile` | Machine-dependent resize performance profiler (persistent profile). |

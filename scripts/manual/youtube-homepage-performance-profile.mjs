@@ -14,6 +14,7 @@ import {
     YOMU_SETTINGS_KEY,
 } from '../lib/smoke-harness.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
+import { cdpMetrics, metricDelta } from '../lib/cdp-performance-metrics.mjs';
 
 const { appRoot, qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_HOME_PROFILE_USERSCRIPT ?? join(appRoot, 'dist/yomu.user.js'));
@@ -756,20 +757,6 @@ async function readPageState(page, client) {
         cdpMetrics(client).catch(() => ({})),
     ]);
     return { ...state, cdp };
-}
-
-async function cdpMetrics(client) {
-    const result = await client.send('Performance.getMetrics');
-    return Object.fromEntries(result.metrics.map(metric => [metric.name, metric.value]));
-}
-
-function metricDelta(before, after) {
-    const keys = ['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount', 'JSHeapUsedSize', 'Nodes'];
-    return Object.fromEntries(keys.map(key => [key, roundedMetric((after[key] ?? 0) - (before[key] ?? 0))]));
-}
-
-function roundedMetric(value) {
-    return Math.round(value * 1000) / 1000;
 }
 
 async function installInstrumentation(context) {
