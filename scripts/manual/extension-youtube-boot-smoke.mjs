@@ -80,7 +80,7 @@ try {
         return owner?.getAttribute('data-yomu-runtime-health') === 'ready';
     }, null, { timeout: 35_000 });
     report.activationMs = Date.now() - navigationAt;
-    report.state = await page.evaluate(() => {
+    const runtimeState = await page.evaluate(() => {
         const installed = document.querySelector('#jpdb-reader-installed-runtime');
         const owner = document.querySelector('#jpdb-reader-runtime-owner');
         const attribute = (element, name) => element ? element.getAttribute(name) || '' : '';
@@ -90,10 +90,16 @@ try {
             runtimeKind: attribute(owner, 'data-yomu-runtime-kind'),
             runtimeHealth: attribute(owner, 'data-yomu-runtime-health'),
             runtimeServices: attribute(owner, 'data-yomu-runtime-services'),
-            puckVisible: Boolean(document.querySelector('.jpdb-reader-fab')),
-            onboardingVisible: Boolean(document.querySelector('.jpdb-reader-onboarding')),
         };
     });
+    await page.locator('.jpdb-reader-fab:visible, .jpdb-reader-onboarding:visible')
+        .first()
+        .waitFor({ state: 'visible', timeout: 5_000 });
+    report.state = {
+        ...runtimeState,
+        puckVisible: await page.locator('.jpdb-reader-fab').isVisible(),
+        onboardingVisible: await page.locator('.jpdb-reader-onboarding').isVisible(),
+    };
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'youtube-extension-boot.png') });
 
     const initializationErrors = [...report.consoleErrors, ...report.pageErrors]

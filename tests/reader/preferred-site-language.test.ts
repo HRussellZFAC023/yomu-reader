@@ -508,6 +508,37 @@ describe('preferred Japanese site language', () => {
         expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
     });
 
+    it('lets an explicit opt-in redirect after a cold opt-out clears stale session suppression', () => {
+        const replace = vi.fn();
+        sessionStorage.setItem('yomu:jps', JSON.stringify([
+            'https://www.youtube.com/watch?v=abc123',
+            'https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP',
+            Date.now(),
+        ]));
+        sessionStorage.setItem('yomu:jps:hosts', JSON.stringify(['www.youtube.com']));
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
+            key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY
+                ? false
+                : key === SETTINGS_STORAGE_KEY
+                    ? { preferJapaneseSiteLanguage: false }
+                    : fallback
+        ));
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        installPreferredJapaneseSiteLanguageFromStoredSettings();
+        expect(replace).not.toHaveBeenCalled();
+
+        applyPreferredJapaneseSiteLanguage(true);
+
+        expect(replace).toHaveBeenCalledWith('https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP');
+    });
+
     it('reloads once when a cleared Japanese preference cookie already shaped the response', () => {
         const replace = vi.fn();
         let cookie = 'PREF=hl=ja&gl=JP&keep=1';

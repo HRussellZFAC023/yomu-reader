@@ -143,6 +143,10 @@ function applyPreferredJapaneseSiteLanguageAtRevision(
         ? shouldReloadCookieShapedResponse
         : false;
     cancelPreferredJapaneseSiteRedirectWatcher();
+    // Disabling also retires this tab's loop-suppression provenance. A cold
+    // authoritative opt-out must not navigate, but a later explicit opt-in in
+    // the same tab still needs permission to redirect the host once.
+    forgetSessionRedirectState();
     // A deliberate opt-out also has to undo the navigation the preference caused;
     // leaving the site on its Japanese URL reads as the toggle having done nothing.
     if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
@@ -489,8 +493,6 @@ function attemptPreferredDefaultSiteRedirect(): boolean {
     // performed the redirect and has not navigated since, which is the minority
     // of opt-outs. Otherwise undo the Japanese markers the preference adds.
     const target = href ? (rememberedRedirectSourceForTarget(href) ?? preferredDefaultSiteUrl(href, document)) : null;
-    // Switching the preference back on must be able to redirect this host again.
-    forgetSessionRedirectState();
     if (!target || target === href) return false;
     replaceLocation(target);
     return true;

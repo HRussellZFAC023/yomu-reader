@@ -17,7 +17,7 @@ const {
     root: ROOT,
 } = createSmokePaths(import.meta.dirname);
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
-const OPT_OUT_FIXTURE_URL = 'https://japanese-site-language-smoke.test/en-US/docs?locale=en-US&region=GB';
+const OPT_OUT_FIXTURE_URL = 'https://japanese-site-language-smoke.test/ja-JP/docs?locale=ja-JP&region=JP';
 assertBuiltArtifacts([SCRIPT_PATH], ROOT);
 
 const SITES = [
