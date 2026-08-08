@@ -1,7 +1,7 @@
 // Runtime implementation. Product code reaches this through the annotations
 // companion facade in detached-reading-overlay.ts.
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
-import { setImportantStyleIfChanged } from './inline-style';
+import { setImportantStyleIfChanged, stableCssPixels } from './inline-style';
 
 export interface DetachedReadingProjection {
     source: HTMLElement;
@@ -631,8 +631,8 @@ function positionProjectedReading(
     const scaleX = layout?.scaleX ?? 1;
     record.readingScaleX = scaleX;
     setImportantStyleIfChanged(clone, 'display', 'block');
-    setImportantStyleIfChanged(clone, 'left', `${centre + origin.x}px`);
-    setImportantStyleIfChanged(clone, 'top', `${rect.top + origin.y}px`);
+    setImportantStyleIfChanged(clone, 'left', stableCssPixels(centre + origin.x));
+    setImportantStyleIfChanged(clone, 'top', stableCssPixels(rect.top + origin.y));
     setImportantStyleIfChanged(clone, 'right', 'auto');
     setImportantStyleIfChanged(clone, 'bottom', 'auto');
     // translate is origin-independent, but the condense is not: pin the origin

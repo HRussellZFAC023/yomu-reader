@@ -1,5 +1,5 @@
 import { safeComputedStyle } from './decoration-policy';
-import { setImportantStyleIfChanged as setImportantStyle } from './inline-style';
+import { setImportantStyleIfChanged as setImportantStyle, stableCssPixels } from './inline-style';
 
 export const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = 'jpdb-reader-document-annotation-portal';
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = 'jpdb-reader-document-annotation-paint';
@@ -375,9 +375,13 @@ function writePortalAlignment(alignment: PendingAlignment): void {
     applyPortalClipGeometry(entry.mirror, clip);
     entry.applied = { x, y };
     if (Math.abs(x) <= 0.01 && Math.abs(y) <= 0.01) {
-        entry.paint.style.setProperty('transform', 'none', 'important');
+        setImportantStyle(entry.paint, 'transform', 'none');
     } else {
-        entry.paint.style.setProperty('transform', `translate3d(${x}px, ${y}px, 0)`, 'important');
+        setImportantStyle(
+            entry.paint,
+            'transform',
+            `translate3d(${stableCssPixels(x)}, ${stableCssPixels(y)}, 0px)`,
+        );
     }
 }
 
@@ -626,10 +630,10 @@ function applyPortalClipGeometry(
         setImportantStyle(mirror, 'overflow', 'visible');
         return;
     }
-    setImportantStyle(mirror, 'left', `${clip.left}px`);
-    setImportantStyle(mirror, 'top', `${clip.top}px`);
-    setImportantStyle(mirror, 'width', `${Math.max(0, clip.right - clip.left)}px`);
-    setImportantStyle(mirror, 'height', `${Math.max(0, clip.bottom - clip.top)}px`);
+    setImportantStyle(mirror, 'left', stableCssPixels(clip.left));
+    setImportantStyle(mirror, 'top', stableCssPixels(clip.top));
+    setImportantStyle(mirror, 'width', stableCssPixels(Math.max(0, clip.right - clip.left)));
+    setImportantStyle(mirror, 'height', stableCssPixels(Math.max(0, clip.bottom - clip.top)));
     setImportantStyle(mirror, 'overflow', 'hidden');
 }
 

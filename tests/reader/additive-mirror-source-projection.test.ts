@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { projectAdditiveTextMirror } from '../../src/reader/dom';
+import { stableCssPixels } from '../../src/reader/dom/inline-style';
 
 function rect(left: number, top = 50, width = 40, height = 16): DOMRect {
     return {
@@ -39,6 +40,12 @@ function scene(): { host: HTMLElement; mirror: HTMLElement; word: HTMLElement } 
     return { host, mirror, word };
 }
 
+function expectSourceProjectionCleared(mirror: HTMLElement, word: HTMLElement): void {
+    expect(word.querySelector('.jpdb-reader-source-fragment')).toBeNull();
+    expect(word.hasAttribute('data-yomu-source-projected')).toBe(false);
+    expect(mirror.hasAttribute('data-yomu-source-projected')).toBe(false);
+}
+
 beforeEach(() => {
     sourceRects = [];
     sourceRectsForRange = () => sourceRects;
@@ -54,6 +61,28 @@ afterEach(() => {
 });
 
 describe('additive text-mirror source projection', () => {
+    it('serializes fractional projection geometry at stable CSSOM precision', () => {
+        expect([
+            Number.NaN,
+            Number.POSITIVE_INFINITY,
+            -0,
+            0.30000000000000004,
+            16.666666666666668,
+            123.609375,
+            0.015625,
+            -20,
+        ].map(stableCssPixels)).toEqual([
+            '0px',
+            '0px',
+            '0px',
+            '0.3px',
+            '16.6667px',
+            '123.609px',
+            '0.015625px',
+            '-20px',
+        ]);
+    });
+
     it('sizes the projection shell to a bordered host padding box', () => {
         const { host, mirror } = scene();
         Object.defineProperties(host, {
@@ -227,9 +256,7 @@ describe('additive text-mirror source projection', () => {
             host.firstChild!.textContent = '別語';
             projectAdditiveTextMirror(mirror, host);
 
-            expect(word.querySelector('.jpdb-reader-source-fragment')).toBeNull();
-            expect(word.hasAttribute('data-yomu-source-projected')).toBe(false);
-            expect(mirror.hasAttribute('data-yomu-source-projected')).toBe(false);
+            expectSourceProjectionCleared(mirror, word);
             expect(mirror.dataset.yomuSourceStale).toBe('true');
             expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source')).toBe('transparent');
             expect(word.style.position).toBe('');
@@ -319,6 +346,44 @@ describe('additive text-mirror source projection', () => {
         projectAdditiveTextMirror(mirror, host);
 
         expect(document.querySelector('[data-yomu-projected-reading="true"]')).toBeNull();
+    });
+
+    it('returns a word and its reading to resting geometry when its last source fragment disappears', () => {
+        const { host, mirror, word } = scene();
+        word.innerHTML = '<span class="jpdb-reader-detached-ruby" data-yomu-source-start="0" data-yomu-source-end="2"><span class="jpdb-reader-ruby-base">投票</span><span class="jpdb-reader-detached-furi">とうひょう</span></span>';
+        document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
+        word.classList.add('jpdb-pitch-heiban');
+        sourceRectsForRange = () => [rect(130, 54, 32, 16)];
+
+        try {
+            projectAdditiveTextMirror(mirror, host);
+            const ruby = word.querySelector<HTMLElement>('.jpdb-reader-detached-ruby')!;
+            expect(word.style.position).toBe('absolute');
+            expect(ruby.style.position).toBe('absolute');
+            expect(word.querySelector('.jpdb-reader-source-fragment')).toBeTruthy();
+
+            sourceRectsForRange = () => [];
+            projectAdditiveTextMirror(mirror, host);
+
+            expectSourceProjectionCleared(mirror, word);
+            expect(word.style.position).toBe('');
+            expect(word.style.inset).toBe('');
+            expect(ruby.style.position).toBe('relative');
+            expect(ruby.style.left).toBe('');
+            expect(ruby.style.top).toBe('');
+            expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source')).toBe('transparent');
+            expect(document.querySelector('[data-yomu-projected-reading="true"]')).toBeNull();
+
+            sourceRectsForRange = () => [rect(140, 54, 24, 16)];
+            projectAdditiveTextMirror(mirror, host);
+            expect(word.style.position).toBe('absolute');
+            expect(ruby.style.position).toBe('absolute');
+            expect(word.querySelector<HTMLElement>('.jpdb-reader-source-fragment')?.style.left).toBe('40px');
+            expect(word.style.getPropertyValue('--jpdb-reader-word-decoration-source'))
+                .toContain('--jpdb-reader-source-pitch-decoration');
+        } finally {
+            document.documentElement.classList.remove('jpdb-reader-word-underline-pitch');
+        }
     });
 
     it('centres ばい over the 倍 range rather than the complete 1.00 倍 label', () => {
