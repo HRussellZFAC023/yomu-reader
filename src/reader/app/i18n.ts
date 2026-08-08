@@ -749,8 +749,8 @@ const COPY = {
         enableSubtitleAutoHide: 'Auto-hide panel while playing',
         disableSubtitleAutoHide: 'Keep panel open while playing',
         subtitlePanelOptions: 'Panel options',
-        loadJapaneseSubtitles: 'Load Japanese subtitles',
-        loadNativeSubtitles: 'Load native subtitles',
+        loadTargetSubtitles: 'Load {language} subtitles',
+        loadOutputSubtitles: 'Load {language} subtitles',
         searchAnimeSubtitles: 'Search anime subtitles',
         toggleNativeSubtitleBlur: 'Toggle native subtitle blur',
         subtitleTrackDetectedSingular: '1 subtitle track detected',
@@ -1548,8 +1548,8 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
+loadTargetSubtitles	{language}字幕を読み込む
+loadOutputSubtitles	{language}字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出

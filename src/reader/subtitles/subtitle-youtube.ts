@@ -48,9 +48,39 @@ export interface YouTubeTrackLoadOptions<T extends YouTubeSubtitleTrack> {
     onRequestError?: (track: T, url: string, error: unknown) => void;
 }
 
-export async function discoverYouTubeCaptionTracks(): Promise<YouTubeCaptionTrackCandidate[]> {
-    const pageTracks = getYouTubeCaptionTracks();
-    const androidTracks = await getAndroidYouTubeCaptionTracks();
+export interface YouTubeCaptionDiscoveryOptions {
+    preferredTranslationLanguages?: readonly string[];
+}
+
+export interface CurrentYouTubeCaptionDiscoveryOptions extends YouTubeCaptionDiscoveryOptions {
+    contextKey: string;
+    currentContextKey: () => string;
+    onVideoId: (videoId: string) => void;
+}
+
+/** One context-safe YouTube discovery transaction for the controller Adapter. */
+export async function discoverCurrentYouTubeCaptionTracks(
+    options: CurrentYouTubeCaptionDiscoveryOptions,
+): Promise<YouTubeCaptionTrackCandidate[] | null> {
+    if (!isYouTubePage()) return null;
+    const videoId = getYouTubeVideoId();
+    if (!videoId) return null;
+    options.onVideoId(videoId);
+    const tracks = await discoverYouTubeCaptionTracks(options);
+    return currentYouTubeDiscoveryTracks(tracks, options);
+}
+
+function currentYouTubeDiscoveryTracks(
+    tracks: YouTubeCaptionTrackCandidate[],
+    options: Pick<CurrentYouTubeCaptionDiscoveryOptions, 'contextKey' | 'currentContextKey'>,
+): YouTubeCaptionTrackCandidate[] | null {
+    if (!tracks.length) return null;
+    return options.contextKey === options.currentContextKey() ? tracks : null;
+}
+
+export async function discoverYouTubeCaptionTracks(options: YouTubeCaptionDiscoveryOptions = {}): Promise<YouTubeCaptionTrackCandidate[]> {
+    const pageTracks = getYouTubeCaptionTracks(options);
+    const androidTracks = await getAndroidYouTubeCaptionTracks(options.preferredTranslationLanguages);
     return uniqueYouTubeCaptionTrackCandidates([
         ...pageTracks,
         ...androidTracks,
@@ -126,7 +156,7 @@ export async function loadFirstUsableYouTubeSibling<T extends YouTubeSubtitleTra
     return null;
 }
 
-export function getYouTubeCaptionTracks(): YouTubeCaptionTrackCandidate[] {
+export function getYouTubeCaptionTracks(options: YouTubeCaptionDiscoveryOptions = {}): YouTubeCaptionTrackCandidate[] {
     const playerTracks = getYouTubePlayerCaptionTracks();
     const response = getYouTubePlayerResponse();
     const renderer = response?.captions?.playerCaptionsTracklistRenderer;
@@ -134,7 +164,7 @@ export function getYouTubeCaptionTracks(): YouTubeCaptionTrackCandidate[] {
     return uniqueYouTubeCaptionTracks([
         ...playerTracks,
         ...(Array.isArray(rawTracks) ? rawTracks : []),
-    ], renderer?.translationLanguages);
+    ], renderer?.translationLanguages, options.preferredTranslationLanguages);
 }
 
 export function youtubeVideoHasNativeCaptions(): boolean {
@@ -149,7 +179,7 @@ export function youtubeVideoHasNativeCaptions(): boolean {
 
 async function fallbackYouTubeCaptionCandidates(track: YouTubeSubtitleTrack): Promise<YouTubeCaptionTrackCandidate[]> {
     if (track.kind !== 'youtube') return [];
-    const candidates = await getAndroidYouTubeCaptionTracks();
+    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? '', track.language ?? '']);
     return candidates
         .filter(candidate => youtubeCaptionCandidateMatchesTrack(candidate, track))
         .sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
@@ -320,8 +350,16 @@ function isLikelyVisibleYouTubeWatchVideo(video: HTMLVideoElement): boolean {
     return video.classList.contains('html5-main-video') && (video.readyState >= 1 || width > 0 || height > 0);
 }
 
-function uniqueYouTubeCaptionTracks(rawTracks: unknown[], rawTranslationLanguages: unknown[] | undefined = []): YouTubeCaptionTrackCandidate[] {
-    return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages));
+function uniqueYouTubeCaptionTracks(
+    rawTracks: unknown[],
+    rawTranslationLanguages: unknown[] | undefined = [],
+    preferredTranslationLanguages: readonly string[] = [],
+): YouTubeCaptionTrackCandidate[] {
+    return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(
+        rawTracks,
+        rawTranslationLanguages,
+        preferredTranslationLanguages,
+    ));
 }
 
 function uniqueYouTubeCaptionTrackCandidates(candidates: YouTubeCaptionTrackCandidate[]): YouTubeCaptionTrackCandidate[] {
@@ -334,11 +372,15 @@ function uniqueYouTubeCaptionTrackCandidates(candidates: YouTubeCaptionTrackCand
     return [...tracks.values()];
 }
 
-function youtubeCaptionTracksWithTranslations(rawTracks: unknown[], rawTranslationLanguages: unknown[]): YouTubeCaptionTrackCandidate[] {
+function youtubeCaptionTracksWithTranslations(
+    rawTracks: unknown[],
+    rawTranslationLanguages: unknown[],
+    preferredLanguages: readonly string[],
+): YouTubeCaptionTrackCandidate[] {
     const baseTracks = rawTracks
         .map(parseYouTubeCaptionTrack)
         .filter((track): track is YouTubeCaptionTrackCandidate => Boolean(track));
-    const translationLanguages = preferredYouTubeTranslationLanguages(rawTranslationLanguages);
+    const translationLanguages = preferredYouTubeTranslationLanguages(rawTranslationLanguages, preferredLanguages);
     if (!translationLanguages.length) return baseTracks;
     return [
         ...baseTracks,
@@ -385,13 +427,21 @@ interface YouTubeTranslationLanguage {
     raw: unknown;
 }
 
-function preferredYouTubeTranslationLanguages(rawLanguages: unknown[]): YouTubeTranslationLanguage[] {
+function preferredYouTubeTranslationLanguages(
+    rawLanguages: unknown[],
+    preferredLanguages: readonly string[],
+): YouTubeTranslationLanguage[] {
     const languages = rawLanguages
         .map(parseYouTubeTranslationLanguage)
         .filter((language): language is YouTubeTranslationLanguage => Boolean(language));
     if (!languages.length) return [];
     const byCode = new Map(languages.map(language => [language.code, language]));
-    const preferred = uniqueStrings(['ja', 'en', normalizedYouTubeLanguageCode(readYouTubeConfigString('HL'))]);
+    const preferred = uniqueStrings([
+        ...preferredLanguages.map(language => normalizedYouTubeLanguageCode(language)),
+        'ja',
+        'en',
+        normalizedYouTubeLanguageCode(readYouTubeConfigString('HL')),
+    ]);
     return preferred.flatMap(code => {
         const language = byCode.get(code);
         return language ? [language] : [];
@@ -458,11 +508,11 @@ function applyYouTubeCaptionClientName(url: URL, clientName: string): void {
     if (clientName && !url.searchParams.has('c')) url.searchParams.set('c', clientName);
 }
 
-async function getAndroidYouTubeCaptionTracks(): Promise<YouTubeCaptionTrackCandidate[]> {
+async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages: readonly string[] = []): Promise<YouTubeCaptionTrackCandidate[]> {
     const request = androidYouTubeCaptionRequest();
     if (!request) return [];
     try {
-        return await fetchAndroidYouTubeCaptionTracks(request);
+        return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages);
     } catch {
         return [];
     }
@@ -484,11 +534,14 @@ function androidYouTubeCaptionRequest(): AndroidYouTubeCaptionRequest | null {
     };
 }
 
-async function fetchAndroidYouTubeCaptionTracks(request: AndroidYouTubeCaptionRequest): Promise<YouTubeCaptionTrackCandidate[]> {
+async function fetchAndroidYouTubeCaptionTracks(
+    request: AndroidYouTubeCaptionRequest,
+    preferredTranslationLanguages: readonly string[],
+): Promise<YouTubeCaptionTrackCandidate[]> {
     const response = await fetch(request.url, request.init);
     if (!response.ok) return [];
     const payload = await response.json() as YouTubePlayerResponse;
-    return androidYouTubeCaptionTracksFromPayload(payload, request.videoId);
+    return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);
 }
 
 function androidYouTubeCaptionRequestBody(videoId: string): string {
@@ -504,11 +557,19 @@ function androidYouTubeCaptionRequestBody(videoId: string): string {
     });
 }
 
-function androidYouTubeCaptionTracksFromPayload(payload: YouTubePlayerResponse, videoId: string): YouTubeCaptionTrackCandidate[] {
+function androidYouTubeCaptionTracksFromPayload(
+    payload: YouTubePlayerResponse,
+    videoId: string,
+    preferredTranslationLanguages: readonly string[],
+): YouTubeCaptionTrackCandidate[] {
     if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
     const renderer = payload.captions?.playerCaptionsTracklistRenderer;
     const rawTracks = renderer?.captionTracks;
-    return uniqueYouTubeCaptionTracks(Array.isArray(rawTracks) ? rawTracks : [], renderer?.translationLanguages);
+    return uniqueYouTubeCaptionTracks(
+        Array.isArray(rawTracks) ? rawTracks : [],
+        renderer?.translationLanguages,
+        preferredTranslationLanguages,
+    );
 }
 
 function youtubeCaptionTrackLabel(record: {
@@ -623,7 +684,7 @@ function findPreferredYouTubeCaptionCandidate(track: YouTubeSubtitleTrack): YouT
     const candidates = uniqueYouTubeCaptionTracks([
         ...getYouTubePlayerCaptionTracks(),
         ...(renderer?.captionTracks ?? []),
-    ], renderer?.translationLanguages);
+    ], renderer?.translationLanguages, [track.targetLanguage ?? '', track.language ?? '']);
     const targetIdentity = youtubeCaptionTrackIdentity(track);
     return candidates
         .filter(candidate => youtubeCaptionTrackIdentity(candidate) === targetIdentity)

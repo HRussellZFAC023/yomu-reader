@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { activateYouTubeCaptionTrack, getYouTubeCaptionTracks, isYouTubeFeedPreviewVideo, isYouTubeOwnedVideoElement } from '../../src/reader/subtitles/subtitle-youtube';
+import {
+    activateYouTubeCaptionTrack,
+    discoverCurrentYouTubeCaptionTracks,
+    getYouTubeCaptionTracks,
+    isYouTubeFeedPreviewVideo,
+    isYouTubeOwnedVideoElement,
+} from '../../src/reader/subtitles/subtitle-youtube';
 
 const originalLocation = window.location;
 const originalResponse = (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse;
@@ -114,38 +120,22 @@ describe('YouTube subtitle captions', () => {
     });
 
     it('extracts object-shaped displayName and languageName text for auto-translated labels', () => {
-        Object.defineProperty(window, 'location', {
-            configurable: true,
-            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
-        });
         (window as Window & { ytcfg?: { get?: (key: string) => unknown } }).ytcfg = {
             get: key => key === 'HL' ? 'ja' : '',
         };
-        (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
-            videoDetails: { videoId: 'abc123' },
-            captions: {
-                playerCaptionsTracklistRenderer: {
-                    captionTracks: [
-                        {
-                            baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en',
-                            languageCode: 'en',
-                            vssId: '.en',
-                            displayName: { simpleText: 'English' },
-                        },
-                    ],
-                    translationLanguages: [
-                        {
-                            languageCode: 'ja',
-                            languageName: { runs: [{ text: '日本' }, { text: '語' }] },
-                        },
-                        {
-                            languageCode: 'en',
-                            languageName: { simpleText: 'English' },
-                        },
-                    ],
+        installYouTubeCaptionResponse({
+            captionTracks: [englishCaptionTrack()],
+            translationLanguages: [
+                {
+                    languageCode: 'ja',
+                    languageName: { runs: [{ text: '日本' }, { text: '語' }] },
                 },
-            },
-        };
+                {
+                    languageCode: 'en',
+                    languageName: { simpleText: 'English' },
+                },
+            ],
+        });
 
         const tracks = getYouTubeCaptionTracks();
 
@@ -160,6 +150,42 @@ describe('YouTube subtitle captions', () => {
             sourceLanguage: 'en',
             targetLanguage: 'ja',
         });
+    });
+
+    it('discovers translations for the active TARGET and OUTPUT axes', () => {
+        installYouTubeCaptionResponse({
+            captionTracks: [englishCaptionTrack()],
+            translationLanguages: [
+                { languageCode: 'es', languageName: { simpleText: 'Español' } },
+                { languageCode: 'ko', languageName: { simpleText: '한국어' } },
+                { languageCode: 'ja', languageName: { simpleText: '日本語' } },
+                { languageCode: 'en', languageName: { simpleText: 'English' } },
+            ],
+        });
+
+        const tracks = getYouTubeCaptionTracks({ preferredTranslationLanguages: ['es', 'ko'] });
+
+        expect(tracks.filter(track => track.sourceType === 'translation').map(track => track.language)).toEqual([
+            'es',
+            'ko',
+            'ja',
+        ]);
+    });
+
+    it('discards a caption discovery result after its language context changes', async () => {
+        installYouTubeCaptionResponse({ captionTracks: [englishCaptionTrack()] });
+        let contextKey = '0:ja:en:ja-JP:en';
+        const onVideoId = vi.fn();
+
+        const pending = discoverCurrentYouTubeCaptionTracks({
+            contextKey,
+            currentContextKey: () => contextKey,
+            onVideoId,
+        });
+        contextKey = '1:es:en:es:en';
+
+        await expect(pending).resolves.toBeNull();
+        expect(onVideoId).toHaveBeenCalledWith('abc123');
     });
 
     it('activates YouTube auto-translated tracks with the source track and translation language', () => {
@@ -224,4 +250,24 @@ function mockVideoRect(video: HTMLVideoElement, width: number, height: number): 
         height,
         toJSON: () => ({}),
     });
+}
+
+function englishCaptionTrack(): Record<string, unknown> {
+    return {
+        baseUrl: 'https://www.youtube.com/api/timedtext?v=abc123&lang=en',
+        languageCode: 'en',
+        vssId: '.en',
+        displayName: { simpleText: 'English' },
+    };
+}
+
+function installYouTubeCaptionResponse(playerCaptionsTracklistRenderer: Record<string, unknown>): void {
+    Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+    });
+    (window as Window & { ytInitialPlayerResponse?: unknown }).ytInitialPlayerResponse = {
+        videoDetails: { videoId: 'abc123' },
+        captions: { playerCaptionsTracklistRenderer },
+    };
 }

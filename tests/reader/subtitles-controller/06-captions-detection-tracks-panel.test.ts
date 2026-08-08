@@ -18,8 +18,8 @@ import {
     SubtitlePlayerController,
 } from './fixtures';
 import type {
-    ReaderSettings,
     JPDBToken,
+    ReaderSettings,
     SubtitleParsedHtmlCache,
 } from './fixtures';
 
@@ -623,7 +623,7 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             value: () => ({ left: 40, right: 984, top: 650, bottom: 730, width: 944, height: 80 }),
         });
 
-        expect(readPageCaptionText(video, readerRoot, { allowAnyLanguage: true })).toBe('');
+        expect(readPageCaptionText(video, readerRoot, { allowAnyCaptionScript: true })).toBe('');
     });
 
     it('does not treat text-only fullscreen control labels as non-Japanese captions', () => {
@@ -641,7 +641,7 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
             value: () => ({ left: 40, right: 984, top: 650, bottom: 700, width: 944, height: 50 }),
         });
 
-        expect(readPageCaptionText(video, undefined, { allowAnyLanguage: true })).toBe('');
+        expect(readPageCaptionText(video, undefined, { allowAnyCaptionScript: true })).toBe('');
     });
 
     it('detects Japanese page captions near a video without site-specific selectors', () => {
@@ -845,7 +845,7 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         const video = nearbyPageCaption('today we read subtitles');
 
         expect(readPageCaptionText(video)).toBe('');
-        expect(readPageCaptionText(video, undefined, { allowAnyLanguage: true })).toBe('today we read subtitles');
+        expect(readPageCaptionText(video, undefined, { allowAnyCaptionScript: true })).toBe('today we read subtitles');
     });
 
     it('accepts DOM captions recognized by the active non-Japanese target', () => {

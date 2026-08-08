@@ -11,6 +11,7 @@ import {
     installController,
     createInstalledSubtitleController,
     attachVideo,
+    deferred,
     setupTranscriptCueController,
     openSingleCueTranscript,
     pointerEvent,
@@ -34,6 +35,37 @@ interface YouTubeTrackDiscoveryInternals {
     finishYouTubeTrackDiscovery: (added: number, updatedSelectedTrack: boolean) => void;
     selectTrack: (id: string) => Promise<void>;
     selectSecondaryTrack: (id: string) => Promise<void>;
+}
+
+interface LanguageSwitchInternals {
+    tracks: Array<{
+        id: string;
+        label: string;
+        kind: 'file' | 'remote';
+        language?: string;
+        targetLanguage?: string;
+        translatedFromTrackId?: string;
+    }>;
+    selectedTrackId: string;
+    secondaryTrackId: string;
+    primarySelectionRequest: number;
+    secondarySelectionRequest: number;
+    selectTrack: (id: string) => Promise<void>;
+    selectSecondaryTrack: (id: string) => Promise<void>;
+}
+
+function stubLanguageSwitchSelection(
+    internals: LanguageSwitchInternals,
+    selectedTrackId: string,
+    secondaryTrackId: string,
+): { primaryRequest: number; secondaryRequest: number } {
+    internals.selectedTrackId = selectedTrackId;
+    internals.secondaryTrackId = secondaryTrackId;
+    const primaryRequest = internals.primarySelectionRequest;
+    const secondaryRequest = internals.secondarySelectionRequest;
+    internals.selectTrack = async id => { internals.selectedTrackId = id; };
+    internals.selectSecondaryTrack = async id => { internals.secondaryTrackId = id; };
+    return { primaryRequest, secondaryRequest };
 }
 
 function stubEnglishOnlyYouTubeDiscovery(controller: SubtitlePlayerController): YouTubeTrackDiscoveryInternals {
@@ -876,7 +908,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         const { controller } = createSubtitleController(makeSubtitleSettings({ interfaceLanguage: 'en' as const }));
         const internals = stubEnglishOnlyYouTubeDiscovery(controller);
         internals.finishYouTubeTrackDiscovery(1, false);
-        expect(internals.selectedTrackId).toBe('translated-youtube-en');
+        expect(internals.selectedTrackId).toBe('translated-ja-youtube-en');
 
         internals.tracks.push({ id: 'youtube-ja', label: '日本語', kind: 'youtube', language: 'ja' });
         internals.finishYouTubeTrackDiscovery(1, false);
@@ -983,6 +1015,82 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         internals.addNativeTrack(makeTrack('日本語', 'ja'));
         expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.translatedFromTrackId).toBeUndefined();
         expect(internals.selectedTrackId).not.toBe('');
+    });
+
+    it('invalidates stale synthetic selection work and reselects after a runtime target switch', () => {
+        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<LanguageSwitchInternals>(controller);
+        internals.tracks = [
+            { id: 'english', label: 'English', kind: 'file', language: 'en' },
+            { id: 'translated-ja-english', label: 'Translation', kind: 'remote', language: 'ja', targetLanguage: 'ja', translatedFromTrackId: 'english' },
+            { id: 'spanish', label: 'Español', kind: 'file', language: 'es' },
+        ];
+        const { primaryRequest, secondaryRequest } = stubLanguageSwitchSelection(
+            internals,
+            'translated-ja-english',
+            'english',
+        );
+
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        controller.refresh();
+
+        expect(internals.tracks.some(track => track.id === 'translated-ja-english')).toBe(false);
+        expect(internals.selectedTrackId).toBe('spanish');
+        expect(internals.secondaryTrackId).toBe('english');
+        expect(internals.primarySelectionRequest).toBe(primaryRequest + 1);
+        expect(internals.secondarySelectionRequest).toBe(secondaryRequest + 1);
+    });
+
+    it('switches only the secondary track when OUTPUT changes at runtime', () => {
+        const { controller, settings } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<LanguageSwitchInternals>(controller);
+        internals.tracks = [
+            { id: 'japanese', label: '日本語', kind: 'file', language: 'ja' },
+            { id: 'english', label: 'English', kind: 'file', language: 'en' },
+            { id: 'persian', label: 'فارسی', kind: 'file', language: 'fa' },
+        ];
+        const { primaryRequest, secondaryRequest } = stubLanguageSwitchSelection(internals, 'japanese', 'english');
+
+        settings.languageProfiles = settings.languageProfiles.map(profile => profile.id === settings.activeLanguageProfileId
+            ? { ...profile, outputLanguage: 'fa', learnerLanguage: 'fa' }
+            : profile);
+        controller.refresh();
+
+        expect(internals.selectedTrackId).toBe('japanese');
+        expect(internals.secondaryTrackId).toBe('persian');
+        expect(internals.primarySelectionRequest).toBe(primaryRequest);
+        expect(internals.secondarySelectionRequest).toBe(secondaryRequest + 1);
+    });
+
+    it('restarts an in-flight YouTube discovery after the language context changes', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const firstDiscovery = deferred<void>();
+        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+        const internals = controllerInternals<{
+            discoverYouTubeTracks: () => Promise<void>;
+            discoverYouTubeTracksThrottled: (force?: boolean) => Promise<void>;
+        }>(controller);
+        const discover = vi.fn()
+            .mockImplementationOnce(() => firstDiscovery.promise)
+            .mockResolvedValue(undefined);
+        internals.discoverYouTubeTracks = discover;
+
+        try {
+            const pending = internals.discoverYouTubeTracksThrottled(true);
+            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+            controller.refresh();
+            expect(discover).toHaveBeenCalledTimes(1);
+
+            firstDiscovery.resolve();
+            await pending;
+            await vi.waitFor(() => expect(discover).toHaveBeenCalledTimes(2));
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
     });
 
     it('keeps the synthetic translated option when the page subtitle listing is rediscovered', () => {

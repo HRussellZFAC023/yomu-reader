@@ -1,9 +1,10 @@
 import { escapeHtml } from '../dom/index';
-import { uiText } from '../app/i18n';
+import { formatUiText, resolveUiLanguage, uiText } from '../app/i18n';
 import { formatTrackKind, trackStatusText, type SubtitleTrackKind, type SubtitleTrackLoadingState } from './subtitle-track-metadata';
 import { renderDrawerHead } from './subtitle-surface';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import { escapeRegExp } from './youtube-config';
+import { languageDisplayName } from '../languages/locale';
 
 export interface SubtitleTrackPanelTrack {
     id: string;
@@ -31,6 +32,8 @@ export interface SubtitleTrackPanelRenderState {
     placement: ReaderSettings['subtitleTranscriptPlacement'];
     optionsMenuOpen: boolean;
     language: InterfaceLanguage;
+    targetLanguage: string;
+    outputLanguage: string;
     animeSearchQuery?: string;
     // Windowed render for videos with many (auto-translated) caption tracks: only
     // tracks[start..end) become rows; spacers reserve the off-window scroll height.
@@ -41,6 +44,9 @@ export interface SubtitleTrackPanelRenderState {
 
 export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): string {
     const language = state.language;
+    const displayLocale = resolveUiLanguage(language);
+    const targetName = languageDisplayName(state.targetLanguage, displayLocale);
+    const outputName = languageDisplayName(state.outputLanguage, displayLocale);
     return `
         ${renderDrawerHead({
             mode: 'tracks',
@@ -73,9 +79,9 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
         })}
         <div class="jpdb-subtitle-list-scroll"${state.virtual ? ' data-virtualized="true"' : ''}>
             <div class="jpdb-subtitle-track-tools">
-                <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
-                <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
-                <a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml(uiText(language, 'searchAnimeSubtitles'))}</a>
+                <button type="button" data-action="load">${escapeHtml(formatUiText(language, 'loadTargetSubtitles', { language: targetName }))}</button>
+                <button type="button" data-action="load-secondary">${escapeHtml(formatUiText(language, 'loadOutputSubtitles', { language: outputName }))}</button>
+                ${state.targetLanguage === 'ja' ? `<a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml(uiText(language, 'searchAnimeSubtitles'))}</a>` : ''}
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, 'subtitleTracksHint'))}</div>
@@ -101,6 +107,29 @@ function jimakuAnimeSearchUrl(query = ''): string {
     const trimmed = query.trim();
     if (!trimmed) return 'https://jimaku.cc/';
     return `https://jimaku.cc/opensearch/redirect?anime=true&query=${encodeURIComponent(trimmed)}`;
+}
+
+export function subtitleAnimeSearchQuery(video?: HTMLVideoElement, pageTitle = document.title): string {
+    const raw = [
+        video?.dataset.yomuAnimeSearch,
+        video?.dataset.yomuVideoTitle,
+        video?.title,
+        pageTitle,
+    ].find(value => Boolean(value)) ?? '';
+    return raw
+        .replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, '')
+        .replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, '')
+        .replace(/\[[^\]]*\]/gu, ' ')
+        .replace(/[._]+/gu, ' ')
+        .replace(/^\s*(?:watch|stream)\s+/iu, '')
+        .replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, '')
+        .replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, '')
+        .replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, ' ')
+        .replace(/\b(?:subbed|dubbed)\b/giu, ' ')
+        .replace(/\s+\b(?:online|free|hd)\b\s*$/iu, '')
+        .replace(/\s+/gu, ' ')
+        .trim()
+        .slice(0, 120);
 }
 
 export function subtitleDrawerMetaText(options: {

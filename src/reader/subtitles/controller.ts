@@ -8,7 +8,6 @@ import {
     findActiveSubtitleCue,
     findInitialLeadInCue,
     findAlignedCue,
-    formatSubtitleTime,
     normalizeSubtitleCues,
     parseSubtitleText,
     subtitleCueSignature,
@@ -47,7 +46,7 @@ import {
 } from './subtitle-video-inset';
 import {
     activateYouTubeCaptionTrack,
-    discoverYouTubeCaptionTracks,
+    discoverCurrentYouTubeCaptionTracks,
     getYouTubeVideoId,
     isYouTubeOwnedVideoElement,
     isYouTubePage,
@@ -65,8 +64,23 @@ import {
     waitForTextTrackCues,
     type SubtitleTrackLoadOptions,
 } from './subtitle-track-loader';
-import { isTargetLanguageSubtitleTrack } from './subtitle-track-metadata';
-import { renderSubtitleTrackPanel, subtitleDrawerMetaText } from './subtitle-track-panel';
+import { isSubtitleTrackLanguage, isTargetLanguageSubtitleTrack } from './subtitle-track-metadata';
+import { renderSubtitleTrackPanel, subtitleAnimeSearchQuery, subtitleDrawerMetaText } from './subtitle-track-panel';
+import {
+    resolveSubtitleLanguageContext,
+    subtitleContentLanguage,
+    subtitleLanguageContextKey,
+    syncSubtitleContentLanguage,
+    type SubtitleLanguageContext,
+} from './subtitle-language-context';
+import {
+    automaticSubtitleLanguagePair,
+    disableSubtitleTextTrack,
+    planSubtitleLanguageReconciliation,
+    subtitleLanguageActions,
+    type SubtitleLanguageAction,
+} from './subtitle-language-reconciliation';
+import { renderSubtitleShadowCueCard, subtitleShadowActionLabel } from './subtitle-shadow-rendering';
 import {
     hasSelectedSubtitleTrackOrLines,
     subtitleDrawerButtonState,
@@ -92,10 +106,9 @@ import {
     subtitleSourceContextKey,
 } from './subtitle-player-context';
 import {
-    SUBTITLE_SECONDARY_BLURRED_CLASS,
     SUBTITLE_SECONDARY_CLASS,
-    SUBTITLE_SECONDARY_CLEAR_CLASS,
     TOGGLE_NATIVE_BLUR_ACTION,
+    createSubtitlePrimaryRow,
     createSubtitleSecondaryLine,
     renderSubtitleKaraokeCue,
     renderSubtitlePrimary,
@@ -187,7 +200,7 @@ import {
     transcriptResizePatchForPointerDrag,
 } from './subtitles-transcript-resize';
 import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
-import { resolveUiLanguage, uiText } from '../app/i18n';
+import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut, NO_EXPLICIT_USER_CHOICE } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -402,28 +415,6 @@ function nativePlayerControlIsInteractive(control: HTMLElement): boolean {
 // moved (e.g. a Shorts reel swipe) without a resize/scroll/navigation event.
 function videoRectKey(rect: DOMRect): string {
     return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
-}
-
-function subtitleAnimeSearchQuery(video?: HTMLVideoElement): string {
-    const raw = video?.dataset.yomuAnimeSearch
-        || video?.dataset.yomuVideoTitle
-        || video?.title
-        || document.title
-        || '';
-    return raw
-        .replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, '')
-        .replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, '')
-        .replace(/\[[^\]]*\]/gu, ' ')
-        .replace(/[._]+/gu, ' ')
-        .replace(/^\s*(?:watch|stream)\s+/iu, '')
-        .replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, '')
-        .replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, '')
-        .replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, ' ')
-        .replace(/\b(?:subbed|dubbed)\b/giu, ' ')
-        .replace(/\s+\b(?:online|free|hd)\b\s*$/iu, '')
-        .replace(/\s+/gu, ' ')
-        .trim()
-        .slice(0, 120);
 }
 
 function clearWindowTimeout(id: number | undefined): undefined {
@@ -713,20 +704,6 @@ function flashSubtitleCopyFeedback(target: HTMLElement): void {
     window.setTimeout(() => button.classList.remove('jpdb-subtitle-copy-flash'), 1200);
 }
 
-// The row wrapper keeps .jpdb-subtitle-primary display:inline (per-line
-// background pills via box-decoration-break) while giving the grid-layout
-// .jpdb-subtitle-lines a block row that is independent of the native
-// secondary line's reserved bottom row.
-function createSubtitlePrimaryRow(primaryHtml: string): HTMLElement {
-    const row = document.createElement('div');
-    row.className = 'jpdb-subtitle-primary-row';
-    const primary = document.createElement('div');
-    primary.className = 'jpdb-subtitle-primary';
-    setInnerHtml(primary, primaryHtml);
-    row.append(primary);
-    return row;
-}
-
 export class SubtitlePlayerController {
     private root?: HTMLElement;
     private subtitleEl?: HTMLElement;
@@ -934,6 +911,7 @@ export class SubtitlePlayerController {
     private transcriptLayoutReferenceViewport = '';
     private primarySelectionRequest = 0;
     private secondarySelectionRequest = 0;
+    private subtitleLanguageContext: SubtitleLanguageContext;
     private subtitleSourceContextKey = '';
     private pausePanelOpen = false;
     private pausePanelDismissed = false;
@@ -976,7 +954,9 @@ export class SubtitlePlayerController {
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
     private readonly asbSubtitleBaseTransforms = new WeakMap<HTMLElement, string>();
 
-    constructor(private options: SubtitlePlayerOptions) {}
+    constructor(private options: SubtitlePlayerOptions) {
+        this.subtitleLanguageContext = resolveSubtitleLanguageContext(options.getSettings());
+    }
 
     private readonly clickHandlers: Record<string, (target: HTMLElement) => void> = {
         cue: target => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
@@ -1236,6 +1216,7 @@ export class SubtitlePlayerController {
         // init flag so the install()-only test harness is untouched.
         if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
         const settings = this.options.getSettings();
+        this.reconcileSubtitleLanguageContext(settings);
         const annotationsModeChanged = this.prepareAnnotationsModeRender(settings);
         this.syncRootVisibility(settings);
         this.syncTranscriptPlacementClass();
@@ -1249,6 +1230,38 @@ export class SubtitlePlayerController {
         this.render();
         this.renderOpenSubtitlePanel(annotationsModeChanged);
         this.hideControlsImmediately();
+    }
+
+    private reconcileSubtitleLanguageContext(settings: ReaderSettings): void {
+        const next = resolveSubtitleLanguageContext(settings);
+        const plan = planSubtitleLanguageReconciliation(
+            this.tracks,
+            this.selectedTrackId,
+            this.secondaryTrackId,
+            this.subtitleLanguageContext,
+            next,
+        );
+        if (!plan) return;
+        this.subtitleLanguageContext = next;
+        this.removeSubtitleTrackIds(plan.removedTrackIds);
+        disableSubtitleTextTrack(this.nativeFullscreenCueTrack);
+        this.nativeFullscreenCueTrack = undefined;
+        ensureTranslatedTargetTrack(this.tracks, settings.interfaceLanguage, next);
+        const pair = automaticSubtitleLanguagePair(this.tracks, next);
+        for (const action of subtitleLanguageActions(plan, pair, this.selectedTrackId, this.secondaryTrackId)) this.applySubtitleLanguageAction(action);
+        this.refreshNativeFullscreenCueMirror();
+        this.lastYouTubeTrackDiscoveryAt = 0;
+        if (isYouTubePage()) void this.discoverYouTubeTracksThrottled(true);
+    }
+
+    private applySubtitleLanguageAction(action: SubtitleLanguageAction): void {
+        const actions: Record<SubtitleLanguageAction['type'], () => void> = {
+            'reset-primary': () => this.resetPrimarySubtitleState(),
+            'reset-secondary': () => this.resetSecondarySubtitleState(),
+            'select-primary': () => { void this.selectTrack(action.trackId, { auto: true }); },
+            'select-secondary': () => { void this.selectSecondaryTrack(action.trackId, { auto: true }); },
+        };
+        actions[action.type]();
     }
 
     private prepareAnnotationsModeRender(settings: ReaderSettings): boolean {
@@ -1801,7 +1814,7 @@ export class SubtitlePlayerController {
         // just made the next tick normalize the same list a second time.
         this.observeNativeTrack(track);
         this.maybeAutoSelectNativeTrack(option);
-        if (ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage)) {
+        if (ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage, this.subtitleLanguageContext)) {
             this.maybeAutoSelectTranslatedTargetTrack();
         }
         window.setTimeout(() => {
@@ -1842,7 +1855,7 @@ export class SubtitlePlayerController {
     }
 
     private finishPageSubtitleTrackDiscovery(changes: { added: number; updated: number; removed: number }): void {
-        const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage);
+        const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage, this.subtitleLanguageContext);
         if (generated) this.maybeAutoSelectTranslatedTargetTrack();
         if (changes.added || changes.updated || changes.removed || generated) {
             this.renderTrackPanel();
@@ -1874,7 +1887,7 @@ export class SubtitlePlayerController {
             secondary,
             cues: this.cues,
             secondaryCues: this.secondaryCues,
-        });
+        }, this.subtitleLanguageContext);
         if (role === 'primary') {
             void this.selectTrack(option.id, { auto: true });
             return;
@@ -1892,13 +1905,15 @@ export class SubtitlePlayerController {
             this.tracks,
             this.selectedTrackId,
             this.secondaryTrackId,
+            this.subtitleLanguageContext,
         );
         if (role) this.autoSelectNativeTrack(option, track, role);
     }
 
     private maybeAutoSelectTranslatedTargetTrack(): void {
         if (this.selectedTrackId) return;
-        const synthetic = this.tracks.find(track => track.translatedFromTrackId && isTargetLanguageSubtitleTrack(track));
+        const synthetic = this.tracks.find(track => track.translatedFromTrackId
+            && isSubtitleTrackLanguage(track, this.subtitleLanguageContext.targetLanguage));
         if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
     }
 
@@ -2509,7 +2524,7 @@ export class SubtitlePlayerController {
         selected = this.ensureDomCaptionFallbackTrack(selected);
         this.ensureYouTubeDomCaptionFallbackActive(selected);
         const text = readPageCaptionText(this.video, this.root, {
-            allowAnyLanguage: this.shouldAllowAnyLanguageDomCaptionFallback(selected),
+            allowAnyCaptionScript: this.shouldAllowAnyCaptionScriptDomCaptionFallback(selected),
         });
         if (!text) {
             this.clearDomCaptionFallbackIfExpired();
@@ -2580,7 +2595,7 @@ export class SubtitlePlayerController {
         };
     }
 
-    private shouldAllowAnyLanguageDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
+    private shouldAllowAnyCaptionScriptDomCaptionFallback(selected: SubtitleTrackOption | undefined): boolean {
         // While a target-language track is still loading its cues, YouTube's own
         // caption overlay shows whatever language the player defaulted to
         // (e.g. Arabic); mirroring that flashes foreign subs before the
@@ -2674,6 +2689,9 @@ export class SubtitlePlayerController {
         const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
         this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
         if (selected?.loadingState === 'waiting') selected.loadingState = 'ready';
+        // Publish DOM-caption ownership in the same turn as the first Yomu cue.
+        // Waiting for the next tick paints native and Yomu captions together.
+        this.setNativeTrackModes();
         this.render();
         this.renderOpenSubtitlePanel();
         this.syncControls();
@@ -2740,6 +2758,11 @@ export class SubtitlePlayerController {
             return true;
         }
         const inner = row?.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+        const content = subtitleContentLanguage(
+            this.tracks.find(track => track.id === this.selectedTrackId),
+            this.subtitleLanguageContext.targetContent,
+        );
+        if (inner) syncSubtitleContentLanguage(inner, content);
         if (inner && this.lastAppliedPrimaryRowHtml === html) return false;
         this.lastAppliedPrimaryRowHtml = html;
         if (inner) {
@@ -2747,7 +2770,7 @@ export class SubtitlePlayerController {
             return true;
         }
         row?.remove();
-        host.prepend(createSubtitlePrimaryRow(html));
+        host.prepend(createSubtitlePrimaryRow(html, content));
         return true;
     }
 
@@ -2761,6 +2784,10 @@ export class SubtitlePlayerController {
             return;
         }
         const line = existing ?? createSubtitleSecondaryLine();
+        syncSubtitleContentLanguage(line, subtitleContentLanguage(
+            this.tracks.find(track => track.id === this.secondaryTrackId),
+            this.subtitleLanguageContext.outputContent,
+        ));
         syncSubtitleSecondaryText(line, text);
         syncSubtitleSecondaryBlurState(line, settings.subtitleNativeBlurred, settings.interfaceLanguage);
         if (!existing) host.append(line);
@@ -4782,7 +4809,11 @@ export class SubtitlePlayerController {
             // restore), so the mirror must be armed at entry for the system
             // player to register it; refreshNativeFullscreenCueMirror fills it
             // as cues appear.
-            const track = this.nativeFullscreenCueTrack ?? video.addTextTrack('subtitles', NATIVE_FULLSCREEN_CUE_TRACK_LABEL, 'ja');
+            const content = subtitleContentLanguage(
+                this.tracks.find(track => track.id === this.selectedTrackId),
+                this.subtitleLanguageContext.targetContent,
+            );
+            const track = this.nativeFullscreenCueTrack ?? video.addTextTrack('subtitles', NATIVE_FULLSCREEN_CUE_TRACK_LABEL, content.lang);
             this.nativeFullscreenCueTrack = track;
             for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
             for (const cue of cues) {
@@ -4929,13 +4960,13 @@ export class SubtitlePlayerController {
     }
 
     private async loadSubtitleFilesFromPicker(kind: 'primary' | 'secondary', files: File[]): Promise<void> {
-        const jobs = subtitleFilePickerJobs(kind, files);
+        const jobs = subtitleFilePickerJobs(kind, files, this.subtitleLanguageContext);
         if (!jobs.length) return;
         await this.loadHostedSubtitleFileJobs({ jobs, openPanel: false });
     }
 
     private loadSubtitleFilesFromHost(event: Event): void {
-        const request = subtitleFilesFromHostEvent(event);
+        const request = subtitleFilesFromHostEvent(event, this.subtitleLanguageContext);
         if (!request.jobs.length) return;
         void this.loadHostedSubtitleFileJobs(request);
     }
@@ -5201,6 +5232,7 @@ export class SubtitlePlayerController {
         this.setNativeTrackModes();
         this.updateFromLoadedCues();
         this.render();
+        this.refreshNativeFullscreenCueMirror();
         this.refreshTranscriptPanelAfterTrackChange();
         this.syncControls();
     }
@@ -5247,22 +5279,26 @@ export class SubtitlePlayerController {
         if (!force && now - this.lastYouTubeTrackDiscoveryAt < interval) return;
         this.lastYouTubeTrackDiscoveryAt = now;
         this.youtubeTrackDiscoveryInFlight = true;
+        const contextKey = subtitleLanguageContextKey(this.subtitleLanguageContext);
         try {
             await this.discoverYouTubeTracks();
         } finally {
             this.youtubeTrackDiscoveryInFlight = false;
+            if (contextKey !== subtitleLanguageContextKey(this.subtitleLanguageContext)) {
+                void this.discoverYouTubeTracksThrottled(true);
+            }
         }
     }
 
     private async discoverYouTubeTracks(): Promise<void> {
-        if (!isYouTubePage()) return;
-        const videoId = getYouTubeVideoId();
-        if (!videoId) return;
-
-        this.updateYouTubeDiscoveryVideo(videoId);
-
-        const tracks = await discoverYouTubeCaptionTracks();
-        if (!tracks.length) return;
+        const contextKey = subtitleLanguageContextKey(this.subtitleLanguageContext);
+        const tracks = await discoverCurrentYouTubeCaptionTracks({
+            preferredTranslationLanguages: this.subtitleLanguageContext.preferredTranslationLanguages,
+            contextKey,
+            currentContextKey: () => subtitleLanguageContextKey(this.subtitleLanguageContext),
+            onVideoId: videoId => this.updateYouTubeDiscoveryVideo(videoId),
+        });
+        if (!tracks) return;
 
         this.removeYouTubeDomCaptionFallbackTracks();
         const { added, updatedSelectedTrack } = this.mergeYouTubeCaptionTracks(tracks);
@@ -5337,18 +5373,20 @@ export class SubtitlePlayerController {
     }
 
     private finishYouTubeTrackDiscovery(added: number, updatedSelectedTrack: boolean): void {
-        const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage);
+        const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage, this.subtitleLanguageContext);
         const autoPrimaryTrack = findAutoPrimaryYouTubeTrack(
             this.tracks,
             this.selectedTrackId,
             this.youtubeAutoSelectSuppressedVideoId,
             this.youtubeVideoId,
+            this.subtitleLanguageContext,
         );
         const primaryTrackId = autoPrimaryTrack?.id || (updatedSelectedTrack && this.selectedTrackId ? this.selectedTrackId : '');
         const autoSecondaryTrack = findAutoSecondaryYouTubeTrack(
             this.tracks,
             autoPrimaryTrack?.id ?? this.selectedTrackId,
             this.secondaryTrackId,
+            this.subtitleLanguageContext,
         );
         if (primaryTrackId) {
             void this.selectTrack(primaryTrackId, { auto: true });
@@ -6278,36 +6316,20 @@ export class SubtitlePlayerController {
     }
 
     private renderShadowCueCard(cue: SubtitleCue, cueText: string, state: ShadowPanelRenderState): string {
-        const language = state.settings.interfaceLanguage;
-        const parsedLine = this.shadowParsedLine(cueText, state.parseKey, state.settings);
-        const hiddenClass = this.shadowTextVisible ? '' : ' jpdb-subtitle-shadow-line-hidden';
-        const secondary = this.renderShadowSecondaryLine(state);
-        const neighbors = this.shadowCueNeighbors(cue);
-        return `
-            <div class="jpdb-subtitle-shadow-card">
-                ${this.renderShadowContextLine(neighbors.prev, 'prev', language)}
-                <div class="jpdb-subtitle-shadow-current">
-                    <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
-                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml(state.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
-                    ${secondary}
-                </div>
-                ${this.renderShadowContextLine(neighbors.next, 'next', language)}
-                <div class="jpdb-subtitle-shadow-actions">
-                    ${this.renderShadowActions(language)}
-                </div>
-            </div>
-        `;
-    }
-
-    // Surrounding lines for context (kotu-style): tappable to jump the loop/focus
-    // onto them. Rendered as plain (escaped) text — the parsed/highlighted treatment
-    // stays reserved for the focused current line.
-    private renderShadowContextLine(cue: SubtitleCue | undefined, direction: 'prev' | 'next', language: ReaderSettings['interfaceLanguage']): string {
-        const text = cue?.text.trim();
-        if (!cue || !text) return '';
-        const japanese = resolveUiLanguage(language) === 'ja';
-        const label = direction === 'prev' ? (japanese ? '前の行へ' : 'Previous line') : (japanese ? '次の行へ' : 'Next line');
-        return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" lang="ja">${escapeWithBreaks(text)}</button>`;
+        return renderSubtitleShadowCueCard({
+            cue,
+            parseKey: state.parseKey,
+            parsedLine: this.shadowParsedLine(cueText, state.parseKey, state.settings),
+            textVisible: this.shadowTextVisible,
+            secondaryText: state.secondary?.text,
+            secondaryVisible: state.settings.subtitleSecondaryVisible,
+            secondaryBlurred: state.settings.subtitleNativeBlurred,
+            neighbors: this.shadowCueNeighbors(cue),
+            language: state.settings.interfaceLanguage,
+            primaryContent: subtitleContentLanguage(this.tracks.find(track => track.id === this.selectedTrackId), this.subtitleLanguageContext.targetContent),
+            secondaryContent: subtitleContentLanguage(this.tracks.find(track => track.id === this.secondaryTrackId), this.subtitleLanguageContext.outputContent),
+            actionsHtml: this.renderShadowActions(state.settings.interfaceLanguage),
+        });
     }
 
     private shadowParsedLine(cueText: string, parseKey: string, settings: ReaderSettings): ShadowParsedLine {
@@ -6325,47 +6347,24 @@ export class SubtitlePlayerController {
         return this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
     }
 
-    private renderShadowSecondaryLine(state: ShadowPanelRenderState): string {
-        if (!state.settings.subtitleSecondaryVisible) return '';
-        const text = state.secondary?.text.trim();
-        if (!text) return '';
-        const blurClass = state.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
-        const label = uiText(state.settings.interfaceLanguage, 'toggleNativeSubtitleBlur');
-        return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${state.settings.subtitleNativeBlurred}">${escapeWithBreaks(text)}</button>`;
-    }
-
     private renderShadowActions(language: ReaderSettings['interfaceLanguage']): string {
         const recording = Boolean(this.shadowRecorder && this.shadowRecorder.state !== 'inactive');
         const loopAction = this.shadowLoopEnabled ? 'stop' : 'loop';
         const toggleIcon = this.shadowTextVisible ? 'eye-off' : 'eye';
-        const recordLabel = this.shadowActionLabel(language, recording ? 'stop-record' : 'record');
+        const recordLabel = subtitleShadowActionLabel(language, recording ? 'stop-record' : 'record');
         return `
-            ${this.renderShadowAction('shadow-replay', this.shadowActionLabel(language, 'replay'), 'repeat', false)}
-            ${this.renderShadowAction('shadow-loop', this.shadowActionLabel(language, loopAction), 'repeat', this.shadowLoopEnabled)}
-            ${this.renderShadowAction('shadow-auto-pause', this.shadowActionLabel(language, 'auto-pause'), 'pause', this.options.getSettings().subtitleShadowAutoPause)}
+            ${this.renderShadowAction('shadow-replay', subtitleShadowActionLabel(language, 'replay'), 'repeat', false)}
+            ${this.renderShadowAction('shadow-loop', subtitleShadowActionLabel(language, loopAction), 'repeat', this.shadowLoopEnabled)}
+            ${this.renderShadowAction('shadow-auto-pause', subtitleShadowActionLabel(language, 'auto-pause'), 'pause', this.options.getSettings().subtitleShadowAutoPause)}
             ${this.renderShadowAction('shadow-toggle-text', uiText(language, this.shadowTextVisible ? 'hide' : 'show'), toggleIcon, !this.shadowTextVisible)}
             ${this.renderShadowAction('shadow-record', recordLabel, recording ? 'stop' : 'mic', recording)}
-            ${this.shadowRecordingUrl ? this.renderShadowAction('shadow-play-recording', this.shadowActionLabel(language, 'play-recording'), 'play', false) : ''}
-            ${this.shadowRecordingUnavailable && !recording ? `<span class="jpdb-subtitle-shadow-note">${escapeHtml(this.shadowActionLabel(language, 'record-unavailable'))}</span>` : ''}
+            ${this.shadowRecordingUrl ? this.renderShadowAction('shadow-play-recording', subtitleShadowActionLabel(language, 'play-recording'), 'play', false) : ''}
+            ${this.shadowRecordingUnavailable && !recording ? `<span class="jpdb-subtitle-shadow-note">${escapeHtml(subtitleShadowActionLabel(language, 'record-unavailable'))}</span>` : ''}
         `;
     }
 
     private renderShadowAction(action: string, label: string, icon: SubtitleIconName, pressed: boolean): string {
         return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml(label)}</span></button>`;
-    }
-
-    private shadowActionLabel(language: ReaderSettings['interfaceLanguage'], action: 'replay' | 'loop' | 'stop' | 'auto-pause' | 'record' | 'stop-record' | 'play-recording' | 'record-unavailable'): string {
-        const japanese = resolveUiLanguage(language) === 'ja';
-        switch (action) {
-            case 'replay': return japanese ? '再生' : 'Replay';
-            case 'loop': return japanese ? 'ループ' : 'Loop';
-            case 'stop': return japanese ? '停止' : 'Stop';
-            case 'auto-pause': return japanese ? '自動停止' : 'Auto pause';
-            case 'record': return japanese ? '録音' : 'Record';
-            case 'stop-record': return japanese ? '録音停止' : 'Stop';
-            case 'play-recording': return japanese ? '録音を再生' : 'Play yours';
-            case 'record-unavailable': return japanese ? 'マイクを使用できません' : 'Mic unavailable';
-        }
     }
 
     private requestParsedShadowLineIfNeeded(cue: SubtitleCue, key: string, signature: string, settings: ReaderSettings): void {
@@ -6412,6 +6411,7 @@ export class SubtitlePlayerController {
             placement: this.effectiveTranscriptPlacement,
             optionsMenuOpen: this.panelOptionsMenuOpen,
             language: settings.interfaceLanguage,
+            targetContent: this.subtitleLanguageContext.targetContent,
         };
     }
 
@@ -7649,6 +7649,8 @@ export class SubtitlePlayerController {
             placement: this.effectiveTranscriptPlacement,
             optionsMenuOpen: this.panelOptionsMenuOpen,
             language: settings.interfaceLanguage,
+            targetLanguage: this.subtitleLanguageContext.targetLanguage,
+            outputLanguage: this.subtitleLanguageContext.outputLanguage,
             animeSearchQuery: subtitleAnimeSearchQuery(this.video),
             virtual,
         }));

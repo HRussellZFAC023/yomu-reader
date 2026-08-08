@@ -151,4 +151,12 @@ describe('subtitle language inference', () => {
         expect(inferSubtitleLanguage('粵語字幕')).toBe('yue');
         expect(inferSubtitleLanguage('漢字')).toBeUndefined();
     });
+
+    it('uses subtitle-label cues instead of languages mentioned by the video title', () => {
+        expect(inferSubtitleLanguage('English subtitles for Japanese movie')).toBe('en');
+        expect(inferSubtitleLanguage('French subtitles for Japanese lesson')).toBe('fr');
+        expect(inferSubtitleLanguage('Spanish captions - Learn Japanese')).toBe('es');
+        expect(inferSubtitleLanguage('Korean subtitles for Chinese drama')).toBe('ko');
+        expect(inferSubtitleLanguage('Chinese subtitles for Cantonese film')).toBe('zh');
+    });
 });

@@ -8,6 +8,7 @@ import {
 import { uiText } from '../app/i18n';
 import { setInnerHtml } from '../dom/html';
 import type { InterfaceLanguage } from '../app/types';
+import { syncSubtitleContentLanguage, type SubtitleContentLanguage } from './subtitle-language-context';
 
 export interface SubtitlePrimaryRenderInput {
     cue?: SubtitleCue;
@@ -121,6 +122,17 @@ export function createSubtitleSecondaryLine(): HTMLButtonElement {
     button.type = 'button';
     button.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
     return button;
+}
+
+export function createSubtitlePrimaryRow(primaryHtml: string, content: SubtitleContentLanguage): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'jpdb-subtitle-primary-row';
+    const primary = document.createElement('div');
+    primary.className = 'jpdb-subtitle-primary';
+    syncSubtitleContentLanguage(primary, content);
+    setInnerHtml(primary, primaryHtml);
+    row.append(primary);
+    return row;
 }
 
 // Caption text carries newlines, so the children are markup rather than a

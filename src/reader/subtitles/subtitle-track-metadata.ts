@@ -40,24 +40,59 @@ export function compareSubtitleTrackOptions<T extends SubtitleTrackMetadata>(a: 
 
 /** Subtitle capability: "is this track in the language we are teaching?" */
 export function isTargetLanguageSubtitleTrack(track: SubtitleTrackMetadata): boolean {
-    const language = explicitSubtitleLanguage(track);
+    const language = subtitleTrackLanguage(track);
     if (language) return isTargetSubtitleLanguage(language);
     return isTargetSubtitleLanguage(inferSubtitleLanguage(track.label, track.language));
 }
 
 export function isEnglishSubtitleTrack(track: SubtitleTrackMetadata): boolean {
-    const language = explicitSubtitleLanguage(track);
-    if (language) return language === 'en';
-    return inferSubtitleLanguage(track.label, track.language) === 'en';
+    return isSubtitleTrackLanguage(track, 'en');
+}
+
+/** Metadata owns semantic language; visible labels are only its cue-aware fallback. */
+export function subtitleTrackLanguage(track: SubtitleTrackMetadata | undefined): string | undefined {
+    if (!track) return undefined;
+    const language = track.targetLanguage ?? track.language;
+    if (isLanguageCode(language)) return normalizeSubtitleLanguage(language);
+    return inferSubtitleLanguage(track.label, track.language);
+}
+
+export function isSubtitleTrackLanguage(track: SubtitleTrackMetadata, expectedLanguage: string): boolean {
+    const expected = normalizeSubtitleLanguage(expectedLanguage);
+    return Boolean(expected && subtitleTrackLanguage(track) === expected);
+}
+
+/** A language-less “native/translation” label means the learner's OUTPUT axis. */
+export function isOutputLanguageSubtitleTrack(track: SubtitleTrackMetadata, outputLanguage: string): boolean {
+    return isSubtitleTrackLanguage(track, outputLanguage)
+        || (!subtitleTrackLanguage(track) && isGenericOutputSubtitleLabel(track.label));
 }
 
 export function shouldReplaceWaitingNativeTrack(
     selected: SubtitleTrackMetadata | undefined,
     replacement: SubtitleTrackMetadata,
     cues: SubtitleCue[],
+    expectedLanguage?: string,
+    expectedRole: 'target' | 'output' = 'target',
 ): boolean {
-    return isWaitingNativeTrack(selected, cues)
-        && (hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement));
+    if (!isWaitingNativeTrack(selected, cues)) return false;
+    return expectedLanguage
+        ? tracksHaveLanguage(selected, replacement, expectedLanguage, expectedRole)
+        : tracksHaveSameRoleOrLanguage(selected, replacement);
+}
+
+function tracksHaveLanguage(
+    selected: SubtitleTrackMetadata,
+    replacement: SubtitleTrackMetadata,
+    language: string,
+    role: 'target' | 'output',
+): boolean {
+    const matches = role === 'output' ? isOutputLanguageSubtitleTrack : isSubtitleTrackLanguage;
+    return matches(selected, language) && matches(replacement, language);
+}
+
+function tracksHaveSameRoleOrLanguage(selected: SubtitleTrackMetadata, replacement: SubtitleTrackMetadata): boolean {
+    return hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement);
 }
 
 function isWaitingNativeTrack(
@@ -78,14 +113,12 @@ function hasSameNormalizedSubtitleLanguage(selected: SubtitleTrackMetadata, repl
     return Boolean(selectedLanguage && replacementLanguage && selectedLanguage === replacementLanguage);
 }
 
-function explicitSubtitleLanguage(track: SubtitleTrackMetadata): string | undefined {
-    const language = track.targetLanguage ?? track.language;
-    if (!isLanguageCode(language)) return undefined;
-    return normalizeSubtitleLanguage(language);
-}
-
 function isLanguageCode(language: string | undefined): boolean {
     return Boolean(language?.trim().match(/^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/i));
+}
+
+function isGenericOutputSubtitleLabel(label: string): boolean {
+    return /(^|[.\-_\s()[\]])(?:native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(label);
 }
 
 function subtitleTrackRank(track: SubtitleTrackMetadata): number {

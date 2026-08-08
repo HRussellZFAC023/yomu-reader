@@ -17,7 +17,7 @@ interface SubtitleLanguageDescriptor {
 // else comes from the frozen learning-target roster or Intl's ISO aliases.
 const SUBTITLE_COMPATIBILITY_ALIASES: Readonly<Partial<Record<LearningTargetRosterId, readonly string[]>>> = Object.freeze({
     ja: Object.freeze(['jp', 'nihongo', 'nihon-go', '日文', '日語', '日本字幕']),
-    en: Object.freeze(['native', '英文']),
+    en: Object.freeze(['英文']),
 });
 
 const SUBTITLE_LANGUAGE_DESCRIPTORS: readonly SubtitleLanguageDescriptor[] = Object.freeze(
@@ -58,10 +58,10 @@ for (const descriptor of SUBTITLE_LANGUAGE_DESCRIPTORS) {
     }
 }
 const SUBTITLE_LANGUAGE_NAME_HINTS = SUBTITLE_LANGUAGE_DESCRIPTORS
-    .flatMap(descriptor => descriptor.nameHints.map(alias => ({
-        alias: foldSubtitleLanguageText(alias),
-        tag: descriptor.tag,
-    })))
+    .flatMap(descriptor => descriptor.nameHints.map(alias => {
+        const folded = foldSubtitleLanguageText(alias);
+        return { alias: folded, tag: descriptor.tag, pattern: subtitleLanguageNamePattern(folded) };
+    }))
     .filter(hint => hint.alias)
     .sort((a, b) => b.alias.length - a.alias.length);
 const SUBTITLE_LANGUAGE_TAGS = new Set(SUBTITLE_LANGUAGE_DESCRIPTORS.map(descriptor => descriptor.tag));
@@ -111,17 +111,58 @@ export function isGenericSubtitleLabel(value: string): boolean {
 function inferNamedSubtitleLanguage(value: string): string | undefined {
     const text = foldSubtitleLanguageText(decodeSubtitleLanguageText(value));
     if (!text) return undefined;
-    return SUBTITLE_LANGUAGE_NAME_HINTS.find(hint => containsLanguageName(text, hint.alias))?.tag;
+    const candidates = SUBTITLE_LANGUAGE_NAME_HINTS.flatMap(hint => languageNameMatches(text, hint.pattern)
+        .map(index => ({
+            tag: hint.tag,
+            score: subtitleLanguageCueScore(text, index, index + hint.alias.length),
+            index,
+            length: hint.alias.length,
+        })));
+    return candidates.sort((left, right) => right.score - left.score
+        || left.index - right.index
+        || right.length - left.length)[0]?.tag;
 }
 
-function containsLanguageName(text: string, alias: string): boolean {
-    if (/[^\x00-\x7f]/u.test(alias)) return text.includes(alias);
-    for (let index = text.indexOf(alias); index >= 0; index = text.indexOf(alias, index + alias.length)) {
-        const before = text[index - 1] ?? '';
-        const after = text[index + alias.length] ?? '';
-        if (!isLatinLetterOrNumber(before) && !isLatinLetterOrNumber(after)) return true;
-    }
-    return false;
+function subtitleLanguageNamePattern(alias: string): RegExp {
+    const value = escapeRegExp(alias);
+    return /[^\x00-\x7f]/u.test(alias)
+        ? new RegExp(`(${value})`, 'gu')
+        : new RegExp(`(?:^|[^\\p{Script=Latin}\\p{Number}])(${value})(?![\\p{Script=Latin}\\p{Number}])`, 'gu');
+}
+
+function languageNameMatches(text: string, pattern: RegExp): number[] {
+    return [...text.matchAll(pattern)].map(match => match.index + match[0].length - (match[1]?.length ?? 0));
+}
+
+function subtitleLanguageCueScore(text: string, start: number, end: number): number {
+    if (isWholeSubtitleLabelMatch(text, start, end)) return 120;
+    const before = text.slice(Math.max(0, start - 28), start);
+    const after = text.slice(end, Math.min(text.length, end + 28));
+    return contextualSubtitleLanguageScore(before, after);
+}
+
+function isWholeSubtitleLabelMatch(text: string, start: number, end: number): boolean {
+    return start === 0 && end === text.length;
+}
+
+function contextualSubtitleLanguageScore(before: string, after: string): number {
+    if (hasSubtitleDeclarationCue(before, after)) return 100;
+    if (hasContentDescriptionCue(before, after)) return -40;
+    return 10;
+}
+
+function hasSubtitleDeclarationCue(before: string, after: string): boolean {
+    return /^\s*(?:[-–—:()[\]]*\s*)?(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(after)
+        || /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\s*(?:[-–—:()[\]]*\s*)?$/iu.test(before);
+}
+
+function hasContentDescriptionCue(before: string, after: string): boolean {
+    return /\b(?:for|learn|learning|lesson|course|movie|film|drama|show|video|anime)\s*$/iu.test(before)
+        || /^\s*(?:movie|film|drama|show|video|anime|lesson|course)\b/iu.test(after);
+}
+
+function escapeRegExp(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function inferSubtitleLanguageCode(value: string, allowWhitespaceDelimited: boolean): string | undefined {

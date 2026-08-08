@@ -43,6 +43,19 @@ describe('subtitle batch mining panel', () => {
         expect(host.querySelector('.jpdb-subtitle-batch-check')?.getAttribute('aria-label')).toBe('Deselect word: 本');
     });
 
+    it('marks mined TARGET words and sentences with their real direction', () => {
+        const candidate = batchCandidate('كتاب', 'كتاب');
+        const host = renderPanel(baseState({
+            status: 'ready',
+            candidates: [candidate],
+            targetContent: { lang: 'ar', dir: 'rtl' },
+        }));
+
+        for (const selector of ['.jpdb-subtitle-batch-expression', '.jpdb-subtitle-batch-sentence']) {
+            expect(host.querySelector(selector)).toMatchObject({ lang: 'ar', dir: 'rtl' });
+        }
+    });
+
     it('keeps reselection simple after every candidate has been cleared', () => {
         const host = renderPanel(baseState({
             status: 'ready',
@@ -125,6 +138,7 @@ function baseState(overrides: Partial<SubtitleBatchMiningPanelRenderState> = {})
         placement: 'right',
         optionsMenuOpen: false,
         language: 'en',
+        targetContent: { lang: 'ja', dir: 'ltr' },
         ...overrides,
     };
 }

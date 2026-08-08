@@ -1722,7 +1722,7 @@ describe('reader helpers', () => {
             {
                 url: 'https://media.test/lesson/native.srt',
                 label: 'native',
-                language: 'en',
+                language: undefined,
             },
         ]);
     });

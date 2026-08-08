@@ -5,6 +5,7 @@ import { formatSubtitleTime } from './subtitle-cues';
 import type { SubtitleBatchMiningCandidate, SubtitleBatchMiningSummary } from './subtitle-batch-mining';
 import { formatSubtitleText, subtitleText } from './i18n';
 import { renderDrawerHead, subtitleIcon } from './subtitle-surface';
+import { subtitleContentAttributes, type SubtitleContentLanguage } from './subtitle-language-context';
 
 export type SubtitleBatchMiningStatus = 'idle' | 'scanning' | 'ready' | 'failed';
 
@@ -20,6 +21,7 @@ export interface SubtitleBatchMiningPanelRenderState {
     placement: ReaderSettings['subtitleTranscriptPlacement'];
     optionsMenuOpen: boolean;
     language: InterfaceLanguage;
+    targetContent: SubtitleContentLanguage;
 }
 
 export interface SubtitleBatchMiningGradeOption {
@@ -88,7 +90,8 @@ function renderBatchMiningCandidate(candidate: SubtitleBatchMiningCandidate, sta
     const selected = state.selectedKeys.has(candidate.key);
     const selectLabel = subtitleText(language, selected ? 'bmDeselect' : 'bmSelect');
     const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
-    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${selected ? subtitleIcon('check') : ''}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml(candidate.card.reading)}</span>` : ''}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, 'bmIPlusOne'))}</span>` : ''}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, 'bmOccurrences', { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
+    const content = subtitleContentAttributes(state.targetContent);
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml(wordLabel)}">${selected ? subtitleIcon('check') : ''}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" ${content}>${escapeHtml(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" ${content}>${escapeHtml(candidate.card.reading)}</span>` : ''}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml(subtitleText(language, 'bmIPlusOne'))}</span>` : ''}<span>${escapeHtml(cardStateLabel(candidate.state, language))}</span><span>${escapeHtml(formatSubtitleText(language, 'bmOccurrences', { count: candidate.occurrences }))}</span><span>${escapeHtml(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" ${content}>${escapeHtml(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state)}</div>`;
 }
 
 function renderBatchMiningCandidateGrades(candidate: SubtitleBatchMiningCandidate, state: SubtitleBatchMiningPanelRenderState): string {

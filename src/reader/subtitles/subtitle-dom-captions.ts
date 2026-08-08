@@ -87,7 +87,8 @@ const PAGE_METADATA_TEXT_SELECTOR = [
 const PAGE_METADATA_TEXT_NAME_PATTERN = /(^|[-_\s])(?:title|metadata|meta|tag|tags|category|categories|breadcrumb|nav|navbar|menu|channel|author|username|user-name|description)([-_\s]|$)/iu;
 
 export interface PageCaptionReadOptions {
-    allowAnyLanguage?: boolean;
+    /** Metadata already chose the track, so script compatibility is unnecessary. */
+    allowAnyCaptionScript?: boolean;
 }
 
 export function readPageCaptionText(video?: HTMLVideoElement, readerRoot?: HTMLElement, options: PageCaptionReadOptions = {}): string {
@@ -253,7 +254,10 @@ function elementNameForMetadataCheck(element: HTMLElement): string {
 }
 
 function isAllowedCaptionText(text: string, options: PageCaptionReadOptions): boolean {
-    return hasCaptionTextLength(text) && (options.allowAnyLanguage || isTargetLanguageText(text));
+    // This is only a script-compatible false-positive guard for unlabelled DOM
+    // text. Same-script languages cannot be identified semantically from one
+    // caption cue; track metadata and the explicit selection own that decision.
+    return hasCaptionTextLength(text) && (options.allowAnyCaptionScript || isTargetLanguageText(text));
 }
 
 function hasCaptionTextLength(text: string): boolean {

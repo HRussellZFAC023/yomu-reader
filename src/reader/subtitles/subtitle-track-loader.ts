@@ -60,7 +60,11 @@ async function loadTranslatedTrackCues<T extends SubtitleTrackLoadable>(
     const sourceTrack = options.tracks.find(t => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
-    const translatedCues = await translateSubtitleCues(sourceCues, sourceTrack.language || 'en', track.targetLanguage || track.language || targetSubtitleLanguageTag());
+    const translatedCues = await translateSubtitleCues(
+        sourceCues,
+        track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || 'en',
+        track.targetLanguage || track.language || targetSubtitleLanguageTag(),
+    );
     track.cues = translatedCues;
     return { track, cues: translatedCues };
 }

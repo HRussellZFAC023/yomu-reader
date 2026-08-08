@@ -10,6 +10,13 @@ import { subtitleDrawerMetaText, type SubtitleTrackPanelTrack } from './subtitle
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import type { SubtitleParsedHtmlCache } from './parsed-html-cache';
+import {
+    resolveSubtitleLanguageContext,
+    subtitleContentAttributes,
+    subtitleContentLanguage,
+    syncSubtitleContentLanguage,
+    type SubtitleContentLanguage,
+} from './subtitle-language-context';
 
 export interface TranscriptRow {
     cue: SubtitleCue;
@@ -80,6 +87,7 @@ export class SubtitleTranscriptPanel {
         const rowCount = state.totalRowCount ?? state.rows.length;
         const rowIndexOffset = state.rowIndexOffset ?? 0;
         const transcriptRows = this.deps.getTranscriptRows();
+        const primaryContent = this.primaryContentLanguage();
         return `
             ${renderDrawerHead({
                 mode: 'lines',
@@ -108,7 +116,7 @@ export class SubtitleTranscriptPanel {
             <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
                 ${state.virtual ? this.renderVirtualSpacer(state.virtual.topSpacer) : ''}
                 ${state.rows.length
-                    ? state.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows)).join('')
+                    ? state.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state.currentRowIndex, transcriptRows, primaryContent)).join('')
                     : this.renderWaitingState()}
                 ${state.virtual ? this.renderVirtualSpacer(state.virtual.bottomSpacer) : ''}
             </div>
@@ -122,7 +130,13 @@ export class SubtitleTranscriptPanel {
             : '';
     }
 
-    renderRow(row: TranscriptRow, index: number, currentIndex: number, rows: TranscriptRow[] = this.deps.getTranscriptRows()): string {
+    renderRow(
+        row: TranscriptRow,
+        index: number,
+        currentIndex: number,
+        rows: TranscriptRow[] = this.deps.getTranscriptRows(),
+        primaryContent = this.primaryContentLanguage(),
+    ): string {
         const cue = row.cue;
         const settings = this.deps.getSettings();
         const htmlCache = this.deps.getHtmlCache();
@@ -134,7 +148,7 @@ export class SubtitleTranscriptPanel {
         return `
             <div class="jpdb-subtitle-list-row ${index === currentIndex ? 'active' : ''}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml(seekLabel)}">
                 <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
+                    <strong class="jpdb-subtitle-row-text" ${subtitleContentAttributes(primaryContent)} data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
                     ${this.renderRowPeekButton(cue, index, settings)}
@@ -191,13 +205,25 @@ export class SubtitleTranscriptPanel {
         const body = row.querySelector<HTMLElement>('.jpdb-subtitle-row-body') ?? row;
         const peek = document.createElement('div');
         peek.className = 'jpdb-subtitle-row-secondary';
-        peek.lang = 'en';
+        syncSubtitleContentLanguage(peek, this.secondaryContentLanguage());
         peek.textContent = secondary.text.trim();
         body.append(peek);
         button.setAttribute('aria-pressed', 'true');
         button.setAttribute('title', uiText(language, 'hideSubtitleTranslation'));
         button.setAttribute('aria-label', uiText(language, 'hideSubtitleTranslation'));
         setInnerHtml(button, subtitleIcon('eye-off'));
+    }
+
+    private primaryContentLanguage(): SubtitleContentLanguage {
+        const context = resolveSubtitleLanguageContext(this.deps.getSettings());
+        const track = this.deps.getTracks().find(candidate => candidate.id === this.deps.getSelectedTrackId());
+        return subtitleContentLanguage(track, context.targetContent);
+    }
+
+    private secondaryContentLanguage(): SubtitleContentLanguage {
+        const context = resolveSubtitleLanguageContext(this.deps.getSettings());
+        const track = this.deps.getTracks().find(candidate => candidate.id === this.deps.getSecondaryTrackId());
+        return subtitleContentLanguage(track, context.outputContent);
     }
 
     handlePanelClick(event: MouseEvent): void {
