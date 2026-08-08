@@ -925,11 +925,13 @@ export class VisiblePageScanner {
 
     private syncPageFuriganaMode(): void {
         if (typeof document === 'undefined') return;
+        const root = document.documentElement;
+        if (!root) return;
         const settings = this.dependencies.getSettings();
-        this.syncClampedRowReadingsMode(settings);
+        this.syncClampedRowReadingsMode(settings, root);
         if (settings.showFurigana && settings.furiganaMode === 'all') {
-            if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== 'all') {
-                document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
+            if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== 'all') {
+                root.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, 'all');
             }
             return;
         }
@@ -939,22 +941,24 @@ export class VisiblePageScanner {
     // Owner amendment 2026-07-11: content clip rows show readings at rest by
     // default; the hover-only preference re-hides them via this root stamp
     // (the CSS keys on it, so flipping the setting needs no re-render).
-    private syncClampedRowReadingsMode(settings: ReaderSettings): void {
+    private syncClampedRowReadingsMode(settings: ReaderSettings, root: HTMLElement): void {
         if (settings.clampedRowReadings === 'hover') {
-            if (document.documentElement.getAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE) !== 'hover') {
-                document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, 'hover');
+            if (root.getAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE) !== 'hover') {
+                root.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, 'hover');
             }
             return;
         }
-        if (document.documentElement.hasAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE)) {
-            document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
+        if (root.hasAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE)) {
+            root.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
         }
     }
 
     private clearPageFuriganaMode(): void {
         if (typeof document === 'undefined') return;
-        if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === 'all') {
-            document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
+        const root = document.documentElement;
+        if (!root) return;
+        if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === 'all') {
+            root.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
         }
     }
 }

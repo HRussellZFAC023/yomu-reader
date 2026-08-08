@@ -10,6 +10,7 @@ interface StartupInternals {
     installStyles: () => void;
     installCoreSurfaces: () => Promise<void>;
     loadInitialSettings: () => Promise<boolean>;
+    applyReaderThemeClasses: (theme: 'dark' | 'light') => void;
 }
 
 describe('ReaderApp core startup', () => {
@@ -68,5 +69,15 @@ describe('ReaderApp core startup', () => {
         expect(internals.installCoreSurfaces).not.toHaveBeenCalled();
         expect(document.querySelector('.jpdb-reader-fab')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
+    });
+
+    it('does not apply theme classes after page teardown removes the document root', () => {
+        app = new ReaderApp();
+        const internals = app as unknown as StartupInternals;
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+
+        expect(() => internals.applyReaderThemeClasses('dark')).not.toThrow();
+
+        rootSpy.mockRestore();
     });
 });

@@ -154,7 +154,9 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         // global resize on every inline-fullscreen enter/exit and woke the controls.
         await page.evaluate(() => {
             const video = document.querySelector('video');
-            try { video?.requestFullscreen?.(); } catch { /* headless rejects → inline fallback */ }
+            try {
+                void Promise.resolve(video?.requestFullscreen?.()).catch(() => {});
+            } catch { /* headless rejects → inline fallback */ }
         });
         await page.waitForTimeout(500);
         // Guarantee the inline-fullscreen state even if the environment took the
@@ -433,6 +435,7 @@ for (const result of results) {
         assert(!result.selectionProof.subtitleStatusSelected, `${result.name}: Select All included subtitle status UI`);
         assert(!result.selectionProof.subtitleSettingsSelected, `${result.name}: Select All included subtitle settings UI`);
         assert(!result.selectionProof.transcriptUiSelected, `${result.name}: Select All included transcript UI`);
+        assert(result.pageErrors.length === 0, `${result.name}: unexpected page error (${result.pageErrors.join(' | ')})`);
     } catch (error) {
         failed = true;
         console.error(String(error.message ?? error));

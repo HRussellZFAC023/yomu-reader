@@ -1668,6 +1668,7 @@ export class ReaderApp {
 
     private applyReaderThemeClasses(theme: HostTheme): void {
         const root = document.documentElement;
+        if (!root) return;
         if (root.classList.contains('jpdb-reader-theme-dark') !== (theme === 'dark')) {
             root.classList.toggle('jpdb-reader-theme-dark', theme === 'dark');
         }

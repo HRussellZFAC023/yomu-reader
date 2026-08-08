@@ -42,6 +42,19 @@ describe('VisiblePageScanner', () => {
         window.history.pushState({}, '', '/reading/');
     });
 
+    it('stops root-stamp work cleanly after page teardown removes the document root', () => {
+        const scanner = createVisiblePageScanner({ parseJapanese: vi.fn(async () => []) });
+        const internals = scanner as unknown as { syncPageFuriganaMode: () => void };
+        const rootSpy = vi.spyOn(document, 'documentElement', 'get').mockReturnValue(null as unknown as HTMLElement);
+
+        try {
+            expect(() => internals.syncPageFuriganaMode()).not.toThrow();
+            expect(() => scanner.destroy()).not.toThrow();
+        } finally {
+            rootSpy.mockRestore();
+        }
+    });
+
     it('scanner-isolates OCR words on the initial sparse-card paint', async () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
