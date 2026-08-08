@@ -4876,7 +4876,7 @@ function classifyDecoration(element2) {
   if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
   if (decorationMustBeSkipped(element2)) return "skip";
   if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
-  return "interactive-passive";
+  return "skip";
   }
   const control = interactivePassiveControl(element2);
   if (control) {
@@ -15923,7 +15923,6 @@ function shouldSkipFragmentUiText(element2, text2, options) {
   return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
 }
 function isBlockFragmentElement(element2, options) {
-  if (youtubeNativeChromeMustRemainPageOwned(element2)) return false;
   return !options.mergeBlockFragments && isFragmentParagraphBoundary(element2, options) && !isInlineSentenceListItem(element2);
 }
 function flushFragmentBlockBoundary(isBlock, state) {
@@ -16205,7 +16204,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.87".trim() ? "1.8.87".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.88".trim() ? "1.8.88".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;

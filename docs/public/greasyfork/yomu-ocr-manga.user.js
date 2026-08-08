@@ -11832,6 +11832,26 @@ function renderDeckMembershipAttributes(card) {
   const deckNames = membership.names.length ? ` data-deck-names="${escapeHtml(membership.names.join(", "))}"` : "";
   return ` data-deck-member="true" data-deck-source="${escapeHtml(membership.source)}"${deckNames}`;
 }
+const READER_PAINT_CONTAINER_SELECTOR = [
+  "[data-jpdb-reader-root]",
+  ".jpdb-reader-text-mirror",
+  ".jpdb-reader-control-text-mirror",
+  ".jpdb-reader-detached-reading-overlay",
+  "[data-yomu-projected-reading]"
+].join(",");
+const READER_PAINT_ATTRIBUTE_SELECTOR = `${READER_PAINT_CONTAINER_SELECTOR},.jpdb-reader-word`;
+function mutationContainsOnlyReaderPaint(mutation) {
+  if (mutation.type !== "childList") {
+  return nodeMatchesOrIsInside(mutation.target, READER_PAINT_ATTRIBUTE_SELECTOR);
+  }
+  if (nodeMatchesOrIsInside(mutation.target, READER_PAINT_CONTAINER_SELECTOR)) return true;
+  const changed = [...mutation.addedNodes, ...mutation.removedNodes];
+  return changed.length > 0 && changed.every((node) => nodeMatchesOrIsInside(node, READER_PAINT_CONTAINER_SELECTOR));
+}
+function nodeMatchesOrIsInside(node, selector) {
+  const element = node instanceof Element ? node : node.parentElement;
+  return Boolean(element?.matches(selector) || element?.closest(selector));
+}
 function claimOcrScan(owner) {
   const token = Symbol("ocr-scan");
   owner.scan = token;
@@ -15369,6 +15389,8 @@ class ImageOcrController {
   return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
   }
   handleRenderableMediaMutations(mutations) {
+  mutations = mutations.filter((mutation) => !mutationContainsOnlyReaderPaint(mutation));
+  if (!mutations.length) return;
   this.invalidatePositionTransformsForMutations(mutations);
   const settings = this.options.getSettings();
   if (!ocrRuntimeActive(settings)) {
@@ -18157,7 +18179,10 @@ function mutationTouchesRenderableMedia(mutation) {
   return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
 }
 function mutationCanRestyleEverySurface(mutation) {
-  return [mutation.target, ...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
+  const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+  if (target?.matches('style, link[rel~="stylesheet"]')) return true;
+  if (mutation.type !== "childList") return false;
+  return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
 }
 function summarizeRenderableMediaMutations(mutations) {
   let addedImage = false;

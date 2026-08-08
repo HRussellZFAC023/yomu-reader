@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.87
+// @version 1.8.88
 // @author Henry Russell
 // @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
 // @license MIT
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.53fe5ee72751.user.js#sha256=U/5e5ydRUBuRIaCqLGzvikj/yl6pS6Y311h99Jxl97o=
-// @resource yomuCss  https://yomureader.com/yomu.0f710500cc29.css#sha256=D3EFAMwp54rB9sHQ/NP39dr+5FJHa3siw3iyJZwFsuQ=
+// @require https://yomureader.com/greasyfork/yomu-runtime.9670e000faff.user.js#sha256=lnDgAPr/qZrpjTzxbYUhjiQInBVOeai8i7U+9YGkBC4=
+// @resource yomuCss  https://yomureader.com/yomu.7dae25bff8c9.css#sha256=fa4lv/jJgFdHdmqWphmWJG+coy5FUHf7yUVgl1af1qU=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -8401,9 +8401,21 @@ const current = cssPixels(style.lineHeight);
 if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
 return current >= minimum ? "" : `${minimum}px`;
 }
+function setImportantStyleIfChanged(element, property, value) {
+if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
+element.style.setProperty(property, value, "important");
+}
+const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+const CSS_PIXEL_MINIMUM = 1e-6;
+function stableCssPixels(value) {
+if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+const magnitude = Math.floor(Math.log10(Math.abs(value)));
+const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+const rounded = Number(value.toFixed(decimalPlaces));
+return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
 const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
-const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = "jpdb-reader-youtube-chrome-portal";
 const portalWatches = new WeakMap();
 const structurallyStyledPortalMirrors = new WeakSet();
 const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
@@ -8448,7 +8460,7 @@ mirror.style.setProperty("letter-spacing", style.letterSpacing, "important");
 mirror.style.setProperty("direction", style.direction, "important");
 mirror.style.setProperty("writing-mode", style.writingMode, "important");
 mirror.style.setProperty("color", style.color, "important");
-setImportantStyle(mirror, "z-index", documentPortalStackingLevel(host));
+setImportantStyleIfChanged(mirror, "z-index", documentPortalStackingLevel(host));
 }
 function documentAnnotationPortalPaint(mirror) {
 const existing = Array.from(mirror.children).find(
@@ -8644,9 +8656,13 @@ const { entry, clip, x, y } = alignment;
 applyPortalClipGeometry(entry.mirror, clip);
 entry.applied = { x, y };
 if (Math.abs(x) <= 0.01 && Math.abs(y) <= 0.01) {
-entry.paint.style.setProperty("transform", "none", "important");
+setImportantStyleIfChanged(entry.paint, "transform", "none");
 } else {
-entry.paint.style.setProperty("transform", `translate3d(${x}px, ${y}px, 0)`, "important");
+setImportantStyleIfChanged(
+entry.paint,
+"transform",
+`translate3d(${stableCssPixels(x)}, ${stableCssPixels(y)}, 0px)`
+);
 }
 }
 function prepareDocumentAnnotationPortalMirrors(mirrors) {
@@ -8823,22 +8839,18 @@ return range;
 }
 function applyPortalClipGeometry(mirror, clip) {
 if (!clip) {
-setImportantStyle(mirror, "left", "0px");
-setImportantStyle(mirror, "top", "0px");
-setImportantStyle(mirror, "width", "0px");
-setImportantStyle(mirror, "height", "0px");
-setImportantStyle(mirror, "overflow", "visible");
+setImportantStyleIfChanged(mirror, "left", "0px");
+setImportantStyleIfChanged(mirror, "top", "0px");
+setImportantStyleIfChanged(mirror, "width", "0px");
+setImportantStyleIfChanged(mirror, "height", "0px");
+setImportantStyleIfChanged(mirror, "overflow", "visible");
 return;
 }
-setImportantStyle(mirror, "left", `${clip.left}px`);
-setImportantStyle(mirror, "top", `${clip.top}px`);
-setImportantStyle(mirror, "width", `${Math.max(0, clip.right - clip.left)}px`);
-setImportantStyle(mirror, "height", `${Math.max(0, clip.bottom - clip.top)}px`);
-setImportantStyle(mirror, "overflow", "hidden");
-}
-function setImportantStyle(element, property, value) {
-if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
-element.style.setProperty(property, value, "important");
+setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left));
+setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top));
+setImportantStyleIfChanged(mirror, "width", stableCssPixels(Math.max(0, clip.right - clip.left)));
+setImportantStyleIfChanged(mirror, "height", stableCssPixels(Math.max(0, clip.bottom - clip.top)));
+setImportantStyleIfChanged(mirror, "overflow", "hidden");
 }
 function transitionCanMoveSource(target, source) {
 if (target === source) return true;
@@ -10841,7 +10853,6 @@ function shouldSkipFragmentUiText(element, text2, options) {
 return Boolean(!options.allowUiText && text2 && isFragileUiText(element, text2));
 }
 function isBlockFragmentElement(element, options) {
-if (youtubeNativeChromeMustRemainPageOwned(element)) return false;
 return !options.mergeBlockFragments && isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
 }
 function flushFragmentBlockBoundary(isBlock, state) {
@@ -11116,8 +11127,6 @@ return elementIsFrameworkManaged(host);
 function stampTargetDecoration(target, host) {
 const decoration = target.decoration;
 if (!decoration) return;
-const pageOwnedYouTubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
-if (pageOwnedYouTubeChrome) return;
 stampDecorationState(host, decoration);
 if (decoration !== "interactive-passive") return;
 const control = interactivePassiveControl(target.parent);
@@ -11131,12 +11140,6 @@ return;
 }
 if (target.parent instanceof HTMLCanvasElement) {
 applyTokensToCanvasFallbackTarget(target, tokens, settings);
-return;
-}
-if (youtubeNativeChromeMustRemainPageOwned(target.parent)) {
-const host = nonDestructiveScanHost(target);
-stampTargetDecoration(target, host);
-applyTokensToNonDestructiveScanTarget(target, tokens, settings);
 return;
 }
 if (target.insideShadowDOM) {
@@ -11776,13 +11779,11 @@ if (context.detachedReadings) mirror.dataset.yomuDetachedReadings = "true";
 return mirror;
 }
 function textMirrorMount(host, clipRow, target) {
-const youtubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
-if (youtubeChrome || sourcePreservingProseNeedsDocumentPortal(host, target)) {
+if (sourcePreservingProseNeedsDocumentPortal(host, target)) {
 return {
 configure(mirror) {
 mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
-if (youtubeChrome) mirror.classList.add(YOUTUBE_CHROME_PORTAL_MIRROR_CLASS);
-mirror.dataset.yomuDocumentPortal = youtubeChrome ? "youtube-chrome" : "volatile-prose";
+mirror.dataset.yomuDocumentPortal = "volatile-prose";
 delete mirror.dataset.yomuReadingLaneCandidate;
 const state = styleDocumentPortalTextMirrorHost(host);
 styleDocumentAnnotationPortalMirror(mirror, host);
@@ -11808,25 +11809,38 @@ projectionRoot: host.getRootNode()
 const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
 const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
 function sourcePreservingProseNeedsDocumentPortal(host, target) {
-if (target.insideShadowDOM || host.getRootNode() !== host.ownerDocument) return false;
-if (target.decoration !== "prose-full" && target.decoration !== "content-ruby") return false;
-if (interactivePassiveControl(host)) return false;
-if (!target.nonDestructive && !scanHostRequiresSourcePreservingMirror(host)) return false;
-if (documentAnnotationPortalHasNonTranslationTransform(host)) return false;
+if (!sourcePreservingProseCanUseDocumentPortal(host, target)) return false;
+return hasDocumentPortalProseAncestor(host);
+}
+const DOCUMENT_PORTAL_PROSE_DECORATIONS = new Set(["prose-full", "content-ruby"]);
+function sourcePreservingProseCanUseDocumentPortal(host, target) {
+return [
+!target.insideShadowDOM,
+host.getRootNode() === host.ownerDocument,
+DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target.decoration ?? "skip"),
+!interactivePassiveControl(host),
+target.nonDestructive || scanHostRequiresSourcePreservingMirror(host),
+!documentAnnotationPortalHasNonTranslationTransform(host)
+].every(Boolean);
+}
+function hasDocumentPortalProseAncestor(host) {
 let current = host;
 for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
-if (isLikelyProseElement(current) || safeElementMatches$1(current, 'p,article,blockquote,figcaption,[role="article"]')) return true;
-const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
-if (VOLATILE_CONVERSATION_IDENTITY_RE.test(identity)) return true;
-if (current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)) return true;
+if (isDocumentPortalProseAncestor(current, host)) return true;
 }
 return false;
 }
+function isDocumentPortalProseAncestor(current, host) {
+const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+return [
+isLikelyProseElement(current),
+safeElementMatches$1(current, 'p,article,blockquote,figcaption,[role="article"]'),
+VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
+current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
+].some(Boolean);
+}
 function mountNonDestructiveTextMirror(host, target, settings, context) {
 const mirror = createNonDestructiveTextMirror(context);
-if (target.decoration && youtubeNativeChromeMustRemainPageOwned(host)) {
-stampDecorationState(mirror, target.decoration);
-}
 const mount = textMirrorMount(host, context.clipRow, target);
 const controlMirror = target.decoration === "interactive-passive";
 if (controlMirror) mirror.dataset.yomuControlMirror = "true";
@@ -11970,13 +11984,10 @@ readingsConcealed
 const readingProjections = [];
 const projected = projections.map((projection) => writeAdditiveMirrorWordProjection(projection, context, readingProjections)).some(Boolean);
 syncProjectedReadings(mirror, readingProjections);
-if (projected) mirror.dataset.yomuSourceProjected = "true";
-else delete mirror.dataset.yomuSourceProjected;
-delete mirror.dataset.yomuSourceStale;
-for (const word of mirror.querySelectorAll(".jpdb-reader-word")) {
-word.style.removeProperty("--jpdb-reader-word-decoration-source");
-}
-styleAdditiveMirrorPaint(mirror);
+if (projected) setDataAttributeIfChanged(mirror, "data-yomu-source-projected", "true");
+else removeAttributeIfPresent(mirror, "data-yomu-source-projected");
+removeAttributeIfPresent(mirror, "data-yomu-source-stale");
+styleAdditiveMirrorPaint(mirror, true);
 }
 function additiveMirrorProjectionContext(mirror, host) {
 if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return "unmeasurable";
@@ -12007,11 +12018,11 @@ documentPortal: true
 };
 }
 const hostRect = host.getBoundingClientRect();
-mirror.style.setProperty("inset", "0 auto auto 0");
-mirror.style.setProperty("width", `${host.clientWidth || hostRect.width}px`);
-mirror.style.setProperty("height", `${host.clientHeight || hostRect.height}px`);
-mirror.style.setProperty("padding", "0");
-mirror.style.setProperty("transform", "none");
+setInlineStyleIfChanged(mirror, "inset", "0px auto auto 0px");
+setInlineStyleIfChanged(mirror, "width", stableCssPixels(host.clientWidth || hostRect.width));
+setInlineStyleIfChanged(mirror, "height", stableCssPixels(host.clientHeight || hostRect.height));
+setInlineStyleIfChanged(mirror, "padding", "0px");
+setInlineStyleIfChanged(mirror, "transform", "none");
 const mirrorRect = mirror.getBoundingClientRect();
 if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
 return {
@@ -12047,11 +12058,12 @@ return { word, sourceRects, fragments, readings };
 }
 function writeAdditiveMirrorWordProjection(projection, context, readings) {
 const { word, sourceRects, fragments } = projection;
-delete word.dataset.yomuSourceProjected;
-word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
-if (!fragments.length) return false;
+if (!fragments.length) {
+clearProjectedSourceWord(word);
+return false;
+}
 styleProjectedSourceWord(word);
-appendSourceFragments(word, fragments, sourceRects, context);
+syncSourceFragments(word, fragments, sourceRects, context);
 for (const { ruby, projection: readingProjection } of projection.readings) {
 positionProjectedElement(ruby, readingProjection.rect, context.mirrorRect, context.scaleX, context.scaleY);
 readings.push(readingProjection);
@@ -12106,44 +12118,57 @@ return right > left && bottom > top ? clientRect(left, top, right - left, bottom
 }
 const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
 const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
+const PROJECTED_SOURCE_ELEMENT_OFFSET_STYLE_PROPERTIES = ["left", "top", "width", "height", "margin"];
 function writeProjectedGeometry(element, properties, values) {
-for (const property of properties) element.style.setProperty(property, values[property], "important");
+for (const property of properties) {
+setInlineStyleIfChanged(element, property, values[property], "important");
+}
 }
 function styleProjectedSourceWord(word) {
-word.dataset.yomuSourceProjected = "true";
+setDataAttributeIfChanged(word, "data-yomu-source-projected", "true");
 writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
 position: "absolute",
-inset: "0",
+inset: "0px",
 width: "auto",
 height: "auto",
-margin: "0"
+margin: "0px"
 });
 }
 function clearAdditiveMirrorSourceProjection(mirror) {
-delete mirror.dataset.yomuSourceProjected;
-mirror.dataset.yomuSourceStale = "true";
+removeAttributeIfPresent(mirror, "data-yomu-source-projected");
+setDataAttributeIfChanged(mirror, "data-yomu-source-stale", "true");
 for (const word of mirror.querySelectorAll(".jpdb-reader-word[data-yomu-source-projected]")) {
-word.style.setProperty("--jpdb-reader-word-decoration-source", "transparent");
+setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", "transparent");
+clearProjectedSourceWord(word);
+}
+}
+function clearProjectedSourceWord(word) {
 word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment) => fragment.remove());
 for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
-PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach((property) => wrapper.style.removeProperty(property));
-wrapper.style.setProperty("position", "relative", "important");
+PROJECTED_SOURCE_ELEMENT_OFFSET_STYLE_PROPERTIES.forEach((property) => removeInlineStyleIfPresent(wrapper, property));
+setInlineStyleIfChanged(wrapper, "position", "relative", "important");
 }
-PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => word.style.removeProperty(property));
-delete word.dataset.yomuSourceProjected;
+PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => removeInlineStyleIfPresent(word, property));
+removeAttributeIfPresent(word, "data-yomu-source-projected");
 }
-}
-function appendSourceFragments(word, fragments, sourceRects, context) {
+function syncSourceFragments(word, fragments, sourceRects, context) {
 const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
-for (const { rect, gradientOffset } of fragments) {
-const fragment = word.ownerDocument.createElement("span");
+const existing = Array.from(word.querySelectorAll(`:scope > .${SOURCE_FRAGMENT_CLASS}`));
+fragments.forEach(({ rect, gradientOffset }, index) => {
+const existingFragment = existing[index];
+const fragment = existingFragment ?? createSourceFragment(word.ownerDocument);
+setInlineStyleIfChanged(fragment, "--jpdb-reader-source-gradient-width", stableCssPixels(gradientWidth));
+setInlineStyleIfChanged(fragment, "--jpdb-reader-source-gradient-offset", stableCssPixels(-gradientOffset));
+positionProjectedElement(fragment, rect, context.mirrorRect, context.scaleX, context.scaleY);
+if (!existingFragment) word.append(fragment);
+});
+existing.slice(fragments.length).forEach((fragment) => fragment.remove());
+}
+function createSourceFragment(document2) {
+const fragment = document2.createElement("span");
 fragment.className = SOURCE_FRAGMENT_CLASS;
 fragment.setAttribute("aria-hidden", "true");
-fragment.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
-fragment.style.setProperty("--jpdb-reader-source-gradient-offset", `${-gradientOffset}px`);
-positionProjectedElement(fragment, rect, context.mirrorRect, context.scaleX, context.scaleY);
-word.append(fragment);
-}
+return fragment;
 }
 function readProjectedWordReadings(word, context, sourceRectsFor, readingsConcealed) {
 const readings = [];
@@ -12229,11 +12254,11 @@ return merged;
 function positionProjectedElement(element, rect, mirrorRect, scaleX, scaleY) {
 writeProjectedGeometry(element, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
 position: "absolute",
-left: `${(rect.left - mirrorRect.left) / scaleX}px`,
-top: `${(rect.top - mirrorRect.top) / scaleY}px`,
-width: `${rect.width / scaleX}px`,
-height: `${rect.height / scaleY}px`,
-margin: "0"
+left: stableCssPixels((rect.left - mirrorRect.left) / scaleX),
+top: stableCssPixels((rect.top - mirrorRect.top) / scaleY),
+width: stableCssPixels(rect.width / scaleX),
+height: stableCssPixels(rect.height / scaleY),
+margin: "0px"
 });
 }
 function rectsIntersect(left, right) {
@@ -12250,8 +12275,7 @@ if (!host.isConnected) {
 if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) removeTextMirror(host);
 continue;
 }
-if (youtubeNativeChromeMustRemainPageOwned(host) && !mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-if (replayNonDestructiveRenderFromCache(host)) continue;
+if (classifyDecoration(host) === "skip") {
 removeTextMirror(host);
 continue;
 }
@@ -12363,6 +12387,9 @@ for (const pendingRoot of roots) projectAdditiveTextMirrors(pendingRoot);
 function scheduleAdditiveMirrorProjection(root = document) {
 pendingAdditiveMirrorProjectionRoots.add(root);
 additiveMirrorProjectionPass.schedule(viewForNode(root));
+}
+function scheduleProjectedAnnotationLayoutRefresh(root = document) {
+scheduleAdditiveMirrorProjection(root);
 }
 function scheduleDocumentPortalMirrorProjection(mirror, host) {
 if (!mirror.isConnected || !host.isConnected || currentDocumentPortalTextMirror(host) !== mirror) return;
@@ -12534,23 +12561,40 @@ function setInlineStyleIfChanged(element, property, value, priority2 = "") {
 if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === priority2) return;
 element.style.setProperty(property, value, priority2);
 }
+function removeInlineStyleIfPresent(element, property) {
+if (!element.style.getPropertyValue(property) && !element.style.getPropertyPriority(property)) return;
+element.style.removeProperty(property);
+}
+function setDataAttributeIfChanged(element, name, value) {
+if (element.getAttribute(name) === value) return;
+element.setAttribute(name, value);
+}
+function removeAttributeIfPresent(element, name) {
+if (!element.hasAttribute(name)) return;
+element.removeAttribute(name);
+}
 const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
 const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source) => source !== "pitch");
-function styleAdditiveMirrorPaint(root) {
+function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
 if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
-root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+setInlineStyleIfChanged(root, "-webkit-text-fill-color", "transparent", "important");
 const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
 const words = root.querySelectorAll(".jpdb-reader-word");
 const paint = source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
 const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
 const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
 for (const word of words) {
-word.style.removeProperty("text-decoration-color");
-word.style.removeProperty("--jpdb-reader-additive-decoration");
-word.style.setProperty("--jpdb-reader-word-decoration-source", paint);
-if (softPaint) word.style.setProperty("--jpdb-reader-mirror-status-soft", softPaint);
-else word.style.removeProperty("--jpdb-reader-mirror-status-soft");
+const visible = !projectedWordsOnly || word.dataset.yomuSourceProjected === "true";
+styleAdditiveMirrorWordPaint(word, paint, softPaint, visible);
 }
+}
+function styleAdditiveMirrorWordPaint(word, paint, softPaint, visible) {
+removeInlineStyleIfPresent(word, "text-decoration-color");
+removeInlineStyleIfPresent(word, "--jpdb-reader-additive-decoration");
+setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", visible ? paint : "transparent");
+const visibleSoftPaint = visible ? softPaint : "";
+if (visibleSoftPaint) setInlineStyleIfChanged(word, "--jpdb-reader-mirror-status-soft", visibleSoftPaint);
+else removeInlineStyleIfPresent(word, "--jpdb-reader-mirror-status-soft");
 }
 function activeAdditiveHighlightSource(documentElement) {
 let active = null;
@@ -13026,10 +13070,6 @@ function targetForcesAllFurigana(parent) {
 return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 function nonDestructiveScanHost(target) {
-const pageOwnedYouTubeControl = interactivePassiveControl(target.parent);
-if (pageOwnedYouTubeControl && youtubeNativeChromeMustRemainPageOwned(pageOwnedYouTubeControl)) {
-return pageOwnedYouTubeControl;
-}
 if (!isFragmentTextTarget$1(target)) return target.parent;
 const parents = target.fragments.map((fragment) => fragment.node.parentElement).filter((parent) => Boolean(parent));
 if (parents.length && parents.every((parent) => parent === target.parent)) return target.parent;
@@ -13168,11 +13208,6 @@ const hostAttributeMutations = mutations.filter(
 );
 if (hostAttributeMutations.length) {
 noteConstrainedRowLayoutSettled();
-if (youtubeNativeChromeMustRemainPageOwned(liveHost) && !currentTextMirror(liveHost)?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-if (replayNonDestructiveRenderFromCache(liveHost)) return;
-dispatchTextMirrorStale(liveHost);
-return removeTextMirror(liveHost);
-}
 if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
 const mirror = currentTextMirror(liveHost);
 if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
@@ -28898,6 +28933,40 @@ if (!Observer) return null;
 const observer = new Observer(callback);
 return new ParkableObserver(observer, options);
 }
+function mutationNodes(mutation, options = {}) {
+const nodes = [
+mutation.target,
+...Array.from(mutation.addedNodes)
+];
+if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
+return nodes;
+}
+const READER_PAINT_CONTAINER_SELECTOR = [
+"[data-jpdb-reader-root]",
+".jpdb-reader-text-mirror",
+".jpdb-reader-control-text-mirror",
+".jpdb-reader-detached-reading-overlay",
+"[data-yomu-projected-reading]"
+].join(",");
+const READER_PAINT_ATTRIBUTE_SELECTOR = `${READER_PAINT_CONTAINER_SELECTOR},.jpdb-reader-word`;
+function mutationContainsOnlyReaderPaint(mutation) {
+if (mutation.type !== "childList") {
+return nodeMatchesOrIsInside(mutation.target, READER_PAINT_ATTRIBUTE_SELECTOR);
+}
+if (nodeMatchesOrIsInside(mutation.target, READER_PAINT_CONTAINER_SELECTOR)) return true;
+const changed = [...mutation.addedNodes, ...mutation.removedNodes];
+return changed.length > 0 && changed.every((node) => nodeMatchesOrIsInside(node, READER_PAINT_CONTAINER_SELECTOR));
+}
+function nodeMatchesOrIsInside(node, selector) {
+const element = node instanceof Element ? node : node.parentElement;
+return Boolean(element?.matches(selector) || element?.closest(selector));
+}
+function mutationInsideClosest(mutation, selector) {
+return mutationNodes(mutation, { removed: true }).every((node) => {
+const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+return Boolean(element?.closest?.(selector));
+});
+}
 const LANGUAGE_ENDONYMS = Object.freeze({
 ja: "日本語",
 zh: "中文",
@@ -31810,20 +31879,6 @@ yomuKanjiStudyCompanion()?.setMiningControlsExpanded?.(button, expanded, label);
 }
 function openDeckPickerForCardAdd(button, card, sentence, performAction) {
 return yomuKanjiStudyCompanion()?.openDeckPickerForCardAdd?.(button, card, sentence, performAction) ?? false;
-}
-function mutationNodes(mutation, options = {}) {
-const nodes = [
-mutation.target,
-...Array.from(mutation.addedNodes)
-];
-if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
-return nodes;
-}
-function mutationInsideClosest(mutation, selector) {
-return mutationNodes(mutation, { removed: true }).every((node) => {
-const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-return Boolean(element?.closest?.(selector));
-});
 }
 const AUTO_SCAN_OBSERVER_OPTIONS = {
 childList: true,
@@ -34838,8 +34893,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.87"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.87"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.88"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.88"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -34982,7 +35037,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.87"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.88"}`;
 } catch {
 return null;
 }
@@ -35922,31 +35977,35 @@ return id;
 }
 syncPageFuriganaMode() {
 if (typeof document === "undefined") return;
+const root = document.documentElement;
+if (!root) return;
 const settings = this.dependencies.getSettings();
-this.syncClampedRowReadingsMode(settings);
+this.syncClampedRowReadingsMode(settings, root);
 if (settings.showFurigana && settings.furiganaMode === "all") {
-if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== "all") {
-document.documentElement.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, "all");
+if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) !== "all") {
+root.setAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE, "all");
 }
 return;
 }
 this.clearPageFuriganaMode();
 }
-syncClampedRowReadingsMode(settings) {
+syncClampedRowReadingsMode(settings, root) {
 if (settings.clampedRowReadings === "hover") {
-if (document.documentElement.getAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE) !== "hover") {
-document.documentElement.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, "hover");
+if (root.getAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE) !== "hover") {
+root.setAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE, "hover");
 }
 return;
 }
-if (document.documentElement.hasAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE)) {
-document.documentElement.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
+if (root.hasAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE)) {
+root.removeAttribute(CLAMPED_ROW_READINGS_ATTRIBUTE);
 }
 }
 clearPageFuriganaMode() {
 if (typeof document === "undefined") return;
-if (document.documentElement.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === "all") {
-document.documentElement.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
+const root = document.documentElement;
+if (!root) return;
+if (root.getAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE) === "all") {
+root.removeAttribute(FORCE_FURIGANA_MODE_ATTRIBUTE);
 }
 }
 }
@@ -38395,7 +38454,8 @@ return new Controller({
 getSettings: () => this.settings,
 setShowFilterNotice: (visible) => void this.setYoutubeFilterNoticeVisible(visible),
 setShowChannelRecommendations: (visible) => void this.setYoutubeChannelRecommendationsVisible(visible),
-parseShelfJapanese: (root) => void this.parseYoutubeShelfJapanese(root)
+parseShelfJapanese: (root) => void this.parseYoutubeShelfJapanese(root),
+scheduleAnnotationLayoutRefresh: () => scheduleProjectedAnnotationLayoutRefresh()
 });
 }
 async parseYoutubeShelfJapanese(root) {
@@ -38895,6 +38955,7 @@ this.applyReaderThemeClasses(documentBackgroundLooksDark() ? "dark" : "light");
 }
 applyReaderThemeClasses(theme) {
 const root = document.documentElement;
+if (!root) return;
 if (root.classList.contains("jpdb-reader-theme-dark") !== (theme === "dark")) {
 root.classList.toggle("jpdb-reader-theme-dark", theme === "dark");
 }
@@ -39717,6 +39778,7 @@ const canScanText = this.canParseJapanese();
 const scanMutations = [];
 let renderRejectionDelay = null;
 for (const mutation of mutations) {
+if (mutationContainsOnlyReaderPaint(mutation)) continue;
 const delay2 = readerRenderRejectionRescanDelay(mutation);
 if (delay2 !== null) {
 renderRejectionDelay = Math.max(renderRejectionDelay ?? 0, delay2);
@@ -40991,6 +41053,7 @@ canHoverLookupReaderWord(word) {
 return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
 }
 queueHoverPointerMove(event) {
+this.rememberQueuedHoverPointerPosition(event);
 if (event.buttons) {
 if (this.hoverPointerMoveFrame !== void 0) {
 window.cancelAnimationFrame(this.hoverPointerMoveFrame);
@@ -41008,6 +41071,10 @@ const pending = this.pendingHoverPointerMove;
 this.pendingHoverPointerMove = void 0;
 if (pending && !this.isDestroyed) this.handleHoverPointer(pending);
 });
+}
+rememberQueuedHoverPointerPosition(event) {
+if (this.isDestroyed || !this.canUseHoverLookupPointer(event)) return;
+this.lastPointerPosition = { x: event.clientX, y: event.clientY };
 }
 handleHoverPointer(event) {
 if (this.shouldIgnoreHoverPointer(event)) return;
@@ -41694,17 +41761,29 @@ return this.isInsideActivePopover(target) || Boolean(anchor && (this.isInsideNod
 }
 isWordHoverActive(word, options = {}) {
 if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
-if (!options.ignoreCssHover && (word.matches(":hover") || this.isHoverWordHostControlCssHoverActive(word))) return true;
-if (!this.lastPointerPosition) return false;
-const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
-if (target instanceof Element) {
-if (!options.ignorePointerPosition && this.isPointerInsideActiveOcrWordLine(word, target)) return true;
-if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
-if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
-if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, (item) => this.canHoverLookupReaderWord(item)) === word) return true;
+if (this.connectedWordHasCssHover(word, options.ignoreCssHover)) return true;
+return this.isWordAtLastPointerPosition(word, options.ignorePointerPosition);
 }
-if (options.ignorePointerPosition) return false;
-return this.isInsideNode(target, word);
+connectedWordHasCssHover(word, ignoreCssHover = false) {
+if (ignoreCssHover) return false;
+return word.matches(":hover") || this.isHoverWordHostControlCssHoverActive(word);
+}
+isWordAtLastPointerPosition(word, ignorePointerPosition = false) {
+const position = this.lastPointerPosition;
+if (!position) return false;
+const target = document.elementFromPoint(position.x, position.y);
+const renderedHover = this.activeRenderedWordHoverAtPointer(word, target, position, ignorePointerPosition);
+if (renderedHover !== void 0) return renderedHover;
+return !ignorePointerPosition && this.isInsideNode(target, word);
+}
+activeRenderedWordHoverAtPointer(word, target, position, ignorePointerPosition) {
+if (!(target instanceof Element)) return void 0;
+const ocrLineHover = this.activeOcrWordHoverAtPointer(word, target, ignorePointerPosition);
+if (ocrLineHover !== void 0) return ocrLineHover;
+return this.renderedWordMatchesPointer(word, target, position) || void 0;
+}
+renderedWordMatchesPointer(word, target, position) {
+return this.hoverReaderWordFromPointStack(position.x, position.y) === word || this.ocrLineWordForPointer(target, position.x, position.y) === word || this.readerWordFromRenderedGeometry(target, position.x, position.y, (item) => this.canHoverLookupReaderWord(item)) === word;
 }
 isHoverWordHostControlCssHoverActive(word) {
 return Boolean(this.hoverWordHostControl(word)?.matches(":hover"));
@@ -41712,9 +41791,21 @@ return Boolean(this.hoverWordHostControl(word)?.matches(":hover"));
 hoverWordHostControl(word) {
 return word.closest(HOVER_WORD_HOST_CONTROL_SELECTOR);
 }
-isPointerInsideActiveOcrWordLine(word, target) {
-const line = word.closest(".jpdb-ocr-line");
-return Boolean(line && line.contains(target));
+activeOcrWordHoverAtPointer(word, target, ignorePointerPosition) {
+if (!this.activeOcrLineContainsTarget(word, target, ignorePointerPosition)) return void 0;
+const position = this.lastPointerPosition;
+if (!position) return void 0;
+const pointedWord = this.ocrLineWordForPointer(
+target,
+position.x,
+position.y
+);
+if (!pointedWord) return true;
+return pointedWord === word;
+}
+activeOcrLineContainsTarget(word, target, ignorePointerPosition) {
+if (ignorePointerPosition) return false;
+return Boolean(word.closest(".jpdb-ocr-line")?.contains(target));
 }
 reanchorDisconnectedHoverWord(word, options) {
 if (!this.lastPointerPosition) return false;
@@ -41765,9 +41856,17 @@ document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y
 return Boolean(current && samePointerTextLookupTarget({ anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end }, current) && pointerOffsetInsideLiveLookup({ anchor: candidate.anchor, text: candidate.text, start: candidate.start, end: candidate.end }, current.offset));
 }
 currentPointerTextHoverCandidateAtPoint(x, y, target) {
-const word = this.liveReaderWordAtPointer(x, y);
-const candidate = word ? this.renderedWordPointerLookupCandidate(word, x, y, target) : null;
+const word = this.readerWordOwnedByPointerTarget(target, x, y) ?? this.liveReaderWordAtPointer(x, y);
+const candidate = this.pointerTextCandidateForRenderedWord(word, x, y, target);
 return candidate ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+}
+readerWordOwnedByPointerTarget(target, x, y) {
+if (!(target instanceof Element)) return null;
+return this.readerWordFromRenderedGeometry(target, x, y, (item) => this.canHoverLookupReaderWord(item));
+}
+pointerTextCandidateForRenderedWord(word, x, y, target) {
+if (!word) return null;
+return this.renderedWordPointerLookupCandidate(word, x, y, target);
 }
 hasActiveHoverPopover() {
 return this.activePopoverMode === "hover" && Boolean(this.activePopover);

@@ -94,6 +94,19 @@
     const observer = new Observer(callback);
     return new ParkableObserver(observer, options);
   }
+  function setImportantStyleIfChanged(element2, property, value) {
+    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
+    element2.style.setProperty(property, value, "important");
+  }
+  const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+  const CSS_PIXEL_MINIMUM = 1e-6;
+  function stableCssPixels(value) {
+    if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+    const magnitude = Math.floor(Math.log10(Math.abs(value)));
+    const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+    const rounded = Number(value.toFixed(decimalPlaces));
+    return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+  }
   const overlays = /* @__PURE__ */ new WeakMap();
   const ownerRecords = /* @__PURE__ */ new WeakMap();
   const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
@@ -324,7 +337,7 @@
       float: flowAnchored ? "left" : "none"
     };
     for (const [property, value] of Object.entries(values)) {
-      layer.style.setProperty(property, value, "important");
+      setImportantStyleIfChanged(layer, property, value);
     }
   }
   function releaseScrollProjectionRecord(record2, overlay) {
@@ -352,15 +365,17 @@
     const sourceStyle = safeComputedStyle$1(source);
     const base = source.closest(".jpdb-reader-word") ?? source;
     const baseStyle = safeComputedStyle$1(base);
-    clone.textContent = source.textContent ?? "";
-    clone.dataset.yomuExpression = base.dataset.expression ?? base.dataset.surface ?? "";
-    clone.style.setProperty("font-family", sourceStyle.fontFamily || baseStyle.fontFamily, "important");
-    clone.style.setProperty("font-size", sourceStyle.fontSize || "10px", "important");
-    clone.style.setProperty("font-style", sourceStyle.fontStyle || baseStyle.fontStyle, "important");
-    clone.style.setProperty("font-weight", sourceStyle.fontWeight || "700", "important");
-    clone.style.setProperty("letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing, "important");
-    clone.style.setProperty("color", baseStyle.color || sourceStyle.color || "currentColor", "important");
-    clone.style.setProperty("text-shadow", baseStyle.textShadow || "none", "important");
+    const text2 = source.textContent ?? "";
+    if (clone.textContent !== text2) clone.textContent = text2;
+    const expression = base.dataset.expression ?? base.dataset.surface ?? "";
+    if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
+    setImportantStyleIfChanged(clone, "font-family", sourceStyle.fontFamily || baseStyle.fontFamily);
+    setImportantStyleIfChanged(clone, "font-size", sourceStyle.fontSize || "10px");
+    setImportantStyleIfChanged(clone, "font-style", sourceStyle.fontStyle || baseStyle.fontStyle);
+    setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "700");
+    setImportantStyleIfChanged(clone, "letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing);
+    setImportantStyleIfChanged(clone, "color", baseStyle.color || sourceStyle.color || "currentColor");
+    setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
     const key = `${clone.textContent ?? ""}\0${clone.style.getPropertyValue("font-size")}`;
     if (record2.naturalReadingKey !== key) {
       record2.naturalReadingKey = key;
@@ -414,7 +429,7 @@
   }
   function applyProjectedReadingPaint(paint, context) {
     if (!paint.visible || !paint.rect) {
-      paint.record.clone.style.setProperty("display", "none", "important");
+      setImportantStyleIfChanged(paint.record.clone, "display", "none");
       return;
     }
     positionProjectedReading(paint.record, paint.rect, context, paint.layout);
@@ -425,21 +440,25 @@
     const centre = layout?.centre ?? rect.left + rect.width / 2;
     const scaleX = layout?.scaleX ?? 1;
     record2.readingScaleX = scaleX;
-    clone.style.setProperty("display", "block", "important");
-    clone.style.setProperty("left", `${centre + origin.x}px`, "important");
-    clone.style.setProperty("top", `${rect.top + origin.y}px`, "important");
-    clone.style.setProperty("right", "auto", "important");
-    clone.style.setProperty("bottom", "auto", "important");
-    clone.style.setProperty("transform-origin", "center", "important");
-    clone.style.setProperty(
+    setImportantStyleIfChanged(clone, "display", "block");
+    setImportantStyleIfChanged(clone, "left", stableCssPixels(centre + origin.x));
+    setImportantStyleIfChanged(clone, "top", stableCssPixels(rect.top + origin.y));
+    setImportantStyleIfChanged(clone, "right", "auto");
+    setImportantStyleIfChanged(clone, "bottom", "auto");
+    setImportantStyleIfChanged(clone, "transform-origin", "center");
+    setImportantStyleIfChanged(
+      clone,
       "transform",
-      scaleX < 1 ? `translate(-50%, -100%) scaleX(${scaleX})` : "translate(-50%, -100%)",
-      "important"
+      scaleX < 1 ? `translate(-50%, -100%) scaleX(${scaleX})` : "translate(-50%, -100%)"
     );
-    clone.dataset.yomuSourceLeft = String(rect.left);
-    clone.dataset.yomuSourceTop = String(rect.top);
-    clone.dataset.yomuSourceWidth = String(rect.width);
-    clone.dataset.yomuSourceHeight = String(rect.height);
+    setDatasetIfChanged(clone, "yomuSourceLeft", String(rect.left));
+    setDatasetIfChanged(clone, "yomuSourceTop", String(rect.top));
+    setDatasetIfChanged(clone, "yomuSourceWidth", String(rect.width));
+    setDatasetIfChanged(clone, "yomuSourceHeight", String(rect.height));
+  }
+  function setDatasetIfChanged(element2, key, value) {
+    if (element2.dataset[key] === value) return;
+    element2.dataset[key] = value;
   }
   function resolveProjectedReadingCrowding(paints) {
     const placed = paints.filter(isPlacedProjectionPaint);
@@ -19720,7 +19739,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
     if (decorationMustBeSkipped(element2)) return "skip";
     if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
-      return "interactive-passive";
+      return "skip";
     }
     const control = interactivePassiveControl(element2);
     if (control) {
@@ -19896,7 +19915,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
   const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
-  const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = "jpdb-reader-youtube-chrome-portal";
   const portalWatches = /* @__PURE__ */ new WeakMap();
   const structurallyStyledPortalMirrors = /* @__PURE__ */ new WeakSet();
   const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
@@ -19941,7 +19959,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     mirror.style.setProperty("direction", style.direction, "important");
     mirror.style.setProperty("writing-mode", style.writingMode, "important");
     mirror.style.setProperty("color", style.color, "important");
-    setImportantStyle(mirror, "z-index", documentPortalStackingLevel(host));
+    setImportantStyleIfChanged(mirror, "z-index", documentPortalStackingLevel(host));
   }
   function documentAnnotationPortalPaint(mirror) {
     const existing = Array.from(mirror.children).find(
@@ -20137,9 +20155,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     applyPortalClipGeometry(entry.mirror, clip);
     entry.applied = { x: x2, y };
     if (Math.abs(x2) <= 0.01 && Math.abs(y) <= 0.01) {
-      entry.paint.style.setProperty("transform", "none", "important");
+      setImportantStyleIfChanged(entry.paint, "transform", "none");
     } else {
-      entry.paint.style.setProperty("transform", `translate3d(${x2}px, ${y}px, 0)`, "important");
+      setImportantStyleIfChanged(
+        entry.paint,
+        "transform",
+        `translate3d(${stableCssPixels(x2)}, ${stableCssPixels(y)}, 0px)`
+      );
     }
   }
   function prepareDocumentAnnotationPortalMirrors(mirrors) {
@@ -20316,22 +20338,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function applyPortalClipGeometry(mirror, clip) {
     if (!clip) {
-      setImportantStyle(mirror, "left", "0px");
-      setImportantStyle(mirror, "top", "0px");
-      setImportantStyle(mirror, "width", "0px");
-      setImportantStyle(mirror, "height", "0px");
-      setImportantStyle(mirror, "overflow", "visible");
+      setImportantStyleIfChanged(mirror, "left", "0px");
+      setImportantStyleIfChanged(mirror, "top", "0px");
+      setImportantStyleIfChanged(mirror, "width", "0px");
+      setImportantStyleIfChanged(mirror, "height", "0px");
+      setImportantStyleIfChanged(mirror, "overflow", "visible");
       return;
     }
-    setImportantStyle(mirror, "left", `${clip.left}px`);
-    setImportantStyle(mirror, "top", `${clip.top}px`);
-    setImportantStyle(mirror, "width", `${Math.max(0, clip.right - clip.left)}px`);
-    setImportantStyle(mirror, "height", `${Math.max(0, clip.bottom - clip.top)}px`);
-    setImportantStyle(mirror, "overflow", "hidden");
-  }
-  function setImportantStyle(element2, property, value) {
-    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
-    element2.style.setProperty(property, value, "important");
+    setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left));
+    setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top));
+    setImportantStyleIfChanged(mirror, "width", stableCssPixels(Math.max(0, clip.right - clip.left)));
+    setImportantStyleIfChanged(mirror, "height", stableCssPixels(Math.max(0, clip.bottom - clip.top)));
+    setImportantStyleIfChanged(mirror, "overflow", "hidden");
   }
   function transitionCanMoveSource(target, source) {
     if (target === source) return true;
@@ -21176,7 +21194,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
   }
   function isBlockFragmentElement(element2, options) {
-    if (youtubeNativeChromeMustRemainPageOwned(element2)) return false;
     return !options.mergeBlockFragments && isFragmentParagraphBoundary(element2, options) && !isInlineSentenceListItem(element2);
   }
   function flushFragmentBlockBoundary(isBlock, state2) {
@@ -21439,8 +21456,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function stampTargetDecoration(target, host) {
     const decoration = target.decoration;
     if (!decoration) return;
-    const pageOwnedYouTubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
-    if (pageOwnedYouTubeChrome) return;
     stampDecorationState(host, decoration);
     if (decoration !== "interactive-passive") return;
     const control = interactivePassiveControl(target.parent);
@@ -21454,12 +21469,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     if (target.parent instanceof HTMLCanvasElement) {
       applyTokensToCanvasFallbackTarget(target, tokens, settings);
-      return;
-    }
-    if (youtubeNativeChromeMustRemainPageOwned(target.parent)) {
-      const host = nonDestructiveScanHost(target);
-      stampTargetDecoration(target, host);
-      applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
     if (target.insideShadowDOM) {
@@ -22141,13 +22150,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return mirror;
   }
   function textMirrorMount(host, clipRow, target) {
-    const youtubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
-    if (youtubeChrome || sourcePreservingProseNeedsDocumentPortal(host, target)) {
+    if (sourcePreservingProseNeedsDocumentPortal(host, target)) {
       return {
         configure(mirror) {
           mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
-          if (youtubeChrome) mirror.classList.add(YOUTUBE_CHROME_PORTAL_MIRROR_CLASS);
-          mirror.dataset.yomuDocumentPortal = youtubeChrome ? "youtube-chrome" : "volatile-prose";
+          mirror.dataset.yomuDocumentPortal = "volatile-prose";
           delete mirror.dataset.yomuReadingLaneCandidate;
           const state2 = styleDocumentPortalTextMirrorHost(host);
           styleDocumentAnnotationPortalMirror(mirror, host);
@@ -22173,25 +22180,38 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
   const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
   function sourcePreservingProseNeedsDocumentPortal(host, target) {
-    if (target.insideShadowDOM || host.getRootNode() !== host.ownerDocument) return false;
-    if (target.decoration !== "prose-full" && target.decoration !== "content-ruby") return false;
-    if (interactivePassiveControl(host)) return false;
-    if (!target.nonDestructive && !scanHostRequiresSourcePreservingMirror(host)) return false;
-    if (documentAnnotationPortalHasNonTranslationTransform(host)) return false;
+    if (!sourcePreservingProseCanUseDocumentPortal(host, target)) return false;
+    return hasDocumentPortalProseAncestor(host);
+  }
+  const DOCUMENT_PORTAL_PROSE_DECORATIONS = /* @__PURE__ */ new Set(["prose-full", "content-ruby"]);
+  function sourcePreservingProseCanUseDocumentPortal(host, target) {
+    return [
+      !target.insideShadowDOM,
+      host.getRootNode() === host.ownerDocument,
+      DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target.decoration ?? "skip"),
+      !interactivePassiveControl(host),
+      target.nonDestructive || scanHostRequiresSourcePreservingMirror(host),
+      !documentAnnotationPortalHasNonTranslationTransform(host)
+    ].every(Boolean);
+  }
+  function hasDocumentPortalProseAncestor(host) {
     let current = host;
     for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
-      if (isLikelyProseElement(current) || safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]')) return true;
-      const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
-      if (VOLATILE_CONVERSATION_IDENTITY_RE.test(identity)) return true;
-      if (current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)) return true;
+      if (isDocumentPortalProseAncestor(current, host)) return true;
     }
     return false;
   }
+  function isDocumentPortalProseAncestor(current, host) {
+    const identity = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+    return [
+      isLikelyProseElement(current),
+      safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
+      VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
+      current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
+    ].some(Boolean);
+  }
   function mountNonDestructiveTextMirror(host, target, settings, context) {
     const mirror = createNonDestructiveTextMirror(context);
-    if (target.decoration && youtubeNativeChromeMustRemainPageOwned(host)) {
-      stampDecorationState(mirror, target.decoration);
-    }
     const mount = textMirrorMount(host, context.clipRow, target);
     const controlMirror = target.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
@@ -22330,13 +22350,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const readingProjections = [];
     const projected = projections.map((projection) => writeAdditiveMirrorWordProjection(projection, context, readingProjections)).some(Boolean);
     syncProjectedReadings(mirror, readingProjections);
-    if (projected) mirror.dataset.yomuSourceProjected = "true";
-    else delete mirror.dataset.yomuSourceProjected;
-    delete mirror.dataset.yomuSourceStale;
-    for (const word of mirror.querySelectorAll(".jpdb-reader-word")) {
-      word.style.removeProperty("--jpdb-reader-word-decoration-source");
-    }
-    styleAdditiveMirrorPaint(mirror);
+    if (projected) setDataAttributeIfChanged(mirror, "data-yomu-source-projected", "true");
+    else removeAttributeIfPresent(mirror, "data-yomu-source-projected");
+    removeAttributeIfPresent(mirror, "data-yomu-source-stale");
+    styleAdditiveMirrorPaint(mirror, true);
   }
   function additiveMirrorProjectionContext(mirror, host) {
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return "unmeasurable";
@@ -22367,11 +22384,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
     }
     const hostRect = host.getBoundingClientRect();
-    mirror.style.setProperty("inset", "0 auto auto 0");
-    mirror.style.setProperty("width", `${host.clientWidth || hostRect.width}px`);
-    mirror.style.setProperty("height", `${host.clientHeight || hostRect.height}px`);
-    mirror.style.setProperty("padding", "0");
-    mirror.style.setProperty("transform", "none");
+    setInlineStyleIfChanged(mirror, "inset", "0px auto auto 0px");
+    setInlineStyleIfChanged(mirror, "width", stableCssPixels(host.clientWidth || hostRect.width));
+    setInlineStyleIfChanged(mirror, "height", stableCssPixels(host.clientHeight || hostRect.height));
+    setInlineStyleIfChanged(mirror, "padding", "0px");
+    setInlineStyleIfChanged(mirror, "transform", "none");
     const mirrorRect = mirror.getBoundingClientRect();
     if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
     return {
@@ -22407,11 +22424,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function writeAdditiveMirrorWordProjection(projection, context, readings2) {
     const { word, sourceRects, fragments } = projection;
-    delete word.dataset.yomuSourceProjected;
-    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
-    if (!fragments.length) return false;
+    if (!fragments.length) {
+      clearProjectedSourceWord(word);
+      return false;
+    }
     styleProjectedSourceWord(word);
-    appendSourceFragments(word, fragments, sourceRects, context);
+    syncSourceFragments(word, fragments, sourceRects, context);
     for (const { ruby, projection: readingProjection } of projection.readings) {
       positionProjectedElement(ruby, readingProjection.rect, context.mirrorRect, context.scaleX, context.scaleY);
       readings2.push(readingProjection);
@@ -22468,44 +22486,57 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
   const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
+  const PROJECTED_SOURCE_ELEMENT_OFFSET_STYLE_PROPERTIES = ["left", "top", "width", "height", "margin"];
   function writeProjectedGeometry(element2, properties, values) {
-    for (const property of properties) element2.style.setProperty(property, values[property], "important");
+    for (const property of properties) {
+      setInlineStyleIfChanged(element2, property, values[property], "important");
+    }
   }
   function styleProjectedSourceWord(word) {
-    word.dataset.yomuSourceProjected = "true";
+    setDataAttributeIfChanged(word, "data-yomu-source-projected", "true");
     writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
       position: "absolute",
-      inset: "0",
+      inset: "0px",
       width: "auto",
       height: "auto",
-      margin: "0"
+      margin: "0px"
     });
   }
   function clearAdditiveMirrorSourceProjection(mirror) {
-    delete mirror.dataset.yomuSourceProjected;
-    mirror.dataset.yomuSourceStale = "true";
+    removeAttributeIfPresent(mirror, "data-yomu-source-projected");
+    setDataAttributeIfChanged(mirror, "data-yomu-source-stale", "true");
     for (const word of mirror.querySelectorAll(".jpdb-reader-word[data-yomu-source-projected]")) {
-      word.style.setProperty("--jpdb-reader-word-decoration-source", "transparent");
-      word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
-      for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
-        PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach((property) => wrapper.style.removeProperty(property));
-        wrapper.style.setProperty("position", "relative", "important");
-      }
-      PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => word.style.removeProperty(property));
-      delete word.dataset.yomuSourceProjected;
+      setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", "transparent");
+      clearProjectedSourceWord(word);
     }
   }
-  function appendSourceFragments(word, fragments, sourceRects, context) {
-    const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
-    for (const { rect, gradientOffset } of fragments) {
-      const fragment2 = word.ownerDocument.createElement("span");
-      fragment2.className = SOURCE_FRAGMENT_CLASS;
-      fragment2.setAttribute("aria-hidden", "true");
-      fragment2.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
-      fragment2.style.setProperty("--jpdb-reader-source-gradient-offset", `${-gradientOffset}px`);
-      positionProjectedElement(fragment2, rect, context.mirrorRect, context.scaleX, context.scaleY);
-      word.append(fragment2);
+  function clearProjectedSourceWord(word) {
+    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
+    for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
+      PROJECTED_SOURCE_ELEMENT_OFFSET_STYLE_PROPERTIES.forEach((property) => removeInlineStyleIfPresent(wrapper, property));
+      setInlineStyleIfChanged(wrapper, "position", "relative", "important");
     }
+    PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => removeInlineStyleIfPresent(word, property));
+    removeAttributeIfPresent(word, "data-yomu-source-projected");
+  }
+  function syncSourceFragments(word, fragments, sourceRects, context) {
+    const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context.scaleX, 0);
+    const existing = Array.from(word.querySelectorAll(`:scope > .${SOURCE_FRAGMENT_CLASS}`));
+    fragments.forEach(({ rect, gradientOffset }, index) => {
+      const existingFragment = existing[index];
+      const fragment2 = existingFragment ?? createSourceFragment(word.ownerDocument);
+      setInlineStyleIfChanged(fragment2, "--jpdb-reader-source-gradient-width", stableCssPixels(gradientWidth));
+      setInlineStyleIfChanged(fragment2, "--jpdb-reader-source-gradient-offset", stableCssPixels(-gradientOffset));
+      positionProjectedElement(fragment2, rect, context.mirrorRect, context.scaleX, context.scaleY);
+      if (!existingFragment) word.append(fragment2);
+    });
+    existing.slice(fragments.length).forEach((fragment2) => fragment2.remove());
+  }
+  function createSourceFragment(document2) {
+    const fragment2 = document2.createElement("span");
+    fragment2.className = SOURCE_FRAGMENT_CLASS;
+    fragment2.setAttribute("aria-hidden", "true");
+    return fragment2;
   }
   function readProjectedWordReadings(word, context, sourceRectsFor, readingsConcealed) {
     const readings2 = [];
@@ -22591,11 +22622,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function positionProjectedElement(element2, rect, mirrorRect, scaleX, scaleY) {
     writeProjectedGeometry(element2, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
       position: "absolute",
-      left: `${(rect.left - mirrorRect.left) / scaleX}px`,
-      top: `${(rect.top - mirrorRect.top) / scaleY}px`,
-      width: `${rect.width / scaleX}px`,
-      height: `${rect.height / scaleY}px`,
-      margin: "0"
+      left: stableCssPixels((rect.left - mirrorRect.left) / scaleX),
+      top: stableCssPixels((rect.top - mirrorRect.top) / scaleY),
+      width: stableCssPixels(rect.width / scaleX),
+      height: stableCssPixels(rect.height / scaleY),
+      margin: "0px"
     });
   }
   function rectsIntersect(left, right) {
@@ -22612,8 +22643,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) removeTextMirror(host);
         continue;
       }
-      if (youtubeNativeChromeMustRemainPageOwned(host) && !mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-        if (replayNonDestructiveRenderFromCache(host)) continue;
+      if (classifyDecoration(host) === "skip") {
         removeTextMirror(host);
         continue;
       }
@@ -22807,23 +22837,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
     element2.style.setProperty(property, value, priority);
   }
+  function removeInlineStyleIfPresent(element2, property) {
+    if (!element2.style.getPropertyValue(property) && !element2.style.getPropertyPriority(property)) return;
+    element2.style.removeProperty(property);
+  }
+  function setDataAttributeIfChanged(element2, name, value) {
+    if (element2.getAttribute(name) === value) return;
+    element2.setAttribute(name, value);
+  }
+  function removeAttributeIfPresent(element2, name) {
+    if (!element2.hasAttribute(name)) return;
+    element2.removeAttribute(name);
+  }
   const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
   const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source) => source !== "pitch");
-  function styleAdditiveMirrorPaint(root) {
+  function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
     if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
-    root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+    setInlineStyleIfChanged(root, "-webkit-text-fill-color", "transparent", "important");
     const source = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
     const words = root.querySelectorAll(".jpdb-reader-word");
     const paint = source ? `var(--jpdb-reader-source-${source}-decoration, transparent)` : "transparent";
     const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
     const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
     for (const word of words) {
-      word.style.removeProperty("text-decoration-color");
-      word.style.removeProperty("--jpdb-reader-additive-decoration");
-      word.style.setProperty("--jpdb-reader-word-decoration-source", paint);
-      if (softPaint) word.style.setProperty("--jpdb-reader-mirror-status-soft", softPaint);
-      else word.style.removeProperty("--jpdb-reader-mirror-status-soft");
+      const visible = !projectedWordsOnly || word.dataset.yomuSourceProjected === "true";
+      styleAdditiveMirrorWordPaint(word, paint, softPaint, visible);
     }
+  }
+  function styleAdditiveMirrorWordPaint(word, paint, softPaint, visible) {
+    removeInlineStyleIfPresent(word, "text-decoration-color");
+    removeInlineStyleIfPresent(word, "--jpdb-reader-additive-decoration");
+    setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", visible ? paint : "transparent");
+    const visibleSoftPaint = visible ? softPaint : "";
+    if (visibleSoftPaint) setInlineStyleIfChanged(word, "--jpdb-reader-mirror-status-soft", visibleSoftPaint);
+    else removeInlineStyleIfPresent(word, "--jpdb-reader-mirror-status-soft");
   }
   function activeAdditiveHighlightSource(documentElement) {
     let active = null;
@@ -23235,10 +23282,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function nonDestructiveScanHost(target) {
-    const pageOwnedYouTubeControl = interactivePassiveControl(target.parent);
-    if (pageOwnedYouTubeControl && youtubeNativeChromeMustRemainPageOwned(pageOwnedYouTubeControl)) {
-      return pageOwnedYouTubeControl;
-    }
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
     if (parents.length && parents.every((parent) => parent === target.parent)) return target.parent;
@@ -23377,11 +23420,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       );
       if (hostAttributeMutations.length) {
         noteConstrainedRowLayoutSettled();
-        if (youtubeNativeChromeMustRemainPageOwned(liveHost) && !currentTextMirror(liveHost)?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-          if (replayNonDestructiveRenderFromCache(liveHost)) return;
-          dispatchTextMirrorStale(liveHost);
-          return removeTextMirror(liveHost);
-        }
         if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
           const mirror = currentTextMirror(liveHost);
           if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);
@@ -54065,6 +54103,40 @@ ${entry.reading}`);
     recorderBootstrap(pageWindow(), opts);
     if (recorderAlreadyInstalled()) markRecorderMethod("current");
   }
+  function mutationNodes(mutation, options = {}) {
+    const nodes = [
+      mutation.target,
+      ...Array.from(mutation.addedNodes)
+    ];
+    if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
+    return nodes;
+  }
+  const READER_PAINT_CONTAINER_SELECTOR = [
+    "[data-jpdb-reader-root]",
+    ".jpdb-reader-text-mirror",
+    ".jpdb-reader-control-text-mirror",
+    ".jpdb-reader-detached-reading-overlay",
+    "[data-yomu-projected-reading]"
+  ].join(",");
+  const READER_PAINT_ATTRIBUTE_SELECTOR = `${READER_PAINT_CONTAINER_SELECTOR},.jpdb-reader-word`;
+  function mutationContainsOnlyReaderPaint(mutation) {
+    if (mutation.type !== "childList") {
+      return nodeMatchesOrIsInside(mutation.target, READER_PAINT_ATTRIBUTE_SELECTOR);
+    }
+    if (nodeMatchesOrIsInside(mutation.target, READER_PAINT_CONTAINER_SELECTOR)) return true;
+    const changed = [...mutation.addedNodes, ...mutation.removedNodes];
+    return changed.length > 0 && changed.every((node) => nodeMatchesOrIsInside(node, READER_PAINT_CONTAINER_SELECTOR));
+  }
+  function nodeMatchesOrIsInside(node, selector) {
+    const element2 = node instanceof Element ? node : node.parentElement;
+    return Boolean(element2?.matches(selector) || element2?.closest(selector));
+  }
+  function mutationInsideClosest(mutation, selector) {
+    return mutationNodes(mutation, { removed: true }).every((node) => {
+      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+      return Boolean(element2?.closest?.(selector));
+    });
+  }
   function claimOcrScan(owner) {
     const token = Symbol("ocr-scan");
     owner.scan = token;
@@ -57590,6 +57662,8 @@ ${spelling}`);
       return !settings.ocrAutoScanImages || !this.hasVisibleInlineOcrFallback(settings);
     }
     handleRenderableMediaMutations(mutations) {
+      mutations = mutations.filter((mutation) => !mutationContainsOnlyReaderPaint(mutation));
+      if (!mutations.length) return;
       this.invalidatePositionTransformsForMutations(mutations);
       const settings = this.options.getSettings();
       if (!ocrRuntimeActive(settings)) {
@@ -60378,7 +60452,10 @@ ${reading}`);
     return mutation.target instanceof Element && nodeContainsRenderableMedia(mutation.target);
   }
   function mutationCanRestyleEverySurface(mutation) {
-    return [mutation.target, ...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+    if (target?.matches('style, link[rel~="stylesheet"]')) return true;
+    if (mutation.type !== "childList") return false;
+    return [...mutation.addedNodes, ...mutation.removedNodes].some((node) => node instanceof Element && (node.matches('style, link[rel~="stylesheet"]') || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));
   }
   function summarizeRenderableMediaMutations(mutations) {
     let addedImage = false;
@@ -61076,7 +61153,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.87".trim() ? "1.8.87".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.88".trim() ? "1.8.88".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -112115,20 +112192,6 @@ ${reading}`);
     const rail = root.querySelector(".jpdb-subtitle-rail");
     if (open && rail) positionSubtitleStylePopover(popover, rail);
   }
-  function mutationNodes(mutation, options = {}) {
-    const nodes = [
-      mutation.target,
-      ...Array.from(mutation.addedNodes)
-    ];
-    if (options.removed) nodes.push(...Array.from(mutation.removedNodes));
-    return nodes;
-  }
-  function mutationInsideClosest(mutation, selector) {
-    return mutationNodes(mutation, { removed: true }).every((node) => {
-      const element2 = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean(element2?.closest?.(selector));
-    });
-  }
   function subtitleSourceContextKey(video) {
     const url = new URL(location.href);
     url.hash = "";
@@ -113390,7 +113453,7 @@ ${reading}`);
     return Boolean(options.holdLastAnnotatedWhilePending && options.cue && options.lastRenderedText !== options.text && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
   }
   function rendersTheSameCue(options) {
-    return options.lastRenderedText === options.text;
+    return options.lastRenderedKey === options.parseKey && options.lastRenderedText === options.text;
   }
   function planSubtitleParseBatch(items, cachedHtml, pendingHtml) {
     const ready = [];
@@ -113961,116 +114024,6 @@ ${reading}`);
   function squaredDistance(first2, second) {
     return (first2.left - second.left) ** 2 + (first2.top - second.top) ** 2;
   }
-  class SubtitleRailPointerFocus {
-    constructor(getRoot, playerChromeHidden, scheduleIdle2) {
-      this.getRoot = getRoot;
-      this.playerChromeHidden = playerChromeHidden;
-      this.scheduleIdle = scheduleIdle2;
-    }
-    inputWasKeyboardValue = false;
-    pendingControl;
-    pointerFocusedControl;
-    gestureControl;
-    pressId;
-    completionTimer;
-    get inputWasKeyboard() {
-      return this.inputWasKeyboardValue;
-    }
-    bind(signal) {
-      document.addEventListener("pointerup", (event) => this.handlePointerEnd(event), { passive: true, capture: true, signal });
-      document.addEventListener("pointercancel", (event) => this.handlePointerEnd(event), { passive: true, capture: true, signal });
-      document.addEventListener("click", (event) => this.handleClick(event), { capture: true, signal });
-    }
-    notePointerInput() {
-      this.inputWasKeyboardValue = false;
-    }
-    handlePointerDown(event, target) {
-      const control = this.controlForTarget(target);
-      if (!control && this.hasPointerFocusedControl()) return;
-      this.clearCompletionTimer();
-      this.pendingControl = control;
-      this.gestureControl = control;
-      this.pressId = control ? event.pointerId : void 0;
-      const active = document.activeElement;
-      if (control && active === control) this.pointerFocusedControl = control;
-      else if (!this.hasPointerFocusedControl()) this.pointerFocusedControl = void 0;
-    }
-    handlePointerEnd(event) {
-      if (event.pointerId !== this.pressId) return;
-      this.pressId = void 0;
-      this.queueCompletion(event.type === "pointercancel" ? 0 : 750);
-    }
-    handleClick(event) {
-      const target = event.target instanceof Element ? event.target : null;
-      if (this.controlForTarget(target) !== this.gestureControl) return;
-      this.queueCompletion(50);
-    }
-    handleFocusIn(target) {
-      this.pointerFocusedControl = (target === this.pendingControl || target === this.gestureControl) && target instanceof HTMLElement ? target : void 0;
-      this.pendingControl = void 0;
-    }
-    handleFocusOut(target) {
-      if (target === this.pointerFocusedControl) this.pointerFocusedControl = void 0;
-    }
-    handleKeydown(target, editable) {
-      if (target instanceof Element && target.closest(".jpdb-subtitle-rail")) this.clearProvenance();
-      if (editable) return;
-      this.inputWasKeyboardValue = true;
-      this.clearProvenance();
-    }
-    hasPointerFocusedControl() {
-      const active = document.activeElement;
-      return Boolean(active === this.pointerFocusedControl && active instanceof HTMLElement && this.getRoot()?.contains(active) && active.closest(".jpdb-subtitle-rail"));
-    }
-    shouldReleasePointerFocus() {
-      return this.pressId === void 0 && this.hasPointerFocusedControl();
-    }
-    blurPointerFocus() {
-      if (this.pressId !== void 0 || !this.hasPointerFocusedControl()) return;
-      const active = document.activeElement;
-      this.pointerFocusedControl = void 0;
-      if (active instanceof HTMLElement) active.blur();
-    }
-    destroy() {
-      this.clearCompletionTimer();
-      this.pendingControl = void 0;
-      this.pointerFocusedControl = void 0;
-      this.gestureControl = void 0;
-      this.pressId = void 0;
-      this.inputWasKeyboardValue = false;
-    }
-    controlForTarget(target) {
-      const selector = "button, input, select, textarea, a[href], [tabindex]";
-      const direct = target?.closest(
-        ".jpdb-subtitle-rail button, .jpdb-subtitle-rail input, .jpdb-subtitle-rail select, .jpdb-subtitle-rail textarea, .jpdb-subtitle-rail a[href], .jpdb-subtitle-rail [tabindex]"
-      );
-      const labelled = target?.closest(".jpdb-subtitle-rail label")?.querySelector(selector);
-      return direct ?? labelled ?? void 0;
-    }
-    queueCompletion(delay2) {
-      const candidate = this.gestureControl;
-      if (!candidate) return;
-      this.clearCompletionTimer();
-      this.completionTimer = window.setTimeout(() => {
-        this.completionTimer = void 0;
-        if (this.gestureControl !== candidate) return;
-        this.gestureControl = void 0;
-        if (this.pendingControl === candidate) this.pendingControl = void 0;
-        if (!this.hasPointerFocusedControl()) return;
-        if (this.playerChromeHidden()) this.blurPointerFocus();
-        else this.scheduleIdle();
-      }, delay2);
-    }
-    clearCompletionTimer() {
-      window.clearTimeout(this.completionTimer);
-      this.completionTimer = void 0;
-    }
-    clearProvenance() {
-      this.pendingControl = void 0;
-      this.pointerFocusedControl = void 0;
-      this.gestureControl = void 0;
-    }
-  }
   const TRANSCRIPT_SCROLL_INTENT_WINDOW_MS = 1500;
   class TranscriptFollowState {
     intentUntil = 0;
@@ -114232,6 +114185,8 @@ ${reading}`);
         settings.showFurigana,
         settings.furiganaMode,
         settings.hideKnownFurigana,
+        [...settings.furiganaHiddenStateGroups].sort().join(","),
+        settings.showPitchAccent,
         settings.wordHighlightColorSource,
         settings.wordUnderlineColorSource,
         settings.wordTextColorSource,
@@ -114476,7 +114431,7 @@ ${reading}`);
       const settings = this.deps.getSettings();
       const htmlCache = this.deps.getHtmlCache();
       const parsedKey = this.deps.transcriptRowParseKey(row, index, rows, settings);
-      const parsed = htmlCache.parsedHtmlCache.get(parsedKey) ?? htmlCache.provisionalParsedHtmlCache.get(parsedKey);
+      const parsed = this.parsedRowHtml(parsedKey, settings, htmlCache);
       const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$2(parsedKey)}"` : "";
       const provisionalAttribute = parsed && !htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
       const seekLabel = `${uiText(settings.interfaceLanguage, "seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
@@ -114492,6 +114447,10 @@ ${reading}`);
                 </div>
             </div>
         `;
+    }
+    parsedRowHtml(parsedKey, settings, htmlCache) {
+      if (settings.annotationsPaused) return void 0;
+      return htmlCache.parsedHtmlCache.get(parsedKey) ?? htmlCache.provisionalParsedHtmlCache.get(parsedKey);
     }
     // UT-68c: when the Lines list shows only Japanese, each row with an
     // aligned translation gets an eye toggle to peek it.
@@ -114727,16 +114686,16 @@ ${reading}`);
       const host = this.video?.closest('[data-yomu-inline-fullscreen="true"]') ?? document.querySelector('[data-yomu-inline-fullscreen="true"]');
       return host && (!this.video || host.contains(this.video) || isYouTubeMobileFullscreenHost(host)) ? host : null;
     }
-    syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
+    syncSubtitleRootParent(fullscreenElement = currentFullscreenElement()) {
       const root = this.deps.getRoot();
       if (!root) return;
-      const parent = this.fullscreenReaderRootParent(fullscreenHost);
+      const parent = this.fullscreenReaderRootParent(fullscreenElement);
       if (root.parentElement !== parent) parent.appendChild(root);
       const transcriptPanel = this.deps.getTranscriptPanel();
       if (transcriptPanel && transcriptPanel.parentElement !== parent) parent.appendChild(transcriptPanel);
     }
-    fullscreenReaderRootParent(fullscreenHost) {
-      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body ?? document.documentElement : fullscreenHost;
+    fullscreenReaderRootParent(fullscreenElement) {
+      return !this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement) || fullscreenElement === document.documentElement ? document.body ?? document.documentElement : fullscreenElement;
     }
   }
   const YOUTUBE_SUBTITLE_NAVIGATION_EVENTS = [
@@ -115223,6 +115182,7 @@ ${reading}`);
     });
     transcriptTextTargetsByParseKey = /* @__PURE__ */ new Map();
     renderSerial = 0;
+    lastRefreshAnnotationsPaused;
     panelMode = "lines";
     lastTranscriptSignature = "";
     // Structure-only signature (see TranscriptPanelRenderState) committed by the
@@ -115276,11 +115236,6 @@ ${reading}`);
     // that displaced line must briefly own control visibility even while the
     // host player's chrome remains autohidden (notably on touch devices).
     subtitleSurfaceWakeActive = false;
-    railPointerFocus = new SubtitleRailPointerFocus(
-      () => this.root,
-      () => this.videoPlayerChromeHidden(),
-      () => this.scheduleControlsIdle()
-    );
     transcriptHydrationSerial = 0;
     transcriptCacheWarmupSerial = 0;
     transcriptCacheWarmupSignature = "";
@@ -115460,7 +115415,6 @@ ${reading}`);
       document.addEventListener("focusin", (event) => this.handleSubtitleUiFocusIn(event), this.eventOptions({ capture: true }));
       document.addEventListener("focusout", (event) => this.handleSubtitleUiFocusOut(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
-      this.railPointerFocus.bind(this.abortController?.signal);
       document.addEventListener("click", (event) => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
       document.addEventListener("pointerdown", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
@@ -115586,7 +115540,6 @@ ${reading}`);
       this.clearTranscriptPanelAnimation();
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
-      this.railPointerFocus.destroy();
       this.clearVideoInsetForTranscriptPanel();
       this.subtitleStylePanelOpen = false;
       this.pinnedPlayer.reset();
@@ -115607,6 +115560,7 @@ ${reading}`);
       if (!this.root) return;
       if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
       const settings = this.options.getSettings();
+      const annotationsModeChanged = this.prepareAnnotationsModeRender(settings);
       this.syncRootVisibility(settings);
       this.syncTranscriptPlacementClass();
       this.syncFullscreenState();
@@ -115617,8 +115571,24 @@ ${reading}`);
       this.scheduleAlignToVideo();
       this.syncControls();
       this.render();
-      this.renderOpenSubtitlePanel();
+      this.renderOpenSubtitlePanel(annotationsModeChanged);
       this.hideControlsImmediately();
+    }
+    prepareAnnotationsModeRender(settings) {
+      const previous = this.lastRefreshAnnotationsPaused;
+      this.lastRefreshAnnotationsPaused = settings.annotationsPaused;
+      if (previous === void 0 || previous === settings.annotationsPaused) return false;
+      this.renderSerial += 1;
+      this.parseWarmupSerial += 1;
+      this.lastParseWarmupAnchor = -1;
+      this.transcriptHydrationSerial += 1;
+      this.transcriptCacheWarmupSerial += 1;
+      this.transcriptCacheWarmupSignature = "";
+      this.lastAppliedPrimaryRowHtml = "";
+      this.lastTranscriptSignature = "";
+      this.lastTranscriptStructureSignature = "";
+      this.transcriptTextTargetsByParseKey.clear();
+      return true;
     }
     syncRootVisibility(settings) {
       if (!this.root) return;
@@ -115904,15 +115874,19 @@ ${reading}`);
       this.pendingDomCaption = void 0;
       this.lastDomCaption = "";
       this.lastDomCaptionSeenAt = 0;
+      this.invalidatePrimaryCueRender();
+      this.resetShadowPracticeState();
+      this.restoreSubtitleDragOffset();
+    }
+    invalidatePrimaryCueRender() {
       this.lastAutoCopiedCueSignature = "";
+      this.lastRenderedPrimaryKey = "";
       this.lastRenderedPrimaryText = "";
       this.lastRenderedPrimaryHtml = "";
       this.lastAppliedPrimaryRowHtml = "";
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
       this.lastParseWarmupAnchor = -1;
-      this.resetShadowPracticeState();
-      this.restoreSubtitleDragOffset();
     }
     removeStaleNativeTracks(video) {
       const textTracks = new Set(Array.from(video.textTracks));
@@ -115937,12 +115911,22 @@ ${reading}`);
       if (removed.has(this.selectedTrackId)) this.resetPrimarySubtitleState();
       if (removed.has(this.secondaryTrackId)) this.resetSecondarySubtitleState();
     }
-    renderOpenSubtitlePanel() {
-      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
-      if (this.panelMode === "tracks" || !this.hasTranscriptSurface()) this.renderTrackPanel();
+    renderOpenSubtitlePanel(force = false) {
+      if (!this.canRenderOpenSubtitlePanel()) return;
+      if (!this.hasTranscriptSurface()) {
+        this.renderTrackPanel();
+        return;
+      }
+      this.renderOpenTranscriptMode(force);
+    }
+    canRenderOpenSubtitlePanel() {
+      return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing);
+    }
+    renderOpenTranscriptMode(force) {
+      if (this.panelMode === "tracks") this.renderTrackPanel();
       else if (this.panelMode === "shadow") this.renderShadowPanel(true);
       else if (this.panelMode === "mine") this.renderBatchMiningPanel();
-      else this.renderTranscriptPanel();
+      else this.renderTranscriptPanel(force);
     }
     observeVideoLayout(video) {
       this.videoResizeObserver?.disconnect();
@@ -116333,7 +116317,6 @@ ${reading}`);
     syncPlayerChromeIdleState() {
       if (!this.root) return;
       const chromeHidden = this.videoPlayerChromeHidden();
-      if (chromeHidden) this.railPointerFocus.blurPointerFocus();
       if (!this.hasAutoIdleMode(this.options.getSettings())) {
         this.setControlsAway(false);
         this.lastPlayerChromeHidden = chromeHidden;
@@ -116683,17 +116666,37 @@ ${reading}`);
     }
     isDomCaptionStable(text2, nowMs2) {
       if (this.pendingDomCaption?.text !== text2) {
-        this.pendingDomCaption = { text: text2, firstSeenAt: nowMs2 };
-        this.warmDomCaptionParse(text2);
+        this.beginPendingDomCaption(text2, nowMs2);
         return false;
       }
-      return nowMs2 - this.pendingDomCaption.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS && text2 !== this.lastDomCaption;
+      return this.pendingDomCaptionIsReady(this.pendingDomCaption, text2, nowMs2);
     }
-    warmDomCaptionParse(text2) {
-      if (!text2.trim() || !this.shouldParseSubtitles()) return;
+    beginPendingDomCaption(text2, nowMs2) {
+      const pending2 = { text: text2, firstSeenAt: nowMs2, parseSettled: !this.shouldParseSubtitles() };
+      this.pendingDomCaption = pending2;
+      this.warmDomCaptionParse(text2, pending2);
+    }
+    pendingDomCaptionIsReady(pending2, text2, nowMs2) {
+      return pending2.parseSettled && nowMs2 - pending2.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS && text2 !== this.lastDomCaption;
+    }
+    warmDomCaptionParse(text2, pending2) {
+      if (!text2.trim() || !this.shouldParseSubtitles()) {
+        pending2.parseSettled = true;
+        return;
+      }
       const texts = this.domCaptionCueTexts(text2);
-      if (!texts.length) return;
-      void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true, requireEnrichedProvisional: true }).catch(() => void 0);
+      if (!texts.length) {
+        pending2.parseSettled = true;
+        return;
+      }
+      void this.parseCueHtmlBatch(texts, this.options.getSettings(), {
+        enrichBeforeRender: true,
+        requireEnrichedProvisional: true
+      }).catch(() => void 0).finally(() => {
+        if (this.pendingDomCaption !== pending2) return;
+        pending2.parseSettled = true;
+        this.wakeTick();
+      });
     }
     domCaptionCueTexts(text2) {
       return normalizeSubtitleCues([{ start: 0, end: 4, text: text2 }]).map((cue) => cue.text.trim()).filter(Boolean);
@@ -116724,13 +116727,16 @@ ${reading}`);
       if (!this.subtitleEl) return;
       this.applyPrimaryRow(null);
       this.applySecondaryLine(settings);
+      this.lastRenderedPrimaryKey = "";
+      this.lastRenderedPrimaryText = "";
+      this.lastRenderedPrimaryHtml = "";
     }
     renderActiveSubtitle(text2, settings) {
       if (!this.subtitleEl) return;
       const primary = this.renderPrimarySubtitle(text2, settings);
       const changed = this.applyPrimaryRow(primary.html);
       this.applySecondaryLine(settings);
-      this.applyRenderedPrimarySubtitle(primary, text2);
+      this.applyRenderedPrimarySubtitle(primary, text2, settings);
       if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
     }
     applyPrimaryRow(html) {
@@ -116788,6 +116794,7 @@ ${reading}`);
         cue: activeCue,
         text: text2,
         settings,
+        parseKey,
         parsedHtml: pending2 && provisionalStillEnriching && canHoldPreviousAnnotation ? void 0 : parsedHtml,
         lastRenderedKey: this.lastRenderedPrimaryKey,
         lastRenderedText: this.lastRenderedPrimaryText,
@@ -116799,39 +116806,54 @@ ${reading}`);
       });
     }
     primaryParsedHtmlForRender(text2, settings, key) {
+      if (!this.shouldParseSubtitles(settings)) return void 0;
+      const committed = this.committedPrimaryParsedHtml(key);
+      if (committed !== void 0) return committed;
       const cached = this.cachedParsedCueHtml(key, settings);
       if (cached !== void 0) return cached;
+      return this.provisionalPrimaryParsedHtmlForRender(text2, settings, key);
+    }
+    committedPrimaryParsedHtml(key) {
+      if (this.lastRenderedPrimaryKey !== key) return void 0;
+      if (!parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) return void 0;
+      return this.lastRenderedPrimaryHtml;
+    }
+    provisionalPrimaryParsedHtmlForRender(text2, settings, key) {
       const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
-      if (provisional !== void 0) {
-        if (this.shouldUseProvisionalSubtitleParse(settings)) {
-          if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) {
-            if (this.hasAuthoritativeParseTier(settings)) {
-              this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
-              return void 0;
-            }
-            this.ensureEnrichedProvisionalParsedCueHtml(text2, settings, key);
-            if (!this.htmlCache.parsedTokenCache.has(key)) return void 0;
-          } else {
-            this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
-          }
-        }
+      if (provisional === void 0) return void 0;
+      return this.preparedProvisionalPrimaryHtml(text2, settings, key, provisional);
+    }
+    preparedProvisionalPrimaryHtml(text2, settings, key, provisional) {
+      if (!this.shouldUseProvisionalSubtitleParse(settings)) return provisional;
+      if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) {
+        this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
         return provisional;
       }
-      return void 0;
+      if (!this.prepareUnenrichedProvisionalPrimary(text2, settings, key)) return void 0;
+      return provisional;
     }
-    applyRenderedPrimarySubtitle(primary, text2) {
+    prepareUnenrichedProvisionalPrimary(text2, settings, key) {
+      if (this.hasAuthoritativeParseTier(settings)) {
+        this.ensureAuthoritativeParsedCueHtml(text2, settings, key);
+        return false;
+      }
+      this.ensureEnrichedProvisionalParsedCueHtml(text2, settings, key);
+      return this.htmlCache.parsedTokenCache.has(key);
+    }
+    applyRenderedPrimarySubtitle(primary, text2, settings) {
       this.applyRenderedPrimaryKaraoke(primary);
       this.syncSubtitleTextSize();
       this.syncNativePlayerControlHitProtection();
-      this.cacheRenderedPrimarySubtitle(primary);
+      this.cacheRenderedPrimarySubtitle(primary, settings);
       this.requestParsedPrimaryIfNeeded(primary, text2);
     }
     applyRenderedPrimaryKaraoke(primary) {
       const activeCue = this.currentCue;
       if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video ? this.subtitlePlaybackTime(this.video) : activeCue.start);
     }
-    cacheRenderedPrimarySubtitle(primary) {
+    cacheRenderedPrimarySubtitle(primary, settings) {
       if (!primary.nextRenderedPrimary) return;
+      this.lastRenderedPrimaryKey = this.parseCacheKey(primary.nextRenderedPrimary.text, settings);
       this.lastRenderedPrimaryText = primary.nextRenderedPrimary.text;
       this.lastRenderedPrimaryHtml = primary.nextRenderedPrimary.html;
     }
@@ -116925,7 +116947,7 @@ ${reading}`);
         await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
         const remembered = this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
-        if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, text2, remembered.html);
+        if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, remembered.html);
         return remembered.html;
       })();
       this.htmlCache.pendingParsedHtml.set(key, promise);
@@ -116983,7 +117005,6 @@ ${reading}`);
       }).then((html) => {
         if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) return;
         this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
-        if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text2, html, ++this.renderSerial);
       }).catch(() => void 0);
     }
     ensureAuthoritativeParsedCueHtml(text2, settings, key) {
@@ -116994,14 +117015,12 @@ ${reading}`);
       if (!this.hasAuthoritativeParseTier(settings)) return;
       const missing = items.filter((item) => this.cachedParsedCueHtml(item.key, settings) === void 0 && !this.htmlCache.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
-      const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
+      const parsed = this.parseAuthoritativeSubtitleItems(missing);
       const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
       const parsedHtml = missing.map((item, index) => enriched.then((tokens) => {
         const tokenList = tokens[index] ?? [];
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-        const remembered = this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
-        if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(item.key, item.text, remembered.html);
-        return remembered.html;
+        return this.rememberAuthoritativeParsedCueHtml(item.key, html, tokenList);
       }));
       missing.forEach((item, index) => this.htmlCache.pendingParsedHtml.set(item.key, parsedHtml[index]));
       void Promise.allSettled(parsedHtml).finally(() => {
@@ -117010,10 +117029,20 @@ ${reading}`);
         });
       });
     }
-    applyAuthoritativeParsedCueHtml(key, text2, html) {
+    parseAuthoritativeSubtitleItems(items) {
+      const texts = items.map((item) => item.text);
+      if (this.options.parseJapaneseBatch) {
+        return this.options.parseJapaneseBatch(texts, authoritativeSubtitleParseOptions());
+      }
+      return Promise.all(texts.map((text2) => this.options.parseJapanese(text2, authoritativeSubtitleParseOptions())));
+    }
+    rememberAuthoritativeParsedCueHtml(key, html, tokens) {
+      const remembered = this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
+      if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, remembered.html);
+      return remembered.html;
+    }
+    applyAuthoritativeParsedCueHtml(key, html) {
       this.updateTranscriptRowsForParseKey(key, html);
-      if (this.currentPrimaryParseCacheKey() !== key) return;
-      this.applyParsedPrimaryHtml(key, text2, html, ++this.renderSerial);
     }
     // Late token enrichment (public jpdb pitch lookups, fallback-vocabulary
     // resolution) mutates the cached token objects AFTER their cue html was
@@ -117044,8 +117073,6 @@ ${reading}`);
       if (html === previous) return;
       const remembered = this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true, enriched: true } : {});
       this.updateTranscriptRowsForParseKey(key, remembered.html, { provisional: remembered.provisional, force: true });
-      if (this.currentPrimaryParseCacheKey() !== key) return;
-      this.applyParsedPrimaryHtml(key, text2, remembered.html, ++this.renderSerial);
     }
     applyParsedPrimaryHtml(key, text2, html, serial) {
       if (!this.shouldParseSubtitles()) return;
@@ -117054,10 +117081,6 @@ ${reading}`);
       this.lastRenderedPrimaryText = text2;
       this.lastRenderedPrimaryHtml = html;
       if (root) this.notifyParsedTokensForKey(key, true, [root]);
-    }
-    currentPrimaryParseCacheKey() {
-      const text2 = this.currentCue?.text.trim() ?? "";
-      return text2 ? this.parseCacheKey(text2, this.options.getSettings()) : "";
     }
     async parseCueHtmlBatch(texts, settings = this.options.getSettings(), options = {}) {
       const items = uniqueSubtitleParseTexts(texts).map((text2) => ({ text: text2, key: this.parseCacheKey(text2, settings) }));
@@ -117280,7 +117303,7 @@ ${reading}`);
       const end = Math.min(this.cues.length, anchor + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1);
       const serial = ++this.parseWarmupSerial;
       const settings = this.options.getSettings();
-      const priorityWarmup = this.prewarmPriorityYouTubeCues(anchor, settings).catch(() => void 0);
+      const priorityWarmup = this.prewarmPriorityYouTubeCues(anchor, settings, serial).catch(() => void 0);
       this.priorityYouTubeCueWarmup = priorityWarmup;
       void (async () => {
         await priorityWarmup;
@@ -117296,26 +117319,44 @@ ${reading}`);
         if (this.currentCue?.text.trim()) this.render();
       })();
     }
-    async prewarmPriorityYouTubeCues(anchor, settings) {
-      if (!isYouTubePage() || !this.shouldUseProvisionalSubtitleParse(settings)) return;
+    async prewarmPriorityYouTubeCues(anchor, settings, serial) {
+      if (!this.supportsPriorityYouTubeWarmup(settings)) return;
       for (const priorityIndex of [anchor, anchor + 1]) {
-        const text2 = this.cues[priorityIndex]?.text.trim();
-        if (!text2) continue;
-        const key = this.parseCacheKey(text2, settings);
-        if (this.isWarmParsedCueKey(key, settings)) continue;
-        const pending2 = this.pendingParsedCueHtml(key, "provisional") ?? this.pendingParsedCueHtml(key, "authoritative");
-        if (pending2) {
-          await pending2.catch(() => void 0);
-          if (this.isWarmParsedCueKey(key, settings)) continue;
-        }
-        await this.parseCueHtml(text2, settings, {
-          enrichBeforeRender: true,
-          requireEnrichedProvisional: true,
-          // A cheap transcript parse may have populated a provisional
-          // tier without running before-render enrichment.
-          refreshProvisional: true
-        });
+        if (this.parseWarmupWasCancelled(serial)) return;
+        await this.prewarmPriorityYouTubeCue(priorityIndex, settings, serial);
       }
+    }
+    supportsPriorityYouTubeWarmup(settings) {
+      return isYouTubePage() && this.shouldUseProvisionalSubtitleParse(settings);
+    }
+    async prewarmPriorityYouTubeCue(index, settings, serial) {
+      const target = this.priorityYouTubeCueWarmupTarget(index, settings);
+      if (!target) return;
+      await this.pendingPriorityYouTubeCue(target.key);
+      if (!this.priorityYouTubeCueStillNeedsWarmup(target.key, settings, serial)) return;
+      await this.parseCueHtml(target.text, settings, {
+        enrichBeforeRender: true,
+        requireEnrichedProvisional: true,
+        // A cheap transcript parse may have populated a provisional tier
+        // without running before-render enrichment.
+        refreshProvisional: true
+      });
+    }
+    priorityYouTubeCueWarmupTarget(index, settings) {
+      const text2 = this.cues[index]?.text.trim();
+      if (!text2) return void 0;
+      const key = this.parseCacheKey(text2, settings);
+      return this.isWarmParsedCueKey(key, settings) ? void 0 : { text: text2, key };
+    }
+    async pendingPriorityYouTubeCue(key) {
+      const pending2 = this.pendingParsedCueHtml(key, "provisional") ?? this.pendingParsedCueHtml(key, "authoritative");
+      await pending2?.catch(() => void 0);
+    }
+    priorityYouTubeCueStillNeedsWarmup(key, settings, serial) {
+      return !this.parseWarmupWasCancelled(serial) && !this.isWarmParsedCueKey(key, settings);
+    }
+    parseWarmupWasCancelled(serial) {
+      return serial !== this.parseWarmupSerial || !this.shouldParseSubtitles();
     }
     // A seek that lands between cues has no active cue; anchoring the warmup
     // window at the next upcoming cue (instead of the transcript start) keeps
@@ -117460,13 +117501,7 @@ ${reading}`);
         if (id !== this.selectedTrackId) return;
         this.cues = adjusted;
         this.currentCue = void 0;
-        this.lastAutoCopiedCueSignature = "";
-        this.lastRenderedPrimaryText = "";
-        this.lastRenderedPrimaryHtml = "";
-        this.lastAppliedPrimaryRowHtml = "";
-        this.renderSerial += 1;
-        this.parseWarmupSerial += 1;
-        this.lastParseWarmupAnchor = -1;
+        this.invalidatePrimaryCueRender();
         return;
       }
       if (id !== this.secondaryTrackId) return;
@@ -117562,11 +117597,8 @@ ${reading}`);
     // test does not add a pointer-catching layer over transparent player space.
     wakeControlsFromSubtitleSurface(event) {
       const target = event.target instanceof Element ? event.target : null;
-      this.railPointerFocus.handlePointerDown(event, target);
-      if (target && this.isInSubtitleUi(target)) this.railPointerFocus.notePointerInput();
       if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
       if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
-      this.railPointerFocus.notePointerInput();
       if (target && this.isNativeSubtitleBlurControl(target)) return;
       this.showControlsTemporarily({ independentOfPlayerChrome: true });
     }
@@ -117586,7 +117618,6 @@ ${reading}`);
     handleSubtitleUiFocusOut(event) {
       const previous = event.target instanceof Element ? event.target : null;
       if (!previous || !this.isInSubtitleUi(previous)) return;
-      this.railPointerFocus.handleFocusOut(previous);
       const next = event.relatedTarget instanceof Element ? event.relatedTarget : null;
       if (next && this.isInSubtitleUi(next)) return;
       const signal = this.abortController?.signal;
@@ -117596,11 +117627,18 @@ ${reading}`);
       });
     }
     handleSubtitleUiFocusIn(event) {
-      const target = event.target instanceof Element ? event.target : null;
-      if (!target || !this.isInSubtitleUi(target)) return;
-      this.railPointerFocus.handleFocusIn(target);
-      if (!this.railPointerFocus.inputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
+      const target = this.subtitleUiFocusTarget(event.target);
+      if (!target) return;
+      if (this.nativeSubtitleFocusShouldRemainIdle(target)) return;
       this.showControlsTemporarily();
+    }
+    subtitleUiFocusTarget(target) {
+      if (!(target instanceof Element)) return null;
+      if (!this.isInSubtitleUi(target)) return null;
+      return target;
+    }
+    nativeSubtitleFocusShouldRemainIdle(target) {
+      return this.isNativeSubtitleBlurControl(target) && !target.matches(":focus-visible");
     }
     isInSubtitleUi(element2) {
       return Boolean(this.root?.contains(element2) || this.asbPlayerSubtitleMoveRoots().some((root) => root.contains(element2)));
@@ -117994,7 +118032,6 @@ ${reading}`);
     hideControlsImmediately() {
       this.clearControlsIdleTimer();
       this.subtitleSurfaceWakeActive = false;
-      this.railPointerFocus.blurPointerFocus();
       if (!this.root || !this.shouldAutoIdleControls()) return;
       this.root.classList.add("jpdb-subtitle-controls-idle");
       const keepGripForNativeChrome = this.canObservePlayerChromeFade() && !this.videoPlayerChromeHidden();
@@ -118035,8 +118072,7 @@ ${reading}`);
     scheduleControlsIdle() {
       this.clearControlsIdleTimer();
       const shouldExpireSubtitleSurfaceWake = this.subtitleSurfaceWakeActive && this.hasAutoIdleMode(this.options.getSettings());
-      const shouldReleasePointerFocusedRail = this.railPointerFocus.shouldReleasePointerFocus();
-      if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake && !shouldReleasePointerFocusedRail) return;
+      if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake) return;
       this.controlsIdleTimer = window.setTimeout(() => {
         this.controlsIdleTimer = void 0;
         this.subtitleSurfaceWakeActive = false;
@@ -118143,7 +118179,6 @@ ${reading}`);
       const settings = this.options.getSettings();
       if (!settings.subtitlePlayerEnabled) return;
       const editable = isEditableTarget(event.target);
-      this.railPointerFocus.handleKeydown(event.target, editable);
       if (editable) return;
       const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
       const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
@@ -118648,7 +118683,10 @@ ${reading}`);
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
-        suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+        // DOM-caption fallback is a hand-off: the page caption stays
+        // visible until a parse-settled Yomu cue is ready. Loaded cue lists
+        // are ready immediately; fallback text becomes ready at currentCue.
+        suppressNativeCaptions: this.shouldSuppressNativeCaptions(settings),
         suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
         video: this.video,
         hasPrimaryCues: Boolean(this.cues.length),
@@ -118656,6 +118694,12 @@ ${reading}`);
         youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
         lastYomuCaptionsActive: this.lastYomuCaptionsActive
       });
+    }
+    shouldSuppressNativeCaptions(settings) {
+      return Boolean(settings.subtitlePlayerEnabled && this.video && this.hasRenderablePrimaryCue());
+    }
+    hasRenderablePrimaryCue() {
+      return Boolean(this.cues.length || this.currentCue?.text);
     }
     async discoverYouTubeTracksThrottled(force = false) {
       if (this.youtubeTrackDiscoveryInFlight) return;
@@ -119593,10 +119637,17 @@ ${reading}`);
       return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" lang="ja">${escapeWithBreaks(text2)}</button>`;
     }
     shadowParsedLine(cueText, parseKey, settings) {
-      const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
-      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$2(parseKey)}"` : "";
-      const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : "";
-      return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
+      const parsed = this.shadowParsedHtml(parseKey, settings);
+      if (!parsed) return { html: escapeWithBreaks(cueText), parsedKeyAttribute: "", provisionalAttribute: "" };
+      return {
+        html: parsed,
+        parsedKeyAttribute: ` data-parsed-key="${escapeHtml$2(parseKey)}"`,
+        provisionalAttribute: this.htmlCache.parsedHtmlCache.has(parseKey) ? "" : ' data-parsed-provisional="true"'
+      };
+    }
+    shadowParsedHtml(parseKey, settings) {
+      if (!this.shouldParseSubtitles(settings)) return void 0;
+      return this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
     }
     renderShadowSecondaryLine(state2) {
       if (!state2.settings.subtitleSecondaryVisible) return "";
@@ -120825,13 +120876,7 @@ ${reading}`);
       this.lastDomCaptionSeenAt = 0;
       this.pendingDomCaption = void 0;
       this.youtubeDomCaptionFallbackTrackId = "";
-      this.lastAutoCopiedCueSignature = "";
-      this.lastRenderedPrimaryText = "";
-      this.lastRenderedPrimaryHtml = "";
-      this.lastAppliedPrimaryRowHtml = "";
-      this.renderSerial += 1;
-      this.parseWarmupSerial += 1;
-      this.lastParseWarmupAnchor = -1;
+      this.invalidatePrimaryCueRender();
       this.lastShadowSignature = "";
       this.shadowLoopEnabled = false;
     }
@@ -121188,7 +121233,7 @@ ${reading}`);
       const fullscreenElement = currentFullscreenElement();
       const fullscreenHost = this.fullscreenHost.subtitleFullscreenHost(fullscreenElement);
       this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
-      this.fullscreenHost.syncSubtitleRootParent(fullscreenHost);
+      this.fullscreenHost.syncSubtitleRootParent(fullscreenElement);
       document.documentElement.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.transcriptPanel?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
@@ -122175,11 +122220,13 @@ ${reading}`);
         card.classList.add(YOUTUBE_FILTERED_CLASS);
         card.dataset.yomuYoutubeFiltered = "true";
       });
+      this.options.scheduleAnnotationLayoutRefresh?.();
       if (!card.hasAttribute("aria-hidden")) card.dataset.yomuYoutubeAriaHidden = "true";
       card.setAttribute("aria-hidden", "true");
       this.queueFilteredCardCollapse(card, this.filteredCardCollapseDelay());
     }
     showCard(card) {
+      const changedLayout = cardHasFilteredLayoutState(card);
       this.clearCardTimers(card);
       this.clearPendingCard(card);
       withFeedScrollAnchor(card, () => {
@@ -122191,6 +122238,7 @@ ${reading}`);
         delete card.dataset.yomuYoutubeAriaHidden;
       }
       delete card.dataset.yomuYoutubeFiltered;
+      if (changedLayout) this.options.scheduleAnnotationLayoutRefresh?.();
     }
     maskAddedYouTubeCards(mutations) {
       const cards = /* @__PURE__ */ new Set();
@@ -122249,11 +122297,13 @@ ${reading}`);
         return;
       }
       card.classList.add(YOUTUBE_COLLAPSING_CLASS);
+      this.options.scheduleAnnotationLayoutRefresh?.();
       this.queueCardTimer(card, () => {
         if (!card.classList.contains(YOUTUBE_FILTERED_CLASS)) return;
         card.classList.add(YOUTUBE_COLLAPSED_CLASS);
         card.classList.remove(YOUTUBE_COLLAPSING_CLASS);
         card.style.removeProperty(YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY);
+        this.options.scheduleAnnotationLayoutRefresh?.();
       }, YOUTUBE_FILTER_COLLAPSE_DURATION_MS);
     }
     queueCardTimer(card, callback, delay2) {
@@ -122998,6 +123048,9 @@ ${reading}`);
     setFilterActiveClass(active) {
       document.documentElement.classList.toggle("jpdb-youtube-filter-active", active);
     }
+  }
+  function cardHasFilteredLayoutState(card) {
+    return [YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS].some((className) => card.classList.contains(className));
   }
   function youtubeImmersionFilterEnabled(settings) {
     return jpOnlyOn(

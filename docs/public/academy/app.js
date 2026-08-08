@@ -45493,7 +45493,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (element2.closest(READER_ROOT_SELECTOR)) return "content-ruby";
     if (decorationMustBeSkipped(element2)) return "skip";
     if (element2 instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element2)) {
-      return "interactive-passive";
+      return "skip";
     }
     const control2 = interactivePassiveControl(element2);
     if (control2) {
@@ -45610,9 +45610,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (alreadyReserved) return `${Math.ceil(Math.max(current, minimum))}px`;
     return current >= minimum ? "" : `${minimum}px`;
   }
+  function setImportantStyleIfChanged(element2, property, value) {
+    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
+    element2.style.setProperty(property, value, "important");
+  }
+  const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+  const CSS_PIXEL_MINIMUM = 1e-6;
+  function stableCssPixels(value) {
+    if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+    const magnitude = Math.floor(Math.log10(Math.abs(value)));
+    const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+    const rounded = Number(value.toFixed(decimalPlaces));
+    return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+  }
   const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = "jpdb-reader-document-annotation-portal";
   const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = "jpdb-reader-document-annotation-paint";
-  const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = "jpdb-reader-youtube-chrome-portal";
   const portalWatches = /* @__PURE__ */ new WeakMap();
   const structurallyStyledPortalMirrors = /* @__PURE__ */ new WeakSet();
   const CLIPPED_PORTAL_SCROLL_SETTLE_MS = 96;
@@ -45657,7 +45669,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     mirror.style.setProperty("direction", style.direction, "important");
     mirror.style.setProperty("writing-mode", style.writingMode, "important");
     mirror.style.setProperty("color", style.color, "important");
-    setImportantStyle(mirror, "z-index", documentPortalStackingLevel(host2));
+    setImportantStyleIfChanged(mirror, "z-index", documentPortalStackingLevel(host2));
   }
   function documentAnnotationPortalPaint(mirror) {
     const existing = Array.from(mirror.children).find(
@@ -45853,9 +45865,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     applyPortalClipGeometry(entry2.mirror, clip);
     entry2.applied = { x: x2, y };
     if (Math.abs(x2) <= 0.01 && Math.abs(y) <= 0.01) {
-      entry2.paint.style.setProperty("transform", "none", "important");
+      setImportantStyleIfChanged(entry2.paint, "transform", "none");
     } else {
-      entry2.paint.style.setProperty("transform", `translate3d(${x2}px, ${y}px, 0)`, "important");
+      setImportantStyleIfChanged(
+        entry2.paint,
+        "transform",
+        `translate3d(${stableCssPixels(x2)}, ${stableCssPixels(y)}, 0px)`
+      );
     }
   }
   function prepareDocumentAnnotationPortalMirrors(mirrors) {
@@ -46032,22 +46048,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function applyPortalClipGeometry(mirror, clip) {
     if (!clip) {
-      setImportantStyle(mirror, "left", "0px");
-      setImportantStyle(mirror, "top", "0px");
-      setImportantStyle(mirror, "width", "0px");
-      setImportantStyle(mirror, "height", "0px");
-      setImportantStyle(mirror, "overflow", "visible");
+      setImportantStyleIfChanged(mirror, "left", "0px");
+      setImportantStyleIfChanged(mirror, "top", "0px");
+      setImportantStyleIfChanged(mirror, "width", "0px");
+      setImportantStyleIfChanged(mirror, "height", "0px");
+      setImportantStyleIfChanged(mirror, "overflow", "visible");
       return;
     }
-    setImportantStyle(mirror, "left", `${clip.left}px`);
-    setImportantStyle(mirror, "top", `${clip.top}px`);
-    setImportantStyle(mirror, "width", `${Math.max(0, clip.right - clip.left)}px`);
-    setImportantStyle(mirror, "height", `${Math.max(0, clip.bottom - clip.top)}px`);
-    setImportantStyle(mirror, "overflow", "hidden");
-  }
-  function setImportantStyle(element2, property, value) {
-    if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === "important") return;
-    element2.style.setProperty(property, value, "important");
+    setImportantStyleIfChanged(mirror, "left", stableCssPixels(clip.left));
+    setImportantStyleIfChanged(mirror, "top", stableCssPixels(clip.top));
+    setImportantStyleIfChanged(mirror, "width", stableCssPixels(Math.max(0, clip.right - clip.left)));
+    setImportantStyleIfChanged(mirror, "height", stableCssPixels(Math.max(0, clip.bottom - clip.top)));
+    setImportantStyleIfChanged(mirror, "overflow", "hidden");
   }
   function transitionCanMoveSource(target2, source2) {
     if (target2 === source2) return true;
@@ -46892,7 +46904,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
   }
   function isBlockFragmentElement(element2, options) {
-    if (youtubeNativeChromeMustRemainPageOwned(element2)) return false;
     return !options.mergeBlockFragments && isFragmentParagraphBoundary(element2, options) && !isInlineSentenceListItem(element2);
   }
   function flushFragmentBlockBoundary(isBlock, state) {
@@ -47155,8 +47166,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function stampTargetDecoration(target2, host2) {
     const decoration = target2.decoration;
     if (!decoration) return;
-    const pageOwnedYouTubeChrome = youtubeNativeChromeMustRemainPageOwned(host2);
-    if (pageOwnedYouTubeChrome) return;
     stampDecorationState(host2, decoration);
     if (decoration !== "interactive-passive") return;
     const control2 = interactivePassiveControl(target2.parent);
@@ -47170,12 +47179,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     if (target2.parent instanceof HTMLCanvasElement) {
       applyTokensToCanvasFallbackTarget(target2, tokens, settings);
-      return;
-    }
-    if (youtubeNativeChromeMustRemainPageOwned(target2.parent)) {
-      const host2 = nonDestructiveScanHost(target2);
-      stampTargetDecoration(target2, host2);
-      applyTokensToNonDestructiveScanTarget(target2, tokens, settings);
       return;
     }
     if (target2.insideShadowDOM) {
@@ -47857,13 +47860,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return mirror;
   }
   function textMirrorMount(host2, clipRow, target2) {
-    const youtubeChrome = youtubeNativeChromeMustRemainPageOwned(host2);
-    if (youtubeChrome || sourcePreservingProseNeedsDocumentPortal(host2, target2)) {
+    if (sourcePreservingProseNeedsDocumentPortal(host2, target2)) {
       return {
         configure(mirror) {
           mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
-          if (youtubeChrome) mirror.classList.add(YOUTUBE_CHROME_PORTAL_MIRROR_CLASS);
-          mirror.dataset.yomuDocumentPortal = youtubeChrome ? "youtube-chrome" : "volatile-prose";
+          mirror.dataset.yomuDocumentPortal = "volatile-prose";
           delete mirror.dataset.yomuReadingLaneCandidate;
           const state = styleDocumentPortalTextMirrorHost(host2);
           styleDocumentAnnotationPortalMirror(mirror, host2);
@@ -47889,25 +47890,38 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
   const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
   function sourcePreservingProseNeedsDocumentPortal(host2, target2) {
-    if (target2.insideShadowDOM || host2.getRootNode() !== host2.ownerDocument) return false;
-    if (target2.decoration !== "prose-full" && target2.decoration !== "content-ruby") return false;
-    if (interactivePassiveControl(host2)) return false;
-    if (!target2.nonDestructive && !scanHostRequiresSourcePreservingMirror(host2)) return false;
-    if (documentAnnotationPortalHasNonTranslationTransform(host2)) return false;
+    if (!sourcePreservingProseCanUseDocumentPortal(host2, target2)) return false;
+    return hasDocumentPortalProseAncestor(host2);
+  }
+  const DOCUMENT_PORTAL_PROSE_DECORATIONS = /* @__PURE__ */ new Set(["prose-full", "content-ruby"]);
+  function sourcePreservingProseCanUseDocumentPortal(host2, target2) {
+    return [
+      !target2.insideShadowDOM,
+      host2.getRootNode() === host2.ownerDocument,
+      DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target2.decoration ?? "skip"),
+      !interactivePassiveControl(host2),
+      target2.nonDestructive || scanHostRequiresSourcePreservingMirror(host2),
+      !documentAnnotationPortalHasNonTranslationTransform(host2)
+    ].every(Boolean);
+  }
+  function hasDocumentPortalProseAncestor(host2) {
     let current = host2;
     for (let depth = 0; current && depth < 8; depth += 1, current = composedAncestorElement(current)) {
-      if (isLikelyProseElement(current) || safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]')) return true;
-      const identity2 = `${current.tagName} ${current.id} ${String(current.className || "")}`;
-      if (VOLATILE_CONVERSATION_IDENTITY_RE.test(identity2)) return true;
-      if (current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)) return true;
+      if (isDocumentPortalProseAncestor(current, host2)) return true;
     }
     return false;
   }
+  function isDocumentPortalProseAncestor(current, host2) {
+    const identity2 = `${current.tagName} ${current.id} ${String(current.className || "")}`;
+    return [
+      isLikelyProseElement(current),
+      safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
+      VOLATILE_CONVERSATION_IDENTITY_RE.test(identity2),
+      current === host2 && VOLATILE_PROSE_IDENTITY_RE.test(identity2)
+    ].some(Boolean);
+  }
   function mountNonDestructiveTextMirror(host2, target2, settings, context2) {
     const mirror = createNonDestructiveTextMirror(context2);
-    if (target2.decoration && youtubeNativeChromeMustRemainPageOwned(host2)) {
-      stampDecorationState(mirror, target2.decoration);
-    }
     const mount = textMirrorMount(host2, context2.clipRow, target2);
     const controlMirror = target2.decoration === "interactive-passive";
     if (controlMirror) mirror.dataset.yomuControlMirror = "true";
@@ -48046,13 +48060,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const readingProjections = [];
     const projected = projections.map((projection) => writeAdditiveMirrorWordProjection(projection, context2, readingProjections)).some(Boolean);
     syncProjectedReadings(mirror, readingProjections);
-    if (projected) mirror.dataset.yomuSourceProjected = "true";
-    else delete mirror.dataset.yomuSourceProjected;
-    delete mirror.dataset.yomuSourceStale;
-    for (const word of mirror.querySelectorAll(".jpdb-reader-word")) {
-      word.style.removeProperty("--jpdb-reader-word-decoration-source");
-    }
-    styleAdditiveMirrorPaint(mirror);
+    if (projected) setDataAttributeIfChanged(mirror, "data-yomu-source-projected", "true");
+    else removeAttributeIfPresent(mirror, "data-yomu-source-projected");
+    removeAttributeIfPresent(mirror, "data-yomu-source-stale");
+    styleAdditiveMirrorPaint(mirror, true);
   }
   function additiveMirrorProjectionContext(mirror, host2) {
     if (typeof Range !== "function" || typeof Range.prototype.getClientRects !== "function") return "unmeasurable";
@@ -48083,11 +48094,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
       };
     }
     const hostRect = host2.getBoundingClientRect();
-    mirror.style.setProperty("inset", "0 auto auto 0");
-    mirror.style.setProperty("width", `${host2.clientWidth || hostRect.width}px`);
-    mirror.style.setProperty("height", `${host2.clientHeight || hostRect.height}px`);
-    mirror.style.setProperty("padding", "0");
-    mirror.style.setProperty("transform", "none");
+    setInlineStyleIfChanged(mirror, "inset", "0px auto auto 0px");
+    setInlineStyleIfChanged(mirror, "width", stableCssPixels(host2.clientWidth || hostRect.width));
+    setInlineStyleIfChanged(mirror, "height", stableCssPixels(host2.clientHeight || hostRect.height));
+    setInlineStyleIfChanged(mirror, "padding", "0px");
+    setInlineStyleIfChanged(mirror, "transform", "none");
     const mirrorRect = mirror.getBoundingClientRect();
     if (mirrorRect.width <= 0 || mirrorRect.height <= 0) return "unmeasurable";
     return {
@@ -48123,11 +48134,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function writeAdditiveMirrorWordProjection(projection, context2, readings) {
     const { word, sourceRects, fragments } = projection;
-    delete word.dataset.yomuSourceProjected;
-    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
-    if (!fragments.length) return false;
+    if (!fragments.length) {
+      clearProjectedSourceWord(word);
+      return false;
+    }
     styleProjectedSourceWord(word);
-    appendSourceFragments(word, fragments, sourceRects, context2);
+    syncSourceFragments(word, fragments, sourceRects, context2);
     for (const { ruby, projection: readingProjection } of projection.readings) {
       positionProjectedElement(ruby, readingProjection.rect, context2.mirrorRect, context2.scaleX, context2.scaleY);
       readings.push(readingProjection);
@@ -48184,44 +48196,57 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const PROJECTED_SOURCE_WORD_STYLE_PROPERTIES = ["position", "inset", "width", "height", "margin"];
   const PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES = ["position", "left", "top", "width", "height", "margin"];
+  const PROJECTED_SOURCE_ELEMENT_OFFSET_STYLE_PROPERTIES = ["left", "top", "width", "height", "margin"];
   function writeProjectedGeometry(element2, properties, values) {
-    for (const property of properties) element2.style.setProperty(property, values[property], "important");
+    for (const property of properties) {
+      setInlineStyleIfChanged(element2, property, values[property], "important");
+    }
   }
   function styleProjectedSourceWord(word) {
-    word.dataset.yomuSourceProjected = "true";
+    setDataAttributeIfChanged(word, "data-yomu-source-projected", "true");
     writeProjectedGeometry(word, PROJECTED_SOURCE_WORD_STYLE_PROPERTIES, {
       position: "absolute",
-      inset: "0",
+      inset: "0px",
       width: "auto",
       height: "auto",
-      margin: "0"
+      margin: "0px"
     });
   }
   function clearAdditiveMirrorSourceProjection(mirror) {
-    delete mirror.dataset.yomuSourceProjected;
-    mirror.dataset.yomuSourceStale = "true";
+    removeAttributeIfPresent(mirror, "data-yomu-source-projected");
+    setDataAttributeIfChanged(mirror, "data-yomu-source-stale", "true");
     for (const word of mirror.querySelectorAll(".jpdb-reader-word[data-yomu-source-projected]")) {
-      word.style.setProperty("--jpdb-reader-word-decoration-source", "transparent");
-      word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
-      for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
-        PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES.forEach((property) => wrapper.style.removeProperty(property));
-        wrapper.style.setProperty("position", "relative", "important");
-      }
-      PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => word.style.removeProperty(property));
-      delete word.dataset.yomuSourceProjected;
+      setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", "transparent");
+      clearProjectedSourceWord(word);
     }
   }
-  function appendSourceFragments(word, fragments, sourceRects, context2) {
-    const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context2.scaleX, 0);
-    for (const { rect, gradientOffset } of fragments) {
-      const fragment2 = word.ownerDocument.createElement("span");
-      fragment2.className = SOURCE_FRAGMENT_CLASS;
-      fragment2.setAttribute("aria-hidden", "true");
-      fragment2.style.setProperty("--jpdb-reader-source-gradient-width", `${gradientWidth}px`);
-      fragment2.style.setProperty("--jpdb-reader-source-gradient-offset", `${-gradientOffset}px`);
-      positionProjectedElement(fragment2, rect, context2.mirrorRect, context2.scaleX, context2.scaleY);
-      word.append(fragment2);
+  function clearProjectedSourceWord(word) {
+    word.querySelectorAll(`.${SOURCE_FRAGMENT_CLASS}`).forEach((fragment2) => fragment2.remove());
+    for (const wrapper of word.querySelectorAll(".jpdb-reader-detached-ruby")) {
+      PROJECTED_SOURCE_ELEMENT_OFFSET_STYLE_PROPERTIES.forEach((property) => removeInlineStyleIfPresent(wrapper, property));
+      setInlineStyleIfChanged(wrapper, "position", "relative", "important");
     }
+    PROJECTED_SOURCE_WORD_STYLE_PROPERTIES.forEach((property) => removeInlineStyleIfPresent(word, property));
+    removeAttributeIfPresent(word, "data-yomu-source-projected");
+  }
+  function syncSourceFragments(word, fragments, sourceRects, context2) {
+    const gradientWidth = sourceRects.reduce((width, rect) => width + rect.width / context2.scaleX, 0);
+    const existing = Array.from(word.querySelectorAll(`:scope > .${SOURCE_FRAGMENT_CLASS}`));
+    fragments.forEach(({ rect, gradientOffset }, index) => {
+      const existingFragment = existing[index];
+      const fragment2 = existingFragment ?? createSourceFragment(word.ownerDocument);
+      setInlineStyleIfChanged(fragment2, "--jpdb-reader-source-gradient-width", stableCssPixels(gradientWidth));
+      setInlineStyleIfChanged(fragment2, "--jpdb-reader-source-gradient-offset", stableCssPixels(-gradientOffset));
+      positionProjectedElement(fragment2, rect, context2.mirrorRect, context2.scaleX, context2.scaleY);
+      if (!existingFragment) word.append(fragment2);
+    });
+    existing.slice(fragments.length).forEach((fragment2) => fragment2.remove());
+  }
+  function createSourceFragment(document2) {
+    const fragment2 = document2.createElement("span");
+    fragment2.className = SOURCE_FRAGMENT_CLASS;
+    fragment2.setAttribute("aria-hidden", "true");
+    return fragment2;
   }
   function readProjectedWordReadings(word, context2, sourceRectsFor, readingsConcealed) {
     const readings = [];
@@ -48307,11 +48332,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function positionProjectedElement(element2, rect, mirrorRect, scaleX, scaleY) {
     writeProjectedGeometry(element2, PROJECTED_SOURCE_ELEMENT_STYLE_PROPERTIES, {
       position: "absolute",
-      left: `${(rect.left - mirrorRect.left) / scaleX}px`,
-      top: `${(rect.top - mirrorRect.top) / scaleY}px`,
-      width: `${rect.width / scaleX}px`,
-      height: `${rect.height / scaleY}px`,
-      margin: "0"
+      left: stableCssPixels((rect.left - mirrorRect.left) / scaleX),
+      top: stableCssPixels((rect.top - mirrorRect.top) / scaleY),
+      width: stableCssPixels(rect.width / scaleX),
+      height: stableCssPixels(rect.height / scaleY),
+      margin: "0px"
     });
   }
   function rectsIntersect(left, right) {
@@ -48328,8 +48353,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
         if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) removeTextMirror(host2);
         continue;
       }
-      if (youtubeNativeChromeMustRemainPageOwned(host2) && !mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-        if (replayNonDestructiveRenderFromCache(host2)) continue;
+      if (classifyDecoration(host2) === "skip") {
         removeTextMirror(host2);
         continue;
       }
@@ -48523,23 +48547,40 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (element2.style.getPropertyValue(property) === value && element2.style.getPropertyPriority(property) === priority) return;
     element2.style.setProperty(property, value, priority);
   }
+  function removeInlineStyleIfPresent(element2, property) {
+    if (!element2.style.getPropertyValue(property) && !element2.style.getPropertyPriority(property)) return;
+    element2.style.removeProperty(property);
+  }
+  function setDataAttributeIfChanged(element2, name, value) {
+    if (element2.getAttribute(name) === value) return;
+    element2.setAttribute(name, value);
+  }
+  function removeAttributeIfPresent(element2, name) {
+    if (!element2.hasAttribute(name)) return;
+    element2.removeAttribute(name);
+  }
   const ADDITIVE_DECORATION_SOURCES = ["status", "jpdb", "anki", "pitch"];
   const ADDITIVE_HIGHLIGHT_SOURCES = ADDITIVE_DECORATION_SOURCES.filter((source2) => source2 !== "pitch");
-  function styleAdditiveMirrorPaint(root) {
+  function styleAdditiveMirrorPaint(root, projectedWordsOnly = false) {
     if (!root.classList.contains("jpdb-reader-additive-text-mirror")) return;
-    root.style.setProperty("-webkit-text-fill-color", "transparent", "important");
+    setInlineStyleIfChanged(root, "-webkit-text-fill-color", "transparent", "important");
     const source2 = activeAdditiveDecorationSource(root.ownerDocument.documentElement);
     const words = root.querySelectorAll(".jpdb-reader-word");
     const paint = source2 ? `var(--jpdb-reader-source-${source2}-decoration, transparent)` : "transparent";
     const highlightSource = activeAdditiveHighlightSource(root.ownerDocument.documentElement);
     const softPaint = highlightSource ? `var(--jpdb-reader-source-${highlightSource}-soft, transparent)` : "";
     for (const word of words) {
-      word.style.removeProperty("text-decoration-color");
-      word.style.removeProperty("--jpdb-reader-additive-decoration");
-      word.style.setProperty("--jpdb-reader-word-decoration-source", paint);
-      if (softPaint) word.style.setProperty("--jpdb-reader-mirror-status-soft", softPaint);
-      else word.style.removeProperty("--jpdb-reader-mirror-status-soft");
+      const visible = !projectedWordsOnly || word.dataset.yomuSourceProjected === "true";
+      styleAdditiveMirrorWordPaint(word, paint, softPaint, visible);
     }
+  }
+  function styleAdditiveMirrorWordPaint(word, paint, softPaint, visible) {
+    removeInlineStyleIfPresent(word, "text-decoration-color");
+    removeInlineStyleIfPresent(word, "--jpdb-reader-additive-decoration");
+    setInlineStyleIfChanged(word, "--jpdb-reader-word-decoration-source", visible ? paint : "transparent");
+    const visibleSoftPaint = visible ? softPaint : "";
+    if (visibleSoftPaint) setInlineStyleIfChanged(word, "--jpdb-reader-mirror-status-soft", visibleSoftPaint);
+    else removeInlineStyleIfPresent(word, "--jpdb-reader-mirror-status-soft");
   }
   function activeAdditiveHighlightSource(documentElement) {
     let active = null;
@@ -48951,10 +48992,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function nonDestructiveScanHost(target2) {
-    const pageOwnedYouTubeControl = interactivePassiveControl(target2.parent);
-    if (pageOwnedYouTubeControl && youtubeNativeChromeMustRemainPageOwned(pageOwnedYouTubeControl)) {
-      return pageOwnedYouTubeControl;
-    }
     if (!isFragmentTextTarget(target2)) return target2.parent;
     const parents = target2.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
     if (parents.length && parents.every((parent) => parent === target2.parent)) return target2.parent;
@@ -49093,11 +49130,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       );
       if (hostAttributeMutations.length) {
         noteConstrainedRowLayoutSettled();
-        if (youtubeNativeChromeMustRemainPageOwned(liveHost) && !currentTextMirror(liveHost)?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-          if (replayNonDestructiveRenderFromCache(liveHost)) return;
-          dispatchTextMirrorStale(liveHost);
-          return removeTextMirror(liveHost);
-        }
         if (liveState.reservedLineHeight && hostAttributeMutations.some((mutation) => mutation.attributeName === "class")) {
           const mirror = currentTextMirror(liveHost);
           if (mirror) releaseTextMirrorReadingLane(liveHost, liveState, mirror);

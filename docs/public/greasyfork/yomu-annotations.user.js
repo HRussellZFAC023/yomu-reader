@@ -94,6 +94,19 @@ function parkableMutationObserver(callback, options = {}) {
   const observer = new Observer(callback);
   return new ParkableObserver(observer, options);
 }
+function setImportantStyleIfChanged(element, property, value) {
+  if (element.style.getPropertyValue(property) === value && element.style.getPropertyPriority(property) === "important") return;
+  element.style.setProperty(property, value, "important");
+}
+const CSS_PIXEL_SIGNIFICANT_DIGITS = 6;
+const CSS_PIXEL_MINIMUM = 1e-6;
+function stableCssPixels(value) {
+  if (!Number.isFinite(value) || Math.abs(value) < CSS_PIXEL_MINIMUM) return "0px";
+  const magnitude = Math.floor(Math.log10(Math.abs(value)));
+  const decimalPlaces = Math.max(0, Math.min(12, CSS_PIXEL_SIGNIFICANT_DIGITS - magnitude - 1));
+  const rounded = Number(value.toFixed(decimalPlaces));
+  return `${Object.is(rounded, -0) ? 0 : rounded}px`;
+}
 const overlays = /* @__PURE__ */ new WeakMap();
 const ownerRecords = /* @__PURE__ */ new WeakMap();
 const PROJECTED_READING_ATTRIBUTE = "data-yomu-projected-reading";
@@ -324,7 +337,7 @@ function configureScrollProjectionLayer(layer, flowAnchored) {
   float: flowAnchored ? "left" : "none"
   };
   for (const [property, value] of Object.entries(values)) {
-  layer.style.setProperty(property, value, "important");
+  setImportantStyleIfChanged(layer, property, value);
   }
 }
 function releaseScrollProjectionRecord(record, overlay) {
@@ -352,15 +365,17 @@ function syncProjectedReadingStyle(record) {
   const sourceStyle = safeComputedStyle(source);
   const base = source.closest(".jpdb-reader-word") ?? source;
   const baseStyle = safeComputedStyle(base);
-  clone.textContent = source.textContent ?? "";
-  clone.dataset.yomuExpression = base.dataset.expression ?? base.dataset.surface ?? "";
-  clone.style.setProperty("font-family", sourceStyle.fontFamily || baseStyle.fontFamily, "important");
-  clone.style.setProperty("font-size", sourceStyle.fontSize || "10px", "important");
-  clone.style.setProperty("font-style", sourceStyle.fontStyle || baseStyle.fontStyle, "important");
-  clone.style.setProperty("font-weight", sourceStyle.fontWeight || "700", "important");
-  clone.style.setProperty("letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing, "important");
-  clone.style.setProperty("color", baseStyle.color || sourceStyle.color || "currentColor", "important");
-  clone.style.setProperty("text-shadow", baseStyle.textShadow || "none", "important");
+  const text = source.textContent ?? "";
+  if (clone.textContent !== text) clone.textContent = text;
+  const expression = base.dataset.expression ?? base.dataset.surface ?? "";
+  if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
+  setImportantStyleIfChanged(clone, "font-family", sourceStyle.fontFamily || baseStyle.fontFamily);
+  setImportantStyleIfChanged(clone, "font-size", sourceStyle.fontSize || "10px");
+  setImportantStyleIfChanged(clone, "font-style", sourceStyle.fontStyle || baseStyle.fontStyle);
+  setImportantStyleIfChanged(clone, "font-weight", sourceStyle.fontWeight || "700");
+  setImportantStyleIfChanged(clone, "letter-spacing", sourceStyle.letterSpacing || baseStyle.letterSpacing);
+  setImportantStyleIfChanged(clone, "color", baseStyle.color || sourceStyle.color || "currentColor");
+  setImportantStyleIfChanged(clone, "text-shadow", baseStyle.textShadow || "none");
   const key = `${clone.textContent ?? ""}\0${clone.style.getPropertyValue("font-size")}`;
   if (record.naturalReadingKey !== key) {
   record.naturalReadingKey = key;
@@ -414,7 +429,7 @@ function applyProjectionPaints(paints, context) {
 }
 function applyProjectedReadingPaint(paint, context) {
   if (!paint.visible || !paint.rect) {
-  paint.record.clone.style.setProperty("display", "none", "important");
+  setImportantStyleIfChanged(paint.record.clone, "display", "none");
   return;
   }
   positionProjectedReading(paint.record, paint.rect, context, paint.layout);
@@ -425,21 +440,25 @@ function positionProjectedReading(record, rect, context, layout) {
   const centre = layout?.centre ?? rect.left + rect.width / 2;
   const scaleX = layout?.scaleX ?? 1;
   record.readingScaleX = scaleX;
-  clone.style.setProperty("display", "block", "important");
-  clone.style.setProperty("left", `${centre + origin.x}px`, "important");
-  clone.style.setProperty("top", `${rect.top + origin.y}px`, "important");
-  clone.style.setProperty("right", "auto", "important");
-  clone.style.setProperty("bottom", "auto", "important");
-  clone.style.setProperty("transform-origin", "center", "important");
-  clone.style.setProperty(
+  setImportantStyleIfChanged(clone, "display", "block");
+  setImportantStyleIfChanged(clone, "left", stableCssPixels(centre + origin.x));
+  setImportantStyleIfChanged(clone, "top", stableCssPixels(rect.top + origin.y));
+  setImportantStyleIfChanged(clone, "right", "auto");
+  setImportantStyleIfChanged(clone, "bottom", "auto");
+  setImportantStyleIfChanged(clone, "transform-origin", "center");
+  setImportantStyleIfChanged(
+  clone,
   "transform",
-  scaleX < 1 ? `translate(-50%, -100%) scaleX(${scaleX})` : "translate(-50%, -100%)",
-  "important"
+  scaleX < 1 ? `translate(-50%, -100%) scaleX(${scaleX})` : "translate(-50%, -100%)"
   );
-  clone.dataset.yomuSourceLeft = String(rect.left);
-  clone.dataset.yomuSourceTop = String(rect.top);
-  clone.dataset.yomuSourceWidth = String(rect.width);
-  clone.dataset.yomuSourceHeight = String(rect.height);
+  setDatasetIfChanged(clone, "yomuSourceLeft", String(rect.left));
+  setDatasetIfChanged(clone, "yomuSourceTop", String(rect.top));
+  setDatasetIfChanged(clone, "yomuSourceWidth", String(rect.width));
+  setDatasetIfChanged(clone, "yomuSourceHeight", String(rect.height));
+}
+function setDatasetIfChanged(element, key, value) {
+  if (element.dataset[key] === value) return;
+  element.dataset[key] = value;
 }
 function resolveProjectedReadingCrowding(paints) {
   const placed = paints.filter(isPlacedProjectionPaint);

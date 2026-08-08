@@ -19246,6 +19246,10 @@ html.jpdb-reader-doodle-active * {
   height: 100%;
   z-index: 2147483644;
   pointer-events: none;
+  /* The fixed reader UI must not become part of a page-wide Select All copy.
+     Caption text deliberately opts back in while annotations are paused. */
+  -webkit-user-select: none;
+  user-select: none;
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
   --subtitle-secondary-font-size: 17px;
@@ -19258,6 +19262,11 @@ html.jpdb-reader-doodle-active * {
   --subtitle-background-rgba: transparent;
   --subtitle-family: var(--jpdb-reader-font);
   --subtitle-weight: 760;
+}
+
+.jpdb-subtitle-list {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .jpdb-subtitle-text {

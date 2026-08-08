@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.8.88] - 2026-08-08
+
+### Fixed
+
+- YouTube’s own controls auto-hide normally again. よむ no longer treats simulated fullscreen as browser fullscreen or reparents its UI into YouTube’s player, so it does not keep the player focused or override the page’s native focus lifecycle.
+- Share, Remix, and the other native Shorts controls remain visible and clickable. よむ no longer places reading-annotation portals over YouTube-owned control surfaces.
+- A subtitle cue is now visually immutable once it appears: late dictionary, furigana, pitch, or study-state results are cached for the next cue instead of changing words already on screen.
+- Selecting and copying a YouTube page no longer includes よむ’s fixed subtitle overlay or its presentation metadata. Paused subtitle text remains explicitly copyable where that mode is enabled.
+- Fast pointer movement cannot open a stale earlier word after an asynchronous OCR lookup completes; the current pointer position and target-owned portal geometry win before global overlay hit-testing.
+- WebKit navigation and tab teardown no longer lets a pending Reader startup dereference a removed document root, eliminating an unhandled lifecycle error during rapid page changes.
+
+### Changed
+
+- Dynamic YouTube and document annotations reuse their projected fragment nodes and skip unchanged geometry and style writes. Fractional browser geometry is serialized consistently across Chromium and WebKit, removing redundant hot-loop CSS work without changing annotation placement.
+- The YouTube performance profiler now replays one fixed workload separately for normal timing, CPU sampling, and exact function-call coverage, and scopes every result to the immutable content-addressed userscript graph. Failed runs retain diagnostics instead of producing an empty or misleading report.
+
 ## [1.8.87] - 2026-08-08
 
 ### Fixed
