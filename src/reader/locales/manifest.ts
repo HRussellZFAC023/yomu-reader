@@ -89,11 +89,11 @@ const SCRIPT_FONT_STACKS: Readonly<Record<string, string>> = Object.freeze({
 
 const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
 
-export function scriptFontStack(script: string): string {
+function scriptFontStack(script: string): string {
     return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
 }
 
-export function directionForScript(script: string): TextDirection {
+function directionForScript(script: string): TextDirection {
     return RTL_SCRIPTS.has(script) ? 'rtl' : 'ltr';
 }
 
@@ -218,5 +218,3 @@ export const RTL_GATE_ITEMS: readonly RtlGateItem[] = Object.freeze(
 export function rtlGatePasses(): boolean {
     return RTL_GATE_ITEMS.every((item) => item.done);
 }
-
-export const INTERFACE_LOCALE_LEDGER = interfaceLocaleLedger;

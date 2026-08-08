@@ -129,7 +129,3 @@ export function resolveMessage(
     // is never mistaken for copy the way `未翻訳` was.
     return { id, value: id, resolvedFrom: 'none', missing: true };
 }
-
-export function localeChain(locale: InterfaceLocale): readonly string[] {
-    return Object.freeze([locale.tag, ...locale.fallbacks]);
-}

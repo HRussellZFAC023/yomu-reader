@@ -2,7 +2,7 @@ import { ENGLISH_FALLBACK_MESSAGES, type LocaleMessageKey } from './catalog';
 import { LOCALE_CATALOGS } from './catalogs';
 import { copyTierOf, type CopyTier } from './copy-tiers';
 import { JAPANESE_SETUP_MESSAGES } from './japanese-setup';
-import { INTERFACE_LOCALES, interfaceLocaleByTag } from './manifest';
+import { interfaceLocaleByTag } from './manifest';
 import { isMessageId, legacyChromeMessageId, type MessageId } from './message-ids';
 import type { MessagePack } from './resolve';
 
@@ -45,7 +45,7 @@ export function setupMessageIdFor(key: LocaleMessageKey): MessageId {
  * `src/reader/app/i18n.ts`, which drags in network and constants code that the
  * hosted docs theme has no reason to load.
  */
-export function registerMessages(
+function registerMessages(
     idOf: (key: string) => MessageId,
     source: Readonly<Record<string, string>>,
 ): readonly RegisteredMessage[] {
@@ -136,13 +136,4 @@ export function measureLocaleCoverage(
             humanCriticalTranslated === humanCriticalTotal
             && machineDraftOkTranslated === machineDraftOkTotal,
     });
-}
-
-/** Locales whose ledger row claims they are selectable. */
-export function claimedAvailableTags(): readonly string[] {
-    return INTERFACE_LOCALES.filter((locale) => locale.available).map((locale) => locale.tag);
-}
-
-export function reviewStatusOf(tag: string): string | undefined {
-    return interfaceLocaleByTag(tag)?.reviewStatus;
 }

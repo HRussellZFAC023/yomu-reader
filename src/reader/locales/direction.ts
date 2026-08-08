@@ -34,7 +34,7 @@ export const READER_INTERFACE_LOCALE_ATTRIBUTE = 'data-yomu-interface-locale';
 const FIRST_STRONG_ISOLATE = '⁨';
 const POP_DIRECTIONAL_ISOLATE = '⁩';
 
-export function interfaceDirectionOf(tag: string): TextDirection {
+function interfaceDirectionOf(tag: string): TextDirection {
     return (interfaceLocaleByTag(tag) ?? ENGLISH_INTERFACE_LOCALE).direction;
 }
 

@@ -18,23 +18,18 @@ export {
   applyInterfaceLocaleToDocument,
   applyInterfaceLocaleToRoot,
   formatIsolated,
-  interfaceDirectionOf,
   isRtlInterface,
   isolate,
 } from "./direction";
-export { JAPANESE_SETUP_MESSAGES } from "./japanese-setup";
 export {
   ENGLISH_INTERFACE_LOCALE,
   INTERFACE_LOCALES,
-  INTERFACE_LOCALE_LEDGER,
   RTL_GATE_ITEMS,
   RTL_INTERFACE_LOCALES,
   availableInterfaceLocales,
   blockedInterfaceLocales,
-  directionForScript,
   interfaceLocaleByTag,
   rtlGatePasses,
-  scriptFontStack,
 } from "./manifest";
 export type {
   InterfaceLocale,
@@ -42,31 +37,21 @@ export type {
   RtlGateItem,
 } from "./manifest";
 export {
-  MESSAGE_NAMESPACES,
-  docsMessageId,
   isMessageId,
   legacyChromeMessageId,
   legacyDocsMessageId,
-  messageNamespaceOf,
 } from "./message-ids";
 export type { MessageId, MessageNamespace } from "./message-ids";
 export {
-  claimedAvailableTags,
   measureLocaleCoverage,
   registerChromeMessages,
-  registerMessages,
   registerSetupMessages,
-  reviewStatusOf,
   setupMessageIdFor,
   setupMessageIds,
   setupPackFor,
 } from "./registry";
 export type { LocaleCoverage, RegisteredMessage } from "./registry";
-export {
-  localeChain,
-  resolveInterfaceLocale,
-  resolveMessage,
-} from "./resolve";
+export { resolveInterfaceLocale, resolveMessage } from "./resolve";
 export type {
   InterfaceLocaleResolution,
   MessageLookup,

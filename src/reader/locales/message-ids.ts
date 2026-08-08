@@ -29,7 +29,7 @@
  * real today and call sites migrate namespace by namespace without a flag day.
  */
 
-export const MESSAGE_NAMESPACES = ['chrome', 'setup', 'errors', 'a11y', 'docs'] as const;
+const MESSAGE_NAMESPACES = ['chrome', 'setup', 'errors', 'a11y', 'docs'] as const;
 
 export type MessageNamespace = (typeof MESSAGE_NAMESPACES)[number];
 
@@ -84,9 +84,4 @@ function fnv1a32(value: string): string {
         hash = Math.imul(hash, 0x01000193) >>> 0;
     }
     return hash.toString(16).padStart(8, '0');
-}
-
-/** `docs.<page>.<fragment>` — the shape each page migrates to. */
-export function docsMessageId(page: string, fragment: string): MessageId {
-    return `docs.${page}.${fragment}` as MessageId;
 }
