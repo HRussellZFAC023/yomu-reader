@@ -402,24 +402,11 @@ describe('reader helpers', () => {
                     </ytd-reel-player-overlay-renderer>
                 </ytd-shorts>
             `, 'https://www.youtube.com/shorts/abc123', 20);
-            const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
             const before = document.querySelector('#actions')?.innerHTML;
 
-            for (const text of ['共有', 'リミックス']) {
-                const target = targets.find(candidate => candidate.text === text);
-                if (!target) continue;
-                applyTokensToScanTarget(target, [{
-                    card: { ...card, cardState: ['known'], spelling: text, reading: 'よみ', source: 'jpdb' },
-                    start: 0,
-                    end: text.length,
-                    length: text.length,
-                    rubies: [{ text: 'よみ', start: 0, end: text.length, length: text.length }],
-                    pitchClass: 'heiban',
-                    sentence: text,
-                }], settings);
-            }
-
             expect(targets.some(target => target.text === '日本語の説明')).toBe(true);
+            expect(targets.some(target => target.text === '共有')).toBe(false);
+            expect(targets.some(target => target.text === 'リミックス')).toBe(false);
             expect(document.querySelector('#actions')?.innerHTML).toBe(before);
             expect(document.querySelector('#actions .jpdb-reader-word')).toBeNull();
             expect(document.querySelector('#actions .jpdb-reader-text-mirror')).toBeNull();

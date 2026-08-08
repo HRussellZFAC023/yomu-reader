@@ -1699,6 +1699,12 @@ export class SubtitlePlayerController {
         this.pendingDomCaption = undefined;
         this.lastDomCaption = '';
         this.lastDomCaptionSeenAt = 0;
+        this.invalidatePrimaryCueRender();
+        this.resetShadowPracticeState();
+        this.restoreSubtitleDragOffset();
+    }
+
+    private invalidatePrimaryCueRender(): void {
         this.lastAutoCopiedCueSignature = '';
         this.lastRenderedPrimaryKey = '';
         this.lastRenderedPrimaryText = '';
@@ -1707,8 +1713,6 @@ export class SubtitlePlayerController {
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
-        this.resetShadowPracticeState();
-        this.restoreSubtitleDragOffset();
     }
 
     private removeStaleNativeTracks(video: HTMLVideoElement): void {
@@ -2683,16 +2687,28 @@ export class SubtitlePlayerController {
 
     private isDomCaptionStable(text: string, nowMs: number): boolean {
         if (this.pendingDomCaption?.text !== text) {
-            const pending = { text, firstSeenAt: nowMs, parseSettled: !this.shouldParseSubtitles() };
-            this.pendingDomCaption = pending;
-            // Keep the page caption visible while the exact Yomu render is
-            // prepared. Publishing only after this settles prevents a plain
-            // subtitle from acquiring furigana/pitch after it is on screen.
-            this.warmDomCaptionParse(text, pending);
+            this.beginPendingDomCaption(text, nowMs);
             return false;
         }
-        return this.pendingDomCaption.parseSettled
-            && nowMs - this.pendingDomCaption.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS
+        return this.pendingDomCaptionIsReady(this.pendingDomCaption, text, nowMs);
+    }
+
+    private beginPendingDomCaption(text: string, nowMs: number): void {
+        const pending = { text, firstSeenAt: nowMs, parseSettled: !this.shouldParseSubtitles() };
+        this.pendingDomCaption = pending;
+        // Keep the page caption visible while the exact Yomu render is
+        // prepared. Publishing only after this settles prevents a plain
+        // subtitle from acquiring furigana/pitch after it is on screen.
+        this.warmDomCaptionParse(text, pending);
+    }
+
+    private pendingDomCaptionIsReady(
+        pending: { firstSeenAt: number; parseSettled: boolean },
+        text: string,
+        nowMs: number,
+    ): boolean {
+        return pending.parseSettled
+            && nowMs - pending.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS
             && text !== this.lastDomCaption;
     }
 
@@ -2867,29 +2883,51 @@ export class SubtitlePlayerController {
         // The active cue has one visual commit. Background pitch/card
         // enrichment may improve caches and transcript rows for the next visit,
         // but it must not add marks to words already being read on screen.
-        if (this.lastRenderedPrimaryKey === key
-            && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) {
-            return this.lastRenderedPrimaryHtml;
-        }
+        const committed = this.committedPrimaryParsedHtml(key);
+        if (committed !== undefined) return committed;
         const cached = this.cachedParsedCueHtml(key, settings);
         if (cached !== undefined) return cached;
+        return this.provisionalPrimaryParsedHtmlForRender(text, settings, key);
+    }
+
+    private committedPrimaryParsedHtml(key: string): string | undefined {
+        if (this.lastRenderedPrimaryKey !== key) return undefined;
+        if (!parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) return undefined;
+        return this.lastRenderedPrimaryHtml;
+    }
+
+    private provisionalPrimaryParsedHtmlForRender(
+        text: string,
+        settings: ReaderSettings,
+        key: string,
+    ): string | undefined {
         const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
-        if (provisional !== undefined) {
-            if (this.shouldUseProvisionalSubtitleParse(settings)) {
-                if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) {
-                    if (this.hasAuthoritativeParseTier(settings)) {
-                        this.ensureAuthoritativeParsedCueHtml(text, settings, key);
-                        return undefined;
-                    }
-                    this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
-                    if (!this.htmlCache.parsedTokenCache.has(key)) return undefined;
-                } else {
-                    this.ensureAuthoritativeParsedCueHtml(text, settings, key);
-                }
-            }
+        if (provisional === undefined) return undefined;
+        return this.preparedProvisionalPrimaryHtml(text, settings, key, provisional);
+    }
+
+    private preparedProvisionalPrimaryHtml(
+        text: string,
+        settings: ReaderSettings,
+        key: string,
+        provisional: string,
+    ): string | undefined {
+        if (!this.shouldUseProvisionalSubtitleParse(settings)) return provisional;
+        if (this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) {
+            this.ensureAuthoritativeParsedCueHtml(text, settings, key);
             return provisional;
         }
-        return undefined;
+        if (!this.prepareUnenrichedProvisionalPrimary(text, settings, key)) return undefined;
+        return provisional;
+    }
+
+    private prepareUnenrichedProvisionalPrimary(text: string, settings: ReaderSettings, key: string): boolean {
+        if (this.hasAuthoritativeParseTier(settings)) {
+            this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+            return false;
+        }
+        this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
+        return this.htmlCache.parsedTokenCache.has(key);
     }
 
     private applyRenderedPrimarySubtitle(
@@ -3108,16 +3146,12 @@ export class SubtitlePlayerController {
         if (!this.hasAuthoritativeParseTier(settings)) return;
         const missing = items.filter(item => this.cachedParsedCueHtml(item.key, settings) === undefined && !this.htmlCache.pendingParsedHtml.has(item.key));
         if (!missing.length) return;
-        const parsed = this.options.parseJapaneseBatch
-            ? this.options.parseJapaneseBatch(missing.map(item => item.text), authoritativeSubtitleParseOptions())
-            : Promise.all(missing.map(item => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
+        const parsed = this.parseAuthoritativeSubtitleItems(missing);
         const enriched = this.enrichParsedTokenBatchBeforeRender(parsed);
         const parsedHtml = missing.map((item, index) => enriched.then(tokens => {
             const tokenList = tokens[index] ?? [];
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-            const remembered = this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
-            if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(item.key, remembered.html);
-            return remembered.html;
+            return this.rememberAuthoritativeParsedCueHtml(item.key, html, tokenList);
         }));
         missing.forEach((item, index) => this.htmlCache.pendingParsedHtml.set(item.key, parsedHtml[index]));
         void Promise.allSettled(parsedHtml).finally(() => {
@@ -3125,6 +3159,20 @@ export class SubtitlePlayerController {
                 if (this.htmlCache.pendingParsedHtml.get(item.key) === parsedHtml[index]) this.htmlCache.pendingParsedHtml.delete(item.key);
             });
         });
+    }
+
+    private parseAuthoritativeSubtitleItems(items: SubtitleParseBatchItem[]): Promise<JPDBToken[][]> {
+        const texts = items.map(item => item.text);
+        if (this.options.parseJapaneseBatch) {
+            return this.options.parseJapaneseBatch(texts, authoritativeSubtitleParseOptions());
+        }
+        return Promise.all(texts.map(text => this.options.parseJapanese(text, authoritativeSubtitleParseOptions())));
+    }
+
+    private rememberAuthoritativeParsedCueHtml(key: string, html: string, tokens: JPDBToken[]): string {
+        const remembered = this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
+        if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, remembered.html);
+        return remembered.html;
     }
 
     private applyAuthoritativeParsedCueHtml(key: string, html: string): void {
@@ -3700,14 +3748,7 @@ export class SubtitlePlayerController {
             if (id !== this.selectedTrackId) return;
             this.cues = adjusted;
             this.currentCue = undefined;
-            this.lastAutoCopiedCueSignature = '';
-            this.lastRenderedPrimaryKey = '';
-            this.lastRenderedPrimaryText = '';
-            this.lastRenderedPrimaryHtml = '';
-            this.lastAppliedPrimaryRowHtml = '';
-            this.renderSerial += 1;
-            this.parseWarmupSerial += 1;
-            this.lastParseWarmupAnchor = -1;
+            this.invalidatePrimaryCueRender();
             return;
         }
         if (id !== this.secondaryTrackId) return;
@@ -3881,17 +3922,27 @@ export class SubtitlePlayerController {
     }
 
     private handleSubtitleUiFocusIn(event: FocusEvent): void {
-        const target = event.target instanceof Element ? event.target : null;
-        if (!target || !this.isInSubtitleUi(target)) return;
+        const target = this.subtitleUiFocusTarget(event.target);
+        if (!target) return;
         // Tapping the native caption line focuses it on the browsers that focus
         // buttons from a press, which would wake the rail through the back door
         // after the pointerdown and click gates have both declined. A keyboard
         // user who deliberately tabbed there still gets the reveal.
-        if (!target.matches(':focus-visible') && this.isNativeSubtitleBlurControl(target)) return;
+        if (this.nativeSubtitleFocusShouldRemainIdle(target)) return;
         // Idle controls remain in the accessibility tree as a skip-link-style
         // gateway. Real DOM focus must paint the whole control cluster even on
         // touch browsers whose :focus-within invalidation can lag behind Tab.
         this.showControlsTemporarily();
+    }
+
+    private subtitleUiFocusTarget(target: EventTarget | null): Element | null {
+        if (!(target instanceof Element)) return null;
+        if (!this.isInSubtitleUi(target)) return null;
+        return target;
+    }
+
+    private nativeSubtitleFocusShouldRemainIdle(target: Element): boolean {
+        return this.isNativeSubtitleBlurControl(target) && !target.matches(':focus-visible');
     }
 
     private isInSubtitleUi(element: Element): boolean {
@@ -5216,9 +5267,7 @@ export class SubtitlePlayerController {
             // DOM-caption fallback is a hand-off: the page caption stays
             // visible until a parse-settled Yomu cue is ready. Loaded cue lists
             // are ready immediately; fallback text becomes ready at currentCue.
-            suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled
-                && this.video
-                && (this.cues.length || this.currentCue?.text)),
+            suppressNativeCaptions: this.shouldSuppressNativeCaptions(settings),
             suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
             video: this.video,
             hasPrimaryCues: Boolean(this.cues.length),
@@ -5226,6 +5275,16 @@ export class SubtitlePlayerController {
             youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
             lastYomuCaptionsActive: this.lastYomuCaptionsActive,
         });
+    }
+
+    private shouldSuppressNativeCaptions(settings: ReaderSettings): boolean {
+        return Boolean(settings.subtitlePlayerEnabled
+            && this.video
+            && this.hasRenderablePrimaryCue());
+    }
+
+    private hasRenderablePrimaryCue(): boolean {
+        return Boolean(this.cues.length || this.currentCue?.text);
     }
 
     private async discoverYouTubeTracksThrottled(force = false): Promise<void> {
@@ -7780,14 +7839,7 @@ export class SubtitlePlayerController {
         this.lastDomCaptionSeenAt = 0;
         this.pendingDomCaption = undefined;
         this.youtubeDomCaptionFallbackTrackId = '';
-        this.lastAutoCopiedCueSignature = '';
-        this.lastRenderedPrimaryKey = '';
-        this.lastRenderedPrimaryText = '';
-        this.lastRenderedPrimaryHtml = '';
-        this.lastAppliedPrimaryRowHtml = '';
-        this.renderSerial += 1;
-        this.parseWarmupSerial += 1;
-        this.lastParseWarmupAnchor = -1;
+        this.invalidatePrimaryCueRender();
         this.lastShadowSignature = '';
         this.shadowLoopEnabled = false;
     }

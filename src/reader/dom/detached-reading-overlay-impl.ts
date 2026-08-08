@@ -1,6 +1,7 @@
 // Runtime implementation. Product code reaches this through the annotations
 // companion facade in detached-reading-overlay.ts.
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
+import { setImportantStyleIfChanged } from './inline-style';
 
 export interface DetachedReadingProjection {
     source: HTMLElement;
@@ -648,12 +649,6 @@ function positionProjectedReading(
     setDatasetIfChanged(clone, 'yomuSourceTop', String(rect.top));
     setDatasetIfChanged(clone, 'yomuSourceWidth', String(rect.width));
     setDatasetIfChanged(clone, 'yomuSourceHeight', String(rect.height));
-}
-
-function setImportantStyleIfChanged(element: HTMLElement, property: string, value: string): void {
-    if (element.style.getPropertyValue(property) === value
-        && element.style.getPropertyPriority(property) === 'important') return;
-    element.style.setProperty(property, value, 'important');
 }
 
 function setDatasetIfChanged(element: HTMLElement, key: string, value: string): void {

@@ -4479,12 +4479,7 @@ export class ReaderApp {
     // delays the lookup popover (notably over OCR overlays). Coalesce to one
     // hover probe per animation frame using the latest pointer position.
     private queueHoverPointerMove(event: PointerEvent): void {
-        // Record geometry before the coalesced probe runs. An earlier hover
-        // lookup can finish while this frame is waiting; its stale-result gate
-        // must see where the pointer is now, not the previous frame's point.
-        if (!this.isDestroyed && this.canUseHoverLookupPointer(event)) {
-            this.lastPointerPosition = { x: event.clientX, y: event.clientY };
-        }
+        this.rememberQueuedHoverPointerPosition(event);
         if (event.buttons) {
             if (this.hoverPointerMoveFrame !== undefined) {
                 window.cancelAnimationFrame(this.hoverPointerMoveFrame);
@@ -4502,6 +4497,14 @@ export class ReaderApp {
             this.pendingHoverPointerMove = undefined;
             if (pending && !this.isDestroyed) this.handleHoverPointer(pending);
         });
+    }
+
+    private rememberQueuedHoverPointerPosition(event: PointerEvent): void {
+        // Record geometry before the coalesced probe runs. An earlier hover
+        // lookup can finish while this frame is waiting; its stale-result gate
+        // must see where the pointer is now, not the previous frame's point.
+        if (this.isDestroyed || !this.canUseHoverLookupPointer(event)) return;
+        this.lastPointerPosition = { x: event.clientX, y: event.clientY };
     }
 
     private handleHoverPointer(event: PointerEvent): void {
@@ -5415,25 +5418,49 @@ export class ReaderApp {
         // it is the SAME vid:sid; only do this for a disconnected node so the connected checks
         // can keep treating a live DOM node as the source of truth.
         if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
-        if (!options.ignoreCssHover && (word.matches(':hover') || this.isHoverWordHostControlCssHoverActive(word))) return true;
-        if (!this.lastPointerPosition) return false;
-        const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
+        if (this.connectedWordHasCssHover(word, options.ignoreCssHover)) return true;
+        return this.isWordAtLastPointerPosition(word, options.ignorePointerPosition);
+    }
+
+    private connectedWordHasCssHover(word: HTMLElement, ignoreCssHover = false): boolean {
+        if (ignoreCssHover) return false;
+        return word.matches(':hover') || this.isHoverWordHostControlCssHoverActive(word);
+    }
+
+    private isWordAtLastPointerPosition(word: HTMLElement, ignorePointerPosition = false): boolean {
+        const position = this.lastPointerPosition;
+        if (!position) return false;
+        const target = document.elementFromPoint(position.x, position.y);
         // Framework-owned words (pointer-transparent mirrors over reactive-framework text) are
         // excluded from hit-testing, so CSS :hover above never matches them even while the
         // pointer sits on them. The geometry re-resolution below is the same word-identity check
         // used to open the hover in the first place, so it stays trustworthy even when the
         // watchdog asks to ignore pointer position for the *loose* containment fallback below.
-        if (target instanceof Element) {
-            const ocrLineHover = !options.ignorePointerPosition
-                ? this.activeOcrWordHoverAtPointer(word, target)
-                : undefined;
-            if (ocrLineHover !== undefined) return ocrLineHover;
-            if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
-            if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
-            if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
-        }
-        if (options.ignorePointerPosition) return false;
-        return this.isInsideNode(target, word);
+        const renderedHover = this.activeRenderedWordHoverAtPointer(word, target, position, ignorePointerPosition);
+        if (renderedHover !== undefined) return renderedHover;
+        return !ignorePointerPosition && this.isInsideNode(target, word);
+    }
+
+    private activeRenderedWordHoverAtPointer(
+        word: HTMLElement,
+        target: Element | null,
+        position: { x: number; y: number },
+        ignorePointerPosition: boolean,
+    ): boolean | undefined {
+        if (!(target instanceof Element)) return undefined;
+        const ocrLineHover = this.activeOcrWordHoverAtPointer(word, target, ignorePointerPosition);
+        if (ocrLineHover !== undefined) return ocrLineHover;
+        return this.renderedWordMatchesPointer(word, target, position) || undefined;
+    }
+
+    private renderedWordMatchesPointer(
+        word: HTMLElement,
+        target: Element,
+        position: { x: number; y: number },
+    ): boolean {
+        return this.hoverReaderWordFromPointStack(position.x, position.y) === word
+            || this.ocrLineWordForPointer(target, position.x, position.y) === word
+            || this.readerWordFromRenderedGeometry(target, position.x, position.y, item => this.canHoverLookupReaderWord(item)) === word;
     }
 
     private isHoverWordHostControlCssHoverActive(word: HTMLElement): boolean {
@@ -5444,18 +5471,33 @@ export class ReaderApp {
         return word.closest<HTMLElement>(HOVER_WORD_HOST_CONTROL_SELECTOR);
     }
 
-    private activeOcrWordHoverAtPointer(word: HTMLElement, target: Element): boolean | undefined {
-        const line = word.closest<HTMLElement>('.jpdb-ocr-line');
-        if (!line?.contains(target) || !this.lastPointerPosition) return undefined;
+    private activeOcrWordHoverAtPointer(
+        word: HTMLElement,
+        target: Element,
+        ignorePointerPosition: boolean,
+    ): boolean | undefined {
+        if (!this.activeOcrLineContainsTarget(word, target, ignorePointerPosition)) return undefined;
+        const position = this.lastPointerPosition;
+        if (!position) return undefined;
         const pointedWord = this.ocrLineWordForPointer(
             target,
-            this.lastPointerPosition.x,
-            this.lastPointerPosition.y,
+            position.x,
+            position.y,
         );
         // Preserve an open card while crossing punctuation/Latin gaps inside
         // the same OCR line, but never let that broad line ownership overrule
         // the exact different word now under the pointer.
-        return pointedWord ? pointedWord === word : true;
+        if (!pointedWord) return true;
+        return pointedWord === word;
+    }
+
+    private activeOcrLineContainsTarget(
+        word: HTMLElement,
+        target: Element,
+        ignorePointerPosition: boolean,
+    ): boolean {
+        if (ignorePointerPosition) return false;
+        return Boolean(word.closest<HTMLElement>('.jpdb-ocr-line')?.contains(target));
     }
 
     private reanchorDisconnectedHoverWord(word: HTMLElement, options: { ignorePointerPosition?: boolean }): boolean {
@@ -5521,17 +5563,29 @@ export class ReaderApp {
     }
 
     private currentPointerTextHoverCandidateAtPoint(x: number, y: number, target: EventTarget | null): PointerTextLookup | null {
-        const targetElement = target instanceof Element ? target : null;
         // Prefer the annotation surface owned by the actual event target. A
         // transparent OCR overlay can geometrically overlap a YouTube portal
         // word; consulting the global point stack first would keep validating
         // the old OCR token after the pointer had reached the portal source.
-        const word = (targetElement
-            ? this.readerWordFromRenderedGeometry(targetElement, x, y, item => this.canHoverLookupReaderWord(item))
-            : null)
+        const word = this.readerWordOwnedByPointerTarget(target, x, y)
             ?? this.liveReaderWordAtPointer(x, y);
-        const candidate = word ? this.renderedWordPointerLookupCandidate(word, x, y, target) : null;
+        const candidate = this.pointerTextCandidateForRenderedWord(word, x, y, target);
         return candidate ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
+    }
+
+    private readerWordOwnedByPointerTarget(target: EventTarget | null, x: number, y: number): HTMLElement | null {
+        if (!(target instanceof Element)) return null;
+        return this.readerWordFromRenderedGeometry(target, x, y, item => this.canHoverLookupReaderWord(item));
+    }
+
+    private pointerTextCandidateForRenderedWord(
+        word: HTMLElement | null,
+        x: number,
+        y: number,
+        target: EventTarget | null,
+    ): PointerTextLookup | null {
+        if (!word) return null;
+        return this.renderedWordPointerLookupCandidate(word, x, y, target);
     }
 
     private hasActiveHoverPopover(): boolean {

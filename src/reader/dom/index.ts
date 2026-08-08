@@ -2976,29 +2976,47 @@ const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|pr
  * lanes.
  */
 function sourcePreservingProseNeedsDocumentPortal(host: HTMLElement, target: ScanTextTarget): boolean {
-    if (target.insideShadowDOM || host.getRootNode() !== host.ownerDocument) return false;
-    if (target.decoration !== 'prose-full' && target.decoration !== 'content-ruby') return false;
-    if (interactivePassiveControl(host)) return false;
-    if (!target.nonDestructive && !scanHostRequiresSourcePreservingMirror(host)) return false;
+    if (!sourcePreservingProseCanUseDocumentPortal(host, target)) return false;
+    return hasDocumentPortalProseAncestor(host);
+}
+
+const DOCUMENT_PORTAL_PROSE_DECORATIONS = new Set<DecorationState>(['prose-full', 'content-ruby']);
+
+function sourcePreservingProseCanUseDocumentPortal(host: HTMLElement, target: ScanTextTarget): boolean {
     // A body portal can project exact Range boxes through translations, but a
     // scale/rotation changes the reading typography as well as the boxes. Keep
     // broad prose in its established in-host mirror under that containing
     // block.
-    if (documentAnnotationPortalHasNonTranslationTransform(host)) return false;
+    return [
+        !target.insideShadowDOM,
+        host.getRootNode() === host.ownerDocument,
+        DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target.decoration ?? 'skip'),
+        !interactivePassiveControl(host),
+        target.nonDestructive || scanHostRequiresSourcePreservingMirror(host),
+        !documentAnnotationPortalHasNonTranslationTransform(host),
+    ].every(Boolean);
+}
 
+function hasDocumentPortalProseAncestor(host: HTMLElement): boolean {
     let current: HTMLElement | null = host;
     for (let depth = 0; current && depth < 8; depth += 1, current = composedParentElement(current)) {
         // The portal is intentionally cross-site: the report is not limited to
         // YouTube comments, and framework-owned article/feed prose has the same
         // source-rewrite failure mode. Nested overflow is now re-clipped by the
         // portal root; scaled/rotated prose was narrowed above.
-        if (isLikelyProseElement(current)
-            || safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]')) return true;
-        const identity = `${current.tagName} ${current.id} ${String(current.className || '')}`;
-        if (VOLATILE_CONVERSATION_IDENTITY_RE.test(identity)) return true;
-        if (current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)) return true;
+        if (isDocumentPortalProseAncestor(current, host)) return true;
     }
     return false;
+}
+
+function isDocumentPortalProseAncestor(current: HTMLElement, host: HTMLElement): boolean {
+    const identity = `${current.tagName} ${current.id} ${String(current.className || '')}`;
+    return [
+        isLikelyProseElement(current),
+        safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
+        VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
+        current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity),
+    ].some(Boolean);
 }
 
 function mountNonDestructiveTextMirror(

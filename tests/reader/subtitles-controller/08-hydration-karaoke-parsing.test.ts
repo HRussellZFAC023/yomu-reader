@@ -17,6 +17,17 @@ import type {
     SubtitleParsedHtmlCache,
 } from './fixtures';
 
+function subtitleParseCacheKey(text: string, settings: ReaderSettings): string {
+    const controller = new SubtitlePlayerController({
+        getSettings: () => DEFAULT_SETTINGS,
+        parseJapanese: async () => [],
+        onSettingsChange: () => undefined,
+    });
+    return controllerInternals<{
+        parseCacheKey: (value: string, valueSettings: ReaderSettings) => string;
+    }>(controller).parseCacheKey(text, settings);
+}
+
 describe('SubtitlePlayerController — transcript hydration, karaoke & authoritative parsing', () => {
     registerSubtitleControllerCleanup();
 
@@ -1380,14 +1391,6 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
     });
 
     it('invalidates subtitle parse cache keys when the parser source changes', () => {
-        const controller = new SubtitlePlayerController({
-            getSettings: () => DEFAULT_SETTINGS,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        const internals = controller as unknown as {
-            parseCacheKey: (text: string, settings: typeof DEFAULT_SETTINGS) => string;
-        };
         const localEmpty = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -1408,34 +1411,26 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             }],
         };
 
-        expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withApi));
-        expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withDictionary));
+        expect(subtitleParseCacheKey('読む', localEmpty)).not.toBe(subtitleParseCacheKey('読む', withApi));
+        expect(subtitleParseCacheKey('読む', localEmpty)).not.toBe(subtitleParseCacheKey('読む', withDictionary));
     });
 
     it('keys subtitle html by pitch visibility and hidden furigana state groups', () => {
-        const controller = new SubtitlePlayerController({
-            getSettings: () => DEFAULT_SETTINGS,
-            parseJapanese: async () => [],
-            onSettingsChange: () => undefined,
-        });
-        const internals = controller as unknown as {
-            parseCacheKey: (text: string, settings: typeof DEFAULT_SETTINGS) => string;
-        };
         const visible = {
             ...DEFAULT_SETTINGS,
             showPitchAccent: true,
             furiganaHiddenStateGroups: ['known', 'learning'] as typeof DEFAULT_SETTINGS.furiganaHiddenStateGroups,
         };
 
-        expect(internals.parseCacheKey('読む', visible)).not.toBe(internals.parseCacheKey('読む', {
+        expect(subtitleParseCacheKey('読む', visible)).not.toBe(subtitleParseCacheKey('読む', {
             ...visible,
             showPitchAccent: false,
         }));
-        expect(internals.parseCacheKey('読む', visible)).not.toBe(internals.parseCacheKey('読む', {
+        expect(subtitleParseCacheKey('読む', visible)).not.toBe(subtitleParseCacheKey('読む', {
             ...visible,
             furiganaHiddenStateGroups: ['known'],
         }));
-        expect(internals.parseCacheKey('読む', visible)).toBe(internals.parseCacheKey('読む', {
+        expect(subtitleParseCacheKey('読む', visible)).toBe(subtitleParseCacheKey('読む', {
             ...visible,
             furiganaHiddenStateGroups: ['learning', 'known'],
         }));

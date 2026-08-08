@@ -1,4 +1,5 @@
 import { safeComputedStyle } from './decoration-policy';
+import { setImportantStyleIfChanged as setImportantStyle } from './inline-style';
 
 export const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = 'jpdb-reader-document-annotation-portal';
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = 'jpdb-reader-document-annotation-paint';
@@ -630,12 +631,6 @@ function applyPortalClipGeometry(
     setImportantStyle(mirror, 'width', `${Math.max(0, clip.right - clip.left)}px`);
     setImportantStyle(mirror, 'height', `${Math.max(0, clip.bottom - clip.top)}px`);
     setImportantStyle(mirror, 'overflow', 'hidden');
-}
-
-function setImportantStyle(element: HTMLElement, property: string, value: string): void {
-    if (element.style.getPropertyValue(property) === value
-        && element.style.getPropertyPriority(property) === 'important') return;
-    element.style.setProperty(property, value, 'important');
 }
 
 function transitionCanMoveSource(target: Node, source: HTMLElement): boolean {

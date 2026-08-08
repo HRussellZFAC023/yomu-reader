@@ -20,6 +20,13 @@ import {
 } from './fixtures';
 import { loadSettings, NO_EXPLICIT_USER_CHOICE, saveSettings } from '../../../src/reader/settings/index';
 
+function setupAutoSubtitleControls() {
+    return setupInstalledVideoController(
+        new DOMRect(0, 0, 1024, 576),
+        { subtitleControlsMode: 'auto' },
+    );
+}
+
 describe('SubtitlePlayerController — idle controls, overlay drag & rail visibility', () => {
     registerSubtitleControllerCleanup();
 
@@ -1384,16 +1391,9 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
     it('preserves programmatic rail focus without explicit pointer provenance', async () => {
         vi.useFakeTimers();
-        let controller: SubtitlePlayerController | undefined;
+        const { controller, root } = setupAutoSubtitleControls();
         try {
-            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
-            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: 'auto' })).controller;
-            controller.init();
-            const video = document.querySelector<HTMLVideoElement>('video')!;
-            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
-            controller.refresh();
-
-            const railHandle = document.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
+            const railHandle = root.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
             railHandle.focus();
 
             expect(document.activeElement).toBe(railHandle);
@@ -1402,23 +1402,15 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
             expect(document.activeElement).toBe(railHandle);
         } finally {
-            controller?.destroy();
+            controller.destroy();
             vi.useRealTimers();
         }
     });
 
     it('does not discard focus inside an open style panel', async () => {
         vi.useFakeTimers();
-        let controller: SubtitlePlayerController | undefined;
+        const { controller, root } = setupAutoSubtitleControls();
         try {
-            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
-            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: 'auto' })).controller;
-            controller.init();
-            const video = document.querySelector<HTMLVideoElement>('video')!;
-            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
-            controller.refresh();
-
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             root.querySelector<HTMLButtonElement>('[data-action="style"]')!.click();
             const range = root.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]')!;
             const labelText = range.closest('label')!.querySelector<HTMLElement>('span')!;
@@ -1451,23 +1443,15 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             expect(focusState.subtitleStylePanelOpen).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
         } finally {
-            controller?.destroy();
+            controller.destroy();
             vi.useRealTimers();
         }
     });
 
     it('preserves a style control when keyboard input follows its pointer focus', async () => {
         vi.useFakeTimers();
-        let controller: SubtitlePlayerController | undefined;
+        const { controller, root } = setupAutoSubtitleControls();
         try {
-            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
-            controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: 'auto' })).controller;
-            controller.init();
-            const video = document.querySelector<HTMLVideoElement>('video')!;
-            attachVideo(controller, { video, rect: new DOMRect(0, 0, 1024, 576) });
-            controller.refresh();
-
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             root.querySelector<HTMLButtonElement>('[data-action="style"]')!.click();
             const range = root.querySelector<HTMLInputElement>('[data-subtitle-style-setting="subtitleFontSize"]')!;
             range.dispatchEvent(pointerEvent('pointerdown', {
@@ -1485,7 +1469,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
             expect(document.activeElement).toBe(range);
         } finally {
-            controller?.destroy();
+            controller.destroy();
             vi.useRealTimers();
         }
     });
