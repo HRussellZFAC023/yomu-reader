@@ -17,8 +17,9 @@ export const MULTILINGUAL_PARITY_MEASUREMENT_MODE =
 export const MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION =
     'exact-gold-spans-v4-overflow-scan';
 
-const CONTRACT_REVISION = 'multilingual-lookup-contract-v3';
+const CONTRACT_REVISION = 'multilingual-lookup-contract-v4';
 const INLINE_MATCH_LIMIT = 256;
+const RELEASE_VERSION_SENTINEL = 'yomu-release-version';
 
 const COMMON_LOOKUP_FILES = [
     'src/reader/core/string-utils.ts',
@@ -86,7 +87,7 @@ const MEASUREMENT_IMPLEMENTATION_FILES = [
 ] as const;
 
 let yomitanSourceFilesPromise: Promise<string[]> | undefined;
-const sourceBytesByPath = new Map<string, Promise<Buffer>>();
+const contractBytesByPath = new Map<string, Promise<Buffer>>();
 const contractHashByLanguage = new Map<string, Promise<string>>();
 
 /**
@@ -98,7 +99,7 @@ const contractHashByLanguage = new Map<string, Promise<string>>();
  */
 export function resetMultilingualParityContractCaches(): void {
     yomitanSourceFilesPromise = undefined;
-    sourceBytesByPath.clear();
+    contractBytesByPath.clear();
     contractHashByLanguage.clear();
 }
 
@@ -126,16 +127,65 @@ async function yomitanSourceFiles(fresh = false): Promise<string[]> {
     return yomitanSourceFilesPromise;
 }
 
-function sourceBytes(path: string): Promise<Buffer> {
-    const existing = sourceBytesByPath.get(path);
+function jsonRecord(value: unknown, label: string): Record<string, unknown> {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError(`${label} is not a JSON object.`);
+    }
+    return value as Record<string, unknown>;
+}
+
+function normalizeManifestVersion(record: Record<string, unknown>, label: string): void {
+    if (typeof record.version !== 'string' || !record.version) {
+        throw new TypeError(`${label} has no string version to normalize.`);
+    }
+    record.version = RELEASE_VERSION_SENTINEL;
+}
+
+/**
+ * Bytes that represent one lookup-contract input.
+ *
+ * Application release identity does not affect dictionary import or matching.
+ * Normalizing exactly the three root version fields keeps a release-only bump
+ * from demanding a 33-archive re-measurement. Everything else in both manifests
+ * remains in the serialized contract: scripts, dependency declarations, lock
+ * resolutions, integrity values, and nested package versions still invalidate
+ * the evidence when they change.
+ */
+export function multilingualParityContractInputBytes(path: string, bytes: Buffer): Buffer {
+    if (path === 'package.json') return normalizedPackageManifestBytes(bytes);
+    if (path === 'package-lock.json') return normalizedPackageLockBytes(bytes);
+    return bytes;
+}
+
+function normalizedPackageManifestBytes(bytes: Buffer): Buffer {
+    const manifest = jsonRecord(JSON.parse(bytes.toString('utf8')), 'package.json');
+    normalizeManifestVersion(manifest, 'package.json');
+    return Buffer.from(JSON.stringify(manifest));
+}
+
+function normalizedPackageLockBytes(bytes: Buffer): Buffer {
+    const manifest = jsonRecord(JSON.parse(bytes.toString('utf8')), 'package-lock.json');
+    normalizeManifestVersion(manifest, 'package-lock.json');
+    const packages = jsonRecord(manifest.packages, 'package-lock.json packages');
+    const rootPackage = jsonRecord(packages[''], 'package-lock.json root package');
+    normalizeManifestVersion(rootPackage, 'package-lock.json root package');
+    return Buffer.from(JSON.stringify(manifest));
+}
+
+function contractSourceBytes(path: string): Promise<Buffer> {
+    const existing = contractBytesByPath.get(path);
     if (existing) return existing;
-    const pending = readFile(resolve(path));
-    sourceBytesByPath.set(path, pending);
+    const pending = readFile(resolve(path)).then(bytes => multilingualParityContractInputBytes(path, bytes));
+    contractBytesByPath.set(path, pending);
     return pending;
 }
 
 function freshSourceBytes(path: string): Promise<Buffer> {
     return readFile(resolve(path));
+}
+
+async function freshContractSourceBytes(path: string): Promise<Buffer> {
+    return multilingualParityContractInputBytes(path, await freshSourceBytes(path));
 }
 
 /** Options shared by every contract read. `fresh` bypasses all memoization. */
@@ -187,7 +237,7 @@ async function calculateLookupContractSha256(
     options: ContractReadOptions = {},
 ): Promise<string> {
     const files = await multilingualParityLookupContractSourceFiles(language, options);
-    const read = options.fresh ? freshSourceBytes : sourceBytes;
+    const read = options.fresh ? freshContractSourceBytes : contractSourceBytes;
     const hash = createHash('sha256');
     hash.update([
         CONTRACT_REVISION,
@@ -222,7 +272,7 @@ function freshLookupContractSha256(language: string): Promise<string> {
     return calculateLookupContractSha256(language, { fresh: true });
 }
 
-/** One contract input and the digest of its bytes. */
+/** One contract input and the digest of its lookup-significant bytes. */
 export interface MultilingualParityContractInput {
     path: string;
     sha256: string;
@@ -249,7 +299,7 @@ export async function multilingualParityLookupContractInputs(
             paths.add(path);
         }
     }
-    const read = options.fresh ? freshSourceBytes : sourceBytes;
+    const read = options.fresh ? freshContractSourceBytes : contractSourceBytes;
     return Promise.all([...paths].sort().map(async path => ({
         path,
         sha256: createHash('sha256').update(await read(path)).digest('hex'),

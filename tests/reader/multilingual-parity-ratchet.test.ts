@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
-import { parityDictionaryId } from '../../scripts/lib/multilingual-parity-dictionary';
 import { readFile } from 'node:fs/promises';
-import publishedCatalogJson from '../../config/dictionaries/published/v1/catalog.json';
 import { describe, expect, it, vi } from 'vitest';
+
+import publishedCatalogJson from '../../config/dictionaries/published/v1/catalog.json';
+import { multilingualParityContractInputBytes } from '../../scripts/lib/multilingual-parity-contract';
+import { parityDictionaryId } from '../../scripts/lib/multilingual-parity-dictionary';
 
 const SUGGESTED_BENCHMARK_PERCENT = 60;
 // The corpus module deliberately reuses the older manual real-archive harness.
@@ -514,6 +516,80 @@ describe('multilingual parity measurement contract', () => {
         ]));
         expect(files).not.toContain('src/reader/locales/copy-tiers.ts');
         expect(files.some(path => path.startsWith('src/reader/locales/catalogs/'))).toBe(false);
+    });
+
+    it('keeps release-only manifest bumps outside the lookup contract', () => {
+        const packageManifest = (version: string) => Buffer.from(JSON.stringify({
+            name: 'yomu-reader',
+            version,
+            type: 'module',
+            scripts: { 'manual:multilingual-parity': 'vite-node scripts/manual/multilingual-parity.ts' },
+            dependencies: { fflate: '^0.8.2' },
+        }, null, 2));
+        const lockManifest = (version: string) => Buffer.from(JSON.stringify({
+            name: 'yomu-reader',
+            version,
+            lockfileVersion: 3,
+            packages: {
+                '': {
+                    name: 'yomu-reader',
+                    version,
+                    dependencies: { fflate: '^0.8.2' },
+                },
+                'node_modules/fflate': {
+                    version: '0.8.2',
+                    resolved: 'https://registry.npmjs.org/fflate/-/fflate-0.8.2.tgz',
+                    integrity: 'sha512-pinned',
+                },
+            },
+        }, null, 2));
+        const digest = (path: string, bytes: Buffer): string => createHash('sha256')
+            .update(multilingualParityContractInputBytes(path, bytes))
+            .digest('hex');
+
+        expect(digest('package.json', packageManifest('1.8.87')))
+            .toBe(digest('package.json', packageManifest('1.8.89')));
+        expect(digest('package-lock.json', lockManifest('1.8.87')))
+            .toBe(digest('package-lock.json', lockManifest('1.8.89')));
+    });
+
+    it('still invalidates the lookup contract for script, dependency, and resolved-package changes', () => {
+        const digest = (path: string, value: unknown): string => createHash('sha256')
+            .update(multilingualParityContractInputBytes(path, Buffer.from(JSON.stringify(value))))
+            .digest('hex');
+        const packageManifest = {
+            name: 'yomu-reader',
+            version: '1.8.87',
+            scripts: { 'manual:multilingual-parity': 'vite-node scripts/manual/multilingual-parity.ts' },
+            dependencies: { fflate: '^0.8.2' },
+        };
+        const lockManifest = {
+            name: 'yomu-reader',
+            version: '1.8.87',
+            lockfileVersion: 3,
+            packages: {
+                '': { name: 'yomu-reader', version: '1.8.87', dependencies: { fflate: '^0.8.2' } },
+                'node_modules/fflate': { version: '0.8.2', integrity: 'sha512-pinned' },
+            },
+        };
+        const packageDigest = digest('package.json', packageManifest);
+        const lockDigest = digest('package-lock.json', lockManifest);
+
+        expect(digest('package.json', {
+            ...packageManifest,
+            scripts: { 'manual:multilingual-parity': 'vite-node --mode test scripts/manual/multilingual-parity.ts' },
+        })).not.toBe(packageDigest);
+        expect(digest('package.json', {
+            ...packageManifest,
+            dependencies: { fflate: '^0.8.3' },
+        })).not.toBe(packageDigest);
+        expect(digest('package-lock.json', {
+            ...lockManifest,
+            packages: {
+                ...lockManifest.packages,
+                'node_modules/fflate': { version: '0.8.3', integrity: 'sha512-moved' },
+            },
+        })).not.toBe(lockDigest);
     });
 
     it('invalidates checkpoints across measurement or runtime identities', () => {

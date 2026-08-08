@@ -40,4 +40,42 @@ npx vitest run tests/reader/locales
 npm run typecheck
 ```
 
+The fast release ratchet replays compact evidence without downloading the
+published dictionaries:
+
+```bash
+npm run quality:multilingual-parity
+```
+
+When a lookup-significant source, dependency, script, runtime, corpus, or
+published dictionary changes, re-record from the repository root on a clean,
+committed tree using the Node version in `.nvmrc`. Keep the cache and checkpoint
+outside the repository. The checkpoint is resumable only while the commit,
+worktree status, Node/ICU runtime, measurement contract, and corpus stay the
+same.
+
+```bash
+source "$NVM_DIR/nvm.sh"
+nvm use --silent
+PARITY_CACHE=/private/tmp/yomu-multilingual-parity-cache
+PARITY_CHECKPOINT="/private/tmp/yomu-multilingual-parity-$(git rev-parse --short=12 HEAD).json"
+npm run manual:multilingual-parity -- \
+  --cache-dir "$PARITY_CACHE" \
+  --checkpoint "$PARITY_CHECKPOINT"
+npm run manual:multilingual-parity -- \
+  --cache-dir "$PARITY_CACHE" \
+  --checkpoint "$PARITY_CHECKPOINT" \
+  --write-baseline config/quality/multilingual-lookup-baseline.json \
+  --write-evidence config/quality/multilingual-lookup-evidence.json
+npm run quality:multilingual-parity
+```
+
+The second recorder command reuses all completed target rows, writes both
+authoritative documents together, and self-verifies them against freshly read
+contract inputs. Application release-version fields are deliberately neutral:
+a version-only bump does not change lookup behavior. Scripts, dependencies,
+lockfile resolutions and integrity values, and nested package versions remain
+part of the contract, while package/lockfile version agreement is checked
+separately.
+
 The existing `src/reader/app/i18n.ts` remains the live full-interface English/Japanese implementation. The seed catalogues currently localize only the new Slice 1 language-profile flow, and no file in this workspace claims that the full UI has already been translated.
