@@ -42,9 +42,9 @@ describe('grammar availability stays visible', () => {
         expect(html).toContain('No built-in Japanese grammar patterns matched this sentence.');
     });
 
-    it('keeps a no-rules target row mounted after the pending state resolves', async () => {
+    it('keeps a non-Japanese target row mounted when its checked rules do not match', async () => {
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
-        expect(activeLearningTarget().grammar.rules).toHaveLength(0);
+        expect(activeLearningTarget().grammar.rules).toHaveLength(1);
         const root = document.createElement('div');
         document.body.append(root);
         const controller = new StudySourceController({
@@ -62,9 +62,8 @@ describe('grammar availability stays visible', () => {
 
         await vi.waitFor(() => expect(root.textContent).not.toContain('Finding grammar'));
         const row = root.querySelector<HTMLElement>('[data-study-grammar]');
-        const expectedState = activeLearningTarget().grammar.referenceUrl ? 'reference-only' : 'unsupported';
         expect(row).not.toBeNull();
-        expect(row?.dataset.availability).toBe(expectedState);
-        expect(row?.textContent).toContain('Built-in Korean grammar detection is still being prepared.');
+        expect(row?.dataset.availability).toBe('empty');
+        expect(row?.textContent).toContain('No built-in Korean grammar patterns matched this sentence.');
     });
 });

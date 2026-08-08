@@ -24,6 +24,10 @@ continue to share the same facts.
 
 JLPT remains the Japanese scale. Other targets may declare CEFR or another
 published target-owned scale. Shared code treats every level name as opaque.
+When a checked source defines a construction but no proficiency level, its
+Adapter uses a target-specific `Foundation` catalogue level. `Foundation`
+means only that target's first reviewed local inventory; it does not imply a
+cross-language proficiency equivalence.
 
 ## Consequences
 
@@ -31,5 +35,8 @@ published target-owned scale. Shared code treats every level name as opaque.
 - A target can degrade to a checked external reference without pretending it
   has local detection.
 - Rule ids may repeat across targets without sharing learner knowledge.
+- Every fixed-roster target has at least one source-checked rule. Coverage grows
+  through reviewed positive and adversarial near-negative examples; generated,
+  unverified patterns are rejected because a false match teaches false grammar.
 - The Learning Target Module Interface advances from revision 7 to revision 8.
 - Japanese detection hooks and its 307-rule output remain regression-locked.

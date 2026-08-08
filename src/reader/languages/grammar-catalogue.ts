@@ -1,53 +1,49 @@
 import type { LearnerLanguageId } from '../locales';
 import { FRENCH_GRAMMAR } from './french-grammar';
 import { GERMAN_GRAMMAR } from './german-grammar';
-import { createLearningTargetGrammar } from './grammar';
+import { FOUNDATION_GRAMMAR_BY_TARGET } from './grammar-foundations';
 import { RUSSIAN_GRAMMAR } from './russian-grammar';
 import { SPANISH_GRAMMAR } from './spanish-grammar';
 import type { LearningTargetGrammar } from './types';
 
-function referenceOnly(referenceUrl: string): LearningTargetGrammar {
-    return createLearningTargetGrammar({ referenceUrl });
-}
-
 /**
  * One honest Grammar Adapter for every non-Japanese target in the fixed roster.
- * A reference-only Adapter intentionally has zero rules, so the derived
- * capability remains false while Study can still offer a useful next step.
+ * Each target owns its scale, checked inventory, detector and source link;
+ * shared Study code remains unaware of the selected language.
  */
 const GRAMMAR_BY_TARGET = Object.freeze({
-    sq: referenceOnly('https://lrc.la.utexas.edu/eieol_toc/albol'),
-    grc: referenceOnly('https://en.wikipedia.org/wiki/Ancient_Greek_grammar'),
-    ar: referenceOnly('https://en.wikipedia.org/wiki/Arabic_grammar'),
-    yue: referenceOnly('https://en.wikipedia.org/wiki/Cantonese_grammar'),
-    zh: referenceOnly('https://en.wikipedia.org/wiki/Chinese_grammar'),
-    da: referenceOnly('https://en.wikipedia.org/wiki/Danish_grammar'),
-    nl: referenceOnly('https://en.wikipedia.org/wiki/Dutch_grammar'),
-    en: referenceOnly('https://en.wikipedia.org/wiki/English_grammar'),
-    fi: referenceOnly('https://en.wikipedia.org/wiki/Finnish_grammar'),
+    sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+    grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+    ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+    yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+    zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+    da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+    nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+    en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+    fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
     fr: FRENCH_GRAMMAR,
     de: GERMAN_GRAMMAR,
-    el: referenceOnly('https://en.wikipedia.org/wiki/Modern_Greek_grammar'),
-    hu: referenceOnly('https://en.wikipedia.org/wiki/Hungarian_grammar'),
-    id: referenceOnly('https://seasite.niu.edu/indonesian/TataBahasa/'),
-    it: referenceOnly('https://en.wikipedia.org/wiki/Italian_grammar'),
-    km: referenceOnly('https://en.wikipedia.org/wiki/Khmer_grammar'),
-    ko: referenceOnly('https://en.wikipedia.org/wiki/Korean_grammar'),
-    lo: referenceOnly('https://en.wikipedia.org/wiki/Lao_grammar'),
-    la: referenceOnly('https://en.wikipedia.org/wiki/Latin_grammar'),
-    mn: referenceOnly('https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms'),
-    fa: referenceOnly('https://en.wikipedia.org/wiki/Persian_grammar'),
-    pl: referenceOnly('https://en.wikipedia.org/wiki/Polish_grammar'),
-    pt: referenceOnly('https://en.wikipedia.org/wiki/Portuguese_grammar'),
-    ro: referenceOnly('https://en.wikipedia.org/wiki/Romanian_grammar'),
+    el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+    hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+    id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+    it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+    km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+    ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+    lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+    la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+    mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+    fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+    pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+    pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+    ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
     ru: RUSSIAN_GRAMMAR,
-    sh: referenceOnly('https://en.wikipedia.org/wiki/Serbo-Croatian_grammar'),
+    sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
     es: SPANISH_GRAMMAR,
-    sv: referenceOnly('https://en.wikipedia.org/wiki/Swedish_grammar'),
-    tl: referenceOnly('https://en.wikipedia.org/wiki/Tagalog_grammar'),
-    th: referenceOnly('https://www.chula.ac.th/en/highlight/123363/'),
-    tr: referenceOnly('https://en.wikipedia.org/wiki/Turkish_grammar'),
-    vi: referenceOnly('https://en.wikipedia.org/wiki/Vietnamese_grammar'),
+    sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+    tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+    th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+    tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+    vi: FOUNDATION_GRAMMAR_BY_TARGET.vi,
 } satisfies Readonly<Record<LearnerLanguageId, LearningTargetGrammar>>);
 
 export function grammarForRosterTarget(language: LearnerLanguageId): LearningTargetGrammar {
