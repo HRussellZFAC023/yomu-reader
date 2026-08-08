@@ -1765,6 +1765,11 @@ async function exerciseYoutubeLookupTransactions(page, options = {}) {
     const samples = [];
     const startedAt = Date.now();
     for (const request of plan) {
+        // A touch lookup opens the modal surface. Dismiss it before scrolling to
+        // the next fixed target: scrolling behind an open sheet can be ignored
+        // or clamped, leaving the requested source present but outside painted
+        // hit-test geometry once the sheet is finally removed.
+        const priorClose = await closeStressPopover(page);
         await page.evaluate(scrollOffset => {
             const comments = document.querySelector('#comments, ytm-comment-section-renderer');
             const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
@@ -1776,7 +1781,7 @@ async function exerciseYoutubeLookupTransactions(page, options = {}) {
         // Input must target the same painted expression on every run. Settle the
         // fixed scroll, then let the resolver prove that exact source owns it.
         await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => resolve())));
-        samples.push(await hoverStressSample(page, request, label, activation));
+        samples.push(await hoverStressSample(page, request, label, activation, priorClose));
         await page.waitForTimeout(90);
     }
     await finishLookupPointer(page, activation);
@@ -1884,8 +1889,7 @@ async function waitForYoutubeCommentParse(page, scenario) {
     );
 }
 
-async function hoverStressSample(page, request, label, activation = 'hover') {
-    const priorClose = await closeStressPopover(page);
+async function hoverStressSample(page, request, label, activation = 'hover', priorClose = { attempted: false }) {
     if (activation === 'touch') return await touchStressSample(page, request, label, priorClose);
     const target = await page.evaluate(
         ({ targetRequest, selector }) => window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null,

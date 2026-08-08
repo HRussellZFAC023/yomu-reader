@@ -217,6 +217,23 @@ describe('YouTube performance harness', () => {
         });
     });
 
+    it('retains uninstrumented diagnostics that run only in the metrics replay', () => {
+        const metrics = profileReplay('metrics');
+        metrics.steps.unshift({
+            name: 'legacyDiagnostics',
+            durationMs: 11,
+            interaction: { ...metrics.steps[0].interaction, comparable: false },
+        });
+        const cpu = profileReplay('cpu', { functionProfile: { sampled: { sampledMs: 3 } } });
+        const coverage = profileReplay('coverage', { functionProfile: { calls: { totalCalls: 7 } } });
+
+        const merged = mergeScenarioFunctionProfiles(metrics, cpu, coverage);
+
+        expect(merged.steps.map(step => step.name)).toEqual(['legacyDiagnostics', 'youtubeFixedAmbientBenchmark']);
+        expect(merged.steps[0]).toEqual(metrics.steps[0]);
+        expect(merged.steps[1].functionProfile).toEqual({ sampled: { sampledMs: 3 }, calls: { totalCalls: 7 } });
+    });
+
     it('rejects a replay when its fixed operation ledger differs', () => {
         const metrics = profileReplay('metrics');
         const cpu = profileReplay('cpu', { functionProfile: { sampled: {} } });

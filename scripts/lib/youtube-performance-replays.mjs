@@ -56,12 +56,29 @@ function mergeOptionalProfileSteps(metricsStep, cpuStep, coverageStep) {
 }
 
 function mergeProfileStepLists(metricsSteps, cpuSteps, coverageSteps) {
-    if (new Set([metricsSteps.length, cpuSteps.length, coverageSteps.length]).size !== 1) {
+    const cpuByName = uniqueProfileSteps(cpuSteps, 'CPU');
+    const coverageByName = uniqueProfileSteps(coverageSteps, 'coverage');
+    const merged = metricsSteps.map(metricsStep => {
+        const cpuStep = cpuByName.get(metricsStep.name);
+        const coverageStep = coverageByName.get(metricsStep.name);
+        if (!cpuStep && !coverageStep) return metricsStep;
+        if (!cpuStep || !coverageStep) throw new Error(`Profiler replay step mismatch: ${metricsStep.name}.`);
+        cpuByName.delete(metricsStep.name);
+        coverageByName.delete(metricsStep.name);
+        return mergeProfileSteps(metricsStep, cpuStep, coverageStep);
+    });
+    if (cpuByName.size || coverageByName.size) {
         throw new Error(
-            `Profiler replay step-count mismatch: metrics=${metricsSteps.length}, cpu=${cpuSteps.length}, coverage=${coverageSteps.length}.`,
+            `Profiler replay has instrumented-only steps: cpu=${[...cpuByName.keys()]}, coverage=${[...coverageByName.keys()]}.`,
         );
     }
-    return metricsSteps.map((step, index) => mergeProfileSteps(step, cpuSteps[index], coverageSteps[index]));
+    return merged;
+}
+
+function uniqueProfileSteps(steps, replay) {
+    const byName = new Map(steps.map(step => [step.name, step]));
+    if (byName.size !== steps.length) throw new Error(`${replay} replay has duplicate step names.`);
+    return byName;
 }
 
 function mergeProfileSteps(metricsStep, cpuStep, coverageStep) {
