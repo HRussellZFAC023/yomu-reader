@@ -565,6 +565,8 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
             player.classList.add('ytp-fullscreen');
             document.dispatchEvent(new Event('fullscreenchange'));
             expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
+            internals.fullscreenHost.syncSubtitleRootParent();
+            expect(document.querySelector('.jpdb-subtitle-player')?.parentElement).toBe(document.body);
 
             player.classList.remove('ytp-fullscreen');
             document.dispatchEvent(new Event('fullscreenchange'));
@@ -577,9 +579,13 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
             const fullscreenStub = stubFullscreenElement(player);
             try {
                 expect(internals.fullscreenHost.subtitleFullscreenHost()).toBe(player);
+                internals.fullscreenHost.syncSubtitleRootParent();
+                expect(document.querySelector('.jpdb-subtitle-player')?.parentElement).toBe(player);
             } finally {
                 fullscreenStub.restore();
+                internals.fullscreenHost.syncSubtitleRootParent();
             }
+            expect(document.querySelector('.jpdb-subtitle-player')?.parentElement).toBe(document.body);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             controller.destroy();

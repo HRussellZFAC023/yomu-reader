@@ -225,6 +225,44 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
     const railFocusedAtEnd = await page.evaluate(() => Boolean(
         document.activeElement?.closest?.('.jpdb-subtitle-player .jpdb-subtitle-rail'),
     ));
+    const railInsidePlayer = await page.evaluate(() => {
+        const player = document.querySelector('#movie_player');
+        const rail = document.querySelector('.jpdb-subtitle-player .jpdb-subtitle-rail');
+        return Boolean(player && rail && player.contains(rail));
+    });
+    // Reproduce the report's Cmd+A / copy boundary with real browser
+    // selection. Keep both reported strings visibly present in Yomu-owned UI
+    // while ordinary page text is selected normally.
+    await page.locator('#selection-proof').click({ force: true });
+    const selectionUiReady = await page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const status = document.createElement('div');
+        status.className = 'jpdb-subtitle-status';
+        status.dataset.selectionProof = 'status';
+        status.append(document.createTextNode('No subtitle tracks detected yet.'));
+        root?.append(status);
+        document.querySelector('[data-action="style"]')?.click();
+        const transcript = document.querySelector('.jpdb-subtitle-list');
+        if (transcript) {
+            transcript.hidden = false;
+            transcript.textContent = 'Transcript panel UI must not enter page copy.';
+        }
+        document.getSelection()?.removeAllRanges();
+        return {
+            styleOpen: !document.querySelector('[data-subtitle-style-popover]')?.hasAttribute('hidden'),
+            hasStatus: status.textContent?.includes('No subtitle tracks detected yet.') ?? false,
+            hasReset: document.body.textContent?.includes('Reset defaults') ?? false,
+        };
+    });
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    const selectedText = await page.evaluate(() => document.getSelection()?.toString() ?? '');
+    const selectionProof = {
+        ...selectionUiReady,
+        ordinaryPageTextSelected: selectedText.includes('Ordinary YouTube page text remains selectable.'),
+        subtitleStatusSelected: selectedText.includes('No subtitle tracks detected yet.'),
+        subtitleSettingsSelected: selectedText.includes('Reset defaults'),
+        transcriptUiSelected: selectedText.includes('Transcript panel UI must not enter page copy.'),
+    };
     await ctx.close();
     return {
         name,
@@ -237,6 +275,8 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         focusRail: Boolean(focusRail),
         focusedRailBeforeIdle,
         railFocusedAtEnd,
+        railInsidePlayer,
+        selectionProof,
     };
 }
 
@@ -328,13 +368,15 @@ results.push(await runMode(browser, {
 }));
 }
 
-// Reproduce iPad Safari's sticky-focus path. The fixture refuses to hide its
-// native chrome while a Yomu rail control owns document focus, matching the
-// host dependency that made waiting for ytp-autohide before blurring circular.
+// Reproduce iPad Safari's sticky-focus path in YouTube's CSS fullscreen. The
+// fixture blocks native auto-hide only when focus is INSIDE the player subtree,
+// matching YouTube's real contract. Yomu's rail is geometry-aligned to that
+// player but must remain body-owned because CSS fullscreen is not a top layer.
 results.push(await runMode(browser, {
     name: 'ipad-focused-rail',
     settings: baseSettings,
     viewport: { width: 1024, height: 768 },
+    inlineFullscreen: true,
     focusRail: true,
 }));
 
@@ -357,6 +399,8 @@ for (const result of results) {
         focusBlocks: wake.focusBlocks,
         focusedRailBeforeIdle: result.focusedRailBeforeIdle,
         railFocusedAtEnd: result.railFocusedAtEnd,
+        railInsidePlayer: result.railInsidePlayer,
+        selectionProof: result.selectionProof,
         lastWakes: wake.wakes.slice(-6),
         pageErrors: result.pageErrors.slice(0, 3),
     };
@@ -378,10 +422,17 @@ for (const result of results) {
         }
         if (result.focusRail) {
             assert(result.focusedRailBeforeIdle, `${result.name}: rail control did not receive the modelled sticky focus`);
-            assert(wake.focusBlocks > 0, `${result.name}: fixture never observed focus blocking native auto-hide`);
-            assert(!result.railFocusedAtEnd, `${result.name}: Yomu did not release pointer-focused rail control`);
+            assert(!result.railInsidePlayer, `${result.name}: CSS fullscreen reparented Yomu focus into the player subtree`);
+            assert(wake.focusBlocks === 0, `${result.name}: native auto-hide was blocked by Yomu focus (${wake.focusBlocks})`);
+            assert(result.railFocusedAtEnd, `${result.name}: valid rail focus was discarded`);
         }
         assert(result.controlsHidden, `${result.name}: native controls auto-hid during hands-off playback`);
+        assert(result.selectionProof.styleOpen, `${result.name}: subtitle style UI was not visible for selection proof`);
+        assert(result.selectionProof.hasStatus && result.selectionProof.hasReset, `${result.name}: reported subtitle UI strings were absent`);
+        assert(result.selectionProof.ordinaryPageTextSelected, `${result.name}: Select All no longer included ordinary page text`);
+        assert(!result.selectionProof.subtitleStatusSelected, `${result.name}: Select All included subtitle status UI`);
+        assert(!result.selectionProof.subtitleSettingsSelected, `${result.name}: Select All included subtitle settings UI`);
+        assert(!result.selectionProof.transcriptUiSelected, `${result.name}: Select All included transcript UI`);
     } catch (error) {
         failed = true;
         console.error(String(error.message ?? error));

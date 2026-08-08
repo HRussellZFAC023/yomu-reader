@@ -9,6 +9,7 @@ import {
 import { AUTO_SCAN_DEBOUNCE_MAX_WAIT_MS, debouncedAutoScanDeadline } from '../../src/reader/app/main-helpers';
 import { collectScanTargets } from '../../src/reader/app/site-parsers';
 import { HAS_JAPANESE, HAS_JAPANESE_LETTER } from '../../src/reader/dom/constants';
+import { mutationContainsOnlyReaderPaint } from '../../src/reader/dom/mutation';
 
 describe('shared Japanese script gates', () => {
     afterEach(() => {
@@ -128,6 +129,46 @@ describe('auto-scan observer style/class reveal detection (class E)', () => {
         insertion.innerHTML = '<span>Playback</span><span>ｶﾀｶﾅ</span>';
 
         expect(mutationMayContainJapaneseText(childListMutation(document.body, insertion))).toBe(true);
+    });
+});
+
+describe('reader paint mutation boundary', () => {
+    it('rejects a projected layer appended through a page root', () => {
+        const layer = document.createElement('div');
+        layer.className = 'jpdb-reader-detached-reading-overlay';
+
+        expect(mutationContainsOnlyReaderPaint(childListMutation(document.body, layer))).toBe(true);
+    });
+
+    it('rejects updates within existing reader paint', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+
+        expect(mutationContainsOnlyReaderPaint(attributeMutation(word, 'style', null))).toBe(true);
+    });
+
+    it('keeps structural damage to a destructively painted page word observable', () => {
+        const page = document.createElement('p');
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        page.append(word);
+        document.body.append(page);
+
+        expect(mutationContainsOnlyReaderPaint(childListMutation(word, document.createTextNode('先生')))).toBe(false);
+
+        const mirror = document.createElement('span');
+        mirror.className = 'jpdb-reader-text-mirror';
+        mirror.append(word);
+        expect(mutationContainsOnlyReaderPaint(childListMutation(word, document.createTextNode('せんせい')))).toBe(true);
+    });
+
+    it('keeps page and mixed replacements observable', () => {
+        const japanese = document.createTextNode('先生');
+        const reading = document.createElement('span');
+        reading.dataset.yomuProjectedReading = 'true';
+
+        expect(mutationContainsOnlyReaderPaint(childListMutation(document.body, japanese))).toBe(false);
+        expect(mutationContainsOnlyReaderPaint(childListMutation(document.body, reading, japanese))).toBe(false);
     });
 });
 

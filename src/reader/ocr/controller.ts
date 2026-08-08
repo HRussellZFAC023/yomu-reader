@@ -1,4 +1,5 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
+import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
 import { captureOcrTargetContext, claimOcrScan, ocrFallbackCardFromText, ocrTargetWork, ocrTargetWorkKey,
     releaseOcrScan, type OcrTargetContext, type OcrTargetWork } from './target-context';
 import { ocrRuntimeActive } from './mode';
@@ -633,6 +634,8 @@ export class ImageOcrController {
     }
 
     private handleRenderableMediaMutations(mutations: MutationRecord[]): void {
+        mutations = mutations.filter(mutation => !mutationContainsOnlyReaderPaint(mutation));
+        if (!mutations.length) return;
         this.invalidatePositionTransformsForMutations(mutations);
         const settings = this.options.getSettings();
         if (!ocrRuntimeActive(settings)) {
@@ -4145,7 +4148,12 @@ function mutationTouchesRenderableMedia(mutation: MutationRecord): boolean {
 }
 
 function mutationCanRestyleEverySurface(mutation: MutationRecord): boolean {
-    return [mutation.target, ...mutation.addedNodes, ...mutation.removedNodes].some(node =>
+    const target = mutation.target instanceof Element
+        ? mutation.target
+        : mutation.target.parentElement;
+    if (target?.matches('style, link[rel~="stylesheet"]')) return true;
+    if (mutation.type !== 'childList') return false;
+    return [...mutation.addedNodes, ...mutation.removedNodes].some(node =>
         node instanceof Element
         && (node.matches('style, link[rel~="stylesheet"]')
             || Boolean(node.querySelector('style, link[rel~="stylesheet"]'))));

@@ -1056,12 +1056,14 @@ export function classifyDecoration(element: Element): DecorationState {
     // rendering; they are content by definition.
     if (element.closest(READER_ROOT_SELECTOR)) return 'content-ruby';
     if (decorationMustBeSkipped(element)) return 'skip';
-    // Layout-fragile YouTube chrome keeps its authored DOM completely intact,
-    // but still takes the passive annotation contract through the document
-    // portal. Classify this before the generic control cascade: the exact shelf
-    // label is a custom element whose descendants are not all controls.
+    // YouTube owns these compact labels as controls, not reading content. Its
+    // Shorts rail actively measures and ellipsizes Share/Remix labels; even an
+    // out-of-tree annotation portal paints over those native glyphs and makes
+    // the controls look truncated or missing. Leave the complete control
+    // surface page-owned. Video titles, comments, descriptions, and captions
+    // do not match this deliberately narrow predicate and remain annotatable.
     if (element instanceof HTMLElement && youtubeNativeChromeMustRemainPageOwned(element)) {
-        return 'interactive-passive';
+        return 'skip';
     }
     const control = interactivePassiveControl(element);
     if (control) {
@@ -1112,10 +1114,8 @@ const YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR = 'ytd-shelf-renderer > ytd-verti
 
 /**
  * YouTube owns the lifecycle of a shelf's compact `+ other N` expander. It
- * rewrites the control's child spans while recycling search results. Mounting
- * an additive annotation mirror inside that custom element means each rewrite
- * retires and replays our projection, so the reading and underline alternate
- * between partial states even though the native glyphs never move.
+ * rewrites the control's child spans while recycling search results, so the
+ * whole control stays outside the reader's decoration surface.
  */
 export function youtubeShelfExpansionChromeMustRemainPageOwned(element: HTMLElement): boolean {
     if (!isYouTubeAppHostname()) return false;

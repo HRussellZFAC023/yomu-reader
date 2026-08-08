@@ -379,6 +379,56 @@ describe('reader helpers', () => {
         }
     });
 
+    it('leaves clipped Shorts Share and Remix controls entirely page-owned', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/shorts/abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/shorts/abc123',
+        });
+        try {
+            const targets = collectYouTubeTargets(`
+                <ytd-shorts>
+                    <ytd-reel-player-overlay-renderer>
+                        <div id="actions" role="toolbar">
+                            <button id="share" aria-label="共有">
+                                <span style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span>
+                            </button>
+                            <button id="remix" aria-label="リミックス">
+                                <span style="display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">リミックス</span>
+                            </button>
+                        </div>
+                        <div id="description">日本語の説明</div>
+                    </ytd-reel-player-overlay-renderer>
+                </ytd-shorts>
+            `, 'https://www.youtube.com/shorts/abc123', 20);
+            const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
+            const before = document.querySelector('#actions')?.innerHTML;
+
+            for (const text of ['共有', 'リミックス']) {
+                const target = targets.find(candidate => candidate.text === text);
+                if (!target) continue;
+                applyTokensToScanTarget(target, [{
+                    card: { ...card, cardState: ['known'], spelling: text, reading: 'よみ', source: 'jpdb' },
+                    start: 0,
+                    end: text.length,
+                    length: text.length,
+                    rubies: [{ text: 'よみ', start: 0, end: text.length, length: text.length }],
+                    pitchClass: 'heiban',
+                    sentence: text,
+                }], settings);
+            }
+
+            expect(targets.some(target => target.text === '日本語の説明')).toBe(true);
+            expect(document.querySelector('#actions')?.innerHTML).toBe(before);
+            expect(document.querySelector('#actions .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('#actions .jpdb-reader-text-mirror')).toBeNull();
+            expect(document.querySelector('.jpdb-reader-youtube-chrome-portal')).toBeNull();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('prioritizes YouTube watch sidebar recommendations before busy live chat at low limits', () => {
         vi.stubGlobal('location', {
             href: YOUTUBE_WATCH_TEST_URL,

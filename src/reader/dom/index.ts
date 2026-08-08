@@ -50,7 +50,6 @@ import {
     safeComputedStyle,
     safeElementMatches,
     selectorPairs,
-    youtubeNativeChromeMustRemainPageOwned,
     composedAncestorElement as composedParentElement,
 } from './decoration-policy';
 import { detachedReadingLaneLineHeight, rubyFriendlyMirrorLineHeight } from './text-mirror-line-height';
@@ -67,7 +66,6 @@ import {
     settleDocumentAnnotationPortalMirrors,
     styleDocumentAnnotationPortalMirror,
     unregisterDocumentAnnotationPortalMirror,
-    YOUTUBE_CHROME_PORTAL_MIRROR_CLASS,
 } from './youtube-chrome-annotation-portal';
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
@@ -1436,14 +1434,6 @@ function isBlockFragmentElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    // YouTube's exact page-owned labels frequently use `display:flex`; their
-    // authored inline spans are therefore blockified flex items. Splitting at
-    // those computed block boundaries produces one target/portal per segment
-    // (`+ 他`, `3`, `件`) and makes recycler updates tear them down in turn.
-    // The page-owned predicate is deliberately narrow (mini-guide, Shorts
-    // action chrome, and the exact shelf expander), so coalesce only inside
-    // that already-approved control scope.
-    if (youtubeNativeChromeMustRemainPageOwned(element)) return false;
     return !options.mergeBlockFragments
         && isFragmentParagraphBoundary(element, options)
         && !isInlineSentenceListItem(element);
@@ -1885,11 +1875,6 @@ function scanHostRequiresSourcePreservingMirror(host: HTMLElement): boolean {
 function stampTargetDecoration(target: ScanTextTarget, host: HTMLElement): void {
     const decoration = target.decoration;
     if (!decoration) return;
-    const pageOwnedYouTubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
-    // YouTube owns these controls down to their attributes. Their sealed
-    // decoration state travels with the portal render instead of adding
-    // data-yomu-* state to a node the framework reconciles/recycles.
-    if (pageOwnedYouTubeChrome) return;
     stampDecorationState(host, decoration);
     if (decoration !== 'interactive-passive') return;
     const control = interactivePassiveControl(target.parent);
@@ -1904,15 +1889,6 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
     }
     if (target.parent instanceof HTMLCanvasElement) {
         applyTokensToCanvasFallbackTarget(target, tokens, settings);
-        return;
-    }
-    // Layout-fragile YouTube chrome keeps its native children and inline style
-    // page-owned. Render through the same source-preserving mirror semantics,
-    // but let textMirrorMount place the annotation layer in the document portal.
-    if (youtubeNativeChromeMustRemainPageOwned(target.parent)) {
-        const host = nonDestructiveScanHost(target);
-        stampTargetDecoration(target, host);
-        applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }
     // CRITICAL invariant (Phase 1 shadow-DOM scan): a target inside an open
@@ -2958,13 +2934,11 @@ function textMirrorMount(
     clipRow: HTMLElement | null,
     target: ScanTextTarget,
 ): TextMirrorMount {
-    const youtubeChrome = youtubeNativeChromeMustRemainPageOwned(host);
-    if (youtubeChrome || sourcePreservingProseNeedsDocumentPortal(host, target)) {
+    if (sourcePreservingProseNeedsDocumentPortal(host, target)) {
         return {
             configure(mirror) {
                 mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
-                if (youtubeChrome) mirror.classList.add(YOUTUBE_CHROME_PORTAL_MIRROR_CLASS);
-                mirror.dataset.yomuDocumentPortal = youtubeChrome ? 'youtube-chrome' : 'volatile-prose';
+                mirror.dataset.yomuDocumentPortal = 'volatile-prose';
                 // Detached readings are already projected outside page layout;
                 // a document portal must never reserve a taller native line box.
                 delete mirror.dataset.yomuReadingLaneCandidate;
@@ -3009,7 +2983,7 @@ function sourcePreservingProseNeedsDocumentPortal(host: HTMLElement, target: Sca
     // A body portal can project exact Range boxes through translations, but a
     // scale/rotation changes the reading typography as well as the boxes. Keep
     // broad prose in its established in-host mirror under that containing
-    // block; the narrowly approved YouTube chrome path above remains separate.
+    // block.
     if (documentAnnotationPortalHasNonTranslationTransform(host)) return false;
 
     let current: HTMLElement | null = host;
@@ -3034,9 +3008,6 @@ function mountNonDestructiveTextMirror(
     context: NonDestructiveMirrorRenderContext,
 ): void {
     const mirror = createNonDestructiveTextMirror(context);
-    if (target.decoration && youtubeNativeChromeMustRemainPageOwned(host)) {
-        stampDecorationState(mirror, target.decoration);
-    }
     const mount = textMirrorMount(host, context.clipRow, target);
     // A mirrored CONTROL (chip, pill, compact button) must lay out exactly
     // like its host at rest: the ruby-friendly line height pushed the base
@@ -3769,9 +3740,11 @@ export function projectAdditiveTextMirrors(root: ParentNode = document): void {
             if (mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) removeTextMirror(host);
             continue;
         }
-        if (youtubeNativeChromeMustRemainPageOwned(host)
-            && !mirror.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-            if (replayNonDestructiveRenderFromCache(host)) continue;
+        // A deterministic decoration verdict may change after mount (a
+        // control hydrates its clipping/editability attributes). Retire the
+        // old paint at the shared projection boundary instead of maintaining
+        // a site-specific mirror migration path for every late transition.
+        if (classifyDecoration(host) === 'skip') {
             removeTextMirror(host);
             continue;
         }
@@ -4952,10 +4925,6 @@ export function setRubyDistortsConstrainedRowsForTest(value: boolean | null): vo
 }
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
-    const pageOwnedYouTubeControl = interactivePassiveControl(target.parent);
-    if (pageOwnedYouTubeControl && youtubeNativeChromeMustRemainPageOwned(pageOwnedYouTubeControl)) {
-        return pageOwnedYouTubeControl;
-    }
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments
         .map(fragment => fragment.node.parentElement)
@@ -5182,15 +5151,6 @@ function observeTextMirrorHost(host: HTMLElement): void {
         );
         if (hostAttributeMutations.length) {
             noteConstrainedRowLayoutSettled();
-            if (youtubeNativeChromeMustRemainPageOwned(liveHost)
-                && !currentTextMirror(liveHost)?.classList.contains(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS)) {
-                // YouTube sometimes hydrates its ellipsis style after the first
-                // scan. Convert the already-resolved mirror from the replay
-                // cache instead of waiting for an unrelated future scan.
-                if (replayNonDestructiveRenderFromCache(liveHost)) return;
-                dispatchTextMirrorStale(liveHost);
-                return removeTextMirror(liveHost);
-            }
             // A class change may replace the page's authored line-height while
             // our important inline reservation masks it. Release first, then
             // let the batched projection pass assess the new computed style.

@@ -174,7 +174,6 @@ import {
     type SubtitlePanelMode,
 } from './subtitle-surface';
 import { bindSubtitleControlRail, type SubtitleControlRailBinding } from './subtitle-control-rail';
-import { SubtitleRailPointerFocus } from './subtitle-rail-pointer-focus';
 import { isTranscriptScrollIntentKey, TranscriptFollowState } from './transcript-follow-state';
 import {
     TRANSCRIPT_PANEL_ANIMATION_MS,
@@ -890,7 +889,7 @@ export class SubtitlePlayerController {
     private youtubeVideoId = '';
     private youtubeAutoSelectSuppressedVideoId = '';
     private lastDomCaption = '';
-    private pendingDomCaption?: { text: string; firstSeenAt: number };
+    private pendingDomCaption?: { text: string; firstSeenAt: number; parseSettled: boolean };
     private lastDomCaptionSeenAt = 0;
     // Parsed subtitle/transcript HTML caching (all tiers, TTL empties, in-flight
     // dedupe, token cache, session persistence, bounded eviction) lives in this
@@ -979,8 +978,6 @@ export class SubtitlePlayerController {
     // that displaced line must briefly own control visibility even while the
     // host player's chrome remains autohidden (notably on touch devices).
     private subtitleSurfaceWakeActive = false;
-    private readonly railPointerFocus = new SubtitleRailPointerFocus(
-        () => this.root, () => this.videoPlayerChromeHidden(), () => this.scheduleControlsIdle());
     private transcriptHydrationSerial = 0;
     private transcriptCacheWarmupSerial = 0;
     private transcriptCacheWarmupSignature = '';
@@ -1150,7 +1147,6 @@ export class SubtitlePlayerController {
         // line still wakes its controls without intercepting the underlying
         // video click or the word interaction.
         document.addEventListener('pointerdown', event => this.wakeControlsFromSubtitleSurface(event), this.eventOptions({ passive: true, capture: true }));
-        this.railPointerFocus.bind(this.abortController?.signal);
         document.addEventListener('click', event => this.handleSubtitleSurfaceClick(event), this.eventOptions({ capture: true }));
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
@@ -1306,7 +1302,6 @@ export class SubtitlePlayerController {
         this.clearTranscriptPanelAnimation();
         this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
         this.pendingPointerActivity = undefined;
-        this.railPointerFocus.destroy();
         this.clearVideoInsetForTranscriptPanel();
         this.subtitleStylePanelOpen = false;
         // The controller instance outlives its own teardown (the app destroys and
@@ -1705,6 +1700,7 @@ export class SubtitlePlayerController {
         this.lastDomCaption = '';
         this.lastDomCaptionSeenAt = 0;
         this.lastAutoCopiedCueSignature = '';
+        this.lastRenderedPrimaryKey = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
         this.lastAppliedPrimaryRowHtml = '';
@@ -2224,11 +2220,6 @@ export class SubtitlePlayerController {
     private syncPlayerChromeIdleState(): void {
         if (!this.root) return;
         const chromeHidden = this.videoPlayerChromeHidden();
-        // Mobile taps leave the last rail button focused; focus inside the
-        // player subtree (fullscreen reparents the rail into it) blocks
-        // YouTube's own autohide in EVERY controls mode, so blur whenever the
-        // player chrome has faded — not only in auto mode.
-        if (chromeHidden) this.railPointerFocus.blurPointerFocus();
         if (!this.hasAutoIdleMode(this.options.getSettings())) {
             this.setControlsAway(false);
             this.lastPlayerChromeHidden = chromeHidden;
@@ -2692,24 +2683,44 @@ export class SubtitlePlayerController {
 
     private isDomCaptionStable(text: string, nowMs: number): boolean {
         if (this.pendingDomCaption?.text !== text) {
-            this.pendingDomCaption = { text, firstSeenAt: nowMs };
-            // Parse during the stability window instead of after it, so the
-            // caption renders colorized the moment it counts as stable.
-            this.warmDomCaptionParse(text);
+            const pending = { text, firstSeenAt: nowMs, parseSettled: !this.shouldParseSubtitles() };
+            this.pendingDomCaption = pending;
+            // Keep the page caption visible while the exact Yomu render is
+            // prepared. Publishing only after this settles prevents a plain
+            // subtitle from acquiring furigana/pitch after it is on screen.
+            this.warmDomCaptionParse(text, pending);
             return false;
         }
-        return nowMs - this.pendingDomCaption.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS && text !== this.lastDomCaption;
+        return this.pendingDomCaption.parseSettled
+            && nowMs - this.pendingDomCaption.firstSeenAt >= DOM_CAPTION_STABLE_DELAY_MS
+            && text !== this.lastDomCaption;
     }
 
-    private warmDomCaptionParse(text: string): void {
-        if (!text.trim() || !this.shouldParseSubtitles()) return;
+    private warmDomCaptionParse(
+        text: string,
+        pending: { text: string; firstSeenAt: number; parseSettled: boolean },
+    ): void {
+        if (!text.trim() || !this.shouldParseSubtitles()) {
+            pending.parseSettled = true;
+            return;
+        }
         // Warm the texts that will actually render: applyDomCaptionFallback
         // normalizes and sentence-splits the raw caption, so warming the raw
         // string would cache under a key no render ever reads and the line
         // would parse only AFTER the stability window.
         const texts = this.domCaptionCueTexts(text);
-        if (!texts.length) return;
-        void this.parseCueHtmlBatch(texts, this.options.getSettings(), { enrichBeforeRender: true, requireEnrichedProvisional: true }).catch(() => undefined);
+        if (!texts.length) {
+            pending.parseSettled = true;
+            return;
+        }
+        void this.parseCueHtmlBatch(texts, this.options.getSettings(), {
+            enrichBeforeRender: true,
+            requireEnrichedProvisional: true,
+        }).catch(() => undefined).finally(() => {
+            if (this.pendingDomCaption !== pending) return;
+            pending.parseSettled = true;
+            this.wakeTick();
+        });
     }
 
     private domCaptionCueTexts(text: string): string[] {
@@ -2746,6 +2757,11 @@ export class SubtitlePlayerController {
         if (!this.subtitleEl) return;
         this.applyPrimaryRow(null);
         this.applySecondaryLine(settings);
+        // Ending a cue ends its visual lifetime. A later visit to the same
+        // text may use background-enriched cache data from its first frame.
+        this.lastRenderedPrimaryKey = '';
+        this.lastRenderedPrimaryText = '';
+        this.lastRenderedPrimaryHtml = '';
     }
 
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {
@@ -2753,7 +2769,7 @@ export class SubtitlePlayerController {
         const primary = this.renderPrimarySubtitle(text, settings);
         const changed = this.applyPrimaryRow(primary.html);
         this.applySecondaryLine(settings);
-        this.applyRenderedPrimarySubtitle(primary, text);
+        this.applyRenderedPrimarySubtitle(primary, text, settings);
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
         // flicker out under time-driven render ticks (user-reported).
@@ -2848,6 +2864,13 @@ export class SubtitlePlayerController {
     }
 
     private primaryParsedHtmlForRender(text: string, settings: ReaderSettings, key: string): string | undefined {
+        // The active cue has one visual commit. Background pitch/card
+        // enrichment may improve caches and transcript rows for the next visit,
+        // but it must not add marks to words already being read on screen.
+        if (this.lastRenderedPrimaryKey === key
+            && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) {
+            return this.lastRenderedPrimaryHtml;
+        }
         const cached = this.cachedParsedCueHtml(key, settings);
         if (cached !== undefined) return cached;
         const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
@@ -2869,11 +2892,15 @@ export class SubtitlePlayerController {
         return undefined;
     }
 
-    private applyRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>, text: string): void {
+    private applyRenderedPrimarySubtitle(
+        primary: ReturnType<typeof renderSubtitlePrimary>,
+        text: string,
+        settings: ReaderSettings,
+    ): void {
         this.applyRenderedPrimaryKaraoke(primary);
         this.syncSubtitleTextSize();
         this.syncNativePlayerControlHitProtection();
-        this.cacheRenderedPrimarySubtitle(primary);
+        this.cacheRenderedPrimarySubtitle(primary, settings);
         this.requestParsedPrimaryIfNeeded(primary, text);
     }
 
@@ -2882,8 +2909,12 @@ export class SubtitlePlayerController {
         if (primary.karaokeActive && activeCue) this.applyKaraokeStateToPrimary(activeCue, this.video ? this.subtitlePlaybackTime(this.video) : activeCue.start);
     }
 
-    private cacheRenderedPrimarySubtitle(primary: ReturnType<typeof renderSubtitlePrimary>): void {
+    private cacheRenderedPrimarySubtitle(
+        primary: ReturnType<typeof renderSubtitlePrimary>,
+        settings: ReaderSettings,
+    ): void {
         if (!primary.nextRenderedPrimary) return;
+        this.lastRenderedPrimaryKey = this.parseCacheKey(primary.nextRenderedPrimary.text, settings);
         this.lastRenderedPrimaryText = primary.nextRenderedPrimary.text;
         this.lastRenderedPrimaryHtml = primary.nextRenderedPrimary.html;
     }
@@ -2997,7 +3028,7 @@ export class SubtitlePlayerController {
             await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
             const remembered = this.rememberParsedCueHtml(key, html, tokens, { forceNotify: true });
-            if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, text, remembered.html);
+            if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(key, remembered.html);
             return remembered.html;
         })();
         this.htmlCache.pendingParsedHtml.set(key, promise);
@@ -3063,7 +3094,6 @@ export class SubtitlePlayerController {
         }).then(html => {
             if (!this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key)) return;
             this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
-            if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
         }).catch(() => undefined);
     }
 
@@ -3086,7 +3116,7 @@ export class SubtitlePlayerController {
             const tokenList = tokens[index] ?? [];
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             const remembered = this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
-            if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(item.key, item.text, remembered.html);
+            if (!remembered.provisional) this.applyAuthoritativeParsedCueHtml(item.key, remembered.html);
             return remembered.html;
         }));
         missing.forEach((item, index) => this.htmlCache.pendingParsedHtml.set(item.key, parsedHtml[index]));
@@ -3097,10 +3127,8 @@ export class SubtitlePlayerController {
         });
     }
 
-    private applyAuthoritativeParsedCueHtml(key: string, text: string, html: string): void {
+    private applyAuthoritativeParsedCueHtml(key: string, html: string): void {
         this.updateTranscriptRowsForParseKey(key, html);
-        if (this.currentPrimaryParseCacheKey() !== key) return;
-        this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
     }
 
     // Late token enrichment (public jpdb pitch lookups, fallback-vocabulary
@@ -3133,8 +3161,6 @@ export class SubtitlePlayerController {
         if (html === previous) return;
         const remembered = this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true, enriched: true } : {});
         this.updateTranscriptRowsForParseKey(key, remembered.html, { provisional: remembered.provisional, force: true });
-        if (this.currentPrimaryParseCacheKey() !== key) return;
-        this.applyParsedPrimaryHtml(key, text, remembered.html, ++this.renderSerial);
     }
 
     private applyParsedPrimaryHtml(key: string, text: string, html: string, serial: number): void {
@@ -3144,11 +3170,6 @@ export class SubtitlePlayerController {
         this.lastRenderedPrimaryText = text;
         this.lastRenderedPrimaryHtml = html;
         if (root) this.notifyParsedTokensForKey(key, true, [root]);
-    }
-
-    private currentPrimaryParseCacheKey(): string {
-        const text = this.currentCue?.text.trim() ?? '';
-        return text ? this.parseCacheKey(text, this.options.getSettings()) : '';
     }
 
     private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<ParsedSubtitleHtmlResult[]> {
@@ -3680,6 +3701,7 @@ export class SubtitlePlayerController {
             this.cues = adjusted;
             this.currentCue = undefined;
             this.lastAutoCopiedCueSignature = '';
+            this.lastRenderedPrimaryKey = '';
             this.lastRenderedPrimaryText = '';
             this.lastRenderedPrimaryHtml = '';
             this.lastAppliedPrimaryRowHtml = '';
@@ -3804,15 +3826,12 @@ export class SubtitlePlayerController {
     // test does not add a pointer-catching layer over transparent player space.
     private wakeControlsFromSubtitleSurface(event: PointerEvent): void {
         const target = event.target instanceof Element ? event.target : null;
-        this.railPointerFocus.handlePointerDown(event, target);
-        if (target && this.isInSubtitleUi(target)) this.railPointerFocus.notePointerInput();
         if (!this.pointInVisibleSubtitleSurface(event.clientX, event.clientY)) return;
         // Pressing inside a reader dialog that happens to overlap the video is
         // not a press on the subtitle surface, so it must not wake the rail.
         // The subtitle UI is itself a reader surface, and pressing THAT is
         // exactly the gesture this wake exists for, so it stays eligible.
         if (target && !this.isInSubtitleUi(target) && this.isInReaderSurface(target)) return;
-        this.railPointerFocus.notePointerInput();
         // The native caption line is not blank subtitle space — it IS the blur
         // toggle. A press that lands on it is a deliberate act on that control,
         // so the geometric wake must yield rather than answer the tap by
@@ -3849,7 +3868,6 @@ export class SubtitlePlayerController {
     private handleSubtitleUiFocusOut(event: FocusEvent): void {
         const previous = event.target instanceof Element ? event.target : null;
         if (!previous || !this.isInSubtitleUi(previous)) return;
-        this.railPointerFocus.handleFocusOut(previous);
         const next = event.relatedTarget instanceof Element ? event.relatedTarget : null;
         if (next && this.isInSubtitleUi(next)) return;
         // focusout fires during the focus transfer. Re-check in a microtask so
@@ -3865,12 +3883,11 @@ export class SubtitlePlayerController {
     private handleSubtitleUiFocusIn(event: FocusEvent): void {
         const target = event.target instanceof Element ? event.target : null;
         if (!target || !this.isInSubtitleUi(target)) return;
-        this.railPointerFocus.handleFocusIn(target);
         // Tapping the native caption line focuses it on the browsers that focus
         // buttons from a press, which would wake the rail through the back door
         // after the pointerdown and click gates have both declined. A keyboard
         // user who deliberately tabbed there still gets the reveal.
-        if (!this.railPointerFocus.inputWasKeyboard && this.isNativeSubtitleBlurControl(target)) return;
+        if (!target.matches(':focus-visible') && this.isNativeSubtitleBlurControl(target)) return;
         // Idle controls remain in the accessibility tree as a skip-link-style
         // gateway. Real DOM focus must paint the whole control cluster even on
         // touch browsers whose :focus-within invalidation can lag behind Tab.
@@ -4359,7 +4376,6 @@ export class SubtitlePlayerController {
     private hideControlsImmediately(): void {
         this.clearControlsIdleTimer();
         this.subtitleSurfaceWakeActive = false;
-        this.railPointerFocus.blurPointerFocus();
         if (!this.root || !this.shouldAutoIdleControls()) return;
         this.root.classList.add('jpdb-subtitle-controls-idle');
         // The grip stub is only kept as a stand-in for a native player that is
@@ -4414,8 +4430,7 @@ export class SubtitlePlayerController {
         this.clearControlsIdleTimer();
         const shouldExpireSubtitleSurfaceWake = this.subtitleSurfaceWakeActive
             && this.hasAutoIdleMode(this.options.getSettings());
-        const shouldReleasePointerFocusedRail = this.railPointerFocus.shouldReleasePointerFocus();
-        if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake && !shouldReleasePointerFocusedRail) return;
+        if (!this.shouldAutoIdleControls() && !shouldExpireSubtitleSurfaceWake) return;
         this.controlsIdleTimer = window.setTimeout(() => {
             this.controlsIdleTimer = undefined;
             this.subtitleSurfaceWakeActive = false;
@@ -4582,7 +4597,6 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         if (!settings.subtitlePlayerEnabled) return;
         const editable = isEditableTarget(event.target);
-        this.railPointerFocus.handleKeydown(event.target, editable);
         if (editable) return;
         const previousSubtitle = matchesShortcut(event, settings.shortcuts.previousSubtitle);
         const nextSubtitle = matchesShortcut(event, settings.shortcuts.nextSubtitle);
@@ -5199,7 +5213,12 @@ export class SubtitlePlayerController {
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
             overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
-            suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled && this.video),
+            // DOM-caption fallback is a hand-off: the page caption stays
+            // visible until a parse-settled Yomu cue is ready. Loaded cue lists
+            // are ready immediately; fallback text becomes ready at currentCue.
+            suppressNativeCaptions: Boolean(settings.subtitlePlayerEnabled
+                && this.video
+                && (this.cues.length || this.currentCue?.text)),
             suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
             video: this.video,
             hasPrimaryCues: Boolean(this.cues.length),
@@ -7762,6 +7781,7 @@ export class SubtitlePlayerController {
         this.pendingDomCaption = undefined;
         this.youtubeDomCaptionFallbackTrackId = '';
         this.lastAutoCopiedCueSignature = '';
+        this.lastRenderedPrimaryKey = '';
         this.lastRenderedPrimaryText = '';
         this.lastRenderedPrimaryHtml = '';
         this.lastAppliedPrimaryRowHtml = '';
@@ -8254,7 +8274,7 @@ export class SubtitlePlayerController {
         const fullscreenElement = currentFullscreenElement();
         const fullscreenHost = this.fullscreenHost.subtitleFullscreenHost(fullscreenElement);
         this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
-        this.fullscreenHost.syncSubtitleRootParent(fullscreenHost);
+        this.fullscreenHost.syncSubtitleRootParent(fullscreenElement);
         document.documentElement.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         this.root?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         this.transcriptPanel?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);

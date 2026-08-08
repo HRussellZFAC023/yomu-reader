@@ -471,7 +471,7 @@ function configureScrollProjectionLayer(layer: HTMLElement, flowAnchored: boolea
         float: flowAnchored ? 'left' : 'none',
     };
     for (const [property, value] of Object.entries(values)) {
-        layer.style.setProperty(property, value, 'important');
+        setImportantStyleIfChanged(layer, property, value);
     }
 }
 
@@ -507,15 +507,17 @@ function syncProjectedReadingStyle(record: ProjectionRecord): void {
     const sourceStyle = safeComputedStyle(source);
     const base = source.closest<HTMLElement>('.jpdb-reader-word') ?? source;
     const baseStyle = safeComputedStyle(base);
-    clone.textContent = source.textContent ?? '';
-    clone.dataset.yomuExpression = base.dataset.expression ?? base.dataset.surface ?? '';
-    clone.style.setProperty('font-family', sourceStyle.fontFamily || baseStyle.fontFamily, 'important');
-    clone.style.setProperty('font-size', sourceStyle.fontSize || '10px', 'important');
-    clone.style.setProperty('font-style', sourceStyle.fontStyle || baseStyle.fontStyle, 'important');
-    clone.style.setProperty('font-weight', sourceStyle.fontWeight || '700', 'important');
-    clone.style.setProperty('letter-spacing', sourceStyle.letterSpacing || baseStyle.letterSpacing, 'important');
-    clone.style.setProperty('color', baseStyle.color || sourceStyle.color || 'currentColor', 'important');
-    clone.style.setProperty('text-shadow', baseStyle.textShadow || 'none', 'important');
+    const text = source.textContent ?? '';
+    if (clone.textContent !== text) clone.textContent = text;
+    const expression = base.dataset.expression ?? base.dataset.surface ?? '';
+    if (clone.dataset.yomuExpression !== expression) clone.dataset.yomuExpression = expression;
+    setImportantStyleIfChanged(clone, 'font-family', sourceStyle.fontFamily || baseStyle.fontFamily);
+    setImportantStyleIfChanged(clone, 'font-size', sourceStyle.fontSize || '10px');
+    setImportantStyleIfChanged(clone, 'font-style', sourceStyle.fontStyle || baseStyle.fontStyle);
+    setImportantStyleIfChanged(clone, 'font-weight', sourceStyle.fontWeight || '700');
+    setImportantStyleIfChanged(clone, 'letter-spacing', sourceStyle.letterSpacing || baseStyle.letterSpacing);
+    setImportantStyleIfChanged(clone, 'color', baseStyle.color || sourceStyle.color || 'currentColor');
+    setImportantStyleIfChanged(clone, 'text-shadow', baseStyle.textShadow || 'none');
     // Only the kana and their size decide how wide the reading wants to be, so
     // the measured natural width survives every other repaint.
     const key = `${clone.textContent ?? ''}\u0000${clone.style.getPropertyValue('font-size')}`;
@@ -610,7 +612,7 @@ function applyProjectionPaints(paints: readonly ProjectionPaint[], context?: Pro
 
 function applyProjectedReadingPaint(paint: ProjectionPaint, context?: ProjectionReadContext): void {
     if (!paint.visible || !paint.rect) {
-        paint.record.clone.style.setProperty('display', 'none', 'important');
+        setImportantStyleIfChanged(paint.record.clone, 'display', 'none');
         return;
     }
     positionProjectedReading(paint.record, paint.rect, context, paint.layout);
@@ -627,25 +629,36 @@ function positionProjectedReading(
     const centre = layout?.centre ?? rect.left + rect.width / 2;
     const scaleX = layout?.scaleX ?? 1;
     record.readingScaleX = scaleX;
-    clone.style.setProperty('display', 'block', 'important');
-    clone.style.setProperty('left', `${centre + origin.x}px`, 'important');
-    clone.style.setProperty('top', `${rect.top + origin.y}px`, 'important');
-    clone.style.setProperty('right', 'auto', 'important');
-    clone.style.setProperty('bottom', 'auto', 'important');
+    setImportantStyleIfChanged(clone, 'display', 'block');
+    setImportantStyleIfChanged(clone, 'left', `${centre + origin.x}px`);
+    setImportantStyleIfChanged(clone, 'top', `${rect.top + origin.y}px`);
+    setImportantStyleIfChanged(clone, 'right', 'auto');
+    setImportantStyleIfChanged(clone, 'bottom', 'auto');
     // translate is origin-independent, but the condense is not: pin the origin
     // so `left` stays the painted CENTRE of the reading at every scale.
-    clone.style.setProperty('transform-origin', 'center', 'important');
-    clone.style.setProperty(
+    setImportantStyleIfChanged(clone, 'transform-origin', 'center');
+    setImportantStyleIfChanged(
+        clone,
         'transform',
         scaleX < 1 ? `translate(-50%, -100%) scaleX(${scaleX})` : 'translate(-50%, -100%)',
-        'important',
     );
     // Stamps stay in viewport space in both modes so alignment guards and the
     // settle sweep keep reading one coordinate system.
-    clone.dataset.yomuSourceLeft = String(rect.left);
-    clone.dataset.yomuSourceTop = String(rect.top);
-    clone.dataset.yomuSourceWidth = String(rect.width);
-    clone.dataset.yomuSourceHeight = String(rect.height);
+    setDatasetIfChanged(clone, 'yomuSourceLeft', String(rect.left));
+    setDatasetIfChanged(clone, 'yomuSourceTop', String(rect.top));
+    setDatasetIfChanged(clone, 'yomuSourceWidth', String(rect.width));
+    setDatasetIfChanged(clone, 'yomuSourceHeight', String(rect.height));
+}
+
+function setImportantStyleIfChanged(element: HTMLElement, property: string, value: string): void {
+    if (element.style.getPropertyValue(property) === value
+        && element.style.getPropertyPriority(property) === 'important') return;
+    element.style.setProperty(property, value, 'important');
+}
+
+function setDatasetIfChanged(element: HTMLElement, key: string, value: string): void {
+    if (element.dataset[key] === value) return;
+    element.dataset[key] = value;
 }
 
 /**

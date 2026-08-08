@@ -535,7 +535,8 @@ describe('detached reading overlay occlusion', () => {
         await nextProjectionFrame();
 
         const firstWrite = events.findIndex(event => event.startsWith('write:'));
-        expect(events.slice(0, firstWrite)).toEqual(['read:first', 'read:second']);
+        const readsBeforeAnyWrite = firstWrite === -1 ? events : events.slice(0, firstWrite);
+        expect(readsBeforeAnyWrite).toEqual(['read:first', 'read:second']);
         clearProjectedReadings(first.owner);
         clearProjectedReadings(second.owner);
     });

@@ -838,7 +838,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         expect(parseJapanese).toHaveBeenCalledTimes(2);
     });
 
-    it('renders provisional YouTube subtitle words immediately while authoritative JPDB parsing finishes', async () => {
+    it('hydrates cache and transcript without changing an active cue after authoritative parsing finishes', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -925,7 +925,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expect(rowText.dataset.parsedProvisional).toBeUndefined();
             expect(rowText.querySelector('.jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
             expect(rowText.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
-            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-known.jpdb-pitch-heiban')).not.toBeNull();
+            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む');
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
@@ -1409,5 +1410,34 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
 
         expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withApi));
         expect(internals.parseCacheKey('読む', localEmpty)).not.toBe(internals.parseCacheKey('読む', withDictionary));
+    });
+
+    it('keys subtitle html by pitch visibility and hidden furigana state groups', () => {
+        const controller = new SubtitlePlayerController({
+            getSettings: () => DEFAULT_SETTINGS,
+            parseJapanese: async () => [],
+            onSettingsChange: () => undefined,
+        });
+        const internals = controller as unknown as {
+            parseCacheKey: (text: string, settings: typeof DEFAULT_SETTINGS) => string;
+        };
+        const visible = {
+            ...DEFAULT_SETTINGS,
+            showPitchAccent: true,
+            furiganaHiddenStateGroups: ['known', 'learning'] as typeof DEFAULT_SETTINGS.furiganaHiddenStateGroups,
+        };
+
+        expect(internals.parseCacheKey('読む', visible)).not.toBe(internals.parseCacheKey('読む', {
+            ...visible,
+            showPitchAccent: false,
+        }));
+        expect(internals.parseCacheKey('読む', visible)).not.toBe(internals.parseCacheKey('読む', {
+            ...visible,
+            furiganaHiddenStateGroups: ['known'],
+        }));
+        expect(internals.parseCacheKey('読む', visible)).toBe(internals.parseCacheKey('読む', {
+            ...visible,
+            furiganaHiddenStateGroups: ['learning', 'known'],
+        }));
     });
 });

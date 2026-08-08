@@ -369,6 +369,8 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
 
     it('keeps plain overlay and transcript captions selectable while annotations are paused', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-player \{[^}]*-webkit-user-select: none;[^}]*user-select: none;/);
+        expect(normalizedCss).toMatch(/\.jpdb-subtitle-list \{[^}]*-webkit-user-select: none;[^}]*user-select: none;/);
         expect(normalizedCss).toMatch(
             /\.jpdb-subtitle-player\.jpdb-subtitle-annotations-paused \.jpdb-subtitle-primary \{[^}]*pointer-events: auto;/,
         );

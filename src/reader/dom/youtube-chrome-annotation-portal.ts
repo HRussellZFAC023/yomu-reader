@@ -2,7 +2,6 @@ import { safeComputedStyle } from './decoration-policy';
 
 export const DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS = 'jpdb-reader-document-annotation-portal';
 const DOCUMENT_ANNOTATION_PORTAL_PAINT_CLASS = 'jpdb-reader-document-annotation-paint';
-export const YOUTUBE_CHROME_PORTAL_MIRROR_CLASS = 'jpdb-reader-youtube-chrome-portal';
 
 export interface DocumentAnnotationPortalClipBounds {
     left: number;

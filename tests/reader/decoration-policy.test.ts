@@ -240,7 +240,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#label')).toBe('interactive-passive');
     });
 
-    it('routes YouTube ellipsis-constrained action and mini-guide labels through the passive portal lane', () => {
+    it('leaves YouTube ellipsis-constrained action and mini-guide labels undecorated', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-mini-guide-renderer role="navigation">
@@ -257,8 +257,8 @@ describe('classifyDecoration acceptance matrix', () => {
             </ytd-reel-player-overlay-renderer>
         `;
 
-        expect(classifyText('#home')).toBe('interactive-passive');
-        expect(classifyText('#share')).toBe('interactive-passive');
+        expect(classifyText('#home')).toBe('skip');
+        expect(classifyText('#share')).toBe('skip');
     });
 
     it('recognizes only the explicit ytm-shorts action rail outside a reel overlay', () => {
@@ -289,70 +289,22 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(youtubeShelfExpansionChromeMustRemainPageOwned(showMore)).toBe(true);
         expect(youtubeNativeChromeMustRemainPageOwned(showMore)).toBe(true);
         expect(youtubeEllipsisChromeMustRemainPageOwned(showMore)).toBe(false);
-        expect(classifyText('#show-more-label')).toBe('interactive-passive');
+        expect(classifyText('#show-more-label')).toBe('skip');
     });
 
-    it('keeps one annotated shelf portal across same-text recycler child swaps', async () => {
+    it('does not collect or mutate YouTube shelf expansion chrome', () => {
         stubYouTube();
         mountLiveYouTubeShelfExpansion();
-        document.documentElement.classList.add('jpdb-reader-word-underline-pitch');
         const label = document.querySelector<HTMLElement>('#show-more-control')!;
         const nativeChildren = [...label.childNodes];
         const nativeStyle = label.style.cssText;
         const nativeAttributes = Array.from(label.attributes).map(attribute => [attribute.name, attribute.value]);
-        mockRect(label, { width: 120, height: 24 });
-        Object.defineProperty(label, 'clientWidth', { configurable: true, value: 120 });
-        Object.defineProperty(label, 'scrollWidth', { configurable: true, value: 120 });
-        vi.stubGlobal('Range', class ProjectionRange {
-            getClientRects(): DOMRectList {
-                return [] as unknown as DOMRectList;
-            }
-        });
-        mockRangeRects(() => [positionedRect(20, 40, 100, 60)]);
-
-        const target = collectTargets(label).find(candidate => candidate.text.includes('他') && candidate.text.includes('件'))!;
-        expect(target).toMatchObject({ decoration: 'interactive-passive', suppressRuby: true });
-        const otherStart = target.text.indexOf('他');
-        const itemStart = target.text.indexOf('件');
-        applyTokensToScanTarget(target, [
-            token('他', otherStart, target.text, 'ほか'),
-            token('件', itemStart, target.text, 'けん'),
-        ], FURIGANA_SETTINGS);
-        projectAdditiveTextMirrors(document);
-
-        const portal = document.body.querySelector<HTMLElement>('.jpdb-reader-youtube-chrome-portal')!;
-        expect(portal).toBeTruthy();
-        expect(portal.parentElement).toBe(document.body);
-        expect(label.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(collectTargets(label)).toEqual([]);
         expect([...label.childNodes]).toEqual(nativeChildren);
         expect(label.style.cssText).toBe(nativeStyle);
         expect(Array.from(label.attributes).map(attribute => [attribute.name, attribute.value])).toEqual(nativeAttributes);
         expect(label.hasAttribute('data-yomu-decoration')).toBe(false);
-        expect(portal.getAttribute('data-yomu-decoration')).toBe('interactive-passive');
-        expect(portal.querySelectorAll('.jpdb-reader-word')).toHaveLength(2);
-        expect(portal.querySelectorAll('.jpdb-reader-source-fragment')).toHaveLength(2);
-        expect(Array.from(document.querySelectorAll<HTMLElement>('[data-yomu-projected-reading="true"]'))
-            .map(reading => reading.textContent)).toEqual(expect.arrayContaining(['ほか', 'けん']));
-
-        for (let cycle = 0; cycle < 5; cycle += 1) {
-            const plus = document.createElement('span');
-            plus.textContent = '+ ';
-            const other = document.createElement('span');
-            other.textContent = '他 ';
-            const count = document.createElement('span');
-            count.textContent = '3 ';
-            const item = document.createElement('span');
-            item.textContent = '件';
-            label.replaceChildren(plus, other, count, item);
-            await Promise.resolve();
-            projectAdditiveTextMirrors(document);
-            expect(document.body.querySelector('.jpdb-reader-youtube-chrome-portal')).toBe(portal);
-            expect(label.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        }
-
-        document.querySelector('ytd-shelf-renderer')?.remove();
-        projectAdditiveTextMirrors(document);
-        expect(portal.isConnected).toBe(false);
+        expect(document.querySelector('.jpdb-reader-word')).toBeNull();
     });
 
     it('keeps the live YouTube shelf title and result content annotatable beside its page-owned expander', () => {
@@ -400,8 +352,8 @@ describe('classifyDecoration acceptance matrix', () => {
         document.body.append(entry);
 
         const label = shadow.querySelector<HTMLElement>('#shadow-home')!;
-        expect(classifyDecoration(label)).toBe('interactive-passive');
-        expect(classifyDecoration(label)).toBe('interactive-passive');
+        expect(classifyDecoration(label)).toBe('skip');
+        expect(classifyDecoration(label)).toBe('skip');
     });
 
     it('keeps ellipsis-constrained controls on other sites annotatable', () => {
@@ -800,7 +752,7 @@ describe('classifyDecoration acceptance matrix', () => {
 });
 
 describe('late YouTube native-chrome hydration', () => {
-    it('moves an existing Share mirror into the document portal when ellipsis hydrates', () => {
+    it('retires an existing Share mirror when the native label becomes clipped', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-reel-player-overlay-renderer>
@@ -828,7 +780,7 @@ describe('late YouTube native-chrome hydration', () => {
         projectAdditiveTextMirrors(document);
 
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
-        expect(document.body.querySelector('.jpdb-reader-youtube-chrome-portal .jpdb-reader-word')).not.toBeNull();
+        expect(document.body.querySelector('.jpdb-reader-document-annotation-portal .jpdb-reader-word')).toBeNull();
         expect(baseText(button)).toBe('共有');
         expect(host.style.getPropertyValue('visibility')).toBe('');
         expect(host.style.getPropertyValue('position')).toBe('');

@@ -458,6 +458,7 @@ function controlsWakeDesktopWatchHtml({ playerResponse }) {
           </div>
         </div></div></div>
       </section>
+      <p id="selection-proof">Ordinary YouTube page text remains selectable.</p>
     </main>
   </ytd-watch-flexy>
   <script>
@@ -489,7 +490,9 @@ function controlsWakeDesktopWatchHtml({ playerResponse }) {
     let hideTimer;
     function focusedYomuPlayerControl() {
       const active = document.activeElement;
-      return active instanceof Element && Boolean(active.closest('.jpdb-subtitle-player .jpdb-subtitle-rail'));
+      return active instanceof Element
+        && player.contains(active)
+        && Boolean(active.closest('.jpdb-subtitle-player .jpdb-subtitle-rail'));
     }
     function hideControls() {
       if (!playing) return;
@@ -566,6 +569,7 @@ function controlsWakeMobileWatchHtml({ playerResponse }) {
           <div id="player-control-overlay" class="fadein"><button aria-label="Play">play</button></div>
         </div>
       </ytm-player>
+      <p id="selection-proof">Ordinary YouTube page text remains selectable.</p>
       <ytm-slim-video-metadata-renderer><h2>モバイル字幕テスト</h2></ytm-slim-video-metadata-renderer>
     </main>
   </ytm-app>
@@ -597,7 +601,9 @@ function controlsWakeMobileWatchHtml({ playerResponse }) {
     let hideTimer;
     function focusedYomuPlayerControl() {
       const active = document.activeElement;
-      return active instanceof Element && Boolean(active.closest('.jpdb-subtitle-player .jpdb-subtitle-rail'));
+      return active instanceof Element
+        && player.contains(active)
+        && Boolean(active.closest('.jpdb-subtitle-player .jpdb-subtitle-rail'));
     }
     function hideControls() {
       if (!playing) return;
@@ -938,4 +944,3 @@ function subtitleE2eMobileWatchHtml({ playerResponse, fixtureVideoUrl }) {
 </body>
 </html>`;
 }
-

@@ -78,6 +78,8 @@ export class SubtitleParsedHtmlCache {
             settings.showFurigana,
             settings.furiganaMode,
             settings.hideKnownFurigana,
+            [...settings.furiganaHiddenStateGroups].sort().join(','),
+            settings.showPitchAccent,
             settings.wordHighlightColorSource,
             settings.wordUnderlineColorSource,
             settings.wordTextColorSource,

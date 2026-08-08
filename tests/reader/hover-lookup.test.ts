@@ -81,6 +81,8 @@ interface HoverLookupInternals {
     lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null, options?: unknown): { text: string; offset: number; start: number; end: number; anchor: HTMLElement } | null;
     readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
+    isCurrentPointerTextHoverCandidate(candidate: { text: string; offset: number; start: number; end: number; anchor: HTMLElement }): boolean;
+    liveReaderWordAtPointer(x: number, y: number): HTMLElement | null;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
     navigateLookupWord(direction: -1 | 1): Promise<void>;
     showWord(word: HTMLElement, options?: unknown): Promise<void>;
@@ -509,6 +511,102 @@ describe('hover lookup', () => {
             expectNoHoverLookup(hoverLookup);
         } finally {
             rafSpy.mockRestore();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('invalidates an in-flight OCR word before a same-line pointer move is coalesced', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        line.dataset.ocrText = 'でも先生';
+        line.innerHTML = `
+            <span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="でも先生">でも</span>
+            <span class="jpdb-reader-word" data-vid="3" data-sid="4" data-sentence="でも先生">先生</span>
+        `;
+        document.body.append(line);
+        const [staleWord, currentWord] = Array.from(line.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        staleWord!.getBoundingClientRect = () => new DOMRect(20, 16, 48, 20);
+        currentWord!.getBoundingClientRect = () => new DOMRect(120, 16, 48, 20);
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true };
+        internals.hoverLookupGeneration = 7;
+        internals.lastPointerPosition = { x: 40, y: 24 };
+
+        const originalElementFromPoint = document.elementFromPoint;
+        const originalElementsFromPoint = document.elementsFromPoint;
+        Object.defineProperties(document, {
+            elementFromPoint: {
+                configurable: true,
+                value: vi.fn(() => line),
+            },
+            elementsFromPoint: {
+                configurable: true,
+                value: vi.fn(() => [line]),
+            },
+        });
+        const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(91);
+
+        try {
+            expect(internals.isCurrentRenderedWordHover(staleWord!, 'word:1:2:でも先生', 7)).toBe(true);
+
+            internals.queueHoverPointerMove(hoverPointerEvent(
+                line,
+                'mouse',
+                'pointermove',
+                {},
+                null,
+                { x: 140, y: 24 },
+            ));
+
+            expect(rafSpy).toHaveBeenCalledTimes(1);
+            expect(internals.lastPointerPosition).toEqual({ x: 140, y: 24 });
+            expect(internals.isCurrentRenderedWordHover(staleWord!, 'word:1:2:でも先生', 7)).toBe(false);
+        } finally {
+            cleanupReaderApp(app);
+            rafSpy.mockRestore();
+            Object.defineProperties(document, {
+                elementFromPoint: { configurable: true, value: originalElementFromPoint },
+                elementsFromPoint: { configurable: true, value: originalElementsFromPoint },
+            });
+        }
+    });
+
+    it('prefers the current portal target over an overlapping stale OCR word', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const staleWord = readerWordFixture('でも');
+        staleWord.dataset.tokenStart = '0';
+        staleWord.dataset.tokenEnd = '2';
+        const currentWord = readerWordFixture('先生');
+        currentWord.dataset.vid = '3';
+        currentWord.dataset.sid = '4';
+        currentWord.dataset.tokenStart = '0';
+        currentWord.dataset.tokenEnd = '2';
+        const source = document.createElement('yt-attributed-string');
+        document.body.append(source);
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true };
+        internals.lastPointerPosition = { x: 32, y: 150 };
+        internals.liveReaderWordAtPointer = vi.fn(() => staleWord);
+        internals.readerWordFromRenderedGeometry = vi.fn(target => target === source ? currentWord : null);
+        const restorePoint = stubElementFromPoint(source);
+
+        try {
+            expect(internals.isCurrentPointerTextHoverCandidate({
+                text: 'でも',
+                offset: 1,
+                start: 0,
+                end: 2,
+                anchor: staleWord,
+            })).toBe(false);
+            expect(internals.readerWordFromRenderedGeometry).toHaveBeenCalledWith(
+                source,
+                32,
+                150,
+                expect.any(Function),
+            );
+        } finally {
+            restorePoint();
             cleanupReaderApp(app);
         }
     });

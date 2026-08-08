@@ -743,6 +743,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
         const internals = controllerInternals<{
             isDomCaptionStable: (text: string, nowMs: number) => boolean;
+            pendingDomCaption: { text: string; firstSeenAt: number; parseSettled: boolean } | undefined;
         }>(controller);
 
         // First sighting starts the stability clock AND the parse.
@@ -752,6 +753,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
 
         // Stability passing renders from the already-warmed cache; the same
         // text does not restart the parse.
+        await vi.waitFor(() => expect(internals.pendingDomCaption?.parseSettled).toBe(true));
         expect(internals.isDomCaptionStable('新しい字幕です', 1300)).toBe(true);
         expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
     });
@@ -1150,7 +1152,10 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
                 jitenApiKey: '',
                 localDictionariesEnabled: true,
             };
-            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => [makeSubtitleToken(text)]));
+            let resolveBatch!: (tokens: JPDBToken[][]) => void;
+            const parseJapaneseBatch = vi.fn((_texts: string[]) => new Promise<JPDBToken[][]>(resolve => {
+                resolveBatch = resolve;
+            }));
             const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
             installController(controller);
             attachVideo(controller, { currentTime: 30 });
@@ -1162,6 +1167,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
                 keepDomCaptionCueAlive: (text: string) => void;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
                 htmlCache: SubtitleParsedHtmlCache;
+                pendingDomCaption: { text: string; firstSeenAt: number; parseSettled: boolean } | undefined;
             }>(controller);
 
             // First sighting starts the parse DURING the stability window —
@@ -1171,8 +1177,18 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             expect(internals.isDomCaptionStable(caption, 1000)).toBe(false);
             expect(parseJapaneseBatch).toHaveBeenCalledTimes(1);
             expect(parseJapaneseBatch.mock.calls[0]?.[0]).toEqual(['こんにちは先生。', '元気ですか。']);
+            // The stability delay alone is not permission to paint a plain
+            // cue. Wait for the exact parse that will become the first frame.
+            expect(internals.isDomCaptionStable(caption, 1300)).toBe(false);
+            expect(internals.pendingDomCaption?.parseSettled).toBe(false);
+
+            resolveBatch([
+                [makeSubtitleToken('こんにちは先生。')],
+                [makeSubtitleToken('元気ですか。')],
+            ]);
             const firstPartKey = internals.parseCacheKey('こんにちは先生。', settings);
             await vi.waitFor(() => expect(internals.htmlCache.provisionalParsedHtmlCache.has(firstPartKey)).toBe(true));
+            expect(internals.pendingDomCaption?.parseSettled).toBe(true);
 
             // Stability passing renders the first part pre-parsed: no loading
             // shimmer, reader words present immediately.
@@ -1198,7 +1214,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         }
     });
 
-    it('re-bakes cached cue html after late enrichment so stepping back keeps pitch', async () => {
+    it('re-bakes cache and transcript without mutating an active cue after first paint', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -1222,7 +1238,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
             const internals = controllerInternals<{
                 cues: Array<typeof cue>;
-                currentCue: typeof cue;
+                currentCue: typeof cue | undefined;
                 selectedTrackId: string;
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
                 parseCueHtmlBatch: (texts: string[]) => Promise<unknown>;
@@ -1260,18 +1276,69 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             tokens[0].card.pitchAccent = ['LHL'];
             controller.refreshParsedCueTexts(['読む']);
 
-            // The cache, the live primary, and the hydrated transcript row all
-            // carry the enriched pitch now — stepping back re-renders from
-            // this html, so pitch survives Previous/Next.
+            // Cache and transcript can improve in the background, but the cue
+            // already on screen is frozen so furigana/pitch never pop in late.
             expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-pitch-heiban');
-            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-pitch-heiban')).not.toBeNull();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-pitch-heiban')).toBeNull();
             expect(rowText.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
+
+            // A later visit starts a new visual lifetime and uses the enriched
+            // cache from its first frame.
+            internals.currentCue = undefined;
+            internals.render();
+            internals.currentCue = cue;
+            internals.render();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-pitch-heiban')).not.toBeNull();
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,
                 value: originalLocation,
             });
         }
+    });
+
+    it('repaints an active cue when its parse-affecting settings key changes', async () => {
+        const settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            subtitleTranscriptAutoScroll: false,
+            apiKey: '',
+            jitenApiKey: '',
+            localDictionariesEnabled: true,
+            showFurigana: true,
+            furiganaMode: 'all',
+        };
+        const token = makeSubtitleToken('読む', {
+            reading: 'よむ',
+            rubies: [{ start: 0, end: 1, length: 1, text: 'よ' }],
+        });
+        const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(() => [token]));
+        const { controller } = createSubtitleController(settings, { parseJapaneseBatch });
+        installController(controller);
+        attachVideo(controller, { currentTime: 0.5 });
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const internals = controllerInternals<{
+            cues: Array<typeof cue>;
+            currentCue: typeof cue;
+            selectedTrackId: string;
+            parseCueHtmlBatch: (texts: string[], settings: ReaderSettings) => Promise<unknown>;
+            render: () => void;
+            subtitleEl: HTMLElement;
+        }>(controller);
+        internals.selectedTrackId = 'file-0';
+        internals.cues = [cue];
+        internals.currentCue = cue;
+
+        await internals.parseCueHtmlBatch(['読む'], settings);
+        internals.render();
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary rt')).not.toBeNull();
+
+        settings.furiganaMode = 'off';
+        settings.showFurigana = false;
+        await internals.parseCueHtmlBatch(['読む'], settings);
+        internals.render();
+
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary rt')).toBeNull();
     });
 
     it('batches transcript cache warmup when a batch parser is available', async () => {

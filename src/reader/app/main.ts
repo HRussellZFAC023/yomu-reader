@@ -81,6 +81,7 @@ import { isUsefulImmersionPreloadQuery } from '../immersion/query';
 import type { ImmersionSearchOptions } from '../immersion/popover-controller';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { ParkableObserver, parkableMutationObserver } from '../platform/page-activity';
+import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
@@ -2723,6 +2724,10 @@ export class ReaderApp {
             const scanMutations: MutationRecord[] = [];
             let renderRejectionDelay: number | null = null;
             for (const mutation of mutations) {
+                // Projection and mirror paint is observed at the document
+                // root too. Reject it before any rejection classifier or
+                // Japanese probe can turn our own write into another scan.
+                if (mutationContainsOnlyReaderPaint(mutation)) continue;
                 const delay = readerRenderRejectionRescanDelay(mutation);
                 if (delay !== null) {
                     renderRejectionDelay = Math.max(renderRejectionDelay ?? 0, delay);
@@ -4474,6 +4479,12 @@ export class ReaderApp {
     // delays the lookup popover (notably over OCR overlays). Coalesce to one
     // hover probe per animation frame using the latest pointer position.
     private queueHoverPointerMove(event: PointerEvent): void {
+        // Record geometry before the coalesced probe runs. An earlier hover
+        // lookup can finish while this frame is waiting; its stale-result gate
+        // must see where the pointer is now, not the previous frame's point.
+        if (!this.isDestroyed && this.canUseHoverLookupPointer(event)) {
+            this.lastPointerPosition = { x: event.clientX, y: event.clientY };
+        }
         if (event.buttons) {
             if (this.hoverPointerMoveFrame !== undefined) {
                 window.cancelAnimationFrame(this.hoverPointerMoveFrame);
@@ -5413,7 +5424,10 @@ export class ReaderApp {
         // used to open the hover in the first place, so it stays trustworthy even when the
         // watchdog asks to ignore pointer position for the *loose* containment fallback below.
         if (target instanceof Element) {
-            if (!options.ignorePointerPosition && this.isPointerInsideActiveOcrWordLine(word, target)) return true;
+            const ocrLineHover = !options.ignorePointerPosition
+                ? this.activeOcrWordHoverAtPointer(word, target)
+                : undefined;
+            if (ocrLineHover !== undefined) return ocrLineHover;
             if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
@@ -5430,9 +5444,18 @@ export class ReaderApp {
         return word.closest<HTMLElement>(HOVER_WORD_HOST_CONTROL_SELECTOR);
     }
 
-    private isPointerInsideActiveOcrWordLine(word: HTMLElement, target: Element): boolean {
+    private activeOcrWordHoverAtPointer(word: HTMLElement, target: Element): boolean | undefined {
         const line = word.closest<HTMLElement>('.jpdb-ocr-line');
-        return Boolean(line && line.contains(target));
+        if (!line?.contains(target) || !this.lastPointerPosition) return undefined;
+        const pointedWord = this.ocrLineWordForPointer(
+            target,
+            this.lastPointerPosition.x,
+            this.lastPointerPosition.y,
+        );
+        // Preserve an open card while crossing punctuation/Latin gaps inside
+        // the same OCR line, but never let that broad line ownership overrule
+        // the exact different word now under the pointer.
+        return pointedWord ? pointedWord === word : true;
     }
 
     private reanchorDisconnectedHoverWord(word: HTMLElement, options: { ignorePointerPosition?: boolean }): boolean {
@@ -5498,7 +5521,15 @@ export class ReaderApp {
     }
 
     private currentPointerTextHoverCandidateAtPoint(x: number, y: number, target: EventTarget | null): PointerTextLookup | null {
-        const word = this.liveReaderWordAtPointer(x, y);
+        const targetElement = target instanceof Element ? target : null;
+        // Prefer the annotation surface owned by the actual event target. A
+        // transparent OCR overlay can geometrically overlap a YouTube portal
+        // word; consulting the global point stack first would keep validating
+        // the old OCR token after the pointer had reached the portal source.
+        const word = (targetElement
+            ? this.readerWordFromRenderedGeometry(targetElement, x, y, item => this.canHoverLookupReaderWord(item))
+            : null)
+            ?? this.liveReaderWordAtPointer(x, y);
         const candidate = word ? this.renderedWordPointerLookupCandidate(word, x, y, target) : null;
         return candidate ?? this.lookupCandidateFromPoint(x, y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
     }

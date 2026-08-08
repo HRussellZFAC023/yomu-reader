@@ -55,18 +55,10 @@ function shouldHoldLastAnnotatedPrimary(options: SubtitlePrimaryRenderOptions): 
         && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
 }
 
-// Which cached render belongs to this cue is decided by the cue text, not by
-// the parse key. The controller writes lastRenderedText and lastRenderedHtml as
-// a pair on every render and clears them as a pair; lastRenderedKey is written
-// on only one of those paths (the async parsed-apply) and cleared on none, so
-// any cue whose parse was already warmed carries a previous cue's key. Judging
-// reuse by that key threw the cached render away, and a tick that momentarily
-// has no parsed html — the window while an authoritative parse upgrades a
-// provisional one — then repainted the cue as plain unannotated text. That is
-// the annotations arriving late (they return when the upgrade lands) or never
-// (when it does not), plus a DOM rebuild each tick that wiped the
-// asynchronously applied status colors. Text identity is the invariant that
-// actually holds: it proves the cached html was rendered from this exact cue.
+// The parse key includes both cue text and every render-affecting setting. It
+// is the identity of a reusable visual commit: text alone would retain stale
+// furigana, pitch, or colour markup after a learner changes those settings.
 function rendersTheSameCue(options: SubtitlePrimaryRenderOptions): boolean {
-    return options.lastRenderedText === options.text;
+    return options.lastRenderedKey === options.parseKey
+        && options.lastRenderedText === options.text;
 }

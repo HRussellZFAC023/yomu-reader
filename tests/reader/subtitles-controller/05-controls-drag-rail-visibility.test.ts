@@ -1322,7 +1322,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
-    it.each(['auto', 'always'] as const)('releases pointer-focused %s rail controls before YouTube reports its chrome hidden', async controlsMode => {
+    it.each(['auto', 'always'] as const)('keeps focused %s rail controls outside YouTube simulated-fullscreen ancestry', async controlsMode => {
         vi.useFakeTimers();
         let controller: SubtitlePlayerController | undefined;
         const originalLocation = window.location;
@@ -1331,7 +1331,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             value: new URL('https://www.youtube.com/watch?v=focus123') as unknown as Location,
         });
         try {
-            document.body.innerHTML = '<div id="movie_player" class="html5-video-player"><video></video></div>';
+            document.body.innerHTML = '<div id="movie_player" class="html5-video-player ytp-fullscreen"><video></video></div>';
             controller = createSubtitleController(makeSubtitleSettings({ subtitleControlsMode: controlsMode })).controller;
             controller.init();
             const player = document.querySelector<HTMLElement>('#movie_player')!;
@@ -1341,11 +1341,15 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             const railHandle = root.querySelector<HTMLButtonElement>('[data-action="rail-expand"]')!;
+            const fullscreenState = controllerInternals<{ syncFullscreenState: () => void }>(controller);
+            fullscreenState.syncFullscreenState();
 
-            // Searching before using the iPad player leaves keyboard as the last
-            // input modality. The rail owns pointerdown and stops it bubbling, so
-            // the pointer press must still replace that stale modality marker.
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+            // A CSS fullscreen class changes geometry, not browser top-layer
+            // ancestry. Keeping the reader root at body means YouTube never
+            // sees Yomu's focused control as focus inside its player subtree.
+            expect(root.parentElement).toBe(document.body);
+            expect(player.contains(root)).toBe(false);
+
             railHandle.dispatchEvent(pointerEvent('pointerdown', {
                 clientX: 24,
                 clientY: 24,
@@ -1355,18 +1359,10 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             railHandle.focus();
 
             expect(document.activeElement).toBe(railHandle);
-            const focusState = controllerInternals<{
-                controlsIdleTimer?: number;
-                subtitleStylePanelOpen: boolean;
-            }>(controller);
+            const focusState = controllerInternals<{ subtitleStylePanelOpen: boolean }>(controller);
             expect(focusState.subtitleStylePanelOpen).toBe(false);
             expect(player.classList.contains('ytp-autohide')).toBe(false);
 
-            await vi.advanceTimersByTimeAsync(2600);
-
-            // A long press must remain actionable: start the idle countdown
-            // only after the finger lifts, not while the press is active.
-            expect(document.activeElement).toBe(railHandle);
             railHandle.dispatchEvent(pointerEvent('pointerup', {
                 clientX: 24,
                 clientY: 24,
@@ -1374,33 +1370,10 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
                 pointerType: 'touch',
             }));
 
-            // A later tap on non-focusable player chrome must not erase the
-            // provenance of Safari's still-focused rail button. Focusout or a
-            // new focused control replaces it; pointer activity alone does not.
-            video.dispatchEvent(pointerEvent('pointerdown', {
-                clientX: 512,
-                clientY: 288,
-                pointerId: 45,
-                pointerType: 'touch',
-            }));
-            video.dispatchEvent(pointerEvent('pointerup', {
-                clientX: 512,
-                clientY: 288,
-                pointerId: 45,
-                pointerType: 'touch',
-            }));
-            expect(document.activeElement).toBe(railHandle);
-
-            await vi.advanceTimersByTimeAsync(750);
-            expect(focusState.controlsIdleTimer).toBeDefined();
-
             await vi.advanceTimersByTimeAsync(2600);
 
-            // Yomu must release transient pointer focus on its own timeout. Waiting
-            // for ytp-autohide first is circular: YouTube keeps its chrome awake
-            // while a control inside the player surface remains focused.
-            expect(document.activeElement).not.toBe(railHandle);
-            expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(controlsMode === 'auto');
+            expect(document.activeElement).toBe(railHandle);
+            expect(player.contains(document.activeElement)).toBe(false);
             expect(player.classList.contains('ytp-autohide')).toBe(false);
         } finally {
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
@@ -1434,7 +1407,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
         }
     });
 
-    it('releases pointer focus inside an open style panel without closing the panel', async () => {
+    it('does not discard focus inside an open style panel', async () => {
         vi.useFakeTimers();
         let controller: SubtitlePlayerController | undefined;
         try {
@@ -1474,7 +1447,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
             await vi.advanceTimersByTimeAsync(2600);
 
-            expect(document.activeElement).not.toBe(range);
+            expect(document.activeElement).toBe(range);
             expect(focusState.subtitleStylePanelOpen).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-style-open')).toBe(true);
         } finally {
@@ -1539,9 +1512,9 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
             const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
             const internals = controllerInternals<{ syncPlayerChromeIdleState: () => void }>(controller);
 
-            // A mobile tap leaves the rail button focused; without the blur
-            // the sticky :focus-within would block idling forever. Use the
-            // always-present visibility toggle — prev/next hide without lines.
+            // A mobile tap may leave the rail button focused. The root remains
+            // outside the player, so native chrome idling must not discard that
+            // valid focus just to work around YouTube ancestry.
             const railButton = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="visibility"]')!;
             railButton.dispatchEvent(pointerEvent('pointerdown', {
                 clientX: 24,
@@ -1559,7 +1532,7 @@ describe('SubtitlePlayerController — idle controls, overlay drag & rail visibi
 
             overlay.classList.remove('fadein');
             internals.syncPlayerChromeIdleState();
-            expect(document.activeElement).not.toBe(railButton);
+            expect(document.activeElement).toBe(railButton);
             expect(root.classList.contains('jpdb-subtitle-controls-idle')).toBe(true);
 
             // Chrome fades back in (viewer tapped the video): the rail returns

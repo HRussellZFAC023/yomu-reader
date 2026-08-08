@@ -398,18 +398,16 @@ describe('reader helpers', () => {
 
     it('keeps an annotated cue on screen while its authoritative upgrade is in flight', () => {
         const annotated = '<span class="jpdb-reader-word" data-card-state="known">読む</span>';
-        // The controller caches (text, html) together on every composed render
-        // but writes lastRenderedKey only on the async parsed-apply path, so a
-        // cue whose parse was already warmed carries a previous cue's key.
-        // While the authoritative upgrade runs, the controller reports no
-        // parsed html for this tick — reuse has to survive that.
+        // While an authoritative upgrade runs, the controller reports no
+        // parsed html for this tick. The existing visual commit is reusable
+        // only when both its cue text and settings-bearing parse key match.
         const upgrading = renderControllerPrimarySubtitle({
             cue: undefined,
             text: '本を読む',
             settings: DEFAULT_SETTINGS,
             parseKey: 'ja|本を読む',
             parsedHtml: undefined,
-            lastRenderedKey: 'ja|前の行',
+            lastRenderedKey: 'ja|本を読む',
             lastRenderedText: '本を読む',
             lastRenderedHtml: annotated,
             hasFreshEmptyParsedHtml: false,
@@ -418,6 +416,22 @@ describe('reader helpers', () => {
         });
         expect(upgrading.html).toBe(annotated);
         expect(upgrading.html).not.toContain('jpdb-subtitle-primary-loading');
+
+        const changedSettings = renderControllerPrimarySubtitle({
+            cue: undefined,
+            text: '本を読む',
+            settings: { ...DEFAULT_SETTINGS, furiganaMode: 'off' },
+            parseKey: 'ja|furigana-off|本を読む',
+            parsedHtml: undefined,
+            lastRenderedKey: 'ja|本を読む',
+            lastRenderedText: '本を読む',
+            lastRenderedHtml: annotated,
+            hasFreshEmptyParsedHtml: false,
+            hasParser: true,
+            time: 0,
+        });
+        expect(changedSettings.html).toContain('jpdb-subtitle-primary-loading');
+        expect(changedSettings.html).not.toBe(annotated);
 
         // A different cue must never inherit the previous cue's annotated html,
         // even when the stale key happens to match.

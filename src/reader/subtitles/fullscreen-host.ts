@@ -75,22 +75,18 @@ function isVisibleYouTubeFullscreenHost(element: HTMLElement | null | undefined)
 
 // Everything the fullscreen-host collaborator reads back off the controller,
 // made explicit: the bound video (host detection is video-relative) and the
-// reader root + transcript panel it reparents into the top-layer fullscreen
-// host.
+// reader root + transcript panel whose top-layer ancestry it owns.
 export interface SubtitleFullscreenHostDeps {
     getVideo(): HTMLVideoElement | undefined;
     getRoot(): HTMLElement | undefined;
     getTranscriptPanel(): HTMLElement | undefined;
 }
 
-// Fullscreen top-layer host resolution + reparenting extracted from the
-// controller: owns the event-driven host-query cache, resolves which element
-// (CSS/inline YouTube host, real element-fullscreen container, native-video
-// layout target, or none) the subtitle overlay must live inside, and reparents
-// the reader root + transcript panel into that top-layer host so the overlay is
-// not clipped out by fullscreen. The controller keeps the fullscreen-state
-// bookkeeping and delegates host lookup/reparenting through this collaborator;
-// every controller input flows through SubtitleFullscreenHostDeps.
+// Fullscreen host resolution extracted from the controller. CSS/inline hosts
+// are geometry signals only; they are not browser top-layer boundaries. DOM
+// reparenting is reserved for a real element-fullscreen ancestor, because
+// moving controls into YouTube's simulated player subtree makes YouTube treat
+// Yomu focus as native-player focus and prevents its chrome from auto-hiding.
 export class SubtitleFullscreenHost {
     // Event-driven cache for the inline/CSS fullscreen host queries; undefined
     // means dirty (recompute on next read). See queriedFullscreenHost.
@@ -168,7 +164,7 @@ export class SubtitleFullscreenHost {
             : null;
     }
 
-    syncSubtitleRootParent(fullscreenHost: HTMLElement | null = this.subtitleFullscreenHost()): void {
+    syncSubtitleRootParent(fullscreenElement: Element | null = currentFullscreenElement()): void {
         const root = this.deps.getRoot();
         if (!root) return;
         // When the entire document is the fullscreen element (YouTube's desktop
@@ -176,15 +172,16 @@ export class SubtitleFullscreenHost {
         // render inside it through <body>; appending a <div> directly under
         // <html> is unnecessary and a non-standard place for it, so keep it in
         // <body>.
-        const parent = this.fullscreenReaderRootParent(fullscreenHost);
+        const parent = this.fullscreenReaderRootParent(fullscreenElement);
         if (root.parentElement !== parent) parent.appendChild(root);
         const transcriptPanel = this.deps.getTranscriptPanel();
         if (transcriptPanel && transcriptPanel.parentElement !== parent) parent.appendChild(transcriptPanel);
     }
 
-    private fullscreenReaderRootParent(fullscreenHost: HTMLElement | null): HTMLElement {
-        return !fullscreenHost || fullscreenHost === document.documentElement
+    private fullscreenReaderRootParent(fullscreenElement: Element | null): HTMLElement {
+        return !this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)
+            || fullscreenElement === document.documentElement
             ? (document.body ?? document.documentElement)
-            : fullscreenHost;
+            : fullscreenElement;
     }
 }
