@@ -31,7 +31,7 @@ describe('A28 homepage contract', () => {
         expect(homepageStyles).not.toContain('.yomu-language-cycle');
     });
 
-    it('moves the multilingual claim into the headline rotator', () => {
+    it('keeps the multilingual headline rotator at reading strength', () => {
         // The demoted "same loop works in N other languages" line is gone
         // (owner decision 2026-08-04); the claim now lives in the rotator,
         // which reads the same asserted roster (__YOMU_HERO_LANGUAGES__), so a
@@ -41,6 +41,9 @@ describe('A28 homepage contract', () => {
         const theme = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         expect(theme).toContain('installHostedHeroLanguageRotator');
         expect(theme).toContain('__YOMU_HERO_LANGUAGES__');
+        expect(theme).toContain("en: ['Read ', ' with Yomu.']");
+        expect(theme).toContain("ja: ['よむで', 'を読む。']");
+        expect(theme).not.toContain("en: ['A complete system for learning ', '.']");
     });
 
     it('drops the "nothing installed" duplicate CTA section', () => {

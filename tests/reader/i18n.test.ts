@@ -136,7 +136,6 @@ describe('interface language resolution', () => {
         const sources = [
             'src/reader/app/i18n.ts',
             'src/reader/newtab/i18n.ts',
-            'docs/.vitepress/theme/index.ts',
         ];
         for (const path of sources) {
             const offending = readFileSync(path, 'utf8')
@@ -146,6 +145,18 @@ describe('interface language resolution', () => {
 
             expect(offending).toEqual([]);
         }
+        // Hosted-docs keys are English source copy and may deliberately quote
+        // a target-language construction. Inspect only the Japanese values;
+        // scanning the whole source line mistakes a Korean term in the key for
+        // a Japanese-translation defect.
+        const { entries, unparsed } = hostedDocsJaCopyEntries(
+            readFileSync('docs/.vitepress/theme/index.ts', 'utf8'),
+        );
+        expect(unparsed).toEqual([]);
+        expect(entries
+            .filter(([, japanese]) => anomaly.test(japanese))
+            .map(([english, japanese]) => `${english}: ${japanese}`))
+            .toEqual([]);
     });
 
     // Split every line into the text-node segments the theme's

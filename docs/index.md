@@ -36,11 +36,11 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
       <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
-    <!-- The multilingual claim lives in the HEADLINE: the client rotator cycles
-         the study-target roster through the H1 (owner decision 2026-08-04,
-         restoring the rotator this comment's predecessor removed). The SSR text
-         above stays 日本語 so crawlers, social unfurls and the no-JS page always
-         read the same sentence; only a booted client ever sees another name. -->
+    <!-- The client rotator cycles the reading-ready target roster through an
+         explicitly reading-strength sentence. The SSR text above stays 日本語 so
+         crawlers, social unfurls and the no-JS page get the deeper claim that is
+         true only for Japanese; a booted client must never turn "complete" into
+         a claim about one of the other 32 targets. -->
   </div>
   <figure class="yomu-fold-card" data-yomu-ocr="ignore">
     <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />

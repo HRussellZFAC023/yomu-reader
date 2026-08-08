@@ -210,6 +210,9 @@ describe('published product claims', () => {
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
         expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
         expect(theme).toContain('__YOMU_HERO_LANGUAGES__');
+        expect(theme).toContain("en: ['Read ', ' with Yomu.']");
+        expect(theme).toContain("ja: ['よむで', 'を読む。']");
+        expect(theme).not.toContain("en: ['A complete system for learning ', '.']");
         expect(heroLanguages.length).toBeGreaterThan(1);
         for (const language of heroLanguages) {
             const target = LEARNING_TARGET_ROSTER.find(candidate => candidate.id === language.id);
@@ -241,7 +244,9 @@ describe('published product claims', () => {
             'full',
             'Mutation proof',
         )).toThrow('Mutation proof claims an unknown study target: not-a-target.');
-        expect(() => heroStudyLanguages('full')).not.toThrow();
+        expect(() => heroStudyLanguages('full')).toThrow(
+            'Homepage hero claims Albanian (sq) as full, but its study-target readiness is reading-only.',
+        );
     });
 
     it('keeps every lookup-capable picker target backed by published dictionary supply', () => {
