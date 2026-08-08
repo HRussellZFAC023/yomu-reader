@@ -37,20 +37,38 @@ export function getOrderedAudioSources(settings: ReaderSettings): AudioSourceSet
     const sources = settings.audioSources.filter(source => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
 
+    return defaultAudioSources(settings.audioSources, sources);
+}
+
+function defaultAudioSources(
+    authoredSources: readonly AudioSourceSetting[],
+    enabledSources: readonly AudioSourceSetting[],
+): AudioSourceSetting[] {
     const target = activeLearningTarget();
-    const hosted = target.audio.recordedWordAudio
-        ? settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE
-        : null;
-    const configured = sources.filter(source => !isYomuHostedAudioSource(source));
-    const targetSpeechSynthesis = target.experiences.audio === 'speech-synthesis'
-        && !configured.some(isBrowserTextToSpeechSource)
-        ? [TARGET_SPEECH_SYNTHESIS_SOURCE]
-        : [];
+    const configured = enabledSources.filter(source => !isYomuHostedAudioSource(source));
     return [
-        ...(hosted?.enabled ? [{ ...hosted }] : []),
+        ...hostedDefaultAudioSources(authoredSources, target.audio.recordedWordAudio),
         ...configured,
-        ...targetSpeechSynthesis,
+        ...targetSpeechSynthesisSources(configured, target.experiences.audio),
     ];
+}
+
+function hostedDefaultAudioSources(
+    authoredSources: readonly AudioSourceSetting[],
+    recordedWordAudio: boolean,
+): AudioSourceSetting[] {
+    if (!recordedWordAudio) return [];
+    const hosted = authoredSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return hosted.enabled ? [{ ...hosted }] : [];
+}
+
+function targetSpeechSynthesisSources(
+    configured: readonly AudioSourceSetting[],
+    experience: string,
+): AudioSourceSetting[] {
+    if (experience !== 'speech-synthesis') return [];
+    if (configured.some(isBrowserTextToSpeechSource)) return [];
+    return [TARGET_SPEECH_SYNTHESIS_SOURCE];
 }
 
 function isYomuHostedAudioSource(source: AudioSourceSetting): boolean {

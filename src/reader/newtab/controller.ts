@@ -166,13 +166,11 @@ import { buildNewTabRecallCloze, evaluateNewTabRecallAnswer, type NewTabRecallCl
 import {
     applyTypeWordSelfCheckAction,
     installSelfCheckDoodle,
+    mountTypeWordAnswer,
     nextTypeWordHandwritingIndex,
     renderSelfCheckHandwriting,
     renderStrokeFeedbackHandwriting,
-    renderTypeWordKeyboard,
-    renderTypeWordModeToggle,
     targetSupportsTypeWordHandwriting,
-    typeWordOutcomeLabel,
     type TypeWordSelfCheckAction,
 } from './type-word-rendering';
 import { normalizeLearningTargetInput } from './typing-input';
@@ -6515,46 +6513,24 @@ export class NewTabController {
     }
 
     private renderTypeWordAnswer(answer: HTMLElement | null, card: JPDBCard): void {
-        if (!answer) return;
-        delete answer.dataset.newtabAnswerDetailsRequest;
-        const configuredMode = this.typeWordInputMode();
-        const supportsHandwriting = this.typeWordSupportsHandwriting(card);
-        const mode = configuredMode === 'handwriting' && supportsHandwriting ? 'handwriting' : 'keyboard';
-        const feedback = this.stepState(cardKey(card))?.type?.feedback;
-        answer.dataset.typeWordMode = mode;
-        answer.dataset.typeWordOutcome = feedback ?? 'pending';
-        replaceChildrenWith(answer,
-            mode === 'handwriting'
-                ? this.renderTypeWordHandwriting(card)
-                : this.renderTypeWordKeyboard(card, feedback),
-            feedback ? el('div', {
-                class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result',
-                dataset: { newtabTypeResult: feedback },
-                role: 'status',
-                'aria-live': 'polite',
-            }, typeWordOutcomeLabel(feedback, this.typeWordTarget(card), key => this.text(key))) : null,
-            el('div', { class: 'jpdb-reader-newtab-type-secondary' },
-                this.renderTypeWordModeToggle(mode, card),
-                el('button', {
-                    class: 'jpdb-reader-newtab-type-skip',
-                    type: 'button',
-                    dataset: { newtabAction: newTabAction('type-word-skip') },
-                }, this.text('typeWordSkip'))),
-        );
-        if (mode === 'handwriting') this.installTypeWordDoodle(answer, card);
-        else if (!this.state.revealAnswer) this.focusStudyInputSoon(answer, '[data-newtab-type-input]');
-    }
-
-    private renderTypeWordModeToggle(mode: NewTabTypeWordInputMode, card: JPDBCard): HTMLElement {
-        return renderTypeWordModeToggle({ mode, supportsHandwriting: this.typeWordSupportsHandwriting(card), text: key => this.text(key) });
-    }
-
-    private renderTypeWordKeyboard(card: JPDBCard, feedback?: NewTabRecallOutcome): HTMLElement {
-        const target = newTabCardTarget(card);
-        return renderTypeWordKeyboard({
-            answer: this.stepState(cardKey(card))?.type?.answer ?? '', feedback,
-            language: target.typography.contentLocale, direction: target.direction,
-            revealAnswer: this.state.revealAnswer, audioButton: this.renderStudyWordAudioButton(card),
+        const cardTarget = newTabCardTarget(card);
+        mountTypeWordAnswer({
+            root: answer,
+            configuredMode: this.typeWordInputMode(),
+            supportsHandwriting: this.typeWordSupportsHandwriting(card),
+            state: this.stepState(cardKey(card))?.type,
+            targetText: this.typeWordTarget(card),
+            keyboard: {
+                language: cardTarget.typography.contentLocale,
+                direction: cardTarget.direction,
+                revealAnswer: this.state.revealAnswer,
+                audioButton: () => this.renderStudyWordAudioButton(card),
+                focus: root => this.focusStudyInputSoon(root, '[data-newtab-type-input]'),
+            },
+            handwriting: {
+                render: () => this.renderTypeWordHandwriting(card),
+                install: root => this.installTypeWordDoodle(root, card),
+            },
             text: key => this.text(key),
         });
     }
@@ -6581,11 +6557,10 @@ export class NewTabController {
         }
         if (!usesJapaneseCharacterStudy()) return;
         const chars = Array.from(this.typeWordTarget(card));
-        const progress = this.typeWordHandwritingProgress(card, chars);
-        if (progress >= chars.length) return;
-        const current = chars[progress] ?? '';
+        const character = chars[this.typeWordHandwritingProgress(card, chars)];
+        if (!character) return;
         installKanjiDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage, {
-            onChange: strokes => { void this.assessTypeWordDoodle(answer, card, current, strokes); },
+            onChange: strokes => { void this.assessTypeWordDoodle(answer, card, character, strokes); },
             onClear: () => this.clearDoodleAssessment({ ...this.studySlots(answer.closest<HTMLElement>('.jpdb-reader-newtab') ?? answer), answer }),
         });
     }

@@ -12,6 +12,7 @@ import type { NewTabRecallOutcome } from './recall-practice';
 type TypeWordText = (key: UiCopyKey | NewTabCopyKey) => string;
 
 export interface TypeWordSelfCheckState {
+    answer?: string;
     feedback?: NewTabRecallOutcome;
     selfCheckRevealed?: boolean;
 }
@@ -35,16 +36,111 @@ export function nextTypeWordHandwritingIndex(chars: string[], start: number): nu
     return relative < 0 ? chars.length : start + relative;
 }
 
-export function typeWordOutcomeLabel(
+function resolveTypeWordAnswerMode(
+    configured: NewTabTypeWordInputMode,
+    supportsHandwriting: boolean,
+): NewTabTypeWordInputMode {
+    if (configured !== 'handwriting') return 'keyboard';
+    return supportsHandwriting ? 'handwriting' : 'keyboard';
+}
+
+export function mountTypeWordAnswer(options: {
+    root: HTMLElement | null;
+    configuredMode: NewTabTypeWordInputMode;
+    supportsHandwriting: boolean;
+    state?: TypeWordSelfCheckState;
+    targetText: string;
+    keyboard: {
+        language: string;
+        direction: TextDirection;
+        revealAnswer: boolean;
+        audioButton: () => HTMLElement;
+        focus: (root: HTMLElement) => void;
+    };
+    handwriting: { render: () => HTMLElement; install: (root: HTMLElement) => void };
+    text: TypeWordText;
+}): void {
+    if (!options.root) return;
+    const mode = resolveTypeWordAnswerMode(options.configuredMode, options.supportsHandwriting);
+    const state = Object.assign({ answer: '' }, options.state);
+    const surface = TYPE_WORD_MODE_SURFACES[mode];
+    const content = surface.render(options, state);
+    delete options.root.dataset.newtabAnswerDetailsRequest;
+    Object.assign(options.root.dataset, { typeWordMode: mode, typeWordOutcome: state.feedback || 'pending' });
+    options.root.replaceChildren(content, renderTypeWordSecondaryControls(mode, options.supportsHandwriting, options.text));
+    const feedback = renderTypeWordFeedback(state.feedback, options.targetText, options.text);
+    if (feedback) content.after(feedback);
+    surface.activate(options, options.root);
+}
+
+type TypeWordAnswerMountOptions = Parameters<typeof mountTypeWordAnswer>[0];
+type TypeWordAnswerState = TypeWordSelfCheckState & { answer: string };
+interface TypeWordModeSurface {
+    render: (options: TypeWordAnswerMountOptions, state: TypeWordAnswerState) => HTMLElement;
+    activate: (options: TypeWordAnswerMountOptions, root: HTMLElement) => void;
+}
+
+const TYPE_WORD_MODE_SURFACES: Record<NewTabTypeWordInputMode, TypeWordModeSurface> = {
+    keyboard: {
+        render: (options, state) => renderTypeWordKeyboard({
+            ...options.keyboard,
+            answer: state.answer,
+            feedback: state.feedback,
+            audioButton: options.keyboard.audioButton(),
+            text: options.text,
+        }),
+        activate: (options, root) => { if (!options.keyboard.revealAnswer) options.keyboard.focus(root); },
+    },
+    handwriting: {
+        render: options => options.handwriting.render(),
+        activate: (options, root) => options.handwriting.install(root),
+    },
+};
+
+function typeWordOutcomeLabel(
     outcome: NewTabRecallOutcome | 'skipped',
     target: string,
     text: TypeWordText,
 ): string {
-    if (outcome === 'correct') return `${text('recallCorrect')} · ${isolate(target)}`;
-    if (outcome === 'accepted') return `${text('recallAccepted')} · ${isolate(target)}`;
-    if (outcome === 'incorrect') return text('typeWordTryAgain');
-    if (outcome === 'empty') return text('recallEmpty');
-    return text('typeWordSkipped');
+    const label = text(TYPE_WORD_OUTCOME_COPY[outcome]);
+    return TYPE_WORD_TARGET_OUTCOMES.has(outcome) ? `${label} · ${isolate(target)}` : label;
+}
+
+const TYPE_WORD_OUTCOME_COPY: Record<NewTabRecallOutcome | 'skipped', UiCopyKey | NewTabCopyKey> = {
+    correct: 'recallCorrect',
+    accepted: 'recallAccepted',
+    incorrect: 'typeWordTryAgain',
+    empty: 'recallEmpty',
+    skipped: 'typeWordSkipped',
+};
+const TYPE_WORD_TARGET_OUTCOMES = new Set<NewTabRecallOutcome | 'skipped'>(['correct', 'accepted']);
+
+function renderTypeWordSecondaryControls(
+    mode: NewTabTypeWordInputMode,
+    supportsHandwriting: boolean,
+    text: TypeWordText,
+): HTMLElement {
+    return el('div', { class: 'jpdb-reader-newtab-type-secondary' },
+        renderTypeWordModeToggle({ mode, supportsHandwriting, text }),
+        el('button', {
+            class: 'jpdb-reader-newtab-type-skip',
+            type: 'button',
+            dataset: { newtabAction: newTabAction('type-word-skip') },
+        }, text('typeWordSkip')));
+}
+
+function renderTypeWordFeedback(
+    feedback: NewTabRecallOutcome | undefined,
+    target: string,
+    text: TypeWordText,
+): HTMLElement | null {
+    if (!feedback) return null;
+    return el('div', {
+        class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result',
+        dataset: { newtabTypeResult: feedback },
+        role: 'status',
+        'aria-live': 'polite',
+    }, typeWordOutcomeLabel(feedback, target, text));
 }
 
 export function targetSupportsTypeWordHandwriting(target: LearningTargetModule, text: string): boolean {
@@ -53,7 +149,7 @@ export function targetSupportsTypeWordHandwriting(target: LearningTargetModule, 
         : Array.from(text).some(targetCanHandwriteCharacter);
 }
 
-export function renderTypeWordModeToggle(options: {
+function renderTypeWordModeToggle(options: {
     mode: NewTabTypeWordInputMode;
     supportsHandwriting: boolean;
     text: TypeWordText;
@@ -72,7 +168,7 @@ export function renderTypeWordModeToggle(options: {
     );
 }
 
-export function renderTypeWordKeyboard(options: {
+function renderTypeWordKeyboard(options: {
     answer: string;
     feedback?: NewTabRecallOutcome;
     language: string;

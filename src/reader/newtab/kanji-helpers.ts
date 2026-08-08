@@ -244,17 +244,20 @@ const googleHandwritingInk = (strokes: DoodleStroke[]): number[][][] => strokes
     .filter(stroke => stroke[0].length > 1 && stroke[1].length > 1);
 
 function googleHandwritingPredictionQueries(response: unknown): string[] {
-    const results = Array.isArray(response)
-        && response.length > 1
-        && Array.isArray(response[1])
-        && Array.isArray(response[1][0])
-        && Array.isArray(response[1][0][1])
-        ? response[1][0][1] as unknown[]
-        : [];
+    const results = nestedArrayAtPath(response, [1, 0, 1]);
     return uniqueStrings(results.flatMap(result => {
         const text = typeof result === 'string' ? result.trim() : '';
         return text ? [text] : [];
     })).slice(0, 8);
+}
+
+function nestedArrayAtPath(value: unknown, path: readonly number[]): unknown[] {
+    let current = value;
+    for (const index of path) {
+        if (!Array.isArray(current)) return [];
+        current = current[index];
+    }
+    return Array.isArray(current) ? current : [];
 }
 
 export const shouldWaitForMoreDoodleStrokes = (strokes: DoodleStroke[], expectedStrokes: number): boolean =>
