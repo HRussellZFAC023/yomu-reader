@@ -349,10 +349,11 @@ function customElementRegistry(): CustomElementRegistry | null {
     // return null for it on large Polymer pages such as YouTube. `typeof null`
     // is "object", so the old `typeof customElements !== 'undefined'` guard
     // still dereferenced null and aborted the entire Reader at startup.
-    const registry = typeof customElements === 'undefined' ? null : customElements;
-    return registry && typeof registry.get === 'function' && typeof registry.whenDefined === 'function'
-        ? registry
-        : null;
+    const registry = Reflect.get(globalThis, 'customElements') as CustomElementRegistry | null | undefined;
+    if (!registry) return null;
+    const callableMethods = [registry.get, registry.whenDefined]
+        .filter(method => typeof method === 'function');
+    return callableMethods.length === 2 ? registry : null;
 }
 
 function subscribeToCustomElementUpgrade(registry: CustomElementRegistry, tagName: string): void {

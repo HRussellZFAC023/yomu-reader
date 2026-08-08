@@ -2,20 +2,19 @@
 // This deliberately loads the built extension in an isolated content-script
 // world: injecting dist/yomu.user.js into the page cannot catch extension-only
 // globals such as YouTube exposing `customElements` as null there.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { unzipSync } from 'fflate';
+import {
+    chromiumExtensionSmokeConfig,
+    createChromiumExtensionSmokeScope,
+} from '../lib/chromium-extension-smoke.mjs';
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const EXT_PACKAGE = process.env.EXT_DIR
-    || path.join(ROOT, 'dist', 'extension', 'release', 'chrome', 'yomureader.com-chrome.zip');
+const smokeConfig = chromiumExtensionSmokeConfig(import.meta.url, 'manual-extension-youtube-boot');
+const EXT_PACKAGE = smokeConfig.extensionPackage;
 const TARGET_URL = process.env.YOMU_EXTENSION_YOUTUBE_URL
     || 'https://www.youtube.com/watch?v=TAorfFcb8_g&hl=ja&gl=JP';
-const ARTIFACT_DIR = process.env.ART_DIR
-    || path.join(ROOT, 'artifacts', 'manual-extension-youtube-boot');
+const ARTIFACT_DIR = smokeConfig.artifactDirectory;
 const EXPECTED_RUNTIME_SERVICES = [
     'localization',
     'local-dictionary',
@@ -32,30 +31,8 @@ const EXPECTED_RUNTIME_SERVICES = [
     'audio',
     'nested-lookup',
 ];
-const temporaryDirectories = new Set();
+const temporaryDirectories = createChromiumExtensionSmokeScope();
 mkdirSync(ARTIFACT_DIR, { recursive: true });
-
-function extensionDirectory(source) {
-    if (!source.endsWith('.zip')) return path.resolve(source);
-    if (!existsSync(source)) throw new Error(`Missing Chrome extension package: ${source}`);
-    const directory = temporaryDirectory('yomu-chrome-youtube-package-');
-    for (const [name, bytes] of Object.entries(unzipSync(new Uint8Array(readFileSync(source))))) {
-        const output = path.resolve(directory, name);
-        if (!output.startsWith(`${directory}${path.sep}`)) throw new Error(`Unsafe package path: ${name}`);
-        if (name.endsWith('/')) mkdirSync(output, { recursive: true });
-        else {
-            mkdirSync(path.dirname(output), { recursive: true });
-            writeFileSync(output, bytes);
-        }
-    }
-    return directory;
-}
-
-function temporaryDirectory(prefix) {
-    const directory = mkdtempSync(path.join(tmpdir(), prefix));
-    temporaryDirectories.add(directory);
-    return directory;
-}
 
 const startedAt = Date.now();
 const report = {
@@ -68,8 +45,8 @@ const report = {
 let context;
 
 try {
-    const extensionDir = extensionDirectory(EXT_PACKAGE);
-    const profile = temporaryDirectory('yomu-extension-youtube-profile-');
+    const extensionDir = temporaryDirectories.extensionDirectory(EXT_PACKAGE, 'yomu-chrome-youtube-package-');
+    const profile = temporaryDirectories.createDirectory('yomu-extension-youtube-profile-');
     report.extensionDirectory = extensionDir;
     context = await chromium.launchPersistentContext(profile, {
         headless: false,
@@ -106,12 +83,13 @@ try {
     report.state = await page.evaluate(() => {
         const installed = document.querySelector('#jpdb-reader-installed-runtime');
         const owner = document.querySelector('#jpdb-reader-runtime-owner');
+        const attribute = (element, name) => element ? element.getAttribute(name) || '' : '';
         return {
             href: location.href,
-            installedKind: installed?.getAttribute('data-yomu-installed-runtime-kind') ?? '',
-            runtimeKind: owner?.getAttribute('data-yomu-runtime-kind') ?? '',
-            runtimeHealth: owner?.getAttribute('data-yomu-runtime-health') ?? '',
-            runtimeServices: owner?.getAttribute('data-yomu-runtime-services') ?? '',
+            installedKind: attribute(installed, 'data-yomu-installed-runtime-kind'),
+            runtimeKind: attribute(owner, 'data-yomu-runtime-kind'),
+            runtimeHealth: attribute(owner, 'data-yomu-runtime-health'),
+            runtimeServices: attribute(owner, 'data-yomu-runtime-services'),
             puckVisible: Boolean(document.querySelector('.jpdb-reader-fab')),
             onboardingVisible: Boolean(document.querySelector('.jpdb-reader-onboarding')),
         };
@@ -136,7 +114,7 @@ try {
         writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
     } finally {
         await context?.close().catch(() => undefined);
-        for (const directory of temporaryDirectories) rmSync(directory, { recursive: true, force: true });
+        temporaryDirectories.cleanup();
     }
 }
 

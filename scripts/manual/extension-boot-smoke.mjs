@@ -2,42 +2,28 @@
 // verify the extension-specific machinery the userscript smokes never touch:
 // service worker boot, content-script injection at document_start, popup
 // page, storage, and a real lookup popover on a Japanese page.
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
-import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { unzipSync } from 'fflate';
+import {
+    chromiumExtensionSmokeConfig,
+    createChromiumExtensionSmokeScope,
+} from '../lib/chromium-extension-smoke.mjs';
 
 // Branded Chrome 137+ ignores --load-extension; this probe uses Playwright's
 // bundled Chromium (chromium.launchPersistentContext), which still honors it.
 // Override EXT_DIR to point at a freshly built package.
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const EXT_PACKAGE = process.env.EXT_DIR || path.join(ROOT, 'dist', 'extension', 'release', 'chrome', 'yomureader.com-chrome.zip');
-const EXT_DIR = extensionDirectory(EXT_PACKAGE);
-const ART = process.env.ART_DIR || path.join(ROOT, 'artifacts', 'manual-extension-boot');
+const smokeConfig = chromiumExtensionSmokeConfig(import.meta.url, 'manual-extension-boot');
+const EXT_PACKAGE = smokeConfig.extensionPackage;
+const temporaryDirectories = createChromiumExtensionSmokeScope();
+const EXT_DIR = temporaryDirectories.extensionDirectory(EXT_PACKAGE);
+const ART = smokeConfig.artifactDirectory;
 const CONTENT_WAIT_MS = Number(process.env.CONTENT_WAIT_MS || 5_000);
 const SCAN_WAIT_MS = Number(process.env.SCAN_WAIT_MS || 25_000);
 const VIEWPORT_WIDTH = Number(process.env.SCREENSHOT_WIDTH || 1_280);
 const VIEWPORT_HEIGHT = Number(process.env.SCREENSHOT_HEIGHT || 800);
 mkdirSync(ART, { recursive: true });
-
-function extensionDirectory(source) {
-    if (!source.endsWith('.zip')) return source;
-    if (!existsSync(source)) throw new Error(`Missing Chrome extension package: ${source}`);
-    const directory = mkdtempSync(path.join(tmpdir(), 'yomu-chrome-package-'));
-    for (const [name, bytes] of Object.entries(unzipSync(new Uint8Array(readFileSync(source))))) {
-        const output = path.resolve(directory, name);
-        if (!output.startsWith(`${directory}${path.sep}`)) throw new Error(`Unsafe package path: ${name}`);
-        if (name.endsWith('/')) mkdirSync(output, { recursive: true });
-        else {
-            mkdirSync(path.dirname(output), { recursive: true });
-            writeFileSync(output, bytes);
-        }
-    }
-    return directory;
-}
 
 const PAGE = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>probe</title></head>
 <body><main><p id="target">日本語を読む練習です。図書館で勉強します。</p></main></body></html>`;
@@ -48,7 +34,7 @@ const server = http.createServer((req, res) => {
 });
 await new Promise(resolve => server.listen(8977, '127.0.0.1', resolve));
 
-const userDataDir = mkdtempSync(path.join(tmpdir(), 'yomu-ext-probe-'));
+const userDataDir = temporaryDirectories.createDirectory('yomu-ext-probe-');
 const context = await chromium.launchPersistentContext(userDataDir, {
     headless: false,
     viewport: { width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT },
@@ -198,6 +184,7 @@ try {
         new Promise(resolve => setTimeout(resolve, 5_000)),
     ]);
     server.close();
+    temporaryDirectories.cleanup();
 }
 const failed = report.steps.filter(item => !item.ok);
 console.log(JSON.stringify({ failed: failed.length, consoleErrors: report.consoleErrors.slice(0, 8) }, null, 1));
