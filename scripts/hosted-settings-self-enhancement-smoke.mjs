@@ -6,7 +6,7 @@ import {
     assert,
     assertBuiltArtifacts,
     addGmStorageBridgeInitScript,
-    closeServer,
+    closeSmokeBrowserAndServer,
     createSmokePaths,
     jsonHttpResponse,
     installGmStorageBridgeOnCurrentPage,
@@ -282,10 +282,7 @@ try {
     }, null, 2));
     await context.close();
 } finally {
-    await browser.close().catch(() => undefined);
-    server.server.closeAllConnections?.();
-    server.server.closeIdleConnections?.();
-    await closeServer(server.server);
+    await closeSmokeBrowserAndServer(browser, server.server);
 }
 
 async function verifyDurableHostedSettings({ page, requests }) {

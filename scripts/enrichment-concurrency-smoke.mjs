@@ -6,7 +6,7 @@ import {
     addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
-    closeServer,
+    closeSmokeBrowserAndServer,
     createSmokePaths,
     jsonHttpResponse,
     launchSmokeBrowser,
@@ -143,10 +143,7 @@ try {
     console.log(`Enrichment concurrency smoke passed: ${reportPath}`);
     await context.close();
 } finally {
-    await browser.close().catch(() => undefined);
-    server.server.closeAllConnections?.();
-    server.server.closeIdleConnections?.();
-    await closeServer(server.server);
+    await closeSmokeBrowserAndServer(browser, server.server);
 }
 
 async function handleYomuRequest(request, requestsLog, state) {

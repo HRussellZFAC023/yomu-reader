@@ -637,6 +637,18 @@ function ankiRequestSnapshot(requests) {
     };
 }
 
+function readRenderedWordState(word) {
+    return word.evaluate(element => ({
+        state: element.dataset.ankiState,
+        classes: [...element.classList],
+        color: getComputedStyle(element).color,
+        parentColor: getComputedStyle(element.parentElement ?? element).color,
+        accessibleColor: getComputedStyle(element).getPropertyValue('--jpdb-reader-word-accessible-color').trim(),
+        style: element.getAttribute('style') ?? '',
+        title: element.title,
+    }));
+}
+
 async function waitForExistingAnkiStatusText(page) {
     await waitForSelectorText(page, EXISTING_ANKI_SELECTOR, { includes: EXISTING_ANKI_STATUS_TERMS });
 }
@@ -679,15 +691,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     } = ankiRequestSnapshot(requests);
     const statusStorage = await readAnkiStatusStorage(page);
 
-    const beforeHover = await knownWord.evaluate(element => ({
-        state: element.dataset.ankiState,
-        classes: [...element.classList],
-        color: getComputedStyle(element).color,
-        parentColor: getComputedStyle(element.parentElement ?? element).color,
-        accessibleColor: getComputedStyle(element).getPropertyValue('--jpdb-reader-word-accessible-color').trim(),
-        style: element.getAttribute('style') ?? '',
-        title: element.title,
-    }));
+    const beforeHover = await readRenderedWordState(knownWord);
     const hoverStartedAt = Date.now();
     await knownWord.hover();
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
@@ -697,15 +701,7 @@ async function runReaderMiningSmoke(browser, baseUrl) {
     await waitForRenderedExistingAnkiCardText(page);
     const hoverHydrationMs = Date.now() - hoverStartedAt;
     const hoverAnkiActions = ankiActions(requests).slice(initialAnkiActionCount);
-    const afterHover = await knownWord.evaluate(element => ({
-        state: element.dataset.ankiState,
-        classes: [...element.classList],
-        color: getComputedStyle(element).color,
-        parentColor: getComputedStyle(element.parentElement ?? element).color,
-        accessibleColor: getComputedStyle(element).getPropertyValue('--jpdb-reader-word-accessible-color').trim(),
-        style: element.getAttribute('style') ?? '',
-        title: element.title,
-    }));
+    const afterHover = await readRenderedWordState(knownWord);
     assertRenderedStatePreserved(beforeHover, afterHover, 'Hover');
     assert(firstAnkiColorMs < 8_000, 'Reader Anki coloring was not prompt after userscript injection', { firstAnkiColorMs, initialAnkiActions });
     assertInitialAnkiStatusLookup(initialAnkiActions, initialAnkiRequests, 'hover');

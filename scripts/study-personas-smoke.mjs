@@ -326,16 +326,21 @@ async function runKeylessLocalGrading(browser, baseUrl) {
         const gradedSpelling = await page.evaluate(() => document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-card') ?? '');
         await page.locator('[data-newtab-action="grade"][data-grade="okay"], [data-newtab-action="grade"][data-grade="pass"]').first().click();
         await page.waitForFunction(() => {
-            const index = window.GM_getValue?.('yomu:srs-local:v2:index', null);
-            return index?.version === 2 && index.cardIds?.length > 0;
+            const index = window.GM_getValue('yomu:srs-local:v2:index', {});
+            return Array.isArray(index.cardIds) && index.cardIds.length > 0;
         }, null, { timeout: 10_000 });
-        const cards = await page.evaluate(() => {
-            const index = window.GM_getValue?.('yomu:srs-local:v2:index', null);
-            if (index?.version !== 2 || !Array.isArray(index.cardIds)) return [];
-            return index.cardIds
-                .map(id => window.GM_getValue?.(`yomu:srs-local:v2:card:${encodeURIComponent(id)}`, null))
-                .filter(Boolean);
+        const localDeck = await page.evaluate(() => {
+            const index = window.GM_getValue('yomu:srs-local:v2:index', {});
+            const cardIds = Array.isArray(index.cardIds) ? index.cardIds : [];
+            return {
+                version: index.version,
+                cards: cardIds
+                    .map(id => window.GM_getValue(`yomu:srs-local:v2:card:${encodeURIComponent(id)}`, null))
+                    .filter(Boolean),
+            };
         });
+        assert(localDeck.version === 2, 'grade click wrote an invalid local Yomu deck index', localDeck);
+        const { cards } = localDeck;
         assert(cards.length > 0, 'grade click did not create a card in the local Yomu deck');
         assert(cards.some(card => (card.reviews ?? 0) > 0), 'local deck card was created but its review was not recorded');
         return { ok: true, gradedSpelling, localDeckCards: cards.length };
