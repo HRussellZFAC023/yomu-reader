@@ -1,6 +1,8 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
 import { formatUiText, uiText } from '../app/i18n';
 import { targetLanguageDisplayName } from '../app/target-language-name';
+import { activeLearningTargetLanguage } from '../languages/target-runtime';
+import { usesJapaneseProviders } from '../languages/character-lookup';
 import type { ReaderSettings } from '../app/types';
 import {
     RadialMenuController,
@@ -165,6 +167,7 @@ export class FloatingButtonController {
         if (!button) return;
         const powerState = this.actions?.powerState() ?? 'on';
         const language = this.settings?.interfaceLanguage ?? 'en';
+        const targetName = this.settings ? targetLanguageDisplayName(this.settings) : '';
         // Sites with their own bottom action dock (Jiten's study grade bar +
         // Blacklist/Master row) collide with the default bottom-right spot;
         // raise the FAB above them (mobile UX finding, 2026-06-11).
@@ -172,7 +175,10 @@ export class FloatingButtonController {
         button.classList.toggle('jpdb-reader-fab--on', powerState === 'on');
         button.classList.toggle('jpdb-reader-fab--no-furigana', powerState === 'no-furigana');
         button.classList.toggle('jpdb-reader-fab--paused', powerState === 'paused');
-        button.title = puckStateLabel(language, powerState);
+        button.dataset.targetLanguage = activeLearningTargetLanguage();
+        button.title = powerState === 'on' && targetName
+            ? formatUiText(language, 'puckLearningTarget', { language: targetName })
+            : puckStateLabel(language, powerState);
         button.setAttribute('aria-label', button.title);
     }
 
@@ -187,9 +193,11 @@ export class FloatingButtonController {
         const japaneseSiteLanguage = settings.preferJapaneseSiteLanguage;
         // Power steps on → furigana hidden → paused → on; the label always
         // names the NEXT state so a press does what the button says.
-        const powerLabelKey = powerState === 'on' ? 'puckHideFurigana'
-            : powerState === 'no-furigana' ? 'puckPauseAnnotations'
-                : 'puckResumeAnnotations';
+        const powerLabelKey = !usesJapaneseProviders()
+            ? powerState === 'paused' ? 'puckResumeAnnotations' : 'puckPauseAnnotations'
+            : powerState === 'on' ? 'puckHideFurigana'
+                : powerState === 'no-furigana' ? 'puckPauseAnnotations'
+                    : 'puckResumeAnnotations';
         const items: RadialAction[] = [
             {
                 id: 'power',
@@ -240,13 +248,19 @@ export class FloatingButtonController {
             },
             {
                 id: 'study',
-                label: uiText(language, 'puckStudyPage'),
+                label: formatUiText(language, 'puckStudyTarget', {
+                    language: targetLanguageDisplayName(settings),
+                }),
                 icon: 'よ',
                 glyph: true,
                 run: () => actions.openStudyPage(),
             },
         ];
-        if (actions.hasSubtitleVideo()) {
+        // This puck action is the legacy Japanese page-subtitle auto-detection
+        // workflow, not the target-routed subtitle track picker.  General
+        // subtitle playback supports the wider roster; exposing this separate
+        // Japanese action for every target was a false UI capability claim.
+        if (usesJapaneseProviders() && actions.hasSubtitleVideo()) {
             const subtitlesOn = actions.isAutoSubtitlesEnabled();
             items.push({
                 id: 'subtitles',

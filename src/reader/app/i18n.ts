@@ -269,6 +269,8 @@ const COPY = {
         ocrInteractionModeOff: 'Off',
         puckMenuLabel: `${APP_NAME} menu`,
         puckStudyPage: 'Study page',
+        puckStudyTarget: 'Study {language}',
+        puckLearningTarget: `${APP_NAME} — learning target: {language}`,
         puckPauseAnnotations: 'Pause annotations',
         puckResumeAnnotations: 'Resume annotations',
         puckOcrAuto: 'OCR: Auto',
@@ -281,6 +283,7 @@ const COPY = {
         autoplayAudioOnToast: 'Auto-play audio on.',
         autoplayAudioOffToast: 'Auto-play audio muted.',
         puckHideFurigana: 'Hide furigana',
+        popupLanguageAxes: 'Reading {target} · Definitions/translation: {output}',
         furiganaOffToast: 'Furigana off. Lookups stay active.',
         showFurigana: 'Enable furigana annotations',
         furiganaMode: 'Furigana',
@@ -1987,6 +1990,8 @@ ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
+puckStudyTarget	{language}を学習
+puckLearningTarget	よむ — 学習対象：{language}
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -1997,6 +2002,7 @@ annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート
 puckUnmuteAudio	音声の自動再生のミュートを解除
 puckHideFurigana	ふりがなを隠す
+popupLanguageAxes	学習対象：{target}・定義/翻訳：{output}
 furiganaOffToast	ふりがなを非表示にしました。単語の検索は引き続き使えます。
 autoplayAudioOnToast	音声の自動再生をオンにしました。
 autoplayAudioOffToast	音声の自動再生をミュートしました。

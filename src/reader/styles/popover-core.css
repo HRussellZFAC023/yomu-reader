@@ -959,6 +959,13 @@
   width: 100%;
   min-width: 0;
 }
+.jpdb-reader-language-axes {
+  flex-basis: 100%;
+  color: var(--jpdb-reader-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.25;
+}
 .jpdb-reader-kanji-inline {
   display: inline !important;
   width: auto !important;

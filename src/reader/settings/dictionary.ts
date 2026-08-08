@@ -438,6 +438,18 @@ export function normalizeDictionaryLookupLinks(
         const id = link.id.trim();
         if (!id || seen.has(id)) return;
         const known = defaults.has(id);
+        // A built-in belongs to the target whose catalogue/default row names
+        // it.  Before target-aware lookup links shipped, every stored payload
+        // already carried Japanese defaults.  Merely changing `builtIns` above
+        // caused those old rows to be counted as learner-owned extras, so an
+        // upgraded Spanish profile rendered RAE beside Jiten, JPDB, Jisho and
+        // Bunpro.  The settings dialog rebuilt the row when the target changed
+        // there, but startup normalization never reconciled a target selected
+        // by an older build or another browser tab.
+        //
+        // Filter only known Yomu catalogue/default ids.  Truly custom rows —
+        // including local frequency pills — remain portable exactly as before.
+        if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
         if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
         seen.add(id);
         normalized.push({ ...link, id });
@@ -452,6 +464,11 @@ export function normalizeDictionaryLookupLinks(
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
 
     return withLookupLinkPriorities(normalized);
+}
+
+function isBuiltInLookupLinkForAnotherTarget(id: string): boolean {
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.some(link => link.id === id)
+        || isTargetLookupLinkId(id);
 }
 
 function isRemovedBuiltInLookupLink(link: DictionaryLookupLink): boolean {

@@ -48,6 +48,10 @@ import type {
     JPDBCard,
     ReaderSettings,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
 
 registerReaderHelpersCleanup();
 
@@ -1047,6 +1051,33 @@ describe('reader helpers', () => {
         expect(app.puckPowerState()).toBe('no-furigana');
     });
 
+    it('uses a two-state annotation switch without mutating furigana for a non-Japanese target', async () => {
+        type PowerCycleInternals = {
+            settings: ReaderSettings;
+            cyclePowerState(): Promise<void>;
+            puckPowerState(): 'on' | 'no-furigana' | 'paused';
+            applyAnnotationsPausedState(): void;
+            toast(message: string): void;
+        };
+        const app = new ReaderApp() as unknown as PowerCycleInternals;
+        app.applyAnnotationsPausedState = vi.fn();
+        app.toast = vi.fn();
+        app.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', annotationsPaused: false };
+        setActiveLearningTargetLanguage('es');
+
+        try {
+            expect(app.puckPowerState()).toBe('on');
+            await app.cyclePowerState();
+            expect(app.puckPowerState()).toBe('paused');
+            expect(app.settings.furiganaMode).toBe('all');
+            await app.cyclePowerState();
+            expect(app.puckPowerState()).toBe('on');
+            expect(app.settings.furiganaMode).toBe('all');
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
     it('marks the puck differently for furigana-hidden and annotation-paused states', async () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);
@@ -1118,7 +1149,7 @@ describe('reader helpers', () => {
             expect(puck.classList.contains('jpdb-reader-fab--on')).toBe(true);
             expect(puck.classList.contains('jpdb-reader-fab--no-furigana')).toBe(false);
             expect(puck.classList.contains('jpdb-reader-fab--paused')).toBe(false);
-            expect(puck.getAttribute('aria-label')).toBe('よむ');
+            expect(puck.getAttribute('aria-label')).toBe('よむ — learning target: Japanese');
             expect(powerButton().getAttribute('aria-label')).toBe('Hide furigana');
             expect(powerButton().querySelector<HTMLElement>('.jpdb-reader-fab-radial-icon')?.innerHTML).toBe(onIcon);
         } finally {
@@ -1288,6 +1319,38 @@ describe('reader helpers', () => {
 
             expect(document.querySelector('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]')).toBeNull();
         } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('shows the active target and hides Japanese-only puck actions for Spanish', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        const settings = { ...DEFAULT_SETTINGS, showFloatingButton: true };
+        setActiveLearningTargetLanguage('es');
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    hasSubtitleVideo: () => true,
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
+            expect(puck?.dataset.targetLanguage).toBe('es');
+            expect(puck?.getAttribute('aria-label')).toBe('よむ — learning target: Spanish');
+            expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('Study Spanish');
+            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Pause annotations');
+            expect(document.querySelector('[data-radial-id="subtitles"]')).toBeNull();
+            // The site-language action remains target-routed, rather than
+            // pretending this is Japanese or following OUTPUT English.
+            expect(document.querySelector('[data-radial-id="japanese-site"]')?.getAttribute('aria-label'))
+                .toBe('Open Spanish versions of sites');
+        } finally {
+            resetActiveLearningTargetLanguage();
             controller.destroy();
             restoreRects();
             document.body.innerHTML = '';

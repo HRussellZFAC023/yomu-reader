@@ -4,6 +4,7 @@ import type { JPDBToken } from '../../../src/reader/app/types';
 import { getOrderedAudioSources } from '../../../src/reader/audio/source-resolution';
 import { contextOccurrenceCount } from '../../../src/reader/cards/frequency-ranks';
 import { effectiveTokenRubies, nonOverlappingTokens } from '../../../src/reader/dom/token-text-rendering';
+import { applyTokensToScanTarget, collectFragmentTextTargetsIn } from '../../../src/reader/dom';
 import {
     targetCanHandwriteText,
     targetCanLookupCharacter,
@@ -140,6 +141,38 @@ describe('A47 non-grammar capability parity', () => {
         }
     });
 
+    it('renders visible, stateful page-word affordances for all 33 targets', () => {
+        for (const rosterTarget of LEARNING_TARGET_ROSTER) {
+            const probe = TARGET_PROBES[rosterTarget.id];
+            const target = learningTargetModuleFor(rosterTarget.runtimeLocale)!;
+            expect(setActiveLearningTargetLanguage(target.language), `${rosterTarget.id} activation`).toBe(target);
+            document.body.innerHTML = `<p>${probe}</p>`;
+            const scanTarget = collectFragmentTextTargetsIn(document.body, 10, false, '', { minLength: 1 })
+                .find(candidate => candidate.text === probe);
+            expect(scanTarget, `${rosterTarget.id} scan target`).toBeTruthy();
+            const token = exactDictionaryReadingToken(probe, target.language, probe);
+            token.card.cardState = ['learning'];
+            applyTokensToScanTarget(scanTarget!, [token], {
+                ...DEFAULT_SETTINGS,
+                showFurigana: false,
+                furiganaMode: 'off',
+                showPitchAccent: false,
+            });
+
+            const word = document.querySelector<HTMLElement>('.jpdb-reader-word');
+            expect(word, `${rosterTarget.id} visible wrapper`).not.toBeNull();
+            expect(word?.textContent, `${rosterTarget.id} exact geometry text`).toBe(probe);
+            expect(word?.dataset.tokenStart, `${rosterTarget.id} start boundary`).toBe('0');
+            expect(word?.dataset.tokenEnd, `${rosterTarget.id} end boundary`).toBe(String(probe.length));
+            expect(word?.dataset.expression, `${rosterTarget.id} lookup identity`).toBe(probe);
+            expect(word?.dataset.cardState, `${rosterTarget.id} learning state`).toBe('learning');
+            expect(word?.classList.contains('jpdb-learning'), `${rosterTarget.id} state decoration`).toBe(true);
+            expect(word?.getAttribute('tabindex'), `${rosterTarget.id} pointer/focus affordance`).toBe('-1');
+            expect(word?.querySelector('rt'), `${rosterTarget.id} no invented JP reading`).toBeNull();
+            expect(word?.className, `${rosterTarget.id} no invented pitch`).not.toMatch(/jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka)/u);
+        }
+    });
+
     it('labels context counts as occurrences and never as a corpus rank', () => {
         const card = {
             ...exactDictionaryReadingToken('agua', 'es', 'agua').card,
@@ -156,6 +189,28 @@ describe('A47 non-grammar capability parity', () => {
             metaEntries: [{ expression: 'agua', mode: 'freq', data: 123, dictionary: 'Spanish frequency' }],
         });
         expect(withRank).not.toContain('data-frequency-source="context"');
+    });
+
+    it('names TARGET and definition/translation OUTPUT separately in the popup', () => {
+        const profile = {
+            ...DEFAULT_SETTINGS.languageProfiles[0]!,
+            targetLanguage: 'es',
+            outputLanguage: 'en',
+            learnerLanguage: 'en',
+            uiLocale: 'ja',
+        };
+        setActiveLearningTargetLanguage('es');
+        const renderer = testCardPopoverRenderer({
+            interfaceLanguage: 'ja',
+            languageProfiles: [profile],
+            activeLanguageProfileId: profile.id,
+        });
+        const html = renderModalCard(renderer, exactDictionaryReadingToken('podcast', 'es', 'podcast').card, 'podcast');
+
+        expect(html).toContain('data-target-language="es"');
+        expect(html).toContain('data-output-language="en"');
+        expect(html).toContain('学習対象：スペイン語');
+        expect(html).toContain('定義/翻訳：英語');
     });
 
     it('sends handwriting recognition the target-owned language hint and keeps non-Han predictions', async () => {

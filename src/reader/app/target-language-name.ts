@@ -1,6 +1,7 @@
 import { headwordLanguageName } from '../languages/display-name';
 import { languageSubtag } from '../languages/locale';
 import { activeLearningTargetLanguage } from '../languages/target-runtime';
+import { outputLanguageOf } from '../languages/selection';
 // Use the canonical cross-directory path so the split userscript build can
 // substitute the i18n companion facade. A same-directory `./i18n` import
 // bypasses that alias and duplicates the full copy catalogue in core.
@@ -31,6 +32,31 @@ export function targetLanguageDisplayName(settings: ReaderSettings): string {
  */
 export function activeTargetLanguageDisplayName(interfaceLanguage: InterfaceLanguage): string {
     return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+}
+
+/**
+ * The two learner-facing content axes shown beside a lookup result.
+ *
+ * TARGET comes from the adopted runtime generation, exactly like scanning and
+ * lookup. OUTPUT comes from the active stored profile, exactly like definition
+ * translation. Keeping those sources distinct is intentional: the live report
+ * was Spanish TARGET + English OUTPUT + Japanese INTERFACE, a valid state whose
+ * popup looked like an unexplained "English mode".
+ */
+export function activeContentLanguageAxes(settings: ReaderSettings): {
+    targetLanguage: string;
+    targetName: string;
+    outputLanguage: string;
+    outputName: string;
+} {
+    const targetLanguage = activeLearningTargetLanguage();
+    const outputLanguage = outputLanguageOf(settings);
+    return {
+        targetLanguage,
+        targetName: languageDisplayNameFor(targetLanguage, settings.interfaceLanguage),
+        outputLanguage,
+        outputName: languageDisplayNameFor(outputLanguage, settings.interfaceLanguage),
+    };
 }
 
 function languageDisplayNameFor(tag: string, interfaceLanguage: InterfaceLanguage): string {

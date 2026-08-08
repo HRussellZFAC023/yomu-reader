@@ -114,9 +114,9 @@ function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSett
     return language === 'ja'
         ? {
               languageProfileTitle: '言語プロフィール',
-              learnerLanguage: 'あなたの言語（辞書の定義）',
-              targetLanguage: '学習する言語',
-              languageProfileHelp: '学習する言語は、辞書の定義言語や画面の表示言語とは別に選べます。',
+              learnerLanguage: '定義・翻訳の言語（出力）',
+              targetLanguage: '学習する言語（対象）',
+              languageProfileHelp: '対象はページで読む言語、出力は辞書の定義と翻訳の言語です。画面の表示言語は別に選べます。',
               translationTitle: '定義の自動翻訳',
               translationHelp: '有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。',
               translationEmpty: '現在の情報源はすでにあなたの言語で定義されています。',
@@ -125,9 +125,9 @@ function multilingualSettingsCopy(language: InterfaceLanguage): MultilingualSett
           }
         : {
               languageProfileTitle: 'Language profile',
-              learnerLanguage: 'Your language (dictionary definitions)',
-              targetLanguage: 'Language you are learning',
-              languageProfileHelp: 'Choose the language you are learning separately from dictionary definitions and the interface.',
+              learnerLanguage: 'Definition and translation language (output)',
+              targetLanguage: 'Language you are reading (target)',
+              languageProfileHelp: 'Target controls page text and lookup. Output controls definitions and translations. Interface controls Yomu labels.',
               translationTitle: 'Automatic definition translation',
               translationHelp: 'When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.',
               translationEmpty: 'Your current definition sources already use your language.',

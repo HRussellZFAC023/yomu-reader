@@ -3,6 +3,7 @@ import {
     DEFAULT_DICTIONARY_LOOKUP_LINKS,
     defaultDictionaryLookupLinks,
     dictionaryLookupLinksForTarget,
+    normalizeDictionaryLookupLinkSettings,
     MAX_EXTRA_LOOKUP_LINKS,
     MAX_LOOKUP_LINK_ROWS,
 } from '../../../src/reader/settings/dictionary';
@@ -290,6 +291,34 @@ describe('U46 per-target lookup hotlinks', () => {
     });
 
     describe('switching target', () => {
+        it('reconciles a pre-target Japanese row at startup for every non-Japanese target', () => {
+            const custom = {
+                id: 'custom-mine',
+                label: 'Mine',
+                urlTemplate: 'https://example.com/{query}',
+                enabled: true,
+            };
+            for (const target of NON_JAPANESE_TARGETS) {
+                const normalized = normalizeDictionaryLookupLinkSettings({
+                    // This is the exact upgrade shape: the profile target was
+                    // persisted by a build whose global pill row was still JA.
+                    dictionaryLookupLinks: [...defaultDictionaryLookupLinks('local', 'ja'), custom],
+                }, target);
+                const ids = normalized.map(link => link.id);
+
+                expect(ids, target).toContain('custom-mine');
+                expect(ids, target).toEqual(expect.arrayContaining(
+                    defaultDictionaryLookupLinks('local', target).map(link => link.id),
+                ));
+                expect(ids, target).not.toEqual(expect.arrayContaining([
+                    'jiten', 'jiten-frequency', 'jpdb', 'jpdb-frequency',
+                    'bunpro', 'bunpro-frequency', 'jisho', 'weblio',
+                    'kotobank', 'takoboto', 'wiktionary-ja', 'immersion-kit',
+                    'nadeshiko', 'uchisen',
+                ]));
+            }
+        });
+
         it('adopts the incoming target set and drops the outgoing one', () => {
             const spanish = dictionaryLookupLinksForTarget(defaultDictionaryLookupLinks('local', 'ja'), 'es');
             expect(spanish.map(link => link.id)).toContain('rae');

@@ -2546,6 +2546,11 @@ export class ReaderApp {
 
     private puckPowerState(): 'on' | 'no-furigana' | 'paused' {
         if (this.settings.annotationsPaused) return 'paused';
+        // Furigana is a Japanese reader channel. Other targets still receive
+        // visible word wrappers, learning-state decoration and hover lookup,
+        // but their master action is an honest on/off annotations switch — it
+        // must not pass through a meaningless "furigana hidden" state.
+        if (!usesJapaneseProviders()) return 'on';
         return this.isFuriganaEnabled() ? 'on' : 'no-furigana';
     }
 
@@ -2558,6 +2563,10 @@ export class ReaderApp {
     // press.
     private async cyclePowerState(): Promise<void> {
         const state = this.puckPowerState();
+        if (!usesJapaneseProviders()) {
+            await this.setAnnotationsPaused(state !== 'paused');
+            return;
+        }
         if (state === 'on') {
             // Persisted (not an instance field): the hide itself saves
             // furiganaMode='off' globally, so the restore marker must survive

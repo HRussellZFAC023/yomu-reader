@@ -698,12 +698,12 @@ type OnboardingLanguageProfileCopy = {
 function onboardingLanguageProfileCopy(language: InterfaceLanguage): OnboardingLanguageProfileCopy {
     return language === 'ja'
         ? {
-            learnerLanguage: 'あなたの言語（辞書の定義）',
-            targetLanguage: '学習する言語',
+            learnerLanguage: '定義・翻訳の言語（出力）',
+            targetLanguage: 'ページで読む言語（対象）',
         }
         : {
-            learnerLanguage: 'Your language (dictionary definitions)',
-            targetLanguage: 'Language you are learning',
+            learnerLanguage: 'Definition and translation language (output)',
+            targetLanguage: 'Language you are reading (target)',
         };
 }
 

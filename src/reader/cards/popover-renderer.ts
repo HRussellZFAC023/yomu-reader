@@ -27,6 +27,7 @@ import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan
 import { hasBunproFrontendCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import { bunproDefinitionStatusAttributes } from '../bunpro/status-attributes';
 import { targetUsesCharacterDictionary } from '../languages/character-lookup';
+import { activeContentLanguageAxes } from '../app/target-language-name';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -212,12 +213,19 @@ export class CardPopoverRenderer {
             : '';
         const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
         const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : '';
+        const settings = this.settings();
+        const axes = activeContentLanguageAxes(settings);
+        const axesLabel = formatUiText(view.language, 'popupLanguageAxes', {
+            target: axes.targetName,
+            output: axes.outputName,
+        });
         const kanjiNavigationAttributes = kanjiNavigation
             ? ` data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}"`
             : '';
         return `<div class="jpdb-reader-title-row">
             <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence}${kanjiNavigationAttributes}>${spellingContent}</div>
             ${renderMeta(view.metaItems)}
+            <div class="jpdb-reader-language-axes" data-target-language="${escapeHtml(axes.targetLanguage)}" data-output-language="${escapeHtml(axes.outputLanguage)}">${escapeHtml(axesLabel)}</div>
         </div>`;
     }
 
