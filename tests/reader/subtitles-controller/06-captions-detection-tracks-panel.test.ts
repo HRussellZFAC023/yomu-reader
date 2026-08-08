@@ -9,12 +9,15 @@ import {
     attachVideo,
     setupInstalledVideoController,
     pointerEvent,
+    deferred,
+    makeSubtitleToken,
     readPageCaptionText,
     withViewport,
     SubtitlePlayerController,
 } from './fixtures';
 import type {
     ReaderSettings,
+    JPDBToken,
     SubtitleParsedHtmlCache,
 } from './fixtures';
 
@@ -669,7 +672,7 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         expect(readPageCaptionText(video)).toBe('今日は映画を見ます。');
     });
 
-    it('keeps Netflix-shaped DOM captions visible through transient foreground churn', () => {
+    it('keeps Netflix-shaped DOM captions visible through parse settlement and transient foreground churn', async () => {
         let nowMs = 0;
         const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
         try {
@@ -682,10 +685,11 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
                     </div>
                 </div>
             `;
+            const parsed = deferred<JPDBToken[][]>();
             const { controller } = createInstalledSubtitleController({
                 subtitleOverlayVisible: true,
                 subtitleTranscriptVisible: false,
-            });
+            }, { parseJapaneseBatch: vi.fn(() => parsed.promise) });
             const video = document.querySelector('video') as HTMLVideoElement;
             attachVideo(controller, {
                 video,
@@ -705,16 +709,31 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
                 updateFromDomCaptions: () => void;
                 currentCue?: { end: number; text: string };
                 lastAppliedSubtitleHtml: string;
+                pendingDomCaption?: { parseSettled: boolean };
             }>(controller);
             internals.setNativeTrackModes();
             expect(captionToggleClick).not.toHaveBeenCalled();
-            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
             internals.updateFromDomCaptions();
             nowMs += 200;
             internals.updateFromDomCaptions();
 
+            // The stability delay is not enough to take ownership: Netflix's
+            // caption remains the only painted line until the exact Yomu parse
+            // that will become the first frame is ready.
+            expect(internals.pendingDomCaption?.parseSettled).toBe(false);
+            expect(internals.currentCue).toBeUndefined();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+
+            parsed.resolve([[makeSubtitleToken('今日は映画を見ます。')]]);
+            await vi.waitFor(() => expect(internals.pendingDomCaption?.parseSettled).toBe(true));
+            internals.updateFromDomCaptions();
+
             const rendered = document.querySelector<HTMLElement>('.jpdb-subtitle-lines')!;
             expect(rendered.textContent).toContain('今日は映画を見ます。');
+            // The same publication turn suppresses Netflix, so there is no
+            // one-tick native + Yomu overlap after parse settlement.
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
             const stableHtml = internals.lastAppliedSubtitleHtml;
 
             captionContainer.remove();
@@ -745,13 +764,14 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
         }
     });
 
-    it('mirrors Netflix-shaped DOM captions while the subtitle panel is open with the overlay off', () => {
+    it('mirrors Netflix-shaped DOM captions after parsing while the subtitle panel is open with the overlay off', async () => {
         let nowMs = 0;
         const nowSpy = vi.spyOn(performance, 'now').mockImplementation(() => nowMs);
+        const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => [makeSubtitleToken(text)]));
         const { controller } = createInstalledSubtitleController({
             subtitleOverlayVisible: false,
             subtitleTranscriptVisible: false,
-        });
+        }, { parseJapaneseBatch });
 
         try {
             document.body.insertAdjacentHTML('afterbegin', `
@@ -775,15 +795,22 @@ describe('SubtitlePlayerController — page-caption detection & tracks panel', (
                 currentCue?: { text: string };
                 openTracksPanel: () => void;
                 updateFromDomCaptions: () => void;
+                pendingDomCaption?: { parseSettled: boolean };
             }>(controller);
             internals.openTracksPanel();
             internals.updateFromDomCaptions();
             nowMs += 200;
             internals.updateFromDomCaptions();
 
+            expect(internals.currentCue).toBeUndefined();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+            await vi.waitFor(() => expect(internals.pendingDomCaption?.parseSettled).toBe(true));
+            internals.updateFromDomCaptions();
+
             const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             const linesButton = panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')!;
             expect(internals.currentCue?.text).toBe('今日は映画を見ます。');
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
             expect(panel.hidden).toBe(false);
             expect(linesButton.disabled).toBe(false);
         } finally {
