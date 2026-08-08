@@ -1,12 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
+import { ocrLineWordAtPoint } from '../../src/reader/app/dom-helpers';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../src/reader/languages/target-runtime';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
+import type { OcrLine } from '../../src/reader/ocr/response';
 import { createPointerEvent } from './helpers/browser-fixtures';
 import { waitForExpect } from './test-utils';
 
 afterEach(() => {
+    resetActiveLearningTargetLanguage();
     document.body.replaceChildren();
 });
 
@@ -56,6 +63,21 @@ describe('paused-video OCR frames', () => {
         video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
         document.body.append(video);
         return video;
+    }
+
+    function recognizePausedFrame(lines: readonly OcrLine[]): {
+        frame: HTMLImageElement;
+        status: HTMLElement;
+    } {
+        pausedVideo().dispatchEvent(new Event('pause'));
+        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+        Object.defineProperties(frame, {
+            naturalWidth: { value: 640, configurable: true },
+            naturalHeight: { value: 360, configurable: true },
+        });
+        frame.dataset.ocrLines = JSON.stringify(lines);
+        frame.dispatchEvent(new Event('load'));
+        return { frame, status: document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')! };
     }
 
     it('does not snapshot paused videos while annotations are paused', () => {
@@ -137,6 +159,8 @@ describe('paused-video OCR frames', () => {
 
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            expect([...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')]
+                .map(word => word.dataset.expression)).toEqual(['日本語']);
             expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
             expect(frame.dataset.ocrPending).toBeUndefined();
             expect(status!.dataset.status).toBe('ready');
@@ -516,16 +540,9 @@ describe('paused-video OCR frames', () => {
             captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
         });
         controller.init();
-        const video = pausedVideo();
-
-        video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
-        Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
-        Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
-        frame.dataset.ocrLines = JSON.stringify([
-            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+        recognizePausedFrame([
+            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 }, vertical: false },
         ]);
-        frame.dispatchEvent(new Event('load'));
 
         await waitForExpect(() => {
             const word = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')!;
@@ -555,18 +572,46 @@ describe('paused-video OCR frames', () => {
         expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
     });
 
+    it('makes parser-empty Spanish paused-frame OCR words hover-identifiable', async () => {
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        createController();
+        recognizePausedFrame([
+            { text: 'Pensamos en español', box: { left: 64, top: 72, width: 360, height: 54 }, vertical: false },
+        ]);
+
+        await waitForExpect(() => {
+            const words = [...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')];
+            expect(words.map(word => word.dataset.expression)).toEqual(['Pensamos', 'en', 'español']);
+        });
+
+        const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+        const words = [...line.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
+        words.forEach((word, index) => {
+            word.getBoundingClientRect = () => new DOMRect(100 + index * 80, 120, 70, 24);
+        });
+        expect(ocrLineWordAtPoint(line, 185, 132)?.dataset.expression).toBe('en');
+        expect(ocrLineWordAtPoint(line, 265, 132)?.dataset.expression).toBe('español');
+    });
+
+    it('reports no usable OCR when Japanese paused-frame text is rejected by the Spanish target', async () => {
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' });
+        const { status } = recognizePausedFrame([
+            { text: '日本語で考える', box: { left: 64, top: 72, width: 300, height: 54 }, vertical: false },
+        ]);
+
+        await waitForExpect(() => {
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(status.dataset.status).toBe('empty');
+            expect(status.getAttribute('aria-label')).toBe('No text found');
+        });
+        expect(status.dataset.status).not.toBe('ready');
+    });
+
     it('shows paused-frame OCR status when no text is found', async () => {
         createController({ ocrProvider: 'cloud-vision', ocrCloudVisionApiKey: '' });
-        const video = pausedVideo();
-
-        video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
-        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
-
-        Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
-        Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
-        frame.dataset.ocrLines = '[]';
-        frame.dispatchEvent(new Event('load'));
+        const { frame, status } = recognizePausedFrame([]);
 
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();

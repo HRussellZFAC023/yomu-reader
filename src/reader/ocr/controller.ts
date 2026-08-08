@@ -104,7 +104,7 @@ import {
     type OcrResult,
 } from './response';
 import { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, isPopupLookupEnabled } from '../settings/index';
-import { fallbackJapaneseSegments } from '../lookup/parser';
+import { segmentTargetLanguageText } from '../lookup/target-text';
 import type { ReaderParserParseOptions } from '../lookup/parser';
 import { stableHashBase36, stablePositiveHashId } from '../core/stable-hash';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -3587,7 +3587,7 @@ function ocrTokensWithFallbackGaps(
     fallbackCardFromText: (text: string) => JPDBCard,
 ): JPDBToken[] {
     const safeTokens = tokens.filter(token => isRenderableOcrToken(token, text.length));
-    const fallbackTokens = fallbackJapaneseSegments(text)
+    const fallbackTokens = segmentTargetLanguageText(text)
         .filter(segment => !safeTokens.some(token => rangesOverlap(segment.start, segment.end, token.start, token.end)))
         .map(segment => ocrFallbackToken(text, segment, fallbackCardFromText));
     return fallbackTokens.length
@@ -3634,10 +3634,10 @@ function isRenderableOcrToken(token: JPDBToken, textLength: number): boolean {
 
 function ocrFallbackToken(
     sentence: string,
-    segment: { surface: string; start: number; end: number },
+    segment: { text: string; start: number; end: number },
     fallbackCardFromText: (text: string) => JPDBCard,
 ): JPDBToken {
-    const card = fallbackCardFromText(segment.surface);
+    const card = fallbackCardFromText(segment.text);
     return {
         card,
         start: segment.start,

@@ -534,6 +534,45 @@ describe('reader helpers', () => {
         }
     });
 
+    it('admits the reported Japanese watch title and description without claiming native Share chrome', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=WB1ShKGv1Pc',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+        });
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        try {
+            const title = '日本語で考えるってどういう事？ / How to Think in Japanese';
+            const description = '10万回視聴 1か月前 日本語学習のアドバイス podcast (About japanese study)';
+            const targets = collectYouTubeTargets(`
+                <ytd-watch-metadata>
+                    <h1 id="title"><yt-formatted-string>${title}</yt-formatted-string></h1>
+                    <div id="owner">
+                        <ytd-channel-name><yt-formatted-string>YUYUの日本語Podcast</yt-formatted-string></ytd-channel-name>
+                    </div>
+                    <div id="description">
+                        <yt-attributed-string id="attributed-snippet-text">${description}</yt-attributed-string>
+                    </div>
+                </ytd-watch-metadata>
+                <ytd-reel-player-overlay-renderer>
+                    <div id="actions" role="toolbar">
+                        <button id="reported-share" aria-label="共有"><span>共有</span></button>
+                    </div>
+                </ytd-reel-player-overlay-renderer>
+            `, 'https://www.youtube.com/watch?v=WB1ShKGv1Pc', 20);
+
+            expect(targets.some(target => target.text === title)).toBe(true);
+            expect(targets.some(target => target.text === description)).toBe(true);
+            expect(targets.some(target => target.text.includes('共有'))).toBe(false);
+            expect(document.querySelector('#reported-share .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('#reported-share .jpdb-reader-text-mirror')).toBeNull();
+        } finally {
+            resetActiveLearningTargetLanguage();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('scans YouTube transcript rows while leaving native caption overlays untouched', () => {
         const targets = collectYouTubeWatchTargets(`
             <div id="movie_player" class="html5-video-player">
