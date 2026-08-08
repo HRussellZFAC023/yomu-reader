@@ -56,7 +56,6 @@ import { detachedReadingLaneLineHeight, rubyFriendlyMirrorLineHeight } from './t
 import {
     DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS,
     type DocumentAnnotationPortalClipBounds,
-    documentAnnotationPortalHasNonTranslationTransform,
     documentAnnotationPortalMirrorsWithin,
     documentAnnotationPortalPaint,
     invalidateDocumentAnnotationPortalClipTopology,
@@ -67,6 +66,7 @@ import {
     styleDocumentAnnotationPortalMirror,
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
+import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
@@ -2935,7 +2935,12 @@ function textMirrorMount(
     clipRow: HTMLElement | null,
     target: ScanTextTarget,
 ): TextMirrorMount {
-    if (sourcePreservingProseNeedsDocumentPortal(host, target)) {
+    if (sourcePreservingProseNeedsDocumentPortal(host, {
+        decoration: target.decoration,
+        insideShadowDOM: Boolean(target.insideShadowDOM),
+        interactivePassive: Boolean(interactivePassiveControl(host)),
+        preservesSource: Boolean(target.nonDestructive || scanHostRequiresSourcePreservingMirror(host)),
+    })) {
         return {
             configure(mirror) {
                 mirror.classList.add(DOCUMENT_ANNOTATION_PORTAL_MIRROR_CLASS);
@@ -2963,61 +2968,6 @@ function textMirrorMount(
         append: mirror => host.append(mirror),
         projectionRoot: host.getRootNode() as ParentNode,
     };
-}
-
-const VOLATILE_CONVERSATION_IDENTITY_RE = /(?:^|[-_\s])(?:comment|message|post|reply|chat)(?:[-_\s]|$)/iu;
-const VOLATILE_PROSE_IDENTITY_RE = /(?:^|[-_\s])(?:content[-_]?text|paragraph|prose.?wrap|description[-_]?text)(?:[-_\s]|$)/iu;
-
-/**
- * Framework-owned light-DOM prose is commonly rewritten with `textContent =`
- * even when its text is identical (YouTube comments are the hot example). An
- * in-host mirror is deleted by that write and enters a replay/mutation loop.
- * Promote only explicit/source-derived non-destructive prose or conversation
- * targets; controls, generic titles, and shadow trees retain their established
- * lanes.
- */
-function sourcePreservingProseNeedsDocumentPortal(host: HTMLElement, target: ScanTextTarget): boolean {
-    if (!sourcePreservingProseCanUseDocumentPortal(host, target)) return false;
-    return hasDocumentPortalProseAncestor(host);
-}
-
-const DOCUMENT_PORTAL_PROSE_DECORATIONS = new Set<DecorationState>(['prose-full', 'content-ruby']);
-
-function sourcePreservingProseCanUseDocumentPortal(host: HTMLElement, target: ScanTextTarget): boolean {
-    // A body portal can project exact Range boxes through translations, but a
-    // scale/rotation changes the reading typography as well as the boxes. Keep
-    // broad prose in its established in-host mirror under that containing
-    // block.
-    return [
-        !target.insideShadowDOM,
-        host.getRootNode() === host.ownerDocument,
-        DOCUMENT_PORTAL_PROSE_DECORATIONS.has(target.decoration ?? 'skip'),
-        !interactivePassiveControl(host),
-        target.nonDestructive || scanHostRequiresSourcePreservingMirror(host),
-        !documentAnnotationPortalHasNonTranslationTransform(host),
-    ].every(Boolean);
-}
-
-function hasDocumentPortalProseAncestor(host: HTMLElement): boolean {
-    let current: HTMLElement | null = host;
-    for (let depth = 0; current && depth < 8; depth += 1, current = composedParentElement(current)) {
-        // The portal is intentionally cross-site: the report is not limited to
-        // YouTube comments, and framework-owned article/feed prose has the same
-        // source-rewrite failure mode. Nested overflow is now re-clipped by the
-        // portal root; scaled/rotated prose was narrowed above.
-        if (isDocumentPortalProseAncestor(current, host)) return true;
-    }
-    return false;
-}
-
-function isDocumentPortalProseAncestor(current: HTMLElement, host: HTMLElement): boolean {
-    const identity = `${current.tagName} ${current.id} ${String(current.className || '')}`;
-    return [
-        isLikelyProseElement(current),
-        safeElementMatches(current, 'p,article,blockquote,figcaption,[role="article"]'),
-        VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
-        current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity),
-    ].some(Boolean);
 }
 
 function mountNonDestructiveTextMirror(

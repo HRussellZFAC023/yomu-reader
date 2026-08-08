@@ -33,6 +33,7 @@ import {
 } from './youtube-routes';
 import { isYouTubeAppHostname } from '../app/youtube-host';
 import { jpOnlyOn } from '../settings/language-gating';
+import { withYouTubeFeedScrollAnchor } from './youtube-feed-scroll-anchor';
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
@@ -752,7 +753,7 @@ export class YoutubeImmersionFilter {
         if (alreadyFiltered) return;
 
         this.prepareFilteredCard(card);
-        withFeedScrollAnchor(card, () => {
+        withYouTubeFeedScrollAnchor(card, () => {
             card.classList.add(YOUTUBE_FILTERED_CLASS);
             card.dataset.yomuYoutubeFiltered = 'true';
         });
@@ -766,7 +767,7 @@ export class YoutubeImmersionFilter {
         const changedLayout = cardHasFilteredLayoutState(card);
         this.clearCardTimers(card);
         this.clearPendingCard(card);
-        withFeedScrollAnchor(card, () => {
+        withYouTubeFeedScrollAnchor(card, () => {
             card.classList.remove(YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS);
         });
         card.style.removeProperty(YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY);
@@ -2243,63 +2244,6 @@ function cleanYouTubeAriaTitle(title: string): string {
         .split(/\s+·\s*/)[0]
         .split(/\s*,\s*/)[0]
         .trim();
-}
-
-// iOS Safari has no CSS scroll anchoring, so collapsing a card that sits at
-// or above the viewport shifts everything the user is reading. Keep whatever
-// element is currently in view stationary by measuring its viewport offset
-// across the layout mutation and compensating the scroll position.
-function withFeedScrollAnchor(mutated: HTMLElement, mutate: () => void): void {
-    const anchor = feedScrollAnchorElement(mutated);
-    const before = anchor?.getBoundingClientRect().top;
-    const scroller = anchor ? feedScrollerFor(anchor) : null;
-    mutate();
-    if (!anchor || before === undefined || !anchor.isConnected || !scroller) return;
-    const delta = anchor.getBoundingClientRect().top - before;
-    if (Math.abs(delta) > 0.5) scroller(delta);
-}
-
-// UT-39: m.youtube.com (and some desktop states) scroll inside a container,
-// not the window — anchor against whichever scroller actually moved, or the
-// compensation never fires and filtering shifts the feed under the finger.
-function feedScrollerFor(anchor: HTMLElement): ((delta: number) => void) | null {
-    let current = anchor.parentElement;
-    while (current && current !== document.body && current !== document.documentElement) {
-        let style: CSSStyleDeclaration;
-        try { style = getComputedStyle(current); } catch { return null; }
-        if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && current.scrollHeight > current.clientHeight + 1) {
-            const scroller = current;
-            return delta => { scroller.scrollTop += delta; };
-        }
-        current = current.parentElement;
-    }
-    return delta => window.scrollBy(0, delta);
-}
-
-function feedHasScrolled(mutated: HTMLElement): boolean {
-    if (window.scrollY > 0) return true;
-    let current = mutated.parentElement;
-    while (current && current !== document.body && current !== document.documentElement) {
-        if (current.scrollTop > 0) return true;
-        current = current.parentElement;
-    }
-    return false;
-}
-
-function feedScrollAnchorElement(mutated: HTMLElement): HTMLElement | null {
-    if (!feedHasScrolled(mutated) || typeof document.elementFromPoint !== 'function') return null;
-    for (const ratio of [0.35, 0.55, 0.8]) {
-        const probe = document.elementFromPoint(
-            Math.floor(window.innerWidth / 2),
-            Math.floor(window.innerHeight * ratio),
-        );
-        if (!(probe instanceof HTMLElement) || !probe.isConnected) continue;
-        // The mutated card itself (or its ancestors) cannot anchor: its rect
-        // is what the mutation changes.
-        if (probe === mutated || mutated.contains(probe) || probe.contains(mutated)) continue;
-        return probe;
-    }
-    return null;
 }
 
 function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
