@@ -137,7 +137,6 @@ describe('interface language resolution', () => {
         const sources = [
             'src/reader/app/i18n.ts',
             'src/reader/newtab/i18n.ts',
-            'docs/.vitepress/locales/docs-prose-catalog.ts',
             'docs/.vitepress/locales/site-locales.ts',
         ];
         for (const path of sources) {
@@ -148,6 +147,17 @@ describe('interface language resolution', () => {
 
             expect(offending).toEqual([]);
         }
+        // The docs catalogue's English keys can quote target-language source
+        // constructions. Inspect its Japanese values so Korean source text does
+        // not masquerade as a Japanese-translation defect.
+        const { entries, unparsed } = hostedDocsJaCopyEntries(
+            readFileSync('docs/.vitepress/locales/docs-prose-catalog.ts', 'utf8'),
+        );
+        expect(unparsed).toEqual([]);
+        expect(entries
+            .filter(([, japanese]) => anomaly.test(japanese))
+            .map(([english, japanese]) => `${english}: ${japanese}`))
+            .toEqual([]);
     });
 
     // Split every line into the text-node segments the theme's

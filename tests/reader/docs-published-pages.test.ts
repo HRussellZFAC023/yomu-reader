@@ -195,6 +195,8 @@ describe('published product claims', () => {
         //     counted from the same asserted roster the rotator read.
         expect(homepage).toContain('>A complete system for learning 日本語.</h1>');
         expect(catalogue).toContain("'A complete system for learning 日本語.': '日本語を学ぶための、すべてがそろう。'");
+        expect(theme).toContain("en: ['Read ', ' with Yomu.']");
+        expect(theme).toContain("ja: ['よむで', 'を読む。']");
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
         expect(config).toContain('__YOMU_HERO_LANGUAGES__: JSON.stringify(hostedHeroStudyLanguages)');
         expect(heroLanguages.length).toBeGreaterThan(1);

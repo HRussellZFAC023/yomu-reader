@@ -868,16 +868,14 @@ function installHostedHomepageInteractions(): void {
     installHostedHeroLanguageRotator();
 }
 
-// The headline rotator, restored by owner decision 2026-08-04. The SSR
-// headline stays "…learning 日本語." so crawlers, social unfurls and the no-JS
-// page never see a language chosen by a timer; only a booted client rotates,
-// and it starts from the same 日本語 the static page shows. Japanese word order
-// puts the study target first (日本語を学ぶための…), so the rotator owns the
-// WHOLE headline per interface language instead of swapping a word at a fixed
-// position inside a translated template.
+// The headline rotator names all reading-ready targets. Its sentence must stay
+// at reading strength: Japanese is the only full target, so putting every target
+// after "A complete system for learning" turned a measured roster into 32 false
+// full-product claims. The static/no-JS headline can keep the deeper Japanese
+// claim; the booted multilingual rotation says only what all 33 targets execute.
 const HOSTED_HERO_HEADLINES: Record<InterfaceLanguage, readonly [string, string]> = {
-    en: ['A complete system for learning ', '.'],
-    ja: ['', 'を学ぶための、すべてがそろう。'],
+    en: ['Read ', ' with Yomu.'],
+    ja: ['よむで', 'を読む。'],
 };
 const HOSTED_HERO_ROTATION_MS = 2800;
 
