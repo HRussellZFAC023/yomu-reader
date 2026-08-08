@@ -182,6 +182,119 @@ writeFileSync(entryPath, `
         };
     }
 
+    function restoreInlineStyle(element: HTMLElement, authoredStyle: string | null): void {
+        if (authoredStyle === null) element.removeAttribute('style');
+        else element.setAttribute('style', authoredStyle);
+    }
+
+    function portalVisibilityLifecycle(host: HTMLElement, portal: HTMLElement) {
+        const sourceOwner = host.parentElement ?? host;
+        // Chromium may already have materialized style="" while measuring the
+        // source. Treat an empty declaration as the same authored no-style state
+        // that removeAttribute restores.
+        const authoredSourceStyle = sourceOwner.getAttribute('style') || null;
+        sourceOwner.style.setProperty('display', 'none');
+        projectAdditiveTextMirrors(document);
+        const sourceHideConcealed = portal.style.getPropertyValue('visibility') === 'hidden';
+        restoreInlineStyle(sourceOwner, authoredSourceStyle);
+        projectAdditiveTextMirrors(document);
+        const sourceRestoreVisible = portal.style.getPropertyValue('visibility') !== 'hidden';
+        // CSSStyleDeclaration reads in Chromium can materialize style="" after
+        // exact teardown. Remove that projection-only artifact before comparing
+        // the framework-owned source with its authored state.
+        restoreInlineStyle(sourceOwner, authoredSourceStyle);
+
+        const dialog = document.createElement('dialog');
+        document.body.append(dialog);
+        let dialogTopLayerSupported = false;
+        let dialogTopLayerConcealed = false;
+        try {
+            if (typeof dialog.showModal === 'function') {
+                dialog.showModal();
+                dialogTopLayerSupported = true;
+                projectAdditiveTextMirrors(document);
+                dialogTopLayerConcealed = portal.style.getPropertyValue('visibility') === 'hidden';
+            }
+        } finally {
+            if (dialog.open) dialog.close();
+            dialog.remove();
+            projectAdditiveTextMirrors(document);
+        }
+        const dialogCloseRestored = portal.style.getPropertyValue('visibility') !== 'hidden';
+
+        const authoredOverlay = document.createElement('div');
+        authoredOverlay.setAttribute('aria-modal', 'true');
+        authoredOverlay.style.cssText = 'position:fixed;inset:0;z-index:100;background:white;';
+        document.body.append(authoredOverlay);
+        projectAdditiveTextMirrors(document);
+        const authoredModalConcealed = portal.style.getPropertyValue('visibility') === 'hidden';
+        authoredOverlay.remove();
+        projectAdditiveTextMirrors(document);
+        const authoredModalRestored = portal.style.getPropertyValue('visibility') !== 'hidden';
+        restoreInlineStyle(sourceOwner, authoredSourceStyle);
+        const finalSourceStyle = sourceOwner.getAttribute('style') || null;
+        const sourceStyleRestored = finalSourceStyle === authoredSourceStyle;
+
+        return {
+            authoredSourceStyle,
+            finalSourceStyle,
+            sourceHideConcealed,
+            sourceRestoreVisible,
+            sourceStyleRestored,
+            dialogTopLayerSupported,
+            dialogTopLayerConcealed,
+            dialogCloseRestored,
+            authoredModalConcealed,
+            authoredModalRestored,
+        };
+    }
+
+    function visualViewportNeutrality(portal: HTMLElement) {
+        const viewport = window.visualViewport;
+        const paint = portal.querySelector<HTMLElement>('.jpdb-reader-document-annotation-paint');
+        if (!paint) throw new Error('document portal paint layer missing');
+        // This prose portal's reading already lives in the document paint layer;
+        // unlike a clipped source reading, it needs no second overlay clone.
+        // Measure the actual reading paint so the viewport assertion stays
+        // non-vacuous for the generic portal lane.
+        const readingPaints = [...portal.querySelectorAll<HTMLElement>('rt,.jpdb-reader-detached-furi')];
+        const result = {
+            supported: false,
+            readingPaintCount: readingPaints.length,
+            scrollPaintTransform: '',
+            scrollReadingTranslations: [] as string[],
+            resizePaintTransform: '',
+            resizeProjectionDelta: -1,
+        };
+        if (!viewport) return result;
+
+        const ownOffset = Object.getOwnPropertyDescriptor(viewport, 'offsetTop');
+        const ownScale = Object.getOwnPropertyDescriptor(viewport, 'scale');
+        const offsetTop = viewport.offsetTop;
+        const scale = viewport.scale;
+        try {
+            Object.defineProperty(viewport, 'offsetTop', { configurable: true, value: offsetTop + 13 });
+            result.supported = viewport.offsetTop === offsetTop + 13;
+            viewport.dispatchEvent(new Event('scroll'));
+            result.scrollPaintTransform = paint.style.getPropertyValue('transform');
+            result.scrollReadingTranslations = readingPaints
+                .map(reading => reading.style.getPropertyValue('translate'));
+
+            const projectionBeforeResize = documentPortalProjectionCountsForTest().mirrors;
+            Object.defineProperty(viewport, 'scale', { configurable: true, value: scale + 0.25 });
+            viewport.dispatchEvent(new Event('resize'));
+            result.resizePaintTransform = paint.style.getPropertyValue('transform');
+            result.resizeProjectionDelta = documentPortalProjectionCountsForTest().mirrors - projectionBeforeResize;
+        } finally {
+            if (ownOffset) Object.defineProperty(viewport, 'offsetTop', ownOffset);
+            else Reflect.deleteProperty(viewport, 'offsetTop');
+            if (ownScale) Object.defineProperty(viewport, 'scale', ownScale);
+            else Reflect.deleteProperty(viewport, 'scale');
+            viewport.dispatchEvent(new Event('resize'));
+        }
+        return result;
+    }
+
     Object.assign(window, {
         async runSourcePreservingProsePortalProbe() {
             const host = document.querySelector<HTMLElement>('#comment-text')!;
@@ -238,6 +351,12 @@ writeFileSync(entryPath, `
             const rewritePortalCount = document.querySelectorAll(
                 '.jpdb-reader-document-annotation-portal[data-yomu-document-portal="volatile-prose"]',
             ).length;
+            const visibilityLifecycle = portalVisibilityLifecycle(host, retained!);
+            const viewportNeutrality = visualViewportNeutrality(retained!);
+            // The VisualViewport restoration and modal removals schedule the
+            // ordinary production refresh. Drain it before existing scroll/work
+            // counters begin so each ratchet continues measuring one stimulus.
+            await frames(3);
             const projectionBeforeDocumentScroll = documentPortalProjectionCountsForTest();
             window.scrollBy(0, 56);
             window.dispatchEvent(new Event('scroll'));
@@ -379,6 +498,8 @@ writeFileSync(entryPath, `
                 readings: retained?.querySelectorAll('rt,.jpdb-reader-detached-furi').length ?? 0,
                 lifecycle,
                 quiescentRecords,
+                visibilityLifecycle,
+                viewportNeutrality,
                 documentScrollImmediate,
                 documentScrollSettled,
                 documentScrollProjectionPasses: projectionAfterDocumentScroll.passes - projectionBeforeDocumentScroll.passes,
@@ -556,6 +677,40 @@ function verifyPortalProjectionBatch(name, result) {
     }
 }
 
+function neutralTranslation(value) {
+    return !value || value === 'initial' || value === 'none' || value === 'unset';
+}
+
+function verifyPortalVisibilityAndViewport(name, result) {
+    const visibility = result.visibilityLifecycle;
+    const visibilityEvidence = [
+        visibility.sourceHideConcealed,
+        visibility.sourceRestoreVisible,
+        visibility.sourceStyleRestored,
+        visibility.dialogTopLayerSupported,
+        visibility.dialogTopLayerConcealed,
+        visibility.dialogCloseRestored,
+        visibility.authoredModalConcealed,
+        visibility.authoredModalRestored,
+    ];
+    if (!visibilityEvidence.every(Boolean)) {
+        fail(name, 'prose portal ignored source or top-layer visibility', result);
+    }
+
+    const viewport = result.viewportNeutrality;
+    const viewportEvidence = [
+        viewport.supported,
+        viewport.readingPaintCount >= 1,
+        neutralTranslation(viewport.scrollPaintTransform),
+        viewport.scrollReadingTranslations.every(neutralTranslation),
+        neutralTranslation(viewport.resizePaintTransform),
+        viewport.resizeProjectionDelta === 0,
+    ];
+    if (!viewportEvidence.every(Boolean)) {
+        fail(name, 'prose portal did not keep VisualViewport scroll and resize neutral', result);
+    }
+}
+
 function verifyMultiPortalWorkBounds(name, result) {
     if (result.portalCountForPerf < 24
         || result.unrelatedProjectionPasses !== 0
@@ -595,6 +750,7 @@ async function runEngine(name, browserType) {
         verifyPortalMountAndNativeLayout(name, result);
         verifyPortalScrollProjection(name, result);
         verifyPortalProjectionBatch(name, result);
+        verifyPortalVisibilityAndViewport(name, result);
         verifyMultiPortalWorkBounds(name, result);
 
         console.log(`${name}: 24+ portals stayed aligned; 96-word projection used ${result.giantProjectionBatch.sourceRangeReads} source Range reads with 0 after its first fragment write`);
