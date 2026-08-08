@@ -49,19 +49,32 @@ export function installPopupOpenProbe() {
         const now = performance.now();
         const text = normalizedText(popover);
         const headwordText = normalizedText(popover.querySelector('[data-yomu-headword]'));
+        recordFirstSeen(probe, now, text);
+        recordWrongHeadword(probe, now, headwordText);
+        recordExpectedHeadword(probe, now, headwordText, text);
+    }
+
+    function recordFirstSeen(probe, now, text) {
         if (probe.seenAt === null) {
             probe.seenAt = now;
             probe.text = text.slice(0, 120);
         }
-        if (headwordText && !headwordText.includes(probe.expected) && probe.wrongAt === null) {
-            probe.wrongAt = now;
-            probe.wrongText = headwordText.slice(0, 120);
-        }
-        if (headwordText.includes(probe.expected) && probe.expectedAt === null) {
-            probe.expectedAt = now;
-            probe.text = text.slice(0, 120);
-            stopProbe();
-        }
+    }
+
+    function recordWrongHeadword(probe, now, headwordText) {
+        if (!headwordText) return;
+        if (headwordText.includes(probe.expected)) return;
+        if (probe.wrongAt !== null) return;
+        probe.wrongAt = now;
+        probe.wrongText = headwordText.slice(0, 120);
+    }
+
+    function recordExpectedHeadword(probe, now, headwordText, text) {
+        if (!headwordText.includes(probe.expected)) return;
+        if (probe.expectedAt !== null) return;
+        probe.expectedAt = now;
+        probe.text = text.slice(0, 120);
+        stopProbe();
     }
 
     function isRenderedPopover(popover) {

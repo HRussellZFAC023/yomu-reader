@@ -58,21 +58,24 @@ function mergeOptionalProfileSteps(metricsStep, cpuStep, coverageStep) {
 function mergeProfileStepLists(metricsSteps, cpuSteps, coverageSteps) {
     const cpuByName = uniqueProfileSteps(cpuSteps, 'CPU');
     const coverageByName = uniqueProfileSteps(coverageSteps, 'coverage');
-    const merged = metricsSteps.map(metricsStep => {
-        const cpuStep = cpuByName.get(metricsStep.name);
-        const coverageStep = coverageByName.get(metricsStep.name);
-        if (!cpuStep && !coverageStep) return metricsStep;
-        if (!cpuStep || !coverageStep) throw new Error(`Profiler replay step mismatch: ${metricsStep.name}.`);
-        cpuByName.delete(metricsStep.name);
-        coverageByName.delete(metricsStep.name);
-        return mergeProfileSteps(metricsStep, cpuStep, coverageStep);
-    });
+    const merged = metricsSteps.map(metricsStep => mergeNamedProfileStep(metricsStep, cpuByName, coverageByName));
     if (cpuByName.size || coverageByName.size) {
         throw new Error(
             `Profiler replay has instrumented-only steps: cpu=${[...cpuByName.keys()]}, coverage=${[...coverageByName.keys()]}.`,
         );
     }
     return merged;
+}
+
+function mergeNamedProfileStep(metricsStep, cpuByName, coverageByName) {
+    const cpuStep = cpuByName.get(metricsStep.name);
+    const coverageStep = coverageByName.get(metricsStep.name);
+    const presentCount = Number(Boolean(cpuStep)) + Number(Boolean(coverageStep));
+    if (presentCount === 0) return metricsStep;
+    if (presentCount !== 2) throw new Error(`Profiler replay step mismatch: ${metricsStep.name}.`);
+    cpuByName.delete(metricsStep.name);
+    coverageByName.delete(metricsStep.name);
+    return mergeProfileSteps(metricsStep, cpuStep, coverageStep);
 }
 
 function uniqueProfileSteps(steps, replay) {

@@ -63,10 +63,12 @@ export function installPopupCloseProbe(deadlineMs) {
         settle(snapshot());
     };
     const recordRemoval = () => {
-        if (state.escapeAt === null || renderedPopovers().length > 0) return false;
-        if (state.removedAt === null) state.removedAt = performance.now();
+        if (state.escapeAt === null) return false;
+        if (renderedPopovers().length > 0) return false;
+        if (state.removedAt !== null) return true;
+        state.removedAt = performance.now();
         // Let the PerformanceObserver deliver the task containing dismissal.
-        if (!settleTimer) settleTimer = window.setTimeout(finish, 0);
+        settleTimer = window.setTimeout(finish, 0);
         return true;
     };
     function onKeydown(event) {
@@ -75,6 +77,14 @@ export function installPopupCloseProbe(deadlineMs) {
         deadlineTimer = window.setTimeout(() => {
             if (!recordRemoval()) finish();
         }, deadlineMs);
+    }
+
+    function observeLongTasks() {
+        if (typeof PerformanceObserver !== 'function') return;
+        if (!Array.isArray(PerformanceObserver.supportedEntryTypes)) return;
+        if (!PerformanceObserver.supportedEntryTypes.includes('longtask')) return;
+        longTaskObserver = new PerformanceObserver(list => recordLongTasks(list.getEntries()));
+        longTaskObserver.observe({ entryTypes: ['longtask'] });
     }
 
     window.__yomuProfilePopupCloseProbe = { completion, snapshot };
@@ -90,19 +100,16 @@ export function installPopupCloseProbe(deadlineMs) {
         childList: true,
         subtree: true,
     });
-    if (
-        typeof PerformanceObserver === 'function' &&
-        Array.isArray(PerformanceObserver.supportedEntryTypes) &&
-        PerformanceObserver.supportedEntryTypes.includes('longtask')
-    ) {
-        longTaskObserver = new PerformanceObserver(list => recordLongTasks(list.getEntries()));
-        longTaskObserver.observe({ entryTypes: ['longtask'] });
-    }
+    observeLongTasks();
     return snapshot();
 }
 
 export function popupCloseFailure(observation, deadlineMs) {
-    if (!observation?.attempted) return null;
+    if (!observation || !observation.attempted) return null;
+    return popupCloseAttemptFailure(observation, deadlineMs);
+}
+
+function popupCloseAttemptFailure(observation, deadlineMs) {
     if (typeof observation.escapeAt !== 'number') return 'Escape did not reach the page close probe.';
     if (typeof observation.removedAt !== 'number') {
         return `Popup remained visible after the ${deadlineMs}ms page-clock deadline.`;
