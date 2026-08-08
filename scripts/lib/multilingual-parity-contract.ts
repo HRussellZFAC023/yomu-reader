@@ -38,14 +38,22 @@ const COMMON_LOOKUP_FILES = [
     'src/reader/platform/binary-realm.ts',
 ] as const;
 
-// The authoritative archive run depends on the pinned Node and package tree as
-// well as the TypeScript sources. Hash these manifests for every target so a
-// runtime or dependency change cannot keep replaying evidence produced by a
-// different importer/matcher implementation.
+// The authoritative archive run depends on the pinned Node/package tree and on
+// the configuration Vite uses to transform the TypeScript sources. Hash these
+// inputs for every target so a toolchain or transform change cannot keep
+// replaying evidence produced by a different importer/matcher implementation.
 const LOOKUP_TOOLCHAIN_INPUT_FILES = [
     '.nvmrc',
     'package.json',
     'package-lock.json',
+    // vite-node loads the root Vite config before it transforms the recorder,
+    // matcher, and importer modules. Its plugins, aliases, and defines are part
+    // of the executable boundary even though this is not a browser build.
+    'vite.config.ts',
+    // Vite's esbuild transform reads the nearest tsconfig for every TypeScript
+    // module. In particular, target and class-field semantics can change the
+    // initialized state of YomitanDictionaryStore.
+    'tsconfig.json',
 ] as const;
 
 const JAPANESE_LOOKUP_FILES = [
@@ -579,7 +587,23 @@ export interface MultilingualParityCheckpointIdentity {
     gitStatusSha256: string;
     node: string;
     icu: string;
+    defaultLocale: string;
     corpusSha256: string;
+}
+
+/** Runtime inputs that can change ICU segmentation or locale-sensitive ordering. */
+export function multilingualParityRuntimeIdentity(): Pick<
+    MultilingualParityCheckpointIdentity,
+    'node' | 'icu' | 'defaultLocale'
+> {
+    return {
+        node: process.version,
+        icu: process.versions.icu ?? 'unknown',
+        // The lookup/import path contains localeCompare() and
+        // toLocaleLowerCase() calls with no explicit locale. LANG/LC_ALL can
+        // therefore change candidate ordering even under the same Node + ICU.
+        defaultLocale: new Intl.Collator().resolvedOptions().locale,
+    };
 }
 
 const CHECKPOINT_IDENTITY_FIELDS = [
@@ -591,6 +615,7 @@ const CHECKPOINT_IDENTITY_FIELDS = [
     'gitStatusSha256',
     'node',
     'icu',
+    'defaultLocale',
     'corpusSha256',
 ] as const;
 

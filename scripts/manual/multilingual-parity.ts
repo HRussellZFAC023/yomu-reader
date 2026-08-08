@@ -31,6 +31,7 @@ import {
     multilingualParityDirtyContractInputs,
     multilingualParityLookupContractInputs,
     multilingualParityLookupContractSha256,
+    multilingualParityRuntimeIdentity,
     multilingualParityStatusEntryPaths,
     multilingualParityToolchainManifestFailures,
     multilingualParityWrittenCheckpointFailures,
@@ -446,8 +447,7 @@ function checkpointIdentity(
         gitCommit: commit,
         gitDirty: Boolean(remaining),
         gitStatusSha256: createHash('sha256').update(remaining).digest('hex'),
-        node: process.version,
-        icu: process.versions.icu ?? 'unknown',
+        ...multilingualParityRuntimeIdentity(),
         corpusSha256: multilingualParityCorpusSha256(),
     };
 }

@@ -51,8 +51,15 @@ When a lookup-significant source, dependency, script, runtime, corpus, or
 published dictionary changes, re-record from the repository root on a clean,
 committed tree using the Node version in `.nvmrc`. Keep the cache and checkpoint
 outside the repository. The checkpoint is resumable only while the commit,
-worktree status, Node/ICU runtime, measurement contract, and corpus stay the
-same.
+worktree status, Node/ICU/default-locale runtime, measurement contract, and
+corpus stay the same.
+
+The contract includes the Vite and TypeScript configuration that transforms
+the recorder, importer, and matcher. Checkpoint provenance also records the
+resolved default `Intl` locale because locale-sensitive ordering and
+lowercasing can differ under `LANG`/`LC_ALL` even with the same Node and ICU
+versions. The current Vite-only environment branches do not reach the measured
+module graph; release-script identity is already covered by `package.json`.
 
 ```bash
 source "$NVM_DIR/nvm.sh"

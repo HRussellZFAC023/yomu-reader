@@ -27,6 +27,7 @@ import {
     MULTILINGUAL_PARITY_SCHEMA_VERSION,
     measureMultilingualParityTarget,
     multilingualParityContractState,
+    multilingualParityRuntimeIdentity,
     multilingualParityToolchainManifestFailures,
     multilingualParityWrittenCheckpointFailures,
     type MultilingualParityContractInput,
@@ -96,6 +97,7 @@ export interface MultilingualParityBaseline {
     gitStatusSha256: string;
     node: string;
     icu: string;
+    defaultLocale: string;
     corpusSha256: string;
     corpusRule: string;
     suggestedBenchmarkPercent: number;
@@ -397,13 +399,17 @@ function parityProvenanceMetadataFailures(
     if (evidence.generatedAt !== baseline.measuredAt) {
         failures.push('evidence timestamp differs from the baseline measurement');
     }
-    const currentNode = process.version;
-    const currentIcu = process.versions.icu ?? 'unknown';
-    if (baseline.node !== currentNode) {
-        failures.push(`baseline Node runtime is ${baseline.node}, current runtime is ${currentNode}`);
+    const currentRuntime = multilingualParityRuntimeIdentity();
+    if (baseline.node !== currentRuntime.node) {
+        failures.push(`baseline Node runtime is ${baseline.node}, current runtime is ${currentRuntime.node}`);
     }
-    if (baseline.icu !== currentIcu) {
-        failures.push(`baseline ICU runtime is ${baseline.icu}, current runtime is ${currentIcu}`);
+    if (baseline.icu !== currentRuntime.icu) {
+        failures.push(`baseline ICU runtime is ${baseline.icu}, current runtime is ${currentRuntime.icu}`);
+    }
+    if (baseline.defaultLocale !== currentRuntime.defaultLocale) {
+        failures.push(
+            `baseline default locale is ${String(baseline.defaultLocale)}, current locale is ${currentRuntime.defaultLocale}`,
+        );
     }
     return failures;
 }

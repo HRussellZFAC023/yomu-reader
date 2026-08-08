@@ -47,6 +47,7 @@ interface MultilingualParityBaseline {
     gitStatusSha256: string;
     node: string;
     icu: string;
+    defaultLocale: string;
     corpusSha256: string;
     corpusRule: string;
     suggestedBenchmarkPercent: number;
@@ -143,6 +144,7 @@ const {
     multilingualParityLookupContractInputs,
     multilingualParityLookupContractSourceFiles,
     multilingualParityLookupContractSha256,
+    multilingualParityRuntimeIdentity,
     multilingualParityStatusEntryPaths,
     multilingualParityToolchainManifestFailures,
     multilingualParityWrittenCheckpointFailures,
@@ -160,6 +162,7 @@ const {
     ) => string[];
     multilingualParityLookupContractSourceFiles: (language: string) => Promise<readonly string[]>;
     multilingualParityLookupContractSha256: (language: string) => Promise<string>;
+    multilingualParityRuntimeIdentity: () => Pick<CheckpointIdentity, 'node' | 'icu' | 'defaultLocale'>;
     multilingualParityContractState: (languages: readonly string[]) => Promise<ContractState>;
     multilingualParityDirtyContractInputs: (
         porcelainStatus: string,
@@ -195,6 +198,7 @@ interface CheckpointIdentity {
     gitStatusSha256: string;
     node: string;
     icu: string;
+    defaultLocale: string;
     corpusSha256: string;
 }
 
@@ -253,6 +257,7 @@ async function validInputs(): Promise<{
             gitStatusSha256: createHash('sha256').update('').digest('hex'),
             node: process.version,
             icu: process.versions.icu ?? 'unknown',
+            defaultLocale: multilingualParityRuntimeIdentity().defaultLocale,
             corpusSha256,
             corpusRule: MULTILINGUAL_PARITY_CORPUS_RULE,
             suggestedBenchmarkPercent: SUGGESTED_BENCHMARK_PERCENT,
@@ -387,11 +392,13 @@ describe('multilingual parity ratchet input validation', () => {
         baseline.measurementMode = 'some-other-matcher';
         evidence.measurementAlgorithmVersion = 'exact-gold-spans-v1';
         baseline.gitStatusSha256 = '0'.repeat(64);
+        baseline.defaultLocale = 'stale-locale';
 
         expect(validateMultilingualParityInputs(baseline, evidence)).toEqual(expect.arrayContaining([
             `baseline measurement mode is some-other-matcher, expected ${MULTILINGUAL_PARITY_MEASUREMENT_MODE}`,
             `evidence measurement algorithm is exact-gold-spans-v1, expected ${MULTILINGUAL_PARITY_MEASUREMENT_ALGORITHM_VERSION}`,
             'baseline git status digest is not clean',
+            `baseline default locale is stale-locale, current locale is ${multilingualParityRuntimeIdentity().defaultLocale}`,
         ]));
     });
 
@@ -504,6 +511,8 @@ describe('multilingual parity measurement contract', () => {
             '.nvmrc',
             'package.json',
             'package-lock.json',
+            'vite.config.ts',
+            'tsconfig.json',
             'scripts/lib/multilingual-parity-contract.ts',
             'scripts/lib/multilingual-parity-corpus.ts',
             'scripts/lib/multilingual-parity-archive.ts',
@@ -551,6 +560,17 @@ describe('multilingual parity measurement contract', () => {
             .toBe(digest('package.json', packageManifest('1.8.89')));
         expect(digest('package-lock.json', lockManifest('1.8.87')))
             .toBe(digest('package-lock.json', lockManifest('1.8.89')));
+    });
+
+    it('keeps Vite and TypeScript transform changes inside the lookup contract', () => {
+        const digest = (path: string, source: string): string => createHash('sha256')
+            .update(multilingualParityContractInputBytes(path, Buffer.from(source)))
+            .digest('hex');
+
+        expect(digest('vite.config.ts', 'export default { define: { FLAG: true } };'))
+            .not.toBe(digest('vite.config.ts', 'export default { define: { FLAG: false } };'));
+        expect(digest('tsconfig.json', '{"compilerOptions":{"useDefineForClassFields":true}}'))
+            .not.toBe(digest('tsconfig.json', '{"compilerOptions":{"useDefineForClassFields":false}}'));
     });
 
     it('still invalidates the lookup contract for script, dependency, and resolved-package changes', () => {
@@ -602,6 +622,7 @@ describe('multilingual parity measurement contract', () => {
             gitStatusSha256: createHash('sha256').update('').digest('hex'),
             node: process.version,
             icu: process.versions.icu ?? 'unknown',
+            defaultLocale: multilingualParityRuntimeIdentity().defaultLocale,
             corpusSha256: '2'.repeat(64),
         };
 
@@ -609,9 +630,11 @@ describe('multilingual parity measurement contract', () => {
             ...expected,
             measurementAlgorithmVersion: 'old-algorithm',
             icu: 'old-icu',
+            defaultLocale: 'tr-TR',
         }, expected)).toEqual([
             'checkpoint measurementAlgorithmVersion is stale',
             'checkpoint icu is stale',
+            'checkpoint defaultLocale is stale',
         ]);
     });
 });
