@@ -190,7 +190,7 @@ export function autoSelectableNativeTrackRole(
         && isOutputLanguageSubtitleTrack(option, languages.outputLanguage) ? 'secondary' : null;
 }
 
-export function findAutoPrimaryYouTubeTrack(
+function findAutoPrimaryYouTubeTrack(
     tracks: SubtitleTrackOption[],
     selectedTrackId: string,
     autoSelectSuppressedVideoId: string,
@@ -207,7 +207,7 @@ export function findAutoPrimaryYouTubeTrack(
     return candidate?.id === selectedTrackId ? undefined : candidate;
 }
 
-export function findAutoSecondaryYouTubeTrack(
+function findAutoSecondaryYouTubeTrack(
     tracks: SubtitleTrackOption[],
     primaryTrackId: string,
     secondaryTrackId: string,

@@ -116,7 +116,7 @@ function setAttributeIfChanged(element: HTMLElement, name: string, value: string
 // mutated, never re-emitted as markup. A browser only delivers click when the
 // pressed node is still in the document at release; re-creating this button
 // mid-tap silently drops the tap.
-export function createSubtitleSecondaryLine(): HTMLButtonElement {
+function createSubtitleSecondaryLine(): HTMLButtonElement {
     const button = document.createElement('button');
     button.className = SUBTITLE_SECONDARY_CLASS;
     button.type = 'button';
@@ -224,7 +224,7 @@ function createVisibleSubtitlePrimaryRow(
 // Caption text carries newlines, so the children are markup rather than a
 // textContent write. Replacing the button's children leaves the button itself
 // under the finger, which is the node hit testing resolves the tap against.
-export function syncSubtitleSecondaryText(button: HTMLElement, text: string): void {
+function syncSubtitleSecondaryText(button: HTMLElement, text: string): void {
     if (button.dataset.subtitleSecondaryText === text) return;
     button.dataset.subtitleSecondaryText = text;
     setInnerHtml(button, escapeWithBreaks(text));
