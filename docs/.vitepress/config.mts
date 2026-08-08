@@ -145,12 +145,20 @@ function withBrand(title: string): string {
     return /よむ|yomu/i.test(title) ? title : `${title} · よむ`;
 }
 
+const HOME_PAGE_TITLES = new Set(['よむ', 'Home']);
+
 function ogTitleFor(pageData: PageDataLike, locale: WebsiteLocaleId): string {
-    const fmTitle = typeof pageData.frontmatter.title === 'string' ? pageData.frontmatter.title : '';
-    if (fmTitle) return withBrand(fmTitle);
-    const title = pageData.title?.trim();
-    if (!title || title === 'よむ' || title === 'Home') return websiteMessage('docs.site.title', locale);
-    return withBrand(title);
+    const title = authoredPageTitle(pageData);
+    return title ? withBrand(title) : websiteMessage('docs.site.title', locale);
+}
+
+function authoredPageTitle(pageData: PageDataLike): string | undefined {
+    const title = [frontmatterTitle(pageData), pageData.title?.trim()].find(Boolean) as string | undefined;
+    return title && !HOME_PAGE_TITLES.has(title) ? title : undefined;
+}
+
+function frontmatterTitle(pageData: PageDataLike): string | undefined {
+    return typeof pageData.frontmatter.title === 'string' ? pageData.frontmatter.title : undefined;
 }
 
 function ogDescriptionFor(pageData: PageDataLike, locale: WebsiteLocaleId): string {

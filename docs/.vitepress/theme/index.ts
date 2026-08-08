@@ -611,58 +611,65 @@ function shouldShowHostedSupportBanner(status: HostedSupportStatus): boolean {
 }
 
 function renderHostedSupportBanner(status: HostedSupportStatus): HTMLElement {
+    const locale = activeWebsiteLocale();
     const banner = document.createElement('aside');
     banner.id = YOMU_SUPPORT_BANNER_ID;
     banner.className = 'yomu-support-banner';
-    banner.setAttribute(
-        'aria-label',
-        activeWebsiteLocale() === 'ja' ? 'よむの運営支援' : 'Yomu running-cost support',
-    );
+    banner.setAttribute('aria-label', hostedSupportBannerLabel(locale));
     banner.dataset.yomuSupportBanner = 'true';
+    banner.append(
+        renderHostedSupportBannerCopy(status, locale),
+        renderHostedSupportBannerActions(status, banner, locale),
+    );
+    return banner;
+}
 
+function renderHostedSupportBannerCopy(status: HostedSupportStatus, locale: InterfaceLanguage): HTMLElement {
     const copy = document.createElement('div');
     copy.className = 'yomu-support-banner-copy';
-
     const message = document.createElement('strong');
     message.textContent = hostedSupportMessage(status);
     copy.append(message);
-
     const meta = document.createElement('span');
     meta.textContent = hostedSupportMeta(status);
     copy.append(meta);
-
     const breakdown = document.createElement('a');
     breakdown.className = 'yomu-support-banner-breakdown';
-    breakdown.href = localizedWebsiteHref('/support#monthly-running-costs', activeWebsiteLocale());
-    breakdown.textContent = activeWebsiteLocale() === 'ja'
-        ? '内訳'
-        : 'What this covers';
+    breakdown.href = localizedWebsiteHref('/support#monthly-running-costs', locale);
+    breakdown.textContent = locale === 'ja' ? '内訳' : 'What this covers';
     copy.append(breakdown);
-
     const progress = renderHostedSupportProgress(status);
     if (progress) copy.append(progress);
+    return copy;
+}
 
+function renderHostedSupportBannerActions(
+    status: HostedSupportStatus,
+    banner: HTMLElement,
+    locale: InterfaceLanguage,
+): HTMLElement {
     const actions = document.createElement('div');
     actions.className = 'yomu-support-banner-actions';
-
     for (const button of renderHostedSupportProviderButtons(status)) actions.append(button);
-
     const close = document.createElement('button');
     close.className = 'yomu-support-banner-close';
     close.type = 'button';
-    close.setAttribute(
-        'aria-label',
-        activeWebsiteLocale() === 'ja' ? '支援状況を閉じる' : 'Dismiss support status',
-    );
+    close.setAttribute('aria-label', hostedSupportCloseLabel(locale));
     close.textContent = '×';
     close.addEventListener('click', () => {
         rememberHostedSupportDismissal(hostedSupportDismissVersion(status));
         banner.remove();
     });
     actions.append(close);
+    return actions;
+}
 
-    banner.append(copy, actions);
-    return banner;
+function hostedSupportBannerLabel(locale: InterfaceLanguage): string {
+    return locale === 'ja' ? 'よむの運営支援' : 'Yomu running-cost support';
+}
+
+function hostedSupportCloseLabel(locale: InterfaceLanguage): string {
+    return locale === 'ja' ? '支援状況を閉じる' : 'Dismiss support status';
 }
 
 function renderHostedSupportProgress(status: HostedSupportStatus): HTMLElement | null {
@@ -700,20 +707,30 @@ function hostedSupportProgressRatio(status: HostedSupportStatus): number | null 
 }
 
 function renderHostedSupportProviderButtons(status: HostedSupportStatus): HTMLElement[] {
-    return hostedReadySupportProviders(status).map(provider => {
-        const link = document.createElement('a');
-        link.className = provider.id === 'stripe'
-            ? 'yomu-support-banner-donate'
-            : 'yomu-support-banner-provider';
-        link.dataset.provider = provider.id ?? '';
-        link.href = provider.url;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        link.textContent = provider.id === 'stripe'
-            ? (activeWebsiteLocale() === 'ja' ? '寄付する' : 'Donate')
-            : (provider.label || (provider.id ?? 'Support'));
-        return link;
-    });
+    return hostedReadySupportProviders(status).map(renderHostedSupportProviderButton);
+}
+
+function renderHostedSupportProviderButton(provider: HostedSupportProvider & { url: string }): HTMLElement {
+    const link = document.createElement('a');
+    link.className = provider.id === 'stripe'
+        ? 'yomu-support-banner-donate'
+        : 'yomu-support-banner-provider';
+    link.dataset.provider = provider.id ?? '';
+    link.href = provider.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = hostedSupportProviderText(provider, activeWebsiteLocale());
+    return link;
+}
+
+function hostedSupportProviderText(provider: HostedSupportProvider, locale: InterfaceLanguage): string {
+    return provider.id === 'stripe'
+        ? hostedDonationLabel(locale)
+        : [provider.label, provider.id, 'Support'].find(Boolean) as string;
+}
+
+function hostedDonationLabel(locale: InterfaceLanguage): string {
+    return locale === 'ja' ? '寄付する' : 'Donate';
 }
 
 function hostedReadySupportProviders(

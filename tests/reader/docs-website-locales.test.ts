@@ -31,6 +31,8 @@ describe('reviewed website locale contract', () => {
     afterEach(() => {
         document.head.replaceChildren();
         document.body.replaceChildren();
+        document.documentElement.lang = 'en';
+        document.documentElement.dir = 'ltr';
         window.history.replaceState({}, '', '/');
     });
 
@@ -108,6 +110,8 @@ describe('reviewed website locale contract', () => {
 
         expect(document.querySelector('.VPNavBarTranslations a')?.getAttribute('href'))
             .toBe('/learn/reading');
+        expect(document.documentElement.lang).toBe('ja');
+        expect(document.documentElement.dir).toBe('ltr');
         expect(document.querySelector('link[rel="canonical"]')?.getAttribute('href'))
             .toBe('https://yomureader.com/ja/learn/reading');
         expect(document.querySelector('meta[property="og:locale"]')?.getAttribute('content')).toBe('ja_JP');

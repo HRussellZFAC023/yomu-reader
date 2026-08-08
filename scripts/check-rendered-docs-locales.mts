@@ -14,6 +14,10 @@ import { unavailableWebsiteLocales } from '../docs/.vitepress/locales/site-local
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = path.join(ROOT, 'docs', '.vitepress', 'dist');
 const ORIGIN = 'https://yomureader.com';
+const LOCALIZED_CHROME_EXPECTATIONS = {
+    en: { navigation: 'Learning path', footer: 'Free and open source.', localeLabel: '日本語', localeHref: '/ja/' },
+    ja: { navigation: '学習の道筋', footer: '無料のオープンソースです。', localeLabel: 'English', localeHref: '/' },
+} as const;
 
 assert.ok(existsSync(DIST), 'docs build output is missing');
 const reviewedJapaneseRoutes = publishedWebsiteRouteDefinitions('ja');
@@ -82,23 +86,27 @@ function checkLocalizedChrome(
     locale: 'en' | 'ja',
 ): void {
     const pageText = text(document);
-    const navigationLabel = locale === 'ja' ? '学習の道筋' : 'Learning path';
-    const footer = locale === 'ja' ? '無料のオープンソースです。' : 'Free and open source.';
-    assert.ok(pageText.includes(navigationLabel), `${file}: localized navigation`);
-    assert.ok(pageText.includes(footer), `${file}: localized footer`);
+    const expectation = LOCALIZED_CHROME_EXPECTATIONS[locale];
+    assert.ok(pageText.includes(expectation.navigation), `${file}: localized navigation`);
+    assert.ok(pageText.includes(expectation.footer), `${file}: localized footer`);
     assert.equal(source.includes('yomu-hud-language-toggle'), false, `${file}: retired client copy toggle`);
-    const targetLocale = locale === 'ja' ? ['English', '/'] : ['日本語', '/ja/'];
-    assert.equal(localeMenuHref(document, targetLocale[0]), targetLocale[1], `${file}: safe locale switch`);
-    if (locale === 'ja') {
-        checkJapaneseRouteLinks(source, file);
-        assert.equal(text(elementById(document, 'main-nav-aria-label')).trim(), 'メインナビゲーション', `${file}: main navigation label`);
-        assert.equal(attribute(elementByClass(document, 'VPNavBarHamburger'), 'aria-label'), 'モバイルナビゲーション', `${file}: mobile navigation label`);
-        assert.equal(
-            attribute(descendantElementByAttribute(elementByClass(document, 'VPNavBarExtra'), 'aria-label'), 'aria-label'),
-            'メニュー',
-            `${file}: extra navigation label`,
-        );
-    }
+    assert.equal(localeMenuHref(document, expectation.localeLabel), expectation.localeHref, `${file}: safe locale switch`);
+    if (locale === 'ja') checkJapaneseChrome(document, source, file);
+}
+
+function checkJapaneseChrome(
+    document: DefaultTreeAdapterTypes.Document,
+    source: string,
+    file: string,
+): void {
+    checkJapaneseRouteLinks(source, file);
+    assert.equal(text(elementById(document, 'main-nav-aria-label')).trim(), 'メインナビゲーション', `${file}: main navigation label`);
+    assert.equal(attribute(elementByClass(document, 'VPNavBarHamburger'), 'aria-label'), 'モバイルナビゲーション', `${file}: mobile navigation label`);
+    assert.equal(
+        attribute(descendantElementByAttribute(elementByClass(document, 'VPNavBarExtra'), 'aria-label'), 'aria-label'),
+        'メニュー',
+        `${file}: extra navigation label`,
+    );
 }
 
 function checkJapaneseRouteLinks(source: string, file: string): void {

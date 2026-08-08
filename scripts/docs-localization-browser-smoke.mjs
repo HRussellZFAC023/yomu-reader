@@ -101,11 +101,13 @@ async function assertHomepage(page, pathname, lang) {
         ({ pathname: expectedPath, lang: expectedLang, expected }) => {
             const heading = document.querySelector('#yomu-home-title[data-yomu-hero-rotator="on"]')
                 ?.textContent?.trim() ?? '';
-            return location.pathname === expectedPath
-                && document.documentElement.lang === expectedLang
-                && heading.startsWith(expected.prefix)
-                && heading.endsWith(expected.suffix)
-                && heading.length > expected.prefix.length + expected.suffix.length;
+            return [
+                location.pathname === expectedPath,
+                document.documentElement.lang === expectedLang,
+                heading.startsWith(expected.prefix),
+                heading.endsWith(expected.suffix),
+                heading.length > expected.prefix.length + expected.suffix.length,
+            ].every(Boolean);
         },
         { pathname, lang, expected: EXPECTED_ROUTE_FRAMES[pathname] },
     );
@@ -136,20 +138,20 @@ async function assertLocaleHref(page, label, href) {
 
 async function assertRouteMetadata(page, pathname, lang) {
     const canonical = new URL(pathname, 'https://yomureader.com').href;
+    const openGraphLocale = { en: 'en_US', ja: 'ja_JP' }[lang];
     await page.waitForFunction(
-        ({ canonical: expectedCanonical, lang: expectedLang }) => {
-            const jsonLd = [...document.querySelectorAll('script[type="application/ld+json"][data-yomu-route-head]')]
-                .map(script => {
-                    try { return JSON.parse(script.textContent || '{}'); } catch { return {}; }
-                });
-            const breadcrumb = jsonLd.find(block => block['@type'] === 'BreadcrumbList');
-            return document.querySelector('link[rel="canonical"]')?.getAttribute('href') === expectedCanonical
-                && document.querySelector('meta[property="og:url"]')?.getAttribute('content') === expectedCanonical
-                && document.querySelector('meta[property="og:locale"]')?.getAttribute('content')
-                    === (expectedLang === 'ja' ? 'ja_JP' : 'en_US')
-                && breadcrumb?.itemListElement?.[1]?.item === expectedCanonical;
+        ({ canonical: expectedCanonical, openGraphLocale: expectedLocale }) => {
+            const script = document.querySelector('script[type="application/ld+json"][data-yomu-route-head]');
+            if (!script) return false;
+            const breadcrumb = JSON.parse(script.textContent ?? '{}');
+            return [
+                document.querySelector('link[rel="canonical"]')?.getAttribute('href') === expectedCanonical,
+                document.querySelector('meta[property="og:url"]')?.getAttribute('content') === expectedCanonical,
+                document.querySelector('meta[property="og:locale"]')?.getAttribute('content') === expectedLocale,
+                breadcrumb?.itemListElement?.[1]?.item === expectedCanonical,
+            ].every(Boolean);
         },
-        { canonical, lang },
+        { canonical, openGraphLocale },
     );
 }
 
@@ -177,7 +179,13 @@ function isWrongLanguageFrame(frame) {
     if (!expected) return false;
     if (frame.lang !== expected.lang) return true;
     if (frame.heading === expected.staticHeading) return false;
-    return !frame.heading.startsWith(expected.prefix)
-        || !frame.heading.endsWith(expected.suffix)
-        || frame.heading.length <= expected.prefix.length + expected.suffix.length;
+    return !dynamicHeadingMatches(frame.heading, expected);
+}
+
+function dynamicHeadingMatches(heading, expected) {
+    return [
+        heading.startsWith(expected.prefix),
+        heading.endsWith(expected.suffix),
+        heading.length > expected.prefix.length + expected.suffix.length,
+    ].every(Boolean);
 }
