@@ -41,11 +41,15 @@ export function installYoutubePerformanceStressTargetSelector() {
             })
             .filter(candidate => candidateMatchesRequest(candidate, request))
             .sort((left, right) => left.priority - right.priority || left.domIndex - right.domIndex);
-        const candidate = candidates[occurrence];
-        if (!candidate) return null;
-        // Resolve only the requested occurrence. Falling through to another
-        // expression or DOM position makes two profiler runs incomparable.
-        return resolveRequestedTarget(candidate, occurrence);
+        const targets = candidates
+            .map(candidate => resolveRequestedTarget(candidate, occurrence))
+            .filter(Boolean);
+        // Occurrence is defined over painted exact-source candidates. YouTube
+        // can retain offscreen portal replicas and change their passive flag
+        // during rehydration; ranking those before paint made a hidden replica
+        // block the visible requested source indefinitely. We still never fall
+        // through to another expression, lane, or source text.
+        return targets[occurrence] ?? null;
     }
 
     function validTargetRequest(request) {

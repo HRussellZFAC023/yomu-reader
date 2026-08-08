@@ -251,6 +251,38 @@ describe('YouTube performance harness', () => {
         }
     });
 
+    it('selects occurrences among painted exact stress targets', () => {
+        const hidden = document.createElement('span');
+        hidden.className = 'jpdb-reader-word';
+        hidden.dataset.expression = '今日';
+        hidden.getClientRects = () => [new DOMRect(20, -40, 40, 20)] as unknown as DOMRectList;
+        const visible = document.createElement('span');
+        visible.className = 'jpdb-reader-word';
+        visible.dataset.expression = '今日';
+        visible.getClientRects = () => [new DOMRect(20, 20, 40, 20)] as unknown as DOMRectList;
+        document.body.append(hidden, visible);
+        const originalElementFromPoint = document.elementFromPoint;
+        document.elementFromPoint = () => visible;
+        installYoutubePerformanceStressTargetSelector();
+        const profileWindow = window as typeof window & {
+            __yomuProfileSelectStressTarget?: (
+                selector: string,
+                request: { expression: string; lane: string; occurrence: number },
+            ) => { expression: string; y: number } | null;
+        };
+
+        try {
+            expect(
+                profileWindow.__yomuProfileSelectStressTarget!(
+                    '.jpdb-reader-word',
+                    { expression: '今日', lane: 'word', occurrence: 0 },
+                ),
+            ).toMatchObject({ expression: '今日', y: 30 });
+        } finally {
+            document.elementFromPoint = originalElementFromPoint;
+        }
+    });
+
     it('merges only CPU samples and coverage calls into authoritative metrics', () => {
         const metrics = profileReplay('metrics', { durationMs: 14 });
         const cpu = profileReplay('cpu', { durationMs: 80, functionProfile: { sampled: { sampledMs: 3 } } });
