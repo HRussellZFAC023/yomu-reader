@@ -1,4 +1,3 @@
-import { isNonNullObject as isRecord } from '../core/object-utils';
 import { createWindowCustomEvent } from '../platform/window-events';
 import { currentFullscreenElement } from '../core/fullscreen';
 import { READER_ROOT_SELECTOR } from '../dom/constants';
@@ -31,12 +30,7 @@ import {
     type TranscriptPanelLayout,
 } from './subtitle-layout';
 import { setClassState, shouldHonorExplicitYouTubeSideLayout, shouldPreservePlainSubtitleSelection } from './subtitle-dom-state';
-import {
-    collectPageSubtitleSources,
-    normalizedSubtitleUrl,
-    sameSubtitleUrl,
-    type PageSubtitleSource,
-} from './subtitle-sources';
+import { collectPageSubtitleSources, normalizedSubtitleUrl, sameSubtitleUrl, type PageSubtitleSource } from './subtitle-sources';
 import {
     applyStableYouTubePlayerVideoSize,
     clearStableYouTubePlayerVideoSize,
@@ -71,12 +65,7 @@ import {
     waitForTextTrackCues,
     type SubtitleTrackLoadOptions,
 } from './subtitle-track-loader';
-import {
-    compareSubtitleTrackOptions,
-    isEnglishSubtitleTrack,
-    isJapaneseSubtitleTrack,
-    shouldReplaceWaitingNativeTrack,
-} from './subtitle-track-metadata';
+import { isJapaneseSubtitleTrack } from './subtitle-track-metadata';
 import { renderSubtitleTrackPanel, subtitleDrawerMetaText } from './subtitle-track-panel';
 import {
     hasSelectedSubtitleTrackOrLines,
@@ -114,7 +103,6 @@ import {
     syncSubtitleSecondaryText,
 } from './subtitle-rendering';
 import {
-    compareNativeOverlaySubtitleTrackOptions,
     isStalePageSubtitleTrack,
     loadedTrackState,
     updatePageSubtitleTrack,
@@ -123,6 +111,18 @@ import {
     type SubtitleTrackSelectionLoadRequest,
     type SubtitleTrackSelectionRole,
 } from './subtitle-track-options';
+import {
+    autoSelectableNativeTrackRole,
+    autoSelectablePageTrackRole,
+    createPageSubtitleTrack,
+    ensureTranslatedJapaneseTrack,
+    findAutoPrimaryYouTubeTrack,
+    findAutoSecondaryYouTubeTrack,
+    readHostedSubtitleFileText,
+    subtitleFilePickerJobs,
+    subtitleFilesFromHostEvent,
+    type HostedSubtitleFileLoadRequest,
+} from './subtitle-track-selection';
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
 import { copyText, isEditableTarget } from '../ui/browser';
@@ -557,16 +557,6 @@ function normalizedSubtitleText(value: string | null | undefined): string {
     return (value ?? '').replace(/\s+/g, ' ').trim();
 }
 
-interface HostedSubtitleFileJob {
-    kind: 'primary' | 'secondary';
-    file: File;
-}
-
-interface HostedSubtitleFileLoadRequest {
-    jobs: HostedSubtitleFileJob[];
-    openPanel?: 'auto' | 'lines' | 'tracks' | false;
-}
-
 interface SubtitleDragSession {
     handle: HTMLElement;
     dragFrame: HTMLElement;
@@ -735,91 +725,6 @@ function createSubtitlePrimaryRow(primaryHtml: string): HTMLElement {
     setInnerHtml(primary, primaryHtml);
     row.append(primary);
     return row;
-}
-
-function subtitleFilesFromHostEvent(event: Event): HostedSubtitleFileLoadRequest {
-    const rawDetail = event instanceof CustomEvent ? detailValue(event) : undefined;
-    const detail = isRecord(rawDetail) ? rawDetail : {};
-    const explicitJobs = [
-        ...hostedSubtitleFileJobs('primary', detail.primary ?? detail.primaryFiles),
-        ...hostedSubtitleFileJobs('secondary', detail.secondary ?? detail.secondaryFiles),
-    ];
-    const inferredJobs = explicitJobs.length ? [] : inferHostedSubtitleFileJobs(hostedFiles(detail.files));
-    return {
-        jobs: [...explicitJobs, ...inferredJobs],
-        openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel),
-    };
-}
-
-function detailValue(event: Event): unknown {
-    return (event as CustomEvent<unknown>).detail;
-}
-
-function hostedSubtitleFileJobs(kind: 'primary' | 'secondary', value: unknown): HostedSubtitleFileJob[] {
-    return hostedFiles(value).map(file => ({ kind, file }));
-}
-
-function hostedFiles(value: unknown): File[] {
-    if (isHostedFile(value)) return [value];
-    if (!value || typeof value !== 'object') return [];
-    if (typeof (value as { length?: unknown }).length === 'number') {
-        return Array.from(value as ArrayLike<unknown>).filter(isHostedFile);
-    }
-    if (Symbol.iterator in value) return Array.from(value as Iterable<unknown>).filter(isHostedFile);
-    return [];
-}
-
-function isHostedFile(value: unknown): value is File {
-    if (typeof File !== 'undefined' && value instanceof File) return true;
-    return Boolean(value
-        && typeof value === 'object'
-        && typeof (value as File).name === 'string'
-        && typeof (value as Blob).slice === 'function');
-}
-
-function readHostedSubtitleFileText(file: File): Promise<string> {
-    if (typeof file.text === 'function') return file.text();
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result ?? ''));
-        reader.onerror = () => reject(reader.error ?? new Error('Could not read subtitle file.'));
-        reader.readAsText(file);
-    });
-}
-
-function inferHostedSubtitleFileJobs(files: File[]): HostedSubtitleFileJob[] {
-    const subtitleFiles = files.filter(file => isSubtitleFileName(file.name));
-    if (!subtitleFiles.length) return [];
-    const primaryCandidates = subtitleFiles.filter(file => looksLikeJapaneseSubtitleFile(file.name));
-    const secondaryCandidates = subtitleFiles.filter(file => looksLikeNativeSubtitleFile(file.name));
-    const fallbackCandidates = subtitleFiles.filter(file => !primaryCandidates.includes(file) && !secondaryCandidates.includes(file));
-    const primary = primaryCandidates.shift() ?? fallbackCandidates.shift() ?? secondaryCandidates.shift();
-    if (!primary) return [];
-    return [
-        { kind: 'primary', file: primary },
-        ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map(file => ({ kind: 'secondary' as const, file })),
-    ];
-}
-
-function subtitleFilePickerJobs(kind: 'primary' | 'secondary', files: File[]): HostedSubtitleFileJob[] {
-    if (files.length <= 1 || kind === 'secondary') return files.map(file => ({ kind, file }));
-    return inferHostedSubtitleFileJobs(files);
-}
-
-function isSubtitleFileName(name: string): boolean {
-    return /\.(?:srt|vtt|ass|ssa)$/iu.test(name);
-}
-
-function looksLikeJapaneseSubtitleFile(name: string): boolean {
-    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
-}
-
-function looksLikeNativeSubtitleFile(name: string): boolean {
-    return /(^|[.\-_\s()[\]])(?:en|eng|english|native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
-}
-
-function normalizeHostedSubtitleOpenPanel(value: unknown): HostedSubtitleFileLoadRequest['openPanel'] {
-    return value === 'lines' || value === 'tracks' || value === 'auto' || value === false ? value : 'auto';
 }
 
 export class SubtitlePlayerController {
@@ -1896,7 +1801,9 @@ export class SubtitlePlayerController {
         // just made the next tick normalize the same list a second time.
         this.observeNativeTrack(track);
         this.maybeAutoSelectNativeTrack(option);
-        if (this.ensureTranslatedJapaneseTrack()) this.maybeAutoSelectTranslatedJapaneseTrack();
+        if (ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage)) {
+            this.maybeAutoSelectTranslatedJapaneseTrack();
+        }
         window.setTimeout(() => {
             if (this.destroyed) return;
             this.setNativeTrackModes();
@@ -1935,7 +1842,7 @@ export class SubtitlePlayerController {
     }
 
     private finishPageSubtitleTrackDiscovery(changes: { added: number; updated: number; removed: number }): void {
-        const generated = this.ensureTranslatedJapaneseTrack();
+        const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
         if (generated) this.maybeAutoSelectTranslatedJapaneseTrack();
         if (changes.added || changes.updated || changes.removed || generated) {
             this.renderTrackPanel();
@@ -1946,7 +1853,7 @@ export class SubtitlePlayerController {
     private addOrUpdatePageSubtitleTrack(source: PageSubtitleSource): { added: number; updated: number } {
         const existing = this.findPageSubtitleTrack(source);
         if (existing) return { added: 0, updated: updatePageSubtitleTrack(existing, source) ? 1 : 0 };
-        const track = this.createPageSubtitleTrack(source);
+        const track = createPageSubtitleTrack(source, this.tracks.length);
         this.tracks.push(track);
         this.maybeAutoSelectPageSubtitleTrack(track);
         return { added: 1, updated: 0 };
@@ -1956,58 +1863,37 @@ export class SubtitlePlayerController {
         return this.tracks.find(track => track.sourceKey === source.sourceKey || (track.url && sameSubtitleUrl(track.url, source.url)));
     }
 
-    private createPageSubtitleTrack(source: PageSubtitleSource): SubtitleTrackOption {
-        return {
-            id: `remote-${this.tracks.length}`,
-            label: source.label,
-            kind: 'remote',
-            language: source.language,
-            url: source.url,
-            sourceKey: source.sourceKey,
-        };
-    }
-
     private maybeAutoSelectPageSubtitleTrack(option: SubtitleTrackOption): void {
         if (option.kind !== 'remote' || !option.url) return;
         const selected = this.tracks.find(track => track.id === this.selectedTrackId);
         const secondary = this.tracks.find(track => track.id === this.secondaryTrackId);
-        if (this.shouldAutoSelectPrimaryPageTrack(option, selected)) {
+        const role = autoSelectablePageTrackRole(option, {
+            selectedTrackId: this.selectedTrackId,
+            secondaryTrackId: this.secondaryTrackId,
+            selected,
+            secondary,
+            cues: this.cues,
+            secondaryCues: this.secondaryCues,
+        });
+        if (role === 'primary') {
             void this.selectTrack(option.id, { auto: true });
             return;
         }
-        if (this.shouldAutoSelectSecondaryPageTrack(option, secondary)) {
+        if (role === 'secondary') {
             void this.selectSecondaryTrack(option.id, { auto: true });
         }
-    }
-
-    private shouldAutoSelectPrimaryPageTrack(option: SubtitleTrackOption, selected: SubtitleTrackOption | undefined): boolean {
-        return isJapaneseSubtitleTrack(option)
-            && (!this.selectedTrackId || this.isSyntheticTranslatedSelection() || shouldReplaceWaitingNativeTrack(selected, option, this.cues));
-    }
-
-    private shouldAutoSelectSecondaryPageTrack(option: SubtitleTrackOption, secondary: SubtitleTrackOption | undefined): boolean {
-        return isEnglishSubtitleTrack(option)
-            && (!this.secondaryTrackId || shouldReplaceWaitingNativeTrack(secondary, option, this.secondaryCues));
     }
 
     private maybeAutoSelectNativeTrack(option: SubtitleTrackOption): void {
         const track = option.track;
         if (!track) return;
-        const role = this.autoSelectableNativeTrackRole(option);
+        const role = autoSelectableNativeTrackRole(
+            option,
+            this.tracks,
+            this.selectedTrackId,
+            this.secondaryTrackId,
+        );
         if (role) this.autoSelectNativeTrack(option, track, role);
-    }
-
-    private autoSelectableNativeTrackRole(option: SubtitleTrackOption): 'primary' | 'secondary' | null {
-        // A real Japanese track always beats an auto-selected machine translation.
-        if (isJapaneseSubtitleTrack(option) && (!this.selectedTrackId || this.isSyntheticTranslatedSelection())) return 'primary';
-        if (!this.secondaryTrackId && isEnglishSubtitleTrack(option)) return 'secondary';
-        return null;
-    }
-
-    private isSyntheticTranslatedSelection(): boolean {
-        if (!this.selectedTrackId) return false;
-        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
-        return Boolean(selected?.translatedFromTrackId);
     }
 
     private maybeAutoSelectTranslatedJapaneseTrack(): void {
@@ -5451,10 +5337,19 @@ export class SubtitlePlayerController {
     }
 
     private finishYouTubeTrackDiscovery(added: number, updatedSelectedTrack: boolean): void {
-        const generated = this.ensureTranslatedJapaneseTrack();
-        const autoPrimaryTrack = this.findAutoPrimaryYouTubeTrack();
-        const autoSecondaryTrack = this.findAutoSecondaryYouTubeTrack(autoPrimaryTrack?.id);
-        const primaryTrackId = autoPrimaryTrack?.id || (this.shouldReloadUpdatedSelectedTrack(updatedSelectedTrack) ? this.selectedTrackId : '');
+        const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
+        const autoPrimaryTrack = findAutoPrimaryYouTubeTrack(
+            this.tracks,
+            this.selectedTrackId,
+            this.youtubeAutoSelectSuppressedVideoId,
+            this.youtubeVideoId,
+        );
+        const primaryTrackId = autoPrimaryTrack?.id || (updatedSelectedTrack && this.selectedTrackId ? this.selectedTrackId : '');
+        const autoSecondaryTrack = findAutoSecondaryYouTubeTrack(
+            this.tracks,
+            autoPrimaryTrack?.id ?? this.selectedTrackId,
+            this.secondaryTrackId,
+        );
         if (primaryTrackId) {
             void this.selectTrack(primaryTrackId, { auto: true });
             if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
@@ -5467,52 +5362,6 @@ export class SubtitlePlayerController {
         if (!added && !generated) return;
         this.renderTrackPanel();
         this.syncControls();
-    }
-
-    private ensureTranslatedJapaneseTrack(): boolean {
-        const hasJapanese = this.tracks.some(track => isJapaneseSubtitleTrack(track));
-        if (hasJapanese) return false;
-
-        const englishTracks = this.tracks.filter(track => isEnglishSubtitleTrack(track)).sort(compareSubtitleTrackOptions);
-        if (!englishTracks.length) return false;
-
-        const source = englishTracks[0];
-        const existing = this.tracks.find(t => t.translatedFromTrackId === source.id);
-        if (existing) return false;
-
-        const settings = this.options.getSettings();
-        const synthetic: SubtitleTrackOption = {
-            id: `translated-${source.id}`,
-            label: `${uiText(settings.interfaceLanguage, 'translation')} (${source.label})`,
-            kind: source.kind,
-            language: 'ja',
-            autoGenerated: true,
-            translatedFromTrackId: source.id,
-        };
-        this.tracks.push(synthetic);
-        return true;
-    }
-
-    private shouldReloadUpdatedSelectedTrack(updatedSelectedTrack: boolean): boolean {
-        return updatedSelectedTrack && Boolean(this.selectedTrackId);
-    }
-
-    private findAutoPrimaryYouTubeTrack(): SubtitleTrackOption | undefined {
-        // A synthetic translated selection stays replaceable by a real Japanese track.
-        if (this.selectedTrackId && !this.isSyntheticTranslatedSelection()) return undefined;
-        if (this.youtubeAutoSelectSuppressedVideoId && this.youtubeAutoSelectSuppressedVideoId === this.youtubeVideoId) return undefined;
-        const candidate = [...this.tracks]
-            .filter(track => track.kind === 'youtube' && isJapaneseSubtitleTrack(track))
-            .sort((a, b) => Number(Boolean(a.translatedFromTrackId)) - Number(Boolean(b.translatedFromTrackId))
-                || compareSubtitleTrackOptions(a, b))[0];
-        return candidate?.id === this.selectedTrackId ? undefined : candidate;
-    }
-
-    private findAutoSecondaryYouTubeTrack(primaryTrackId = this.selectedTrackId): SubtitleTrackOption | undefined {
-        if (!primaryTrackId || this.secondaryTrackId) return undefined;
-        return [...this.tracks]
-            .filter(track => track.kind === 'youtube' && track.id !== primaryTrackId && isEnglishSubtitleTrack(track))
-            .sort(compareNativeOverlaySubtitleTrackOptions)[0];
     }
 
     private syncControls(): void {
