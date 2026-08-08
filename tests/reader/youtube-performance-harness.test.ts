@@ -6,6 +6,7 @@ import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { addUserscriptGraphInitScripts } from '../../scripts/lib/smoke-test-helpers.mjs';
 import { profileDriverProvenance, transitiveLocalImportFiles } from '../../scripts/lib/youtube-performance-provenance.mjs';
+import { installPopupCloseProbe, popupCloseFailure } from '../../scripts/lib/youtube-performance-popup-close.mjs';
 import {
     mergeScenarioFunctionProfiles,
     shouldRunUninstrumentedDiagnostics,
@@ -20,6 +21,44 @@ afterEach(() => {
 });
 
 describe('YouTube performance harness', () => {
+    it('measures Escape removal against the page clock without extending the deadline', async () => {
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.getClientRects = () => [new DOMRect(0, 0, 200, 100)] as unknown as DOMRectList;
+        document.body.append(popover);
+        document.addEventListener('keydown', () => popover.remove(), { once: true });
+
+        const armed = installPopupCloseProbe(1200);
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        const observation = await (window as typeof window & {
+            __yomuProfilePopupCloseProbe?: { completion: Promise<ReturnType<typeof installPopupCloseProbe>> };
+        }).__yomuProfilePopupCloseProbe!.completion;
+
+        expect(armed.attempted).toBe(true);
+        expect(observation.latencyMs).toBeLessThanOrEqual(1200);
+        expect(observation.visibleAtSettle).toBe(0);
+        expect(popupCloseFailure(observation, 1200)).toBeNull();
+    });
+
+    it('keeps a missing page-clock removal as a strict deadline failure', () => {
+        expect(
+            popupCloseFailure(
+                {
+                    attempted: true,
+                    armedAt: 0,
+                    escapeAt: 10,
+                    removedAt: null,
+                    settledAt: 1211,
+                    deadlineMs: 1200,
+                    visibleAtSettle: 1,
+                    latencyMs: null,
+                    longTasks: [],
+                },
+                1200,
+            ),
+        ).toMatch(/remained visible/u);
+    });
+
     it('runs uninstrumented legacy diagnostics only in the full metrics replay', () => {
         expect(shouldRunUninstrumentedDiagnostics('metrics', false)).toBe(true);
         expect(shouldRunUninstrumentedDiagnostics('cpu', false)).toBe(false);

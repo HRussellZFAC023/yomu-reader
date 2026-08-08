@@ -25,6 +25,7 @@ import {
 import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from '../lib/smoke-test-helpers.mjs';
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { profileDriverProvenance } from '../lib/youtube-performance-provenance.mjs';
+import { installPopupCloseProbe, popupCloseFailure } from '../lib/youtube-performance-popup-close.mjs';
 import { capturePerformancePageFailure, createPerformanceEvidenceJournal, serializeError } from '../lib/youtube-performance-report.mjs';
 import {
     mergeScenarioFunctionProfiles,
@@ -93,6 +94,7 @@ const MOBILE_CPU_THROTTLE_RATE = positiveIntegerSetting(
     process.env.YOMU_PROFILE_MOBILE_CPU_THROTTLE ?? 4,
     'YOMU_PROFILE_MOBILE_CPU_THROTTLE',
 );
+const POPUP_CLOSE_DEADLINE_MS = 1200;
 const STRESS_WORD_SELECTOR = [
     'ytd-watch-metadata .jpdb-reader-word',
     'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
@@ -1883,8 +1885,8 @@ async function waitForYoutubeCommentParse(page, scenario) {
 }
 
 async function hoverStressSample(page, request, label, activation = 'hover') {
-    await closeStressPopover(page);
-    if (activation === 'touch') return await touchStressSample(page, request, label);
+    const priorClose = await closeStressPopover(page);
+    if (activation === 'touch') return await touchStressSample(page, request, label, priorClose);
     const target = await page.evaluate(
         ({ targetRequest, selector }) => window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null,
         { targetRequest: request, selector: STRESS_WORD_SELECTOR },
@@ -1906,7 +1908,7 @@ async function hoverStressSample(page, request, label, activation = 'hover') {
     await page.mouse.move(target.x, target.y);
     const seen = await waitForStressPopover(page, target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
-    return stressSampleResult({ label, request, activation, target, seen, probe, started });
+    return stressSampleResult({ label, request, activation, target, seen, probe, started, priorClose });
 }
 
 function skippedStressSample(label, request) {
@@ -1919,7 +1921,7 @@ function skippedStressSample(label, request) {
     };
 }
 
-function stressSampleResult({ label, request, activation, target, seen, probe, started }) {
+function stressSampleResult({ label, request, activation, target, seen, probe, started, priorClose }) {
     return {
         label,
         request,
@@ -1933,6 +1935,7 @@ function stressSampleResult({ label, request, activation, target, seen, probe, s
         ms: probeLatency(probe, 'seenAt', started),
         expectedMs: probeLatency(probe, 'expectedAt', started),
         popoverText: probeValue(probe, 'text', ''),
+        priorClose,
     };
 }
 
@@ -1957,27 +1960,21 @@ async function closeStressPopover(page) {
                 popover.getClientRects().length > 0,
         ),
     );
-    if (!hasVisiblePopover) return;
+    if (!hasVisiblePopover) return { attempted: false };
     // A fresh replay can inherit Chromium's last pointer coordinates from the
     // preceding context. Move off the word before dismissal so hover cannot
     // reopen the popover in the same task as Escape.
     await page.mouse.move(8, 8);
+    const armed = await page.evaluate(installPopupCloseProbe, POPUP_CLOSE_DEADLINE_MS);
+    if (!armed.attempted) return armed;
     await page.keyboard.press('Escape');
-    await page.waitForFunction(
-        () =>
-            [...document.querySelectorAll('.jpdb-reader-popover')].every(
-                popover =>
-                    popover.hidden ||
-                    getComputedStyle(popover).display === 'none' ||
-                    getComputedStyle(popover).visibility === 'hidden' ||
-                    popover.getClientRects().length === 0,
-            ),
-        null,
-        { timeout: 1200 },
-    );
+    const observation = await page.evaluate(() => window.__yomuProfilePopupCloseProbe?.completion ?? null);
+    const failure = popupCloseFailure(observation, POPUP_CLOSE_DEADLINE_MS);
+    if (failure) throw new Error(`${failure} ${JSON.stringify(observation)}`);
+    return observation;
 }
 
-async function touchStressSample(page, request, label) {
+async function touchStressSample(page, request, label, priorClose) {
     const result = await page.evaluate(
         ({ targetRequest, selector }) => {
             const target = window.__yomuProfileSelectStressTarget?.(selector, targetRequest) ?? null;
@@ -2037,6 +2034,7 @@ async function touchStressSample(page, request, label) {
         seen,
         probe,
         started: result.started,
+        priorClose,
     });
 }
 
