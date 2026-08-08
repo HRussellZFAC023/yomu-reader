@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { addUserscriptGraphInitScripts } from '../../scripts/lib/smoke-test-helpers.mjs';
 import { profileDriverProvenance, transitiveLocalImportFiles } from '../../scripts/lib/youtube-performance-provenance.mjs';
 import { installPopupCloseProbe, popupCloseFailure } from '../../scripts/lib/youtube-performance-popup-close.mjs';
+import { installPopupOpenProbe } from '../../scripts/lib/youtube-performance-popup-open.mjs';
 import {
     mergeScenarioFunctionProfiles,
     shouldRunUninstrumentedDiagnostics,
@@ -58,6 +59,27 @@ describe('YouTube performance harness', () => {
                 1200,
             ),
         ).toMatch(/remained visible/u);
+    });
+
+    it('timestamps popup mount before a delayed animation-frame sample', async () => {
+        installPopupOpenProbe();
+        const profileWindow = window as typeof window & {
+            __yomuProfileStartPopupOpenProbe?: (expected: string) => number;
+            __yomuProfileHoverProbe?: { startedAt: number; expectedAt: number | null; text: string };
+        };
+        const startedAt = profileWindow.__yomuProfileStartPopupOpenProbe!('先生');
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = '<span data-yomu-headword>先生</span>';
+        popover.getClientRects = () => [new DOMRect(0, 0, 200, 100)] as unknown as DOMRectList;
+        document.body.append(popover);
+        await Promise.resolve();
+
+        expect(profileWindow.__yomuProfileHoverProbe).toMatchObject({
+            startedAt,
+            expectedAt: expect.any(Number),
+            text: '先生',
+        });
     });
 
     it('runs uninstrumented legacy diagnostics only in the full metrics replay', () => {

@@ -26,6 +26,7 @@ import { addUserscriptGraphInitScripts, userscriptCompanionPaths } from '../lib/
 import { installYoutubePerformanceStressTargetSelector } from '../lib/youtube-performance-stress-target.mjs';
 import { profileDriverProvenance } from '../lib/youtube-performance-provenance.mjs';
 import { installPopupCloseProbe, popupCloseFailure } from '../lib/youtube-performance-popup-close.mjs';
+import { installPopupOpenProbe } from '../lib/youtube-performance-popup-open.mjs';
 import { capturePerformancePageFailure, createPerformanceEvidenceJournal, serializeError } from '../lib/youtube-performance-report.mjs';
 import {
     mergeScenarioFunctionProfiles,
@@ -882,6 +883,7 @@ async function runMobileSoakWhenRequested(page, client, profileMode) {
 
 async function installInstrumentation(context) {
     await context.addInitScript(installYoutubePerformanceStressTargetSelector);
+    await context.addInitScript(installPopupOpenProbe);
     await context.addInitScript(() => {
         const JapaneseText = /[\u3040-\u30ff\u3400-\u9fff]/u;
         const NativeMutationObserver = window.MutationObserver;
@@ -1894,18 +1896,10 @@ async function hoverStressSample(page, request, label, activation = 'hover', pri
     const target = await waitForReadyStressTarget(page, request);
     if (!target) return skippedStressSample(label, request);
 
-    const started = await page.evaluate(expected => {
-        window.__yomuProfileHoverProbe = {
-            startedAt: performance.now(),
-            expected,
-            seenAt: null,
-            expectedAt: null,
-            wrongAt: null,
-            wrongText: '',
-            text: '',
-        };
-        return window.__yomuProfileHoverProbe.startedAt;
-    }, target.expected);
+    const started = await page.evaluate(
+        expected => window.__yomuProfileStartPopupOpenProbe?.(expected) ?? performance.now(),
+        target.expected,
+    );
     await page.mouse.move(target.x, target.y);
     const seen = await waitForStressPopover(page, target.expected);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
@@ -1987,15 +1981,7 @@ async function touchStressSample(page, request, label, priorClose) {
             // the out-of-tree annotation word.
             const eventTarget = document.elementFromPoint(x, y);
             if (!(eventTarget instanceof Element)) return null;
-            window.__yomuProfileHoverProbe = {
-                startedAt: performance.now(),
-                expected: target.expected,
-                seenAt: null,
-                expectedAt: null,
-                wrongAt: null,
-                wrongText: '',
-                text: '',
-            };
+            const started = window.__yomuProfileStartPopupOpenProbe?.(target.expected) ?? performance.now();
             const base = {
                 bubbles: true,
                 cancelable: true,
@@ -2015,7 +2001,7 @@ async function touchStressSample(page, request, label, priorClose) {
             eventTarget.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
             eventTarget.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0, pressure: 0 }));
             return {
-                started: window.__yomuProfileHoverProbe.startedAt,
+                started,
                 target: {
                     ...target,
                     eventTarget: `${eventTarget.tagName.toLowerCase()}${eventTarget.id ? `#${eventTarget.id}` : ''}`,
@@ -2063,6 +2049,7 @@ async function waitForStressPopover(page, expected, timeoutMs = 3200) {
                     if (settled) return;
                     settled = true;
                     window.clearTimeout(timer);
+                    window.__yomuProfileStopPopupOpenProbe?.();
                     resolve(value);
                 };
                 const sample = () => {
@@ -2129,7 +2116,7 @@ async function waitForStressPopover(page, expected, timeoutMs = 3200) {
                     return null;
                 };
                 timer = window.setTimeout(sample, deadlineMs);
-                requestAnimationFrame(sample);
+                sample();
             }),
         { expectedText: expected, deadlineMs: timeoutMs },
     );
