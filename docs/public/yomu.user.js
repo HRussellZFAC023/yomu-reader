@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.bb44759fc2e9.user.js#sha256=u0R1n8LpX7EotdoT9UP3+RccsnFc7zPLejS3XdIzC3E=
+// @require https://yomureader.com/greasyfork/yomu-runtime.f77ec7185f4c.user.js#sha256=937HGF9MuY0cszySvx+8ceOih2/xxQTXpy3oGSkWlco=
 // @resource yomuCss  https://yomureader.com/yomu.7dae25bff8c9.css#sha256=fa4lv/jJgFdHdmqWphmWJG+coy5FUHf7yUVgl1af1qU=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -8386,7 +8386,6 @@ selectorPairs,
 setReviewCardFrontPredicate,
 stampDecorationState,
 youtubeNativeChromeMustRemainPageOwned,
-youtubeEllipsisChromeMustRemainPageOwned,
 youtubeShelfExpansionChromeMustRemainPageOwned
 } = policy;
 function rubyFriendlyMirrorLineHeight(style) {
@@ -8946,6 +8945,19 @@ safeElementMatches$1(current, 'p,article,blockquote,figcaption,[role="article"]'
 VOLATILE_CONVERSATION_IDENTITY_RE.test(identity),
 current === host && VOLATILE_PROSE_IDENTITY_RE.test(identity)
 ].some(Boolean);
+}
+const YOUTUBE_APP_HOSTS = new Set([
+"youtube.com",
+"www.youtube.com",
+"m.youtube.com",
+"music.youtube.com",
+"studio.youtube.com",
+"kids.youtube.com",
+"gaming.youtube.com",
+"youtu.be"
+]);
+function isYouTubeAppHostname(hostname = location.hostname) {
+return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
 }
 function syncProjectedReadings(owner, projections) {
 yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
@@ -10631,15 +10643,18 @@ shadowRoot: root
 }
 function fragmentTargetDecoration(parent, fragments) {
 const parentDecoration = classifyDecoration(parent);
-if (parentDecoration === "skip" || parentDecoration === "interactive-passive") return parentDecoration;
+if (parentDecoration === "skip") return "skip";
+let passiveInteraction = parentDecoration === "interactive-passive";
 const seen = new Set([parent]);
 for (const fragment of fragments) {
 const element = fragment.node.parentElement;
 if (!element || seen.has(element)) continue;
 seen.add(element);
-if (classifyDecoration(element) === "interactive-passive") return "interactive-passive";
+const decoration = classifyDecoration(element);
+if (decoration === "skip") return "skip";
+if (decoration === "interactive-passive") passiveInteraction = true;
 }
-return parentDecoration;
+return passiveInteraction ? "interactive-passive" : parentDecoration;
 }
 function isCollectableFragmentText(text2, fragments, options) {
 if (!isTargetLanguageText(text2)) return false;
@@ -10824,9 +10839,15 @@ function isExcludedReaderRootElement(element, options) {
 return !options.includeReaderRoot && Boolean(element.closest(READER_ROOT_SELECTOR$3));
 }
 function shouldFlushAndSkipFragmentElement(element, state, isRoot) {
+if (fragmentElementMustRemainPageOwned(element, isRoot)) return true;
 if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
 if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
 return shouldSkipFragmentTextPresentation(element, state.options);
+}
+function fragmentElementMustRemainPageOwned(element, isRoot) {
+if (!isYouTubeAppHostname()) return false;
+if (!isRoot && !safeElementMatches$1(element, PASSIVE_INTERACTION_SELECTOR)) return false;
+return youtubeNativeChromeMustRemainPageOwned(element);
 }
 function matchesSkippedFragmentElement(element, state, isRoot) {
 if (state.excludeSelector && fragmentSelectorSkipsElement(
@@ -26162,19 +26183,6 @@ return document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2") ?? nu
 }
 function ownedElement$1(element) {
 return element && !element.closest(READER_OWNED_SELECTOR$1) ? element : null;
-}
-const YOUTUBE_APP_HOSTS = new Set([
-"youtube.com",
-"www.youtube.com",
-"m.youtube.com",
-"music.youtube.com",
-"studio.youtube.com",
-"kids.youtube.com",
-"gaming.youtube.com",
-"youtu.be"
-]);
-function isYouTubeAppHostname(hostname = location.hostname) {
-return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
 }
 const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
 const REVIEW_HEADER_SELECTOR = '#js-rev-header h1[id^="rev-id-"]';

@@ -19783,15 +19783,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(composedClosestMatching(element2, YOUTUBE_SHELF_EXPANSION_CONTROL_SELECTOR));
   }
   function youtubeNativeChromeMustRemainPageOwned(element2) {
-    return youtubeShelfExpansionChromeMustRemainPageOwned(element2) || youtubeEllipsisChromeMustRemainPageOwned(element2);
-  }
-  function youtubeEllipsisChromeMustRemainPageOwned(element2) {
+    if (youtubeShelfExpansionChromeMustRemainPageOwned(element2)) return true;
     if (!isYouTubeAppHostname()) return false;
-    const chrome = youtubeNativeChromeControl(element2);
-    if (!chrome) return false;
-    const clipRow = youtubeEllipsisRow(element2);
-    if (!clipRow) return false;
-    return elementsShareComposedBranch(chrome, clipRow);
+    return Boolean(youtubeNativeChromeControl(element2));
   }
   function youtubeNativeChromeControl(element2) {
     const miniGuide = composedClosestMatching(element2, YOUTUBE_MINI_GUIDE_CHROME_SELECTOR);
@@ -19800,14 +19794,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (shorts) return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, shorts);
     const shortsRoot = composedClosestMatching(element2, YOUTUBE_SHORTS_ROOT_SELECTOR);
     if (!shortsRoot) return null;
-    const actionRail = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
+    const control = composedClosestMatching(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR);
+    if (!control) return null;
+    const actionRail = composedClosestMatching(control, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
     if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
-    return composedControlInside(element2, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
-  }
-  function youtubeEllipsisRow(element2) {
-    const clipRow = closestRubyFragileConstrainedRow(element2);
-    if (!clipRow) return null;
-    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+    return isComposedAncestor(actionRail, control) ? control : null;
   }
   function composedClosestMatching(element2, selector) {
     let current = element2;
@@ -19820,9 +19811,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function composedControlInside(element2, selector, boundary) {
     const control = composedClosestMatching(element2, selector);
     return control && isComposedAncestor(boundary, control) ? control : null;
-  }
-  function elementsShareComposedBranch(first2, second) {
-    return isComposedAncestor(first2, second) || isComposedAncestor(second, first2);
   }
   function isComposedAncestor(ancestor, descendant) {
     let current = descendant;
@@ -19897,7 +19885,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     selectorPairs,
     setReviewCardFrontPredicate,
     stampDecorationState,
-    youtubeEllipsisChromeMustRemainPageOwned,
     youtubeNativeChromeMustRemainPageOwned,
     youtubeShelfExpansionChromeMustRemainPageOwned
   }, Symbol.toStringTag, { value: "Module" }));
@@ -21024,15 +21011,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function fragmentTargetDecoration(parent, fragments) {
     const parentDecoration = classifyDecoration(parent);
-    if (parentDecoration === "skip" || parentDecoration === "interactive-passive") return parentDecoration;
+    if (parentDecoration === "skip") return "skip";
+    let passiveInteraction = parentDecoration === "interactive-passive";
     const seen = /* @__PURE__ */ new Set([parent]);
     for (const fragment2 of fragments) {
       const element2 = fragment2.node.parentElement;
       if (!element2 || seen.has(element2)) continue;
       seen.add(element2);
-      if (classifyDecoration(element2) === "interactive-passive") return "interactive-passive";
+      const decoration = classifyDecoration(element2);
+      if (decoration === "skip") return "skip";
+      if (decoration === "interactive-passive") passiveInteraction = true;
     }
-    return parentDecoration;
+    return passiveInteraction ? "interactive-passive" : parentDecoration;
   }
   function isCollectableFragmentText(text2, fragments, options) {
     if (!isTargetLanguageText(text2)) return false;
@@ -21165,9 +21155,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return !options.includeReaderRoot && Boolean(element2.closest(READER_ROOT_SELECTOR));
   }
   function shouldFlushAndSkipFragmentElement(element2, state2, isRoot) {
+    if (fragmentElementMustRemainPageOwned(element2, isRoot)) return true;
     if (matchesSkippedFragmentElement(element2, state2, isRoot)) return true;
     if (shouldSkipInvisibleFragmentElement(element2, state2.visibleOnly)) return true;
     return shouldSkipFragmentTextPresentation(element2, state2.options);
+  }
+  function fragmentElementMustRemainPageOwned(element2, isRoot) {
+    if (!isYouTubeAppHostname()) return false;
+    if (!isRoot && !safeElementMatches(element2, PASSIVE_INTERACTION_SELECTOR)) return false;
+    return youtubeNativeChromeMustRemainPageOwned(element2);
   }
   function matchesSkippedFragmentElement(element2, state2, isRoot) {
     if (state2.excludeSelector && fragmentSelectorSkipsElement(
