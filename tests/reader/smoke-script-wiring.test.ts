@@ -15,6 +15,10 @@ import { userscriptCompanionPaths } from '../../scripts/lib/smoke-test-helpers.m
 const PACKAGE = JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> };
 const BODIES = Object.values(PACKAGE.scripts).join(' ');
 
+function literalCompanionNames(source: string): string[] {
+    return [...source.matchAll(/yomu-[a-z\d-]+\.user\.js/g)].map(match => match[0]);
+}
+
 describe('smoke script wiring', () => {
     it('gives every smoke and proof script under scripts/ an npm alias', () => {
         const unreachable = readdirSync('scripts')
@@ -95,8 +99,7 @@ describe('full-reader smoke companion graph', () => {
         expect(source, `${file} must load the whole @require graph for SCRIPT_PATH`)
             .toMatch(/(?:addScriptTagWithCspFallback|addUserscriptGraphInitScripts|userscriptCompanionPaths)\(\s*(?:page,\s*)?SCRIPT_PATH\s*\)/);
         // A literal companion bundle name is the hand-written list coming back.
-        expect([...source.matchAll(/yomu-[a-z\d-]+\.user\.js/g)].map(match => match[0]), file)
-            .toEqual([]);
+        expect(literalCompanionNames(source), file).toEqual([]);
     });
 
     it('derives the Japanese-site acceptance runtime from the built @require header', () => {
@@ -105,8 +108,21 @@ describe('full-reader smoke companion graph', () => {
 
         expect(source).toMatch(/from '\.\.\/lib\/smoke-test-helpers\.mjs'/);
         expect(source).toMatch(/addScriptTagWithCspFallback\(\s*page,\s*SCRIPT_PATH\s*\)/);
-        expect([...source.matchAll(/yomu-[a-z\d-]+\.user\.js/g)].map(match => match[0]))
-            .toEqual([]);
+        expect(literalCompanionNames(source)).toEqual([]);
+    });
+
+    it('boots the YouTube feature acceptance smoke with the ordered built graph', () => {
+        const file = 'scripts/manual/youtube-feature-smoke.mjs';
+        const source = readFileSync(file, 'utf8');
+
+        expect(source).toMatch(/from '\.\.\/lib\/smoke-test-helpers\.mjs'/);
+        expect(source).toContain('youtubeFeatureBootstrap.toString()');
+        expect(source).toMatch(
+            /addUserscriptGraphInitScripts\(\s*context,\s*USERSCRIPT_PATH,\s*\{\s*prefixContent\s*\}\s*\)/,
+        );
+        expect(literalCompanionNames(source)).toEqual([]);
+        expect(source).toContain("readerWordsInSurface('ytd-rich-grid-renderer')");
+        expect(source).toContain("readerWordsInSurface('ytm-rich-grid-renderer')");
     });
 
     it('resolves every @require line in the built userscript to a file on disk', () => {

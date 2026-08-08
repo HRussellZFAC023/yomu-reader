@@ -127,7 +127,7 @@ export class SubtitleTranscriptPanel {
         const settings = this.deps.getSettings();
         const htmlCache = this.deps.getHtmlCache();
         const parsedKey = this.deps.transcriptRowParseKey(row, index, rows, settings);
-        const parsed = htmlCache.parsedHtmlCache.get(parsedKey) ?? htmlCache.provisionalParsedHtmlCache.get(parsedKey);
+        const parsed = this.parsedRowHtml(parsedKey, settings, htmlCache);
         const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parsedKey)}"` : '';
         const provisionalAttribute = parsed && !htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : '';
         const seekLabel = `${uiText(settings.interfaceLanguage, 'seekSubtitleLine')} ${formatSubtitleTime(cue.start)}`;
@@ -143,6 +143,15 @@ export class SubtitleTranscriptPanel {
                 </div>
             </div>
         `;
+    }
+
+    private parsedRowHtml(
+        parsedKey: string,
+        settings: ReaderSettings,
+        htmlCache: SubtitleParsedHtmlCache,
+    ): string | undefined {
+        if (settings.annotationsPaused) return undefined;
+        return htmlCache.parsedHtmlCache.get(parsedKey) ?? htmlCache.provisionalParsedHtmlCache.get(parsedKey);
     }
 
     // UT-68c: when the Lines list shows only Japanese, each row with an

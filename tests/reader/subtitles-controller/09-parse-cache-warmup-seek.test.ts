@@ -185,6 +185,62 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         }
     });
 
+    it('stops an in-flight YouTube lookahead warmup when annotations are paused', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=pause-warmup') as unknown as Location,
+        });
+        try {
+            const firstParse = deferred<JPDBToken[]>();
+            const parseJapanese = vi.fn()
+                .mockImplementationOnce(() => firstParse.promise)
+                .mockResolvedValue([] as JPDBToken[]);
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(() => [] as JPDBToken[]));
+            const installed = createInstalledSubtitleController({
+                apiKey: '',
+                jitenApiKey: '',
+                annotationsPaused: false,
+                localDictionariesEnabled: false,
+            }, { parseJapanese, parseJapaneseBatch });
+            const controller = installed.controller;
+            const settings: ReaderSettings = installed.settings;
+            const cues = [
+                { start: 0, end: 1, text: '一番', transcriptEligible: true },
+                { start: 1, end: 2, text: '二番', transcriptEligible: true },
+                { start: 2, end: 3, text: '三番', transcriptEligible: true },
+            ];
+            const internals = controllerInternals<{
+                cues: typeof cues;
+                currentCue: typeof cues[number];
+                selectedTrackId: string;
+                warmParseAroundActiveCue: () => void;
+            }>(controller);
+            internals.cues = cues;
+            internals.currentCue = cues[0]!;
+            internals.selectedTrackId = 'remote-pause-warmup';
+
+            controller.refresh();
+            internals.warmParseAroundActiveCue();
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+            settings.annotationsPaused = true;
+            controller.refresh();
+            firstParse.resolve([makeSubtitleToken('一番')]);
+            await firstParse.promise;
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(parseJapaneseBatch).not.toHaveBeenCalled();
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('serializes first-paint enrichment and keeps every reading when playback advances', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {

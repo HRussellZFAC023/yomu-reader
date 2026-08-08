@@ -63,6 +63,7 @@ import {
     readerWordSurfaceText,
     releaseRubyRoomGrowth,
     removeNonDestructiveScanMirrors,
+    scheduleProjectedAnnotationLayoutRefresh,
     setInnerHtml,
     setReviewCardFrontPredicate,
     unwrapReaderWords,
@@ -1048,6 +1049,7 @@ export class ReaderApp {
             setShowFilterNotice: visible => void this.setYoutubeFilterNoticeVisible(visible),
             setShowChannelRecommendations: visible => void this.setYoutubeChannelRecommendationsVisible(visible),
             parseShelfJapanese: root => void this.parseYoutubeShelfJapanese(root),
+            scheduleAnnotationLayoutRefresh: () => scheduleProjectedAnnotationLayoutRefresh(),
         });
     }
 

@@ -884,6 +884,7 @@ describe('YouTube immersion filter', () => {
 
     it('hides non-Japanese-looking cards using original YouTube titles and supports reveal controls', async () => {
         renderYouTubeCards();
+        const scheduleAnnotationLayoutRefresh = vi.fn();
         const { filter, settings } = await startYoutubeFilter({
             oEmbedTitles: {
                 jp: '日本語で花の名前を覚える',
@@ -892,6 +893,7 @@ describe('YouTube immersion filter', () => {
                 translated: '37,000 Lines of Slop',
                 modern: '東京カフェで朝ごはん',
             },
+            filterOptions: { scheduleAnnotationLayoutRefresh },
         });
 
         expect(card('jp').classList.contains('jpdb-youtube-filtered')).toBe(false);
@@ -906,11 +908,14 @@ describe('YouTube immersion filter', () => {
             'Show hidden videos',
             'Hide notice',
         ]);
+        const refreshesAfterInitialFilter = scheduleAnnotationLayoutRefresh.mock.calls.length;
+        expect(refreshesAfterInitialFilter).toBeGreaterThan(0);
 
         document.querySelector<HTMLButtonElement>('[data-action="toggle-hidden"]')!.click();
         await vi.advanceTimersByTimeAsync(0);
 
         expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        expect(scheduleAnnotationLayoutRefresh.mock.calls.length).toBeGreaterThan(refreshesAfterInitialFilter);
         expect(document.querySelector<HTMLElement>('.jpdb-youtube-filter-bar')?.getAttribute('aria-label')).toContain('shows 3');
         expect(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')?.textContent).toBe('Hide hidden videos');
 

@@ -662,6 +662,39 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         }
     });
 
+    it('reconciles cached overlay and transcript markup after an annotations pause cycle', () => {
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const parsedHtml = '<span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban">読む</span>';
+        const { controller, internals, settings } = setupTranscriptCueController<typeof cue, {
+            htmlCache: SubtitleParsedHtmlCache;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+        }>([cue], {
+            selectedTrackId: 'file-primary',
+            settings: { annotationsPaused: false, subtitleTranscriptAutoScroll: false },
+        });
+        const key = internals.parseCacheKey(cue.text, settings);
+        internals.htmlCache.parsedHtmlCache.set(key, parsedHtml);
+
+        controller.refresh();
+        internals.openLinesPanel();
+        expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-row-text .jpdb-reader-word')).not.toBeNull();
+
+        // ReaderApp's global annotation teardown replaces these descendants
+        // before asking the subtitle controller to refresh.
+        document.querySelectorAll('.jpdb-reader-word').forEach(word => word.replaceWith(word.textContent ?? ''));
+        settings.annotationsPaused = true;
+        controller.refresh();
+        expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe(cue.text);
+        expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-row-text .jpdb-reader-word')).toBeNull();
+
+        settings.annotationsPaused = false;
+        controller.refresh();
+        expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-row-text .jpdb-reader-word')).not.toBeNull();
+    });
+
     it('does not rebuild the subtitle DOM when a render tick produces identical html', () => {
         const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
         const { internals } = setupTranscriptCueController<typeof cue, {

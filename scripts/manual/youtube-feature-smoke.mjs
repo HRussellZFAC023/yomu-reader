@@ -1,19 +1,14 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { assert } from '../lib/smoke-harness.mjs';
+import { addUserscriptGraphInitScripts } from '../lib/smoke-test-helpers.mjs';
 import { waitForYoutubeTranscriptRows } from '../lib/smoke-wait-helpers.mjs';
 import { dragTranscriptResizeHandle } from '../lib/subtitle-layout-test-utils.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from '../fixtures/youtube-fixtures.mjs';
 
 const USERSCRIPT_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_USERSCRIPT ?? 'dist/yomu.user.js');
 const CSS_PATH = resolve(process.env.YOMU_YOUTUBE_FEATURE_CSS ?? 'dist/yomu.css');
-const DEFAULT_COMPANION_DIR = existsSync(resolve('dist/greasyfork')) ? 'dist/greasyfork' : 'docs/public/greasyfork';
-// Production installs one @require: the complete runtime companion. Inject the
-// same boundary here so browser proof cannot pass against an incomplete mix of
-// legacy split companions.
-const COMPANION_PATHS = ['yomu-runtime.user.js']
-    .map(name => resolve(process.env.YOMU_YOUTUBE_FEATURE_COMPANION_DIR ?? DEFAULT_COMPANION_DIR, name));
 const HEADED = process.env.YOMU_YOUTUBE_FEATURE_HEADED === '1';
 
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
@@ -51,6 +46,7 @@ const baseSettings = {
     subtitleTextColorSource: 'jpdb',
     ocrEnabled: true,
     ocrAutoScanImages: true,
+    ocrVideoPauseFrames: true,
     ocrShowTextOverlay: true,
     ocrProvider: 'google-lens',
     ocrMinImageArea: 1,
@@ -347,388 +343,538 @@ function desktopShortCard(caseName, videoId, title) {
     </ytd-reel-item-renderer>`;
 }
 
-async function installUserscriptContext(context) {
-    const css = readFileSync(CSS_PATH, 'utf8');
-    const settings = { ...baseSettings };
-    await context.addInitScript(({ css, settings, settingsKey }) => {
-        const storage = new Map([[settingsKey, settings]]);
-        const storageKey = key => `__yomu_feature_${key}`;
-        function readStoredValue(key, fallback) {
-            if (storage.has(key)) return storage.get(key);
-            return readLocalStorageValue(key, fallback);
-        }
-
-        function readLocalStorageValue(key, fallback) {
-            try {
-                return parseStoredJson(storedJsonForKey(key), fallback);
-            } catch {
-                return fallback;
-            }
-        }
-
-        function storedJsonForKey(key) {
-            const stored = localStorage.getItem(storageKey(key));
-            if (stored !== null) return stored;
-            return localStorage.getItem(key);
-        }
-
-        function parseStoredJson(stored, fallback) {
-            if (stored == null) return fallback;
-            return JSON.parse(stored);
-        }
-
-        function writeStoredValue(key, value) {
-            storage.set(key, value);
-            try {
-                localStorage.setItem(storageKey(key), JSON.stringify(value));
-                localStorage.setItem(key, JSON.stringify(value));
-            } catch {
-                // Storage can be unavailable on synthetic pages; in-memory is enough.
-            }
-        }
-
-        function element(selector) {
-            return document.querySelector(selector);
-        }
-
-        function elementText(selector) {
-            const target = element(selector);
-            if (!target) return '';
-            return target.textContent || '';
-        }
-
-        function elementHasClass(selector, className) {
-            const target = element(selector);
-            if (!target) return false;
-            return target.classList.contains(className);
-        }
-
-        function elementStyle(selector) {
-            const target = element(selector);
-            if (!target) return null;
-            return getComputedStyle(target);
-        }
-
-        function elementVisible(selector) {
-            return styleVisible(elementStyle(selector));
-        }
-
-        function styleVisible(style) {
-            if (!style) return false;
-            return styleDisplayVisible(style) && styleOpacityVisible(style);
-        }
-
-        function styleDisplayVisible(style) {
-            return style.display !== 'none' && style.visibility !== 'hidden';
-        }
-
-        function styleOpacityVisible(style) {
-            return Number(style.opacity || 1) > 0.01;
-        }
-
-        function visibleCardCases(selector) {
-            return Array.from(document.querySelectorAll(selector))
-                .filter(card => elementVisibleFromElement(card))
-                .map(card => card.getAttribute('data-case') || '');
-        }
-
-        function hiddenCardCases(selector) {
-            return Array.from(document.querySelectorAll(selector))
-                .filter(card => !elementVisibleFromElement(card) || card.classList.contains('jpdb-youtube-filtered'))
-                .map(card => card.getAttribute('data-case') || '');
-        }
-
-        function elementVisibleFromElement(target) {
-            if (!target) return false;
-            const style = getComputedStyle(target);
-            if (!styleVisible(style)) return false;
-            const rect = target.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-        }
-
-        function visibleExpectedLanguages(selector) {
-            return Array.from(document.querySelectorAll(selector))
-                .filter(card => elementVisibleFromElement(card))
-                .map(card => card.getAttribute('data-expected-language') || '');
-        }
-
-        function cardState(selector) {
-            const cards = Array.from(document.querySelectorAll(selector));
-            const visibleCards = cards.filter(card => elementVisibleFromElement(card));
-            const hiddenCards = cards.filter(card => !elementVisibleFromElement(card) || card.classList.contains('jpdb-youtube-filtered'));
-            return {
-                cards: cards.length,
-                visible: visibleCards.length,
-                hidden: hiddenCards.length,
-                visibleCases: visibleCards.map(card => card.getAttribute('data-case') || ''),
-                hiddenCases: hiddenCards.map(card => card.getAttribute('data-case') || ''),
-                visibleExpectedLanguages: visibleCards.map(card => card.getAttribute('data-expected-language') || ''),
-                pending: cards.filter(card => card.classList.contains('jpdb-youtube-filter-pending')).length,
-                filtered: cards.filter(card => card.classList.contains('jpdb-youtube-filtered')).length,
-                collapsed: cards.filter(card => card.classList.contains('jpdb-youtube-filter-collapsed')).length,
-            };
-        }
-
-        function queryCount(selector) {
-            return document.querySelectorAll(selector).length;
-        }
-
-        function elementRectJson(selector) {
-            const target = element(selector);
-            if (!target) return null;
-            return target.getBoundingClientRect().toJSON();
-        }
-
-        function videoRectJson() {
-            return elementRectJson('#movie_player') || elementRectJson('video');
-        }
-
-        function rowFontSnapshot() {
-            const row = element('.jpdb-subtitle-row-text');
-            if (!row) return null;
-            return styleSnapshot(getComputedStyle(row));
-        }
-
-        function styleSnapshot(style) {
-            return {
-                family: style.fontFamily,
-                size: style.fontSize,
-                weight: style.fontWeight,
-                lineHeight: style.lineHeight,
-                textShadow: style.textShadow,
-            };
-        }
-        function wordStyleSnapshot(selector) {
-            const target = element(selector);
-            if (!target) return null;
-            const style = getComputedStyle(target);
-            return {
-                className: target.className,
-                pitchClass: target.getAttribute('data-pitch-class') || '',
-                decorationColor: style.textDecorationColor,
-                afterBorderColor: getComputedStyle(target, '::after').borderBlockEndColor,
-                text: target.textContent?.replace(/\s+/g, '').trim() || '',
-            };
-        }
-        writeStoredValue(settingsKey, settings);
-        window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
-        window.GM_addStyle = stylesheet => {
-            const style = document.createElement('style');
-            style.textContent = stylesheet;
-            (document.head || document.documentElement).append(style);
-            return style;
-        };
-        window.GM_getValue = (key, fallback) => readStoredValue(key, fallback);
-        window.GM_setValue = (key, value) => { writeStoredValue(key, value); };
-        window.GM_deleteValue = key => {
-            storage.delete(key);
-            try {
-                localStorage.removeItem(storageKey(key));
-                localStorage.removeItem(key);
-            } catch {
-                // Ignore.
-            }
-        };
-        window.GM_listValues = () => [...storage.keys()];
-        window.GM_addValueChangeListener = () => 0;
-        window.GM_removeValueChangeListener = () => undefined;
-        window.GM_registerMenuCommand = () => undefined;
-        window.__yomuFeatureOpenedTabs = [];
-        window.GM_openInTab = (url, options) => {
-            window.__yomuFeatureOpenedTabs.push({ url: String(url), options });
-            return { close: () => undefined };
-        };
-        window.open = (url, target, features) => {
-            window.__yomuFeatureOpenedTabs.push({ url: String(url), options: { target, features, via: 'window.open' } });
-            return { opener: null, close: () => undefined };
-        };
-        window.GM_xmlhttpRequest = options => {
-            fetch(options.url, { method: options.method || 'GET', headers: options.headers || {}, body: options.data })
-                .then(async response => {
-                    const responseText = await response.text();
-                    options.onload?.({
-                        status: response.status,
-                        responseText,
-                        response,
-                    });
-                })
-                .catch(error => options.onerror?.(error));
-        };
-        window.GM = {
-            getValue: window.GM_getValue,
-            setValue: window.GM_setValue,
-            deleteValue: window.GM_deleteValue,
-            listValues: window.GM_listValues,
-            addStyle: window.GM_addStyle,
-            addValueChangeListener: window.GM_addValueChangeListener,
-            removeValueChangeListener: window.GM_removeValueChangeListener,
-            registerMenuCommand: window.GM_registerMenuCommand,
-            openInTab: window.GM_openInTab,
-            xmlHttpRequest: window.GM_xmlhttpRequest,
-        };
-        window.__yomuFeatureReadHomepageState = function yomuFeatureReadHomepageState() {
-            const channelDescriptions = Array.from(document.querySelectorAll('.jpdb-youtube-channel-description'))
-                .map(element => element.textContent?.trim() || '');
-            const notice = document.querySelector('.jpdb-youtube-filter-bar');
-            const noticeSummary = notice?.querySelector('[data-role="summary"]') ?? null;
-            const noticeSummaryStyle = noticeSummary ? getComputedStyle(noticeSummary) : null;
-            return {
-                cards: queryCount('ytd-rich-item-renderer'),
-                readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
-                ocrLines: queryCount('.jpdb-ocr-line'),
-                ocrLayers: queryCount('.jpdb-ocr-layer'),
-                filteredEnglish: elementHasClass('ytd-rich-item-renderer[data-case="english"]', 'jpdb-youtube-filtered'),
-                englishVisible: elementVisible('ytd-rich-item-renderer[data-case="english"]'),
-                visibleJapanese: elementVisible('ytd-rich-item-renderer[data-case="jp"]'),
-                noticeText: elementText('.jpdb-youtube-filter-bar'),
-                noticeAriaLabel: notice?.getAttribute('aria-label') ?? '',
-                noticeButtons: Array.from(notice?.querySelectorAll('button') ?? [])
-                    .map(button => button.textContent?.trim() || ''),
-                noticeSummaryScreenReaderOnly: Boolean(noticeSummary?.classList.contains('jpdb-reader-sr-only')),
-                noticeSummaryVisuallyHidden: Boolean(noticeSummaryStyle
-                    && noticeSummaryStyle.position === 'absolute'
-                    && noticeSummaryStyle.width === '1px'
-                    && noticeSummaryStyle.height === '1px'
-                    && noticeSummaryStyle.overflow === 'hidden'),
-                channelNames: Array.from(document.querySelectorAll('.jpdb-youtube-channel-name'))
-                    .map(element => element.textContent?.trim() || ''),
-                channelDescriptions,
-                longChannelPreviewDescriptions: channelDescriptions
-                    .filter(text => text.includes('actual YouTube channel description')),
-            };
-        };
-        window.__yomuFeatureReadMobileHomeState = function yomuFeatureReadMobileHomeState() {
-            return {
-                ...cardState('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model'),
-                readerWordsInGrid: queryCount('ytm-rich-grid-renderer .jpdb-reader-word'),
-                continuationNudges: window.__yomuContinuationNudges || 0,
-                visibleJapanese: visibleExpectedLanguages('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model')
-                    .filter(language => language === 'jp').length,
-                visibleNonJapanese: visibleExpectedLanguages('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model')
-                    .filter(language => language && language !== 'jp').length,
-            };
-        };
-        window.__yomuFeatureReadShortsGalleryState = function yomuFeatureReadShortsGalleryState() {
-            return {
-                ...cardState('ytd-reel-item-renderer, ytm-shorts-lockup-view-model'),
-                shelfFiltered: elementHasClass('ytd-rich-shelf-renderer[data-case="gallery-shorts-shelf"]', 'jpdb-youtube-filtered'),
-                shelfVisible: elementVisible('ytd-rich-shelf-renderer[data-case="gallery-shorts-shelf"]'),
-                readerWordsInGrid: queryCount('ytd-rich-grid-renderer .jpdb-reader-word'),
-                visibleJapanese: visibleExpectedLanguages('ytd-reel-item-renderer, ytm-shorts-lockup-view-model')
-                    .filter(language => language === 'jp').length,
-                visibleNonJapanese: visibleExpectedLanguages('ytd-reel-item-renderer, ytm-shorts-lockup-view-model')
-                    .filter(language => language && language !== 'jp').length,
-            };
-        };
-        // One browser snapshot owns the whole Shorts watch acceptance surface.
-        // fallow-ignore-next-line complexity
-        window.__yomuFeatureReadShortsWatchState = function yomuFeatureReadShortsWatchState() {
-            const subtitleRoot = element('.jpdb-subtitle-player');
-            const rail = element('.jpdb-subtitle-rail');
-            const grip = element('.jpdb-subtitle-rail [data-action="rail-expand"]');
-            return {
-                cards: queryCount('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
-                filtered: queryCount('.jpdb-youtube-filtered'),
-                visible: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model').length,
-                hiddenCases: hiddenCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
-                visibleCases: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
-                visibleJapanese: visibleExpectedLanguages('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')
-                    .filter(language => language === 'jp').length,
-                visibleNonCurrentEnglish: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')
-                    .filter(caseName => caseName !== 'shorts-watch-current')
-                    .map(caseName => document.querySelector(`[data-case="${caseName}"]`)?.dataset.expectedLanguage)
-                    .filter(language => language === 'en').length,
-                documentClasses: document.documentElement.className,
-                parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
-                nativeSafeZoneWords: queryCount('.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]'),
-                nativeClicks: { ...(window.__shortsNativeClicks || {}) },
-                shareLabelSourceText: document.querySelector('#shorts-share-label')?.firstChild?.textContent || '',
-                shareLabelAnnotationWords: queryCount('#shorts-share-label .jpdb-reader-text-mirror .jpdb-reader-word'),
-                shareLabelMirrors: queryCount('#shorts-share-label .jpdb-reader-text-mirror'),
-                shareLabelOverflows: (() => {
-                    const label = document.querySelector('#shorts-share-label');
-                    return label instanceof HTMLElement && label.scrollWidth > label.clientWidth + 1;
-                })(),
-                nativeControlRects: {
-                    share: elementRectJson('#shorts-share'),
-                    fullscreen: elementRectJson('#shorts-fullscreen'),
-                },
-                storedRailPosition: window.GM_getValue?.('jpdb-reader-subtitle-control-rail-position', null) ?? null,
-                rail: {
-                    rootClasses: subtitleRoot?.className || '',
-                    rect: rail?.getBoundingClientRect().toJSON() || null,
-                    left: rail?.style.left || '',
-                    top: rail?.style.top || '',
-                    gripVisible: Boolean(grip && elementVisibleFromElement(grip)),
-                    gripExpanded: grip?.getAttribute('aria-expanded') || '',
-                },
-                items: [...document.querySelectorAll('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')].map(card => ({
-                    caseName: card.dataset.case,
-                    className: card.className,
-                    text: card.textContent?.trim(),
-                    href: card.querySelector('a[href]')?.getAttribute('href'),
-                    rect: card.getBoundingClientRect().toJSON(),
-                })),
-            };
-        };
-        window.__yomuFeatureReadWatchState = function yomuFeatureReadWatchState() {
-            return {
-                rows: queryCount('.jpdb-subtitle-list-row'),
-                parsedRowWords: queryCount('.jpdb-subtitle-row-text .jpdb-reader-word'),
-                parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
-                descriptionWords: queryCount('ytd-watch-metadata #description-inline-expander .jpdb-reader-word'),
-                commentWords: queryCount('ytd-comment-view-model #content-text .jpdb-reader-word'),
-                commentMorePassive: element('ytd-comment-view-model .more-button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
-                commentTranslatePassive: element('ytd-comment-view-model ytd-tri-state-button-view-model .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
-                liveChatWords: queryCount('yt-live-chat-text-message-renderer .jpdb-reader-word'),
-                liveChatButtonPassive: element('yt-live-chat-text-message-renderer button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
-                liveChatFrame: {
-                    headerWords: queryCount('ytd-live-chat-frame #header .jpdb-reader-word'),
-                    messageWords: queryCount('ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word'),
-                    actionWords: queryCount('ytd-live-chat-frame #show-hide-button .jpdb-reader-word'),
-                    panelPageDirectMirrors: queryCount('ytd-live-chat-frame #panel-pages > .jpdb-reader-text-mirror'),
-                    messageText: elementText('ytd-live-chat-frame #message.live-chat-card-copy').replace(/\s+/g, ' ').trim(),
-                    actionText: elementText('ytd-live-chat-frame #show-hide-button').replace(/\s+/g, ' ').trim(),
-                    card: elementRectJson('ytd-live-chat-frame'),
-                    message: elementRectJson('ytd-live-chat-frame #message.live-chat-card-copy'),
-                    action: elementRectJson('ytd-live-chat-frame #show-hide-button'),
-                    messageWordStyle: wordStyleSnapshot('ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word'),
-                    actionWordStyle: wordStyleSnapshot('ytd-live-chat-frame #show-hide-button .jpdb-reader-word'),
-                },
-                titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
-                watchTitleText: element('ytd-watch-metadata h1')?.textContent?.trim() ?? '',
-                sidebarReaderWords: queryCount('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word'),
-                sidebarText: element('#secondary')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-                sidebarCards: [...document.querySelectorAll('#secondary ytd-compact-video-renderer')].map(card => ({
-                    caseName: card.dataset.case ?? '',
-                    className: card.className,
-                    text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-                    rect: card.getBoundingClientRect().toJSON(),
-                })),
-                rowCopyButtons: queryCount('.jpdb-subtitle-row-copy'),
-                rowFont: rowFontSnapshot(),
-                layout: {
-                    placement: element('.jpdb-subtitle-player')?.dataset.transcriptPlacement ?? '',
-                    panel: elementRectJson('.jpdb-subtitle-list'),
-                    video: videoRectJson(),
-                    viewport: { width: window.innerWidth, height: window.innerHeight },
-                },
-            };
-        };
-        window.__yomuFeatureReadOcrArtifactState = function yomuFeatureReadOcrArtifactState() {
-            return {
-                frames: queryCount('.jpdb-ocr-video-frame'),
-                resumeButtons: queryCount('.jpdb-ocr-video-frame-resume'),
-                statuses: queryCount('.jpdb-ocr-video-frame-status'),
-                railResumeButtons: queryCount('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume'),
-                railResumeActive: Boolean(element('.jpdb-subtitle-player.jpdb-ocr-video-frame-resume-active')),
-            };
-        };
-    }, { css, settings, settingsKey: SETTINGS_KEY });
-    for (const companionPath of COMPANION_PATHS) {
-        await context.addInitScript({ path: companionPath });
+function youtubeFeatureBootstrap({ css, settings, settingsKey }) {
+    const storage = new Map([[settingsKey, settings]]);
+    const valueChangeListeners = new Map();
+    let nextValueChangeListenerId = 1;
+    const storageKey = key => `__yomu_feature_${key}`;
+    function readStoredValue(key, fallback) {
+        if (storage.has(key)) return storage.get(key);
+        return readLocalStorageValue(key, fallback);
     }
-    await context.addInitScript({ path: USERSCRIPT_PATH });
+
+    function readLocalStorageValue(key, fallback) {
+        try {
+            return parseStoredJson(storedJsonForKey(key), fallback);
+        } catch {
+            return fallback;
+        }
+    }
+
+    function storedJsonForKey(key) {
+        const stored = localStorage.getItem(storageKey(key));
+        if (stored !== null) return stored;
+        return localStorage.getItem(key);
+    }
+
+    function parseStoredJson(stored, fallback) {
+        if (stored == null) return fallback;
+        return JSON.parse(stored);
+    }
+
+    function writeStoredValue(key, value) {
+        storage.set(key, value);
+        try {
+            localStorage.setItem(storageKey(key), JSON.stringify(value));
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch {
+            // Storage can be unavailable on synthetic pages; in-memory is enough.
+        }
+    }
+
+    function notifyStoredValueChange(key, oldValue, newValue) {
+        for (const subscription of valueChangeListeners.values()) {
+            if (subscription.key === key) subscription.listener(key, oldValue, newValue, false);
+        }
+    }
+
+    function element(selector) {
+        return document.querySelector(selector);
+    }
+
+    function elementText(selector) {
+        const target = element(selector);
+        if (!target) return '';
+        return target.textContent || '';
+    }
+
+    function elementHasClass(selector, className) {
+        const target = element(selector);
+        if (!target) return false;
+        return target.classList.contains(className);
+    }
+
+    function elementStyle(selector) {
+        const target = element(selector);
+        if (!target) return null;
+        return getComputedStyle(target);
+    }
+
+    function elementVisible(selector) {
+        return styleVisible(elementStyle(selector));
+    }
+
+    function styleVisible(style) {
+        if (!style) return false;
+        return styleDisplayVisible(style) && styleOpacityVisible(style);
+    }
+
+    function styleDisplayVisible(style) {
+        return style.display !== 'none' && style.visibility !== 'hidden';
+    }
+
+    function styleOpacityVisible(style) {
+        return Number(style.opacity || 1) > 0.01;
+    }
+
+    function visibleCardCases(selector) {
+        return Array.from(document.querySelectorAll(selector))
+            .filter(card => elementVisibleFromElement(card))
+            .map(card => card.getAttribute('data-case') || '');
+    }
+
+    function hiddenCardCases(selector) {
+        return Array.from(document.querySelectorAll(selector))
+            .filter(card => !elementVisibleFromElement(card) || card.classList.contains('jpdb-youtube-filtered'))
+            .map(card => card.getAttribute('data-case') || '');
+    }
+
+    function elementVisibleFromElement(target) {
+        if (!target) return false;
+        const style = getComputedStyle(target);
+        if (!styleVisible(style)) return false;
+        const rect = target.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function visibleExpectedLanguages(selector) {
+        return Array.from(document.querySelectorAll(selector))
+            .filter(card => elementVisibleFromElement(card))
+            .map(card => card.getAttribute('data-expected-language') || '');
+    }
+
+    function cardState(selector) {
+        const cards = Array.from(document.querySelectorAll(selector));
+        const visibleCards = cards.filter(card => elementVisibleFromElement(card));
+        const hiddenCards = cards.filter(card => !elementVisibleFromElement(card) || card.classList.contains('jpdb-youtube-filtered'));
+        return {
+            cards: cards.length,
+            visible: visibleCards.length,
+            hidden: hiddenCards.length,
+            visibleCases: visibleCards.map(card => card.getAttribute('data-case') || ''),
+            hiddenCases: hiddenCards.map(card => card.getAttribute('data-case') || ''),
+            visibleExpectedLanguages: visibleCards.map(card => card.getAttribute('data-expected-language') || ''),
+            pending: cards.filter(card => card.classList.contains('jpdb-youtube-filter-pending')).length,
+            filtered: cards.filter(card => card.classList.contains('jpdb-youtube-filtered')).length,
+            collapsed: cards.filter(card => card.classList.contains('jpdb-youtube-filter-collapsed')).length,
+        };
+    }
+
+    function queryCount(selector) {
+        return document.querySelectorAll(selector).length;
+    }
+
+    function readerWordsInSurface(selector) {
+        return readerWordsForSurface(selector).size;
+    }
+
+    function readerWordsForSurface(selector) {
+        const surfaces = Array.from(document.querySelectorAll(selector));
+        const words = new Set(inlineReaderWords(surfaces));
+        portalReaderWords(decoratedSources(surfaces)).forEach(word => words.add(word));
+        return words;
+    }
+
+    function inlineReaderWords(surfaces) {
+        return surfaces
+            .flatMap(surface => Array.from(surface.querySelectorAll('.jpdb-reader-word')))
+            .filter(effectivelyVisible);
+    }
+
+    function decoratedSources(surfaces) {
+        return surfaces
+            .flatMap(decoratedSourcesWithin)
+            .filter(source => source.isConnected && effectivelyVisible(source));
+    }
+
+    function decoratedSourcesWithin(surface) {
+        const sources = Array.from(surface.querySelectorAll('[data-yomu-decoration]'));
+        if (surface.matches('[data-yomu-decoration]')) sources.unshift(surface);
+        return sources;
+    }
+
+    function portalReaderWords(sources) {
+        return Array.from(document.querySelectorAll('.jpdb-reader-document-annotation-portal'))
+            .filter(effectivelyVisible)
+            .flatMap(mirror => portalReaderWordsForSources(mirror, sources));
+    }
+
+    function portalReaderWordsForSources(mirror, sources) {
+        const mirrorSourceText = normalizedSourceIdentity(
+            mirror.getAttribute('data-yomu-host-source-text') ?? mirror.getAttribute('data-source-text'),
+        );
+        const matchingSources = sources.filter(source => nativeSourceIdentity(source) === mirrorSourceText);
+        return Array.from(mirror.querySelectorAll('.jpdb-reader-word'))
+            .filter(word => matchingSources.some(source => projectedWordMatchesSource(word, source)));
+    }
+
+    function projectedWordMatchesSource(word, source) {
+        if (!effectivelyVisible(word)) return false;
+        const sourceRects = sourceRangeRects(source);
+        if (!sourceRects.length) return false;
+        const fragments = Array.from(word.querySelectorAll('.jpdb-reader-source-fragment'));
+        const projectedRects = (fragments.length ? fragments : [word])
+            .filter(effectivelyVisible)
+            .map(element => element.getBoundingClientRect())
+            .filter(nonEmptyRect);
+        return sourceRects.some(sourceRect => projectedRects.some(projectedRect => rectsOverlap(sourceRect, projectedRect)));
+    }
+
+    function sourceRangeRects(source) {
+        const nodes = nativeSourceTextNodes(source);
+        const first = nodes[0];
+        const last = nodes.at(-1);
+        if (!first || !last) return [];
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(last, last.data.length);
+        return Array.from(range.getClientRects()).filter(nonEmptyRect);
+    }
+
+    function nativeSourceTextNodes(source) {
+        const nodes = [];
+        const walker = document.createTreeWalker(source, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            const owner = node.parentElement;
+            if (owner?.closest('[data-jpdb-reader-root="true"], [data-jpdb-reader-text-mirror="true"]')) continue;
+            nodes.push(node);
+        }
+        return nodes;
+    }
+
+    function nativeSourceIdentity(source) {
+        return normalizedSourceIdentity(nativeSourceTextNodes(source).map(node => node.data).join(''));
+    }
+
+    function normalizedSourceIdentity(text) {
+        return String(text || '').replace(/\s+/gu, ' ').trim();
+    }
+
+    function effectivelyVisible(element) {
+        const styles = [];
+        for (let current = element; current; current = current.parentElement) {
+            styles.push(getComputedStyle(current));
+        }
+        return !styles.some(styleConcealsElement);
+    }
+
+    function styleConcealsElement(style) {
+        return style.display === 'none'
+            || style.visibility !== 'visible'
+            || Number(style.opacity || 1) <= 0.01;
+    }
+
+    function nonEmptyRect(rect) {
+        return rect.width > 0 && rect.height > 0;
+    }
+
+    function rectsOverlap(left, right) {
+        const tolerance = 1;
+        return left.right >= right.left - tolerance
+            && right.right >= left.left - tolerance
+            && left.bottom >= right.top - tolerance
+            && right.bottom >= left.top - tolerance;
+    }
+
+    window.__yomuFeatureReaderWordsInSurface = readerWordsInSurface;
+
+    function elementRectJson(selector) {
+        const target = element(selector);
+        if (!target) return null;
+        return target.getBoundingClientRect().toJSON();
+    }
+
+    function videoRectJson() {
+        return elementRectJson('#movie_player') || elementRectJson('video');
+    }
+
+    function rowFontSnapshot() {
+        const row = element('.jpdb-subtitle-row-text');
+        if (!row) return null;
+        return styleSnapshot(getComputedStyle(row));
+    }
+
+    function styleSnapshot(style) {
+        return {
+            family: style.fontFamily,
+            size: style.fontSize,
+            weight: style.fontWeight,
+            lineHeight: style.lineHeight,
+            textShadow: style.textShadow,
+        };
+    }
+    function wordStyleSnapshot(selector) {
+        const target = element(selector);
+        return wordStyleSnapshotForTarget(target);
+    }
+    function surfaceWordStyleSnapshot(selector) {
+        const target = readerWordsForSurface(selector).values().next().value || null;
+        return wordStyleSnapshotForTarget(target);
+    }
+    function wordStyleSnapshotForTarget(target) {
+        if (!target) return null;
+        const style = getComputedStyle(target);
+        return {
+            className: target.className,
+            pitchClass: target.getAttribute('data-pitch-class') || '',
+            decorationColor: style.textDecorationColor,
+            afterBorderColor: getComputedStyle(target, '::after').borderBlockEndColor,
+            text: target.textContent?.replace(/\s+/g, '').trim() || '',
+        };
+    }
+    writeStoredValue(settingsKey, settings);
+    window.GM_getResourceText = name => name === 'yomuCss' ? css : '';
+    window.GM_addStyle = stylesheet => {
+        const style = document.createElement('style');
+        style.textContent = stylesheet;
+        (document.head || document.documentElement).append(style);
+        return style;
+    };
+    window.GM_getValue = (key, fallback) => readStoredValue(key, fallback);
+    window.GM_setValue = (key, value) => {
+        const oldValue = readStoredValue(key);
+        writeStoredValue(key, value);
+        notifyStoredValueChange(key, oldValue, value);
+    };
+    window.GM_deleteValue = key => {
+        const oldValue = readStoredValue(key);
+        storage.delete(key);
+        try {
+            localStorage.removeItem(storageKey(key));
+            localStorage.removeItem(key);
+        } catch {
+            // Ignore.
+        }
+        notifyStoredValueChange(key, oldValue, undefined);
+    };
+    window.GM_listValues = () => [...storage.keys()];
+    window.GM_addValueChangeListener = (key, listener) => {
+        const id = nextValueChangeListenerId++;
+        valueChangeListeners.set(id, { key, listener });
+        return id;
+    };
+    window.GM_removeValueChangeListener = id => { valueChangeListeners.delete(id); };
+    window.GM_registerMenuCommand = () => undefined;
+    window.__yomuFeatureOpenedTabs = [];
+    window.GM_openInTab = (url, options) => {
+        window.__yomuFeatureOpenedTabs.push({ url: String(url), options });
+        return { close: () => undefined };
+    };
+    window.open = (url, target, features) => {
+        window.__yomuFeatureOpenedTabs.push({ url: String(url), options: { target, features, via: 'window.open' } });
+        return { opener: null, close: () => undefined };
+    };
+    window.GM_xmlhttpRequest = options => {
+        fetch(options.url, { method: options.method || 'GET', headers: options.headers || {}, body: options.data })
+            .then(async response => {
+                const responseText = await response.text();
+                options.onload?.({
+                    status: response.status,
+                    responseText,
+                    response,
+                });
+            })
+            .catch(error => options.onerror?.(error));
+    };
+    window.GM = {
+        getValue: window.GM_getValue,
+        setValue: window.GM_setValue,
+        deleteValue: window.GM_deleteValue,
+        listValues: window.GM_listValues,
+        addStyle: window.GM_addStyle,
+        addValueChangeListener: window.GM_addValueChangeListener,
+        removeValueChangeListener: window.GM_removeValueChangeListener,
+        registerMenuCommand: window.GM_registerMenuCommand,
+        openInTab: window.GM_openInTab,
+        xmlHttpRequest: window.GM_xmlhttpRequest,
+    };
+    // One browser snapshot owns the complete desktop-home acceptance surface.
+    // fallow-ignore-next-line complexity
+    window.__yomuFeatureReadHomepageState = function yomuFeatureReadHomepageState() {
+        const channelDescriptions = Array.from(document.querySelectorAll('.jpdb-youtube-channel-description'))
+            .map(element => element.textContent?.trim() || '');
+        const notice = document.querySelector('.jpdb-youtube-filter-bar');
+        const noticeSummary = notice?.querySelector('[data-role="summary"]') ?? null;
+        const noticeSummaryStyle = noticeSummary ? getComputedStyle(noticeSummary) : null;
+        return {
+            cards: queryCount('ytd-rich-item-renderer'),
+            // Source-preserving titles paint through a body-mounted portal,
+            // so DOM ancestry is not the rendered-surface contract. Count
+            // both inline words and portals aligned to the source's live Range.
+            readerWordsInGrid: readerWordsInSurface('ytd-rich-grid-renderer'),
+            readerWordsByJapaneseCase: Object.fromEntries(['jp', 'mixed', 'grammar'].map(caseName => [
+                caseName,
+                readerWordsInSurface(`ytd-rich-item-renderer[data-case="${caseName}"]`),
+            ])),
+            ocrLines: queryCount('.jpdb-ocr-line'),
+            ocrLayers: queryCount('.jpdb-ocr-layer'),
+            filteredEnglish: elementHasClass('ytd-rich-item-renderer[data-case="english"]', 'jpdb-youtube-filtered'),
+            englishVisible: elementVisible('ytd-rich-item-renderer[data-case="english"]'),
+            visibleJapanese: elementVisible('ytd-rich-item-renderer[data-case="jp"]'),
+            noticeText: elementText('.jpdb-youtube-filter-bar'),
+            noticeAriaLabel: notice?.getAttribute('aria-label') ?? '',
+            noticeButtons: Array.from(notice?.querySelectorAll('button') ?? [])
+                .map(button => button.textContent?.trim() || ''),
+            noticeSummaryScreenReaderOnly: Boolean(noticeSummary?.classList.contains('jpdb-reader-sr-only')),
+            noticeSummaryVisuallyHidden: Boolean(noticeSummaryStyle
+                && noticeSummaryStyle.position === 'absolute'
+                && noticeSummaryStyle.width === '1px'
+                && noticeSummaryStyle.height === '1px'
+                && noticeSummaryStyle.overflow === 'hidden'),
+            channelNames: Array.from(document.querySelectorAll('.jpdb-youtube-channel-name'))
+                .map(element => element.textContent?.trim() || ''),
+            channelDescriptions,
+            longChannelPreviewDescriptions: channelDescriptions
+                .filter(text => text.includes('actual YouTube channel description')),
+        };
+    };
+    window.__yomuFeatureReadMobileHomeState = function yomuFeatureReadMobileHomeState() {
+        return {
+            ...cardState('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model'),
+            readerWordsInGrid: readerWordsInSurface('ytm-rich-grid-renderer'),
+            continuationNudges: window.__yomuContinuationNudges || 0,
+            visibleJapanese: visibleExpectedLanguages('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model')
+                .filter(language => language === 'jp').length,
+            visibleNonJapanese: visibleExpectedLanguages('ytm-video-with-context-renderer, ytm-shorts-lockup-view-model')
+                .filter(language => language && language !== 'jp').length,
+        };
+    };
+    window.__yomuFeatureReadShortsGalleryState = function yomuFeatureReadShortsGalleryState() {
+        return {
+            ...cardState('ytd-reel-item-renderer, ytm-shorts-lockup-view-model'),
+            shelfFiltered: elementHasClass('ytd-rich-shelf-renderer[data-case="gallery-shorts-shelf"]', 'jpdb-youtube-filtered'),
+            shelfVisible: elementVisible('ytd-rich-shelf-renderer[data-case="gallery-shorts-shelf"]'),
+            readerWordsInGrid: readerWordsInSurface('ytd-rich-grid-renderer'),
+            visibleJapanese: visibleExpectedLanguages('ytd-reel-item-renderer, ytm-shorts-lockup-view-model')
+                .filter(language => language === 'jp').length,
+            visibleNonJapanese: visibleExpectedLanguages('ytd-reel-item-renderer, ytm-shorts-lockup-view-model')
+                .filter(language => language && language !== 'jp').length,
+        };
+    };
+    // One browser snapshot owns the whole Shorts watch acceptance surface.
+    // fallow-ignore-next-line complexity
+    window.__yomuFeatureReadShortsWatchState = function yomuFeatureReadShortsWatchState() {
+        const subtitleRoot = element('.jpdb-subtitle-player');
+        const rail = element('.jpdb-subtitle-rail');
+        const grip = element('.jpdb-subtitle-rail [data-action="rail-expand"]');
+        return {
+            cards: queryCount('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+            filtered: queryCount('.jpdb-youtube-filtered'),
+            visible: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model').length,
+            hiddenCases: hiddenCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+            visibleCases: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model'),
+            visibleJapanese: visibleExpectedLanguages('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')
+                .filter(language => language === 'jp').length,
+            visibleNonCurrentEnglish: visibleCardCases('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')
+                .filter(caseName => caseName !== 'shorts-watch-current')
+                .map(caseName => document.querySelector(`[data-case="${caseName}"]`)?.dataset.expectedLanguage)
+                .filter(language => language === 'en').length,
+            documentClasses: document.documentElement.className,
+            parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
+            nativeSafeZoneWords: queryCount('.jpdb-subtitle-player .jpdb-reader-word[data-jpdb-subtitle-native-control-safe-zone="true"]'),
+            nativeClicks: { ...(window.__shortsNativeClicks || {}) },
+            shareLabelSourceText: document.querySelector('#shorts-share-label')?.firstChild?.textContent || '',
+            shareLabelAnnotationWords: queryCount('#shorts-share-label .jpdb-reader-text-mirror .jpdb-reader-word'),
+            shareLabelMirrors: queryCount('#shorts-share-label .jpdb-reader-text-mirror'),
+            shareLabelOverflows: (() => {
+                const label = document.querySelector('#shorts-share-label');
+                return label instanceof HTMLElement && label.scrollWidth > label.clientWidth + 1;
+            })(),
+            nativeControlRects: {
+                share: elementRectJson('#shorts-share'),
+                fullscreen: elementRectJson('#shorts-fullscreen'),
+            },
+            storedRailPosition: window.GM_getValue?.('jpdb-reader-subtitle-control-rail-position', null) ?? null,
+            rail: {
+                rootClasses: subtitleRoot?.className || '',
+                rect: rail?.getBoundingClientRect().toJSON() || null,
+                left: rail?.style.left || '',
+                top: rail?.style.top || '',
+                gripVisible: Boolean(grip && elementVisibleFromElement(grip)),
+                gripExpanded: grip?.getAttribute('aria-expanded') || '',
+            },
+            items: [...document.querySelectorAll('ytd-reel-video-renderer, ytm-shorts-lockup-view-model')].map(card => ({
+                caseName: card.dataset.case,
+                className: card.className,
+                text: card.textContent?.trim(),
+                href: card.querySelector('a[href]')?.getAttribute('href'),
+                rect: card.getBoundingClientRect().toJSON(),
+            })),
+        };
+    };
+    window.__yomuFeatureReadWatchState = function yomuFeatureReadWatchState() {
+        return {
+            rows: queryCount('.jpdb-subtitle-list-row'),
+            parsedRowWords: queryCount('.jpdb-subtitle-row-text .jpdb-reader-word'),
+            parsedPlayerWords: queryCount('.jpdb-subtitle-primary .jpdb-reader-word'),
+            descriptionWords: readerWordsInSurface('ytd-watch-metadata #description-inline-expander'),
+            commentWords: readerWordsInSurface('ytd-comment-view-model #content-text'),
+            commentMorePassive: element('ytd-comment-view-model .more-button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
+            commentTranslatePassive: element('ytd-comment-view-model ytd-tri-state-button-view-model .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
+            liveChatWords: readerWordsInSurface('yt-live-chat-text-message-renderer'),
+            liveChatButtonPassive: element('yt-live-chat-text-message-renderer button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
+            liveChatFrame: {
+                headerWords: readerWordsInSurface('ytd-live-chat-frame #header'),
+                messageWords: readerWordsInSurface('ytd-live-chat-frame #message.live-chat-card-copy'),
+                actionWords: readerWordsInSurface('ytd-live-chat-frame #show-hide-button'),
+                panelPageDirectMirrors: queryCount('ytd-live-chat-frame #panel-pages > .jpdb-reader-text-mirror'),
+                messageText: elementText('ytd-live-chat-frame #message.live-chat-card-copy').replace(/\s+/g, ' ').trim(),
+                actionText: elementText('ytd-live-chat-frame #show-hide-button').replace(/\s+/g, ' ').trim(),
+                card: elementRectJson('ytd-live-chat-frame'),
+                message: elementRectJson('ytd-live-chat-frame #message.live-chat-card-copy'),
+                action: elementRectJson('ytd-live-chat-frame #show-hide-button'),
+                messageWordStyle: surfaceWordStyleSnapshot('ytd-live-chat-frame #message.live-chat-card-copy'),
+                actionWordStyle: surfaceWordStyleSnapshot('ytd-live-chat-frame #show-hide-button'),
+            },
+            titleWords: readerWordsInSurface('ytd-watch-metadata h1, ytd-watch-metadata #title'),
+            watchTitleText: element('ytd-watch-metadata h1')?.textContent?.trim() ?? '',
+            sidebarReaderWords: readerWordsInSurface('#secondary, ytd-compact-video-renderer'),
+            sidebarText: element('#secondary')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+            sidebarCards: [...document.querySelectorAll('#secondary ytd-compact-video-renderer')].map(card => ({
+                caseName: card.dataset.case ?? '',
+                className: card.className,
+                text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                rect: card.getBoundingClientRect().toJSON(),
+            })),
+            rowCopyButtons: queryCount('.jpdb-subtitle-row-copy'),
+            rowFont: rowFontSnapshot(),
+            layout: {
+                placement: element('.jpdb-subtitle-player')?.dataset.transcriptPlacement ?? '',
+                panel: elementRectJson('.jpdb-subtitle-list'),
+                video: videoRectJson(),
+                viewport: { width: window.innerWidth, height: window.innerHeight },
+            },
+        };
+    };
+    window.__yomuFeatureReadOcrArtifactState = function yomuFeatureReadOcrArtifactState() {
+        return {
+            frames: queryCount('.jpdb-ocr-video-frame'),
+            resumeButtons: queryCount('.jpdb-ocr-video-frame-resume'),
+            statuses: queryCount('.jpdb-ocr-video-frame-status'),
+            railResumeButtons: queryCount('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume'),
+            railResumeActive: Boolean(element('.jpdb-subtitle-player.jpdb-ocr-video-frame-resume-active')),
+        };
+    };
+}
+
+async function installUserscriptContext(context) {
+    const bootstrapArguments = {
+        css: readFileSync(CSS_PATH, 'utf8'),
+        settings: { ...baseSettings },
+        settingsKey: SETTINGS_KEY,
+    };
+    const prefixContent = `(${youtubeFeatureBootstrap.toString()})(${JSON.stringify(bootstrapArguments)});`;
+    await addUserscriptGraphInitScripts(context, USERSCRIPT_PATH, { prefixContent });
 }
 
 async function installRoutes(page) {
@@ -820,6 +966,7 @@ async function runHomepageCheck(page) {
     const beforeReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(beforeReveal.cards >= 4, 'YouTube homepage recommendations did not render', beforeReveal);
     assert(beforeReveal.readerWordsInGrid > 0, 'Yomu did not enhance YouTube homepage Japanese recommendation titles', beforeReveal);
+    assert(Object.values(beforeReveal.readerWordsByJapaneseCase).every(count => count > 0), 'Yomu missed a Japanese homepage recommendation title', beforeReveal);
     assert(beforeReveal.ocrLines === 0 && beforeReveal.ocrLayers === 0, 'YouTube homepage thumbnails triggered OCR overlays', beforeReveal);
     assert(beforeReveal.filteredEnglish === true, 'YouTube immersion filter did not hide the non-Japanese recommendation', beforeReveal);
     assert(beforeReveal.visibleJapanese === true, 'YouTube immersion filter hid a Japanese recommendation', beforeReveal);
@@ -827,6 +974,8 @@ async function runHomepageCheck(page) {
     assert(beforeReveal.noticeSummaryScreenReaderOnly, 'YouTube filter notice summary was visible instead of screen-reader-only', beforeReveal);
     assert(beforeReveal.noticeSummaryVisuallyHidden, 'YouTube filter notice summary was not visually clipped in the browser', beforeReveal);
     assert(beforeReveal.noticeButtons.join('|') === 'Show hidden videos|Hide notice', 'YouTube filter notice should only show the two action buttons', beforeReveal);
+    const crossSurfacePortalLeaks = await crossSurfacePortalAssociationCounts(page);
+    assert(Object.values(crossSurfacePortalLeaks).every(count => count === 0), 'A portal from another YouTube surface satisfied the target annotation check', crossSurfacePortalLeaks);
 
     await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')), null, { timeout: 10000 });
     await page.evaluate(() => {
@@ -840,10 +989,45 @@ async function runHomepageCheck(page) {
     const afterReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(afterReveal.englishVisible === true, 'YouTube filter reveal did not show hidden recommendations', afterReveal);
     assert(afterReveal.noticeButtons.join('|') === 'Hide hidden videos|Hide notice', 'YouTube reveal notice should still only show the two action buttons', afterReveal);
-    assert(afterReveal.readerWordsInGrid >= beforeReveal.readerWordsInGrid, 'Yomu lost enhanced homepage titles after reveal', afterReveal);
+    assert(Object.values(afterReveal.readerWordsByJapaneseCase).every(count => count > 0), 'Yomu lost a Japanese homepage recommendation title after reveal', afterReveal);
     assert(afterReveal.ocrLines === 0 && afterReveal.ocrLayers === 0, 'YouTube homepage thumbnails triggered OCR overlays after reveal', afterReveal);
 
-    return { beforeReveal, afterReveal };
+    return { beforeReveal, afterReveal, crossSurfacePortalLeaks };
+}
+
+async function crossSurfacePortalAssociationCounts(page) {
+    return await page.evaluate(() => {
+        const associationCount = (targetText, portalText, targetLeft, portalLeft, portalVisibility = 'visible') => {
+            const target = document.createElement('div');
+            target.id = 'yomu-portal-association-target';
+            target.dataset.yomuDecoration = 'content-ruby';
+            target.textContent = targetText;
+            target.style.cssText = `position:fixed;left:${targetLeft}px;top:20px;font-size:20px;line-height:24px;z-index:-1`;
+
+            const nonTarget = document.createElement('div');
+            nonTarget.dataset.yomuDecoration = 'content-ruby';
+            nonTarget.textContent = portalText;
+            nonTarget.style.cssText = `position:fixed;left:${portalLeft}px;top:20px;font-size:20px;line-height:24px;z-index:-1`;
+
+            const portal = document.createElement('span');
+            portal.className = 'jpdb-reader-document-annotation-portal';
+            portal.dataset.sourceText = portalText;
+            portal.style.cssText = `position:fixed;left:${portalLeft}px;top:20px;font-size:20px;line-height:24px;visibility:${portalVisibility};z-index:-1`;
+            portal.innerHTML = `<span class="jpdb-reader-word" data-yomu-source-start="0" data-yomu-source-end="${portalText.length}">${portalText}</span>`;
+
+            document.body.append(target, nonTarget, portal);
+            const count = window.__yomuFeatureReaderWordsInSurface('#yomu-portal-association-target');
+            target.remove();
+            nonTarget.remove();
+            portal.remove();
+            return count;
+        };
+        return {
+            sameTextDifferentGeometry: associationCount('重複語', '重複語', 20, 800),
+            differentTextSameGeometry: associationCount('目標', '別物', 300, 300),
+            hiddenSameTextSameGeometry: associationCount('非表示', '非表示', 500, 500, 'hidden'),
+        };
+    });
 }
 
 async function runSpaWatchNavigationCheck(page) {
@@ -895,8 +1079,8 @@ async function runSpaWatchNavigationCheck(page) {
         window.dispatchEvent(new Event('yt-navigate-finish'));
     }, { playerResponse: youtubePlayerResponse('feature123') });
     await waitForYoutubeTranscriptRows(page);
-    await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
-        && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__yomuFeatureReaderWordsInSurface('ytd-watch-metadata #description-inline-expander') > 0
+        && window.__yomuFeatureReaderWordsInSurface('ytd-comment-view-model #content-text') > 0, null, { timeout: 30000 });
     const afterWatchNavigation = await readOcrArtifactState(page);
     assertNoOcrArtifacts(afterWatchNavigation, 'YouTube watch navigation left stale preview OCR controls over the player');
     const spaWatch = await readWatchState(page);
@@ -1142,8 +1326,7 @@ async function runWatchCheck(page) {
     const mutations = await page.evaluate(() => window.__yomuMutationCount);
     assert(mutations === 0, 'Detected unexpected DOM mutations in ytd-watch-metadata (rendering loop)', mutations);
 
-    await revealAndWaitForWatchLiveCard(page);
-    const initial = await readWatchState(page);
+    const initial = await revealAndWaitForWatchLiveCard(page);
     assertInitialWatchState(initial);
     const annotationsToggle = await verifyWatchAnnotationsToggle(page);
 
@@ -1168,15 +1351,9 @@ async function runWatchCheck(page) {
 
 async function verifyWatchAnnotationsToggle(page) {
     await page.evaluate(settingsKey => {
-        const current = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+        const current = window.GM_getValue(settingsKey, {});
         const paused = { ...current, annotationsPaused: true };
-        localStorage.setItem(settingsKey, JSON.stringify(paused));
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: settingsKey,
-            oldValue: JSON.stringify(current),
-            newValue: JSON.stringify(paused),
-            storageArea: localStorage,
-        }));
+        window.GM_setValue(settingsKey, paused);
     }, SETTINGS_KEY);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word, .jpdb-subtitle-row-text .jpdb-reader-word').length === 0
         && !document.querySelector('.jpdb-subtitle-primary-loading'), null, { timeout: 5000 });
@@ -1193,15 +1370,9 @@ async function verifyWatchAnnotationsToggle(page) {
     assert(paused.loadingCaptions === 0, 'Annotations-off left captions waiting on parser work', paused);
 
     await page.evaluate(settingsKey => {
-        const current = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+        const current = window.GM_getValue(settingsKey, {});
         const resumed = { ...current, annotationsPaused: false };
-        localStorage.setItem(settingsKey, JSON.stringify(resumed));
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: settingsKey,
-            oldValue: JSON.stringify(current),
-            newValue: JSON.stringify(resumed),
-            storageArea: localStorage,
-        }));
+        window.GM_setValue(settingsKey, resumed);
     }, SETTINGS_KEY);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length > 0
         && document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length > 0, null, { timeout: 10000 });
@@ -1211,8 +1382,7 @@ async function verifyWatchAnnotationsToggle(page) {
 async function runWatchLiveCardCheck(page) {
     await page.setViewportSize({ width: 1600, height: 1000 });
     await waitForWatchFeatureReady(page);
-    await revealAndWaitForWatchLiveCard(page);
-    const initial = await readWatchState(page);
+    const initial = await revealAndWaitForWatchLiveCard(page);
     assertYouTubeLiveChatFrameCard(initial.liveChatFrame);
     return { liveChatFrame: initial.liveChatFrame };
 }
@@ -1240,8 +1410,7 @@ async function runIpadWatchCheck(page) {
         await railButton.tap();
         await page.waitForFunction(() => !document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 6000 });
     }
-    await revealAndWaitForWatchLiveCard(page);
-    const state = await readWatchState(page);
+    const state = await revealAndWaitForWatchLiveCard(page);
     assertWatchTranscriptState(state);
     assertWatchPageParsing(state);
     assertWatchTextExclusions(state);
@@ -1258,20 +1427,23 @@ async function runIpadWatchCheck(page) {
 async function waitForWatchFeatureReady(page) {
     await page.goto(WATCH_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await waitForYoutubeTranscriptRows(page);
-    await page.waitForFunction(() => document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word').length > 0
-        && document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word').length > 0
-        && document.querySelectorAll('yt-live-chat-text-message-renderer .jpdb-reader-word').length > 0, null, { timeout: 30000 });
+    await page.waitForFunction(() => window.__yomuFeatureReaderWordsInSurface('ytd-watch-metadata #description-inline-expander') > 0
+        && window.__yomuFeatureReaderWordsInSurface('ytd-comment-view-model #content-text') > 0
+        && window.__yomuFeatureReaderWordsInSurface('yt-live-chat-text-message-renderer') > 0, null, { timeout: 30000 });
 }
 
 async function revealAndWaitForWatchLiveCard(page) {
     await page.evaluate(() => document.querySelector('ytd-live-chat-frame')?.scrollIntoView({ block: 'center' }));
-    await page.waitForFunction(() => document.querySelectorAll('ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word').length > 0
-        && document.querySelectorAll('ytd-live-chat-frame #show-hide-button .jpdb-reader-word').length > 0, null, { timeout: 8000 });
-    await page.waitForFunction(() => [
-        'ytd-live-chat-frame #message.live-chat-card-copy .jpdb-reader-word',
-        'ytd-live-chat-frame #show-hide-button .jpdb-reader-word',
-    ].every(selector => !document.querySelector(selector)?.classList.contains('jpdb-pitch-unknown')), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__yomuFeatureReaderWordsInSurface('ytd-live-chat-frame #message.live-chat-card-copy') > 0
+        && window.__yomuFeatureReaderWordsInSurface('ytd-live-chat-frame #show-hide-button') > 0, null, { timeout: 8000 });
+    await page.waitForFunction(() => {
+        const frame = window.__yomuFeatureReadWatchState().liveChatFrame;
+        return [frame.messageWordStyle, frame.actionWordStyle]
+            .every(style => style && !style.className.includes('jpdb-pitch-unknown'));
+    }, null, { timeout: 15000 });
+    const state = await readWatchState(page);
     await page.evaluate(() => window.scrollTo(0, 0));
+    return state;
 }
 
 async function readWatchState(page) {

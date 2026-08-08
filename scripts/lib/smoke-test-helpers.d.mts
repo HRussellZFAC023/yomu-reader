@@ -5,6 +5,6 @@ export function addScriptTagWithCspFallback(page: Page, scriptPath: string): Pro
 export function addUserscriptGraphInitScripts(
     page: BrowserContext | Page,
     scriptPath: string,
-    options?: { sourceUrl?: string; content?: string },
+    options?: { sourceUrl?: string; content?: string; prefixContent?: string },
 ): Promise<void>;
 export function userscriptCompanionPaths(userscriptPath: string): string[];

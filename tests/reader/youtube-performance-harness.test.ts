@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it } from 'vitest';
 import { addUserscriptGraphInitScripts } from '../../scripts/lib/smoke-test-helpers.mjs';
 import { profileDriverProvenance, transitiveLocalImportFiles } from '../../scripts/lib/youtube-performance-provenance.mjs';
@@ -23,7 +24,7 @@ describe('YouTube performance harness', () => {
         mkdirSync(dist, { recursive: true });
         mkdirSync(hosted, { recursive: true });
         const companionName = 'runtime.0123456789ab.user.js';
-        writeFileSync(join(hosted, companionName), 'globalThis.__graphOrder = ["companion"];');
+        writeFileSync(join(hosted, companionName), 'globalThis.__graphOrder.push("companion");');
         const corePath = join(dist, 'yomu.user.js');
         writeFileSync(
             corePath,
@@ -39,11 +40,14 @@ describe('YouTube performance harness', () => {
         };
 
         await addUserscriptGraphInitScripts(context as never, corePath, {
+            prefixContent: 'globalThis.__graphOrder = ["bootstrap"];',
             sourceUrl: 'yomu-profile://artifact-graph/test.js',
         });
 
         expect(registrations).toHaveLength(1);
-        expect(registrations[0].content.indexOf('companion')).toBeLessThan(registrations[0].content.indexOf('push("core")'));
+        const sandbox = {} as { __graphOrder?: string[] };
+        runInNewContext(registrations[0].content, sandbox);
+        expect(sandbox.__graphOrder).toEqual(['bootstrap', 'companion', 'core']);
         expect(registrations[0].content).toMatch(/sourceURL=yomu-profile:\/\/artifact-graph\/test\.js$/u);
     });
 

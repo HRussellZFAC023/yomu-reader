@@ -413,6 +413,7 @@ export class YoutubeImmersionFilter {
         setShowFilterNotice?: (visible: boolean) => void;
         setShowChannelRecommendations?: (visible: boolean) => void;
         parseShelfJapanese?: (root: HTMLElement) => void;
+        scheduleAnnotationLayoutRefresh?: () => void;
         isActivePage?: () => boolean;
     }) {}
 
@@ -755,12 +756,14 @@ export class YoutubeImmersionFilter {
             card.classList.add(YOUTUBE_FILTERED_CLASS);
             card.dataset.yomuYoutubeFiltered = 'true';
         });
+        this.options.scheduleAnnotationLayoutRefresh?.();
         if (!card.hasAttribute('aria-hidden')) card.dataset.yomuYoutubeAriaHidden = 'true';
         card.setAttribute('aria-hidden', 'true');
         this.queueFilteredCardCollapse(card, this.filteredCardCollapseDelay());
     }
 
     private showCard(card: HTMLElement): void {
+        const changedLayout = cardHasFilteredLayoutState(card);
         this.clearCardTimers(card);
         this.clearPendingCard(card);
         withFeedScrollAnchor(card, () => {
@@ -772,6 +775,7 @@ export class YoutubeImmersionFilter {
             delete card.dataset.yomuYoutubeAriaHidden;
         }
         delete card.dataset.yomuYoutubeFiltered;
+        if (changedLayout) this.options.scheduleAnnotationLayoutRefresh?.();
     }
 
     private maskAddedYouTubeCards(mutations: MutationRecord[]): void {
@@ -843,11 +847,13 @@ export class YoutubeImmersionFilter {
         }
 
         card.classList.add(YOUTUBE_COLLAPSING_CLASS);
+        this.options.scheduleAnnotationLayoutRefresh?.();
         this.queueCardTimer(card, () => {
             if (!card.classList.contains(YOUTUBE_FILTERED_CLASS)) return;
             card.classList.add(YOUTUBE_COLLAPSED_CLASS);
             card.classList.remove(YOUTUBE_COLLAPSING_CLASS);
             card.style.removeProperty(YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY);
+            this.options.scheduleAnnotationLayoutRefresh?.();
         }, YOUTUBE_FILTER_COLLAPSE_DURATION_MS);
     }
 
@@ -1732,6 +1738,11 @@ export class YoutubeImmersionFilter {
     private setFilterActiveClass(active: boolean): void {
         document.documentElement.classList.toggle('jpdb-youtube-filter-active', active);
     }
+}
+
+function cardHasFilteredLayoutState(card: HTMLElement): boolean {
+    return [YOUTUBE_FILTERED_CLASS, YOUTUBE_COLLAPSING_CLASS, YOUTUBE_COLLAPSED_CLASS]
+        .some(className => card.classList.contains(className));
 }
 
 export function youtubeImmersionFilterEnabled(settings: ReaderSettings): boolean {

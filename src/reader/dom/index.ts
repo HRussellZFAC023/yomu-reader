@@ -3947,6 +3947,11 @@ function scheduleAdditiveMirrorProjection(root: ParentNode = document): void {
     additiveMirrorProjectionPass.schedule(viewForNode(root));
 }
 
+/** Coalesce a known page-layout change into the existing annotation projection pass. */
+export function scheduleProjectedAnnotationLayoutRefresh(root: ParentNode = document): void {
+    scheduleAdditiveMirrorProjection(root);
+}
+
 /** Coalesce exact projection by affected portal. A framework replacing one
  * comment's Text node must not Range-project an unrelated long description. */
 function scheduleDocumentPortalMirrorProjection(mirror: HTMLElement, host: HTMLElement): void {

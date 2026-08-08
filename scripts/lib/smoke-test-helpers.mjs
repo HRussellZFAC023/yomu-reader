@@ -36,7 +36,14 @@ export async function addUserscriptGraphInitScripts(page, scriptPath, options = 
     // declaration order before main. Register one concatenated program so
     // WebKit proves the exact same dependency contract deterministically.
     const graph = requiredUserscriptGraphContent(scriptPath, options.content);
-    await page.addInitScript({ content: taggedUserscriptGraph(graph, options.sourceUrl) });
+    const program = prefixedUserscriptGraph(graph, options.prefixContent);
+    await page.addInitScript({ content: taggedUserscriptGraph(program, options.sourceUrl) });
+}
+
+function prefixedUserscriptGraph(graph, prefixContent) {
+    if (prefixContent === undefined) return graph;
+    if (typeof prefixContent !== 'string') throw new Error('Userscript graph prefix content must be a string.');
+    return `${prefixContent}\n;\n${graph}`;
 }
 
 function userscriptGraphContent(scriptPath) {

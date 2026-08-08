@@ -925,6 +925,7 @@ export class SubtitlePlayerController {
     });
     private transcriptTextTargetsByParseKey = new Map<string, HTMLElement[]>();
     private renderSerial = 0;
+    private lastRefreshAnnotationsPaused?: boolean;
     private panelMode: SubtitlePanelMode = 'lines';
     private lastTranscriptSignature = '';
     // Structure-only signature (see TranscriptPanelRenderState) committed by the
@@ -1330,6 +1331,7 @@ export class SubtitlePlayerController {
         // init flag so the install()-only test harness is untouched.
         if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
         const settings = this.options.getSettings();
+        const annotationsModeChanged = this.prepareAnnotationsModeRender(settings);
         this.syncRootVisibility(settings);
         this.syncTranscriptPlacementClass();
         this.syncFullscreenState();
@@ -1340,8 +1342,31 @@ export class SubtitlePlayerController {
         this.scheduleAlignToVideo();
         this.syncControls();
         this.render();
-        this.renderOpenSubtitlePanel();
+        this.renderOpenSubtitlePanel(annotationsModeChanged);
         this.hideControlsImmediately();
+    }
+
+    private prepareAnnotationsModeRender(settings: ReaderSettings): boolean {
+        const previous = this.lastRefreshAnnotationsPaused;
+        this.lastRefreshAnnotationsPaused = settings.annotationsPaused;
+        if (previous === undefined || previous === settings.annotationsPaused) return false;
+
+        // ReaderApp clears page annotations by replacing reader-word nodes.
+        // Subtitle DOM is controller-owned, so that external cleanup can leave
+        // the applied-HTML and transcript signatures claiming markup that no
+        // longer exists. Treat pause/resume as a new render transaction: reject
+        // late work from the old mode and force both owned surfaces to reconcile.
+        this.renderSerial += 1;
+        this.parseWarmupSerial += 1;
+        this.lastParseWarmupAnchor = -1;
+        this.transcriptHydrationSerial += 1;
+        this.transcriptCacheWarmupSerial += 1;
+        this.transcriptCacheWarmupSignature = '';
+        this.lastAppliedPrimaryRowHtml = '';
+        this.lastTranscriptSignature = '';
+        this.lastTranscriptStructureSignature = '';
+        this.transcriptTextTargetsByParseKey.clear();
+        return true;
     }
 
     private syncRootVisibility(settings: ReaderSettings): void {
@@ -1747,12 +1772,24 @@ export class SubtitlePlayerController {
         if (removed.has(this.secondaryTrackId)) this.resetSecondarySubtitleState();
     }
 
-    private renderOpenSubtitlePanel(): void {
-        if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return;
-        if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderTrackPanel();
+    private renderOpenSubtitlePanel(force = false): void {
+        if (!this.canRenderOpenSubtitlePanel()) return;
+        if (!this.hasTranscriptSurface()) {
+            this.renderTrackPanel();
+            return;
+        }
+        this.renderOpenTranscriptMode(force);
+    }
+
+    private canRenderOpenSubtitlePanel(): boolean {
+        return Boolean(this.transcriptPanel && !this.transcriptPanel.hidden && !this.transcriptPanelClosing);
+    }
+
+    private renderOpenTranscriptMode(force: boolean): void {
+        if (this.panelMode === 'tracks') this.renderTrackPanel();
         else if (this.panelMode === 'shadow') this.renderShadowPanel(true);
         else if (this.panelMode === 'mine') this.renderBatchMiningPanel();
-        else this.renderTranscriptPanel();
+        else this.renderTranscriptPanel(force);
     }
 
     private observeVideoLayout(video: HTMLVideoElement): void {
@@ -2880,6 +2917,9 @@ export class SubtitlePlayerController {
     }
 
     private primaryParsedHtmlForRender(text: string, settings: ReaderSettings, key: string): string | undefined {
+        // Paused annotations are a plain-text contract even when this cue has a
+        // warm parsed cache entry from before the pause.
+        if (!this.shouldParseSubtitles(settings)) return undefined;
         // The active cue has one visual commit. Background pitch/card
         // enrichment may improve caches and transcript rows for the next visit,
         // but it must not add marks to words already being read on screen.
@@ -3510,7 +3550,7 @@ export class SubtitlePlayerController {
         const end = Math.min(this.cues.length, anchor + SUBTITLE_ACTIVE_PREPARSE_AHEAD + 1);
         const serial = ++this.parseWarmupSerial;
         const settings = this.options.getSettings();
-        const priorityWarmup = this.prewarmPriorityYouTubeCues(anchor, settings).catch(() => undefined);
+        const priorityWarmup = this.prewarmPriorityYouTubeCues(anchor, settings, serial).catch(() => undefined);
         this.priorityYouTubeCueWarmup = priorityWarmup;
         void (async () => {
             // The ordinary window stays batched for throughput, but its one
@@ -3534,32 +3574,59 @@ export class SubtitlePlayerController {
         })();
     }
 
-    private async prewarmPriorityYouTubeCues(anchor: number, settings: ReaderSettings): Promise<void> {
-        if (!isYouTubePage() || !this.shouldUseProvisionalSubtitleParse(settings)) return;
+    private async prewarmPriorityYouTubeCues(anchor: number, settings: ReaderSettings, serial: number): Promise<void> {
+        if (!this.supportsPriorityYouTubeWarmup(settings)) return;
         // Reserve the cue at the playhead and its successor outside the flat
         // lookahead batch. Enrich them in playback order: independent
         // Promise.all lanes each carry their own Jiten detail fan-out, which
         // could multiply endpoint concurrency precisely while first paint is
         // most latency-sensitive.
         for (const priorityIndex of [anchor, anchor + 1]) {
-            const text = this.cues[priorityIndex]?.text.trim();
-            if (!text) continue;
-            const key = this.parseCacheKey(text, settings);
-            if (this.isWarmParsedCueKey(key, settings)) continue;
-            const pending = this.pendingParsedCueHtml(key, 'provisional')
-                ?? this.pendingParsedCueHtml(key, 'authoritative');
-            if (pending) {
-                await pending.catch(() => undefined);
-                if (this.isWarmParsedCueKey(key, settings)) continue;
-            }
-            await this.parseCueHtml(text, settings, {
-                enrichBeforeRender: true,
-                requireEnrichedProvisional: true,
-                // A cheap transcript parse may have populated a provisional
-                // tier without running before-render enrichment.
-                refreshProvisional: true,
-            });
+            if (this.parseWarmupWasCancelled(serial)) return;
+            await this.prewarmPriorityYouTubeCue(priorityIndex, settings, serial);
         }
+    }
+
+    private supportsPriorityYouTubeWarmup(settings: ReaderSettings): boolean {
+        return isYouTubePage() && this.shouldUseProvisionalSubtitleParse(settings);
+    }
+
+    private async prewarmPriorityYouTubeCue(index: number, settings: ReaderSettings, serial: number): Promise<void> {
+        const target = this.priorityYouTubeCueWarmupTarget(index, settings);
+        if (!target) return;
+        await this.pendingPriorityYouTubeCue(target.key);
+        if (!this.priorityYouTubeCueStillNeedsWarmup(target.key, settings, serial)) return;
+        await this.parseCueHtml(target.text, settings, {
+            enrichBeforeRender: true,
+            requireEnrichedProvisional: true,
+            // A cheap transcript parse may have populated a provisional tier
+            // without running before-render enrichment.
+            refreshProvisional: true,
+        });
+    }
+
+    private priorityYouTubeCueWarmupTarget(
+        index: number,
+        settings: ReaderSettings,
+    ): { text: string; key: string } | undefined {
+        const text = this.cues[index]?.text.trim();
+        if (!text) return undefined;
+        const key = this.parseCacheKey(text, settings);
+        return this.isWarmParsedCueKey(key, settings) ? undefined : { text, key };
+    }
+
+    private async pendingPriorityYouTubeCue(key: string): Promise<void> {
+        const pending = this.pendingParsedCueHtml(key, 'provisional')
+            ?? this.pendingParsedCueHtml(key, 'authoritative');
+        await pending?.catch(() => undefined);
+    }
+
+    private priorityYouTubeCueStillNeedsWarmup(key: string, settings: ReaderSettings, serial: number): boolean {
+        return !this.parseWarmupWasCancelled(serial) && !this.isWarmParsedCueKey(key, settings);
+    }
+
+    private parseWarmupWasCancelled(serial: number): boolean {
+        return serial !== this.parseWarmupSerial || !this.shouldParseSubtitles();
     }
 
     // A seek that lands between cues has no active cue; anchoring the warmup
@@ -6395,10 +6462,18 @@ export class SubtitlePlayerController {
     }
 
     private shadowParsedLine(cueText: string, parseKey: string, settings: ReaderSettings): ShadowParsedLine {
-        const parsed = this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
-        const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml(parseKey)}"` : '';
-        const provisionalAttribute = parsed && !this.htmlCache.parsedHtmlCache.has(parseKey) ? ' data-parsed-provisional="true"' : '';
-        return { html: parsed ?? escapeWithBreaks(cueText), parsedKeyAttribute, provisionalAttribute };
+        const parsed = this.shadowParsedHtml(parseKey, settings);
+        if (!parsed) return { html: escapeWithBreaks(cueText), parsedKeyAttribute: '', provisionalAttribute: '' };
+        return {
+            html: parsed,
+            parsedKeyAttribute: ` data-parsed-key="${escapeHtml(parseKey)}"`,
+            provisionalAttribute: this.htmlCache.parsedHtmlCache.has(parseKey) ? '' : ' data-parsed-provisional="true"',
+        };
+    }
+
+    private shadowParsedHtml(parseKey: string, settings: ReaderSettings): string | undefined {
+        if (!this.shouldParseSubtitles(settings)) return undefined;
+        return this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
     }
 
     private renderShadowSecondaryLine(state: ShadowPanelRenderState): string {
