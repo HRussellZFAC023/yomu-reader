@@ -58,7 +58,6 @@ export const {
     setReviewCardFrontPredicate,
     stampDecorationState,
     youtubeNativeChromeMustRemainPageOwned,
-    youtubeEllipsisChromeMustRemainPageOwned,
     youtubeShelfExpansionChromeMustRemainPageOwned,
 } = policy;
 

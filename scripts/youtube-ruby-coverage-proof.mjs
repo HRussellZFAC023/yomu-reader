@@ -206,8 +206,8 @@ const pages = [
         html: youtubeShell(`
             <ytd-app>
               <ytd-mini-guide-renderer class="mini-guide">
-                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/"><span data-proof-target data-proof-text="ホーム" data-proof-expect-at-rest-decoration="true" data-proof-expect-document-portal="true">ホーム</span></a></ytd-mini-guide-entry-renderer>
-                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/subscriptions"><span data-proof-target data-proof-text="登録チャンネル" data-proof-expect-document-portal="true">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/"><span data-proof-page-owned data-proof-text="ホーム">ホーム</span></a></ytd-mini-guide-entry-renderer>
+                <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/subscriptions"><span data-proof-page-owned data-proof-text="登録チャンネル">登録チャンネル</span></a></ytd-mini-guide-entry-renderer>
                 <ytd-mini-guide-entry-renderer><a class="guide-entry" href="/feed/you"><span>マイページ</span></a></ytd-mini-guide-entry-renderer>
               </ytd-mini-guide-renderer>
               <ytd-browse page-subtype="channels" class="channel">
@@ -248,7 +248,7 @@ const pages = [
                 <ytd-shelf-renderer class="proof-shelf-expansion">
                   <ytd-vertical-list-renderer>
                     <div id="more">
-                      <yt-formatted-string role="button" data-proof-target data-proof-text="+ 他 3 件" data-proof-expect-document-portal="true"><span>+ 他 </span><span>3</span><span> 件</span></yt-formatted-string>
+                      <yt-formatted-string role="button" data-proof-page-owned data-proof-text="+ 他 3 件"><span>+ 他 </span><span>3</span><span> 件</span></yt-formatted-string>
                     </div>
                   </ytd-vertical-list-renderer>
                 </ytd-shelf-renderer>
@@ -382,7 +382,7 @@ const pages = [
               </ytd-rich-grid-renderer>
               <ytm-shorts class="proof-shorts-root">
                 <div class="proof-shorts-actions" role="toolbar">
-                  <button aria-label="共有" data-proof-target data-proof-text="共有" data-proof-expect-document-portal="true"><span class="proof-shorts-action-label">共有</span></button>
+                  <button aria-label="共有" data-proof-page-owned data-proof-text="共有"><span class="proof-shorts-action-label">共有</span></button>
                 </div>
               </ytm-shorts>
             </ytd-app>
@@ -808,11 +808,19 @@ let proofTargetSnapshots = [];
 let proofRubyRoomAdjustments = 0;
 let nextProofTargetId = 0;
 const proofAppliedScanParents = new WeakSet();
+const proofPageOwnedInitialSnapshots = new WeakMap();
+const proofPageOwnedScanAdmissions = new WeakMap();
 
 window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     const vocabulary = [...options.vocabulary].sort((a, b) => b.surface.length - a.surface.length);
     document.documentElement.classList.add('jpdb-reader-word-underline-pitch', 'jpdb-reader-word-text-jpdb');
     const allProofTargets = Array.from(document.querySelectorAll('[data-proof-target]'));
+    const pageOwnedChromeElements = Array.from(document.querySelectorAll('[data-proof-page-owned]'));
+    pageOwnedChromeElements.forEach(element => {
+        if (!proofPageOwnedInitialSnapshots.has(element)) {
+            proofPageOwnedInitialSnapshots.set(element, pageOwnedChromeSnapshot(element));
+        }
+    });
     allProofTargets.forEach(element => {
         if (element.dataset.proofTargetId === undefined) {
             element.dataset.proofTargetId = String(nextProofTargetId);
@@ -826,6 +834,15 @@ window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     const targets = collectScanTargets(800, location.href, { skipMirroredHosts: proofInitialized })
         .filter(target => HAS_JAPANESE.test(target.text))
         .filter(target => !proofAppliedScanParents.has(target.parent));
+    pageOwnedChromeElements.forEach(element => {
+        let admitted = proofPageOwnedScanAdmissions.get(element);
+        if (!admitted) {
+            admitted = new Set();
+            proofPageOwnedScanAdmissions.set(element, admitted);
+        }
+        targets.filter(target => scanTargetTouchesElement(target, element))
+            .forEach(target => admitted.add(target.text));
+    });
     if (targets.length) {
         const snapshots = targets.map(target => {
             markProofTargetScanFlags(target);
@@ -860,12 +877,14 @@ window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
     }
     proofInitialized = true;
     const proofTargets = visibleProofTargets().map(element => auditProofTarget(element, vocabulary));
+    const pageOwnedChrome = pageOwnedChromeElements.map(auditPageOwnedChrome);
     const hiddenFeedback = auditHiddenFeedback(proofTargetSnapshots);
     const nativeCaptions = auditNativeCaptionOverlays(proofTargetSnapshots);
     const projectedReadingInventory = auditProjectedReadingInventory();
     const renderedWords = renderedWordDetails(document.body);
     const failures = [
         ...proofTargets.flatMap(target => target.failures.map(message => target.label + ': ' + message)),
+        ...pageOwnedChrome.flatMap(target => target.failures.map(message => target.label + ': ' + message)),
         ...hiddenFeedback.failures,
         ...nativeCaptions.failures,
         ...projectedReadingInventory.failures,
@@ -896,12 +915,66 @@ window.__yomuRubyCoverageProof = async function runRubyCoverageProof(options) {
         targetTotal: allProofTargets.length,
         scanTargets: proofTargetSnapshots,
         proofTargets,
+        pageOwnedChrome,
         hiddenFeedback,
         nativeCaptions,
         projectedReadingInventory,
         renderedWords,
     };
 };
+
+const PAGE_OWNED_ANNOTATION_SELECTOR = [
+    '.jpdb-reader-word',
+    '.jpdb-reader-text-mirror',
+    '.jpdb-reader-source-fragment',
+    '.jpdb-reader-detached-furi',
+    'ruby',
+    'rt',
+    '[data-yomu-source-projected]',
+].join(',');
+
+function pageOwnedChromeSnapshot(element) {
+    const rect = element.getBoundingClientRect();
+    return {
+        text: compactText(element.textContent || ''),
+        html: element.innerHTML,
+        attributes: Array.from(element.attributes)
+            .map(attribute => attribute.name + '=' + attribute.value)
+            .sort(),
+        width: rect.width,
+        height: rect.height,
+    };
+}
+
+function auditPageOwnedChrome(element) {
+    const label = element.getAttribute('data-proof-text') || compactText(element.textContent || '');
+    const initial = proofPageOwnedInitialSnapshots.get(element);
+    const current = pageOwnedChromeSnapshot(element);
+    const sourceElements = [element, ...element.querySelectorAll('*')];
+    const documentPortal = sourceElements.some(source => {
+        const wordScope = documentPortalReaderWordScopeForSource(source);
+        return Boolean(wordScope?.classList.contains('jpdb-reader-document-annotation-portal'));
+    });
+    const productionScanTexts = [...(proofPageOwnedScanAdmissions.get(element) ?? [])];
+    const nativeAnnotationCount = element.querySelectorAll(PAGE_OWNED_ANNOTATION_SELECTOR).length;
+    const failures = [];
+    if (!initial) failures.push('missing initial page-owned snapshot');
+    if (initial && JSON.stringify(current) !== JSON.stringify(initial)) {
+        failures.push('native page-owned subtree or geometry changed');
+    }
+    if (productionScanTexts.length) failures.push('page-owned chrome entered the production scan');
+    if (documentPortal) failures.push('page-owned chrome received a document annotation portal');
+    if (nativeAnnotationCount) failures.push('page-owned chrome received inline reader annotations');
+    return { label, productionScanTexts, documentPortal, nativeAnnotationCount, initial, current, failures };
+}
+
+function scanTargetTouchesElement(target, element) {
+    if (element.contains(target.parent)) return true;
+    return 'fragments' in target && target.fragments.some(fragment => {
+        const parent = fragment.node.parentElement;
+        return Boolean(parent && element.contains(parent));
+    });
+}
 
 function nextPaint() {
     return new Promise(resolve => requestAnimationFrame(() => resolve()));

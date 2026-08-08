@@ -20,6 +20,7 @@ const bundlePath = path.join(tempDir, 'probe.js');
 
 writeFileSync(entryPath, `
     import ${JSON.stringify(path.join(ROOT, 'src/reader/companions/annotations.ts'))};
+    import { collectScanTargets } from ${JSON.stringify(path.join(ROOT, 'src/reader/app/site-parsers.ts'))};
     import {
         applyTokensToScanTarget,
         collectFragmentTextTargetsIn,
@@ -31,6 +32,7 @@ writeFileSync(entryPath, `
         removeNonDestructiveScanMirrors,
         resetDecorationPolicyCachesForTest,
         setRubyDistortsConstrainedRowsForTest,
+        type ScanTextTarget,
     } from ${JSON.stringify(path.join(ROOT, 'src/reader/dom/index.ts'))};
     import { DEFAULT_SETTINGS } from ${JSON.stringify(path.join(ROOT, 'src/reader/settings/index.ts'))};
     import { CRITICAL_READER_CSS } from ${JSON.stringify(path.join(ROOT, 'src/reader/styles/index.ts'))};
@@ -303,6 +305,23 @@ writeFileSync(entryPath, `
             .find(target => target.text.includes('他') && target.text.includes('件'));
     }
 
+    function scanTargetTouchesRoot(target: ScanTextTarget, root: HTMLElement): boolean {
+        return root.contains(target.parent)
+            || ('fragments' in target && target.fragments.some(fragment => {
+                const parent = fragment.node.parentElement;
+                return Boolean(parent && root.contains(parent));
+            }));
+    }
+
+    function productionScanTargetsTouching(root: HTMLElement, targets?: ScanTextTarget[]): ScanTextTarget[] {
+        const productionTargets = targets ?? collectScanTargets(800, location.href, { skipMirroredHosts: true });
+        return productionTargets.filter(target => scanTargetTouchesRoot(target, root));
+    }
+
+    function productionScanTextsTouching(root: HTMLElement): string[] {
+        return productionScanTargetsTouching(root).map(target => target.text);
+    }
+
     const YOMU_ANNOTATION_SELECTOR = [
         '.jpdb-reader-word',
         '.jpdb-reader-text-mirror',
@@ -378,11 +397,16 @@ writeFileSync(entryPath, `
     function paintSingleWord(host: HTMLElement, sentence: string, spelling: string, reading: string): void {
         const target = collectTextTargetsIn(host, 40, false).find(candidate => candidate.text.trim() === sentence);
         if (!target) throw new Error('single-word target not collected: ' + sentence);
-        const start = sentence.indexOf(spelling);
+        paintSingleWordTarget(target, spelling, reading);
+    }
+
+    function paintSingleWordTarget(target: ScanTextTarget, spelling: string, reading: string): void {
+        const start = target.text.indexOf(spelling);
+        if (start < 0) throw new Error('single-word spelling not found in production target: ' + spelling);
         applyTokensToScanTarget({ ...target, nonDestructive: true }, [{
             card: card(spelling, reading), start, end: start + spelling.length, length: spelling.length,
             rubies: [{ text: reading, start, end: start + spelling.length, length: spelling.length }],
-            pitchClass: 'heiban', sentence,
+            pitchClass: 'heiban', sentence: target.text,
         }], { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' });
         makeRoomForRubyInCroppedRows(document);
         projectAdditiveTextMirrors(document);
@@ -909,7 +933,13 @@ writeFileSync(entryPath, `
             };
             const actionTargetCount = collectTextTargetsIn(button, 40, false)
                 .filter(target => target.text.trim() === '共有').length;
-            paintSingleWord(content, '日本語の説明', '日本語', 'にほんご');
+            const productionTargets = collectScanTargets(800, location.href, { skipMirroredHosts: true });
+            const productionActionTargets = productionScanTargetsTouching(button, productionTargets)
+                .map(target => target.text);
+            const contentTarget = productionScanTargetsTouching(content, productionTargets)
+                .find(target => target.text.includes('日本語'));
+            if (!contentTarget) throw new Error('production Shorts content target not collected');
+            paintSingleWordTarget(contentTarget, '日本語', 'にほんご');
             await nextPaint();
             await nextPaint();
             const portal = documentPortalReaderWordScopeForSource(label);
@@ -925,6 +955,7 @@ writeFileSync(entryPath, `
             };
             return {
                 actionTargetCount,
+                productionActionTargets,
                 portal: Boolean(portal),
                 portalDecoration: portal?.getAttribute('data-yomu-decoration') ?? null,
                 nativeAnnotationNodes: button.querySelectorAll(YOMU_ANNOTATION_SELECTOR).length,
@@ -944,7 +975,9 @@ writeFileSync(entryPath, `
             const baseline = youtubeShelfMoreSnapshot(shelf, label);
             const initialScan = youtubeShelfMoreScanTargets(shelf, label);
             const targetCollected = Boolean(youtubeShelfMoreTarget(label));
+            const initialProductionTargets = productionScanTextsTouching(label);
             const replacementIdentityChanged: boolean[] = [];
+            const replacementProductionTargets: string[][] = [];
             let maxGeometryDelta = 0;
             let nativeTextStable = true;
             let nativeHtmlStable = true;
@@ -959,6 +992,7 @@ writeFileSync(entryPath, `
                     && previousChildren.every((child, index) => child !== label.children[index]));
                 await Promise.resolve();
                 await nextPaint();
+                replacementProductionTargets.push(productionScanTextsTouching(label));
 
                 const snapshot = youtubeShelfMoreSnapshot(shelf, label);
                 maxGeometryDelta = Math.max(maxGeometryDelta, youtubeShelfMoreGeometryDelta(baseline, snapshot));
@@ -978,8 +1012,10 @@ writeFileSync(entryPath, `
                 baseline,
                 initialScan,
                 targetCollected,
+                initialProductionTargets,
                 cycleCount: 5,
                 replacementIdentityChanged,
+                replacementProductionTargets,
                 maxGeometryDelta,
                 nativeTextStable,
                 nativeHtmlStable,
@@ -1372,6 +1408,8 @@ function verifyYouTubeShelfExpansion(name, result) {
     const ownershipState = [
         result.targetCollected,
         Object.values(result.initialScan).flat(),
+        result.initialProductionTargets,
+        result.replacementProductionTargets,
         result.nativeAnnotationNodes,
         result.portalCount,
     ];
@@ -1390,7 +1428,7 @@ function verifyYouTubeShelfExpansion(name, result) {
             message: 'exact YouTube shelf expansion fixture changed',
         },
         {
-            failed: JSON.stringify(ownershipState) !== JSON.stringify([false, [], 0, 0]),
+            failed: JSON.stringify(ownershipState) !== JSON.stringify([false, [], [], [[], [], [], [], []], 0, 0]),
             message: 'YouTube shelf expansion escaped the page-owned chrome boundary',
         },
         {
@@ -1411,14 +1449,19 @@ function verifyYouTubeShelfExpansion(name, result) {
 }
 
 function verifyYouTubeShortsAction(name, result) {
-    const ownershipState = [result.actionTargetCount, result.portal, result.portalDecoration];
+    const ownershipState = [
+        result.actionTargetCount,
+        result.productionActionTargets,
+        result.portal,
+        result.portalDecoration,
+    ];
     const beforeNative = [result.before.text, result.before.html, result.before.rootAttributes,
         result.before.buttonAttributes, result.before.labelAttributes];
     const afterNative = [result.after.text, result.after.html, result.after.rootAttributes,
         result.after.buttonAttributes, result.after.labelAttributes];
     verifyProbeChecks(name, result, [
         {
-            failed: JSON.stringify(ownershipState) !== JSON.stringify([0, false, null]),
+            failed: JSON.stringify(ownershipState) !== JSON.stringify([0, [], false, null]),
             message: 'ytm-shorts native action escaped the page-owned chrome boundary',
         },
         {

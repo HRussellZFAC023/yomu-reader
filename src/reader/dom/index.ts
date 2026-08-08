@@ -51,6 +51,7 @@ import {
     safeElementMatches,
     selectorPairs,
     composedAncestorElement as composedParentElement,
+    youtubeNativeChromeMustRemainPageOwned,
 } from './decoration-policy';
 import { detachedReadingLaneLineHeight, rubyFriendlyMirrorLineHeight } from './text-mirror-line-height';
 import {
@@ -67,6 +68,7 @@ import {
     unregisterDocumentAnnotationPortalMirror,
 } from './youtube-chrome-annotation-portal';
 import { sourcePreservingProseNeedsDocumentPortal } from './document-portal-prose-policy';
+import { isYouTubeAppHostname } from '../app/youtube-host';
 export { isPassiveInteractionElement, isYouTubeHost } from './decoration-policy';
 export type { DecorationState } from './decoration-policy';
 import type { DecorationState } from './decoration-policy';
@@ -972,15 +974,18 @@ function shadowDomTargetMetadata(parent: HTMLElement): Partial<FragmentTextTarge
 // (a mixed run spanning a chip and its label must not ruby half of itself).
 function fragmentTargetDecoration(parent: HTMLElement, fragments: TextFragment[]): DecorationState {
     const parentDecoration = classifyDecoration(parent);
-    if (parentDecoration === 'skip' || parentDecoration === 'interactive-passive') return parentDecoration;
+    if (parentDecoration === 'skip') return 'skip';
+    let passiveInteraction = parentDecoration === 'interactive-passive';
     const seen = new Set<HTMLElement>([parent]);
     for (const fragment of fragments) {
         const element = fragment.node.parentElement;
         if (!element || seen.has(element)) continue;
         seen.add(element);
-        if (classifyDecoration(element) === 'interactive-passive') return 'interactive-passive';
+        const decoration = classifyDecoration(element);
+        if (decoration === 'skip') return 'skip';
+        if (decoration === 'interactive-passive') passiveInteraction = true;
     }
-    return parentDecoration;
+    return passiveInteraction ? 'interactive-passive' : parentDecoration;
 }
 
 function isCollectableFragmentText(
@@ -1313,9 +1318,21 @@ function shouldFlushAndSkipFragmentElement(
     state: FragmentTextCollectionState,
     isRoot: boolean,
 ): boolean {
+    if (fragmentElementMustRemainPageOwned(element, isRoot)) return true;
     if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
     if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
     return shouldSkipFragmentTextPresentation(element, state.options);
+}
+
+function fragmentElementMustRemainPageOwned(element: HTMLElement, isRoot: boolean): boolean {
+    // Normally the walk reaches the native link/button before its label and can
+    // prune that whole subtree. Profile collectors may instead re-root at the
+    // label itself, so roots also receive the structural ownership check. This
+    // keeps the boundary independent of both UI language and CSS hydration
+    // without running YouTube ancestor policy for every ordinary content node.
+    if (!isYouTubeAppHostname()) return false;
+    if (!isRoot && !safeElementMatches(element, PASSIVE_INTERACTION_SELECTOR)) return false;
+    return youtubeNativeChromeMustRemainPageOwned(element);
 }
 
 function matchesSkippedFragmentElement(

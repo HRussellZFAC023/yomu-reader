@@ -1123,17 +1123,15 @@ export function youtubeShelfExpansionChromeMustRemainPageOwned(element: HTMLElem
 }
 
 export function youtubeNativeChromeMustRemainPageOwned(element: HTMLElement): boolean {
-    return youtubeShelfExpansionChromeMustRemainPageOwned(element)
-        || youtubeEllipsisChromeMustRemainPageOwned(element);
-}
-
-export function youtubeEllipsisChromeMustRemainPageOwned(element: HTMLElement): boolean {
+    if (youtubeShelfExpansionChromeMustRemainPageOwned(element)) return true;
     if (!isYouTubeAppHostname()) return false;
-    const chrome = youtubeNativeChromeControl(element);
-    if (!chrome) return false;
-    const clipRow = youtubeEllipsisRow(element);
-    if (!clipRow) return false;
-    return elementsShareComposedBranch(chrome, clipRow);
+    // Ownership is structural, not a transient computed-style fact. YouTube
+    // can mount these controls before their clipping CSS hydrates; admitting
+    // them during that window still mutates/focuses page-owned chrome and a
+    // later style pass cannot undo it. The recognized mini-guide, reel overlay,
+    // and explicit Shorts action-rail boundaries are deliberately narrow, so
+    // their native controls remain page-owned for their complete lifecycle.
+    return Boolean(youtubeNativeChromeControl(element));
 }
 
 function youtubeNativeChromeControl(element: HTMLElement): HTMLElement | null {
@@ -1148,15 +1146,16 @@ function youtubeNativeChromeControl(element: HTMLElement): HTMLElement | null {
     // under the ordinary policy.
     const shortsRoot = composedClosestMatching(element, YOUTUBE_SHORTS_ROOT_SELECTOR);
     if (!shortsRoot) return null;
-    const actionRail = composedClosestMatching(element, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
+    // Resolve the button before its rail. Labels such as
+    // `.proof-shorts-action-label` can themselves match the deliberately broad
+    // live-site rail selector; treating that descendant as the boundary makes
+    // it appear not to contain its own ancestor button and re-admits the label
+    // as annotatable content.
+    const control = composedClosestMatching(element, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR);
+    if (!control) return null;
+    const actionRail = composedClosestMatching(control, YOUTUBE_SHORTS_ACTION_RAIL_SELECTOR);
     if (!actionRail || !isComposedAncestor(shortsRoot, actionRail)) return null;
-    return composedControlInside(element, YOUTUBE_SHORTS_ACTION_CONTROL_SELECTOR, actionRail);
-}
-
-function youtubeEllipsisRow(element: HTMLElement): HTMLElement | null {
-    const clipRow = closestRubyFragileConstrainedRow(element);
-    if (!clipRow) return null;
-    return isEllipsisTextRow(safeComputedStyle(clipRow)) ? clipRow : null;
+    return isComposedAncestor(actionRail, control) ? control : null;
 }
 
 function composedClosestMatching(element: HTMLElement, selector: string): HTMLElement | null {
@@ -1171,10 +1170,6 @@ function composedClosestMatching(element: HTMLElement, selector: string): HTMLEl
 function composedControlInside(element: HTMLElement, selector: string, boundary: HTMLElement): HTMLElement | null {
     const control = composedClosestMatching(element, selector);
     return control && isComposedAncestor(boundary, control) ? control : null;
-}
-
-function elementsShareComposedBranch(first: HTMLElement, second: HTMLElement): boolean {
-    return isComposedAncestor(first, second) || isComposedAncestor(second, first);
 }
 
 function isComposedAncestor(ancestor: HTMLElement, descendant: HTMLElement): boolean {

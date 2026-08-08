@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
+import {
     registerReaderHelpersCleanup,
     DEFAULT_SETTINGS,
     READER_WORD_CSS,
@@ -412,6 +416,64 @@ describe('reader helpers', () => {
             expect(document.querySelector('#actions .jpdb-reader-text-mirror')).toBeNull();
             expect(document.querySelector('.jpdb-reader-youtube-chrome-portal')).toBeNull();
         } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('flushes production fragment runs around a page-owned mobile Shorts action rail before CSS hydration', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/feed/shorts',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/feed/shorts',
+        });
+        try {
+            const targets = collectYouTubeTargets(`
+                <ytd-rich-grid-renderer>
+                    <a id="video-title" href="/shorts/one">大阪で食べ歩き</a>
+                </ytd-rich-grid-renderer>
+                <ytm-shorts>
+                    <div id="actions" role="toolbar">
+                        <button aria-label="共有">
+                            <span id="share" class="proof-shorts-action-label">共有</span>
+                        </button>
+                    </div>
+                    <section id="details">日本語の説明</section>
+                </ytm-shorts>
+            `, 'https://www.youtube.com/feed/shorts', 40);
+
+            expect(targets.some(target => target.text.includes('大阪で食べ歩き'))).toBe(true);
+            expect(targets.some(target => target.text.includes('日本語の説明'))).toBe(true);
+            expect(targets.some(target => target.text.includes('共有'))).toBe(false);
+            expect(document.querySelector('#actions .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('#actions .jpdb-reader-text-mirror')).toBeNull();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps native Shorts chrome page-owned when the active target and UI are non-Japanese', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/shorts/espanol',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/shorts/espanol',
+        });
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        try {
+            const targets = collectYouTubeTargets(`
+                <ytm-shorts>
+                    <div class="shorts-action-rail" role="toolbar">
+                        <button aria-label="Compartir"><span>Compartir</span></button>
+                    </div>
+                    <section>Estudio palabras nuevas cada día</section>
+                </ytm-shorts>
+            `, 'https://www.youtube.com/shorts/espanol', 20);
+
+            expect(targets.some(target => target.text.includes('Estudio palabras nuevas'))).toBe(true);
+            expect(targets.some(target => target.text.includes('Compartir'))).toBe(false);
+        } finally {
+            resetActiveLearningTargetLanguage();
             vi.unstubAllGlobals();
         }
     });

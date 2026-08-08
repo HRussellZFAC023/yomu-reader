@@ -20,7 +20,6 @@ import {
     closestRubyFragileConstrainedRow,
     isClipConstrainedRow,
     noteConstrainedRowLayoutSettled,
-    youtubeEllipsisChromeMustRemainPageOwned,
     youtubeNativeChromeMustRemainPageOwned,
     youtubeShelfExpansionChromeMustRemainPageOwned,
 } from '../../src/reader/dom/decoration-policy';
@@ -266,7 +265,7 @@ describe('classifyDecoration acceptance matrix', () => {
         document.body.innerHTML = `
             <ytm-shorts>
                 <div id="actions" role="toolbar">
-                    <button><span id="share" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span></button>
+                    <button><span id="share" class="proof-shorts-action-label" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">共有</span></button>
                 </div>
                 <section id="details">
                     <button><span id="details-label" style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">日本語の説明</span></button>
@@ -275,6 +274,7 @@ describe('classifyDecoration acceptance matrix', () => {
         `;
 
         expect(youtubeNativeChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#share')!)).toBe(true);
+        expect(classifyText('#share')).toBe('skip');
         expect(youtubeNativeChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#details-label')!)).toBe(false);
     });
 
@@ -288,7 +288,6 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(youtubeShelfExpansionChromeMustRemainPageOwned(control)).toBe(true);
         expect(youtubeShelfExpansionChromeMustRemainPageOwned(showMore)).toBe(true);
         expect(youtubeNativeChromeMustRemainPageOwned(showMore)).toBe(true);
-        expect(youtubeEllipsisChromeMustRemainPageOwned(showMore)).toBe(false);
         expect(classifyText('#show-more-label')).toBe('skip');
     });
 
@@ -318,8 +317,6 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(youtubeShelfExpansionChromeMustRemainPageOwned(videoTitle)).toBe(false);
         expect(youtubeNativeChromeMustRemainPageOwned(shelfTitle)).toBe(false);
         expect(youtubeNativeChromeMustRemainPageOwned(videoTitle)).toBe(false);
-        expect(youtubeEllipsisChromeMustRemainPageOwned(shelfTitle)).toBe(false);
-        expect(youtubeEllipsisChromeMustRemainPageOwned(videoTitle)).toBe(false);
         expect(classifyText('#shelf-title')).toBe('content-ruby');
         expect(classifyText('#video-title')).toBe('content-ruby');
     });
@@ -364,7 +361,7 @@ describe('classifyDecoration acceptance matrix', () => {
         expect(classifyText('#share')).toBe('interactive-passive');
     });
 
-    it('keeps ellipsis-constrained YouTube controls outside mini-guide and Shorts chrome annotatable', () => {
+    it('keeps unrelated YouTube controls annotatable while native Shorts chrome is page-owned before CSS hydration', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytm-bottom-sheet-renderer>
@@ -376,7 +373,7 @@ describe('classifyDecoration acceptance matrix', () => {
         `;
 
         expect(classifyText('#speed')).toBe('interactive-passive');
-        expect(classifyText('#unclipped-share')).toBe('interactive-passive');
+        expect(classifyText('#unclipped-share')).toBe('skip');
     });
 
     it('rejects ordinary YouTube feed text before reading computed styles', () => {
@@ -386,7 +383,7 @@ describe('classifyDecoration acceptance matrix', () => {
         `;
         const getComputedStyle = vi.spyOn(window, 'getComputedStyle');
 
-        expect(youtubeEllipsisChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#feed-title')!)).toBe(false);
+        expect(youtubeNativeChromeMustRemainPageOwned(document.querySelector<HTMLElement>('#feed-title')!)).toBe(false);
         expect(getComputedStyle).not.toHaveBeenCalled();
     });
 
@@ -752,7 +749,7 @@ describe('classifyDecoration acceptance matrix', () => {
 });
 
 describe('late YouTube native-chrome hydration', () => {
-    it('retires an existing Share mirror when the native label becomes clipped', () => {
+    it('keeps Share page-owned before and after the native clipping CSS hydrates', () => {
         stubYouTube();
         document.body.innerHTML = `
             <ytd-reel-player-overlay-renderer>
@@ -761,17 +758,8 @@ describe('late YouTube native-chrome hydration', () => {
         `;
         const button = document.querySelector<HTMLElement>('button')!;
         const clipRow = document.querySelector<HTMLElement>('#clip-row')!;
-        const target = collectTargets(button).find(candidate => candidate.text === '共有')!;
-        expect(target).toBeTruthy();
-        expect(target.decoration).toBe('interactive-passive');
-
-        applyTokensToScanTarget(
-            { ...target, nonDestructive: true, passiveInteraction: true },
-            [token('共有', 0, '共有', 'きょうゆう')],
-            FURIGANA_SETTINGS,
-        );
-        const host = target.parent;
-        expect(host.querySelector('.jpdb-reader-text-mirror')).not.toBeNull();
+        expect(collectTargets(button)).toEqual([]);
+        expect(button.querySelector('.jpdb-reader-text-mirror')).toBeNull();
 
         clipRow.style.overflow = 'hidden';
         clipRow.style.textOverflow = 'ellipsis';
@@ -779,11 +767,12 @@ describe('late YouTube native-chrome hydration', () => {
         noteConstrainedRowLayoutSettled();
         projectAdditiveTextMirrors(document);
 
-        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+        expect(collectTargets(button)).toEqual([]);
+        expect(button.querySelector('.jpdb-reader-text-mirror')).toBeNull();
         expect(document.body.querySelector('.jpdb-reader-document-annotation-portal .jpdb-reader-word')).toBeNull();
         expect(baseText(button)).toBe('共有');
-        expect(host.style.getPropertyValue('visibility')).toBe('');
-        expect(host.style.getPropertyValue('position')).toBe('');
+        expect(clipRow.style.getPropertyValue('visibility')).toBe('');
+        expect(clipRow.style.getPropertyValue('position')).toBe('');
     });
 });
 
@@ -1410,6 +1399,32 @@ describe('sealed decoration staleness', () => {
         expect(isCurrentScanTarget(target)).toBe(true);
 
         row.setAttribute('role', 'button');
+        expect(isCurrentScanTarget(target)).toBe(false);
+    });
+
+    it('drops a multi-fragment target when a later fragment becomes page-owned', () => {
+        document.body.innerHTML = '<div><span>今日</span><span id="later">の日記を書く</span></div>';
+        const later = document.querySelector<HTMLElement>('#later')!;
+        const target = collectTargets().find(candidate => candidate.text === '今日の日記を書く')!;
+        expect(target.fragments).toHaveLength(2);
+        expect(isCurrentScanTarget(target)).toBe(true);
+
+        later.setAttribute('contenteditable', 'true');
+        expect(isCurrentScanTarget(target)).toBe(false);
+
+        later.removeAttribute('contenteditable');
+        expect(isCurrentScanTarget(target)).toBe(true);
+    });
+
+    it('lets a later skipped fragment outrank an earlier passive fragment', () => {
+        document.body.innerHTML = '<div class="metadata"><span>設定</span><span>を</span><span id="later">開く</span></div>';
+        const later = document.querySelector<HTMLElement>('#later')!;
+        const target = collectTargets().find(candidate => candidate.text === '設定を開く')!;
+        expect(target.fragments).toHaveLength(3);
+        expect(target.decoration).toBe('interactive-passive');
+        expect(isCurrentScanTarget(target)).toBe(true);
+
+        later.setAttribute('contenteditable', 'true');
         expect(isCurrentScanTarget(target)).toBe(false);
     });
 });
