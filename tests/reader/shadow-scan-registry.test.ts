@@ -33,6 +33,7 @@ afterEach(() => {
     setCustomElementUpgradeHook(null);
     document.body.innerHTML = '';
     document.documentElement.removeAttribute(ANNOTATION_SCOPE_ATTRIBUTE);
+    vi.unstubAllGlobals();
     vi.useRealTimers();
 });
 
@@ -58,6 +59,22 @@ function uniqueUpgradeTag(prefix: string): string {
 // walk must register every open shadow root it descends so the app observer
 // watches it directly.
 describe('shadow scan registry', () => {
+    it('degrades safely when an extension isolated world exposes a null custom-element registry', () => {
+        const host = document.createElement('yomu-edge-isolated-world-host');
+        document.body.append(host);
+        vi.stubGlobal('customElements', null);
+
+        expect(watchPotentialOpenShadowRootHost(host)).toBeNull();
+    });
+
+    it('degrades safely when an isolated world omits customElements.whenDefined', () => {
+        const host = document.createElement('yomu-partial-custom-element-registry-host');
+        document.body.append(host);
+        vi.stubGlobal('customElements', { get: vi.fn() });
+
+        expect(watchPotentialOpenShadowRootHost(host)).toBeNull();
+    });
+
     it('limits startup shadow discovery to page-declared Reader Surfaces', () => {
         document.documentElement.setAttribute(ANNOTATION_SCOPE_ATTRIBUTE, 'surface');
         document.body.innerHTML = `

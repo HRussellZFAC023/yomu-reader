@@ -247,6 +247,7 @@
     "manual:youtube-auto-translation": "node scripts/manual/youtube-auto-translation-smoke.mjs",
     "smoke:youtube-controls-wake": "node scripts/youtube-controls-wake-smoke.mjs",
     "manual:extension-boot": "node scripts/manual/extension-boot-smoke.mjs",
+    "manual:extension-youtube": "node scripts/manual/extension-youtube-boot-smoke.mjs",
     "smoke:youtube-dom-safe": "node scripts/youtube-dom-safe-smoke.mjs",
     "manual:youtube-fullscreen": "node scripts/manual/youtube-fullscreen-smoke.mjs",
     "manual:youtube-homepage-performance": "node scripts/manual/youtube-homepage-performance-profile.mjs",

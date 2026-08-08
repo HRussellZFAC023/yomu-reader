@@ -99,6 +99,16 @@ describe('full-reader smoke companion graph', () => {
             .toEqual([]);
     });
 
+    it('derives the Japanese-site acceptance runtime from the built @require header', () => {
+        const file = 'scripts/manual/japanese-site-language-smoke.mjs';
+        const source = readFileSync(file, 'utf8');
+
+        expect(source).toMatch(/from '\.\.\/lib\/smoke-test-helpers\.mjs'/);
+        expect(source).toMatch(/addScriptTagWithCspFallback\(\s*page,\s*SCRIPT_PATH\s*\)/);
+        expect([...source.matchAll(/yomu-[a-z\d-]+\.user\.js/g)].map(match => match[0]))
+            .toEqual([]);
+    });
+
     it('resolves every @require line in the built userscript to a file on disk', () => {
         if (!existsSync(BUILT_USERSCRIPT)) return;
         const header = readFileSync(BUILT_USERSCRIPT, 'utf8');

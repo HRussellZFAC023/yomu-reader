@@ -52,7 +52,6 @@ type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, '
 let alternateRedirectCleanup: (() => void) | undefined;
 let preferenceRevision = 0;
 let currentPreferenceEnabled = false;
-let pendingStartupOptOutCleanup = false;
 let deferredCookieResponseReload = false;
 
 export function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promise<void> {
@@ -68,8 +67,6 @@ export function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promis
 
 function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision: number): void {
     if (revision !== preferenceRevision) return;
-    const cachedPreference = readCachedPreferenceEnabled();
-    pendingStartupOptOutCleanup ||= cachedPreference === true;
     const syncPreference = readStoredPreferenceSync();
     if (syncPreference) {
         applyPreferredJapaneseSiteLanguageAtRevision(
@@ -126,9 +123,11 @@ function applyPreferredJapaneseSiteLanguageAtRevision(
     if (typeof window === 'undefined') return;
     if (revision !== preferenceRevision) return;
     const effectiveEnabled = enabled && languageFamilyIncludes('jp-only', targetLanguage);
+    // A stored opt-out does not prove this realm caused the current URL. Only
+    // an active on -> off transition or the settings UI's explicit rollback may
+    // navigate away; a stale per-origin cache must remain reconciliation-only.
     const shouldRevert = !effectiveEnabled
-        && (currentPreferenceEnabled || revertOnDisable || pendingStartupOptOutCleanup);
-    pendingStartupOptOutCleanup = false;
+        && (currentPreferenceEnabled || revertOnDisable);
     currentPreferenceEnabled = effectiveEnabled;
     writeCachedPreferenceEnabled(effectiveEnabled);
     applyPageContextJapanesePreferences(effectiveEnabled, revision);

@@ -457,7 +457,7 @@ describe('preferred Japanese site language', () => {
         expect(replace).toHaveBeenCalledWith('https://www.reddit.com/r/LearnJapanese/?after=t3_1');
     });
 
-    it('uses a stale enabled cache as provenance to clean a Japanese URL at startup', () => {
+    it('never treats a stale enabled cache as permission to navigate during an authoritative opt-out', () => {
         const replace = vi.fn();
         localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
         vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
@@ -473,7 +473,38 @@ describe('preferred Japanese site language', () => {
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
 
-        expect(replace).toHaveBeenCalledWith('https://www.reddit.com/r/LearnJapanese/?after=t3_1');
+        expect(replace).not.toHaveBeenCalled();
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
+    it('keeps an authoritative opt-out inert across repeated language-host cold starts', () => {
+        const replace = vi.fn();
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
+            key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY
+                ? false
+                : key === SETTINGS_STORAGE_KEY
+                    ? { preferJapaneseSiteLanguage: true }
+                    : fallback
+        ));
+        vi.stubGlobal('unsafeWindow', window);
+
+        for (const href of [
+            'https://en.wikipedia.org/wiki/Japanese_language',
+            'https://ja.wikipedia.org/wiki/%E6%97%A5%E6%9C%AC%E8%AA%9E',
+            'https://en.wikipedia.org/wiki/Japanese_language',
+        ]) {
+            localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+            vi.stubGlobal('location', {
+                href,
+                hostname: new URL(href).hostname,
+                protocol: 'https:',
+                replace,
+            });
+            installPreferredJapaneseSiteLanguageFromStoredSettings();
+        }
+
+        expect(replace).not.toHaveBeenCalled();
         expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
     });
 

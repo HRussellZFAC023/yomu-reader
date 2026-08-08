@@ -22,6 +22,7 @@ with `npm run <name>` when investigating the area it covers.
 | `manual:bookwalker-live-firefox` | Live BookWalker trial reader in real Firefox. |
 | `manual:bunpro-live` | Hits the real Bunpro frontend API; needs YOMU_BUNPRO_FRONTEND_API_TOKEN. |
 | `manual:extension-boot` | Loads the built Chrome extension package (needs build:extension + EXT_DIR). |
+| `manual:extension-youtube` | Loads the packaged Chrome extension in a clean Chromium profile and proves a healthy runtime on real YouTube. |
 | `manual:japanese-sites` | Injects into real multilingual sites to verify JA redirects. |
 | `manual:jiten-newtab` | Needs live jiten.moe enrichment for the newtab status. |
 | `manual:jpdb-live` | Hits the real JPDB API; needs YOMU_JPDB_API_KEY. |

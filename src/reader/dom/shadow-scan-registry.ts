@@ -71,11 +71,9 @@ export function watchPotentialOpenShadowRootHost(host: Element): ShadowRoot | nu
     const tagName = host.localName.toLowerCase();
     const isCustomElement = tagName.includes('-');
     if (!isCustomElement) return null;
-    if (isCustomElement
-        && typeof customElements !== 'undefined'
-        && typeof customElements.whenDefined === 'function'
-        && !customElements.get(tagName)) {
-        subscribeToCustomElementUpgrade(tagName);
+    const registry = customElementRegistry();
+    if (registry && !registry.get(tagName)) {
+        subscribeToCustomElementUpgrade(registry, tagName);
         return null;
     }
     if (seenPotentialShadowHosts.has(host)
@@ -346,14 +344,25 @@ export function setCustomElementUpgradeHook(hook: (() => void) | null): void {
     }
 }
 
-function subscribeToCustomElementUpgrade(tagName: string): void {
+function customElementRegistry(): CustomElementRegistry | null {
+    // Chromium content-script isolated worlds can expose the property but
+    // return null for it on large Polymer pages such as YouTube. `typeof null`
+    // is "object", so the old `typeof customElements !== 'undefined'` guard
+    // still dereferenced null and aborted the entire Reader at startup.
+    const registry = typeof customElements === 'undefined' ? null : customElements;
+    return registry && typeof registry.get === 'function' && typeof registry.whenDefined === 'function'
+        ? registry
+        : null;
+}
+
+function subscribeToCustomElementUpgrade(registry: CustomElementRegistry, tagName: string): void {
     if (subscribedUpgradeNames.has(tagName)
         || subscribedUpgradeNames.size >= MAX_PENDING_UPGRADE_NAMES) return;
     subscribedUpgradeNames.add(tagName);
     const generation = customElementLifecycleGeneration;
     // A single whole-page rescan on definition is enough: the normal composed
     // collector registers every upgraded root, including nested instances.
-    void customElements.whenDefined(tagName).then(() => {
+    void registry.whenDefined(tagName).then(() => {
         if (generation !== customElementLifecycleGeneration) return;
         // The cap protects concurrently unresolved definitions, not every tag
         // name ever seen by a long-lived SPA. Release the slot after upgrade

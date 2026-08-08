@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 // Live-site smoke: inject the built userscript into real multilingual sites and
 // assert the Japanese site-language preference redirects to the Japanese URL.
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { chromium } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
@@ -17,12 +15,10 @@ import { addScriptTagWithCspFallback } from '../lib/smoke-test-helpers.mjs';
 const {
     scriptPath: SCRIPT_PATH,
     root: ROOT,
-    dist: DIST,
 } = createSmokePaths(import.meta.dirname);
-const VIDEO_COMPANION_PATH = join(DIST, 'greasyfork/yomu-video.user.js');
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const OPT_OUT_FIXTURE_URL = 'https://japanese-site-language-smoke.test/en-US/docs?locale=en-US&region=GB';
-assertBuiltArtifacts([VIDEO_COMPANION_PATH, SCRIPT_PATH], ROOT);
+assertBuiltArtifacts([SCRIPT_PATH], ROOT);
 
 const SITES = [
     {
@@ -185,29 +181,10 @@ async function runBuiltArtifactOptOutRegression(browserInstance) {
 }
 
 async function injectBuiltJapaneseSiteLanguageRuntime(page) {
-    // The preference implementation lives in the Video companion. Inject that
-    // exact build output first, mirroring userscript @require ordering, then run
-    // the core without auto-loading a second set of companion artifacts.
-    await addScriptTagWithCspFallback(page, VIDEO_COMPANION_PATH);
-    await addCoreScriptTagWithCspFallback(page);
-}
-
-async function addCoreScriptTagWithCspFallback(page) {
-    try {
-        await page.addScriptTag({ path: SCRIPT_PATH });
-    } catch {
-        const client = await page.context().newCDPSession(page);
-        try {
-            await client.send('Runtime.evaluate', {
-                expression: readFileSync(SCRIPT_PATH, 'utf8'),
-                awaitPromise: false,
-                allowUnsafeEvalBlockedByCSP: true,
-                replMode: true,
-            });
-        } finally {
-            await client.detach().catch(() => undefined);
-        }
-    }
+    // The @require header is the shipping dependency graph. Derive every
+    // companion from it so a future split cannot silently leave this smoke
+    // exercising a runtime configuration no userscript manager actually runs.
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
 }
 
 async function waitForExpectedUrl(page, expects, settleMs = 0) {
