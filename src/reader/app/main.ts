@@ -304,6 +304,7 @@ import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { documentBackgroundLooksDark } from '../dom/page-background';
+import { createPostPaintPass, viewForNode } from '../dom/post-paint-pass';
 import { refreshContrastForChangedWords, refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, cardWithPreservedCachedEvidence, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
@@ -470,6 +471,10 @@ export class ReaderApp {
     private hostThemeEnforceTimer?: number;
     private themeContrastRefreshFrame?: number;
     private themeContrastRefreshTimer?: number;
+    private cardHydrationRenderPasses = new WeakMap<
+        CardPopoverHydrationContext['state'],
+        ReturnType<typeof createPostPaintPass>
+    >();
     private setImmersionTranslationBlurred = (blurred: boolean): void => {
         if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
         this.settings = {
@@ -6743,10 +6748,6 @@ export class ReaderApp {
         };
         const renderLoading = () => {
             if (!canRenderLoading()) return;
-            if (trigger !== 'hover') {
-                runLoadingRender();
-                return;
-            }
             if (loadingRenderFrame !== undefined) return;
             loadingRenderFrame = window.requestAnimationFrame(runLoadingRender);
         };
@@ -6923,7 +6924,7 @@ export class ReaderApp {
     }
 
     private renderHydratedCardAnkiLookup(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
-        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        const { popover, card, trigger, state, requestId, isCurrentHoverCard } = context;
         if (!this.shouldRunAnkiBackgroundWork()) return;
         const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
         if (!hydrateAnkiLookup) return;
@@ -6936,7 +6937,7 @@ export class ReaderApp {
                     if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(current.ankiLookup) && !resolvesPendingMiss) return;
                     if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                     state.data = { ...current, ankiLookup };
-                    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                    this.scheduleHydratedCardPopoverRender(context);
                 })
                 .catch(error => {
                     log.warn('Popup Anki detail failed', { term: card.spelling }, error);
@@ -6944,7 +6945,7 @@ export class ReaderApp {
                     const ankiLookup = ankiLookupWithUnavailableDetails(state.data.ankiLookup);
                     if (!ankiLookup.primary) return;
                     state.data = { ...state.data, ankiLookup };
-                    this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                    this.scheduleHydratedCardPopoverRender(context);
                 });
         };
         if (trigger === 'hover') {
@@ -6959,13 +6960,13 @@ export class ReaderApp {
     // permanently and the local source never appears in the popover. Wait on
     // the uncapped lookup and re-render late instead.
     private renderHydratedCardLocalEntries(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
-        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        const { popover, card, state, requestId, isCurrentHoverCard } = context;
         if (state.data.localEntries.length || !renderData.hydrateLocalEntries) return;
         void renderData.hydrateLocalEntries()
             .then(entries => {
                 if (!entries.length || state.data.localEntries.length || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 state.data = { ...state.data, localEntries: entries };
-                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                this.scheduleHydratedCardPopoverRender(context);
             })
             .catch(error => log.debug('Popup local dictionary hydration failed', { term: card.spelling, error }));
     }
@@ -6976,19 +6977,19 @@ export class ReaderApp {
     // Bunpro hydration: when the capped result was empty, wait on the uncapped
     // lookup and re-render once it arrives instead of dropping it on the floor.
     private renderHydratedCardJitenVocabulary(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
-        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        const { popover, card, state, requestId, isCurrentHoverCard } = context;
         if (!usesJapaneseProviders() || state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
         void renderData.hydrateJitenVocabularyInfo()
             .then(info => {
                 if (!usesJapaneseProviders() || !info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 state.data = { ...state.data, jitenVocabularyInfo: info };
-                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                this.scheduleHydratedCardPopoverRender(context);
             })
             .catch(error => log.debug('Popup Jiten vocabulary hydration failed', { term: card.spelling, error }));
     }
 
     private renderHydratedCardPitchAccent(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
-        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        const { popover, card, requestId, isCurrentHoverCard } = context;
         if (!renderData.hydratePitchAccent) return;
         const renderedPitchKey = card.pitchAccent.join('|');
         void renderData.hydratePitchAccent()
@@ -6996,26 +6997,26 @@ export class ReaderApp {
                 if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
                 if (renderedPitchKey === card.pitchAccent.join('|')) return;
-                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                this.scheduleHydratedCardPopoverRender(context);
             })
             .catch(error => log.debug('Popup pitch hydration failed', { term: card.spelling, error }));
     }
 
     private renderHydratedCardFrequencyRanks(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
-        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        const { popover, card, state, requestId, isCurrentHoverCard } = context;
         if (!usesJapaneseProviders() || !renderData.hydrateFrequencyRanks) return;
         void renderData.hydrateFrequencyRanks()
             .then(frequencyRanks => {
                 if (!usesJapaneseProviders() || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
                 if (JSON.stringify(state.data.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
                 state.data = { ...state.data, frequencyRanks };
-                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                this.scheduleHydratedCardPopoverRender(context);
             })
             .catch(error => log.debug('Popup provider frequency hydration failed', { term: card.spelling, error }));
     }
 
     private renderHydratedCardBunproDefinition(context: CardPopoverHydrationContext, renderData: CardRenderDataLoad): void {
-        const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+        const { popover, card, state, requestId, isCurrentHoverCard } = context;
         if (!usesJapaneseProviders() || !renderData.hydrateBunproDefinitionResult) return;
         void renderData.hydrateBunproDefinitionResult()
             .then(result => {
@@ -7028,9 +7029,28 @@ export class ReaderApp {
                     bunproDefinitionInfo: result.info,
                     bunproDefinitionStatus: result.status,
                 };
-                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+                this.scheduleHydratedCardPopoverRender(context);
             })
             .catch(error => log.debug('Popup Bunpro definition hydration failed', { term: card.spelling, error }));
+    }
+
+    /**
+     * Merge provider completions that land before the same paint. A card can
+     * hydrate from six independent promises, and repainting synchronously from
+     * each promise microtask repeatedly forces scroll/layout reads and replaces
+     * the same large dictionary tree before the browser can service input.
+     */
+    private scheduleHydratedCardPopoverRender(context: CardPopoverHydrationContext): void {
+        let pass = this.cardHydrationRenderPasses.get(context.state);
+        if (!pass) {
+            pass = createPostPaintPass(() => {
+                const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+                if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+                this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+            });
+            this.cardHydrationRenderPasses.set(context.state, pass);
+        }
+        pass.schedule(viewForNode(context.popover));
     }
 
     private renderedWordUpdateRootsForCardRender(trigger: 'modal' | 'hover', anchor?: HTMLElement): ParentNode[] {

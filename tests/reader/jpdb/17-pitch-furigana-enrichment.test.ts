@@ -2723,6 +2723,50 @@ describe('reader helpers', () => {
         }
     });
 
+    it('coalesces same-frame card hydration repaints', async () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const renderCompletedCardPopover = vi.fn();
+        const context: TestCardPopoverHydrationContext = {
+            popover,
+            card: lookupCard,
+            sentence: '青空です。',
+            trigger: 'modal',
+            state: { data: {
+                localEntries: [],
+                kanjiEntries: [],
+                metaEntries: [],
+                ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+                jpdbDecks: [],
+                ankiDecks: [],
+                jpdbVocabularyInfo: null,
+            } },
+            requestId: 1,
+            isCurrentHoverCard: () => true,
+        };
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            scheduleHydratedCardPopoverRender(context: TestCardPopoverHydrationContext): void;
+        };
+        internals.activePopover = popover;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+
+        try {
+            internals.scheduleHydratedCardPopoverRender(context);
+            internals.scheduleHydratedCardPopoverRender(context);
+
+            expect(renderCompletedCardPopover).not.toHaveBeenCalled();
+            await vi.waitFor(() => expect(renderCompletedCardPopover).toHaveBeenCalledTimes(1));
+        } finally {
+            popover.remove();
+            app.destroy();
+        }
+    });
+
     it('hydrates popup Anki details even when the fast status cache misses', async () => {
         const app = new ReaderApp();
         const lookupCard: JPDBCard = {

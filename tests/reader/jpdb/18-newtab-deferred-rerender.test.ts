@@ -339,8 +339,10 @@ describe('reader helpers', () => {
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(popover.querySelector('[data-study-grammar]')).not.toBeNull();
-            expect(popover.querySelector('[data-immersion-kit]')).not.toBeNull();
+            await vi.waitFor(() => {
+                expect(popover.querySelector('[data-study-grammar]')).not.toBeNull();
+                expect(popover.querySelector('[data-immersion-kit]')).not.toBeNull();
+            });
             expect(installLoaders).toHaveBeenCalledWith(popover, '青空です。');
             expect(installLazyLoad).toHaveBeenCalledWith(popover, lookupCard, {});
         } finally {
@@ -349,7 +351,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('coalesces hover deferred popup rerenders before parsing and loading detail sections', async () => {
+    it.each(['hover', 'modal'] as const)('coalesces %s deferred popup rerenders before parsing and loading detail sections', async trigger => {
         const app = new ReaderApp();
         const lookupCard = testAozoraCard();
         const popover = document.createElement('div');
@@ -403,7 +405,7 @@ describe('reader helpers', () => {
                 popover,
                 lookupCard,
                 '青空です。',
-                'hover',
+                trigger,
                 {
                     localEntries: localEntries.promise,
                     jpdbVocabularyInfo: jpdbVocabularyInfo.promise,
@@ -431,9 +433,11 @@ describe('reader helpers', () => {
 
             frameCallbacks.shift()?.(0);
 
-            expect(parsePopoverJapanese).not.toHaveBeenCalled();
-            expect(installLoaders).not.toHaveBeenCalled();
-            expect(installLazyLoad).not.toHaveBeenCalled();
+            if (trigger === 'hover') {
+                expect(parsePopoverJapanese).not.toHaveBeenCalled();
+                expect(installLoaders).not.toHaveBeenCalled();
+                expect(installLazyLoad).not.toHaveBeenCalled();
+            }
 
             const postRenderFrames = frameCallbacks.splice(0);
             expect(postRenderFrames.length).toBeGreaterThanOrEqual(1);
