@@ -9,7 +9,7 @@ interface LiveSettingsSyncDependencies {
     isActive: () => boolean;
     getSettings: () => ReaderSettings;
     adoptSettings: (settings: ReaderSettings) => void;
-    syncAdoptedLanguageProfile: (settings: ReaderSettings) => void;
+    syncAdoptedLanguageProfile: (previousSettings: ReaderSettings, settings: ReaderSettings) => void;
     applyTheme: (theme: ReaderSettings['theme']) => void;
 }
 
@@ -27,10 +27,11 @@ export function bindLiveSettingsSync(
         if (!dependencies.isActive()) return;
         const detail = (event as CustomEvent<{ settings?: Partial<ReaderSettings>; preview?: boolean }>).detail;
         if (detail?.settings && detail.preview !== true) {
-            const settings = { ...dependencies.getSettings(), ...detail.settings };
+            const previousSettings = dependencies.getSettings();
+            const settings = { ...previousSettings, ...detail.settings };
             dependencies.adoptSettings(settings);
-            syncFormFromSettings(form, settings);
-            dependencies.syncAdoptedLanguageProfile(settings);
+            syncFormFromSettings(form, previousSettings, settings);
+            dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
             syncSubtitlePreview(form);
             syncFontFamilyControls(form);
         }
@@ -39,8 +40,12 @@ export function bindLiveSettingsSync(
     });
 }
 
-function syncFormFromSettings(form: HTMLFormElement, settings: ReaderSettings): void {
-    for (const key of Object.keys(settings) as Array<keyof ReaderSettings>) {
+function syncFormFromSettings(
+    form: HTMLFormElement,
+    previousSettings: ReaderSettings,
+    settings: ReaderSettings,
+): void {
+    for (const key of changedSettingKeys(previousSettings, settings)) {
         if (key === 'theme') continue;
         const val = settings[key];
         if (typeof val !== 'string' && typeof val !== 'number' && typeof val !== 'boolean') continue;
@@ -60,6 +65,14 @@ function syncFormFromSettings(form: HTMLFormElement, settings: ReaderSettings): 
             elements.value = String(val);
         }
     }
+}
+
+function changedSettingKeys(
+    previousSettings: ReaderSettings,
+    settings: ReaderSettings,
+): Array<keyof ReaderSettings> {
+    return (Object.keys(settings) as Array<keyof ReaderSettings>)
+        .filter(key => !Object.is(previousSettings[key], settings[key]));
 }
 
 function themeFromSettingsChangeEvent(event: Event): ReaderSettings['theme'] | undefined {

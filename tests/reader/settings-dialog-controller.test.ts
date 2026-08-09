@@ -349,6 +349,20 @@ function lookupPillIds(form: HTMLFormElement): string[] {
     );
 }
 
+function lookupPillLabelInput(form: HTMLFormElement, id: string): HTMLInputElement {
+    const idInput = Array.from(
+        form.querySelectorAll<HTMLInputElement>('.jpdb-reader-lookup-links input[name$=".id"]'),
+    ).find(input => input.value === id)!;
+    return idInput.closest<HTMLElement>('[data-lookup-link-row]')!
+        .querySelector<HTMLInputElement>('input[name$=".label"]')!;
+}
+
+function definitionTranslationInput(form: HTMLFormElement, id: string): HTMLInputElement {
+    return Array.from(
+        form.querySelectorAll<HTMLInputElement>('input[name="definitionTranslationProviderIds"]'),
+    ).find(input => input.value === id)!;
+}
+
 function expectSpanishLookupPills(form: HTMLFormElement): void {
     const ids = lookupPillIds(form);
     expect(ids).toEqual(expect.arrayContaining(['rae', 'spanishdict']));
@@ -601,6 +615,70 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
+    it('preserves unsaved language facets across unrelated partial and semantically equal full events', async () => {
+        settingsDialogTestState.useRealLocalization = true;
+        let current: ReaderSettings = { ...DEFAULT_SETTINGS };
+        const onSettingsPersisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            onSettingsPersisted,
+        });
+        const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
+
+        target.value = 'es';
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        output.value = 'ko';
+        output.dispatchEvent(new Event('change', { bubbles: true }));
+        form.querySelector<HTMLButtonElement>('[data-action="lookup-link-add"]')!.click();
+        await flushPromises();
+        const customLookupId = lookupPillIds(form).find(id => id.startsWith('custom-'))!;
+        lookupPillLabelInput(form, customLookupId).value = 'My Spanish dictionary';
+        const jitenTranslation = definitionTranslationInput(form, '__jiten__');
+        expect(jitenTranslation.disabled).toBe(false);
+        jitenTranslation.checked = true;
+
+        const expectUnsavedFacets = (): void => {
+            expect(form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('es');
+            expect(form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.value).toBe('ko');
+            expect(lookupPillIds(form)).toContain(customLookupId);
+            expect(lookupPillLabelInput(form, customLookupId).value).toBe('My Spanish dictionary');
+            expect(definitionTranslationInput(form, '__jiten__').checked).toBe(true);
+        };
+
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: { settings: { theme: 'dark' } },
+        }));
+        expectUnsavedFacets();
+
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: {
+                settings: {
+                    ...current,
+                    sheetCloseButtonOnLeft: !current.sheetCloseButtonOnLeft,
+                    languageProfiles: current.languageProfiles.map(profile => ({
+                        ...profile,
+                        definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds],
+                    })),
+                    dictionaryLookupLinks: current.dictionaryLookupLinks.map(link => ({ ...link })),
+                },
+            },
+        }));
+        expectUnsavedFacets();
+
+        await submitSettingsAndWait(form, dismiss, onSettingsPersisted);
+        const savedProfile = activeLanguageProfile(current);
+        expect(savedProfile).toMatchObject({
+            targetLanguage: 'es',
+            outputLanguage: 'ko',
+            learnerLanguage: 'ko',
+            definitionTranslationProviderIds: ['__jiten__'],
+        });
+        expect(current.dictionaryLookupLinks.find(link => link.id === customLookupId)?.label)
+            .toBe('My Spanish dictionary');
+    });
+
     it('adopts active-profile and output-only durable changes into their nested controls', async () => {
         settingsDialogTestState.useRealLocalization = true;
         const baseProfile = DEFAULT_SETTINGS.languageProfiles[0]!;
@@ -625,9 +703,7 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
         const parser = form.querySelector<HTMLSelectElement>('select[name="parserProvider"]')!;
-        const jitenTranslation = Array.from(
-            form.querySelectorAll<HTMLInputElement>('input[name="definitionTranslationProviderIds"]'),
-        ).find(input => input.value === '__jiten__')!;
+        const jitenTranslation = definitionTranslationInput(form, '__jiten__');
 
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
             detail: { settings: { activeLanguageProfileId: alternateProfile.id } },

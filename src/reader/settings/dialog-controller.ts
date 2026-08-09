@@ -775,10 +775,10 @@ export class SettingsDialogController {
             isActive: () => this.currentForm === form && form.isConnected,
             getSettings: () => this.settings,
             adoptSettings: settings => { this.settings = settings; },
-            syncAdoptedLanguageProfile: settings => this.syncLanguageProfileForm(
+            syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
                 form,
                 settings,
-                { source: 'durable-settings' },
+                { source: 'durable-settings', previousSettings },
             ),
             applyTheme: theme => {
                 const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
