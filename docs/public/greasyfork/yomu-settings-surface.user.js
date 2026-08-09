@@ -1253,50 +1253,36 @@ const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
 function isSupportedLanguageProfileSchemaVersion(value) {
   return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_CAPABILITY_IDS = [
-  "term-lookup",
-  "character-lookup",
-  "segmentation",
-  "morphology",
-  "reading-annotation",
-  "pronunciation",
-  "frequency",
-  "examples",
-  "grammar",
-  "audio",
-  "text-to-speech",
-  "ocr",
-  "subtitles",
-  "mining",
-  "srs",
-  "grading",
-  "typing",
-  "handwriting"
-];
-const NO_CAPABILITIES = Object.freeze(
-  Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
-);
 const CORE_DELIVERED_CAPABILITIES = Object.freeze({
   "term-lookup": true,
+  "character-lookup": true,
   segmentation: true,
+  "reading-annotation": true,
   pronunciation: true,
+  frequency: true,
+  examples: true,
+  audio: true,
   "text-to-speech": true,
+  ocr: true,
   subtitles: true,
   typing: true,
+  handwriting: true,
   mining: true,
   srs: true,
   grading: true
 });
-function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+function learningTargetCapabilities(experiences, hasGrammarRules = false) {
   return Object.freeze({
-  ...NO_CAPABILITIES,
-  ...declared,
   ...CORE_DELIVERED_CAPABILITIES,
+  // A literal depth-0 dictionary candidate is lookup, not morphology.
+  // Morphology is present only when a target owns deinflection, bounded
+  // rewrite rules, or a target-specific subsegment Adapter.
+  morphology: experiences.morphology !== "dictionary-forms",
   // Derived, never declared: a target has grammar support exactly when it
   // ships grammar rules. Same principle as the block above — the capability
   // reports the machinery instead of promising alongside it.
@@ -1312,13 +1298,15 @@ function createLearningTargetModule(spec) {
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
   const segment = spec.segment ?? ((text2) => defaultSegment(text2, language2));
   const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+  const experiences = learningTargetExperiences(spec);
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
   language: language2,
   direction,
   collationLocale: spec.collationLocale ?? language2,
-  capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+  capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
+  experiences,
   featureSemantics: Object.freeze({
     ...spec.featureSemantics,
     phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -1326,7 +1314,7 @@ function createLearningTargetModule(spec) {
   typography: Object.freeze({
     contentLocale: language2,
     direction,
-    readingAnnotationMode: "none",
+    readingAnnotationMode: "ruby",
     supportsVerticalWriting: false,
     ...spec.typography
   }),
@@ -1338,6 +1326,7 @@ function createLearningTargetModule(spec) {
   audio: Object.freeze({
     speechSynthesisLocale: regionalTag,
     templateLanguageToken: base,
+    recordedWordAudio: false,
     ...spec.audio
   }),
   ocr: Object.freeze({
@@ -1369,6 +1358,32 @@ function createLearningTargetModule(spec) {
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
   });
+}
+function learningTargetExperiences(spec) {
+  return Object.freeze({
+  characterLookup: "term-dictionary",
+  morphology: morphologyExperience(spec),
+  readingAnnotation: "dictionary-reading",
+  frequency: "dictionary-rank-or-context-occurrences",
+  audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
+  ocr: "target-locale",
+  handwriting: "self-check",
+  ...spec.experiences
+  });
+}
+function morphologyExperience(spec) {
+  return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+}
+function inferredMorphologyExperience(spec) {
+  if (spec.lookupCandidates) return "deinflection";
+  return hasBoundedMorphology(spec) ? "bounded-rewrites" : "dictionary-forms";
+}
+function hasBoundedMorphology(spec) {
+  if (spec.lookupRewrites?.length) return true;
+  return Boolean(spec.lookupSubsegments);
+}
+function audioExperience(recordedWordAudio) {
+  return recordedWordAudio ? "recorded-and-speech-synthesis" : "speech-synthesis";
 }
 function maximizedLocaleTag(language2) {
   try {
@@ -1879,15 +1894,11 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   language: "ja",
   direction: "ltr",
   collationLocale: "ja",
-  capabilities: {
-  "character-lookup": true,
-  morphology: true,
-  "reading-annotation": true,
-  frequency: true,
-  examples: true,
-  audio: true,
-  ocr: true,
-  handwriting: true
+  experiences: {
+  characterLookup: "character-dictionary",
+  morphology: "deinflection",
+  audio: "recorded-and-speech-synthesis",
+  handwriting: "stroke-feedback"
   },
   featureSemantics: {
   characterSystem: "kanji",
@@ -1911,7 +1922,8 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   },
   audio: {
   speechSynthesisLocale: "ja-JP",
-  templateLanguageToken: "ja"
+  templateLanguageToken: "ja",
+  recordedWordAudio: true
   },
   ocr: {
   defaultLanguage: "ja-JP",
@@ -2146,6 +2158,314 @@ const GERMAN_GRAMMAR = createLearningTargetGrammar({
   }
   ]
 });
+const FOUNDATION_LEVEL = "Foundation";
+const HSK_STANDARD_COURSE_LEVEL_SCALE = Object.freeze({
+  id: "hsk-standard-course",
+  levels: Object.freeze(["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"])
+});
+const YEE_CEFR_BAND_LEVEL_SCALE = Object.freeze({
+  id: "tr-yee-cefr-band",
+  levels: Object.freeze(["A1–A2"])
+});
+function foundationScale(id) {
+  return Object.freeze({ id, levels: Object.freeze([FOUNDATION_LEVEL]) });
+}
+function oneRuleGrammar(referenceUrl, levelScale, rule) {
+  return createLearningTargetGrammar({ referenceUrl, levelScale, rules: [rule] });
+}
+function foundationGrammar(targetScaleId, referenceUrl, rule) {
+  return oneRuleGrammar(referenceUrl, foundationScale(targetScaleId), {
+  ...rule,
+  level: FOUNDATION_LEVEL
+  });
+}
+const ALBANIAN_EXISTENTIALS = "https://edizionicafoscari.unive.it/media/pdf/journals/balcania-et-slavia/2024/1/iss-4-1-2024.pdf#page=18";
+const CLASSICAL_GREEK_ONLINE = "https://lrc.la.utexas.edu/eieol/grkol/0";
+const MSA_NOMINAL_SENTENCES = "https://openbooks.lib.msu.edu/elemarabicll/chapter/grammar-2/";
+const CUHK_CANTONESE_NEGATION = "https://www.cuhk.edu.hk/lin/cbrc/CantoneseGrammar/multimedia/13.htm";
+const HSK_STANDARD_COURSE_3 = "https://www.hskstandardcourse.com/hsk-standard-course-level-3/";
+const PRINCETON_YUELAIYUE = "https://commons.princeton.edu/chinesecharacters/%E8%B6%8A%E6%9D%A5%E8%B6%8A/";
+const DANISH_PRESENTATIVE_DER = "https://ordnet.dk/ddo/ordbog/der";
+const DUTCH_PRESENTATIVE_ER = "https://onzetaal.nl/taalloket/wel-of-geen-er";
+const BRITISH_COUNCIL_THERE = "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/using-there-there-are";
+const FINNISH_POSSESSION = "https://kielitoimistonohjepankki.fi/ohje/lauseenvastikkeet-tehdakseen-rakenne-pelaan-voittaakseni-rakenteen-tekija/";
+const GREEK_NEGATION = "https://www.greek-language.gr/digitalResources/modern_greek/tools/lexica/glossology_edu/iframe.html?heading=2&id=173";
+const HUNGARIAN_POSSESSION = "https://www.gutenberg.org/files/76725/76725-h/76725-h.htm";
+const INDONESIAN_NEGATIVE_EXISTENTIAL = "https://seasite.niu.edu/flin/archive/103_handouts/sentences_and_phrases.htm";
+const ITALIAN_PRESENTATIVE_CI = "https://www.treccani.it/enciclopedia/ci_%28La-grammatica-italiana%29/";
+const KHMER_NEGATION = "https://seasite.niu.edu/khmer/grammar_note/grammar_note7/grammar_note7_text.htm";
+const KOREAN_DESIRE = "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=62657";
+const LAO_NEGATION = "https://seasite.niu.edu/lao/LaoLanguage/grammar_notes/grammar2.htm";
+const LATIN_NEGATIVE_COPULA = "https://www.usu.edu/markdamen/Latin1000/Presentation/transcriptions/04T.pdf";
+const MONGOLIAN_NEGATION = "https://library.huree.edu.mn/data/201021/2023-05-19/An%20Elementary%20Mongolian%20Grammar%20%28%20PDFDrive.com%20%29.pdf";
+const PERSIAN_NEGATIVE_COPULA = "https://sites.la.utexas.edu/persian_online_resources/verbs/long-copulas-1/";
+const POLISH_NEGATIVE_EXISTENTIAL = "https://zpe.gov.pl/a/odmiana-rzeczownika-i-przymiotnika/D1DL299KT";
+const PORTUGUESE_EXISTENTIAL_HAVER = "https://ciberduvidas.iscte-iul.pt/consultorio/perguntas/haverexistir/3409";
+const ROMANIAN_NECESSITY = "https://slaviccenters.duke.edu/sites/slaviccenters.duke.edu/files/site-images/2016_romanian_verbs_conjugated.pdf";
+const CROATIAN_EXISTENTIAL_NEMA = "https://bosnian.coerll.utexas.edu/c8/m2/lekcija1/grammar/";
+const SWEDISH_PRESENTATIVE_FINNS = "https://svenska.se/grammatik/";
+const TAGALOG_EXISTENTIALS = "https://seasite.niu.edu/trans/tagalog/Grammar%201/Sentences1/Existential_Sentences.htm";
+const THAI_COPULAR_NEGATION = "https://seasite.niu.edu/thai/FLTH/1styearthai.htm";
+const YEE_A1_A2 = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden-turkce.";
+const YEE_VAR_YOK = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden4/hayatin-icinden4";
+const VIETNAMESE_COMPLETION = "https://seasite.niu.edu/vietnamese/uniLesson8/L8_grammar.htm";
+const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
+  sq: foundationGrammar("sq-foundation", ALBANIAN_EXISTENTIALS, {
+  ruleId: "sq-existential-ka-ketu",
+  name: "Existence with ka … këtu",
+  displayNames: { en: "Existence with ka … këtu", ja: "ka … këtu の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Kk]a\s+\p{L}+(?:-\p{L}+)?\s+këtu(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: ALBANIAN_EXISTENTIALS
+  }),
+  grc: foundationGrammar("grc-classical-foundation", CLASSICAL_GREEK_ONLINE, {
+  ruleId: "grc-negation-ou",
+  name: "Negation with οὐ",
+  displayNames: { en: "Negation with οὐ", ja: "οὐ による否定" },
+  patternSource: String.raw`(?<!\p{L})(?:[Οο]ὐ|[Οο]ὐκ|[Οο]ὐχ)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: CLASSICAL_GREEK_ONLINE
+  }),
+  ar: foundationGrammar("ar-msa-foundation", MSA_NOMINAL_SENTENCES, {
+  ruleId: "ar-msa-laysa-negation",
+  name: "Nominal negation with laysa",
+  displayNames: { en: "Nominal negation with laysa", ja: "laysa（ليس）による名詞文の否定" },
+  patternSource: String.raw`(?<!\p{L})(?:ليس|ليست|لست|لسنا|لستم|لستن|ليسا|ليستا|ليسوا|لسن)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: MSA_NOMINAL_SENTENCES
+  }),
+  yue: foundationGrammar("yue-foundation", CUHK_CANTONESE_NEGATION, {
+  ruleId: "yue-copular-negation-m-haih",
+  name: "Copular negation with 唔係",
+  displayNames: { en: "Copular negation with 唔係", ja: "唔係 によるコピュラ否定" },
+  patternSource: String.raw`唔係`,
+  priority: 20,
+  confidence: "high",
+  url: CUHK_CANTONESE_NEGATION
+  }),
+  zh: oneRuleGrammar(HSK_STANDARD_COURSE_3, HSK_STANDARD_COURSE_LEVEL_SCALE, {
+  ruleId: "zh-hsk3-yuelaiyue",
+  level: "HSK 3",
+  name: "Increasing degree with 越来越",
+  displayNames: { en: "Increasing degree with 越来越", ja: "越来越 による程度変化" },
+  patternSource: String.raw`(?:越来越|越來越)(?:冷|热|熱|好|忙|难|難|喜欢|喜歡|想)`,
+  priority: 20,
+  confidence: "high",
+  url: PRINCETON_YUELAIYUE
+  }),
+  da: foundationGrammar("da-foundation", DANISH_PRESENTATIVE_DER, {
+  ruleId: "da-presentative-der-er",
+  name: "Presentative der er",
+  displayNames: { en: "Presentative der er", ja: "der er の存在構文" },
+  patternSource: String.raw`(?:^|(?<=[.!?…]\s))[Dd]er\s+er\s+(?:en|et|mange|ingen|to|tre|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DANISH_PRESENTATIVE_DER
+  }),
+  nl: foundationGrammar("nl-foundation", DUTCH_PRESENTATIVE_ER, {
+  ruleId: "nl-presentative-er-is-zijn",
+  name: "Presentative er is / er zijn",
+  displayNames: { en: "Presentative er is / er zijn", ja: "er is / er zijn の存在構文" },
+  patternSource: String.raw`(?<!\p{L})[Ee]r\s+(?:is|zijn)\s+(?:een|geen|veel|twee|drie|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DUTCH_PRESENTATIVE_ER
+  }),
+  en: oneRuleGrammar(BRITISH_COUNCIL_THERE, CEFR_GRAMMAR_LEVEL_SCALE, {
+  ruleId: "en-a1-there-is-are",
+  level: "A1",
+  name: "Existence with there is / there are",
+  displayNames: { en: "Existence with there is / there are", ja: "there is / there are の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]here\s+(?:is|are)\s+(?:a|an|some|many|no|one|two|three|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: BRITISH_COUNCIL_THERE
+  }),
+  fi: foundationGrammar("fi-foundation", FINNISH_POSSESSION, {
+  ruleId: "fi-adessive-possession",
+  name: "Possession with adessive + on",
+  displayNames: { en: "Possession with adessive + on", ja: "接格 ＋ on の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Mm]inulla|[Ss]inulla|[Hh]änellä|[Mm]eillä|[Tt]eillä|[Hh]eillä)\s+on(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: FINNISH_POSSESSION
+  }),
+  el: foundationGrammar("el-modern-foundation", GREEK_NEGATION, {
+  ruleId: "el-indicative-negation-den",
+  name: "Indicative negation with δεν",
+  displayNames: { en: "Indicative negation with δεν", ja: "δεν による直説法の否定" },
+  patternSource: String.raw`(?<!\p{L})[Δδ]εν\s+\p{L}{2,}(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: GREEK_NEGATION
+  }),
+  hu: foundationGrammar("hu-foundation", HUNGARIAN_POSSESSION, {
+  ruleId: "hu-dative-possession-van",
+  name: "Possession with dative + van",
+  displayNames: { en: "Possession with dative + van", ja: "与格 ＋ van の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Nn]ekem|[Nn]eked|[Nn]eki|[Nn]ekünk|[Nn]ektek|[Nn]ekik)\s+van(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: HUNGARIAN_POSSESSION
+  }),
+  id: foundationGrammar("id-foundation", INDONESIAN_NEGATIVE_EXISTENTIAL, {
+  ruleId: "id-negative-existential-tidak-ada",
+  name: "Negative existence with tidak ada",
+  displayNames: { en: "Negative existence with tidak ada", ja: "tidak ada の否定存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]idak\s+ada(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: INDONESIAN_NEGATIVE_EXISTENTIAL
+  }),
+  it: foundationGrammar("it-foundation", ITALIAN_PRESENTATIVE_CI, {
+  ruleId: "it-presentative-ci",
+  name: "Presentative c’è / ci sono",
+  displayNames: { en: "Presentative c’è / ci sono", ja: "c’è / ci sono の存在構文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Cc][’']è|[Cc]i\s+sono)\s+(?:un|uno|una|due|tre|molti|molte|alcuni|alcune)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: ITALIAN_PRESENTATIVE_CI
+  }),
+  km: foundationGrammar("km-foundation", KHMER_NEGATION, {
+  ruleId: "km-discontinuous-negation",
+  name: "Discontinuous negation with មិន … ទេ",
+  displayNames: { en: "Discontinuous negation with មិន … ទេ", ja: "មិន … ទេ の呼応否定" },
+  patternSource: String.raw`មិន[^\n។៕!?]{1,50}?ទេ`,
+  priority: 20,
+  confidence: "high",
+  url: KHMER_NEGATION
+  }),
+  ko: foundationGrammar("ko-foundation", KOREAN_DESIRE, {
+  ruleId: "ko-desire-go-sipda",
+  name: "Desire with -고 싶다",
+  displayNames: { en: "Desire with -고 싶다", ja: "-고 싶다（希望）" },
+  patternSource: String.raw`[가-힣]{1,8}고\s+싶(?:다|어요|습니다|어|었어요|었다|습니까|니|죠)(?![가-힣])`,
+  priority: 20,
+  confidence: "high",
+  url: KOREAN_DESIRE
+  }),
+  lo: foundationGrammar("lo-foundation", LAO_NEGATION, {
+  ruleId: "lo-preverbal-negation-bo",
+  name: "Preverbal negation with ບໍ່",
+  displayNames: { en: "Preverbal negation with ບໍ່", ja: "ບໍ່ による動詞・形容詞の否定" },
+  patternSource: String.raw`ບໍ່\s*(?:ແມ່ນ|ໄປ|ມາ|ມັກ|ດີ|ງາມ|ຮູ້)`,
+  priority: 20,
+  confidence: "high",
+  url: LAO_NEGATION
+  }),
+  la: foundationGrammar("la-classical-foundation", LATIN_NEGATIVE_COPULA, {
+  ruleId: "la-negative-copula-non-est",
+  name: "Negative copula with nōn est",
+  displayNames: { en: "Negative copula with nōn est", ja: "nōn est によるコピュラ否定" },
+  patternSource: String.raw`(?<!\p{L})[Nn][oō]n\s+est(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: LATIN_NEGATIVE_COPULA
+  }),
+  mn: foundationGrammar("mn-khalkha-foundation", MONGOLIAN_NEGATION, {
+  ruleId: "mn-nominal-negation-bish",
+  name: "Nominal negation with биш",
+  displayNames: { en: "Nominal negation with биш", ja: "биш による名詞文の否定" },
+  patternSource: String.raw`(?<!\p{L})биш(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: MONGOLIAN_NEGATION
+  }),
+  fa: foundationGrammar("fa-iranian-foundation", PERSIAN_NEGATIVE_COPULA, {
+  ruleId: "fa-negative-long-copula",
+  name: "Negative long copula",
+  displayNames: { en: "Negative long copula", ja: "否定長形コピュラ نیست" },
+  patternSource: String.raw`(?<!\p{L})نیست(?:م|ی|یم|ید|ند)?(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: PERSIAN_NEGATIVE_COPULA
+  }),
+  pl: foundationGrammar("pl-foundation", POLISH_NEGATIVE_EXISTENTIAL, {
+  ruleId: "pl-negative-existential-nie-ma",
+  name: "Absence or non-possession with nie ma + genitive",
+  displayNames: { en: "Absence or non-possession with nie ma + genitive", ja: "nie ma ＋ 生格（不在・非所有）" },
+  patternSource: String.raw`(?<!\p{L})[Nn]ie\s+ma(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: POLISH_NEGATIVE_EXISTENTIAL
+  }),
+  pt: foundationGrammar("pt-foundation", PORTUGUESE_EXISTENTIAL_HAVER, {
+  ruleId: "pt-existential-ha",
+  name: "Existence with impersonal há",
+  displayNames: { en: "Existence with impersonal há", ja: "非人称 há の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Hh]á\s+(?:um|uma|dois|duas|três|muitos|muitas|alguns|algumas)\s+(?:pessoas?|problemas?|livros?|casas?|lugares?)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: PORTUGUESE_EXISTENTIAL_HAVER
+  }),
+  ro: foundationGrammar("ro-foundation", ROMANIAN_NECESSITY, {
+  ruleId: "ro-necessity-trebuie-sa",
+  name: "Necessity with trebuie să",
+  displayNames: { en: "Necessity with trebuie să", ja: "trebuie să による必要・義務" },
+  patternSource: String.raw`(?<!\p{L})[Tt]rebuie\s+să\s+\p{Ll}{2,}(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: ROMANIAN_NECESSITY
+  }),
+  sh: foundationGrammar("sh-shtokavian-foundation", CROATIAN_EXISTENTIAL_NEMA, {
+  ruleId: "sh-existential-nema-genitive",
+  name: "Absence or non-possession with nema + genitive",
+  displayNames: { en: "Absence or non-possession with nema + genitive", ja: "nema ＋ 生格（不在・非所有）" },
+  patternSource: String.raw`(?<!\p{L})[Nn]ema\s+(?:kave|kruha|vode|problema|vremena|ljudi)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: CROATIAN_EXISTENTIAL_NEMA
+  }),
+  sv: foundationGrammar("sv-foundation", SWEDISH_PRESENTATIVE_FINNS, {
+  ruleId: "sv-presentative-det-finns",
+  name: "Presentative det finns",
+  displayNames: { en: "Presentative det finns", ja: "det finns の存在構文" },
+  patternSource: String.raw`(?<!\p{L})[Dd]et\s+finns\s+(?:en|ett|många|inga|två|tre|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: SWEDISH_PRESENTATIVE_FINNS
+  }),
+  tl: foundationGrammar("tl-tagalog-foundation", TAGALOG_EXISTENTIALS, {
+  ruleId: "tl-existential-may-mayroon",
+  name: "Existence with may / mayroon",
+  displayNames: { en: "Existence with may / mayroon", ja: "may / mayroon の存在文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Mm]ay|[Mm]ayroon(?:g)?)\s+(?:isang|mga|dalawang|tatlong|\p{L}{3,})(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: TAGALOG_EXISTENTIALS
+  }),
+  th: foundationGrammar("th-foundation", THAI_COPULAR_NEGATION, {
+  ruleId: "th-copular-negation-mai-chai",
+  name: "Copular negation with ไม่ใช่",
+  displayNames: { en: "Copular negation with ไม่ใช่", ja: "ไม่ใช่ によるコピュラ否定" },
+  patternSource: String.raw`ไม่ใช่`,
+  priority: 20,
+  confidence: "high",
+  url: THAI_COPULAR_NEGATION
+  }),
+  tr: oneRuleGrammar(YEE_A1_A2, YEE_CEFR_BAND_LEVEL_SCALE, {
+  ruleId: "tr-a1-a2-existence-var-yok",
+  level: "A1–A2",
+  name: "Existence or possession with var / yok",
+  displayNames: { en: "Existence or possession with var / yok", ja: "var / yok の存在・所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:bir\s+)?\p{L}{2,}\s+(?:var|yok)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: YEE_VAR_YOK
+  }),
+  vi: foundationGrammar("vi-foundation", VIETNAMESE_COMPLETION, {
+  ruleId: "vi-completed-da-roi",
+  name: "Completed action with đã … rồi",
+  displayNames: { en: "Completed action with đã … rồi", ja: "đã … rồi の完了表現" },
+  patternSource: String.raw`(?<!\p{L})[Đđ]ã\s+[^\n.!?]{1,50}?\s+rồi(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: VIETNAMESE_COMPLETION
+  })
+});
 const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
 const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
 const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
@@ -2328,42 +2648,39 @@ const SPANISH_GRAMMAR = createLearningTargetGrammar({
   }
   ]
 });
-function referenceOnly(referenceUrl) {
-  return createLearningTargetGrammar({ referenceUrl });
-}
 const GRAMMAR_BY_TARGET = Object.freeze({
-  sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-  grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-  ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-  yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-  zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-  da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-  nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-  en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-  fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
+  sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+  grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+  ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+  yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+  zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+  da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+  nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+  en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+  fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
   fr: FRENCH_GRAMMAR,
   de: GERMAN_GRAMMAR,
-  el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-  hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-  id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-  it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-  km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-  ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-  lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-  la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-  mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-  fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-  pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-  pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-  ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
+  el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+  hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+  id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+  it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+  km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+  ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+  lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+  la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+  mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+  fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+  pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+  pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+  ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
   ru: RUSSIAN_GRAMMAR,
-  sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
+  sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
   es: SPANISH_GRAMMAR,
-  sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-  tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-  th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-  tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-  vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
+  sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+  tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+  th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+  tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+  vi: FOUNDATION_GRAMMAR_BY_TARGET.vi
 });
 function grammarForRosterTarget(language2) {
   return GRAMMAR_BY_TARGET[language2];
@@ -2466,16 +2783,6 @@ const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
 const KOREAN_LEARNING_TARGET = createLearningTargetModule({
   id: "korean-thin-v1",
   language: "ko",
-  capabilities: {
-  "reading-annotation": true,
-  ocr: true,
-  // Korean is a hand-written module rather than a generic roster entry, so it
-  // misses anything the roster loop derives. Tatoeba mounts for ko with text
-  // availability 'available' exactly as it does for the other 31 — caught by the
-  // registry-agreement assertion in learning-target-contract.test.ts, which is
-  // the whole reason that test exists.
-  examples: true
-  },
   featureSemantics: {
   characterSystem: "hangul",
   phoneticScripts: ["hangul"],
@@ -4005,42 +4312,20 @@ const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
     id: `${language2.id}-roster-v1`,
     language: language2.runtimeLocale,
     direction: language2.direction,
-    capabilities: {
-      morphology: lookupRewrites.length > 0,
-      "reading-annotation": readingAnnotation,
-      // MEASURED against config/dictionaries/published/v1/catalog.json
-      // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
-      // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
-      // so two capabilities the shipped catalogue already supplies were
-      // switched off for the languages that can use them. The Han branch
-      // is where the data is, and character-lookup already gates on
-      // isUnifiedIdeograph as well, so this reaches only real Han runs —
-      // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
-      // pitch out, exactly as character-lookup.ts anticipated.
-      "character-lookup": usesHanScript,
-      frequency: usesHanScript,
-      // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
-      // is a registered, mounted, licence-checked example source for
-      // every non-Japanese target and reports text availability
-      // 'available' for all of them (Japanese uses Immersion Kit
-      // instead, which is why it is declared separately). The flag said
-      // Japanese-only, so 32 languages that already had example
-      // sentences were reporting none. Audio is deliberately NOT implied
-      // here — Tatoeba answers 'per-item' for audio and outright 'none'
-      // for the smaller corpora, so a boolean would overclaim it.
-      // tests/reader/languages/learning-target-contract.test.ts asserts
-      // this against the live registry so it cannot go stale again.
-      examples: true
+    experiences: {
+      // Published zh/yue character banks warrant a dedicated
+      // per-character surface. Other scripts use the normal term
+      // dictionary with a single grapheme as their query.
+      characterLookup: usesHanScript ? "character-dictionary" : "term-dictionary"
     },
     featureSemantics: {
       characterSystem: language2.defaultScript,
       phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
       pronunciation: "ipa",
-      readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
+      readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "dictionary reading"
     },
     grammar: grammarForRosterTarget(language2.id),
     sentenceBoundaries: sentenceBoundariesForScripts(language2.scripts),
-    typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
     ocr: ocrHintFor(language2.runtimeLocale),
     detectsText: scriptDetector(language2.scripts),
     lookupRewrites,
@@ -8833,8 +9118,9 @@ function targetLanguageOf(value) {
 function isTargetDefaultOcrLanguageTag(value) {
   const tag = value?.trim().toLowerCase();
   if (!tag) return false;
-  return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
+  return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
 }
+const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = /* @__PURE__ */ new Set(["ja-jp", "ko-kr"]);
 function targetAudioTemplateLanguageToken() {
   return activeLearningTarget().audio.templateLanguageToken;
 }
@@ -9606,13 +9892,37 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
+const TARGET_AWARE_UI_COPY = Object.freeze({
+  en: Object.freeze({
+  puckStudyTarget: "Study {language}",
+  puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+  puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+  puckFilterYoutubeTarget: "Filter YouTube for {language}",
+  popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+  contextOccurrences: "In context ×{count}",
+  loadTargetSubtitles: "Load {language} subtitles",
+  loadOutputSubtitles: "Load {language} subtitles"
+  }),
+  ja: Object.freeze({
+  puckStudyTarget: "{language}を学習",
+  puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+  puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+  puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+  popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+  contextOccurrences: "文脈内 ×{count}",
+  loadTargetSubtitles: "{language}字幕を読み込む",
+  loadOutputSubtitles: "{language}字幕を読み込む"
+  })
+});
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
-  onboardingEyebrow: "Japanese, wherever it appears",
-  onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+  onboardingEyebrow: "{language}, wherever it appears",
+  onboardingCopy: "Make {language} text, subtitles, and images tappable.",
   onboardingLanguage: "Settings language",
+  onboardingOutputLanguage: "Definition and translation language (output)",
+  onboardingTargetLanguage: "Language you are reading (target)",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -9631,7 +9941,7 @@ const COPY = {
   onboardingUseWithoutApiKey: "Use without API key",
   closeOnboarding: "Close welcome",
   featureText: "Text",
-  featureTextBody: "Hover or tap scanned Japanese.",
+  featureTextBody: "Hover or tap scanned {language}.",
   featureImages: "Images",
   featureImagesBody: "Read any image by tapping it.",
   featureVideo: "Video",
@@ -9639,7 +9949,7 @@ const COPY = {
   featureControl: "Control",
   featureControlBody: "Tune features, shortcuts, and color.",
   featureStudy: "Study",
-  featureStudyBody: "Review words and kanji on the study page.",
+  featureStudyBody: "Review words and characters on the study page.",
   featureGame: "Game",
   featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
   scanPage: "Scan page",
@@ -9864,7 +10174,7 @@ const COPY = {
   ocrInteractionModeManual: "Tap or hover",
   ocrInteractionModeOff: "Off",
   puckMenuLabel: `${APP_NAME} menu`,
-  puckStudyPage: "Study page",
+  ...TARGET_AWARE_UI_COPY.en,
   puckPauseAnnotations: "Pause annotations",
   puckResumeAnnotations: "Resume annotations",
   puckOcrAuto: "OCR: Auto",
@@ -10343,8 +10653,6 @@ const COPY = {
   enableSubtitleAutoHide: "Auto-hide panel while playing",
   disableSubtitleAutoHide: "Keep panel open while playing",
   subtitlePanelOptions: "Panel options",
-  loadJapaneseSubtitles: "Load Japanese subtitles",
-  loadNativeSubtitles: "Load native subtitles",
   searchAnimeSubtitles: "Search anime subtitles",
   toggleNativeSubtitleBlur: "Toggle native subtitle blur",
   subtitleTrackDetectedSingular: "1 subtitle track detected",
@@ -10865,9 +11173,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -10885,7 +11195,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -10893,7 +11203,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -11135,8 +11445,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -11567,7 +11875,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -11575,7 +11883,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -12077,7 +12384,8 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  ...TARGET_AWARE_UI_COPY.ja
 };
 function resolveUiLanguage(language2) {
   if (language2 === "ja" || language2 === "en") return language2;
@@ -13456,8 +13764,10 @@ function normalizeDictionaryLookupLinkSettings(value, targetLanguage2 = "ja") {
   !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
   targetLanguage2
   );
-  if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
-  return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
+  if (targetLanguage2 === "ja" && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+  return savedLookupLinksInDefaultOrder(links);
+  }
+  return targetLanguage2 === "ja" && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
 }
 const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
 function normalizeDictionaryPreferences(value) {
@@ -13554,15 +13864,17 @@ function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguag
   if (!Array.isArray(value)) return builtIns;
   const normalized = [];
   const seen = /* @__PURE__ */ new Set();
-  const defaults = new Set(builtIns.map((link) => link.id));
+  const defaults = new Map(builtIns.map((link) => [link.id, link]));
   let extras = 0;
   const add = (link) => {
   const id = link.id.trim();
   if (!id || seen.has(id)) return;
-  const known = defaults.has(id);
+  const builtIn = defaults.get(id);
+  const known = Boolean(builtIn);
+  if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
   if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
   seen.add(id);
-  normalized.push({ ...link, id });
+  normalized.push(builtIn ? { ...builtIn, enabled: link.enabled, priority: link.priority } : { ...link, id });
   if (!known) extras++;
   };
   for (const item of value) {
@@ -13571,6 +13883,9 @@ function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguag
   }
   appendMissingBuiltInLookupLinks(builtIns, seen, add);
   return withLookupLinkPriorities(normalized);
+}
+function isBuiltInLookupLinkForAnotherTarget(id) {
+  return DEFAULT_DICTIONARY_LOOKUP_LINKS.some((link) => link.id === id) || isTargetLookupLinkId(id);
 }
 function isRemovedBuiltInLookupLink(link) {
   return isRemovedBuiltInLookupLinkId(link.id);
@@ -16200,7 +16515,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.89".trim() ? "1.8.89".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.8.90".trim() ? "1.8.90".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -50832,6 +51147,40 @@ function pruneOldestCacheEntries(cache, limit) {
 const DEFAULT_TIMEOUT_MS = 8e3;
 const TRANSLATION_CACHE_LIMIT = 320;
 const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
+const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
+  "sq",
+  "ar",
+  "yue",
+  "zh",
+  "da",
+  "nl",
+  "en",
+  "fi",
+  "fr",
+  "de",
+  "el",
+  "hu",
+  "id",
+  "it",
+  "km",
+  "ko",
+  "lo",
+  "la",
+  "mn",
+  "fa",
+  "pl",
+  "pt",
+  "ro",
+  "ru",
+  "bs",
+  "es",
+  "sv",
+  "tl",
+  "th",
+  "tr",
+  "vi",
+  "ja"
+]);
 const log$b = Logger.scope("GoogleTranslation");
 const translationCache = /* @__PURE__ */ new Map();
 const translationInFlight = /* @__PURE__ */ new Map();
@@ -50855,6 +51204,13 @@ function googleTranslationLanguageCapability(language2) {
     supported: false
   };
   }
+  if (locale.language === "fil") {
+  return {
+    logicalLanguage,
+    providerLanguage: "tl",
+    supported: true
+  };
+  }
   if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
   return {
     logicalLanguage,
@@ -50863,6 +51219,13 @@ function googleTranslationLanguageCapability(language2) {
     // output; the logical profile remains sr-Latn everywhere else.
     providerLanguage: "bs",
     supported: true
+  };
+  }
+  if (!GOOGLE_TRANSLATION_LANGUAGE_CODES.has(locale.language)) {
+  return {
+    logicalLanguage,
+    providerLanguage: null,
+    supported: false
   };
   }
   return {
@@ -53395,13 +53758,29 @@ function escapedUiText$4(language2, key) {
   return escapeHtml$1(uiText(language2, key));
 }
 function activeTargetLanguageDisplayName(interfaceLanguage) {
-  return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+  return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
 }
-function languageDisplayNameFor(tag, interfaceLanguage) {
-  return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
+function targetLanguageDisplayNameFor(tag, interfaceLanguage) {
+  const uiLanguage = resolveUiLanguage(interfaceLanguage);
+  const subtag = languageSubtag(tag) ?? "ja";
+  return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
 }
-function settingsText(language2) {
-  const targetName = activeTargetLanguageDisplayName(language2);
+function rosterIdentityDisplayName(subtag, uiLanguage) {
+  const identity = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
+  return TARGET_IDENTITY_NAMES[identity]?.[uiLanguage];
+}
+const TARGET_IDENTITY_NAMES = {
+  sh: { en: "Serbo-Croatian", ja: "セルボ・クロアチア語" },
+  tl: { en: "Tagalog", ja: "タガログ語" }
+};
+const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG = {
+  bs: "sh",
+  fil: "tl",
+  hr: "sh",
+  sr: "sh"
+};
+function settingsText(language2, targetLanguage2) {
+  const targetName = targetLanguage2 ? targetLanguageDisplayNameFor(targetLanguage2, language2) : activeTargetLanguageDisplayName(language2);
   return (key) => {
   const message = uiText(language2, key);
   return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
@@ -55494,7 +55873,7 @@ function renderYoutubeSettingsPanel(settings) {
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
                         ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
                     </div>
-                    <div data-language-family="preferred-target-sites">
+                    <div class="jp-only" data-language-family="preferred-target-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
                     </div>
@@ -55671,9 +56050,9 @@ const CATALOG_DEFINITION_LANGUAGES = new Map(FROZEN_DICTIONARY_CATALOG.entries.f
 function multilingualSettingsCopy(language2) {
   return language2 === "ja" ? {
   languageProfileTitle: "言語プロフィール",
-  learnerLanguage: "あなたの言語（辞書の定義）",
-  targetLanguage: "学習する言語",
-  languageProfileHelp: "学習する言語は、辞書の定義言語や画面の表示言語とは別に選べます。",
+  learnerLanguage: "定義・翻訳の言語（出力）",
+  targetLanguage: "学習する言語（対象）",
+  languageProfileHelp: "対象はページで読む言語、出力は辞書の定義と翻訳の言語です。画面の表示言語は別に選べます。",
   translationTitle: "定義の自動翻訳",
   translationHelp: "有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。",
   translationEmpty: "現在の情報源はすでにあなたの言語で定義されています。",
@@ -55681,9 +56060,9 @@ function multilingualSettingsCopy(language2) {
   translateAutomatically: (learnerLanguage2) => `${learnerLanguage2}へ自動翻訳`
   } : {
   languageProfileTitle: "Language profile",
-  learnerLanguage: "Your language (dictionary definitions)",
-  targetLanguage: "Language you are learning",
-  languageProfileHelp: "Choose the language you are learning separately from dictionary definitions and the interface.",
+  learnerLanguage: "Definition and translation language (output)",
+  targetLanguage: "Language you are reading (target)",
+  languageProfileHelp: "Target controls page text and lookup. Output controls definitions and translations. Interface controls Yomu labels.",
   translationTitle: "Automatic definition translation",
   translationHelp: "When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.",
   translationEmpty: "Your current definition sources already use your language.",
@@ -56523,7 +56902,7 @@ function renderReaderSettingsPanel(settings) {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div class="jpzhyueko-only" data-language-family="reading-annotation">
+                    <div data-language-family="reading-annotation">
                         ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
                         ${renderFuriganaDifficultyNote(settings)}
                         ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
@@ -67434,9 +67813,15 @@ ${glossaryKey}`;
       immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
       const defaultColumn = document.createElement("div");
       defaultColumn.className = "jpdb-reader-onboarding-option-column";
+      const preferredSiteLanguageLabel = checkboxLabel(
+        this.preferJapaneseSiteLanguageInput,
+        this.text("preferJapaneseSiteLanguage")
+      );
+      preferredSiteLanguageLabel.classList.add("jp-only");
+      preferredSiteLanguageLabel.dataset.languageFamily = "preferred-target-sites";
       defaultColumn.append(
         checkboxLabel(this.youtubeImmersionInput, this.text("youtubeImmersionEnabled")),
-        checkboxLabel(this.preferJapaneseSiteLanguageInput, this.text("preferJapaneseSiteLanguage")),
+        preferredSiteLanguageLabel,
         checkboxLabel(this.offlineDictionariesInput, this.text("onboardingInstallOfflineDictionaries"))
       );
       const scanColumn = document.createElement("div");
@@ -67485,17 +67870,7 @@ ${glossaryKey}`;
         this.learnerLanguageSelect?.setAttribute("lang", selected.runtimeLocale);
         this.learnerLanguageSelect?.setAttribute("dir", selected.direction);
       });
-      this.targetLanguageSelect.addEventListener("change", () => {
-        const selected = this.targetLanguageSelect?.selectedOptions[0];
-        if (selected) {
-          this.targetLanguageSelect.lang = selected.lang;
-          this.targetLanguageSelect.dir = selected.dir;
-          if (this.youtubeImmersionInput && !this.youtubeImmersionChoiceTouched) {
-            const settings = this.options.getSettings();
-            this.youtubeImmersionInput.checked = settings.youtubeImmersionEnabled && (settings.youtubeImmersionEnabledChosen || languageFamilyIncludes("jp-only", selected.value));
-          }
-        }
-      });
+      this.targetLanguageSelect.addEventListener("change", () => this.syncTargetLanguageSelection());
       this.panel.addEventListener("click", (event) => {
         this.handleWordLookup(event);
       });
@@ -67504,6 +67879,7 @@ ${glossaryKey}`;
         if (this.handleWordLookup(event)) event.preventDefault();
       });
       this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
+      syncLanguageFamilyDom(this.panel, this.targetLanguageSelect.value);
       this.syncThemeSwitch();
       this.syncAccentPicker(this.accentColorInput.value);
       this.syncManualPageScanShortcut();
@@ -67527,8 +67903,25 @@ ${glossaryKey}`;
       this.options.lookupText(expression, word.dataset.sentence || expression, word);
       return true;
     }
+    syncTargetLanguageSelection() {
+      const select2 = this.targetLanguageSelect;
+      if (!select2) return;
+      const selected = select2.selectedOptions[0];
+      if (!selected) return;
+      select2.lang = selected.lang;
+      select2.dir = selected.dir;
+      this.syncYoutubeImmersionChoice(selected.value);
+      syncLanguageFamilyDom(this.panel, selected.value);
+      this.localize(this.options.getSettings().interfaceLanguage);
+    }
+    syncYoutubeImmersionChoice(targetLanguage2) {
+      const input2 = this.youtubeImmersionInput;
+      if (!input2) return;
+      if (this.youtubeImmersionChoiceTouched) return;
+      input2.checked = defaultYoutubeImmersionChoice(this.options.getSettings(), targetLanguage2);
+    }
     localize(language2) {
-      const text2 = settingsText(language2);
+      const text2 = settingsText(language2, this.targetLanguageSelect?.value);
       const panel = this.panel;
       if (!panel) return;
       panel.setAttribute("aria-label", text2("welcomeLabel"));
@@ -67776,6 +68169,11 @@ ${glossaryKey}`;
       this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
     }
   }
+  function defaultYoutubeImmersionChoice(settings, targetLanguage2) {
+    if (!settings.youtubeImmersionEnabled) return false;
+    if (settings.youtubeImmersionEnabledChosen) return true;
+    return languageFamilyIncludes("jp-only", targetLanguage2);
+  }
   function pageScanModeFromSettings(settings) {
     if (settings.annotationsPaused) return "off";
     return settings.manualScanEnabled ? "manual" : "auto";
@@ -67787,12 +68185,9 @@ ${glossaryKey}`;
     return value === "en" || value === "ja" || value === "auto" ? value : fallback;
   }
   function onboardingLanguageProfileCopy(language2) {
-    return language2 === "ja" ? {
-      learnerLanguage: "あなたの言語（辞書の定義）",
-      targetLanguage: "学習する言語"
-    } : {
-      learnerLanguage: "Your language (dictionary definitions)",
-      targetLanguage: "Language you are learning"
+    return {
+      learnerLanguage: uiText(language2, "onboardingOutputLanguage"),
+      targetLanguage: uiText(language2, "onboardingTargetLanguage")
     };
   }
   function learnerLanguageOptionLabel(language2) {

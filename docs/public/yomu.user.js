@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.8.89
+// @version 1.8.90
 // @author Henry Russell
-// @description Japanese popup dictionary, furigana, pitch accent, OCR, subtitles, and a study page.
+// @description Popup dictionary and study tools for Japanese plus 32 reading targets, with OCR and subtitles.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.98b3e1384a19.user.js#sha256=mLPhOEoZa927CkKLeH1i5jksi513SEvHp7y8Isf868I=
-// @resource yomuCss  https://yomureader.com/yomu.7dae25bff8c9.css#sha256=fa4lv/jJgFdHdmqWphmWJG+coy5FUHf7yUVgl1af1qU=
+// @require https://yomureader.com/greasyfork/yomu-runtime.b22ad263c909.user.js#sha256=sirSY8kJULtwGvwR3aGy07dwsbz04GcgjqIouqGX2jI=
+// @resource yomuCss  https://yomureader.com/yomu.06756a99805b.css#sha256=BnVqmYBbGJ8fYRBJrbpdxbbZzBXpEVrwHyyGClXluR4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -3869,7 +3869,6 @@ const RENDERED_WORD_CONTRAST_VARS = [
 const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
 (name) => name !== "--jpdb-reader-word-contrast-shadow"
 );
-const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
 const BLOCKED_HTML_ELEMENTS = new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
 const BLOCKED_ATTRIBUTES = new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
 const URL_ATTRIBUTES = new Set(["href", "poster", "src", "xlink:href"]);
@@ -4393,9 +4392,6 @@ return runtime().learningTargetModuleFor(language);
 }
 function normalizeLearningTargetLanguage(value) {
 return runtime().normalizeLearningTargetLanguage(value);
-}
-function registeredLearningTargetModules() {
-return runtime().registeredLearningTargetModules();
 }
 const languages = [
 {
@@ -5228,8 +5224,9 @@ return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage)
 function isTargetDefaultOcrLanguageTag(value) {
 const tag = value?.trim().toLowerCase();
 if (!tag) return false;
-return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
+return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
 }
+const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = new Set(["ja-jp", "ko-kr"]);
 const CARD_STATE_LABEL_KEYS = {
 new: "stateNew",
 learning: "stateLearning",
@@ -5314,6 +5311,9 @@ const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictiona
 const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
 function hasTargetLookupSites(targetLanguage) {
 return yomuSettingsSurfaceCompanion()?.lookupLinks?.hasTargetLookupSites(targetLanguage) ?? false;
+}
+function isTargetLookupLinkId(id) {
+return yomuSettingsSurfaceCompanion()?.lookupLinks?.isTargetLookupLinkId(id) ?? false;
 }
 function targetLookupLinks(targetLanguage) {
 return yomuSettingsSurfaceCompanion()?.lookupLinks?.targetLookupLinks(targetLanguage) ?? [];
@@ -5520,8 +5520,10 @@ value?.dictionaryLookupLinks,
 !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
 targetLanguage
 );
-if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
-return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
+if (targetLanguage === "ja" && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+return savedLookupLinksInDefaultOrder(links);
+}
+return targetLanguage === "ja" && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
 }
 const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
 function normalizeDictionaryPreferences(value) {
@@ -5595,15 +5597,17 @@ const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb),
 if (!Array.isArray(value)) return builtIns;
 const normalized = [];
 const seen = new Set();
-const defaults = new Set(builtIns.map((link) => link.id));
+const defaults = new Map(builtIns.map((link) => [link.id, link]));
 let extras = 0;
 const add = (link) => {
 const id = link.id.trim();
 if (!id || seen.has(id)) return;
-const known = defaults.has(id);
+const builtIn = defaults.get(id);
+const known = Boolean(builtIn);
+if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
 if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
 seen.add(id);
-normalized.push({ ...link, id });
+normalized.push(builtIn ? { ...builtIn, enabled: link.enabled, priority: link.priority } : { ...link, id });
 if (!known) extras++;
 };
 for (const item of value) {
@@ -5612,6 +5616,9 @@ if (link && !isRemovedBuiltInLookupLink(link)) add(link);
 }
 appendMissingBuiltInLookupLinks(builtIns, seen, add);
 return withLookupLinkPriorities(normalized);
+}
+function isBuiltInLookupLinkForAnotherTarget(id) {
+return DEFAULT_DICTIONARY_LOOKUP_LINKS.some((link) => link.id === id) || isTargetLookupLinkId(id);
 }
 function isRemovedBuiltInLookupLink(link) {
 return isRemovedBuiltInLookupLinkId(link.id);
@@ -7603,7 +7610,7 @@ return safe;
 }
 function isSafeTokenSpan(token, offset, text2) {
 if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
+return learningTargetForToken(token).isLookupableText(text2.slice(token.start, token.end));
 }
 function miningInsightTokenKeys(tokens) {
 const sentences = new Map();
@@ -7659,7 +7666,8 @@ function furiganaModeAllowsRuby(mode, surface, token, settings) {
 if (mode === "off") return false;
 if (mode === "hover") return true;
 if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-return mode !== "difficult-kanji" || hasDifficultKanji(surface);
+if (mode !== "difficult-kanji") return true;
+return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
 }
 function hasDifficultKanji(surface) {
 for (const char of surface) {
@@ -7791,7 +7799,12 @@ function sameKanaCharacter(first, second) {
 return Boolean(first && second && first === second && READING_KANA_ONLY_RE.test(first));
 }
 function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
+const target = learningTargetForToken(token);
+if (target.typography.readingAnnotationMode === "none") return [];
 const sources = sourceTokenRubies(surface, token);
+if (target.experiences.characterLookup === "term-dictionary") {
+return sources.filter((ruby) => localRubyRange(surface, token, ruby));
+}
 if (preserveTokenRubies) {
 return sources.flatMap((ruby) => {
 const range = localRubyRange(surface, token, ruby);
@@ -7808,7 +7821,11 @@ return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
 function sourceTokenRubies(surface, token) {
 if (token.rubies.length) return token.rubies;
 const reading = token.card.reading.trim();
-if (!surface || !KANJI_RE$1.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
+if (!surface || !reading || reading === surface) return [];
+if (surface.trim() === token.card.spelling.trim()) {
+return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+}
+if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE$1.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
 const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
 if (inferred.length) {
 return inferred.map((ruby) => ({
@@ -7817,8 +7834,10 @@ start: token.start + ruby.start,
 end: token.start + ruby.end
 }));
 }
-if (surface.trim() !== token.card.spelling.trim()) return [];
-return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+return [];
+}
+function learningTargetForToken(token) {
+return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
 }
 function kanjiOnlyRubySegments(surface, token, ruby) {
 const range = localRubyRange(surface, token, ruby);
@@ -8297,6 +8316,7 @@ return source === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
 function yieldToNextTask() {
 return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
+const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
 function isTargetLanguageText(text2) {
 return activeLearningTarget().isLookupableText(text2);
 }
@@ -18144,17 +18164,19 @@ return settings.addToForq && targetDeck !== "forq";
 function jitenDeckLabel$1(deck) {
 return deck?.name ? `Jiten: ${deck.name}` : "Jiten";
 }
-function targetSupportsCharacterLookup() {
-return activeLearningTarget().capabilities["character-lookup"];
+function targetUsesCharacterDictionary() {
+const target = activeLearningTarget();
+return target.capabilities["character-lookup"] && target.experiences.characterLookup === "character-dictionary";
 }
 function usesJapaneseProviders() {
 return activeLearningTarget().language === "ja";
 }
 function usesJapaneseCharacterStudy() {
-return targetSupportsCharacterLookup() && usesJapaneseProviders();
+return targetUsesCharacterDictionary() && usesJapaneseProviders();
 }
 function targetCanLookupCharacter(value) {
-return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
+const target = activeLearningTarget();
+return target.capabilities["character-lookup"] && target.experiences.characterLookup === "character-dictionary" && isUnifiedIdeograph(value);
 }
 function assertReviewableApiCardState(states) {
 if (states.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
@@ -18703,7 +18725,7 @@ lookupAnkiLocalTerms(card, settings) {
 return settings.localDictionariesEnabled ? this.options.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
 }
 lookupAnkiLocalKanji(card, settings) {
-return targetSupportsCharacterLookup() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
+return targetUsesCharacterDictionary() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
 }
 lookupAnkiLocalMeta(card, settings) {
 return settings.localDictionariesEnabled ? this.options.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
@@ -20909,6 +20931,122 @@ return `<div class="jpdb-reader-pronunciation jpdb-reader-pronunciation-ipa" dat
 function pronunciationRow(kind, content) {
 return `<div class="jpdb-reader-pronunciation" data-pronunciation-kind="${kind}">${content}</div>`;
 }
+function hasFrequencyRankEvidence(card, metaEntries, providerRanks) {
+return frequencyRank(card.frequencyRank) !== null || metaEntries.some((entry) => entry.mode === "freq" && Boolean(formatMetaFrequency(entry.data))) || Object.values(providerRanks ?? {}).some((evidence) => frequencyRank(evidence?.rank) !== null);
+}
+function contextOccurrenceCount({ spelling, language = "ja" }, context = "") {
+let normalize = normalizeIdentityText;
+const target = learningTargetModuleFor(language);
+if (target) normalize = (value) => target.normalizeText(value);
+const surface = normalize(spelling);
+const text2 = normalize(context);
+if (!surface) return 0;
+let count = 0;
+for (let offset = text2.indexOf(surface); offset >= 0; offset = text2.indexOf(surface, offset + surface.length)) {
+count++;
+}
+return count;
+}
+function frequencyProviderForLookupId(id) {
+if (id === "jiten-frequency") return "jiten";
+if (id === "jpdb-frequency") return "jpdb";
+if (id === "bunpro-frequency") return "bunpro";
+return null;
+}
+const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
+function bunproFrequencyRank(card, info) {
+const lists = (info?.frequencies ?? []).filter((entry) => Number.isInteger(entry.rank) && entry.rank > 0);
+if (!info || !lists.length) return null;
+const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
+return {
+provider: "bunpro",
+rank: primary.rank,
+spelling: normalizeIdentityText(card.spelling || info.expression),
+reading: normalizeIdentityText(card.reading || info.reading),
+source: "live-search",
+lists
+};
+}
+function listOrderIndex(list) {
+const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
+return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
+}
+function liveFrequencyEnabled(settings, provider) {
+const frequencyEnabled = settings.dictionaryLookupLinks.some(
+(link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
+);
+const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
+return frequencyEnabled && lookupEnabled;
+}
+function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+const ranks = {};
+const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+if (jitenRank) {
+ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+}
+const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+if (jpdb) ranks.jpdb = jpdb;
+return ranks;
+}
+function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+const text2 = frequency.trim();
+const match = /([\d,]+)/.exec(text2);
+const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+if (!Number.isInteger(rank) || rank <= 0) return null;
+return {
+provider: "jpdb",
+rank,
+spelling: kanji,
+reading: kanji,
+source: "kanji",
+display: /^top\b/i.test(text2) ? text2 : void 0
+};
+}
+function cardFrequencyRanks(card, isJpdbBackedCard) {
+const rank = frequencyRank(card.frequencyRank);
+if (!rank) return {};
+const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
+return provider ? {
+[provider]: rankEvidence(provider, rank, card, "card")
+} : {};
+}
+function jitenFrequencyRankForCard(card, info) {
+const rank = frequencyRank(info?.mainReading?.frequencyRank);
+return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
+}
+function exactJitenFrequencyRank(card, candidates) {
+return exactSearchFrequencyRank("jiten", card, candidates);
+}
+function exactJpdbFrequencyRank(card, candidates) {
+return exactSearchFrequencyRank("jpdb", card, candidates);
+}
+function exactSearchFrequencyRank(provider, card, candidates) {
+const spelling = normalizeIdentityText(card.spelling);
+const reading = normalizeIdentityText(card.reading);
+const match = candidates.find(
+(candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
+);
+const rank = frequencyRank(match?.frequencyRank);
+return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
+}
+function withFrequencyRank(ranks, evidence) {
+return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
+}
+function rankEvidence(provider, rank, card, source) {
+return {
+provider,
+rank,
+spelling: normalizeIdentityText(card.spelling),
+reading: normalizeIdentityText(card.reading),
+source
+};
+}
+function frequencyRank(value) {
+return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+}
+function normalizeIdentityText(value) {
+return value.normalize("NFKC").trim();
+}
 function jpdbVocabularyUrl(card) {
 return `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
 }
@@ -20916,6 +21054,54 @@ function bunproDefinitionStatusAttributes(status) {
 if (!status) return "";
 const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml(status.reason)}"` : "";
 return ` data-bunpro-definition-status="${escapeHtml(status.state)}"${reason}`;
+}
+const LANGUAGE_ENDONYMS = Object.freeze({
+ja: "日本語",
+zh: "中文",
+yue: "粵語",
+lzh: "文言"
+});
+function headwordLanguageEndonym(language) {
+return LANGUAGE_ENDONYMS[language] ?? language;
+}
+function headwordLanguageName(language, locale = "en") {
+const display = languageDisplayName(language, locale);
+return display === language ? headwordLanguageEndonym(language) : display;
+}
+function targetLanguageDisplayName(settings) {
+return activeTargetLanguageDisplayName(settings.interfaceLanguage);
+}
+function activeTargetLanguageDisplayName(interfaceLanguage) {
+return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+}
+function targetLanguageDisplayNameFor(tag, interfaceLanguage) {
+const uiLanguage = resolveUiLanguage(interfaceLanguage);
+const subtag = languageSubtag(tag) ?? "ja";
+return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
+}
+function rosterIdentityDisplayName(subtag, uiLanguage) {
+const identity = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
+return TARGET_IDENTITY_NAMES[identity]?.[uiLanguage];
+}
+const TARGET_IDENTITY_NAMES = {
+sh: { en: "Serbo-Croatian", ja: "セルボ・クロアチア語" },
+tl: { en: "Tagalog", ja: "タガログ語" }
+};
+const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG = {
+bs: "sh",
+fil: "tl",
+hr: "sh",
+sr: "sh"
+};
+function activeContentLanguageAxes(settings) {
+const targetLanguage = activeLearningTargetLanguage();
+const outputLanguage = outputLanguageOf(settings);
+return {
+targetLanguage,
+targetName: targetLanguageDisplayNameFor(targetLanguage, settings.interfaceLanguage),
+outputLanguage,
+outputName: targetLanguageDisplayNameFor(outputLanguage, settings.interfaceLanguage)
+};
 }
 class CardPopoverRenderer {
 constructor(dependencies) {
@@ -20933,7 +21119,7 @@ return `
 <div class="jpdb-reader-sheet-handle"></div>
 <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
 ${this.dependencies.renderWordHistory(view.language, trigger)}
-${this.renderHeader(card, data, view, trigger)}
+${this.renderHeader(card, sentence, data, view, trigger)}
 ${this.renderPartOfSpeech(view)}
 ${expressionComponents}
 ${definitionSources}
@@ -20980,11 +21166,13 @@ audioButtonDisabled: !settings.audioEnabled,
 audioButtonTitle: uiText(language, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
 };
 }
-renderHeader(card, data, view, trigger) {
+renderHeader(card, sentence, data, view, trigger) {
+const wordPills = this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks);
+const pills = appendWordPill(wordPills, this.renderContextFrequencyPill(card, sentence, data, view.language));
 return `<div class="jpdb-reader-header">
 <div class="jpdb-reader-heading">
 ${this.renderTitleRow(card, data, view)}
-${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
+${pills}
 </div>
 <div class="jpdb-reader-card-tools">
 ${renderPronunciation({
@@ -21000,19 +21188,33 @@ dictionaryLabel: (name) => this.dependencies.dictionaryLabel(name)
 </div>
 </div>`;
 }
+renderContextFrequencyPill(card, sentence, data, language) {
+if (data.loading || hasFrequencyRankEvidence(card, data.metaEntries, data.frequencyRanks)) return "";
+const count = contextOccurrenceCount(card, sentence);
+if (!count) return "";
+const label = formatUiText(language, "contextOccurrences", { count });
+return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle("frequency:context")}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+}
 renderTitleRow(card, data, view) {
 const pitchTarget = cardUsesPitchAccentPronunciation(card);
 const pitchClass = pitchTarget ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading) : "";
 const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
-const kanjiNavigation = targetSupportsCharacterLookup() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
+const kanjiNavigation = targetUsesCharacterDictionary() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
 const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
 const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
 const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
 const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
+const settings = this.settings();
+const axes = activeContentLanguageAxes(settings);
+const axesLabel = formatUiText(view.language, "popupLanguageAxes", {
+target: axes.targetName,
+output: axes.outputName
+});
 const kanjiNavigationAttributes = kanjiNavigation ? ` data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}"` : "";
 return `<div class="jpdb-reader-title-row">
 <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence}${kanjiNavigationAttributes}>${spellingContent}</div>
 ${renderMeta(view.metaItems)}
+<div class="jpdb-reader-language-axes" data-target-language="${escapeHtml(axes.targetLanguage)}" data-output-language="${escapeHtml(axes.outputLanguage)}">${escapeHtml(axesLabel)}</div>
 </div>`;
 }
 renderPartOfSpeech(view) {
@@ -21429,6 +21631,11 @@ return `<span><span class="jpdb-reader-state-dot anki-${lookup.state}"></span>An
 }
 function renderMeta(metaItems) {
 return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
+}
+function appendWordPill(wordPills, pill) {
+if (!pill) return wordPills;
+const closingTag = wordPills.includes("jpdb-reader-word-pills") ? wordPills.lastIndexOf("</div>") : -1;
+return closingTag >= 0 ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}` : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;
 }
 function uniqueExpressionComponents(components) {
 const seen = new Set();
@@ -24491,106 +24698,6 @@ promise,
 timeout
 ]).finally(() => window.clearTimeout(timeoutId));
 }
-function frequencyProviderForLookupId(id) {
-if (id === "jiten-frequency") return "jiten";
-if (id === "jpdb-frequency") return "jpdb";
-if (id === "bunpro-frequency") return "bunpro";
-return null;
-}
-const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
-function bunproFrequencyRank(card, info) {
-const lists = (info?.frequencies ?? []).filter((entry) => Number.isInteger(entry.rank) && entry.rank > 0);
-if (!info || !lists.length) return null;
-const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
-return {
-provider: "bunpro",
-rank: primary.rank,
-spelling: normalizeIdentityText(card.spelling || info.expression),
-reading: normalizeIdentityText(card.reading || info.reading),
-source: "live-search",
-lists
-};
-}
-function listOrderIndex(list) {
-const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
-return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
-}
-function liveFrequencyEnabled(settings, provider) {
-const frequencyEnabled = settings.dictionaryLookupLinks.some(
-(link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
-);
-const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
-return frequencyEnabled && lookupEnabled;
-}
-function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
-const ranks = {};
-const jitenRank = frequencyRank(jitenKanjiRank ?? null);
-if (jitenRank) {
-ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
-}
-const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
-if (jpdb) ranks.jpdb = jpdb;
-return ranks;
-}
-function jpdbKanjiFrequencyEvidence(kanji, frequency) {
-const text2 = frequency.trim();
-const match = /([\d,]+)/.exec(text2);
-const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
-if (!Number.isInteger(rank) || rank <= 0) return null;
-return {
-provider: "jpdb",
-rank,
-spelling: kanji,
-reading: kanji,
-source: "kanji",
-display: /^top\b/i.test(text2) ? text2 : void 0
-};
-}
-function cardFrequencyRanks(card, isJpdbBackedCard) {
-const rank = frequencyRank(card.frequencyRank);
-if (!rank) return {};
-const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
-return provider ? {
-[provider]: rankEvidence(provider, rank, card, "card")
-} : {};
-}
-function jitenFrequencyRankForCard(card, info) {
-const rank = frequencyRank(info?.mainReading?.frequencyRank);
-return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
-}
-function exactJitenFrequencyRank(card, candidates) {
-return exactSearchFrequencyRank("jiten", card, candidates);
-}
-function exactJpdbFrequencyRank(card, candidates) {
-return exactSearchFrequencyRank("jpdb", card, candidates);
-}
-function exactSearchFrequencyRank(provider, card, candidates) {
-const spelling = normalizeIdentityText(card.spelling);
-const reading = normalizeIdentityText(card.reading);
-const match = candidates.find(
-(candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
-);
-const rank = frequencyRank(match?.frequencyRank);
-return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
-}
-function withFrequencyRank(ranks, evidence) {
-return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
-}
-function rankEvidence(provider, rank, card, source) {
-return {
-provider,
-rank,
-spelling: normalizeIdentityText(card.spelling),
-reading: normalizeIdentityText(card.reading),
-source
-};
-}
-function frequencyRank(value) {
-return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
-}
-function normalizeIdentityText(value) {
-return value.normalize("NFKC").trim();
-}
 const log$7 = Logger.scope("CardRenderData");
 const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
 const CARD_RENDER_DATA_CACHE_LIMIT = 120;
@@ -24856,7 +24963,7 @@ return [];
 }
 loadLocalKanjiEntries(card) {
 const settings = this.settings();
-if (!targetSupportsCharacterLookup() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+if (!targetUsesCharacterDictionary() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
 return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
 log$7.warn("Local kanji lookup failed", { term: card.spelling }, error);
 return [];
@@ -28978,28 +29085,6 @@ const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
 return Boolean(element?.closest?.(selector));
 });
 }
-const LANGUAGE_ENDONYMS = Object.freeze({
-ja: "日本語",
-zh: "中文",
-yue: "粵語",
-lzh: "文言"
-});
-function headwordLanguageEndonym(language) {
-return LANGUAGE_ENDONYMS[language] ?? language;
-}
-function headwordLanguageName(language, locale = "en") {
-const display = languageDisplayName(language, locale);
-return display === language ? headwordLanguageEndonym(language) : display;
-}
-function targetLanguageDisplayName(settings) {
-return activeTargetLanguageDisplayName(settings.interfaceLanguage);
-}
-function activeTargetLanguageDisplayName(interfaceLanguage) {
-return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
-}
-function languageDisplayNameFor(tag, interfaceLanguage) {
-return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
-}
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
 const MIN_GAP = 62;
@@ -29219,6 +29304,9 @@ return `${SVG_OPEN}<rect x="3" y="4" width="18" height="16" rx="2.5"></rect><pat
 function radialOcrOnIcon() {
 return `${SVG_OPEN}<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M7 12h10"></path></svg>`;
 }
+function radialCaptionsIcon() {
+return `${SVG_OPEN}<rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M7 10h3"></path><path d="M14 10h3"></path><path d="M7 14h4"></path><path d="M13 14h4"></path></svg>`;
+}
 function radialYoutubeIcon() {
 return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
 }
@@ -29231,6 +29319,124 @@ function puckStateLabel(language, state) {
 if (state === "no-furigana") return `${APP_NAME}: ${uiText(language, "furiganaOffToast")}`;
 if (state === "paused") return `${APP_NAME}: ${uiText(language, "annotationsPausedToast")}`;
 return APP_NAME;
+}
+const JAPANESE_POWER_ACTION = Object.freeze({
+on: { label: "puckHideFurigana", icon: radialPowerIcon, tone: "on" },
+"no-furigana": { label: "puckPauseAnnotations", icon: radialFuriganaHiddenIcon, tone: "partial" },
+paused: { label: "puckResumeAnnotations", icon: radialPausedIcon, tone: "off" }
+});
+const GENERIC_POWER_ACTION = Object.freeze({
+on: { label: "puckPauseAnnotations", icon: radialPowerIcon, tone: "on" },
+"no-furigana": { label: "puckPauseAnnotations", icon: radialPowerIcon, tone: "on" },
+paused: { label: "puckResumeAnnotations", icon: radialPausedIcon, tone: "off" }
+});
+function floatingButtonRadialActions(settings, actions, syncButtonState) {
+const items = [
+powerRadialAction(settings, actions, syncButtonState),
+audioRadialAction(settings, actions),
+ocrRadialAction(settings, actions)
+];
+if (usesJapaneseProviders()) items.push(japaneseSiteRadialAction(settings, actions));
+items.push(settingsRadialAction(settings, actions), studyRadialAction(settings, actions));
+if (actions.hasSubtitleVideo()) items.push(subtitleRadialAction(settings, actions));
+if (actions.isYouTube()) items.push(youtubeRadialAction(settings, actions));
+return items;
+}
+function powerRadialAction(settings, actions, syncButtonState) {
+const state = actions.powerState();
+const presentation = (usesJapaneseProviders() ? JAPANESE_POWER_ACTION : GENERIC_POWER_ACTION)[state];
+return {
+id: "power",
+label: uiText(settings.interfaceLanguage, presentation.label),
+icon: presentation.icon(),
+tone: presentation.tone,
+primary: true,
+keepOpen: true,
+run: () => void actions.cyclePowerState().finally(syncButtonState)
+};
+}
+function audioRadialAction(settings, actions) {
+const enabled = actions.isAutoPlayAudioEnabled();
+return {
+id: "audio",
+label: uiText(settings.interfaceLanguage, enabled ? "puckMuteAudio" : "puckUnmuteAudio"),
+icon: enabled ? radialAudioOnIcon() : radialAudioMutedIcon(),
+tone: enabled ? "on" : "off",
+keepOpen: true,
+run: () => actions.toggleAutoPlayAudio()
+};
+}
+function ocrRadialAction(settings, actions) {
+const mode = actions.ocrMode();
+return {
+id: "ocr",
+label: ocrModeLabel(settings.interfaceLanguage, mode),
+icon: mode === "manual" ? radialOcrOnIcon() : radialOcrIcon(),
+tone: ocrRadialTone(mode, actions.powerState()),
+keepOpen: true,
+run: () => actions.toggleOcrMode()
+};
+}
+function ocrRadialTone(mode, powerState) {
+if (powerState === "paused") return "off";
+return mode === "off" ? "off" : "on";
+}
+function japaneseSiteRadialAction(settings, actions) {
+return {
+id: "japanese-site",
+label: formatUiText(settings.interfaceLanguage, "preferJapaneseSiteLanguage", {
+language: targetLanguageDisplayName(settings)
+}),
+icon: "日",
+glyph: true,
+tone: settings.preferJapaneseSiteLanguage ? "on" : "off",
+keepOpen: true,
+run: () => actions.toggleJapaneseSiteLanguage()
+};
+}
+function settingsRadialAction(settings, actions) {
+return {
+id: "settings",
+label: uiText(settings.interfaceLanguage, "settings"),
+icon: radialSettingsIcon(),
+run: () => actions.openSettings()
+};
+}
+function studyRadialAction(settings, actions) {
+return {
+id: "study",
+label: targetActionLabel(settings, "puckStudyTarget"),
+icon: "よ",
+glyph: true,
+run: () => actions.openStudyPage()
+};
+}
+function subtitleRadialAction(settings, actions) {
+const enabled = actions.isAutoSubtitlesEnabled();
+return {
+id: "subtitles",
+label: targetActionLabel(settings, "puckAutoDetectTargetSubtitles"),
+icon: radialCaptionsIcon(),
+tone: enabled ? "on" : "off",
+keepOpen: true,
+run: () => actions.toggleAutoSubtitles()
+};
+}
+function youtubeRadialAction(settings, actions) {
+const enabled = actions.isYoutubeFilterEnabled();
+return {
+id: "youtube",
+label: targetActionLabel(settings, "puckFilterYoutubeTarget"),
+icon: radialYoutubeIcon(),
+tone: enabled ? "on" : "off",
+keepOpen: true,
+run: () => actions.toggleYoutubeFilter()
+};
+}
+function targetActionLabel(settings, key) {
+return formatUiText(settings.interfaceLanguage, key, {
+language: targetLanguageDisplayName(settings)
+});
 }
 class FloatingButtonController {
 button;
@@ -29303,98 +29509,20 @@ const button = this.button;
 if (!button) return;
 const powerState = this.actions?.powerState() ?? "on";
 const language = this.settings?.interfaceLanguage ?? "en";
+const targetName = this.settings ? targetLanguageDisplayName(this.settings) : "";
 button.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
 button.classList.toggle("jpdb-reader-fab--on", powerState === "on");
 button.classList.toggle("jpdb-reader-fab--no-furigana", powerState === "no-furigana");
 button.classList.toggle("jpdb-reader-fab--paused", powerState === "paused");
-button.title = puckStateLabel(language, powerState);
+button.dataset.targetLanguage = activeLearningTargetLanguage();
+button.title = powerState === "on" && targetName ? formatUiText(language, "puckLearningTarget", { language: targetName }) : puckStateLabel(language, powerState);
 button.setAttribute("aria-label", button.title);
 }
 buildRadialActions() {
 const settings = this.settings;
 const actions = this.actions;
 if (!settings || !actions) return [];
-const language = settings.interfaceLanguage;
-const powerState = actions.powerState();
-const ocrMode = actions.ocrMode();
-const audioOn = actions.isAutoPlayAudioEnabled();
-const japaneseSiteLanguage = settings.preferJapaneseSiteLanguage;
-const powerLabelKey = powerState === "on" ? "puckHideFurigana" : powerState === "no-furigana" ? "puckPauseAnnotations" : "puckResumeAnnotations";
-const items = [
-{
-id: "power",
-label: uiText(language, powerLabelKey),
-icon: powerState === "on" ? radialPowerIcon() : powerState === "no-furigana" ? radialFuriganaHiddenIcon() : radialPausedIcon(),
-tone: powerState === "on" ? "on" : powerState === "no-furigana" ? "partial" : "off",
-primary: true,
-keepOpen: true,
-run: () => void actions.cyclePowerState().finally(() => this.syncButtonState())
-},
-{
-id: "audio",
-label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
-icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
-tone: audioOn ? "on" : "off",
-keepOpen: true,
-run: () => actions.toggleAutoPlayAudio()
-},
-{
-id: "ocr",
-label: ocrModeLabel(language, ocrMode),
-icon: ocrMode === "manual" ? radialOcrOnIcon() : radialOcrIcon(),
-tone: ocrMode === "off" || powerState === "paused" ? "off" : "on",
-keepOpen: true,
-run: () => actions.toggleOcrMode()
-},
-{
-id: "japanese-site",
-label: formatUiText(language, "preferJapaneseSiteLanguage", {
-language: targetLanguageDisplayName(settings)
-}),
-icon: "日",
-glyph: true,
-tone: japaneseSiteLanguage ? "on" : "off",
-keepOpen: true,
-run: () => actions.toggleJapaneseSiteLanguage()
-},
-{
-id: "settings",
-label: uiText(language, "settings"),
-icon: radialSettingsIcon(),
-run: () => actions.openSettings()
-},
-{
-id: "study",
-label: uiText(language, "puckStudyPage"),
-icon: "よ",
-glyph: true,
-run: () => actions.openStudyPage()
-}
-];
-if (actions.hasSubtitleVideo()) {
-const subtitlesOn = actions.isAutoSubtitlesEnabled();
-items.push({
-id: "subtitles",
-label: uiText(language, "subtitleAutoDetect"),
-icon: "字",
-glyph: true,
-tone: subtitlesOn ? "on" : "off",
-keepOpen: true,
-run: () => actions.toggleAutoSubtitles()
-});
-}
-if (actions.isYouTube()) {
-const enabled = actions.isYoutubeFilterEnabled();
-items.push({
-id: "youtube",
-label: uiText(language, "toggleYoutubeImmersion"),
-icon: radialYoutubeIcon(),
-tone: enabled ? "on" : "off",
-keepOpen: true,
-run: () => actions.toggleYoutubeFilter()
-});
-}
-return items;
+return floatingButtonRadialActions(settings, actions, () => this.syncButtonState());
 }
 installVideoAvoidance(button) {
 this.abortController?.abort();
@@ -29863,6 +29991,43 @@ length: card.spelling.length,
 rubies: [],
 pitchClass: ""
 };
+}
+function annotationPowerState(settings, hasFuriganaChannel) {
+if (settings.annotationsPaused) return "paused";
+return hasFuriganaChannel && !furiganaEnabled(settings) ? "no-furigana" : "on";
+}
+function planAnnotationPowerTransition(settings, hasFuriganaChannel, defaultFuriganaMode) {
+const state = annotationPowerState(settings, hasFuriganaChannel);
+if (!hasFuriganaChannel) return { kind: state === "paused" ? "resume" : "pause" };
+return JAPANESE_POWER_TRANSITIONS[state](settings, defaultFuriganaMode);
+}
+function applyAnnotationPowerTransition(transition, effects) {
+const actions = {
+"hide-furigana": () => effects.hideFurigana(
+transition.kind === "hide-furigana" ? transition.rememberedMode : ""
+),
+pause: () => effects.pause(),
+resume: () => effects.resume(transition.kind === "resume" ? transition.furiganaMode : void 0)
+};
+return actions[transition.kind]();
+}
+const JAPANESE_POWER_TRANSITIONS = Object.freeze({
+on: (settings) => ({
+kind: "hide-furigana",
+rememberedMode: settings.furiganaMode === "off" ? "" : settings.furiganaMode
+}),
+"no-furigana": () => ({ kind: "pause" }),
+paused: (settings, defaultMode) => ({
+kind: "resume",
+furiganaMode: restoredFuriganaMode(settings, defaultMode)
+})
+});
+function furiganaEnabled(settings) {
+return settings.showFurigana && settings.furiganaMode !== "off";
+}
+function restoredFuriganaMode(settings, defaultMode) {
+if (settings.puckFuriganaModeBeforeHide) return settings.puckFuriganaModeBeforeHide;
+return settings.furiganaMode === "off" ? defaultMode : settings.furiganaMode;
 }
 function renderedWordLookupText(word) {
 return normalizedLookupText(word.dataset.expression || readerWordSurfaceText(word));
@@ -34904,8 +35069,8 @@ function collapseWhitespace(value) {
 return value.replace(/\/\*[\s\S]*?\*\//gu, " ").replace(/\s+/gu, " ").trim();
 }
 const READER_CSS_RESOURCE = "yomuCss";
-const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.89"}`;
-const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.89"}`;
+const READER_CSS_HOSTED_FALLBACK_URL = `https://yomureader.com/yomu.css?v=${"1.8.90"}`;
+const READER_CSS_RAW_FALLBACK_URL = `https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css?v=${"1.8.90"}`;
 const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v3";
 const READER_CSS = resourceReaderCss();
 function criticalWordCss() {
@@ -35048,7 +35213,7 @@ try {
 const url = new URL(href);
 if (!isHostedYomuPage(url)) return null;
 const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
-return `${new URL(path, url.origin).href}?v=${"1.8.89"}`;
+return `${new URL(path, url.origin).href}?v=${"1.8.90"}`;
 } catch {
 return null;
 }
@@ -38000,6 +38165,7 @@ disposeHostThemeObserver;
 hostThemeEnforceTimer;
 themeContrastRefreshFrame;
 themeContrastRefreshTimer;
+cardHydrationRenderPasses = new WeakMap();
 setImmersionTranslationBlurred = (blurred) => {
 if (this.settings.immersionKitRevealTranslationOnClick === blurred) return;
 this.settings = {
@@ -38494,11 +38660,13 @@ onPersistenceFailed: (settings) => this.failPreferredJapaneseSiteLanguageSave(se
 }
 createSubtitlePlayer() {
 const Controller = yomuSubtitlePlayerController();
-if (!Controller) return this.missingCompanionSurface("Video companion", "subtitles");
+if (!Controller) return {
+...this.missingCompanionSurface("Video companion", "subtitles"),
+hasDiscoverableVideoCandidate: () => false
+};
 return new Controller({
 getSettings: () => this.settings,
-parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
-parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+...this.targetTextParserDependencies(),
 beforeRenderTokens: (tokens) => this.enrichSubtitleTokensBeforeRender(tokens),
 afterParseTokens: (tokens, roots) => this.afterSubtitleJapaneseParsed(tokens, roots),
 showBatchMiningCard: (candidate) => this.showCard(candidate.card, candidate.sentence, void 0, {
@@ -38514,6 +38682,12 @@ explicitUserChoiceKeys,
 clearExplicitUserChoiceKeys
 })
 });
+}
+targetTextParserDependencies() {
+return {
+parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
+parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options)
+};
 }
 createYoutubeFilter() {
 const Controller = yomuYoutubeImmersionFilter();
@@ -38540,8 +38714,7 @@ return createNoopImageOcrController();
 }
 return new Controller({
 getSettings: () => this.settings,
-parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
-parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
+...this.targetTextParserDependencies(),
 onToast: (message) => this.toast(message),
 shouldAutoScan: () => shouldAutoScanImageOcr(this.pageHasJapaneseText),
 shouldScanInlineImages: () => true,
@@ -39623,7 +39796,7 @@ toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
 isYoutubeFilterEnabled: () => this.isYoutubeImmersionEnabled(),
 toggleAutoSubtitles: () => void this.toggleAutoSubtitles(),
 isAutoSubtitlesEnabled: () => this.settings.subtitleAutoDetect,
-hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && (isYouTubeHostname() || Boolean(document.querySelector("video")))
+hasSubtitleVideo: () => this.settings.subtitlePlayerEnabled && this.subtitles.hasDiscoverableVideoCandidate()
 }
 );
 }
@@ -39684,29 +39857,26 @@ if (!enabled && this.settings.audioAutoPlayMode === "off") this.settings.audioAu
 await saveSettings(this.settings, { explicitUserChoiceKeys: ["autoPlayAudio", "audioAutoPlayMode"] });
 this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
 }
-isFuriganaEnabled() {
-return this.settings.showFurigana && this.settings.furiganaMode !== "off";
-}
 puckPowerState() {
-if (this.settings.annotationsPaused) return "paused";
-return this.isFuriganaEnabled() ? "on" : "no-furigana";
+return annotationPowerState(this.settings, usesJapaneseProviders());
 }
 async cyclePowerState() {
-const state = this.puckPowerState();
-if (state === "on") {
-this.settings.puckFuriganaModeBeforeHide = this.settings.furiganaMode === "off" ? "" : this.settings.furiganaMode;
+await applyAnnotationPowerTransition(
+planAnnotationPowerTransition(this.settings, usesJapaneseProviders(), DEFAULT_SETTINGS.furiganaMode),
+{
+hideFurigana: async (rememberedMode) => {
+this.settings.puckFuriganaModeBeforeHide = rememberedMode;
 await this.applyFuriganaMode("off");
 this.toast(uiText(this.settings.interfaceLanguage, "furiganaOffToast"));
-return;
-}
-if (state === "no-furigana") {
-await this.setAnnotationsPaused(true);
-return;
-}
-const hiddenMode = this.settings.puckFuriganaModeBeforeHide;
+},
+pause: () => this.setAnnotationsPaused(true),
+resume: async (furiganaMode) => {
 this.settings.puckFuriganaModeBeforeHide = "";
-await this.applyFuriganaMode(hiddenMode || (this.settings.furiganaMode !== "off" ? this.settings.furiganaMode : DEFAULT_SETTINGS.furiganaMode));
+if (furiganaMode) await this.applyFuriganaMode(furiganaMode);
 await this.setAnnotationsPaused(false);
+}
+}
+);
 }
 async applyFuriganaMode(mode) {
 this.settings.showFurigana = this.settings.showFurigana || mode !== "off";
@@ -42202,17 +42372,8 @@ stackOverSettings,
 skipInitialCardResolution: true
 });
 }
-/**
-* Re-offer an unconfirmed rendered span to the span authority.
-*
-* A page can hold spans an older parse produced — a partial run rendered
-* before enrichment landed, or annotations stamped by a previous version.
-* Those words carry a fallback card: nothing confirmed them. Interacting
-* with one resolves it through the same authority as hover and tap, so the
-* learner gets the whole word rather than the fragment they touched. Words
-* already carrying a confirmed card skip this entirely, so no extra lookup
-* runs on normal interaction.
-*/
+/** Re-resolve only unconfirmed fallback spans so stale fragments can widen;
+* provider-confirmed cards skip this authority pass. */
 async showAuthoritativeSpanForRenderedWord(word, card, context, options, stackOverSettings, scope) {
 const span = unconfirmedRenderedWordSpan(word, card, context);
 if (!span) return false;
@@ -42743,10 +42904,6 @@ this.installDeferredCardPostRenderBehaviors(popover, card, sentence, trigger);
 };
 const renderLoading = () => {
 if (!canRenderLoading()) return;
-if (trigger !== "hover") {
-runLoadingRender();
-return;
-}
 if (loadingRenderFrame !== void 0) return;
 loadingRenderFrame = window.requestAnimationFrame(runLoadingRender);
 };
@@ -42881,7 +43038,7 @@ isActivePopoverRender(popover) {
 return !this.isDestroyed && popover.isConnected && this.activePopover === popover;
 }
 renderHydratedCardAnkiLookup(context, renderData) {
-const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+const { popover, card, trigger, state, requestId, isCurrentHoverCard } = context;
 if (!this.shouldRunAnkiBackgroundWork()) return;
 const hydrateAnkiLookup = renderData.hydrateAnkiLookup;
 if (!hydrateAnkiLookup) return;
@@ -42893,14 +43050,14 @@ const resolvesPendingMiss = current.ankiLookup.trusted === false && ankiLookup.t
 if (!ankiLookupHasDisplayableNotes(ankiLookup) && !ankiLookupHasDisplayableNotes(current.ankiLookup) && !resolvesPendingMiss) return;
 if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
 state.data = { ...current, ankiLookup };
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 }).catch((error) => {
 log.warn("Popup Anki detail failed", { term: card.spelling }, error);
 if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
 const ankiLookup = ankiLookupWithUnavailableDetails(state.data.ankiLookup);
 if (!ankiLookup.primary) return;
 state.data = { ...state.data, ankiLookup };
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 });
 };
 if (trigger === "hover") {
@@ -42910,46 +43067,46 @@ return;
 hydrate();
 }
 renderHydratedCardLocalEntries(context, renderData) {
-const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+const { popover, card, state, requestId, isCurrentHoverCard } = context;
 if (state.data.localEntries.length || !renderData.hydrateLocalEntries) return;
 void renderData.hydrateLocalEntries().then((entries2) => {
 if (!entries2.length || state.data.localEntries.length || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
 state.data = { ...state.data, localEntries: entries2 };
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 }).catch((error) => log.debug("Popup local dictionary hydration failed", { term: card.spelling, error }));
 }
 renderHydratedCardJitenVocabulary(context, renderData) {
-const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+const { popover, card, state, requestId, isCurrentHoverCard } = context;
 if (!usesJapaneseProviders() || state.data.jitenVocabularyInfo || !renderData.hydrateJitenVocabularyInfo) return;
 void renderData.hydrateJitenVocabularyInfo().then((info) => {
 if (!usesJapaneseProviders() || !info || state.data.jitenVocabularyInfo || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
 state.data = { ...state.data, jitenVocabularyInfo: info };
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 }).catch((error) => log.debug("Popup Jiten vocabulary hydration failed", { term: card.spelling, error }));
 }
 renderHydratedCardPitchAccent(context, renderData) {
-const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+const { popover, card, requestId, isCurrentHoverCard } = context;
 if (!renderData.hydratePitchAccent) return;
 const renderedPitchKey = card.pitchAccent.join("|");
 void renderData.hydratePitchAccent().then((pitchAccent) => {
 if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
 if (!card.pitchAccent.length && pitchAccent.length) card.pitchAccent = [...pitchAccent];
 if (renderedPitchKey === card.pitchAccent.join("|")) return;
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 }).catch((error) => log.debug("Popup pitch hydration failed", { term: card.spelling, error }));
 }
 renderHydratedCardFrequencyRanks(context, renderData) {
-const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+const { popover, card, state, requestId, isCurrentHoverCard } = context;
 if (!usesJapaneseProviders() || !renderData.hydrateFrequencyRanks) return;
 void renderData.hydrateFrequencyRanks().then((frequencyRanks) => {
 if (!usesJapaneseProviders() || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
 if (JSON.stringify(state.data.frequencyRanks ?? {}) === JSON.stringify(frequencyRanks)) return;
 state.data = { ...state.data, frequencyRanks };
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 }).catch((error) => log.debug("Popup provider frequency hydration failed", { term: card.spelling, error }));
 }
 renderHydratedCardBunproDefinition(context, renderData) {
-const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+const { popover, card, state, requestId, isCurrentHoverCard } = context;
 if (!usesJapaneseProviders() || !renderData.hydrateBunproDefinitionResult) return;
 void renderData.hydrateBunproDefinitionResult().then((result) => {
 if (!usesJapaneseProviders() || !this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
@@ -42961,8 +43118,22 @@ state.data = {
 bunproDefinitionInfo: result.info,
 bunproDefinitionStatus: result.status
 };
-this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+this.scheduleHydratedCardPopoverRender(context);
 }).catch((error) => log.debug("Popup Bunpro definition hydration failed", { term: card.spelling, error }));
+}
+/** Merge same-frame provider completions so independent microtasks do not
+* repeat layout reads and large dictionary-tree replacements before input. */
+scheduleHydratedCardPopoverRender(context) {
+let pass = this.cardHydrationRenderPasses.get(context.state);
+if (!pass) {
+pass = createPostPaintPass(() => {
+const { popover, card, sentence, trigger, state, requestId, isCurrentHoverCard, anchor } = context;
+if (!this.isCurrentCardRender(popover, requestId, isCurrentHoverCard)) return;
+this.renderCompletedCardPopover(popover, card, sentence, trigger, state.data, anchor);
+});
+this.cardHydrationRenderPasses.set(context.state, pass);
+}
+pass.schedule(viewForNode(context.popover));
 }
 renderedWordUpdateRootsForCardRender(trigger, anchor) {
 if (trigger !== "hover") return [document];

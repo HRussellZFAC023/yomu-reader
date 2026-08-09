@@ -2222,13 +2222,37 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
+const TARGET_AWARE_UI_COPY = Object.freeze({
+  en: Object.freeze({
+  puckStudyTarget: "Study {language}",
+  puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+  puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+  puckFilterYoutubeTarget: "Filter YouTube for {language}",
+  popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+  contextOccurrences: "In context ×{count}",
+  loadTargetSubtitles: "Load {language} subtitles",
+  loadOutputSubtitles: "Load {language} subtitles"
+  }),
+  ja: Object.freeze({
+  puckStudyTarget: "{language}を学習",
+  puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+  puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+  puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+  popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+  contextOccurrences: "文脈内 ×{count}",
+  loadTargetSubtitles: "{language}字幕を読み込む",
+  loadOutputSubtitles: "{language}字幕を読み込む"
+  })
+});
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
-  onboardingEyebrow: "Japanese, wherever it appears",
-  onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+  onboardingEyebrow: "{language}, wherever it appears",
+  onboardingCopy: "Make {language} text, subtitles, and images tappable.",
   onboardingLanguage: "Settings language",
+  onboardingOutputLanguage: "Definition and translation language (output)",
+  onboardingTargetLanguage: "Language you are reading (target)",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -2247,7 +2271,7 @@ const COPY = {
   onboardingUseWithoutApiKey: "Use without API key",
   closeOnboarding: "Close welcome",
   featureText: "Text",
-  featureTextBody: "Hover or tap scanned Japanese.",
+  featureTextBody: "Hover or tap scanned {language}.",
   featureImages: "Images",
   featureImagesBody: "Read any image by tapping it.",
   featureVideo: "Video",
@@ -2255,7 +2279,7 @@ const COPY = {
   featureControl: "Control",
   featureControlBody: "Tune features, shortcuts, and color.",
   featureStudy: "Study",
-  featureStudyBody: "Review words and kanji on the study page.",
+  featureStudyBody: "Review words and characters on the study page.",
   featureGame: "Game",
   featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
   scanPage: "Scan page",
@@ -2480,7 +2504,7 @@ const COPY = {
   ocrInteractionModeManual: "Tap or hover",
   ocrInteractionModeOff: "Off",
   puckMenuLabel: `${APP_NAME} menu`,
-  puckStudyPage: "Study page",
+  ...TARGET_AWARE_UI_COPY.en,
   puckPauseAnnotations: "Pause annotations",
   puckResumeAnnotations: "Resume annotations",
   puckOcrAuto: "OCR: Auto",
@@ -2959,8 +2983,6 @@ const COPY = {
   enableSubtitleAutoHide: "Auto-hide panel while playing",
   disableSubtitleAutoHide: "Keep panel open while playing",
   subtitlePanelOptions: "Panel options",
-  loadJapaneseSubtitles: "Load Japanese subtitles",
-  loadNativeSubtitles: "Load native subtitles",
   searchAnimeSubtitles: "Search anime subtitles",
   toggleNativeSubtitleBlur: "Toggle native subtitle blur",
   subtitleTrackDetectedSingular: "1 subtitle track detected",
@@ -3481,9 +3503,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -3501,7 +3525,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -3509,7 +3533,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -3751,8 +3775,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -4183,7 +4205,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -4191,7 +4213,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -4693,7 +4714,8 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  ...TARGET_AWARE_UI_COPY.ja
 };
 const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
 let jaGrammarRuleCopyPromise;

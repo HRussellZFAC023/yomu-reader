@@ -2479,13 +2479,37 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
+const TARGET_AWARE_UI_COPY = Object.freeze({
+  en: Object.freeze({
+  puckStudyTarget: "Study {language}",
+  puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+  puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+  puckFilterYoutubeTarget: "Filter YouTube for {language}",
+  popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+  contextOccurrences: "In context ×{count}",
+  loadTargetSubtitles: "Load {language} subtitles",
+  loadOutputSubtitles: "Load {language} subtitles"
+  }),
+  ja: Object.freeze({
+  puckStudyTarget: "{language}を学習",
+  puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+  puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+  puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+  popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+  contextOccurrences: "文脈内 ×{count}",
+  loadTargetSubtitles: "{language}字幕を読み込む",
+  loadOutputSubtitles: "{language}字幕を読み込む"
+  })
+});
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
-  onboardingEyebrow: "Japanese, wherever it appears",
-  onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+  onboardingEyebrow: "{language}, wherever it appears",
+  onboardingCopy: "Make {language} text, subtitles, and images tappable.",
   onboardingLanguage: "Settings language",
+  onboardingOutputLanguage: "Definition and translation language (output)",
+  onboardingTargetLanguage: "Language you are reading (target)",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -2504,7 +2528,7 @@ const COPY = {
   onboardingUseWithoutApiKey: "Use without API key",
   closeOnboarding: "Close welcome",
   featureText: "Text",
-  featureTextBody: "Hover or tap scanned Japanese.",
+  featureTextBody: "Hover or tap scanned {language}.",
   featureImages: "Images",
   featureImagesBody: "Read any image by tapping it.",
   featureVideo: "Video",
@@ -2512,7 +2536,7 @@ const COPY = {
   featureControl: "Control",
   featureControlBody: "Tune features, shortcuts, and color.",
   featureStudy: "Study",
-  featureStudyBody: "Review words and kanji on the study page.",
+  featureStudyBody: "Review words and characters on the study page.",
   featureGame: "Game",
   featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
   scanPage: "Scan page",
@@ -2737,7 +2761,7 @@ const COPY = {
   ocrInteractionModeManual: "Tap or hover",
   ocrInteractionModeOff: "Off",
   puckMenuLabel: `${APP_NAME} menu`,
-  puckStudyPage: "Study page",
+  ...TARGET_AWARE_UI_COPY.en,
   puckPauseAnnotations: "Pause annotations",
   puckResumeAnnotations: "Resume annotations",
   puckOcrAuto: "OCR: Auto",
@@ -3216,8 +3240,6 @@ const COPY = {
   enableSubtitleAutoHide: "Auto-hide panel while playing",
   disableSubtitleAutoHide: "Keep panel open while playing",
   subtitlePanelOptions: "Panel options",
-  loadJapaneseSubtitles: "Load Japanese subtitles",
-  loadNativeSubtitles: "Load native subtitles",
   searchAnimeSubtitles: "Search anime subtitles",
   toggleNativeSubtitleBlur: "Toggle native subtitle blur",
   subtitleTrackDetectedSingular: "1 subtitle track detected",
@@ -3738,9 +3760,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -3758,7 +3782,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -3766,7 +3790,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -4008,8 +4032,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -4440,7 +4462,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -4448,7 +4470,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -4950,7 +4971,8 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  ...TARGET_AWARE_UI_COPY.ja
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -7397,50 +7419,36 @@ function grammarMatchContains(outer, inner) {
 }
 const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_CAPABILITY_IDS = [
-  "term-lookup",
-  "character-lookup",
-  "segmentation",
-  "morphology",
-  "reading-annotation",
-  "pronunciation",
-  "frequency",
-  "examples",
-  "grammar",
-  "audio",
-  "text-to-speech",
-  "ocr",
-  "subtitles",
-  "mining",
-  "srs",
-  "grading",
-  "typing",
-  "handwriting"
-];
-const NO_CAPABILITIES = Object.freeze(
-  Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
-);
 const CORE_DELIVERED_CAPABILITIES = Object.freeze({
   "term-lookup": true,
+  "character-lookup": true,
   segmentation: true,
+  "reading-annotation": true,
   pronunciation: true,
+  frequency: true,
+  examples: true,
+  audio: true,
   "text-to-speech": true,
+  ocr: true,
   subtitles: true,
   typing: true,
+  handwriting: true,
   mining: true,
   srs: true,
   grading: true
 });
-function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+function learningTargetCapabilities(experiences, hasGrammarRules = false) {
   return Object.freeze({
-  ...NO_CAPABILITIES,
-  ...declared,
   ...CORE_DELIVERED_CAPABILITIES,
+  // A literal depth-0 dictionary candidate is lookup, not morphology.
+  // Morphology is present only when a target owns deinflection, bounded
+  // rewrite rules, or a target-specific subsegment Adapter.
+  morphology: experiences.morphology !== "dictionary-forms",
   // Derived, never declared: a target has grammar support exactly when it
   // ships grammar rules. Same principle as the block above — the capability
   // reports the machinery instead of promising alongside it.
@@ -7456,13 +7464,15 @@ function createLearningTargetModule(spec) {
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
   const segment = spec.segment ?? ((text) => defaultSegment(text, language));
   const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+  const experiences = learningTargetExperiences(spec);
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
   language,
   direction,
   collationLocale: spec.collationLocale ?? language,
-  capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+  capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
+  experiences,
   featureSemantics: Object.freeze({
     ...spec.featureSemantics,
     phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -7470,7 +7480,7 @@ function createLearningTargetModule(spec) {
   typography: Object.freeze({
     contentLocale: language,
     direction,
-    readingAnnotationMode: "none",
+    readingAnnotationMode: "ruby",
     supportsVerticalWriting: false,
     ...spec.typography
   }),
@@ -7482,6 +7492,7 @@ function createLearningTargetModule(spec) {
   audio: Object.freeze({
     speechSynthesisLocale: regionalTag,
     templateLanguageToken: base,
+    recordedWordAudio: false,
     ...spec.audio
   }),
   ocr: Object.freeze({
@@ -7513,6 +7524,32 @@ function createLearningTargetModule(spec) {
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
   });
+}
+function learningTargetExperiences(spec) {
+  return Object.freeze({
+  characterLookup: "term-dictionary",
+  morphology: morphologyExperience(spec),
+  readingAnnotation: "dictionary-reading",
+  frequency: "dictionary-rank-or-context-occurrences",
+  audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
+  ocr: "target-locale",
+  handwriting: "self-check",
+  ...spec.experiences
+  });
+}
+function morphologyExperience(spec) {
+  return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+}
+function inferredMorphologyExperience(spec) {
+  if (spec.lookupCandidates) return "deinflection";
+  return hasBoundedMorphology(spec) ? "bounded-rewrites" : "dictionary-forms";
+}
+function hasBoundedMorphology(spec) {
+  if (spec.lookupRewrites?.length) return true;
+  return Boolean(spec.lookupSubsegments);
+}
+function audioExperience(recordedWordAudio) {
+  return recordedWordAudio ? "recorded-and-speech-synthesis" : "speech-synthesis";
 }
 function maximizedLocaleTag(language) {
   try {
@@ -8023,15 +8060,11 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   language: "ja",
   direction: "ltr",
   collationLocale: "ja",
-  capabilities: {
-  "character-lookup": true,
-  morphology: true,
-  "reading-annotation": true,
-  frequency: true,
-  examples: true,
-  audio: true,
-  ocr: true,
-  handwriting: true
+  experiences: {
+  characterLookup: "character-dictionary",
+  morphology: "deinflection",
+  audio: "recorded-and-speech-synthesis",
+  handwriting: "stroke-feedback"
   },
   featureSemantics: {
   characterSystem: "kanji",
@@ -8055,7 +8088,8 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   },
   audio: {
   speechSynthesisLocale: "ja-JP",
-  templateLanguageToken: "ja"
+  templateLanguageToken: "ja",
+  recordedWordAudio: true
   },
   ocr: {
   defaultLanguage: "ja-JP",
@@ -8290,3930 +8324,4219 @@ const GERMAN_GRAMMAR = createLearningTargetGrammar({
   }
   ]
 });
-const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
-const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
-const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
-const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
-const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
-const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
-const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
-  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-  referenceUrl: CORNELL_GRAMMAR,
-  rules: [
-  {
-    ruleId: "ru-a1-kto-chto-eto",
-    level: "A1",
-    name: "Кто/что это? identification question",
-    displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
-    patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
-    priority: 10,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=19`
-  },
-  {
-    ruleId: "ru-a1-possessive-starter",
-    level: "A1",
-    name: "Possession with это + possessive",
-    displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
-    patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
-    priority: 12,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=19`
-  },
-  {
-    ruleId: "ru-a1-request-imperative",
-    level: "A1",
-    name: "Requests with дай(те), скажи(те), покажи(те)",
-    displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
-    patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
-    priority: 14,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=20`
-  },
-  {
-    ruleId: "ru-a1-dative-nravitsya",
-    level: "A1",
-    name: "нравится with a dative experiencer",
-    displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
-    patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
-    priority: 16,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=21`
-  },
-  {
-    ruleId: "ru-a1-potomu-chto",
-    level: "A1",
-    name: "Reason with потому что",
-    displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
-    patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
-    priority: 18,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=22`
-  },
-  {
-    ruleId: "ru-a1-gde-mozhno-infinitive",
-    level: "A1",
-    name: "Где можно + infinitive",
-    displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
-    priority: 20,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=22`
-  },
-  {
-    ruleId: "ru-a1-want-can-infinitive",
-    level: "A1",
-    name: "хотеть/мочь + infinitive",
-    displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
-    priority: 22,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=23`
-  },
-  {
-    ruleId: "ru-a1-need-infinitive",
-    level: "A1",
-    name: "Necessity with надо/нужно",
-    displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
-    patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
-    priority: 24,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=24`
-  }
-  ]
+const FOUNDATION_LEVEL = "Foundation";
+const HSK_STANDARD_COURSE_LEVEL_SCALE = Object.freeze({
+  id: "hsk-standard-course",
+  levels: Object.freeze(["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"])
 });
-const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
-const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
-const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
-const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
-const SPANISH_GRAMMAR = createLearningTargetGrammar({
-  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-  referenceUrl: CERVANTES_A1_A2,
-  rules: [
-  {
-    ruleId: "es-me-gusta-infinitive",
-    level: "A1",
-    name: "gustar + infinitive",
-    displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 10,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p1223a1`
-  },
-  {
-    ruleId: "es-existential-hay",
-    level: "A1",
-    name: "Existence with hay",
-    displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
-    patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
-    priority: 12,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p133a1`
-  },
-  {
-    ruleId: "es-causal-porque",
-    level: "A1",
-    name: "Reason with porque",
-    displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
-    patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
-    priority: 14,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p1534a1`
-  },
-  {
-    ruleId: "es-negation-no",
-    level: "A1",
-    name: "Verb negation with no",
-    displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
-    patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
-    priority: 16,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p133a1`
-  },
-  {
-    ruleId: "es-present-perfect",
-    level: "A2",
-    name: "Present perfect",
-    displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
-    patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
-    priority: 18,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p916a2`
-  },
-  {
-    ruleId: "es-estar-gerundio",
-    level: "A2",
-    name: "Progressive with estar",
-    displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
-    patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
-    priority: 20,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p942a2`
-  },
-  {
-    ruleId: "es-tener-que",
-    level: "A2",
-    name: "Obligation with tener que",
-    displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 22,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p121a2`
-  },
-  {
-    ruleId: "es-ir-a-infinitive",
-    level: "A2",
-    name: "Near future with ir a",
-    displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 24,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p121a2`
-  }
-  ]
+const YEE_CEFR_BAND_LEVEL_SCALE = Object.freeze({
+  id: "tr-yee-cefr-band",
+  levels: Object.freeze(["A1–A2"])
 });
-function referenceOnly(referenceUrl) {
-  return createLearningTargetGrammar({ referenceUrl });
+function foundationScale(id) {
+  return Object.freeze({ id, levels: Object.freeze([FOUNDATION_LEVEL]) });
 }
-const GRAMMAR_BY_TARGET = Object.freeze({
-  sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-  grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-  ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-  yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-  zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-  da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-  nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-  en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-  fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
-  fr: FRENCH_GRAMMAR,
-  de: GERMAN_GRAMMAR,
-  el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-  hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-  id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-  it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-  km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-  ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-  lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-  la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-  mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-  fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-  pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-  pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-  ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
-  ru: RUSSIAN_GRAMMAR,
-  sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
-  es: SPANISH_GRAMMAR,
-  sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-  tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-  th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-  tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-  vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
-});
-function grammarForRosterTarget(language) {
-  return GRAMMAR_BY_TARGET[language];
+function oneRuleGrammar(referenceUrl, levelScale, rule) {
+  return createLearningTargetGrammar({ referenceUrl, levelScale, rules: [rule] });
 }
-const KOREAN_SEGMENT_SUFFIXES = [
-  "에게서",
-  "이라고",
-  "으로",
-  "에서",
-  "에게",
-  "한테",
-  "까지",
-  "부터",
-  "처럼",
-  "보다",
-  "에는",
-  "라고",
-  "하고",
-  "은",
-  "는",
-  "이",
-  "가",
-  "을",
-  "를",
-  "의",
-  "에",
-  "와",
-  "과",
-  "로",
-  "도",
-  "만"
-];
-const REWRITES = {
-  es: [
-  { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
-  { suffix: "es", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "s", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
-  ],
-  de: [
-  { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
-  { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-  { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-  { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
-  ],
-  ru: [
-  { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
-  { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
-  ],
-  ar: [
-  { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
-  { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
-  { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
-  { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
-  { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
-  { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
-  { prefix: "ال", minStemLength: 3, reason: "article prefix" },
-  { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
-  { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
-  { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
-  { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
-  ]
-};
-function lookupRewritesForTarget(target) {
-  return REWRITES[target] ?? [];
-}
-function koreanLookupSubsegments(segment, maxLength) {
-  const candidates = /* @__PURE__ */ new Set();
-  if (segment.length <= maxLength) candidates.add(segment);
-  for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
-  if (!segment.endsWith(suffix)) continue;
-  const stem = segment.slice(0, -suffix.length);
-  if (stem && stem.length <= maxLength) candidates.add(stem);
-  }
-  return [...candidates];
-}
-const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
-const KOREAN_LEARNING_TARGET = createLearningTargetModule({
-  id: "korean-thin-v1",
-  language: "ko",
-  capabilities: {
-  "reading-annotation": true,
-  ocr: true,
-  // Korean is a hand-written module rather than a generic roster entry, so it
-  // misses anything the roster loop derives. Tatoeba mounts for ko with text
-  // availability 'available' exactly as it does for the other 31 — caught by the
-  // registry-agreement assertion in learning-target-contract.test.ts, which is
-  // the whole reason that test exists.
-  examples: true
-  },
-  featureSemantics: {
-  characterSystem: "hangul",
-  phoneticScripts: ["hangul"],
-  pronunciation: "ipa",
-  readingAnnotation: "hangul"
-  },
-  grammar: grammarForRosterTarget("ko"),
-  typography: {
-  readingAnnotationMode: "ruby"
-  },
-  subtitles: {
-  languageAliases: ["kor", "korean"]
-  },
-  // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
-  // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
-  lookupStartsAtSegmentBoundary: false,
-  lookupSubsegments: koreanLookupSubsegments,
-  detectsText: HAS_HANGUL
-});
-const ENGLISH_FALLBACK_MESSAGES = {
-  setupTitle: "Set up Yomu in your language",
-  learnerLanguageLabel: "Your language",
-  targetLanguageLabel: "Language you are learning",
-  targetJapanese: "Japanese",
-  recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-  automaticTranslationLabel: "Translate automatically into {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-  setupProgress: "Language setup {current} of {total}",
-  continueAction: "Continue",
-  originalDefinitionLabel: "Original {language}",
-  // D43: a locale that is in scope but not yet selectable says why, in its own
-  // language, so the person who came looking for it can read the answer. The
-  // interface never offers one of these and then quietly speaks English.
-  interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
-  interfaceTranslationPending: "Translation is still in progress."
-};
-function defineLocaleCatalog(locale, reviewStatus, messages) {
-  return Object.freeze({
-  locale,
-  reviewStatus,
-  sourceLocale: "en",
-  messages: Object.freeze(messages)
+function foundationGrammar(targetScaleId, referenceUrl, rule) {
+  return oneRuleGrammar(referenceUrl, foundationScale(targetScaleId), {
+  ...rule,
+  level: FOUNDATION_LEVEL
   });
 }
-defineLocaleCatalog("ar", "machine-draft", {
-  setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-  learnerLanguageLabel: "لغتك",
-  targetLanguageLabel: "اللغة التي تتعلمها",
-  targetJapanese: "اليابانية",
-  recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-  automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-  dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-  setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-  continueAction: "متابعة",
-  originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
-  interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
-  interfaceTranslationPending: "الترجمة قيد التقدم."
-});
-defineLocaleCatalog("da", "machine-draft", {
-  setupTitle: "Opsæt よむ på dit sprog",
-  learnerLanguageLabel: "Dit sprog",
-  targetLanguageLabel: "Det sprog, du lærer",
-  targetJapanese: "Japansk",
-  recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-  automaticTranslationLabel: "Oversæt automatisk til {language}",
-  dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-  setupProgress: "Sprogopsætning: {current} af {total}",
-  continueAction: "Fortsæt",
-  originalDefinitionLabel: "Original på {language}",
-  interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
-  interfaceTranslationPending: "Oversættelsen er stadig i gang."
-});
-defineLocaleCatalog("de", "machine-draft", {
-  setupTitle: "よむ in deiner Sprache einrichten",
-  learnerLanguageLabel: "Deine Sprache",
-  targetLanguageLabel: "Sprache, die du lernst",
-  targetJapanese: "Japanisch",
-  recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-  automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-  dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-  setupProgress: "Sprache einrichten: {current} von {total}",
-  continueAction: "Weiter",
-  originalDefinitionLabel: "Originaldefinition auf {language}",
-  interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
-  interfaceTranslationPending: "Die Übersetzung läuft noch."
-});
-defineLocaleCatalog("el", "machine-draft", {
-  setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-  learnerLanguageLabel: "Η γλώσσα σας",
-  targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-  targetJapanese: "Ιαπωνικά",
-  recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-  automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-  dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-  setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-  continueAction: "Συνέχεια",
-  originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
-  interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
-  interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
-});
-defineLocaleCatalog(
-  "en",
-  "source-approved",
-  ENGLISH_FALLBACK_MESSAGES
-);
-defineLocaleCatalog("es", "machine-draft", {
-  setupTitle: "Configura Yomu en tu idioma",
-  learnerLanguageLabel: "Tu idioma",
-  targetLanguageLabel: "Idioma que estás aprendiendo",
-  targetJapanese: "Japonés",
-  recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-  automaticTranslationLabel: "Traducir automáticamente al {language}",
-  dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-  setupProgress: "Configuración del idioma: {current} de {total}",
-  continueAction: "Continuar",
-  originalDefinitionLabel: "Definición original ({language})",
-  interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
-  interfaceTranslationPending: "La traducción sigue en curso."
-});
-defineLocaleCatalog("fa", "machine-draft", {
-  setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-  learnerLanguageLabel: "زبان شما",
-  targetLanguageLabel: "زبانی که یاد می‌گیرید",
-  targetJapanese: "ژاپنی",
-  recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-  automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-  dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-  setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-  continueAction: "ادامه",
-  originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
-  interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
-  interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
-});
-defineLocaleCatalog("fi", "machine-draft", {
-  setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-  learnerLanguageLabel: "Oma kielesi",
-  targetLanguageLabel: "Opiskelemasi kieli",
-  targetJapanese: "Japani",
-  recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-  automaticTranslationLabel: "Käännä automaattisesti: {language}",
-  dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-  setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-  continueAction: "Jatka",
-  originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
-  interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
-  interfaceTranslationPending: "Käännös on vielä kesken."
-});
-defineLocaleCatalog("fr", "machine-draft", {
-  setupTitle: "Configurez よむ dans votre langue",
-  learnerLanguageLabel: "Votre langue",
-  targetLanguageLabel: "Langue que vous apprenez",
-  targetJapanese: "Japonais",
-  recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-  automaticTranslationLabel: "Traduire automatiquement en {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-  setupProgress: "Configuration de la langue : {current} sur {total}",
-  continueAction: "Continuer",
-  originalDefinitionLabel: "Définition originale en {language}",
-  interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
-  interfaceTranslationPending: "La traduction est en cours."
-});
-defineLocaleCatalog("grc", "machine-draft", {
-  setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-  learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-  targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-  targetJapanese: "Ἰαπωνική",
-  recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-  automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-  dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-  setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-  continueAction: "Πρόβαινε",
-  originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
-  interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
-  interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
-});
-defineLocaleCatalog("hu", "machine-draft", {
-  setupTitle: "A よむ beállítása az Ön nyelvén",
-  learnerLanguageLabel: "Az Ön nyelve",
-  targetLanguageLabel: "A tanult nyelv",
-  targetJapanese: "Japán",
-  recommendedDictionariesTitle: "Ajánlott japán szótárak",
-  automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-  dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-  setupProgress: "Nyelvi beállítás: {current}/{total}",
-  continueAction: "Folytatás",
-  originalDefinitionLabel: "Eredeti meghatározás ({language})",
-  interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
-  interfaceTranslationPending: "A fordítás még folyamatban van."
-});
-defineLocaleCatalog("id", "machine-draft", {
-  setupTitle: "Siapkan Yomu dalam bahasa Anda",
-  learnerLanguageLabel: "Bahasa Anda",
-  targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-  targetJapanese: "Bahasa Jepang",
-  recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-  automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-  dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-  setupProgress: "Penyiapan bahasa {current} dari {total}",
-  continueAction: "Lanjutkan",
-  originalDefinitionLabel: "Definisi asli dalam {language}",
-  interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
-  interfaceTranslationPending: "Penerjemahan masih berlangsung."
-});
-defineLocaleCatalog("it", "machine-draft", {
-  setupTitle: "Configura よむ nella tua lingua",
-  learnerLanguageLabel: "La tua lingua",
-  targetLanguageLabel: "Lingua che stai imparando",
-  targetJapanese: "Giapponese",
-  recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-  automaticTranslationLabel: "Traduci automaticamente in {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-  setupProgress: "Configurazione della lingua: {current} di {total}",
-  continueAction: "Continua",
-  originalDefinitionLabel: "Definizione originale in {language}",
-  interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
-  interfaceTranslationPending: "La traduzione è ancora in corso."
-});
-defineLocaleCatalog("km", "machine-draft", {
-  setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-  learnerLanguageLabel: "ភាសារបស់អ្នក",
-  targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-  targetJapanese: "ភាសាជប៉ុន",
-  recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-  automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-  dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-  setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-  continueAction: "បន្ត",
-  originalDefinitionLabel: "និយមន័យដើម ({language})",
-  interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
-  interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
-});
-defineLocaleCatalog("ko", "machine-draft", {
-  setupTitle: "내 언어로 よむ 설정하기",
-  learnerLanguageLabel: "사용 언어",
-  targetLanguageLabel: "학습할 언어",
-  targetJapanese: "일본어",
-  recommendedDictionariesTitle: "추천 일본어 사전",
-  automaticTranslationLabel: "{language}로 자동 번역",
-  dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-  setupProgress: "언어 설정: {total}단계 중 {current}단계",
-  continueAction: "계속",
-  originalDefinitionLabel: "원문({language})",
-  interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
-  interfaceTranslationPending: "번역이 아직 진행 중입니다."
-});
-defineLocaleCatalog("la", "machine-draft", {
-  setupTitle: "Configura よむ in lingua tua",
-  learnerLanguageLabel: "Lingua tua",
-  targetLanguageLabel: "Lingua quam discis",
-  targetJapanese: "Lingua Iaponica",
-  recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-  automaticTranslationLabel: "Automatice verte in {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-  setupProgress: "Configuratio linguae: {current} ex {total}",
-  continueAction: "Perge",
-  originalDefinitionLabel: "Definitio originalis ({language})",
-  interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
-  interfaceTranslationPending: "Translatio adhuc geritur."
-});
-defineLocaleCatalog("lo", "machine-draft", {
-  setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-  learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-  targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-  targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-  recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-  automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-  dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-  setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-  continueAction: "ສືບຕໍ່",
-  originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
-  interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
-  interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
-});
-defineLocaleCatalog("mn", "machine-draft", {
-  setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-  learnerLanguageLabel: "Таны хэл",
-  targetLanguageLabel: "Таны сурч буй хэл",
-  targetJapanese: "Япон хэл",
-  recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-  automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-  dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-  setupProgress: "Хэлний тохиргоо: {current}/{total}",
-  continueAction: "Үргэлжлүүлэх",
-  originalDefinitionLabel: "Эх тайлбар ({language})",
-  interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
-  interfaceTranslationPending: "Орчуулга хийгдсээр байна."
-});
-defineLocaleCatalog("nl", "machine-draft", {
-  setupTitle: "Stel よむ in jouw taal in",
-  learnerLanguageLabel: "Jouw taal",
-  targetLanguageLabel: "Taal die je leert",
-  targetJapanese: "Japans",
-  recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-  automaticTranslationLabel: "Automatisch vertalen naar {language}",
-  dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-  setupProgress: "Taal instellen: {current} van {total}",
-  continueAction: "Doorgaan",
-  originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
-  interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
-  interfaceTranslationPending: "De vertaling is nog bezig."
-});
-defineLocaleCatalog("pl", "machine-draft", {
-  setupTitle: "Skonfiguruj Yomu w swoim języku",
-  learnerLanguageLabel: "Twój język",
-  targetLanguageLabel: "Język, którego się uczysz",
-  targetJapanese: "Japoński",
-  recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-  automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-  dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-  setupProgress: "Konfiguracja języka: {current} z {total}",
-  continueAction: "Kontynuuj",
-  originalDefinitionLabel: "Oryginalna definicja ({language})",
-  interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
-  interfaceTranslationPending: "Tłumaczenie wciąż trwa."
-});
-defineLocaleCatalog("pt", "machine-draft", {
-  setupTitle: "Configure o Yomu no seu idioma",
-  learnerLanguageLabel: "O seu idioma",
-  targetLanguageLabel: "Idioma que está a aprender",
-  targetJapanese: "Japonês",
-  recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-  automaticTranslationLabel: "Traduzir automaticamente para {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-  setupProgress: "Configuração do idioma: {current} de {total}",
-  continueAction: "Continuar",
-  originalDefinitionLabel: "Definição original ({language})",
-  interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
-  interfaceTranslationPending: "A tradução ainda está em andamento."
-});
-defineLocaleCatalog("ro", "machine-draft", {
-  setupTitle: "Configurează Yomu în limba ta",
-  learnerLanguageLabel: "Limba ta",
-  targetLanguageLabel: "Limba pe care o înveți",
-  targetJapanese: "Japoneză",
-  recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-  automaticTranslationLabel: "Tradu automat în {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-  setupProgress: "Configurarea limbii: {current} din {total}",
-  continueAction: "Continuă",
-  originalDefinitionLabel: "Definiția originală în {language}",
-  interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
-  interfaceTranslationPending: "Traducerea este încă în curs."
-});
-defineLocaleCatalog("ru", "machine-draft", {
-  setupTitle: "Настройте Yomu на своём языке",
-  learnerLanguageLabel: "Ваш язык",
-  targetLanguageLabel: "Язык, который вы изучаете",
-  targetJapanese: "Японский",
-  recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-  automaticTranslationLabel: "Автоматически переводить на {language}",
-  dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-  setupProgress: "Настройка языка: {current} из {total}",
-  continueAction: "Продолжить",
-  originalDefinitionLabel: "Оригинал определения ({language})",
-  interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
-  interfaceTranslationPending: "Перевод ещё выполняется."
-});
-defineLocaleCatalog("sh", "machine-draft", {
-  setupTitle: "Podesite Yomu na svom jeziku",
-  learnerLanguageLabel: "Vaš jezik",
-  targetLanguageLabel: "Jezik koji učite",
-  targetJapanese: "Japanski",
-  recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-  automaticTranslationLabel: "Automatski prevod na jezik {language}",
-  dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-  setupProgress: "Podešavanje jezika: {current} od {total}",
-  continueAction: "Nastavi",
-  originalDefinitionLabel: "Originalna definicija ({language})",
-  interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
-  interfaceTranslationPending: "Prijevod je još u toku."
-});
-defineLocaleCatalog("sq", "machine-draft", {
-  setupTitle: "Konfiguro よむ në gjuhën tënde",
-  learnerLanguageLabel: "Gjuha jote",
-  targetLanguageLabel: "Gjuha që po mëson",
-  targetJapanese: "Japonisht",
-  recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-  automaticTranslationLabel: "Përkthe automatikisht në {language}",
-  dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-  setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-  continueAction: "Vazhdo",
-  originalDefinitionLabel: "Origjinali në {language}",
-  interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
-  interfaceTranslationPending: "Përkthimi është në vazhdim."
-});
-defineLocaleCatalog("sv", "machine-draft", {
-  setupTitle: "Ställ in よむ på ditt språk",
-  learnerLanguageLabel: "Ditt språk",
-  targetLanguageLabel: "Språket du lär dig",
-  targetJapanese: "Japanska",
-  recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-  automaticTranslationLabel: "Översätt automatiskt till {language}",
-  dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-  setupProgress: "Språkinställning: {current} av {total}",
-  continueAction: "Fortsätt",
-  originalDefinitionLabel: "Ursprunglig definition på {language}",
-  interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
-  interfaceTranslationPending: "Översättningen pågår fortfarande."
-});
-defineLocaleCatalog("th", "machine-draft", {
-  setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-  learnerLanguageLabel: "ภาษาของคุณ",
-  targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-  targetJapanese: "ภาษาญี่ปุ่น",
-  recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-  automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-  dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-  setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-  continueAction: "ดำเนินการต่อ",
-  originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
-  interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
-  interfaceTranslationPending: "การแปลยังดำเนินอยู่"
-});
-defineLocaleCatalog("tl", "machine-draft", {
-  setupTitle: "I-set up ang Yomu sa iyong wika",
-  learnerLanguageLabel: "Iyong wika",
-  targetLanguageLabel: "Wikang pinag-aaralan mo",
-  targetJapanese: "Wikang Hapon",
-  recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-  automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-  dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-  setupProgress: "Pag-set up ng wika: {current} sa {total}",
-  continueAction: "Magpatuloy",
-  originalDefinitionLabel: "Orihinal na depinisyon ({language})",
-  interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
-  interfaceTranslationPending: "Isinasalin pa ito."
-});
-defineLocaleCatalog("tr", "machine-draft", {
-  setupTitle: "Yomu'yu dilinizde ayarlayın",
-  learnerLanguageLabel: "Diliniz",
-  targetLanguageLabel: "Öğrendiğiniz dil",
-  targetJapanese: "Japonca",
-  recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-  automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-  dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-  setupProgress: "Dil ayarı: {current}/{total}",
-  continueAction: "Devam et",
-  originalDefinitionLabel: "Orijinal tanım ({language})",
-  interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
-  interfaceTranslationPending: "Çeviri hâlâ sürüyor."
-});
-defineLocaleCatalog("vi", "machine-draft", {
-  setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-  learnerLanguageLabel: "Ngôn ngữ của bạn",
-  targetLanguageLabel: "Ngôn ngữ bạn đang học",
-  targetJapanese: "Tiếng Nhật",
-  recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-  automaticTranslationLabel: "Tự động dịch sang {language}",
-  dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-  setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-  continueAction: "Tiếp tục",
-  originalDefinitionLabel: "Định nghĩa gốc ({language})",
-  interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
-  interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
-});
-defineLocaleCatalog("yue", "machine-draft", {
-  setupTitle: "用你嘅語言設定よむ",
-  learnerLanguageLabel: "你嘅語言",
-  targetLanguageLabel: "你學緊嘅語言",
-  targetJapanese: "日文",
-  recommendedDictionariesTitle: "推薦嘅日文字典",
-  automaticTranslationLabel: "自動翻譯做{language}",
-  dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-  setupProgress: "語言設定：第{current}步，共{total}步",
-  continueAction: "繼續",
-  originalDefinitionLabel: "原文（{language}）",
-  interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
-  interfaceTranslationPending: "翻譯仲進行中。"
-});
-defineLocaleCatalog("zh", "machine-draft", {
-  setupTitle: "用您的语言设置よむ",
-  learnerLanguageLabel: "您的语言",
-  targetLanguageLabel: "您正在学习的语言",
-  targetJapanese: "日语",
-  recommendedDictionariesTitle: "推荐日语词典",
-  automaticTranslationLabel: "自动翻译为{language}",
-  dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-  setupProgress: "语言设置：第{current}步，共{total}步",
-  continueAction: "继续",
-  originalDefinitionLabel: "{language}原文",
-  interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
-  interfaceTranslationPending: "翻译仍在进行中。"
-});
-const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
-new Set(MESSAGE_NAMESPACES);
-const OCR_LANGUAGE_HINTS = Object.freeze({
-  fil: "tl",
-  yue: "zh",
-  grc: "el"
-});
-const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-  LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
-  const lookupRewrites = lookupRewritesForTarget(language.id);
-  const readingAnnotation = language.id === "zh" || language.id === "yue";
-  const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
-  return createLearningTargetModule({
-    id: `${language.id}-roster-v1`,
-    language: language.runtimeLocale,
-    direction: language.direction,
-    capabilities: {
-      morphology: lookupRewrites.length > 0,
-      "reading-annotation": readingAnnotation,
-      // MEASURED against config/dictionaries/published/v1/catalog.json
-      // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
-      // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
-      // so two capabilities the shipped catalogue already supplies were
-      // switched off for the languages that can use them. The Han branch
-      // is where the data is, and character-lookup already gates on
-      // isUnifiedIdeograph as well, so this reaches only real Han runs —
-      // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
-      // pitch out, exactly as character-lookup.ts anticipated.
-      "character-lookup": usesHanScript,
-      frequency: usesHanScript,
-      // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
-      // is a registered, mounted, licence-checked example source for
-      // every non-Japanese target and reports text availability
-      // 'available' for all of them (Japanese uses Immersion Kit
-      // instead, which is why it is declared separately). The flag said
-      // Japanese-only, so 32 languages that already had example
-      // sentences were reporting none. Audio is deliberately NOT implied
-      // here — Tatoeba answers 'per-item' for audio and outright 'none'
-      // for the smaller corpora, so a boolean would overclaim it.
-      // tests/reader/languages/learning-target-contract.test.ts asserts
-      // this against the live registry so it cannot go stale again.
-      examples: true
-    },
+const ALBANIAN_EXISTENTIALS = "https://edizionicafoscari.unive.it/media/pdf/journals/balcania-et-slavia/2024/1/iss-4-1-2024.pdf#page=18";
+const CLASSICAL_GREEK_ONLINE = "https://lrc.la.utexas.edu/eieol/grkol/0";
+const MSA_NOMINAL_SENTENCES = "https://openbooks.lib.msu.edu/elemarabicll/chapter/grammar-2/";
+const CUHK_CANTONESE_NEGATION = "https://www.cuhk.edu.hk/lin/cbrc/CantoneseGrammar/multimedia/13.htm";
+const HSK_STANDARD_COURSE_3 = "https://www.hskstandardcourse.com/hsk-standard-course-level-3/";
+const PRINCETON_YUELAIYUE = "https://commons.princeton.edu/chinesecharacters/%E8%B6%8A%E6%9D%A5%E8%B6%8A/";
+const DANISH_PRESENTATIVE_DER = "https://ordnet.dk/ddo/ordbog/der";
+const DUTCH_PRESENTATIVE_ER = "https://onzetaal.nl/taalloket/wel-of-geen-er";
+const BRITISH_COUNCIL_THERE = "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/using-there-there-are";
+const FINNISH_POSSESSION = "https://kielitoimistonohjepankki.fi/ohje/lauseenvastikkeet-tehdakseen-rakenne-pelaan-voittaakseni-rakenteen-tekija/";
+const GREEK_NEGATION = "https://www.greek-language.gr/digitalResources/modern_greek/tools/lexica/glossology_edu/iframe.html?heading=2&id=173";
+const HUNGARIAN_POSSESSION = "https://www.gutenberg.org/files/76725/76725-h/76725-h.htm";
+const INDONESIAN_NEGATIVE_EXISTENTIAL = "https://seasite.niu.edu/flin/archive/103_handouts/sentences_and_phrases.htm";
+const ITALIAN_PRESENTATIVE_CI = "https://www.treccani.it/enciclopedia/ci_%28La-grammatica-italiana%29/";
+const KHMER_NEGATION = "https://seasite.niu.edu/khmer/grammar_note/grammar_note7/grammar_note7_text.htm";
+const KOREAN_DESIRE = "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=62657";
+const LAO_NEGATION = "https://seasite.niu.edu/lao/LaoLanguage/grammar_notes/grammar2.htm";
+const LATIN_NEGATIVE_COPULA = "https://www.usu.edu/markdamen/Latin1000/Presentation/transcriptions/04T.pdf";
+const MONGOLIAN_NEGATION = "https://library.huree.edu.mn/data/201021/2023-05-19/An%20Elementary%20Mongolian%20Grammar%20%28%20PDFDrive.com%20%29.pdf";
+const PERSIAN_NEGATIVE_COPULA = "https://sites.la.utexas.edu/persian_online_resources/verbs/long-copulas-1/";
+const POLISH_NEGATIVE_EXISTENTIAL = "https://zpe.gov.pl/a/odmiana-rzeczownika-i-przymiotnika/D1DL299KT";
+const PORTUGUESE_EXISTENTIAL_HAVER = "https://ciberduvidas.iscte-iul.pt/consultorio/perguntas/haverexistir/3409";
+const ROMANIAN_NECESSITY = "https://slaviccenters.duke.edu/sites/slaviccenters.duke.edu/files/site-images/2016_romanian_verbs_conjugated.pdf";
+const CROATIAN_EXISTENTIAL_NEMA = "https://bosnian.coerll.utexas.edu/c8/m2/lekcija1/grammar/";
+const SWEDISH_PRESENTATIVE_FINNS = "https://svenska.se/grammatik/";
+const TAGALOG_EXISTENTIALS = "https://seasite.niu.edu/trans/tagalog/Grammar%201/Sentences1/Existential_Sentences.htm";
+const THAI_COPULAR_NEGATION = "https://seasite.niu.edu/thai/FLTH/1styearthai.htm";
+const YEE_A1_A2 = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden-turkce.";
+const YEE_VAR_YOK = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden4/hayatin-icinden4";
+const VIETNAMESE_COMPLETION = "https://seasite.niu.edu/vietnamese/uniLesson8/L8_grammar.htm";
+const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
+  sq: foundationGrammar("sq-foundation", ALBANIAN_EXISTENTIALS, {
+  ruleId: "sq-existential-ka-ketu",
+  name: "Existence with ka … këtu",
+  displayNames: { en: "Existence with ka … këtu", ja: "ka … këtu の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Kk]a\s+\p{L}+(?:-\p{L}+)?\s+këtu(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: ALBANIAN_EXISTENTIALS
+  }),
+  grc: foundationGrammar("grc-classical-foundation", CLASSICAL_GREEK_ONLINE, {
+  ruleId: "grc-negation-ou",
+  name: "Negation with οὐ",
+  displayNames: { en: "Negation with οὐ", ja: "οὐ による否定" },
+  patternSource: String.raw`(?<!\p{L})(?:[Οο]ὐ|[Οο]ὐκ|[Οο]ὐχ)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: CLASSICAL_GREEK_ONLINE
+  }),
+  ar: foundationGrammar("ar-msa-foundation", MSA_NOMINAL_SENTENCES, {
+  ruleId: "ar-msa-laysa-negation",
+  name: "Nominal negation with laysa",
+  displayNames: { en: "Nominal negation with laysa", ja: "laysa（ليس）による名詞文の否定" },
+  patternSource: String.raw`(?<!\p{L})(?:ليس|ليست|لست|لسنا|لستم|لستن|ليسا|ليستا|ليسوا|لسن)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: MSA_NOMINAL_SENTENCES
+  }),
+  yue: foundationGrammar("yue-foundation", CUHK_CANTONESE_NEGATION, {
+  ruleId: "yue-copular-negation-m-haih",
+  name: "Copular negation with 唔係",
+  displayNames: { en: "Copular negation with 唔係", ja: "唔係 によるコピュラ否定" },
+  patternSource: String.raw`唔係`,
+  priority: 20,
+  confidence: "high",
+  url: CUHK_CANTONESE_NEGATION
+  }),
+  zh: oneRuleGrammar(HSK_STANDARD_COURSE_3, HSK_STANDARD_COURSE_LEVEL_SCALE, {
+  ruleId: "zh-hsk3-yuelaiyue",
+  level: "HSK 3",
+  name: "Increasing degree with 越来越",
+  displayNames: { en: "Increasing degree with 越来越", ja: "越来越 による程度変化" },
+  patternSource: String.raw`(?:越来越|越來越)(?:冷|热|熱|好|忙|难|難|喜欢|喜歡|想)`,
+  priority: 20,
+  confidence: "high",
+  url: PRINCETON_YUELAIYUE
+  }),
+  da: foundationGrammar("da-foundation", DANISH_PRESENTATIVE_DER, {
+  ruleId: "da-presentative-der-er",
+  name: "Presentative der er",
+  displayNames: { en: "Presentative der er", ja: "der er の存在構文" },
+  patternSource: String.raw`(?:^|(?<=[.!?…]\s))[Dd]er\s+er\s+(?:en|et|mange|ingen|to|tre|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DANISH_PRESENTATIVE_DER
+  }),
+  nl: foundationGrammar("nl-foundation", DUTCH_PRESENTATIVE_ER, {
+  ruleId: "nl-presentative-er-is-zijn",
+  name: "Presentative er is / er zijn",
+  displayNames: { en: "Presentative er is / er zijn", ja: "er is / er zijn の存在構文" },
+  patternSource: String.raw`(?<!\p{L})[Ee]r\s+(?:is|zijn)\s+(?:een|geen|veel|twee|drie|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DUTCH_PRESENTATIVE_ER
+  }),
+  en: oneRuleGrammar(BRITISH_COUNCIL_THERE, CEFR_GRAMMAR_LEVEL_SCALE, {
+  ruleId: "en-a1-there-is-are",
+  level: "A1",
+  name: "Existence with there is / there are",
+  displayNames: { en: "Existence with there is / there are", ja: "there is / there are の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]here\s+(?:is|are)\s+(?:a|an|some|many|no|one|two|three|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: BRITISH_COUNCIL_THERE
+  }),
+  fi: foundationGrammar("fi-foundation", FINNISH_POSSESSION, {
+  ruleId: "fi-adessive-possession",
+  name: "Possession with adessive + on",
+  displayNames: { en: "Possession with adessive + on", ja: "接格 ＋ on の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Mm]inulla|[Ss]inulla|[Hh]änellä|[Mm]eillä|[Tt]eillä|[Hh]eillä)\s+on(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: FINNISH_POSSESSION
+  }),
+  el: foundationGrammar("el-modern-foundation", GREEK_NEGATION, {
+  ruleId: "el-indicative-negation-den",
+  name: "Indicative negation with δεν",
+  displayNames: { en: "Indicative negation with δεν", ja: "δεν による直説法の否定" },
+  patternSource: String.raw`(?<!\p{L})[Δδ]εν\s+\p{L}{2,}(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: GREEK_NEGATION
+  }),
+  hu: foundationGrammar("hu-foundation", HUNGARIAN_POSSESSION, {
+  ruleId: "hu-dative-possession-van",
+  name: "Possession with dative + van",
+  displayNames: { en: "Possession with dative + van", ja: "与格 ＋ van の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Nn]ekem|[Nn]eked|[Nn]eki|[Nn]ekünk|[Nn]ektek|[Nn]ekik)\s+van(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: HUNGARIAN_POSSESSION
+  }),
+  id: foundationGrammar("id-foundation", INDONESIAN_NEGATIVE_EXISTENTIAL, {
+  ruleId: "id-negative-existential-tidak-ada",
+  name: "Negative existence with tidak ada",
+  displayNames: { en: "Negative existence with tidak ada", ja: "tidak ada の否定存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]idak\s+ada(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: INDONESIAN_NEGATIVE_EXISTENTIAL
+  }),
+  it: foundationGrammar("it-foundation", ITALIAN_PRESENTATIVE_CI, {
+  ruleId: "it-presentative-ci",
+  name: "Presentative c’è / ci sono",
+  displayNames: { en: "Presentative c’è / ci sono", ja: "c’è / ci sono の存在構文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Cc][’']è|[Cc]i\s+sono)\s+(?:un|uno|una|due|tre|molti|molte|alcuni|alcune)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ITALIAN_PRESENTATIVE_CI
+    }),
+    km: foundationGrammar("km-foundation", KHMER_NEGATION, {
+      ruleId: "km-discontinuous-negation",
+      name: "Discontinuous negation with មិន … ទេ",
+      displayNames: { en: "Discontinuous negation with មិន … ទេ", ja: "មិន … ទេ の呼応否定" },
+      patternSource: String.raw`មិន[^\n។៕!?]{1,50}?ទេ`,
+      priority: 20,
+      confidence: "high",
+      url: KHMER_NEGATION
+    }),
+    ko: foundationGrammar("ko-foundation", KOREAN_DESIRE, {
+      ruleId: "ko-desire-go-sipda",
+      name: "Desire with -고 싶다",
+      displayNames: { en: "Desire with -고 싶다", ja: "-고 싶다（希望）" },
+      patternSource: String.raw`[가-힣]{1,8}고\s+싶(?:다|어요|습니다|어|었어요|었다|습니까|니|죠)(?![가-힣])`,
+      priority: 20,
+      confidence: "high",
+      url: KOREAN_DESIRE
+    }),
+    lo: foundationGrammar("lo-foundation", LAO_NEGATION, {
+      ruleId: "lo-preverbal-negation-bo",
+      name: "Preverbal negation with ບໍ່",
+      displayNames: { en: "Preverbal negation with ບໍ່", ja: "ບໍ່ による動詞・形容詞の否定" },
+      patternSource: String.raw`ບໍ່\s*(?:ແມ່ນ|ໄປ|ມາ|ມັກ|ດີ|ງາມ|ຮູ້)`,
+      priority: 20,
+      confidence: "high",
+      url: LAO_NEGATION
+    }),
+    la: foundationGrammar("la-classical-foundation", LATIN_NEGATIVE_COPULA, {
+      ruleId: "la-negative-copula-non-est",
+      name: "Negative copula with nōn est",
+      displayNames: { en: "Negative copula with nōn est", ja: "nōn est によるコピュラ否定" },
+      patternSource: String.raw`(?<!\p{L})[Nn][oō]n\s+est(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: LATIN_NEGATIVE_COPULA
+    }),
+    mn: foundationGrammar("mn-khalkha-foundation", MONGOLIAN_NEGATION, {
+      ruleId: "mn-nominal-negation-bish",
+      name: "Nominal negation with биш",
+      displayNames: { en: "Nominal negation with биш", ja: "биш による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})биш(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MONGOLIAN_NEGATION
+    }),
+    fa: foundationGrammar("fa-iranian-foundation", PERSIAN_NEGATIVE_COPULA, {
+      ruleId: "fa-negative-long-copula",
+      name: "Negative long copula",
+      displayNames: { en: "Negative long copula", ja: "否定長形コピュラ نیست" },
+      patternSource: String.raw`(?<!\p{L})نیست(?:م|ی|یم|ید|ند)?(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PERSIAN_NEGATIVE_COPULA
+    }),
+    pl: foundationGrammar("pl-foundation", POLISH_NEGATIVE_EXISTENTIAL, {
+      ruleId: "pl-negative-existential-nie-ma",
+      name: "Absence or non-possession with nie ma + genitive",
+      displayNames: { en: "Absence or non-possession with nie ma + genitive", ja: "nie ma ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ie\s+ma(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: POLISH_NEGATIVE_EXISTENTIAL
+    }),
+    pt: foundationGrammar("pt-foundation", PORTUGUESE_EXISTENTIAL_HAVER, {
+      ruleId: "pt-existential-ha",
+      name: "Existence with impersonal há",
+      displayNames: { en: "Existence with impersonal há", ja: "非人称 há の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Hh]á\s+(?:um|uma|dois|duas|três|muitos|muitas|alguns|algumas)\s+(?:pessoas?|problemas?|livros?|casas?|lugares?)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PORTUGUESE_EXISTENTIAL_HAVER
+    }),
+    ro: foundationGrammar("ro-foundation", ROMANIAN_NECESSITY, {
+      ruleId: "ro-necessity-trebuie-sa",
+      name: "Necessity with trebuie să",
+      displayNames: { en: "Necessity with trebuie să", ja: "trebuie să による必要・義務" },
+      patternSource: String.raw`(?<!\p{L})[Tt]rebuie\s+să\s+\p{Ll}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ROMANIAN_NECESSITY
+    }),
+    sh: foundationGrammar("sh-shtokavian-foundation", CROATIAN_EXISTENTIAL_NEMA, {
+      ruleId: "sh-existential-nema-genitive",
+      name: "Absence or non-possession with nema + genitive",
+      displayNames: { en: "Absence or non-possession with nema + genitive", ja: "nema ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ema\s+(?:kave|kruha|vode|problema|vremena|ljudi)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CROATIAN_EXISTENTIAL_NEMA
+    }),
+    sv: foundationGrammar("sv-foundation", SWEDISH_PRESENTATIVE_FINNS, {
+      ruleId: "sv-presentative-det-finns",
+      name: "Presentative det finns",
+      displayNames: { en: "Presentative det finns", ja: "det finns の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Dd]et\s+finns\s+(?:en|ett|många|inga|två|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: SWEDISH_PRESENTATIVE_FINNS
+    }),
+    tl: foundationGrammar("tl-tagalog-foundation", TAGALOG_EXISTENTIALS, {
+      ruleId: "tl-existential-may-mayroon",
+      name: "Existence with may / mayroon",
+      displayNames: { en: "Existence with may / mayroon", ja: "may / mayroon の存在文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]ay|[Mm]ayroon(?:g)?)\s+(?:isang|mga|dalawang|tatlong|\p{L}{3,})(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: TAGALOG_EXISTENTIALS
+    }),
+    th: foundationGrammar("th-foundation", THAI_COPULAR_NEGATION, {
+      ruleId: "th-copular-negation-mai-chai",
+      name: "Copular negation with ไม่ใช่",
+      displayNames: { en: "Copular negation with ไม่ใช่", ja: "ไม่ใช่ によるコピュラ否定" },
+      patternSource: String.raw`ไม่ใช่`,
+      priority: 20,
+      confidence: "high",
+      url: THAI_COPULAR_NEGATION
+    }),
+    tr: oneRuleGrammar(YEE_A1_A2, YEE_CEFR_BAND_LEVEL_SCALE, {
+      ruleId: "tr-a1-a2-existence-var-yok",
+      level: "A1–A2",
+      name: "Existence or possession with var / yok",
+      displayNames: { en: "Existence or possession with var / yok", ja: "var / yok の存在・所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:bir\s+)?\p{L}{2,}\s+(?:var|yok)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: YEE_VAR_YOK
+    }),
+    vi: foundationGrammar("vi-foundation", VIETNAMESE_COMPLETION, {
+      ruleId: "vi-completed-da-roi",
+      name: "Completed action with đã … rồi",
+      displayNames: { en: "Completed action with đã … rồi", ja: "đã … rồi の完了表現" },
+      patternSource: String.raw`(?<!\p{L})[Đđ]ã\s+[^\n.!?]{1,50}?\s+rồi(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: VIETNAMESE_COMPLETION
+    })
+  });
+  const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
+  const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
+  const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
+  const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
+  const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
+  const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
+  const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CORNELL_GRAMMAR,
+    rules: [
+      {
+        ruleId: "ru-a1-kto-chto-eto",
+        level: "A1",
+        name: "Кто/что это? identification question",
+        displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
+        patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
+        priority: 10,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-possessive-starter",
+        level: "A1",
+        name: "Possession with это + possessive",
+        displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
+        patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-request-imperative",
+        level: "A1",
+        name: "Requests with дай(те), скажи(те), покажи(те)",
+        displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
+        patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
+        priority: 14,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=20`
+      },
+      {
+        ruleId: "ru-a1-dative-nravitsya",
+        level: "A1",
+        name: "нравится with a dative experiencer",
+        displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
+        patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=21`
+      },
+      {
+        ruleId: "ru-a1-potomu-chto",
+        level: "A1",
+        name: "Reason with потому что",
+        displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
+        patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-gde-mozhno-infinitive",
+        level: "A1",
+        name: "Где можно + infinitive",
+        displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-want-can-infinitive",
+        level: "A1",
+        name: "хотеть/мочь + infinitive",
+        displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=23`
+      },
+      {
+        ruleId: "ru-a1-need-infinitive",
+        level: "A1",
+        name: "Necessity with надо/нужно",
+        displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
+        patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=24`
+      }
+    ]
+  });
+  const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
+  const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
+  const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
+  const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
+  const SPANISH_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CERVANTES_A1_A2,
+    rules: [
+      {
+        ruleId: "es-me-gusta-infinitive",
+        level: "A1",
+        name: "gustar + infinitive",
+        displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 10,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1223a1`
+      },
+      {
+        ruleId: "es-existential-hay",
+        level: "A1",
+        name: "Existence with hay",
+        displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
+        patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-causal-porque",
+        level: "A1",
+        name: "Reason with porque",
+        displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
+        patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
+        priority: 14,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1534a1`
+      },
+      {
+        ruleId: "es-negation-no",
+        level: "A1",
+        name: "Verb negation with no",
+        displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
+        patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-present-perfect",
+        level: "A2",
+        name: "Present perfect",
+        displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
+        patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p916a2`
+      },
+      {
+        ruleId: "es-estar-gerundio",
+        level: "A2",
+        name: "Progressive with estar",
+        displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
+        patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p942a2`
+      },
+      {
+        ruleId: "es-tener-que",
+        level: "A2",
+        name: "Obligation with tener que",
+        displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      },
+      {
+        ruleId: "es-ir-a-infinitive",
+        level: "A2",
+        name: "Near future with ir a",
+        displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      }
+    ]
+  });
+  const GRAMMAR_BY_TARGET = Object.freeze({
+    sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+    grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+    ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+    yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+    zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+    da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+    nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+    en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+    fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
+    fr: FRENCH_GRAMMAR,
+    de: GERMAN_GRAMMAR,
+    el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+    hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+    id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+    it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+    km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+    ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+    lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+    la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+    mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+    fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+    pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+    pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+    ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
+    ru: RUSSIAN_GRAMMAR,
+    sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
+    es: SPANISH_GRAMMAR,
+    sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+    tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+    th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+    tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+    vi: FOUNDATION_GRAMMAR_BY_TARGET.vi
+  });
+  function grammarForRosterTarget(language) {
+    return GRAMMAR_BY_TARGET[language];
+  }
+  const KOREAN_SEGMENT_SUFFIXES = [
+    "에게서",
+    "이라고",
+    "으로",
+    "에서",
+    "에게",
+    "한테",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "에는",
+    "라고",
+    "하고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "의",
+    "에",
+    "와",
+    "과",
+    "로",
+    "도",
+    "만"
+  ];
+  const REWRITES = {
+    es: [
+      { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+      { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+    ],
+    de: [
+      { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+      { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+    ],
+    ru: [
+      { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+      { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+    ],
+    ar: [
+      { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+      { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+      { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+      { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+      { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+    ]
+  };
+  function lookupRewritesForTarget(target) {
+    return REWRITES[target] ?? [];
+  }
+  function koreanLookupSubsegments(segment, maxLength) {
+    const candidates = /* @__PURE__ */ new Set();
+    if (segment.length <= maxLength) candidates.add(segment);
+    for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+      if (!segment.endsWith(suffix)) continue;
+      const stem = segment.slice(0, -suffix.length);
+      if (stem && stem.length <= maxLength) candidates.add(stem);
+    }
+    return [...candidates];
+  }
+  const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
+  const KOREAN_LEARNING_TARGET = createLearningTargetModule({
+    id: "korean-thin-v1",
+    language: "ko",
     featureSemantics: {
-      characterSystem: language.defaultScript,
-      phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
+      characterSystem: "hangul",
+      phoneticScripts: ["hangul"],
       pronunciation: "ipa",
-      readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
+      readingAnnotation: "hangul"
     },
-    grammar: grammarForRosterTarget(language.id),
-    sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
-    typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
-    ocr: ocrHintFor(language.runtimeLocale),
-    detectsText: scriptDetector(language.scripts),
-    lookupRewrites,
-    ...usesHanScript ? {
-      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
-      // Let the installed dictionary arbitrate inside a real Han
-      // run, and accept expression hits only.
-      lookupStartsAtSegmentBoundary: false,
-      lookupRunSegments: hanIdeographSegments,
-      lookupSweepMode: "left-to-right-longest-exact",
-      pointerWordSegments: hanIdeographSegments
-    } : {}
+    grammar: grammarForRosterTarget("ko"),
+    typography: {
+      readingAnnotationMode: "ruby"
+    },
+    subtitles: {
+      languageAliases: ["kor", "korean"]
+    },
+    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+    lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
+    detectsText: HAS_HANGUL
   });
-  })
-);
-function sentenceBoundariesForScripts(scripts) {
-  const has = (script) => scripts.includes(script);
-  const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
-  const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
-  return { terminators, whitespaceIsBoundary };
-}
-function ocrHintFor(runtimeLocale) {
-  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
-  return hint ? { languageHint: hint } : void 0;
-}
-function scriptDetector(scripts) {
-  return new RegExp(
-  scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
-  "u"
-  );
-}
-const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-let registryRevision = 0;
-function learningTargetRegistryRevision() {
-  return registryRevision;
-}
-function registerLearningTargetModule(module) {
-  if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
-  throw new Error(
-    `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
-  );
-  }
-  const base = languageSubtag(module.language);
-  if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-  const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-  stack.push(module);
-  MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-  registryRevision++;
-  return module;
-}
-function learningTargetModuleFor(language) {
-  const canonical = canonicalLanguageTag(language);
-  const base = languageSubtag(canonical);
-  return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
-}
-function normalizeLearningTargetLanguage(value) {
-  return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
-}
-function defaultLearningTargetModule() {
-  return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
-}
-function registerBuiltInLearningTargetModule(module) {
-  registerLearningTargetModule(module);
-}
-registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
-let cachedTarget = null;
-let cachedForLanguage = "";
-let cachedForRegistryRevision = -1;
-function activeLearningTarget() {
-  const revision = learningTargetRegistryRevision();
-  if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
-  return cachedTarget;
-  }
-  cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
-  cachedForLanguage = requestedTargetLanguage;
-  cachedForRegistryRevision = revision;
-  return cachedTarget;
-}
-const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-  id: "ja",
-  runtimeLocale: "ja",
-  englishName: "Japanese",
-  nativeName: "日本語",
-  defaultScript: "Jpan",
-  scripts: Object.freeze(["Jpan"]),
-  direction: "ltr",
-  studyTargetReadiness: "full"
-});
-const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
-const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
-const LEARNING_TARGET_ROSTER = Object.freeze([
-  JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
-  ...language,
-  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
-  }))
-]);
-Object.freeze(
-  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
-function canonicalTagForSlice1Language(id) {
-  const runtimeLocale = learnerLanguageById(id).runtimeLocale;
-  return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
-}
-function slice1LanguageIdForTag(value) {
-  if (typeof value !== "string") return null;
-  const input = value.trim().toLowerCase().replace(/_/g, "-");
-  const inputBase = input.split("-")[0] ?? "";
-  if (isLearnerLanguageId(inputBase)) return inputBase;
-  const canonical = canonicalLanguageTag(value);
-  if (!canonical) return null;
-  const base = languageSubtag(canonical);
-  if (!base) return null;
-  if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  if (base === "fil") return "tl";
-  return isLearnerLanguageId(base) ? base : null;
-}
-function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
-  if (typeof value === "string") {
-  const input = value.trim().toLowerCase().replace(/_/g, "-");
-  if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
-  }
-  const canonical = canonicalLanguageTag(value);
-  const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
-  if (canonical && canonicalId) {
-  if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
-  return canonical;
-  }
-  const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
-  return canonicalTagForSlice1Language(fallbackId);
-}
-const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
-const ankiFieldNames = (names) => names.split("|");
-const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-  "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-);
-const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-  "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-);
-const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-const ANKI_HEADWORD_FIELD_NAMES = [
-  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-  "Expression Reading",
-  "Japanese Expression",
-  ...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-const ANKI_EXPRESSION_FIELD_NAMES = [
-  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-  ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-  ...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-const ANKI_READING_FIELD_NAMES = ankiFieldNames(
-  "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-);
-const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
-  "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-);
-const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
-  "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-);
-const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
-  "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
-);
-const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
-  "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
-);
-const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
-  "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-);
-const ANKI_FIELD_ROLE_CANDIDATES = {
-  expression: ANKI_EXPRESSION_FIELD_NAMES,
-  reading: ANKI_READING_FIELD_NAMES,
-  meaning: ANKI_MEANING_FIELD_NAMES,
-  sentence: ANKI_SENTENCE_FIELD_NAMES,
-  audio: ANKI_AUDIO_FIELD_NAMES,
-  sentenceAudio: ANKI_SENTENCE_AUDIO_FIELD_NAMES,
-  image: ANKI_IMAGE_FIELD_NAMES
-};
-const ANKI_AUDIO_ROLES = /* @__PURE__ */ new Set(["audio", "sentenceAudio"]);
-function isAnkiAudioRole(role) {
-  return ANKI_AUDIO_ROLES.has(role);
-}
-function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
-  const usedFields = /* @__PURE__ */ new Set();
-  const samples = ankiFieldContentSamples(fields, sampleNotes);
-  const suggestions = Object.keys(ANKI_FIELD_ROLE_CANDIDATES).filter((role) => role !== "reading" || activeLearningTarget().featureSemantics.readingAnnotation !== "none").map((role) => {
-  const suggestion = suggestAnkiField(role, fields, usedFields, samples);
-  if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
-  return suggestion;
-  });
-  return {
-  modelName,
-  fields,
-  suggestions,
-  score: ankiModelScanScore(suggestions)
+  const ENGLISH_FALLBACK_MESSAGES = {
+    setupTitle: "Set up Yomu in your language",
+    learnerLanguageLabel: "Your language",
+    targetLanguageLabel: "Language you are learning",
+    targetJapanese: "Japanese",
+    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
+    automaticTranslationLabel: "Translate automatically into {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
+    setupProgress: "Language setup {current} of {total}",
+    continueAction: "Continue",
+    originalDefinitionLabel: "Original {language}",
+    // D43: a locale that is in scope but not yet selectable says why, in its own
+    // language, so the person who came looking for it can read the answer. The
+    // interface never offers one of these and then quietly speaks English.
+    interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
+    interfaceTranslationPending: "Translation is still in progress."
   };
-}
-function suggestAnkiField(role, fields, usedFields, samples = {}) {
-  const candidates = ankiFieldRoleCandidates(role);
-  const availableFields = fields.filter((field) => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
-  const exact = firstMatchingAnkiField(availableFields, candidates);
-  const content = suggestAnkiFieldFromContent(role, availableFields, samples);
-  const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
-  const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
-  return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
-}
-function ankiFieldRoleCandidates(role) {
-  if (role !== "expression") return ANKI_FIELD_ROLE_CANDIDATES[role];
-  const language = activeLearningTarget().language.split("-")[0];
-  const roster = LEARNING_TARGET_ROSTER.find((entry) => entry.id === language);
-  if (!roster) return ANKI_FIELD_ROLE_CANDIDATES.expression;
-  return unique([
-  roster.englishName,
-  roster.nativeName,
-  `${roster.englishName} Word`,
-  `${roster.nativeName} Word`,
-  ...ANKI_FIELD_ROLE_CANDIDATES.expression
+  function defineLocaleCatalog(locale, reviewStatus, messages) {
+    return Object.freeze({
+      locale,
+      reviewStatus,
+      sourceLocale: "en",
+      messages: Object.freeze(messages)
+    });
+  }
+  defineLocaleCatalog("ar", "machine-draft", {
+    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
+    learnerLanguageLabel: "لغتك",
+    targetLanguageLabel: "اللغة التي تتعلمها",
+    targetJapanese: "اليابانية",
+    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
+    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
+    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
+    continueAction: "متابعة",
+    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
+    interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+    interfaceTranslationPending: "الترجمة قيد التقدم."
+  });
+  defineLocaleCatalog("da", "machine-draft", {
+    setupTitle: "Opsæt よむ på dit sprog",
+    learnerLanguageLabel: "Dit sprog",
+    targetLanguageLabel: "Det sprog, du lærer",
+    targetJapanese: "Japansk",
+    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
+    automaticTranslationLabel: "Oversæt automatisk til {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
+    setupProgress: "Sprogopsætning: {current} af {total}",
+    continueAction: "Fortsæt",
+    originalDefinitionLabel: "Original på {language}",
+    interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+    interfaceTranslationPending: "Oversættelsen er stadig i gang."
+  });
+  defineLocaleCatalog("de", "machine-draft", {
+    setupTitle: "よむ in deiner Sprache einrichten",
+    learnerLanguageLabel: "Deine Sprache",
+    targetLanguageLabel: "Sprache, die du lernst",
+    targetJapanese: "Japanisch",
+    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
+    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
+    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
+    setupProgress: "Sprache einrichten: {current} von {total}",
+    continueAction: "Weiter",
+    originalDefinitionLabel: "Originaldefinition auf {language}",
+    interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+    interfaceTranslationPending: "Die Übersetzung läuft noch."
+  });
+  defineLocaleCatalog("el", "machine-draft", {
+    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
+    learnerLanguageLabel: "Η γλώσσα σας",
+    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
+    targetJapanese: "Ιαπωνικά",
+    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
+    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
+    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
+    continueAction: "Συνέχεια",
+    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+    interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+    interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
+  });
+  defineLocaleCatalog(
+    "en",
+    "source-approved",
+    ENGLISH_FALLBACK_MESSAGES
+  );
+  defineLocaleCatalog("es", "machine-draft", {
+    setupTitle: "Configura Yomu en tu idioma",
+    learnerLanguageLabel: "Tu idioma",
+    targetLanguageLabel: "Idioma que estás aprendiendo",
+    targetJapanese: "Japonés",
+    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
+    automaticTranslationLabel: "Traducir automáticamente al {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
+    setupProgress: "Configuración del idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definición original ({language})",
+    interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
+    interfaceTranslationPending: "La traducción sigue en curso."
+  });
+  defineLocaleCatalog("fa", "machine-draft", {
+    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
+    learnerLanguageLabel: "زبان شما",
+    targetLanguageLabel: "زبانی که یاد می‌گیرید",
+    targetJapanese: "ژاپنی",
+    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
+    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
+    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
+    continueAction: "ادامه",
+    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
+    interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
+    interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
+  });
+  defineLocaleCatalog("fi", "machine-draft", {
+    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
+    learnerLanguageLabel: "Oma kielesi",
+    targetLanguageLabel: "Opiskelemasi kieli",
+    targetJapanese: "Japani",
+    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
+    automaticTranslationLabel: "Käännä automaattisesti: {language}",
+    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
+    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
+    continueAction: "Jatka",
+    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+    interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+    interfaceTranslationPending: "Käännös on vielä kesken."
+  });
+  defineLocaleCatalog("fr", "machine-draft", {
+    setupTitle: "Configurez よむ dans votre langue",
+    learnerLanguageLabel: "Votre langue",
+    targetLanguageLabel: "Langue que vous apprenez",
+    targetJapanese: "Japonais",
+    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
+    automaticTranslationLabel: "Traduire automatiquement en {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
+    setupProgress: "Configuration de la langue : {current} sur {total}",
+    continueAction: "Continuer",
+    originalDefinitionLabel: "Définition originale en {language}",
+    interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
+    interfaceTranslationPending: "La traduction est en cours."
+  });
+  defineLocaleCatalog("grc", "machine-draft", {
+    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
+    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
+    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
+    targetJapanese: "Ἰαπωνική",
+    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
+    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
+    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
+    continueAction: "Πρόβαινε",
+    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+    interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+    interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
+  });
+  defineLocaleCatalog("hu", "machine-draft", {
+    setupTitle: "A よむ beállítása az Ön nyelvén",
+    learnerLanguageLabel: "Az Ön nyelve",
+    targetLanguageLabel: "A tanult nyelv",
+    targetJapanese: "Japán",
+    recommendedDictionariesTitle: "Ajánlott japán szótárak",
+    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
+    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
+    setupProgress: "Nyelvi beállítás: {current}/{total}",
+    continueAction: "Folytatás",
+    originalDefinitionLabel: "Eredeti meghatározás ({language})",
+    interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+    interfaceTranslationPending: "A fordítás még folyamatban van."
+  });
+  defineLocaleCatalog("id", "machine-draft", {
+    setupTitle: "Siapkan Yomu dalam bahasa Anda",
+    learnerLanguageLabel: "Bahasa Anda",
+    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
+    targetJapanese: "Bahasa Jepang",
+    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
+    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
+    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
+    setupProgress: "Penyiapan bahasa {current} dari {total}",
+    continueAction: "Lanjutkan",
+    originalDefinitionLabel: "Definisi asli dalam {language}",
+    interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+    interfaceTranslationPending: "Penerjemahan masih berlangsung."
+  });
+  defineLocaleCatalog("it", "machine-draft", {
+    setupTitle: "Configura よむ nella tua lingua",
+    learnerLanguageLabel: "La tua lingua",
+    targetLanguageLabel: "Lingua che stai imparando",
+    targetJapanese: "Giapponese",
+    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
+    automaticTranslationLabel: "Traduci automaticamente in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
+    setupProgress: "Configurazione della lingua: {current} di {total}",
+    continueAction: "Continua",
+    originalDefinitionLabel: "Definizione originale in {language}",
+    interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
+    interfaceTranslationPending: "La traduzione è ancora in corso."
+  });
+  defineLocaleCatalog("km", "machine-draft", {
+    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
+    learnerLanguageLabel: "ភាសារបស់អ្នក",
+    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
+    targetJapanese: "ភាសាជប៉ុន",
+    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
+    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
+    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
+    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
+    continueAction: "បន្ត",
+    originalDefinitionLabel: "និយមន័យដើម ({language})",
+    interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+    interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
+  });
+  defineLocaleCatalog("ko", "machine-draft", {
+    setupTitle: "내 언어로 よむ 설정하기",
+    learnerLanguageLabel: "사용 언어",
+    targetLanguageLabel: "학습할 언어",
+    targetJapanese: "일본어",
+    recommendedDictionariesTitle: "추천 일본어 사전",
+    automaticTranslationLabel: "{language}로 자동 번역",
+    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
+    setupProgress: "언어 설정: {total}단계 중 {current}단계",
+    continueAction: "계속",
+    originalDefinitionLabel: "원문({language})",
+    interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+    interfaceTranslationPending: "번역이 아직 진행 중입니다."
+  });
+  defineLocaleCatalog("la", "machine-draft", {
+    setupTitle: "Configura よむ in lingua tua",
+    learnerLanguageLabel: "Lingua tua",
+    targetLanguageLabel: "Lingua quam discis",
+    targetJapanese: "Lingua Iaponica",
+    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
+    automaticTranslationLabel: "Automatice verte in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
+    setupProgress: "Configuratio linguae: {current} ex {total}",
+    continueAction: "Perge",
+    originalDefinitionLabel: "Definitio originalis ({language})",
+    interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+    interfaceTranslationPending: "Translatio adhuc geritur."
+  });
+  defineLocaleCatalog("lo", "machine-draft", {
+    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
+    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
+    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
+    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
+    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
+    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
+    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
+    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
+    continueAction: "ສືບຕໍ່",
+    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+    interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+    interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
+  });
+  defineLocaleCatalog("mn", "machine-draft", {
+    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
+    learnerLanguageLabel: "Таны хэл",
+    targetLanguageLabel: "Таны сурч буй хэл",
+    targetJapanese: "Япон хэл",
+    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
+    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
+    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
+    setupProgress: "Хэлний тохиргоо: {current}/{total}",
+    continueAction: "Үргэлжлүүлэх",
+    originalDefinitionLabel: "Эх тайлбар ({language})",
+    interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+    interfaceTranslationPending: "Орчуулга хийгдсээр байна."
+  });
+  defineLocaleCatalog("nl", "machine-draft", {
+    setupTitle: "Stel よむ in jouw taal in",
+    learnerLanguageLabel: "Jouw taal",
+    targetLanguageLabel: "Taal die je leert",
+    targetJapanese: "Japans",
+    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
+    automaticTranslationLabel: "Automatisch vertalen naar {language}",
+    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
+    setupProgress: "Taal instellen: {current} van {total}",
+    continueAction: "Doorgaan",
+    originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+    interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+    interfaceTranslationPending: "De vertaling is nog bezig."
+  });
+  defineLocaleCatalog("pl", "machine-draft", {
+    setupTitle: "Skonfiguruj Yomu w swoim języku",
+    learnerLanguageLabel: "Twój język",
+    targetLanguageLabel: "Język, którego się uczysz",
+    targetJapanese: "Japoński",
+    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
+    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
+    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
+    setupProgress: "Konfiguracja języka: {current} z {total}",
+    continueAction: "Kontynuuj",
+    originalDefinitionLabel: "Oryginalna definicja ({language})",
+    interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
+    interfaceTranslationPending: "Tłumaczenie wciąż trwa."
+  });
+  defineLocaleCatalog("pt", "machine-draft", {
+    setupTitle: "Configure o Yomu no seu idioma",
+    learnerLanguageLabel: "O seu idioma",
+    targetLanguageLabel: "Idioma que está a aprender",
+    targetJapanese: "Japonês",
+    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
+    automaticTranslationLabel: "Traduzir automaticamente para {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
+    setupProgress: "Configuração do idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definição original ({language})",
+    interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
+    interfaceTranslationPending: "A tradução ainda está em andamento."
+  });
+  defineLocaleCatalog("ro", "machine-draft", {
+    setupTitle: "Configurează Yomu în limba ta",
+    learnerLanguageLabel: "Limba ta",
+    targetLanguageLabel: "Limba pe care o înveți",
+    targetJapanese: "Japoneză",
+    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
+    automaticTranslationLabel: "Tradu automat în {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
+    setupProgress: "Configurarea limbii: {current} din {total}",
+    continueAction: "Continuă",
+    originalDefinitionLabel: "Definiția originală în {language}",
+    interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+    interfaceTranslationPending: "Traducerea este încă în curs."
+  });
+  defineLocaleCatalog("ru", "machine-draft", {
+    setupTitle: "Настройте Yomu на своём языке",
+    learnerLanguageLabel: "Ваш язык",
+    targetLanguageLabel: "Язык, который вы изучаете",
+    targetJapanese: "Японский",
+    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
+    automaticTranslationLabel: "Автоматически переводить на {language}",
+    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
+    setupProgress: "Настройка языка: {current} из {total}",
+    continueAction: "Продолжить",
+    originalDefinitionLabel: "Оригинал определения ({language})",
+    interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+    interfaceTranslationPending: "Перевод ещё выполняется."
+  });
+  defineLocaleCatalog("sh", "machine-draft", {
+    setupTitle: "Podesite Yomu na svom jeziku",
+    learnerLanguageLabel: "Vaš jezik",
+    targetLanguageLabel: "Jezik koji učite",
+    targetJapanese: "Japanski",
+    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
+    automaticTranslationLabel: "Automatski prevod na jezik {language}",
+    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
+    setupProgress: "Podešavanje jezika: {current} od {total}",
+    continueAction: "Nastavi",
+    originalDefinitionLabel: "Originalna definicija ({language})",
+    interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+    interfaceTranslationPending: "Prijevod je još u toku."
+  });
+  defineLocaleCatalog("sq", "machine-draft", {
+    setupTitle: "Konfiguro よむ në gjuhën tënde",
+    learnerLanguageLabel: "Gjuha jote",
+    targetLanguageLabel: "Gjuha që po mëson",
+    targetJapanese: "Japonisht",
+    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
+    automaticTranslationLabel: "Përkthe automatikisht në {language}",
+    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
+    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
+    continueAction: "Vazhdo",
+    originalDefinitionLabel: "Origjinali në {language}",
+    interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+    interfaceTranslationPending: "Përkthimi është në vazhdim."
+  });
+  defineLocaleCatalog("sv", "machine-draft", {
+    setupTitle: "Ställ in よむ på ditt språk",
+    learnerLanguageLabel: "Ditt språk",
+    targetLanguageLabel: "Språket du lär dig",
+    targetJapanese: "Japanska",
+    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
+    automaticTranslationLabel: "Översätt automatiskt till {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
+    setupProgress: "Språkinställning: {current} av {total}",
+    continueAction: "Fortsätt",
+    originalDefinitionLabel: "Ursprunglig definition på {language}",
+    interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+    interfaceTranslationPending: "Översättningen pågår fortfarande."
+  });
+  defineLocaleCatalog("th", "machine-draft", {
+    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
+    learnerLanguageLabel: "ภาษาของคุณ",
+    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
+    targetJapanese: "ภาษาญี่ปุ่น",
+    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
+    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
+    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
+    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
+    continueAction: "ดำเนินการต่อ",
+    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+    interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+    interfaceTranslationPending: "การแปลยังดำเนินอยู่"
+  });
+  defineLocaleCatalog("tl", "machine-draft", {
+    setupTitle: "I-set up ang Yomu sa iyong wika",
+    learnerLanguageLabel: "Iyong wika",
+    targetLanguageLabel: "Wikang pinag-aaralan mo",
+    targetJapanese: "Wikang Hapon",
+    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
+    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
+    setupProgress: "Pag-set up ng wika: {current} sa {total}",
+    continueAction: "Magpatuloy",
+    originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+    interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+    interfaceTranslationPending: "Isinasalin pa ito."
+  });
+  defineLocaleCatalog("tr", "machine-draft", {
+    setupTitle: "Yomu'yu dilinizde ayarlayın",
+    learnerLanguageLabel: "Diliniz",
+    targetLanguageLabel: "Öğrendiğiniz dil",
+    targetJapanese: "Japonca",
+    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
+    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
+    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
+    setupProgress: "Dil ayarı: {current}/{total}",
+    continueAction: "Devam et",
+    originalDefinitionLabel: "Orijinal tanım ({language})",
+    interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+    interfaceTranslationPending: "Çeviri hâlâ sürüyor."
+  });
+  defineLocaleCatalog("vi", "machine-draft", {
+    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
+    learnerLanguageLabel: "Ngôn ngữ của bạn",
+    targetLanguageLabel: "Ngôn ngữ bạn đang học",
+    targetJapanese: "Tiếng Nhật",
+    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
+    automaticTranslationLabel: "Tự động dịch sang {language}",
+    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
+    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
+    continueAction: "Tiếp tục",
+    originalDefinitionLabel: "Định nghĩa gốc ({language})",
+    interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+    interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
+  });
+  defineLocaleCatalog("yue", "machine-draft", {
+    setupTitle: "用你嘅語言設定よむ",
+    learnerLanguageLabel: "你嘅語言",
+    targetLanguageLabel: "你學緊嘅語言",
+    targetJapanese: "日文",
+    recommendedDictionariesTitle: "推薦嘅日文字典",
+    automaticTranslationLabel: "自動翻譯做{language}",
+    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
+    setupProgress: "語言設定：第{current}步，共{total}步",
+    continueAction: "繼續",
+    originalDefinitionLabel: "原文（{language}）",
+    interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+    interfaceTranslationPending: "翻譯仲進行中。"
+  });
+  defineLocaleCatalog("zh", "machine-draft", {
+    setupTitle: "用您的语言设置よむ",
+    learnerLanguageLabel: "您的语言",
+    targetLanguageLabel: "您正在学习的语言",
+    targetJapanese: "日语",
+    recommendedDictionariesTitle: "推荐日语词典",
+    automaticTranslationLabel: "自动翻译为{language}",
+    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
+    setupProgress: "语言设置：第{current}步，共{total}步",
+    continueAction: "继续",
+    originalDefinitionLabel: "{language}原文",
+    interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+    interfaceTranslationPending: "翻译仍在进行中。"
+  });
+  const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
+  new Set(MESSAGE_NAMESPACES);
+  const OCR_LANGUAGE_HINTS = Object.freeze({
+    fil: "tl",
+    yue: "zh",
+    grc: "el"
+  });
+  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
+    LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
+      const lookupRewrites = lookupRewritesForTarget(language.id);
+      const readingAnnotation = language.id === "zh" || language.id === "yue";
+      const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
+      return createLearningTargetModule({
+        id: `${language.id}-roster-v1`,
+        language: language.runtimeLocale,
+        direction: language.direction,
+        experiences: {
+          // Published zh/yue character banks warrant a dedicated
+          // per-character surface. Other scripts use the normal term
+          // dictionary with a single grapheme as their query.
+          characterLookup: usesHanScript ? "character-dictionary" : "term-dictionary"
+        },
+        featureSemantics: {
+          characterSystem: language.defaultScript,
+          phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
+          pronunciation: "ipa",
+          readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "dictionary reading"
+        },
+        grammar: grammarForRosterTarget(language.id),
+        sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
+        ocr: ocrHintFor(language.runtimeLocale),
+        detectsText: scriptDetector(language.scripts),
+        lookupRewrites,
+        ...usesHanScript ? {
+          // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+          // Let the installed dictionary arbitrate inside a real Han
+          // run, and accept expression hits only.
+          lookupStartsAtSegmentBoundary: false,
+          lookupRunSegments: hanIdeographSegments,
+          lookupSweepMode: "left-to-right-longest-exact",
+          pointerWordSegments: hanIdeographSegments
+        } : {}
+      });
+    })
+  );
+  function sentenceBoundariesForScripts(scripts) {
+    const has = (script) => scripts.includes(script);
+    const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
+    const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
+    return { terminators, whitespaceIsBoundary };
+  }
+  function ocrHintFor(runtimeLocale) {
+    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+    return hint ? { languageHint: hint } : void 0;
+  }
+  function scriptDetector(scripts) {
+    return new RegExp(
+      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
+      "u"
+    );
+  }
+  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  let registryRevision = 0;
+  function learningTargetRegistryRevision() {
+    return registryRevision;
+  }
+  function registerLearningTargetModule(module) {
+    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+      throw new Error(
+        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+      );
+    }
+    const base = languageSubtag(module.language);
+    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+    stack.push(module);
+    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
+    registryRevision++;
+    return module;
+  }
+  function learningTargetModuleFor(language) {
+    const canonical = canonicalLanguageTag(language);
+    const base = languageSubtag(canonical);
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
+  }
+  function normalizeLearningTargetLanguage(value) {
+    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function defaultLearningTargetModule() {
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+  }
+  function registerBuiltInLearningTargetModule(module) {
+    registerLearningTargetModule(module);
+  }
+  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
+  let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+  let cachedTarget = null;
+  let cachedForLanguage = "";
+  let cachedForRegistryRevision = -1;
+  function activeLearningTarget() {
+    const revision = learningTargetRegistryRevision();
+    if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
+      return cachedTarget;
+    }
+    cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
+    cachedForLanguage = requestedTargetLanguage;
+    cachedForRegistryRevision = revision;
+    return cachedTarget;
+  }
+  const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
+  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
+    id: "ja",
+    runtimeLocale: "ja",
+    englishName: "Japanese",
+    nativeName: "日本語",
+    defaultScript: "Jpan",
+    scripts: Object.freeze(["Jpan"]),
+    direction: "ltr",
+    studyTargetReadiness: "full"
+  });
+  const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+  const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
+  const LEARNING_TARGET_ROSTER = Object.freeze([
+    JAPANESE_TARGET_ROSTER_ENTRY,
+    ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+      ...language,
+      studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+    }))
   ]);
-}
-function bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore) {
-  if (shouldPreferContentSuggestion(content, exact, exactContentScore)) return content;
-  const suggestions = [
-  exact ? { role, fieldName: exact, confidence: "high" } : null,
-  contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy),
-  fuzzy ? { role, fieldName: fuzzy, confidence: "medium" } : null,
-  content.fieldName ? content : null,
-  { role, fieldName: null, confidence: "low" }
-  ];
-  return suggestions.find(Boolean);
-}
-function contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy) {
-  if (!content.fieldName) return null;
-  return !fuzzy || content.confidence === "high" ? content : null;
-}
-function isAvailableAnkiFieldForRole(field, role, usedFields, samples) {
-  if (usedFields.has(field)) return false;
-  if (ankiFieldDisallowedForRole(field, role)) return false;
-  return ankiFieldAllowedForRole(field, role) || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50;
-}
-function shouldPreferContentSuggestion(content, exact, exactContentScore) {
-  if (!content.fieldName) return false;
-  if (!exact || isGenericAnkiFieldName(exact)) return true;
-  return content.fieldName !== exact && exactContentScore === 0 && content.confidence === "high";
-}
-function ankiFieldMappingForModel(settings, modelName, fieldNames) {
-  const mapping = settings.ankiFieldMappings?.[modelName];
-  if (!mapping) return void 0;
-  const normalized = {};
-  for (const role of ANKI_FIELD_ROLES) {
-  const fieldName = mappedFieldName(fieldNames, mapping, role);
-  if (fieldName) normalized[role] = fieldName;
-  }
-  return Object.keys(normalized).length ? normalized : void 0;
-}
-function mappedFieldName(fieldNames, mapping, role) {
-  const fieldName = mapping?.[role]?.trim();
-  if (!fieldName) return "";
-  const exact = fieldNames.find((candidate) => candidate === fieldName);
-  if (exact) return exact;
-  const normalizedFieldName = normalizeAnkiFieldName(fieldName);
-  return fieldNames.find((candidate) => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? "";
-}
-function ankiFieldMappingsSettingsKey(mappings) {
-  const normalized = {};
-  for (const modelName of Object.keys(mappings ?? {}).sort()) {
-  const mapping = mappings?.[modelName];
-  if (!mapping) continue;
-  const modelMapping = {};
-  for (const role of ANKI_FIELD_ROLES) {
-    const fieldName = mapping[role]?.trim();
-    if (fieldName) modelMapping[role] = fieldName;
-  }
-  if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
-  }
-  return normalized;
-}
-function fieldNameForRole(fieldNames, role, mapping) {
-  const mapped = mappedFieldName(fieldNames, mapping, role);
-  if (mapped) return mapped;
-  return suggestAnkiField(role, fieldNames, /* @__PURE__ */ new Set()).fieldName ?? "";
-}
-function mappedRoleForField(fieldName, mapping) {
-  if (!mapping) return null;
-  const normalized = normalizeAnkiFieldName(fieldName);
-  for (const role of ANKI_FIELD_ROLES) {
-  const mapped = mapping[role];
-  if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
-  }
-  return null;
-}
-function yomuFieldForRole(role) {
-  return {
-  expression: "Expression",
-  reading: "Reading",
-  meaning: "Meaning",
-  sentence: "Sentence",
-  audio: "Audio",
-  // Yomu's own note type has a single Audio field, so the sentence-audio
-  // role maps onto it: buildYomuAnkiFields never emits a SentenceAudio
-  // value, and media routing collapses through mergeAudioFilesForNote.
-  sentenceAudio: "Audio",
-  image: "Image"
-  }[role];
-}
-function flattenNoteFields(fields) {
-  const out = {};
-  Object.entries(fields ?? {}).forEach(([name, value]) => {
-  out[name] = stripHtml$1(String(value?.value ?? ""));
-  });
-  return out;
-}
-function noteLooksLikeCard(note, card, settings) {
-  const fields = flattenNoteFields(note.fields);
-  const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : void 0;
-  const expressionTargets = noteCardExpressionTargets(card);
-  return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
-}
-function noteCardExpressionTargets(card) {
-  return unique([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
-}
-function noteFieldValues(fields) {
-  return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
-}
-function firstNoteReading(fields) {
-  return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
-}
-function firstNoteExpressionValue(fields, mapping) {
-  return noteExpressionCandidates(fields, mapping)[0]?.value ?? "";
-}
-function mappedNoteField(fields, mapping, role) {
-  const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
-  return fieldName ? fields[fieldName] ?? "" : "";
-}
-function lookupKeyTermsForCard(card) {
-  return unique([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
-}
-function isKanaStatusLookupSurface(value) {
-  return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
-}
-function japaneseFieldContainsStandaloneTarget(value, target) {
-  const normalizedValue = normalizeFieldValue(value);
-  if (normalizedValue === target) return true;
-  return normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some((part) => part === target);
-}
-function japaneseCharacterCount(value) {
-  return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
-}
-function normalizeAnkiFieldName(value) {
-  return value.replace(/[_\s-]+/g, "").toLowerCase();
-}
-function stripHtml$1(value) {
-  return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
-}
-function suggestAnkiFieldFromContent(role, fields, samples) {
-  const ranked = fields.map((fieldName) => ({
-  fieldName,
-  score: ankiFieldContentRoleScore(role, samples[fieldName] ?? [])
-  })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || fields.indexOf(a.fieldName) - fields.indexOf(b.fieldName));
-  const best = ranked[0];
-  if (!best) return { role, fieldName: null, confidence: "low" };
-  return {
-  role,
-  fieldName: best.fieldName,
-  confidence: best.score >= 50 ? "high" : "medium"
-  };
-}
-function ankiFieldContentRoleScore(role, samples) {
-  if (!samples.length) return 0;
-  const scores = samples.map((sample) => ankiFieldContentSampleRoleScore(role, sample)).filter((score) => score > 0).sort((a, b) => b - a);
-  if (!scores.length) return 0;
-  const strongest = scores[0] ?? 0;
-  const second = scores[1] ?? 0;
-  return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
-}
-const ANKI_TEXT_ROLE_SCORERS = {
-  expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike, targetText }) {
-  if (activeLearningTarget().language.split("-")[0] !== "ja") {
-    return targetText && !sentenceLike && length <= 40 ? 64 + Math.max(0, 12 - Math.floor(length / 2)) : 0;
-  }
-  if (!hasJapanese || sentenceLike || length > 40) return 0;
-  return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
-  },
-  reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
-  if (!hasJapanese || hasKanji || length > 40) return 0;
-  const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
-  return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
-  },
-  meaning({ length, hasJapanese, hasLatin, targetText }) {
-  if (activeLearningTarget().language.split("-")[0] !== "ja") {
-    if (targetText) return 0;
-    return hasLatin ? 54 + (length > 8 ? 6 : 0) : length >= 2 ? 24 : 0;
-  }
-  if (hasJapanese) return 0;
-  if (hasLatin) return 54 + (length > 8 ? 6 : 0);
-  return length >= 2 ? 24 : 0;
-  },
-  sentence({ length, hasJapanese, sentenceLike, targetText }) {
-  if (activeLearningTarget().language.split("-")[0] !== "ja") {
-    return targetText && sentenceLike ? 65 + (length > 20 ? 8 : 0) : 0;
-  }
-  if (!hasJapanese) return 0;
-  if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
-  return length >= 14 ? 42 : 0;
-  }
-};
-function ankiFieldContentSampleRoleScore(role, sample) {
-  const raw = sample.raw.trim();
-  const text = normalizeFieldValue(sample.text);
-  if (isAnkiAudioRole(role)) return ankiAudioFieldContentScore(raw, text);
-  if (role === "image") return ankiImageFieldContentScore(raw, text);
-  if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
-  if (!text) return 0;
-  const scorer = ANKI_TEXT_ROLE_SCORERS[role];
-  if (!scorer) return 0;
-  const japaneseLength = japaneseCharacterCount(text);
-  return scorer({
-  length: text.length,
-  japaneseLength,
-  hasJapanese: japaneseLength > 0,
-  hasKanji: /[\u3400-\u9fff]/u.test(text),
-  kanaLength: kanaCharacterCount(text),
-  hasLatin: /[A-Za-z]/.test(text),
-  sentenceLike: japaneseSentenceLike(text),
-  targetText: activeLearningTarget().isLookupableText(text)
-  });
-}
-function ankiAudioFieldContentScore(raw, text) {
-  const value = `${raw} ${text}`.toLowerCase();
-  if (/\[sound:[^\]]+\]/.test(value)) return 90;
-  if (/<audio\b/.test(value)) return 85;
-  if (/\.(?:mp3|m4a|ogg|oga|wav|flac)(?:[?#"'\s>]|$)/.test(value)) return 75;
-  return 0;
-}
-function ankiImageFieldContentScore(raw, text) {
-  const value = `${raw} ${text}`.toLowerCase();
-  if (/<img\b/.test(value)) return 90;
-  if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
-  return 0;
-}
-function ankiFieldContentSamples(fields, notes) {
-  const out = Object.fromEntries(fields.map((field) => [field, []]));
-  for (const note of notes) {
-  for (const fieldName of fields) {
-    const raw = String(note.fields?.[fieldName]?.value ?? "");
-    if (!raw.trim()) continue;
-    out[fieldName]?.push({ raw, text: stripHtml$1(raw) });
-  }
-  }
-  return out;
-}
-function isGenericAnkiFieldName(fieldName) {
-  const normalized = normalizeAnkiFieldName(fieldName);
-  return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
-}
-function kanaCharacterCount(value) {
-  return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
-}
-function japaneseSentenceLike(value) {
-  if (activeLearningTarget().language.split("-")[0] !== "ja") {
-  const target = activeLearningTarget();
-  return target.sentenceBoundaries.terminators.some((mark) => value.includes(mark)) || value.length >= 24 && /\s/u.test(value);
-  }
-  const japaneseLength = japaneseCharacterCount(value);
-  return /[。！？!?]/u.test(value) || japaneseLength >= 12 || japaneseLength >= 8 && /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value);
-}
-function ankiFieldAllowedForRole(fieldName, role) {
-  const normalized = normalizeAnkiFieldName(fieldName);
-  const audioLike = /(?:audio|sound|voice)/.test(normalized);
-  const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
-  if (isAnkiAudioRole(role)) return audioLike && !imageLike;
-  if (role === "image") return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
-  return !audioLike && !imageLike;
-}
-function ankiFieldDisallowedForRole(fieldName, role) {
-  if (role === "audio") return isSentenceAudioFieldName(fieldName);
-  if (role === "sentenceAudio" || role === "image") return false;
-  const normalized = normalizeAnkiFieldName(fieldName);
-  return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
-}
-const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
-function isSentenceAudioFieldName(fieldName) {
-  return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
-}
-function firstMatchingAnkiField(fields, names) {
-  const fieldByName = /* @__PURE__ */ new Map();
-  fields.forEach((field) => {
-  const normalized = normalizeAnkiFieldName(field);
-  if (!fieldByName.has(normalized)) fieldByName.set(normalized, field);
-  });
-  for (const name of names) {
-  const match = fieldByName.get(normalizeAnkiFieldName(name));
-  if (match) return match;
-  }
-  return "";
-}
-function firstFuzzyAnkiField(fields, names) {
-  const normalizedNames = names.map(normalizeAnkiFieldName).filter((name) => name.length >= 4);
-  return fields.find((field) => {
-  const normalized = normalizeAnkiFieldName(field);
-  return normalizedNames.some((name) => normalized.includes(name));
-  }) ?? "";
-}
-function ankiModelScanScore(suggestions) {
-  return suggestions.reduce((score, suggestion) => {
-  if (!suggestion.fieldName) return score;
-  const roleWeight = suggestion.role === "expression" ? 6 : suggestion.role === "meaning" ? 4 : suggestion.role === "reading" || suggestion.role === "sentence" ? 3 : 1;
-  const confidenceWeight = suggestion.confidence === "high" ? 2 : 1;
-  return score + roleWeight * confidenceWeight;
-  }, 0);
-}
-function noteHasExactTarget(fields, exactTargets) {
-  const values = noteFieldValues(fields);
-  return exactTargets.some((target) => values.some((value) => value === target));
-}
-function noteExpressionContainsTarget(fields, exactTargets, mapping) {
-  const expressions = noteExpressionCandidates(fields, mapping);
-  return expressions.some((expression) => exactTargets.some(
-  (target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression.value, target) && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target))
-  ));
-}
-function firstNoteField(fields, names) {
-  const exact = names.map((name) => fields[name]).find(Boolean);
-  if (exact) return exact;
-  const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
-  return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
-}
-function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
-  const spelling = normalizeFieldValue(card.spelling);
-  const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ""));
-  const expressionValues = noteExpressionValues(fields, mapping);
-  if (expressionValues.length && !expressionValues.some(
-  (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
-  ) && !isKanaStatusLookupSurface(spelling)) {
-  return false;
-  }
-  const readings = unique([
-  mappedNoteField(fields, mapping, "reading"),
-  firstNoteReading(fields)
-  ].filter(Boolean));
-  return Boolean(readingTarget && readingTarget.length >= 2 && readings.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
-}
-function noteExpressionValues(fields, mapping) {
-  return unique(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
-}
-function noteExpressionCandidates(fields, mapping) {
-  const candidates = [];
-  const mapped = mappedNoteField(fields, mapping, "expression");
-  if (mapped) candidates.push({ value: mapped, generic: false });
-  const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
-  if (headword) candidates.push({ value: headword, generic: false });
-  const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
-  if (generic) candidates.push({ value: generic, generic: true });
-  const seen = /* @__PURE__ */ new Set();
-  return candidates.filter((candidate) => {
-  const key = normalizeFieldValue(candidate.value);
-  if (!key || seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-}
-function genericExpressionLooksLikeHeadword(value, target) {
-  const normalizedValue = normalizeFieldValue(value);
-  if (normalizedValue === target) return true;
-  if (/[。！？!?]/u.test(normalizedValue)) return false;
-  return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
-}
-function normalizeFieldValue(value) {
-  return value.replace(/\s+/g, " ").trim();
-}
-function yomuFieldAlias(fieldName) {
-  return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? "";
-}
-const YOMU_FIELD_ALIASES = Object.fromEntries([
-  ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
-  ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
-  ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
-  ...yomuAliasEntries("Sentence", "example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext"),
-  ...yomuAliasEntries("Url", "sourceurl|url"),
-  ...yomuAliasEntries("PartOfSpeech", "pos|partofspeech"),
-  ...yomuAliasEntries("Pitch", "pitchaccent"),
-  ...yomuAliasEntries("DictionaryDefinitions", "dictionary|dictionaries|dictionarydefinition|dictionarydefinitions")
-]);
-function yomuAliasEntries(field, aliases) {
-  return aliases.split("|").map((alias) => [alias, field]);
-}
-function noteLooksLikeYomuModel(modelName, settings, fieldNames) {
-  const configuredModel = resolvedAnkiModelName(settings);
-  if (modelName === configuredModel) return true;
-  return yomuModelFieldSet(fieldNames);
-}
-function shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames) {
-  const configuredModel = resolvedAnkiModelName(settings);
-  if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
-  return yomuModelFieldSet(fieldNames);
-}
-function isDefaultYomuModelName(modelName) {
-  return modelName === "よむ Japanese" || modelName === "Yomu Japanese";
-}
-function yomuModelFieldSet(fieldNames) {
-  const fieldSet = new Set(fieldNames);
-  return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
-}
-const YOMU_MODEL_FIELDS = [
-  "Expression",
-  "Reading",
-  "Meaning",
-  "Sentence",
-  "Url",
-  "Frequency",
-  "PartOfSpeech",
-  "Image",
-  "Audio",
-  "JPDB",
-  "Status",
-  "Pitch",
-  "DictionaryDefinitions",
-  "Kanji",
-  "Source"
-];
-function missingYomuModelFields(fieldNames) {
-  const present = new Set(fieldNames);
-  return YOMU_MODEL_FIELDS.filter((fieldName) => !present.has(fieldName));
-}
-const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
-function imageFromDataUrl(dataUrl, card) {
-  const parsed = parseAnkiImageDataUrl(dataUrl);
-  if (!parsed) return null;
-  return {
-  filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
-  data: parsed.data,
-  fields: ["Image"]
-  };
-}
-function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
-  if (options.audioMergeMode === "theirs") return [];
-  const targets2 = ankiAudioFieldTargets(fieldNames, mapping);
-  if (!targets2) return [];
-  return retargetAudioFilesByKind(audioFilesFromContext(options, card), targets2);
-}
-function ankiAudioFieldTargets(fieldNames, mapping) {
-  const word = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
-  const context = fieldNameForRole(fieldNames, "sentenceAudio", mapping);
-  if (!word && !context) return null;
-  return { word: word || context, context: context || word };
-}
-function retargetAudioFilesByKind(files, targets2) {
-  return files.map((file) => {
-  const { yomuAudioKind: _kind, ...rest } = file;
-  return { ...rest, fields: [ankiAudioFieldForKind(file.yomuAudioKind, targets2)] };
-  });
-}
-function ankiAudioFieldForKind(kind, targets2) {
-  return kind === "context" ? targets2.context : targets2.word;
-}
-function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
-  const fieldName = fieldNameForRole(fieldNames, "image", mapping);
-  if (!fieldName || !options.imageDataUrl) return [];
-  if (!canOwnYomuFields && existingFields[fieldName]) return [];
-  const image = imageFromDataUrl(options.imageDataUrl, card);
-  return image ? [{ ...image, fields: [fieldName] }] : [];
-}
-function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
-  if (audioMergeMode === "ours") {
-  for (const fieldName of new Set(audio.map((file) => file.fields[0]).filter(Boolean))) fields[fieldName] = "";
-  }
-  if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
-}
-function mediaFieldName(fieldNames, preferredNames) {
-  const exact = preferredNames.find((name) => fieldNames.includes(name));
-  if (exact) return exact;
-  const preferredLower = new Set(preferredNames.map((name) => name.toLowerCase()));
-  return fieldNames.find((name) => preferredLower.has(name.toLowerCase())) ?? "";
-}
-function retargetMediaFiles(files, fieldName) {
-  return files.map((file) => ({ ...file, fields: [fieldName] }));
-}
-function audioFilesFromContext(options, card) {
-  const files = [
-  audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: "word" }, card),
-  audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: "context" }, card)
-  ].filter((file) => Boolean(file));
-  return uniqueAnkiAudioFiles(files);
-}
-function audioFromMedia(media, card) {
-  const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
-  if (fromData) return fromData;
-  return media.url ? audioFromUrl(media.url, card, media.kind) : null;
-}
-function audioFromDataUrl(dataUrl, card, kind) {
-  const parsed = parseAnkiAudioDataUrl(dataUrl);
-  if (!parsed) return null;
-  return {
-  filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
-  data: parsed.data,
-  fields: ["Audio"],
-  yomuAudioKind: kind
-  };
-}
-function audioFromUrl(url, card, kind) {
-  const cleanUrl = url.trim();
-  if (!/^https?:\/\//i.test(cleanUrl)) return null;
-  return {
-  filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
-  url: cleanUrl,
-  fields: ["Audio"],
-  yomuAudioKind: kind
-  };
-}
-function uniqueAnkiAudioFiles(files) {
-  const seen = /* @__PURE__ */ new Set();
-  return files.filter((file) => {
-  const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-}
-function parseAnkiImageDataUrl(dataUrl) {
-  const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-  return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
-}
-function parseAnkiAudioDataUrl(dataUrl) {
-  const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-  return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
-}
-const ANKI_IMAGE_EXTENSION_ALIASES = {
-  "jpeg": "jpg",
-  "svg+xml": "svg"
-};
-function ankiImageExtension(rawExtension) {
-  const extension = rawExtension.toLowerCase();
-  return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
-}
-const ANKI_AUDIO_EXTENSION_ALIASES = {
-  "mpeg": "mp3",
-  "mp3": "mp3",
-  "wav": "wav",
-  "wave": "wav",
-  "x-wav": "wav",
-  "ogg": "ogg",
-  "oga": "ogg",
-  "webm": "webm",
-  "mp4": "mp4",
-  "aac": "aac",
-  "flac": "flac"
-};
-function ankiAudioExtension(rawExtension) {
-  return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? "mp3";
-}
-function audioUrlExtension(url) {
-  try {
-  const pathname = new URL(url, location.href).pathname;
-  const match = /\.([a-z0-9]+)$/i.exec(pathname);
-  if (match) return `.${ankiAudioExtension(match[1])}`;
-  } catch {
-  }
-  return ".mp3";
-}
-function safeAnkiMediaName(card) {
-  return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
-}
-function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
-  const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
-  const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
-  const audioTargets = ankiAudioFieldTargets(fieldNames, mapping);
-  const imageField = fieldNameForRole(fieldNames, "image", mapping);
-  return {
-  deckName: note.deckName,
-  modelName: note.modelName,
-  fields,
-  tags: note.tags,
-  options: note.options,
-  ...audioTargets && note.audio?.length ? { audio: retargetAudioFilesByKind(note.audio, audioTargets) } : {},
-  ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
-  };
-}
-function ankiNoteForDuplicatePreflight(note) {
-  return {
-  deckName: note.deckName,
-  modelName: note.modelName,
-  fields: note.fields,
-  tags: note.tags,
-  options: note.options
-  };
-}
-function retargetAnkiNoteForMobileHandoff(note, settings) {
-  const mapping = activeMobileHandoffMapping(note, settings);
-  if (!mapping) return note;
-  return {
-  ...note,
-  fields: mobileHandoffFieldsWithMappings(note.fields, mapping),
-  ...retargetMobileHandoffMedia(note, mapping)
-  };
-}
-function activeMobileHandoffMapping(note, settings) {
-  const mapping = settings.ankiFieldMappings?.[note.modelName];
-  return mapping && Object.values(mapping).some((value) => value?.trim()) ? mapping : null;
-}
-function mobileHandoffFieldsWithMappings(yomuFields, mapping) {
-  const fields = { ...yomuFields };
-  for (const role of ANKI_FIELD_ROLES) {
-  const fieldName = mobileMappedFieldName(mapping, role);
-  const value = yomuFields[yomuFieldForRole(role)];
-  if (fieldName && value) fields[fieldName] = value;
-  }
-  return fields;
-}
-function retargetMobileHandoffMedia(note, mapping) {
-  const media = {};
-  const wordAudioField = mobileMappedFieldName(mapping, "audio");
-  const sentenceAudioField = mobileMappedFieldName(mapping, "sentenceAudio");
-  const imageField = mobileMappedFieldName(mapping, "image");
-  if ((wordAudioField || sentenceAudioField) && note.audio?.length) {
-  media.audio = retargetAudioFilesByKind(note.audio, {
-    word: wordAudioField || sentenceAudioField,
-    context: sentenceAudioField || wordAudioField
-  });
-  }
-  if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
-  return media;
-}
-function mobileMappedFieldName(mapping, role) {
-  return mapping[role]?.trim() ?? "";
-}
-function retargetYomuFieldsToExistingModel(yomuFields, fieldNames, mapping) {
-  const valuesByRole = {
-  expression: yomuFields.Expression,
-  reading: yomuFields.Reading,
-  meaning: yomuFields.Meaning,
-  sentence: yomuFields.Sentence
-  };
-  const fields = Object.fromEntries(fieldNames.map((fieldName) => [fieldName, ""]));
-  for (const role of ["expression", "reading", "meaning", "sentence"]) {
-  const fieldName = fieldNameForRole(fieldNames, role, mapping);
-  const value = valuesByRole[role];
-  if (fieldName && value) fields[fieldName] = value;
-  }
-  return fields;
-}
-function mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping) {
-  const fields = {};
-  for (const fieldName of fieldNames) {
-  const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
-  if (!value) continue;
-  if (!canOwnYomuFields && existingFields[fieldName]) continue;
-  fields[fieldName] = value;
-  }
-  return fields;
-}
-function yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields) {
-  const mappedRole = mappedRoleForField(fieldName, mapping);
-  if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? "";
-  const alias = yomuFieldAlias(fieldName);
-  if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
-  return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
-}
-new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
-const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
-const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
-const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
-const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-let trustedHtmlPolicy;
-function setInnerHtml(element, html) {
-  if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
-}
-function parseHtmlDocument(html) {
-  const parsed = parseHtmlWithDomParser(html);
-  if (parsed) return parsed;
-  const fallback = document.implementation.createHTMLDocument("");
-  fallback.body.textContent = html;
-  return fallback;
-}
-function replaceWithHtmlFragment(element, html) {
-  try {
-  const ownerDocument = element.ownerDocument || document;
-  const { source, rootSelector } = contextualSanitizerSource(element, html);
-  const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-  const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
-  if (!parsedRoot) return false;
-  sanitizeChildren(parsedRoot, parsed);
-  const fragment = ownerDocument.createDocumentFragment();
-  fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-  sanitizeChildren(fragment, ownerDocument);
-  const target = element.localName === "template" && "content" in element ? element.content : element;
-  target.replaceChildren(fragment);
-  return true;
-  } catch {
-  return false;
-  }
-}
-function contextualSanitizerSource(element, html) {
-  if (element.namespaceURI === SVG_NAMESPACE) {
-  return {
-    source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
-    rootSelector: "[data-yomu-sanitize-root]"
-  };
-  }
-  switch (element.localName.toLowerCase()) {
-  case "table":
-    return {
-      source: `<table data-yomu-sanitize-root>${html}</table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "thead":
-  case "tbody":
-  case "tfoot":
-    return {
-      source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "tr":
-    return {
-      source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "colgroup":
-    return {
-      source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "select":
-    return {
-      source: `<select data-yomu-sanitize-root>${html}</select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  case "optgroup":
-    return {
-      source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
-      rootSelector: "[data-yomu-sanitize-root]"
-    };
-  default:
-    return { source: html, rootSelector: "" };
-  }
-}
-function parseHtmlWithDomParser(html) {
-  try {
-  return new DOMParser().parseFromString(trustedHtml(html), "text/html");
-  } catch {
-  return null;
-  }
-}
-function escapeHtml$1(value) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function sanitizeChildren(parent, ownerDocument) {
-  for (const node of Array.from(parent.childNodes)) {
-  if (node.nodeType !== 1) continue;
-  const element = node;
-  const localName = element.localName.toLowerCase();
-  if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
-    element.remove();
-    continue;
-  }
-  if (localName.includes("-")) {
-    sanitizeChildren(element, ownerDocument);
-    element.replaceWith(...Array.from(element.childNodes));
-    continue;
-  }
-  sanitizeElement(element, ownerDocument);
-  const childRoot = localName === "template" && "content" in element ? element.content : element;
-  sanitizeChildren(childRoot, ownerDocument);
-  }
-}
-function sanitizeElement(element, ownerDocument) {
-  for (const attribute of Array.from(element.attributes)) {
-  const name = attribute.name.toLowerCase();
-  if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
-    element.removeAttribute(attribute.name);
-    continue;
-  }
-  if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
-    element.removeAttribute(attribute.name);
-    continue;
-  }
-  if (name === "style") {
-    const style = sanitizedInlineStyle(attribute.value, ownerDocument);
-    if (style) element.setAttribute(attribute.name, style);
-    else element.removeAttribute(attribute.name);
-  }
-  }
-  if (element.getAttribute("target")?.toLowerCase() === "_blank") {
-  const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
-  rel.add("noopener");
-  rel.add("noreferrer");
-  element.setAttribute("rel", [...rel].join(" "));
-  }
-}
-function sanitizedInlineStyle(value, ownerDocument) {
-  const declaration = ownerDocument.createElement("span").style;
-  declaration.cssText = value;
-  const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
-  let removedProperty = false;
-  for (const property of Array.from(declaration)) {
-  const propertyValue = declaration.getPropertyValue(property);
-  if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
-    declaration.removeProperty(property);
-    removedProperty = true;
-  }
-  }
-  return containsUnsafeSource || removedProperty ? declaration.cssText : value;
-}
-function isSafeHtmlUrl(value) {
-  const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
-  if (!candidate) return true;
-  if (candidate.startsWith("#")) return true;
-  if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
-  try {
-  const parsed = new URL(candidate, "https://yomureader.invalid/");
-  return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
-  } catch {
-  return false;
-  }
-}
-function trustedHtml(value) {
-  try {
-  const factory = trustedTypesFactory();
-  if (!factory) return value;
-  if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-  return trustedHtmlPolicy?.createHTML(value) ?? value;
-  } catch {
-  trustedHtmlPolicy = null;
-  return value;
-  }
-}
-function trustedTypesFactory() {
-  const root = globalThis;
-  return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-  (factory) => Boolean(factory)
+  Object.freeze(
+    LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
   );
-}
-function createTrustedHtmlPolicy(factory) {
-  const existing = factory.getPolicy?.("yomu-reader");
-  if (existing?.createHTML) return existing;
-  const options = { createHTML: (html) => html };
-  return createTrustedHtmlPolicyWithOptions(
-  factory,
-  pageCompartmentValue(options, {
-    cloneFunctions: true,
-    wrapReflectors: true
-  })
-  ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-}
-function createTrustedHtmlPolicyWithOptions(factory, options) {
-  try {
-  return factory.createPolicy?.("yomu-reader", options) ?? null;
-  } catch {
-  return null;
+  function canonicalTagForSlice1Language(id) {
+    const runtimeLocale = learnerLanguageById(id).runtimeLocale;
+    return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
   }
-}
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-  const l1 = relativeLuminance(a, normalizeColor);
-  const l2 = relativeLuminance(b, normalizeColor);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-  const channel = value / 255;
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-  const a = sharedHexToRgb(from, normalizeColor);
-  const b = sharedHexToRgb(to, normalizeColor);
-  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-  const safe = normalizeHexColor(normalizeColor(color));
-  return [
-  parseInt(safe.slice(1, 3), 16),
-  parseInt(safe.slice(3, 5), 16),
-  parseInt(safe.slice(5, 7), 16)
+  function slice1LanguageIdForTag(value) {
+    if (typeof value !== "string") return null;
+    const input = value.trim().toLowerCase().replace(/_/g, "-");
+    const inputBase = input.split("-")[0] ?? "";
+    if (isLearnerLanguageId(inputBase)) return inputBase;
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return null;
+    const base = languageSubtag(canonical);
+    if (!base) return null;
+    if (base === "sr" || base === "hr" || base === "bs") return "sh";
+    if (base === "fil") return "tl";
+    return isLearnerLanguageId(base) ? base : null;
+  }
+  function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
+    if (typeof value === "string") {
+      const input = value.trim().toLowerCase().replace(/_/g, "-");
+      if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
+    }
+    const canonical = canonicalLanguageTag(value);
+    const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
+    if (canonical && canonicalId) {
+      if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
+      return canonical;
+    }
+    const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
+    return canonicalTagForSlice1Language(fallbackId);
+  }
+  const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
+  const ankiFieldNames = (names) => names.split("|");
+  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+  );
+  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+  );
+  const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  const ANKI_HEADWORD_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    "Expression Reading",
+    "Japanese Expression",
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
   ];
-}
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-  if (!shortHex) return fallback;
-  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-  const numericOpacity = Number(opacity);
-  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
-  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
-  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
-  }
-  for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return candidate;
-  }
-  }
-  return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
-}
-accessibleOcrBackgroundColor(
-  DEFAULT_ACCENT_COLOR,
-  DEFAULT_OCR_BACKGROUND_OPACITY
-);
-const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
-const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
-function readOutputLanguageField(source) {
-  return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
-}
-function createDefaultLanguageProfile(defaults = {}) {
-  return {
-  schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
-  id: DEFAULT_LANGUAGE_PROFILE_ID,
-  ...outputLanguageFields(normalizeSlice1LearnerLanguage(
-    readOutputLanguageField(defaults),
-    DEFAULT_SLICE1_LEARNER_LANGUAGE
-  )),
-  targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
-  uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
-  parserProvider: normalizeParserProvider(defaults.parserProvider, "local"),
-  dictionaries: emptyProfileDictionaries(),
-  definitionTranslationProviderIds: []
+  const ANKI_EXPRESSION_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  const ANKI_READING_FIELD_NAMES = ankiFieldNames(
+    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+  );
+  const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
+    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+  );
+  const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
+    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+  );
+  const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+  );
+  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+  );
+  const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
+    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+  );
+  const ANKI_FIELD_ROLE_CANDIDATES = {
+    expression: ANKI_EXPRESSION_FIELD_NAMES,
+    reading: ANKI_READING_FIELD_NAMES,
+    meaning: ANKI_MEANING_FIELD_NAMES,
+    sentence: ANKI_SENTENCE_FIELD_NAMES,
+    audio: ANKI_AUDIO_FIELD_NAMES,
+    sentenceAudio: ANKI_SENTENCE_AUDIO_FIELD_NAMES,
+    image: ANKI_IMAGE_FIELD_NAMES
   };
-}
-function outputLanguageFields(outputLanguage) {
-  return { outputLanguage, learnerLanguage: outputLanguage };
-}
-function normalizeUiLocale(value, fallback) {
-  if (value === "auto") return "auto";
-  return canonicalLanguageTag(value) ?? fallback;
-}
-function normalizeParserProvider(value, fallback) {
-  return PARSER_PROVIDERS.has(value) ? value : fallback;
-}
-function emptyProfileDictionaries() {
-  return { installed: [], enabled: [], order: [] };
-}
-function targetAudioTemplateLanguageToken() {
-  return activeLearningTarget().audio.templateLanguageToken;
-}
-function speakerIcon() {
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  const ANKI_AUDIO_ROLES = /* @__PURE__ */ new Set(["audio", "sentenceAudio"]);
+  function isAnkiAudioRole(role) {
+    return ANKI_AUDIO_ROLES.has(role);
+  }
+  function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
+    const usedFields = /* @__PURE__ */ new Set();
+    const samples = ankiFieldContentSamples(fields, sampleNotes);
+    const suggestions = Object.keys(ANKI_FIELD_ROLE_CANDIDATES).filter((role) => role !== "reading" || activeLearningTarget().featureSemantics.readingAnnotation !== "none").map((role) => {
+      const suggestion = suggestAnkiField(role, fields, usedFields, samples);
+      if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
+      return suggestion;
+    });
+    return {
+      modelName,
+      fields,
+      suggestions,
+      score: ankiModelScanScore(suggestions)
+    };
+  }
+  function suggestAnkiField(role, fields, usedFields, samples = {}) {
+    const candidates = ankiFieldRoleCandidates(role);
+    const availableFields = fields.filter((field) => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
+    const exact = firstMatchingAnkiField(availableFields, candidates);
+    const content = suggestAnkiFieldFromContent(role, availableFields, samples);
+    const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
+    const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
+    return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
+  }
+  function ankiFieldRoleCandidates(role) {
+    if (role !== "expression") return ANKI_FIELD_ROLE_CANDIDATES[role];
+    const language = activeLearningTarget().language.split("-")[0];
+    const roster = LEARNING_TARGET_ROSTER.find((entry) => entry.id === language);
+    if (!roster) return ANKI_FIELD_ROLE_CANDIDATES.expression;
+    return unique([
+      roster.englishName,
+      roster.nativeName,
+      `${roster.englishName} Word`,
+      `${roster.nativeName} Word`,
+      ...ANKI_FIELD_ROLE_CANDIDATES.expression
+    ]);
+  }
+  function bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore) {
+    if (shouldPreferContentSuggestion(content, exact, exactContentScore)) return content;
+    const suggestions = [
+      exact ? { role, fieldName: exact, confidence: "high" } : null,
+      contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy),
+      fuzzy ? { role, fieldName: fuzzy, confidence: "medium" } : null,
+      content.fieldName ? content : null,
+      { role, fieldName: null, confidence: "low" }
+    ];
+    return suggestions.find(Boolean);
+  }
+  function contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy) {
+    if (!content.fieldName) return null;
+    return !fuzzy || content.confidence === "high" ? content : null;
+  }
+  function isAvailableAnkiFieldForRole(field, role, usedFields, samples) {
+    if (usedFields.has(field)) return false;
+    if (ankiFieldDisallowedForRole(field, role)) return false;
+    return ankiFieldAllowedForRole(field, role) || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50;
+  }
+  function shouldPreferContentSuggestion(content, exact, exactContentScore) {
+    if (!content.fieldName) return false;
+    if (!exact || isGenericAnkiFieldName(exact)) return true;
+    return content.fieldName !== exact && exactContentScore === 0 && content.confidence === "high";
+  }
+  function ankiFieldMappingForModel(settings, modelName, fieldNames) {
+    const mapping = settings.ankiFieldMappings?.[modelName];
+    if (!mapping) return void 0;
+    const normalized = {};
+    for (const role of ANKI_FIELD_ROLES) {
+      const fieldName = mappedFieldName(fieldNames, mapping, role);
+      if (fieldName) normalized[role] = fieldName;
+    }
+    return Object.keys(normalized).length ? normalized : void 0;
+  }
+  function mappedFieldName(fieldNames, mapping, role) {
+    const fieldName = mapping?.[role]?.trim();
+    if (!fieldName) return "";
+    const exact = fieldNames.find((candidate) => candidate === fieldName);
+    if (exact) return exact;
+    const normalizedFieldName = normalizeAnkiFieldName(fieldName);
+    return fieldNames.find((candidate) => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? "";
+  }
+  function ankiFieldMappingsSettingsKey(mappings) {
+    const normalized = {};
+    for (const modelName of Object.keys(mappings ?? {}).sort()) {
+      const mapping = mappings?.[modelName];
+      if (!mapping) continue;
+      const modelMapping = {};
+      for (const role of ANKI_FIELD_ROLES) {
+        const fieldName = mapping[role]?.trim();
+        if (fieldName) modelMapping[role] = fieldName;
+      }
+      if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
+    }
+    return normalized;
+  }
+  function fieldNameForRole(fieldNames, role, mapping) {
+    const mapped = mappedFieldName(fieldNames, mapping, role);
+    if (mapped) return mapped;
+    return suggestAnkiField(role, fieldNames, /* @__PURE__ */ new Set()).fieldName ?? "";
+  }
+  function mappedRoleForField(fieldName, mapping) {
+    if (!mapping) return null;
+    const normalized = normalizeAnkiFieldName(fieldName);
+    for (const role of ANKI_FIELD_ROLES) {
+      const mapped = mapping[role];
+      if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
+    }
+    return null;
+  }
+  function yomuFieldForRole(role) {
+    return {
+      expression: "Expression",
+      reading: "Reading",
+      meaning: "Meaning",
+      sentence: "Sentence",
+      audio: "Audio",
+      // Yomu's own note type has a single Audio field, so the sentence-audio
+      // role maps onto it: buildYomuAnkiFields never emits a SentenceAudio
+      // value, and media routing collapses through mergeAudioFilesForNote.
+      sentenceAudio: "Audio",
+      image: "Image"
+    }[role];
+  }
+  function flattenNoteFields(fields) {
+    const out = {};
+    Object.entries(fields ?? {}).forEach(([name, value]) => {
+      out[name] = stripHtml$1(String(value?.value ?? ""));
+    });
+    return out;
+  }
+  function noteLooksLikeCard(note, card, settings) {
+    const fields = flattenNoteFields(note.fields);
+    const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : void 0;
+    const expressionTargets = noteCardExpressionTargets(card);
+    return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
+  }
+  function noteCardExpressionTargets(card) {
+    return unique([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  }
+  function noteFieldValues(fields) {
+    return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
+  }
+  function firstNoteReading(fields) {
+    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
+  }
+  function firstNoteExpressionValue(fields, mapping) {
+    return noteExpressionCandidates(fields, mapping)[0]?.value ?? "";
+  }
+  function mappedNoteField(fields, mapping, role) {
+    const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
+    return fieldName ? fields[fieldName] ?? "" : "";
+  }
+  function lookupKeyTermsForCard(card) {
+    return unique([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  }
+  function isKanaStatusLookupSurface(value) {
+    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
+  }
+  function japaneseFieldContainsStandaloneTarget(value, target) {
+    const normalizedValue = normalizeFieldValue(value);
+    if (normalizedValue === target) return true;
+    return normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some((part) => part === target);
+  }
+  function japaneseCharacterCount(value) {
+    return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
+  }
+  function normalizeAnkiFieldName(value) {
+    return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  function stripHtml$1(value) {
+    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  }
+  function suggestAnkiFieldFromContent(role, fields, samples) {
+    const ranked = fields.map((fieldName) => ({
+      fieldName,
+      score: ankiFieldContentRoleScore(role, samples[fieldName] ?? [])
+    })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || fields.indexOf(a.fieldName) - fields.indexOf(b.fieldName));
+    const best = ranked[0];
+    if (!best) return { role, fieldName: null, confidence: "low" };
+    return {
+      role,
+      fieldName: best.fieldName,
+      confidence: best.score >= 50 ? "high" : "medium"
+    };
+  }
+  function ankiFieldContentRoleScore(role, samples) {
+    if (!samples.length) return 0;
+    const scores = samples.map((sample) => ankiFieldContentSampleRoleScore(role, sample)).filter((score) => score > 0).sort((a, b) => b - a);
+    if (!scores.length) return 0;
+    const strongest = scores[0] ?? 0;
+    const second = scores[1] ?? 0;
+    return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
+  }
+  const ANKI_TEXT_ROLE_SCORERS = {
+    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike, targetText }) {
+      if (activeLearningTarget().language.split("-")[0] !== "ja") {
+        return targetText && !sentenceLike && length <= 40 ? 64 + Math.max(0, 12 - Math.floor(length / 2)) : 0;
+      }
+      if (!hasJapanese || sentenceLike || length > 40) return 0;
+      return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
+    },
+    reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
+      if (!hasJapanese || hasKanji || length > 40) return 0;
+      const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
+      return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
+    },
+    meaning({ length, hasJapanese, hasLatin, targetText }) {
+      if (activeLearningTarget().language.split("-")[0] !== "ja") {
+        if (targetText) return 0;
+        return hasLatin ? 54 + (length > 8 ? 6 : 0) : length >= 2 ? 24 : 0;
+      }
+      if (hasJapanese) return 0;
+      if (hasLatin) return 54 + (length > 8 ? 6 : 0);
+      return length >= 2 ? 24 : 0;
+    },
+    sentence({ length, hasJapanese, sentenceLike, targetText }) {
+      if (activeLearningTarget().language.split("-")[0] !== "ja") {
+        return targetText && sentenceLike ? 65 + (length > 20 ? 8 : 0) : 0;
+      }
+      if (!hasJapanese) return 0;
+      if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
+      return length >= 14 ? 42 : 0;
+    }
+  };
+  function ankiFieldContentSampleRoleScore(role, sample) {
+    const raw = sample.raw.trim();
+    const text = normalizeFieldValue(sample.text);
+    if (isAnkiAudioRole(role)) return ankiAudioFieldContentScore(raw, text);
+    if (role === "image") return ankiImageFieldContentScore(raw, text);
+    if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
+    if (!text) return 0;
+    const scorer = ANKI_TEXT_ROLE_SCORERS[role];
+    if (!scorer) return 0;
+    const japaneseLength = japaneseCharacterCount(text);
+    return scorer({
+      length: text.length,
+      japaneseLength,
+      hasJapanese: japaneseLength > 0,
+      hasKanji: /[\u3400-\u9fff]/u.test(text),
+      kanaLength: kanaCharacterCount(text),
+      hasLatin: /[A-Za-z]/.test(text),
+      sentenceLike: japaneseSentenceLike(text),
+      targetText: activeLearningTarget().isLookupableText(text)
+    });
+  }
+  function ankiAudioFieldContentScore(raw, text) {
+    const value = `${raw} ${text}`.toLowerCase();
+    if (/\[sound:[^\]]+\]/.test(value)) return 90;
+    if (/<audio\b/.test(value)) return 85;
+    if (/\.(?:mp3|m4a|ogg|oga|wav|flac)(?:[?#"'\s>]|$)/.test(value)) return 75;
+    return 0;
+  }
+  function ankiImageFieldContentScore(raw, text) {
+    const value = `${raw} ${text}`.toLowerCase();
+    if (/<img\b/.test(value)) return 90;
+    if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
+    return 0;
+  }
+  function ankiFieldContentSamples(fields, notes) {
+    const out = Object.fromEntries(fields.map((field) => [field, []]));
+    for (const note of notes) {
+      for (const fieldName of fields) {
+        const raw = String(note.fields?.[fieldName]?.value ?? "");
+        if (!raw.trim()) continue;
+        out[fieldName]?.push({ raw, text: stripHtml$1(raw) });
+      }
+    }
+    return out;
+  }
+  function isGenericAnkiFieldName(fieldName) {
+    const normalized = normalizeAnkiFieldName(fieldName);
+    return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
+  }
+  function kanaCharacterCount(value) {
+    return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
+  }
+  function japaneseSentenceLike(value) {
+    if (activeLearningTarget().language.split("-")[0] !== "ja") {
+      const target = activeLearningTarget();
+      return target.sentenceBoundaries.terminators.some((mark) => value.includes(mark)) || value.length >= 24 && /\s/u.test(value);
+    }
+    const japaneseLength = japaneseCharacterCount(value);
+    return /[。！？!?]/u.test(value) || japaneseLength >= 12 || japaneseLength >= 8 && /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value);
+  }
+  function ankiFieldAllowedForRole(fieldName, role) {
+    const normalized = normalizeAnkiFieldName(fieldName);
+    const audioLike = /(?:audio|sound|voice)/.test(normalized);
+    const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
+    if (isAnkiAudioRole(role)) return audioLike && !imageLike;
+    if (role === "image") return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
+    return !audioLike && !imageLike;
+  }
+  function ankiFieldDisallowedForRole(fieldName, role) {
+    if (role === "audio") return isSentenceAudioFieldName(fieldName);
+    if (role === "sentenceAudio" || role === "image") return false;
+    const normalized = normalizeAnkiFieldName(fieldName);
+    return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
+  }
+  const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+  function isSentenceAudioFieldName(fieldName) {
+    return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
+  }
+  function firstMatchingAnkiField(fields, names) {
+    const fieldByName = /* @__PURE__ */ new Map();
+    fields.forEach((field) => {
+      const normalized = normalizeAnkiFieldName(field);
+      if (!fieldByName.has(normalized)) fieldByName.set(normalized, field);
+    });
+    for (const name of names) {
+      const match = fieldByName.get(normalizeAnkiFieldName(name));
+      if (match) return match;
+    }
+    return "";
+  }
+  function firstFuzzyAnkiField(fields, names) {
+    const normalizedNames = names.map(normalizeAnkiFieldName).filter((name) => name.length >= 4);
+    return fields.find((field) => {
+      const normalized = normalizeAnkiFieldName(field);
+      return normalizedNames.some((name) => normalized.includes(name));
+    }) ?? "";
+  }
+  function ankiModelScanScore(suggestions) {
+    return suggestions.reduce((score, suggestion) => {
+      if (!suggestion.fieldName) return score;
+      const roleWeight = suggestion.role === "expression" ? 6 : suggestion.role === "meaning" ? 4 : suggestion.role === "reading" || suggestion.role === "sentence" ? 3 : 1;
+      const confidenceWeight = suggestion.confidence === "high" ? 2 : 1;
+      return score + roleWeight * confidenceWeight;
+    }, 0);
+  }
+  function noteHasExactTarget(fields, exactTargets) {
+    const values = noteFieldValues(fields);
+    return exactTargets.some((target) => values.some((value) => value === target));
+  }
+  function noteExpressionContainsTarget(fields, exactTargets, mapping) {
+    const expressions = noteExpressionCandidates(fields, mapping);
+    return expressions.some((expression) => exactTargets.some(
+      (target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression.value, target) && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target))
+    ));
+  }
+  function firstNoteField(fields, names) {
+    const exact = names.map((name) => fields[name]).find(Boolean);
+    if (exact) return exact;
+    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
+    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
+  }
+  function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
+    const spelling = normalizeFieldValue(card.spelling);
+    const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ""));
+    const expressionValues = noteExpressionValues(fields, mapping);
+    if (expressionValues.length && !expressionValues.some(
+      (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
+    ) && !isKanaStatusLookupSurface(spelling)) {
+      return false;
+    }
+    const readings = unique([
+      mappedNoteField(fields, mapping, "reading"),
+      firstNoteReading(fields)
+    ].filter(Boolean));
+    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
+  }
+  function noteExpressionValues(fields, mapping) {
+    return unique(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
+  }
+  function noteExpressionCandidates(fields, mapping) {
+    const candidates = [];
+    const mapped = mappedNoteField(fields, mapping, "expression");
+    if (mapped) candidates.push({ value: mapped, generic: false });
+    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
+    if (headword) candidates.push({ value: headword, generic: false });
+    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
+    if (generic) candidates.push({ value: generic, generic: true });
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => {
+      const key = normalizeFieldValue(candidate.value);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function genericExpressionLooksLikeHeadword(value, target) {
+    const normalizedValue = normalizeFieldValue(value);
+    if (normalizedValue === target) return true;
+    if (/[。！？!?]/u.test(normalizedValue)) return false;
+    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
+  }
+  function normalizeFieldValue(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function yomuFieldAlias(fieldName) {
+    return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? "";
+  }
+  const YOMU_FIELD_ALIASES = Object.fromEntries([
+    ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
+    ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
+    ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
+    ...yomuAliasEntries("Sentence", "example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext"),
+    ...yomuAliasEntries("Url", "sourceurl|url"),
+    ...yomuAliasEntries("PartOfSpeech", "pos|partofspeech"),
+    ...yomuAliasEntries("Pitch", "pitchaccent"),
+    ...yomuAliasEntries("DictionaryDefinitions", "dictionary|dictionaries|dictionarydefinition|dictionarydefinitions")
+  ]);
+  function yomuAliasEntries(field, aliases) {
+    return aliases.split("|").map((alias) => [alias, field]);
+  }
+  function noteLooksLikeYomuModel(modelName, settings, fieldNames) {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel) return true;
+    return yomuModelFieldSet(fieldNames);
+  }
+  function shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames) {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
+    return yomuModelFieldSet(fieldNames);
+  }
+  function isDefaultYomuModelName(modelName) {
+    return modelName === "よむ Japanese" || modelName === "Yomu Japanese";
+  }
+  function yomuModelFieldSet(fieldNames) {
+    const fieldSet = new Set(fieldNames);
+    return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
+  }
+  const YOMU_MODEL_FIELDS = [
+    "Expression",
+    "Reading",
+    "Meaning",
+    "Sentence",
+    "Url",
+    "Frequency",
+    "PartOfSpeech",
+    "Image",
+    "Audio",
+    "JPDB",
+    "Status",
+    "Pitch",
+    "DictionaryDefinitions",
+    "Kanji",
+    "Source"
+  ];
+  function missingYomuModelFields(fieldNames) {
+    const present = new Set(fieldNames);
+    return YOMU_MODEL_FIELDS.filter((fieldName) => !present.has(fieldName));
+  }
+  const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
+  function imageFromDataUrl(dataUrl, card) {
+    const parsed = parseAnkiImageDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
+      fields: ["Image"]
+    };
+  }
+  function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
+    if (options.audioMergeMode === "theirs") return [];
+    const targets2 = ankiAudioFieldTargets(fieldNames, mapping);
+    if (!targets2) return [];
+    return retargetAudioFilesByKind(audioFilesFromContext(options, card), targets2);
+  }
+  function ankiAudioFieldTargets(fieldNames, mapping) {
+    const word = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
+    const context = fieldNameForRole(fieldNames, "sentenceAudio", mapping);
+    if (!word && !context) return null;
+    return { word: word || context, context: context || word };
+  }
+  function retargetAudioFilesByKind(files, targets2) {
+    return files.map((file) => {
+      const { yomuAudioKind: _kind, ...rest } = file;
+      return { ...rest, fields: [ankiAudioFieldForKind(file.yomuAudioKind, targets2)] };
+    });
+  }
+  function ankiAudioFieldForKind(kind, targets2) {
+    return kind === "context" ? targets2.context : targets2.word;
+  }
+  function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
+    const fieldName = fieldNameForRole(fieldNames, "image", mapping);
+    if (!fieldName || !options.imageDataUrl) return [];
+    if (!canOwnYomuFields && existingFields[fieldName]) return [];
+    const image = imageFromDataUrl(options.imageDataUrl, card);
+    return image ? [{ ...image, fields: [fieldName] }] : [];
+  }
+  function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
+    if (audioMergeMode === "ours") {
+      for (const fieldName of new Set(audio.map((file) => file.fields[0]).filter(Boolean))) fields[fieldName] = "";
+    }
+    if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
+  }
+  function mediaFieldName(fieldNames, preferredNames) {
+    const exact = preferredNames.find((name) => fieldNames.includes(name));
+    if (exact) return exact;
+    const preferredLower = new Set(preferredNames.map((name) => name.toLowerCase()));
+    return fieldNames.find((name) => preferredLower.has(name.toLowerCase())) ?? "";
+  }
+  function retargetMediaFiles(files, fieldName) {
+    return files.map((file) => ({ ...file, fields: [fieldName] }));
+  }
+  function audioFilesFromContext(options, card) {
+    const files = [
+      audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: "word" }, card),
+      audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: "context" }, card)
+    ].filter((file) => Boolean(file));
+    return uniqueAnkiAudioFiles(files);
+  }
+  function audioFromMedia(media, card) {
+    const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
+    if (fromData) return fromData;
+    return media.url ? audioFromUrl(media.url, card, media.kind) : null;
+  }
+  function audioFromDataUrl(dataUrl, card, kind) {
+    const parsed = parseAnkiAudioDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
+      fields: ["Audio"],
+      yomuAudioKind: kind
+    };
+  }
+  function audioFromUrl(url, card, kind) {
+    const cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
+      url: cleanUrl,
+      fields: ["Audio"],
+      yomuAudioKind: kind
+    };
+  }
+  function uniqueAnkiAudioFiles(files) {
+    const seen = /* @__PURE__ */ new Set();
+    return files.filter((file) => {
+      const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function parseAnkiImageDataUrl(dataUrl) {
+    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
+  }
+  function parseAnkiAudioDataUrl(dataUrl) {
+    const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
+  }
+  const ANKI_IMAGE_EXTENSION_ALIASES = {
+    "jpeg": "jpg",
+    "svg+xml": "svg"
+  };
+  function ankiImageExtension(rawExtension) {
+    const extension = rawExtension.toLowerCase();
+    return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
+  }
+  const ANKI_AUDIO_EXTENSION_ALIASES = {
+    "mpeg": "mp3",
+    "mp3": "mp3",
+    "wav": "wav",
+    "wave": "wav",
+    "x-wav": "wav",
+    "ogg": "ogg",
+    "oga": "ogg",
+    "webm": "webm",
+    "mp4": "mp4",
+    "aac": "aac",
+    "flac": "flac"
+  };
+  function ankiAudioExtension(rawExtension) {
+    return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? "mp3";
+  }
+  function audioUrlExtension(url) {
+    try {
+      const pathname = new URL(url, location.href).pathname;
+      const match = /\.([a-z0-9]+)$/i.exec(pathname);
+      if (match) return `.${ankiAudioExtension(match[1])}`;
+    } catch {
+    }
+    return ".mp3";
+  }
+  function safeAnkiMediaName(card) {
+    return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
+  }
+  function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
+    const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
+    const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
+    const audioTargets = ankiAudioFieldTargets(fieldNames, mapping);
+    const imageField = fieldNameForRole(fieldNames, "image", mapping);
+    return {
+      deckName: note.deckName,
+      modelName: note.modelName,
+      fields,
+      tags: note.tags,
+      options: note.options,
+      ...audioTargets && note.audio?.length ? { audio: retargetAudioFilesByKind(note.audio, audioTargets) } : {},
+      ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
+    };
+  }
+  function ankiNoteForDuplicatePreflight(note) {
+    return {
+      deckName: note.deckName,
+      modelName: note.modelName,
+      fields: note.fields,
+      tags: note.tags,
+      options: note.options
+    };
+  }
+  function retargetAnkiNoteForMobileHandoff(note, settings) {
+    const mapping = activeMobileHandoffMapping(note, settings);
+    if (!mapping) return note;
+    return {
+      ...note,
+      fields: mobileHandoffFieldsWithMappings(note.fields, mapping),
+      ...retargetMobileHandoffMedia(note, mapping)
+    };
+  }
+  function activeMobileHandoffMapping(note, settings) {
+    const mapping = settings.ankiFieldMappings?.[note.modelName];
+    return mapping && Object.values(mapping).some((value) => value?.trim()) ? mapping : null;
+  }
+  function mobileHandoffFieldsWithMappings(yomuFields, mapping) {
+    const fields = { ...yomuFields };
+    for (const role of ANKI_FIELD_ROLES) {
+      const fieldName = mobileMappedFieldName(mapping, role);
+      const value = yomuFields[yomuFieldForRole(role)];
+      if (fieldName && value) fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function retargetMobileHandoffMedia(note, mapping) {
+    const media = {};
+    const wordAudioField = mobileMappedFieldName(mapping, "audio");
+    const sentenceAudioField = mobileMappedFieldName(mapping, "sentenceAudio");
+    const imageField = mobileMappedFieldName(mapping, "image");
+    if ((wordAudioField || sentenceAudioField) && note.audio?.length) {
+      media.audio = retargetAudioFilesByKind(note.audio, {
+        word: wordAudioField || sentenceAudioField,
+        context: sentenceAudioField || wordAudioField
+      });
+    }
+    if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
+    return media;
+  }
+  function mobileMappedFieldName(mapping, role) {
+    return mapping[role]?.trim() ?? "";
+  }
+  function retargetYomuFieldsToExistingModel(yomuFields, fieldNames, mapping) {
+    const valuesByRole = {
+      expression: yomuFields.Expression,
+      reading: yomuFields.Reading,
+      meaning: yomuFields.Meaning,
+      sentence: yomuFields.Sentence
+    };
+    const fields = Object.fromEntries(fieldNames.map((fieldName) => [fieldName, ""]));
+    for (const role of ["expression", "reading", "meaning", "sentence"]) {
+      const fieldName = fieldNameForRole(fieldNames, role, mapping);
+      const value = valuesByRole[role];
+      if (fieldName && value) fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping) {
+    const fields = {};
+    for (const fieldName of fieldNames) {
+      const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
+      if (!value) continue;
+      if (!canOwnYomuFields && existingFields[fieldName]) continue;
+      fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields) {
+    const mappedRole = mappedRoleForField(fieldName, mapping);
+    if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? "";
+    const alias = yomuFieldAlias(fieldName);
+    if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
+    return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
+  }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const BLOCKED_HTML_ELEMENTS = /* @__PURE__ */ new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
+  const BLOCKED_ATTRIBUTES = /* @__PURE__ */ new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
+  const URL_ATTRIBUTES = /* @__PURE__ */ new Set(["href", "poster", "src", "xlink:href"]);
+  const SAFE_URL_PROTOCOLS = /* @__PURE__ */ new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
+  const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
+  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+  let trustedHtmlPolicy;
+  function setInnerHtml(element, html) {
+    if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+  }
+  function parseHtmlDocument(html) {
+    const parsed = parseHtmlWithDomParser(html);
+    if (parsed) return parsed;
+    const fallback = document.implementation.createHTMLDocument("");
+    fallback.body.textContent = html;
+    return fallback;
+  }
+  function replaceWithHtmlFragment(element, html) {
+    try {
+      const ownerDocument = element.ownerDocument || document;
+      const { source, rootSelector } = contextualSanitizerSource(element, html);
+      const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+      const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+      if (!parsedRoot) return false;
+      sanitizeChildren(parsedRoot, parsed);
+      const fragment = ownerDocument.createDocumentFragment();
+      fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+      sanitizeChildren(fragment, ownerDocument);
+      const target = element.localName === "template" && "content" in element ? element.content : element;
+      target.replaceChildren(fragment);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function contextualSanitizerSource(element, html) {
+    if (element.namespaceURI === SVG_NAMESPACE) {
+      return {
+        source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
+        rootSelector: "[data-yomu-sanitize-root]"
+      };
+    }
+    switch (element.localName.toLowerCase()) {
+      case "table":
+        return {
+          source: `<table data-yomu-sanitize-root>${html}</table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "thead":
+      case "tbody":
+      case "tfoot":
+        return {
+          source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "tr":
+        return {
+          source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "colgroup":
+        return {
+          source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "select":
+        return {
+          source: `<select data-yomu-sanitize-root>${html}</select>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      case "optgroup":
+        return {
+          source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
+          rootSelector: "[data-yomu-sanitize-root]"
+        };
+      default:
+        return { source: html, rootSelector: "" };
+    }
+  }
+  function parseHtmlWithDomParser(html) {
+    try {
+      return new DOMParser().parseFromString(trustedHtml(html), "text/html");
+    } catch {
+      return null;
+    }
+  }
+  function escapeHtml$1(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function sanitizeChildren(parent, ownerDocument) {
+    for (const node of Array.from(parent.childNodes)) {
+      if (node.nodeType !== 1) continue;
+      const element = node;
+      const localName = element.localName.toLowerCase();
+      if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
+        element.remove();
+        continue;
+      }
+      if (localName.includes("-")) {
+        sanitizeChildren(element, ownerDocument);
+        element.replaceWith(...Array.from(element.childNodes));
+        continue;
+      }
+      sanitizeElement(element, ownerDocument);
+      const childRoot = localName === "template" && "content" in element ? element.content : element;
+      sanitizeChildren(childRoot, ownerDocument);
+    }
+  }
+  function sanitizeElement(element, ownerDocument) {
+    for (const attribute of Array.from(element.attributes)) {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (name === "style") {
+        const style = sanitizedInlineStyle(attribute.value, ownerDocument);
+        if (style) element.setAttribute(attribute.name, style);
+        else element.removeAttribute(attribute.name);
+      }
+    }
+    if (element.getAttribute("target")?.toLowerCase() === "_blank") {
+      const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+      rel.add("noopener");
+      rel.add("noreferrer");
+      element.setAttribute("rel", [...rel].join(" "));
+    }
+  }
+  function sanitizedInlineStyle(value, ownerDocument) {
+    const declaration = ownerDocument.createElement("span").style;
+    declaration.cssText = value;
+    const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
+    let removedProperty = false;
+    for (const property of Array.from(declaration)) {
+      const propertyValue = declaration.getPropertyValue(property);
+      if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
+        declaration.removeProperty(property);
+        removedProperty = true;
+      }
+    }
+    return containsUnsafeSource || removedProperty ? declaration.cssText : value;
+  }
+  function isSafeHtmlUrl(value) {
+    const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+    if (!candidate) return true;
+    if (candidate.startsWith("#")) return true;
+    if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
+    try {
+      const parsed = new URL(candidate, "https://yomureader.invalid/");
+      return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
+    } catch {
+      return false;
+    }
+  }
+  function trustedHtml(value) {
+    try {
+      const factory = trustedTypesFactory();
+      if (!factory) return value;
+      if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+      return trustedHtmlPolicy?.createHTML(value) ?? value;
+    } catch {
+      trustedHtmlPolicy = null;
+      return value;
+    }
+  }
+  function trustedTypesFactory() {
+    const root = globalThis;
+    return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+      (factory) => Boolean(factory)
+    );
+  }
+  function createTrustedHtmlPolicy(factory) {
+    const existing = factory.getPolicy?.("yomu-reader");
+    if (existing?.createHTML) return existing;
+    const options = { createHTML: (html) => html };
+    return createTrustedHtmlPolicyWithOptions(
+      factory,
+      pageCompartmentValue(options, {
+        cloneFunctions: true,
+        wrapReflectors: true
+      })
+    ) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  const FALLBACK_HEX_COLOR = "#000000";
+  function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+  }
+  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+    const l1 = relativeLuminance(a, normalizeColor);
+    const l2 = relativeLuminance(b, normalizeColor);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+    const a = sharedHexToRgb(from, normalizeColor);
+    const b = sharedHexToRgb(to, normalizeColor);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+    const safe = normalizeHexColor(normalizeColor(color));
+    return [
+      parseInt(safe.slice(1, 3), 16),
+      parseInt(safe.slice(3, 5), 16),
+      parseInt(safe.slice(5, 7), 16)
+    ];
+  }
+  const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+  const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+  const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+  const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+  const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+  function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    if (!shortHex) return fallback;
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+  }
+  function accessibleOcrBackgroundOpacity(opacity) {
+    const numericOpacity = Number(opacity);
+    const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+    return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+  }
+  function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+    const accent = sanitizeAccentColor(accentColor);
+    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+      return accent;
+    }
+    for (let amount = 0.08; amount <= 1; amount += 0.04) {
+      const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+      if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return candidate;
+      }
+    }
+    return "#000000";
+  }
+  function ocrRenderedBackgroundContrast(color, opacity) {
+    const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+  }
+  accessibleOcrBackgroundColor(
+    DEFAULT_ACCENT_COLOR,
+    DEFAULT_OCR_BACKGROUND_OPACITY
+  );
+  const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
+  const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
+  function readOutputLanguageField(source) {
+    return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
+  }
+  function createDefaultLanguageProfile(defaults = {}) {
+    return {
+      schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
+      id: DEFAULT_LANGUAGE_PROFILE_ID,
+      ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+        readOutputLanguageField(defaults),
+        DEFAULT_SLICE1_LEARNER_LANGUAGE
+      )),
+      targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
+      uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
+      parserProvider: normalizeParserProvider(defaults.parserProvider, "local"),
+      dictionaries: emptyProfileDictionaries(),
+      definitionTranslationProviderIds: []
+    };
+  }
+  function outputLanguageFields(outputLanguage) {
+    return { outputLanguage, learnerLanguage: outputLanguage };
+  }
+  function normalizeUiLocale(value, fallback) {
+    if (value === "auto") return "auto";
+    return canonicalLanguageTag(value) ?? fallback;
+  }
+  function normalizeParserProvider(value, fallback) {
+    return PARSER_PROVIDERS.has(value) ? value : fallback;
+  }
+  function emptyProfileDictionaries() {
+    return { installed: [], enabled: [], order: [] };
+  }
+  function targetAudioTemplateLanguageToken() {
+    return activeLearningTarget().audio.templateLanguageToken;
+  }
+  function speakerIcon() {
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
     <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
     <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
   </svg>`;
-}
-const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
-const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
-const shared = [
-  {
-  id: "wiktionary-en",
-  label: "Wiktionary EN",
-  code: "wiktionaryEn",
-  urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
-  components: [
-    "definition",
-    "sentences"
-  ],
-  enabled: true
-  },
-  {
-  id: "wiktionary-native",
-  label: "Wiktionary",
-  code: "wiktionary",
-  urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
-  components: [
-    "definition"
-  ],
-  enabled: false
-  },
-  {
-  id: "glosbe",
-  label: "Glosbe",
-  code: "glosbe",
-  urlTemplate: "https://glosbe.com/%code%/en/{query}",
-  components: [
-    "definition",
-    "sentences"
-  ],
-  enabled: false
-  },
-  {
-  id: "tatoeba",
-  label: "Tatoeba",
-  code: "tatoeba",
-  urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
-  components: [
-    "sentences"
-  ],
-  enabled: true
-  },
-  {
-  id: "forvo",
-  label: "Forvo",
-  code: "forvo",
-  urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
-  components: [
-    "audio"
-  ],
-  enabled: true
-  },
-  {
-  id: "youglish",
-  label: "YouGlish",
-  code: "youglish",
-  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: true
-  },
-  {
-  id: "reverso",
-  label: "Reverso",
-  code: "reverso",
-  urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
-  id: "wordreference",
-  label: "WordReference",
-  code: "wordreference",
-  urlTemplate: "https://www.wordreference.com/%code%/{query}",
-  components: [
-    "definition",
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
-  id: "linguee",
-  label: "Linguee",
-  code: "linguee",
-  urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
-  components: [
-    "sentences"
-  ],
-  enabled: false
   }
-];
-const targets = {
-  sq: {
-  codes: {
-    wiktionaryEn: "Albanian",
-    wiktionary: "sq",
-    glosbe: "sq",
-    tatoeba: "sqi",
-    forvo: "sq"
-  },
-  links: [
+  const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
+  const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
+  const shared = [
     {
-      id: "fjalorthi",
-      label: "Fjalorthi",
-      urlTemplate: "https://fjalorthi.com/{query}",
+      id: "wiktionary-en",
+      label: "Wiktionary EN",
+      code: "wiktionaryEn",
+      urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
       components: [
         "definition",
         "sentences"
-      ]
-    }
-  ]
-  },
-  grc: {
-  codes: {
-    wiktionaryEn: "Ancient_Greek",
-    glosbe: "grc",
-    tatoeba: "grc"
-  },
-  links: [
-    {
-      id: "logeion",
-      label: "Logeion",
-      urlTemplate: "https://logeion.uchicago.edu/{query}",
-      components: [
-        "definition"
-      ]
+      ],
+      enabled: true
     },
     {
-      id: "lsj",
-      label: "LSJ",
-      urlTemplate: "https://lsj.gr/wiki/{query}",
+      id: "wiktionary-native",
+      label: "Wiktionary",
+      code: "wiktionary",
+      urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
       components: [
         "definition"
-      ]
+      ],
+      enabled: false
     },
     {
-      id: "scaife",
-      label: "Scaife",
-      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
-      components: [
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ar: {
-  codes: {
-    wiktionaryEn: "Arabic",
-    wiktionary: "ar",
-    glosbe: "ar",
-    tatoeba: "ara",
-    forvo: "ar",
-    reverso: "arabic",
-    youglish: "arabic"
-  },
-  links: [
-    {
-      id: "maajim",
-      label: "Maajim",
-      urlTemplate: "https://maajim.com/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  yue: {
-  codes: {
-    wiktionaryEn: "Chinese",
-    wiktionary: "yue",
-    glosbe: "yue",
-    tatoeba: "yue",
-    forvo: "yue"
-  },
-  links: [
-    {
-      id: "words-hk",
-      label: "words.hk",
-      urlTemplate: "https://words.hk/zidin/{query}",
+      id: "glosbe",
+      label: "Glosbe",
+      code: "glosbe",
+      urlTemplate: "https://glosbe.com/%code%/en/{query}",
       components: [
         "definition",
         "sentences"
-      ]
+      ],
+      enabled: false
     },
     {
-      id: "cantowords",
-      label: "CantoWords",
-      urlTemplate: "https://cantowords.com/dictionary/{query}",
+      id: "tatoeba",
+      label: "Tatoeba",
+      code: "tatoeba",
+      urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "forvo",
+      label: "Forvo",
+      code: "forvo",
+      urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
+      components: [
+        "audio"
+      ],
+      enabled: true
+    },
+    {
+      id: "youglish",
+      label: "YouGlish",
+      code: "youglish",
+      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: true
+    },
+    {
+      id: "reverso",
+      label: "Reverso",
+      code: "reverso",
+      urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "wordreference",
+      label: "WordReference",
+      code: "wordreference",
+      urlTemplate: "https://www.wordreference.com/%code%/{query}",
       components: [
         "definition",
         "sentences",
         "audio"
-      ]
+      ],
+      enabled: false
     },
     {
-      id: "cantodict",
-      label: "CantoDict",
-      urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "cccanto",
-      label: "CC-Canto",
-      urlTemplate: "https://cantonese.org/search.php?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  zh: {
-  codes: {
-    wiktionaryEn: "Chinese",
-    wiktionary: "zh",
-    glosbe: "zh",
-    tatoeba: "cmn",
-    forvo: "zh",
-    reverso: "chinese",
-    linguee: "chinese",
-    youglish: "chinese"
-  },
-  links: [
-    {
-      id: "mdbg",
-      label: "MDBG",
-      urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "purpleculture",
-      label: "Purple Culture",
-      urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio",
-        "images"
-      ]
-    },
-    {
-      id: "zdic",
-      label: "Zdic",
-      urlTemplate: "https://www.zdic.net/hans/{query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  da: {
-  codes: {
-    wiktionaryEn: "Danish",
-    wiktionary: "da",
-    glosbe: "da",
-    tatoeba: "dan",
-    forvo: "da",
-    linguee: "danish"
-  },
-  links: [
-    {
-      id: "ddo",
-      label: "Den Danske Ordbog",
-      urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  nl: {
-  codes: {
-    wiktionaryEn: "Dutch",
-    wiktionary: "nl",
-    glosbe: "nl",
-    tatoeba: "nld",
-    forvo: "nl",
-    reverso: "dutch",
-    wordreference: "nlen",
-    linguee: "dutch",
-    youglish: "dutch"
-  },
-  links: [
-    {
-      id: "woorden",
-      label: "woorden.org",
-      urlTemplate: "https://www.woorden.org/woord/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "mijnwoordenboek",
-      label: "MijnWoordenboek",
-      urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  en: {
-  codes: {
-    wiktionaryEn: "English",
-    tatoeba: "eng",
-    forvo: "en",
-    youglish: "english"
-  },
-  links: [
-    {
-      id: "cambridge",
-      label: "Cambridge",
-      urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  fi: {
-  codes: {
-    wiktionaryEn: "Finnish",
-    wiktionary: "fi",
-    glosbe: "fi",
-    tatoeba: "fin",
-    forvo: "fi",
-    linguee: "finnish"
-  },
-  links: [
-    {
-      id: "kotus",
-      label: "Kielitoimiston",
-      urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "suomisanakirja",
-      label: "Suomisanakirja",
-      urlTemplate: "https://www.suomisanakirja.fi/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  fr: {
-  codes: {
-    wiktionaryEn: "French",
-    wiktionary: "fr",
-    glosbe: "fr",
-    tatoeba: "fra",
-    forvo: "fr",
-    reverso: "french",
-    wordreference: "fren",
-    linguee: "french",
-    youglish: "french"
-  },
-  links: [
-    {
-      id: "cnrtl",
-      label: "CNRTL",
-      urlTemplate: "https://www.cnrtl.fr/definition/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "larousse",
-      label: "Larousse",
-      urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  de: {
-  codes: {
-    wiktionaryEn: "German",
-    wiktionary: "de",
-    glosbe: "de",
-    tatoeba: "deu",
-    forvo: "de",
-    reverso: "german",
-    wordreference: "deen",
-    youglish: "german"
-  },
-  links: [
-    {
-      id: "dwds",
-      label: "DWDS",
-      urlTemplate: "https://www.dwds.de/wb/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "duden",
-      label: "Duden",
-      urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  el: {
-  codes: {
-    wiktionaryEn: "Greek",
-    wiktionary: "el",
-    glosbe: "el",
-    tatoeba: "ell",
-    forvo: "el",
-    youglish: "greek"
-  },
-  links: [
-    {
-      id: "triantafyllides",
-      label: "Triantafyllides",
-      urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  hu: {
-  codes: {
-    wiktionaryEn: "Hungarian",
-    wiktionary: "hu",
-    glosbe: "hu",
-    tatoeba: "hun",
-    forvo: "hu",
-    linguee: "hungarian"
-  },
-  links: [
-    {
-      id: "wikiszotar",
-      label: "WikiSzotar",
-      urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  id: {
-  codes: {
-    wiktionaryEn: "Indonesian",
-    wiktionary: "id",
-    glosbe: "id",
-    tatoeba: "ind",
-    forvo: "id",
-    youglish: "indonesian"
-  },
-  links: [
-    {
-      id: "kbbi-web",
-      label: "KBBI",
-      urlTemplate: "https://kbbi.web.id/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "kbbi-co",
-      label: "KBBI.co.id",
-      urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  it: {
-  codes: {
-    wiktionaryEn: "Italian",
-    wiktionary: "it",
-    glosbe: "it",
-    tatoeba: "ita",
-    forvo: "it",
-    reverso: "italian",
-    wordreference: "iten",
-    linguee: "italian",
-    youglish: "italian"
-  },
-  links: [
-    {
-      id: "treccani",
-      label: "Treccani",
-      urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "demauro",
-      label: "De Mauro",
-      urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  km: {
-  codes: {
-    wiktionaryEn: "Khmer",
-    wiktionary: "km",
-    glosbe: "km",
-    tatoeba: "khm",
-    forvo: "km"
-  },
-  links: [
-    {
-      id: "khmerdict",
-      label: "Khmer Dictionary",
-      urlTemplate: "https://khmerdict.com/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ko: {
-  codes: {
-    wiktionaryEn: "Korean",
-    wiktionary: "ko",
-    glosbe: "ko",
-    tatoeba: "kor",
-    forvo: "ko",
-    youglish: "korean"
-  },
-  links: [
-    {
-      id: "naver",
-      label: "Naver",
-      urlTemplate: "https://dict.naver.com/dict.search?query={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "krdict",
-      label: "Krdict",
-      urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "daum",
-      label: "Daum",
-      urlTemplate: "https://dic.daum.net/search.do?q={query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  lo: {
-  codes: {
-    wiktionaryEn: "Lao",
-    wiktionary: "lo",
-    glosbe: "lo",
-    tatoeba: "lao",
-    forvo: "lo"
-  },
-  links: [
-    {
-      id: "laoswords",
-      label: "Lao Dictionary",
-      urlTemplate: "https://www.laoswords.com/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  la: {
-  codes: {
-    wiktionaryEn: "Latin",
-    wiktionary: "la",
-    glosbe: "la",
-    tatoeba: "lat",
-    forvo: "la"
-  },
-  links: [
-    {
-      id: "logeion",
-      label: "Logeion",
-      urlTemplate: "https://logeion.uchicago.edu/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "lsj",
-      label: "Lewis & Short",
-      urlTemplate: "https://lsj.gr/wiki/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "olivetti",
-      label: "Olivetti",
-      urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "scaife",
-      label: "Scaife",
-      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+      id: "linguee",
+      label: "Linguee",
+      code: "linguee",
+      urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
       components: [
         "sentences"
-      ]
+      ],
+      enabled: false
     }
-  ]
-  },
-  mn: {
-  codes: {
-    wiktionaryEn: "Mongolian",
-    wiktionary: "mn",
-    glosbe: "mn",
-    tatoeba: "mon",
-    forvo: "mn"
-  },
-  links: [
-    {
-      id: "mongoltoli",
-      label: "Mongoltoli",
-      urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "toli-query",
-      label: "Toli",
-      urlTemplate: "https://toli.query.mn/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  fa: {
-  codes: {
-    wiktionaryEn: "Persian",
-    wiktionary: "fa",
-    glosbe: "fa",
-    tatoeba: "pes",
-    forvo: "fa",
-    youglish: "persian"
-  },
-  links: [
-    {
-      id: "vajehyab",
-      label: "Vajehyab",
-      urlTemplate: "https://www.vajehyab.com/?q={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "abadis",
-      label: "Abadis",
-      urlTemplate: "https://abadis.ir/fatofa/{query}/",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "dehkhoda",
-      label: "Dehkhoda",
-      urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  pl: {
-  codes: {
-    wiktionaryEn: "Polish",
-    wiktionary: "pl",
-    glosbe: "pl",
-    tatoeba: "pol",
-    forvo: "pl",
-    reverso: "polish",
-    wordreference: "plen",
-    linguee: "polish",
-    youglish: "polish"
-  },
-  links: [
-    {
-      id: "sjp-pwn",
-      label: "SJP PWN",
-      urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  pt: {
-  codes: {
-    wiktionaryEn: "Portuguese",
-    wiktionary: "pt",
-    glosbe: "pt",
-    tatoeba: "por",
-    forvo: "pt",
-    reverso: "portuguese",
-    wordreference: "pten",
-    linguee: "portuguese",
-    youglish: "portuguese"
-  },
-  links: [
-    {
-      id: "priberam",
-      label: "Priberam",
-      urlTemplate: "https://dicionario.priberam.org/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "dicio",
-      label: "Dicio",
-      urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  ro: {
-  codes: {
-    wiktionaryEn: "Romanian",
-    wiktionary: "ro",
-    glosbe: "ro",
-    tatoeba: "ron",
-    forvo: "ro",
-    reverso: "romanian",
-    wordreference: "roen",
-    linguee: "romanian",
-    youglish: "romanian"
-  },
-  links: [
-    {
-      id: "dexonline",
-      label: "dexonline",
-      urlTemplate: "https://dexonline.ro/definitie/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ru: {
-  codes: {
-    wiktionaryEn: "Russian",
-    wiktionary: "ru",
-    glosbe: "ru",
-    tatoeba: "rus",
-    forvo: "ru",
-    reverso: "russian",
-    youglish: "russian"
-  },
-  links: [
-    {
-      id: "openrussian",
-      label: "OpenRussian",
-      urlTemplate: "https://en.openrussian.org/ru/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "gramota",
-      label: "Gramota",
-      urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "kartaslov",
-      label: "Kartaslov",
-      urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  sh: {
-  codes: {
-    wiktionaryEn: "Serbo-Croatian",
-    wiktionary: "sh",
-    glosbe: "sh",
-    tatoeba: "hrv",
-    forvo: "hr"
-  },
-  links: [
-    {
-      id: "rjecnik-hr",
-      label: "Skolski rjecnik",
-      urlTemplate: "https://rjecnik.hr/search/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  es: {
-  codes: {
-    wiktionaryEn: "Spanish",
-    wiktionary: "es",
-    glosbe: "es",
-    tatoeba: "spa",
-    forvo: "es",
-    reverso: "spanish",
-    wordreference: "esen",
-    linguee: "spanish",
-    youglish: "spanish"
-  },
-  links: [
-    {
-      id: "rae",
-      label: "RAE",
-      urlTemplate: "https://dle.rae.es/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "spanishdict",
-      label: "SpanishDict",
-      urlTemplate: "https://www.spanishdict.com/translate/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  sv: {
-  codes: {
-    wiktionaryEn: "Swedish",
-    wiktionary: "sv",
-    glosbe: "sv",
-    tatoeba: "swe",
-    forvo: "sv",
-    reverso: "swedish",
-    wordreference: "sven",
-    linguee: "swedish",
-    youglish: "swedish"
-  },
-  links: [
-    {
-      id: "svenska-se",
-      label: "svenska.se",
-      urlTemplate: "https://svenska.se/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  tl: {
-  codes: {
-    wiktionaryEn: "Tagalog",
-    wiktionary: "tl",
-    glosbe: "tl",
-    tatoeba: "tgl",
-    forvo: "tl"
-  },
-  links: [
-    {
-      id: "tagalog-com",
-      label: "Tagalog.com",
-      urlTemplate: "https://www.tagalog.com/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "diksiyonaryo-ph",
-      label: "Diksiyonaryo.ph",
-      urlTemplate: "https://diksiyonaryo.ph/search/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "pinoydictionary",
-      label: "PinoyDictionary",
-      urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  th: {
-  codes: {
-    wiktionaryEn: "Thai",
-    wiktionary: "th",
-    glosbe: "th",
-    tatoeba: "tha",
-    forvo: "th",
-    youglish: "thai"
-  },
-  links: [
-    {
-      id: "longdo",
-      label: "Longdo",
-      urlTemplate: "https://dict.longdo.com/search/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  tr: {
-  codes: {
-    wiktionaryEn: "Turkish",
-    wiktionary: "tr",
-    glosbe: "tr",
-    tatoeba: "tur",
-    forvo: "tr",
-    reverso: "turkish",
-    youglish: "turkish"
-  },
-  links: [
-    {
-      id: "tdk",
-      label: "TDK Sozluk",
-      urlTemplate: "https://sozluk.gov.tr/?ara={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "tureng",
-      label: "Tureng",
-      urlTemplate: "https://tureng.com/en/turkish-english/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "seslisozluk",
-      label: "Sesli Sozluk",
-      urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  vi: {
-  codes: {
-    wiktionaryEn: "Vietnamese",
-    wiktionary: "vi",
-    glosbe: "vi",
-    tatoeba: "vie",
-    forvo: "vi",
-    youglish: "vietnamese"
-  },
-  links: [
-    {
-      id: "tratu-soha",
-      label: "Tra tu Soha",
-      urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "vdict",
-      label: "VDict",
-      urlTemplate: "https://vdict.com/{query},2,0,0.html",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "vtudien",
-      label: "Vtudien",
-      urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  }
-};
-const catalogue = {
-  shared,
-  targets
-};
-const CATALOGUE = catalogue;
-/* @__PURE__ */ new Set([
-  ...CATALOGUE.shared.map((site) => site.id),
-  ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
-]);
-const JPDB_LOOKUP_LINK = {
-  id: "jpdb",
-  label: "JPDB",
-  urlTemplate: "https://jpdb.io/search?q={query}",
-  enabled: true
-};
-const JITEN_LIVE_FREQUENCY_PILL = {
-  id: "jiten-frequency",
-  label: "Jiten",
-  urlTemplate: "",
-  enabled: true,
-  action: "frequency-live"
-};
-const JPDB_LIVE_FREQUENCY_PILL = {
-  id: "jpdb-frequency",
-  label: "JPDB",
-  urlTemplate: "",
-  enabled: true,
-  action: "frequency-live"
-};
-const JISHO_LOOKUP_LINK = {
-  id: "jisho",
-  label: "Jisho",
-  urlTemplate: "https://jisho.org/search/{query}",
-  enabled: false
-};
-const YOMU_LOOKUP_LINK = {
-  id: "yomu-search",
-  label: "Yomu",
-  urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
-  enabled: true
-};
-const JITEN_LOOKUP_LINK = {
-  id: "jiten",
-  label: "Jiten",
-  urlTemplate: "https://jiten.moe/parse?text={query}",
-  enabled: true
-};
-const BUNPRO_LOOKUP_LINK = {
-  id: "bunpro",
-  label: "Bunpro",
-  urlTemplate: "https://bunpro.jp/search?query={query}",
-  enabled: true
-};
-const BUNPRO_LIVE_FREQUENCY_PILL = {
-  id: "bunpro-frequency",
-  label: "Bunpro",
-  urlTemplate: "",
-  enabled: true,
-  action: "frequency-live"
-};
-const WEBLIO_LOOKUP_LINK = {
-  id: "weblio",
-  label: "Weblio",
-  urlTemplate: "https://www.weblio.jp/content/{query}",
-  enabled: false
-};
-const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
-const KOTOBANK_LOOKUP_LINK = {
-  id: "kotobank",
-  label: "Kotobank",
-  urlTemplate: "https://kotobank.jp/search?q={query}",
-  enabled: false
-};
-const TAKOBOTO_LOOKUP_LINK = {
-  id: "takoboto",
-  label: "Takoboto",
-  urlTemplate: "https://takoboto.jp/?q={query}",
-  enabled: false
-};
-const WIKTIONARY_LOOKUP_LINK = {
-  id: "wiktionary-ja",
-  label: "Wiktionary",
-  urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
-  enabled: false
-};
-const IMMERSION_KIT_LOOKUP_LINK = {
-  id: "immersion-kit",
-  label: "Immersion Kit",
-  urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
-  enabled: false
-};
-const NADESHIKO_LOOKUP_LINK = {
-  id: "nadeshiko",
-  label: "Nadeshiko",
-  urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
-  enabled: false
-};
-const UCHISEN_LOOKUP_LINK = {
-  id: "uchisen",
-  label: "Uchisen",
-  urlTemplate: "https://uchisen.com/kanji/{query}",
-  enabled: false
-};
-const COPY_LOOKUP_LINK = {
-  id: "copy",
-  label: "Copy",
-  urlTemplate: "",
-  enabled: true,
-  action: "copy"
-};
-const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-  YOMU_LOOKUP_LINK,
-  JITEN_LOOKUP_LINK,
-  JITEN_LIVE_FREQUENCY_PILL,
-  JPDB_LOOKUP_LINK,
-  JPDB_LIVE_FREQUENCY_PILL,
-  BUNPRO_LOOKUP_LINK,
-  BUNPRO_LIVE_FREQUENCY_PILL,
-  JISHO_LOOKUP_LINK,
-  WEBLIO_LOOKUP_LINK,
-  KOTOBANK_LOOKUP_LINK,
-  TAKOBOTO_LOOKUP_LINK,
-  WIKTIONARY_LOOKUP_LINK,
-  IMMERSION_KIT_LOOKUP_LINK,
-  NADESHIKO_LOOKUP_LINK,
-  UCHISEN_LOOKUP_LINK,
-  COPY_LOOKUP_LINK
-];
-[
-  { ...JPDB_LOOKUP_LINK, enabled: false },
-  { ...JISHO_LOOKUP_LINK, enabled: true },
-  COPY_LOOKUP_LINK
-];
-[[
-  // The Yomu-first default immediately before the Nadeshiko search pill was
-  // added. Untouched installs receive the new pill beside Immersion Kit;
-  // custom orders still keep their order and get new built-ins appended.
-  YOMU_LOOKUP_LINK.id,
-  JITEN_LOOKUP_LINK.id,
-  JITEN_LIVE_FREQUENCY_PILL.id,
-  JPDB_LOOKUP_LINK.id,
-  JPDB_LIVE_FREQUENCY_PILL.id,
-  BUNPRO_LOOKUP_LINK.id,
-  BUNPRO_LIVE_FREQUENCY_PILL.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  // The jiten-first default that shipped before Yomu was promoted to the front
-  // of the pill row. Users who never re-ordered their pills are migrated to the
-  // current Yomu-first default order instead of being pinned to the old layout.
-  JITEN_LOOKUP_LINK.id,
-  JITEN_LIVE_FREQUENCY_PILL.id,
-  JPDB_LOOKUP_LINK.id,
-  JPDB_LIVE_FREQUENCY_PILL.id,
-  YOMU_LOOKUP_LINK.id,
-  BUNPRO_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  YOMU_LOOKUP_LINK.id,
-  JITEN_LOOKUP_LINK.id,
-  JPDB_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  REMOVED_GOO_LOOKUP_LINK_ID,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  JITEN_LOOKUP_LINK.id,
-  JPDB_LOOKUP_LINK.id,
-  YOMU_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  REMOVED_GOO_LOOKUP_LINK_ID,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  JPDB_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id,
-  YOMU_LOOKUP_LINK.id,
-  JITEN_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  REMOVED_GOO_LOOKUP_LINK_ID,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id
-]];
-const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-function getOrderedAudioSources(settings) {
-  const sources = settings.audioSources.filter((source) => source.enabled);
-  if (!settings.audioEnableDefaultSources) return sources;
-  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-  return [
-  ...hosted.enabled ? [{ ...hosted }] : [],
-  ...sources.filter((source) => !isYomuHostedAudioSource(source))
   ];
-}
-function isYomuHostedAudioSource(source) {
-  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-}
-function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-  return orderAudioDeckEntries(candidates.map((candidate, index) => ({
-  candidate,
-  id: audioCandidateDeckId(candidate, index)
-  })), mode, bagKey, shuffledAudio);
-}
-function orderAudioSources(sources, card) {
-  return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-}
-function audioSourceDeckEntries(sources, bagKey) {
-  return sources.map((source, index) => {
-  const signature = getAudioSourceSignature(source);
-  return {
-    source,
-    id: getAudioSourceDeckId(signature, index),
-    bagKey,
-    signature
+  const targets = {
+    sq: {
+      codes: {
+        wiktionaryEn: "Albanian",
+        wiktionary: "sq",
+        glosbe: "sq",
+        tatoeba: "sqi",
+        forvo: "sq"
+      },
+      links: [
+        {
+          id: "fjalorthi",
+          label: "Fjalorthi",
+          urlTemplate: "https://fjalorthi.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    grc: {
+      codes: {
+        wiktionaryEn: "Ancient_Greek",
+        glosbe: "grc",
+        tatoeba: "grc"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "LSJ",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ar: {
+      codes: {
+        wiktionaryEn: "Arabic",
+        wiktionary: "ar",
+        glosbe: "ar",
+        tatoeba: "ara",
+        forvo: "ar",
+        reverso: "arabic",
+        youglish: "arabic"
+      },
+      links: [
+        {
+          id: "maajim",
+          label: "Maajim",
+          urlTemplate: "https://maajim.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    yue: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "yue",
+        glosbe: "yue",
+        tatoeba: "yue",
+        forvo: "yue"
+      },
+      links: [
+        {
+          id: "words-hk",
+          label: "words.hk",
+          urlTemplate: "https://words.hk/zidin/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cantowords",
+          label: "CantoWords",
+          urlTemplate: "https://cantowords.com/dictionary/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "cantodict",
+          label: "CantoDict",
+          urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cccanto",
+          label: "CC-Canto",
+          urlTemplate: "https://cantonese.org/search.php?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    zh: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "zh",
+        glosbe: "zh",
+        tatoeba: "cmn",
+        forvo: "zh",
+        reverso: "chinese",
+        linguee: "chinese",
+        youglish: "chinese"
+      },
+      links: [
+        {
+          id: "mdbg",
+          label: "MDBG",
+          urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "purpleculture",
+          label: "Purple Culture",
+          urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio",
+            "images"
+          ]
+        },
+        {
+          id: "zdic",
+          label: "Zdic",
+          urlTemplate: "https://www.zdic.net/hans/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    da: {
+      codes: {
+        wiktionaryEn: "Danish",
+        wiktionary: "da",
+        glosbe: "da",
+        tatoeba: "dan",
+        forvo: "da",
+        linguee: "danish"
+      },
+      links: [
+        {
+          id: "ddo",
+          label: "Den Danske Ordbog",
+          urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    nl: {
+      codes: {
+        wiktionaryEn: "Dutch",
+        wiktionary: "nl",
+        glosbe: "nl",
+        tatoeba: "nld",
+        forvo: "nl",
+        reverso: "dutch",
+        wordreference: "nlen",
+        linguee: "dutch",
+        youglish: "dutch"
+      },
+      links: [
+        {
+          id: "woorden",
+          label: "woorden.org",
+          urlTemplate: "https://www.woorden.org/woord/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "mijnwoordenboek",
+          label: "MijnWoordenboek",
+          urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    en: {
+      codes: {
+        wiktionaryEn: "English",
+        tatoeba: "eng",
+        forvo: "en",
+        youglish: "english"
+      },
+      links: [
+        {
+          id: "cambridge",
+          label: "Cambridge",
+          urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    fi: {
+      codes: {
+        wiktionaryEn: "Finnish",
+        wiktionary: "fi",
+        glosbe: "fi",
+        tatoeba: "fin",
+        forvo: "fi",
+        linguee: "finnish"
+      },
+      links: [
+        {
+          id: "kotus",
+          label: "Kielitoimiston",
+          urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "suomisanakirja",
+          label: "Suomisanakirja",
+          urlTemplate: "https://www.suomisanakirja.fi/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    fr: {
+      codes: {
+        wiktionaryEn: "French",
+        wiktionary: "fr",
+        glosbe: "fr",
+        tatoeba: "fra",
+        forvo: "fr",
+        reverso: "french",
+        wordreference: "fren",
+        linguee: "french",
+        youglish: "french"
+      },
+      links: [
+        {
+          id: "cnrtl",
+          label: "CNRTL",
+          urlTemplate: "https://www.cnrtl.fr/definition/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "larousse",
+          label: "Larousse",
+          urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    de: {
+      codes: {
+        wiktionaryEn: "German",
+        wiktionary: "de",
+        glosbe: "de",
+        tatoeba: "deu",
+        forvo: "de",
+        reverso: "german",
+        wordreference: "deen",
+        youglish: "german"
+      },
+      links: [
+        {
+          id: "dwds",
+          label: "DWDS",
+          urlTemplate: "https://www.dwds.de/wb/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "duden",
+          label: "Duden",
+          urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    el: {
+      codes: {
+        wiktionaryEn: "Greek",
+        wiktionary: "el",
+        glosbe: "el",
+        tatoeba: "ell",
+        forvo: "el",
+        youglish: "greek"
+      },
+      links: [
+        {
+          id: "triantafyllides",
+          label: "Triantafyllides",
+          urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    hu: {
+      codes: {
+        wiktionaryEn: "Hungarian",
+        wiktionary: "hu",
+        glosbe: "hu",
+        tatoeba: "hun",
+        forvo: "hu",
+        linguee: "hungarian"
+      },
+      links: [
+        {
+          id: "wikiszotar",
+          label: "WikiSzotar",
+          urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    id: {
+      codes: {
+        wiktionaryEn: "Indonesian",
+        wiktionary: "id",
+        glosbe: "id",
+        tatoeba: "ind",
+        forvo: "id",
+        youglish: "indonesian"
+      },
+      links: [
+        {
+          id: "kbbi-web",
+          label: "KBBI",
+          urlTemplate: "https://kbbi.web.id/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "kbbi-co",
+          label: "KBBI.co.id",
+          urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    it: {
+      codes: {
+        wiktionaryEn: "Italian",
+        wiktionary: "it",
+        glosbe: "it",
+        tatoeba: "ita",
+        forvo: "it",
+        reverso: "italian",
+        wordreference: "iten",
+        linguee: "italian",
+        youglish: "italian"
+      },
+      links: [
+        {
+          id: "treccani",
+          label: "Treccani",
+          urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "demauro",
+          label: "De Mauro",
+          urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    km: {
+      codes: {
+        wiktionaryEn: "Khmer",
+        wiktionary: "km",
+        glosbe: "km",
+        tatoeba: "khm",
+        forvo: "km"
+      },
+      links: [
+        {
+          id: "khmerdict",
+          label: "Khmer Dictionary",
+          urlTemplate: "https://khmerdict.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ko: {
+      codes: {
+        wiktionaryEn: "Korean",
+        wiktionary: "ko",
+        glosbe: "ko",
+        tatoeba: "kor",
+        forvo: "ko",
+        youglish: "korean"
+      },
+      links: [
+        {
+          id: "naver",
+          label: "Naver",
+          urlTemplate: "https://dict.naver.com/dict.search?query={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "krdict",
+          label: "Krdict",
+          urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "daum",
+          label: "Daum",
+          urlTemplate: "https://dic.daum.net/search.do?q={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    lo: {
+      codes: {
+        wiktionaryEn: "Lao",
+        wiktionary: "lo",
+        glosbe: "lo",
+        tatoeba: "lao",
+        forvo: "lo"
+      },
+      links: [
+        {
+          id: "laoswords",
+          label: "Lao Dictionary",
+          urlTemplate: "https://www.laoswords.com/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    la: {
+      codes: {
+        wiktionaryEn: "Latin",
+        wiktionary: "la",
+        glosbe: "la",
+        tatoeba: "lat",
+        forvo: "la"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "Lewis & Short",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "olivetti",
+          label: "Olivetti",
+          urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    mn: {
+      codes: {
+        wiktionaryEn: "Mongolian",
+        wiktionary: "mn",
+        glosbe: "mn",
+        tatoeba: "mon",
+        forvo: "mn"
+      },
+      links: [
+        {
+          id: "mongoltoli",
+          label: "Mongoltoli",
+          urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "toli-query",
+          label: "Toli",
+          urlTemplate: "https://toli.query.mn/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    fa: {
+      codes: {
+        wiktionaryEn: "Persian",
+        wiktionary: "fa",
+        glosbe: "fa",
+        tatoeba: "pes",
+        forvo: "fa",
+        youglish: "persian"
+      },
+      links: [
+        {
+          id: "vajehyab",
+          label: "Vajehyab",
+          urlTemplate: "https://www.vajehyab.com/?q={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "abadis",
+          label: "Abadis",
+          urlTemplate: "https://abadis.ir/fatofa/{query}/",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dehkhoda",
+          label: "Dehkhoda",
+          urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pl: {
+      codes: {
+        wiktionaryEn: "Polish",
+        wiktionary: "pl",
+        glosbe: "pl",
+        tatoeba: "pol",
+        forvo: "pl",
+        reverso: "polish",
+        wordreference: "plen",
+        linguee: "polish",
+        youglish: "polish"
+      },
+      links: [
+        {
+          id: "sjp-pwn",
+          label: "SJP PWN",
+          urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pt: {
+      codes: {
+        wiktionaryEn: "Portuguese",
+        wiktionary: "pt",
+        glosbe: "pt",
+        tatoeba: "por",
+        forvo: "pt",
+        reverso: "portuguese",
+        wordreference: "pten",
+        linguee: "portuguese",
+        youglish: "portuguese"
+      },
+      links: [
+        {
+          id: "priberam",
+          label: "Priberam",
+          urlTemplate: "https://dicionario.priberam.org/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dicio",
+          label: "Dicio",
+          urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    ro: {
+      codes: {
+        wiktionaryEn: "Romanian",
+        wiktionary: "ro",
+        glosbe: "ro",
+        tatoeba: "ron",
+        forvo: "ro",
+        reverso: "romanian",
+        wordreference: "roen",
+        linguee: "romanian",
+        youglish: "romanian"
+      },
+      links: [
+        {
+          id: "dexonline",
+          label: "dexonline",
+          urlTemplate: "https://dexonline.ro/definitie/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ru: {
+      codes: {
+        wiktionaryEn: "Russian",
+        wiktionary: "ru",
+        glosbe: "ru",
+        tatoeba: "rus",
+        forvo: "ru",
+        reverso: "russian",
+        youglish: "russian"
+      },
+      links: [
+        {
+          id: "openrussian",
+          label: "OpenRussian",
+          urlTemplate: "https://en.openrussian.org/ru/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "gramota",
+          label: "Gramota",
+          urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "kartaslov",
+          label: "Kartaslov",
+          urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    sh: {
+      codes: {
+        wiktionaryEn: "Serbo-Croatian",
+        wiktionary: "sh",
+        glosbe: "sh",
+        tatoeba: "hrv",
+        forvo: "hr"
+      },
+      links: [
+        {
+          id: "rjecnik-hr",
+          label: "Skolski rjecnik",
+          urlTemplate: "https://rjecnik.hr/search/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    es: {
+      codes: {
+        wiktionaryEn: "Spanish",
+        wiktionary: "es",
+        glosbe: "es",
+        tatoeba: "spa",
+        forvo: "es",
+        reverso: "spanish",
+        wordreference: "esen",
+        linguee: "spanish",
+        youglish: "spanish"
+      },
+      links: [
+        {
+          id: "rae",
+          label: "RAE",
+          urlTemplate: "https://dle.rae.es/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "spanishdict",
+          label: "SpanishDict",
+          urlTemplate: "https://www.spanishdict.com/translate/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    sv: {
+      codes: {
+        wiktionaryEn: "Swedish",
+        wiktionary: "sv",
+        glosbe: "sv",
+        tatoeba: "swe",
+        forvo: "sv",
+        reverso: "swedish",
+        wordreference: "sven",
+        linguee: "swedish",
+        youglish: "swedish"
+      },
+      links: [
+        {
+          id: "svenska-se",
+          label: "svenska.se",
+          urlTemplate: "https://svenska.se/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    tl: {
+      codes: {
+        wiktionaryEn: "Tagalog",
+        wiktionary: "tl",
+        glosbe: "tl",
+        tatoeba: "tgl",
+        forvo: "tl"
+      },
+      links: [
+        {
+          id: "tagalog-com",
+          label: "Tagalog.com",
+          urlTemplate: "https://www.tagalog.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "diksiyonaryo-ph",
+          label: "Diksiyonaryo.ph",
+          urlTemplate: "https://diksiyonaryo.ph/search/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "pinoydictionary",
+          label: "PinoyDictionary",
+          urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    th: {
+      codes: {
+        wiktionaryEn: "Thai",
+        wiktionary: "th",
+        glosbe: "th",
+        tatoeba: "tha",
+        forvo: "th",
+        youglish: "thai"
+      },
+      links: [
+        {
+          id: "longdo",
+          label: "Longdo",
+          urlTemplate: "https://dict.longdo.com/search/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    tr: {
+      codes: {
+        wiktionaryEn: "Turkish",
+        wiktionary: "tr",
+        glosbe: "tr",
+        tatoeba: "tur",
+        forvo: "tr",
+        reverso: "turkish",
+        youglish: "turkish"
+      },
+      links: [
+        {
+          id: "tdk",
+          label: "TDK Sozluk",
+          urlTemplate: "https://sozluk.gov.tr/?ara={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "tureng",
+          label: "Tureng",
+          urlTemplate: "https://tureng.com/en/turkish-english/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "seslisozluk",
+          label: "Sesli Sozluk",
+          urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    vi: {
+      codes: {
+        wiktionaryEn: "Vietnamese",
+        wiktionary: "vi",
+        glosbe: "vi",
+        tatoeba: "vie",
+        forvo: "vi",
+        youglish: "vietnamese"
+      },
+      links: [
+        {
+          id: "tratu-soha",
+          label: "Tra tu Soha",
+          urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vdict",
+          label: "VDict",
+          urlTemplate: "https://vdict.com/{query},2,0,0.html",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vtudien",
+          label: "Vtudien",
+          urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    }
   };
-  });
-}
-function isBrowserTextToSpeechSource(source) {
-  return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
-}
-function audioSubSourceProviderName(name) {
-  const trimmed = name.trim().normalize("NFC");
-  return trimmed.split(/\s+/, 1)[0] ?? trimmed;
-}
-function audioSubSourceNameKey(name) {
-  return audioSubSourceProviderName(name).toLowerCase();
-}
-function disabledAudioSubSourceNameKeys(source) {
-  return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
-}
-function audioSubSourceFilterKey(source) {
-  return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
-}
-function registerAudioAttempt(triedUrls, candidate) {
-  const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-  if (triedUrls.has(candidateKey2)) return false;
-  triedUrls.add(candidateKey2);
-  return true;
-}
-function getAudioBagKey(source, card) {
-  return [
-  source.type,
-  source.url,
-  source.voice,
-  audioSubSourceFilterKey(source),
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function normalizeAttemptedAudioUrl(value) {
-  try {
-  const url = new URL(value, location.href);
-  url.hash = "";
-  return url.href;
-  } catch {
-  return value;
-  }
-}
-function audioCandidateDeckId(candidate, index) {
-  if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  index
-  ].join("\0");
-}
-function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
-  if (mode !== "random" || !entries2.length) return entries2;
-  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
-  const ordered = [];
-  for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
-  const entry = byId.get(id);
-  if (entry) ordered.push(entry);
-  }
-  return ordered;
-}
-function getAudioSourceBagKey(sources, card) {
-  return [
-  "audio-sources",
-  card.spelling,
-  card.reading,
-  ...sources.map(getAudioSourceSignature)
-  ].join("");
-}
-function getAudioSourceDeckId(signature, index) {
-  return `${index}\0${signature}`;
-}
-function getAudioSourceSignature(source) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim(),
-  audioSubSourceFilterKey(source)
-  ].join("\0");
-}
-Logger.scope("Settings");
-const AUDIO_SOURCE_TYPE_VALUES = [
-  "jpod101",
-  "language-pod-101",
-  "jisho",
-  "bunpro",
-  "lingua-libre",
-  "wiktionary",
-  "jiten-tts",
-  "jpdb-tts",
-  "text-to-speech",
-  "text-to-speech-reading",
-  "custom",
-  "custom-json"
-];
-const DEFAULT_AUDIO_SOURCES = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: false },
-  { type: "language-pod-101", url: "", voice: "", enabled: false },
-  { type: "jisho", url: "", voice: "", enabled: false },
-  { type: "bunpro", url: "", voice: "", enabled: false },
-  { type: "jiten-tts", url: "", voice: "", enabled: false },
-  { type: "jpdb-tts", url: "", voice: "", enabled: false },
-  { type: "text-to-speech", url: "", voice: "", enabled: false }
-];
-new Set(AUDIO_SOURCE_TYPE_VALUES);
-new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
-const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-  "kanji-doodle",
-  "word",
-  "type-word",
-  "recall-cloze",
-  "listen-pitch",
-  "speaking"
-];
-new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
-({
-  languageProfiles: [createDefaultLanguageProfile()],
-  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
-});
-new Set(FURIGANA_HIDE_STATE_GROUPS);
-new Set(
-  "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
-);
-new Set("heiban,atamadaka,nakadaka,odaka".split(","));
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-roleSelectors("menu,menubar,toolbar,tablist");
-new Set(
-  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
-);
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
-selectorPairs("control,toggle,player", ["class"]);
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
-const POS_LABELS = {
-  abbr: "abbreviation",
-  adj: "adjective",
-  "adj-f": "pre-noun adjective",
-  "adj-i": "i-adjective",
-  "adj-ix": "yoi/ii adjective",
-  "adj-na": "na-adjective",
-  "adj-no": "no-adjective",
-  "adj-pn": "pre-noun adjectival",
-  "adj-t": "taru adjective",
-  adv: "adverb",
-  "adv-to": "adverb taking to",
-  arch: "archaic",
-  ateji: "phonetic kanji spelling",
-  aux: "auxiliary",
-  "aux-adj": "auxiliary adjective",
-  "aux-v": "auxiliary verb",
-  col: "colloquial",
-  conj: "conjunction",
-  cop: "copula",
-  ctr: "counter",
-  dated: "dated term",
-  derog: "derogatory",
-  exp: "expression",
-  fam: "familiar language",
-  fem: "female language",
-  form: "formal language",
-  gikun: "special kanji reading",
-  hon: "honorific language",
-  hum: "humble language",
-  id: "idiomatic expression",
-  ik: "irregular kana form",
-  io: "irregular okurigana",
-  int: "interjection",
-  joc: "jocular language",
-  male: "male language",
-  n: "noun",
-  "n-adv": "adverbial noun",
-  "n-pr": "proper noun",
-  "n-pref": "noun used as a prefix",
-  "n-suf": "noun used as a suffix",
-  "n-t": "temporal noun",
-  "net-sl": "internet slang",
-  num: "number",
-  obs: "obsolete term",
-  obsc: "obscure term",
-  ok: "outdated kana form",
-  "on-mim": "onomatopoeic or mimetic word",
-  pn: "pronoun",
-  poet: "poetic term",
-  pol: "polite language",
-  pref: "prefix",
-  prt: "particle",
-  proverb: "proverb",
-  rare: "rare term",
-  rk: "rare kana form",
-  sens: "sensitive term",
-  sl: "slang",
-  suf: "suffix",
-  unc: "unclassified",
-  uk: "usually written using kana alone",
-  vi: "intransitive verb",
-  vt: "transitive verb",
-  v1: "ichidan verb",
-  v5: "godan verb",
-  v5aru: "aru ending",
-  v5b: "bu ending",
-  v5g: "gu ending",
-  v5k: "ku ending",
-  v5m: "mu ending",
-  v5n: "nu ending",
-  v5r: "ru ending",
-  v5s: "su ending",
-  v5t: "tsu ending",
-  v5u: "u ending",
-  vk: "kuru verb",
-  vs: "suru verb",
-  "vs-c": "su verb",
-  "vs-i": "suru verb",
-  "vs-s": "suru verb (special class)",
-  vulgar: "vulgar expression",
-  vz: "zuru verb"
-};
-function formatPartOfSpeech(tags = []) {
-  const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
-  return [...new Set(labels)].join(", ");
-}
-function formatPartOfSpeechDetails(tags = []) {
-  return tags.length ? tags.join(", ").toUpperCase() : "";
-}
-Logger.scope("DictionaryArchiveCache");
-Logger.scope("Yomitan");
-function isRecord(value) {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
-function glossaryValueToText(value) {
-  return glossaryValueToProfileText(value, {
-  includeDirectDataAttributes: true,
-  fallbackTextKeys: GLOSSARY_DISPLAY_TEXT_KEYS
-  });
-}
-function glossaryValueToProfileText(value, options) {
-  const primitiveText = primitiveGlossaryText(value);
-  if (primitiveText !== void 0) return primitiveText;
-  if (Array.isArray(value)) {
-  return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
-  }
-  return isRecord(value) ? glossaryRecordToText(value, options) : "";
-}
-function primitiveGlossaryText(value) {
-  if (value == null) return "";
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
-  return void 0;
-}
-function glossaryRecordToText(record2, options) {
-  if (typeof record2.text === "string") return record2.text;
-  if ("content" in record2) return glossaryValueToProfileText(record2.content, options);
-  const values = glossaryRecordTextValues(record2, options);
-  if (values.length) return values.join(" ");
-  if ("path" in record2) return glossaryPathRecordText(record2);
-  return "";
-}
-function glossaryPathRecordText(record2) {
-  return String(record2.description || record2.alt || "");
-}
-function glossaryRecordTextValues(record2, options) {
-  const values = [];
-  for (const [key, childValue] of Object.entries(record2)) {
-  if (!shouldReadRecordTextKey(key, options)) continue;
-  const childText = glossaryValueToProfileText(childValue, options);
-  if (childText) values.push(childText);
-  }
-  return values;
-}
-function shouldReadRecordTextKey(key, options) {
-  return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
-}
-const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
-  "br",
-  "ruby",
-  "rt",
-  "rp",
-  "thead",
-  "tbody",
-  "tfoot",
-  "tr",
-  "th",
-  "td",
-  "div",
-  "span",
-  "ol",
-  "ul",
-  "li",
-  "details",
-  "summary"
-]);
-const STRUCTURED_STYLE_PROPERTIES = {
-  fontStyle: "font-style",
-  fontWeight: "font-weight",
-  fontSize: "font-size",
-  color: "color",
-  background: "background",
-  backgroundColor: "background-color",
-  textDecorationStyle: "text-decoration-style",
-  textDecorationColor: "text-decoration-color",
-  borderColor: "border-color",
-  borderStyle: "border-style",
-  borderRadius: "border-radius",
-  borderWidth: "border-width",
-  clipPath: "clip-path",
-  verticalAlign: "vertical-align",
-  textAlign: "text-align",
-  textEmphasis: "text-emphasis",
-  textShadow: "text-shadow",
-  margin: "margin",
-  marginTop: "margin-top",
-  marginLeft: "margin-left",
-  marginRight: "margin-right",
-  marginBottom: "margin-bottom",
-  padding: "padding",
-  paddingTop: "padding-top",
-  paddingLeft: "padding-left",
-  paddingRight: "padding-right",
-  paddingBottom: "padding-bottom",
-  wordBreak: "word-break",
-  whiteSpace: "white-space",
-  cursor: "cursor",
-  listStyleType: "list-style-type"
-};
-const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
-function renderStructuredGlossaryHtml(value, dictionary = "", options = {}) {
-  return renderGlossaryValue(value, {
-  dictionary,
-  internalSearchLinks: options.internalSearchLinks ?? false
-  });
-}
-function renderGlossaryValue(value, context) {
-  if (value == null) return "";
-  if (isStructuredPrimitive(value)) return escapeHtml(String(value));
-  if (Array.isArray(value)) return renderGlossaryArray(value, context);
-  if (!isRecord(value)) return "";
-  return renderGlossaryRecord(value, context);
-}
-function isStructuredPrimitive(value) {
-  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-}
-function renderGlossaryArray(value, context) {
-  return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
-}
-function renderGlossaryRecord(record2, context) {
-  return renderDirectGlossaryRecord(record2, context) ?? renderTaggedGlossaryRecord(record2, context);
-}
-const DIRECT_GLOSSARY_RECORD_RENDERERS = [
-  renderTextGlossaryRecord,
-  renderStructuredContentGlossaryRecord,
-  renderImageGlossaryRecord,
-  renderTextContentGlossaryRecord
-];
-function renderDirectGlossaryRecord(record2, context) {
-  for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
-  const html = render(record2, context);
-  if (html !== null) return html;
-  }
-  return null;
-}
-function renderTextGlossaryRecord(record2) {
-  return typeof record2.text === "string" ? escapeHtml(record2.text) : null;
-}
-function renderStructuredContentGlossaryRecord(record2, context) {
-  return record2.type === "structured-content" ? renderStructuredContent(record2, context) : null;
-}
-function renderImageGlossaryRecord(record2, context) {
-  return isStructuredImageRecord(record2) ? renderStructuredImage(record2, context.dictionary) : null;
-}
-function renderTextContentGlossaryRecord(record2, context) {
-  return record2.type === "text" && "content" in record2 ? renderGlossaryValue(record2.content, context) : null;
-}
-function renderStructuredContent(record2, context) {
-  const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
-  return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record2.content, context)}</span>`;
-}
-function renderTaggedGlossaryRecord(record2, context) {
-  const tag = structuredRecordTag(record2);
-  if (!tag) return renderRecordValues(record2, context);
-  return renderKnownTaggedGlossaryRecord(record2, tag, context) ?? structuredFallbackContent(record2, taggedRecordContent(record2, tag, context));
-}
-function renderKnownTaggedGlossaryRecord(record2, tag, context) {
-  if (tag === "a") return renderStructuredLink(record2, context);
-  if (tag === "img") return renderStructuredImage(record2, context.dictionary);
-  const content = taggedRecordContent(record2, tag, context);
-  if (tag === "table") return renderStructuredTable(record2, content, context.dictionary);
-  if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record2, tag, content, context.dictionary);
-  return null;
-}
-function taggedRecordContent(record2, tag, context) {
-  return tag === "br" ? "" : renderGlossaryValue(record2.content, context);
-}
-function structuredFallbackContent(record2, content) {
-  return content || escapeHtml(glossaryValueToText(record2));
-}
-function structuredRecordTag(record2) {
-  if (typeof record2.tag === "string") return record2.tag.toLowerCase();
-  return "content" in record2 ? "span" : "";
-}
-function renderRecordValues(record2, context) {
-  return Object.values(record2).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
-}
-function renderStructuredTable(record2, content, dictionary) {
-  return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record2, "table", dictionary)}>${content}</table></div>`;
-}
-function renderStructuredElement(record2, tag, content, dictionary) {
-  const attrs = renderStructuredElementAttributes(record2, tag, dictionary);
-  return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
-}
-function renderStructuredElementAttributes(record2, tag, dictionary) {
-  return [
-  ` class="gloss-sc-${escapeHtml(tag)}"`,
-  dictionaryDataAttribute(dictionary),
-  renderStructuredDataAttributes(record2.data),
-  renderDirectDataAttributes(record2),
-  structuredStyleAttribute(record2.style),
-  structuredStringAttribute("title", record2.title),
-  structuredStringAttribute("lang", record2.lang),
-  ...structuredStateAttributes(record2, tag)
-  ].filter(Boolean).join("");
-}
-function dictionaryDataAttribute(dictionary) {
-  return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
-}
-function structuredStyleAttribute(value) {
-  const style = renderStructuredStyle(value);
-  return style ? ` style="${escapeHtml(style)}"` : "";
-}
-function structuredStringAttribute(name, value) {
-  return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
-}
-function structuredStateAttributes(record2, tag) {
-  return [
-  tag === "details" && record2.open === true ? " open" : "",
-  tableCellSpanAttribute(record2, tag, "colSpan", "colspan"),
-  tableCellSpanAttribute(record2, tag, "rowSpan", "rowspan")
+  const catalogue = {
+    shared,
+    targets
+  };
+  const CATALOGUE = catalogue;
+  /* @__PURE__ */ new Set([
+    ...CATALOGUE.shared.map((site) => site.id),
+    ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
+  ]);
+  const JPDB_LOOKUP_LINK = {
+    id: "jpdb",
+    label: "JPDB",
+    urlTemplate: "https://jpdb.io/search?q={query}",
+    enabled: true
+  };
+  const JITEN_LIVE_FREQUENCY_PILL = {
+    id: "jiten-frequency",
+    label: "Jiten",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const JPDB_LIVE_FREQUENCY_PILL = {
+    id: "jpdb-frequency",
+    label: "JPDB",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const JISHO_LOOKUP_LINK = {
+    id: "jisho",
+    label: "Jisho",
+    urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
+    enabled: true
+  };
+  const JITEN_LOOKUP_LINK = {
+    id: "jiten",
+    label: "Jiten",
+    urlTemplate: "https://jiten.moe/parse?text={query}",
+    enabled: true
+  };
+  const BUNPRO_LOOKUP_LINK = {
+    id: "bunpro",
+    label: "Bunpro",
+    urlTemplate: "https://bunpro.jp/search?query={query}",
+    enabled: true
+  };
+  const BUNPRO_LIVE_FREQUENCY_PILL = {
+    id: "bunpro-frequency",
+    label: "Bunpro",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const WEBLIO_LOOKUP_LINK = {
+    id: "weblio",
+    label: "Weblio",
+    urlTemplate: "https://www.weblio.jp/content/{query}",
+    enabled: false
+  };
+  const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
+  const KOTOBANK_LOOKUP_LINK = {
+    id: "kotobank",
+    label: "Kotobank",
+    urlTemplate: "https://kotobank.jp/search?q={query}",
+    enabled: false
+  };
+  const TAKOBOTO_LOOKUP_LINK = {
+    id: "takoboto",
+    label: "Takoboto",
+    urlTemplate: "https://takoboto.jp/?q={query}",
+    enabled: false
+  };
+  const WIKTIONARY_LOOKUP_LINK = {
+    id: "wiktionary-ja",
+    label: "Wiktionary",
+    urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
+    enabled: false
+  };
+  const IMMERSION_KIT_LOOKUP_LINK = {
+    id: "immersion-kit",
+    label: "Immersion Kit",
+    urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+    enabled: false
+  };
+  const NADESHIKO_LOOKUP_LINK = {
+    id: "nadeshiko",
+    label: "Nadeshiko",
+    urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
+    enabled: false
+  };
+  const UCHISEN_LOOKUP_LINK = {
+    id: "uchisen",
+    label: "Uchisen",
+    urlTemplate: "https://uchisen.com/kanji/{query}",
+    enabled: false
+  };
+  const COPY_LOOKUP_LINK = {
+    id: "copy",
+    label: "Copy",
+    urlTemplate: "",
+    enabled: true,
+    action: "copy"
+  };
+  const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+    YOMU_LOOKUP_LINK,
+    JITEN_LOOKUP_LINK,
+    JITEN_LIVE_FREQUENCY_PILL,
+    JPDB_LOOKUP_LINK,
+    JPDB_LIVE_FREQUENCY_PILL,
+    BUNPRO_LOOKUP_LINK,
+    BUNPRO_LIVE_FREQUENCY_PILL,
+    JISHO_LOOKUP_LINK,
+    WEBLIO_LOOKUP_LINK,
+    KOTOBANK_LOOKUP_LINK,
+    TAKOBOTO_LOOKUP_LINK,
+    WIKTIONARY_LOOKUP_LINK,
+    IMMERSION_KIT_LOOKUP_LINK,
+    NADESHIKO_LOOKUP_LINK,
+    UCHISEN_LOOKUP_LINK,
+    COPY_LOOKUP_LINK
   ];
-}
-function tableCellSpanAttribute(record2, tag, key, attr) {
-  const value = Number(record2[key]);
-  return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
-}
-function isTableCellTag(tag) {
-  return tag === "td" || tag === "th";
-}
-function renderStructuredDataAttributes(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
-  return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
-}
-function renderStructuredDataAttribute(key, rawValue) {
-  return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
-}
-function isStructuredAttributeValue(value) {
-  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-}
-function renderDirectDataAttributes(record2) {
-  return Object.entries(record2).map(renderDirectDataAttribute).filter(Boolean).join("");
-}
-function renderDirectDataAttribute([key, value]) {
-  return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
-}
-function isDirectDataAttribute(key, value) {
-  return key.startsWith("data-") && isStructuredAttributeValue(value);
-}
-function renderStructuredStyle(value) {
-  const style = structuredStyleRecord(value);
-  if (!style) return "";
-  const declarations = [];
-  const decoration = structuredTextDecoration(style.textDecorationLine);
-  if (decoration) declarations.push(decoration);
-  for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
-  const declaration = structuredStyleDeclaration(key, property, style[key]);
-  if (declaration) declarations.push(declaration);
+  [
+    { ...JPDB_LOOKUP_LINK, enabled: false },
+    { ...JISHO_LOOKUP_LINK, enabled: true },
+    COPY_LOOKUP_LINK
+  ];
+  [[
+    // The Yomu-first default immediately before the Nadeshiko search pill was
+    // added. Untouched installs receive the new pill beside Immersion Kit;
+    // custom orders still keep their order and get new built-ins appended.
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    BUNPRO_LOOKUP_LINK.id,
+    BUNPRO_LIVE_FREQUENCY_PILL.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    // The jiten-first default that shipped before Yomu was promoted to the front
+    // of the pill row. Users who never re-ordered their pills are migrated to the
+    // current Yomu-first default order instead of being pinned to the old layout.
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    YOMU_LOOKUP_LINK.id,
+    BUNPRO_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id
+  ]];
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  const TARGET_SPEECH_SYNTHESIS_SOURCE = { type: "text-to-speech", url: "", voice: "", enabled: true };
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source) => source.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    return defaultAudioSources(settings.audioSources, sources);
   }
-  return declarations.join("");
-}
-function structuredStyleRecord(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function structuredTextDecoration(value) {
-  if (typeof value === "string") return `text-decoration:${value};`;
-  if (Array.isArray(value)) return `text-decoration:${value.map(String).join(" ")};`;
-  return "";
-}
-function structuredStyleDeclaration(key, property, rawValue) {
-  if (typeof rawValue === "string") return `${property}:${rawValue};`;
-  if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
-  return "";
-}
-function renderStructuredLink(record2, context) {
-  const content = renderGlossaryValue(record2.content, context) || escapeHtml(glossaryValueToText(record2));
-  const link = structuredLinkModel(record2, context);
-  const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
-  return `<a${structuredLinkAttrs(link, context.dictionary, record2.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
-}
-function structuredLinkModel(record2, context) {
-  const rawHref = typeof record2.href === "string" ? record2.href : "";
-  const searchReference = structuredLinkSearchReference(rawHref, context);
-  const kanjiReference = structuredLinkKanjiReference(rawHref, context);
-  const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
-  return {
-  href,
-  external: isExternalStructuredHref(href),
-  searchReference,
-  kanjiReference
+  function defaultAudioSources(authoredSources, enabledSources) {
+    const target = activeLearningTarget();
+    const configured = enabledSources.filter((source) => !isYomuHostedAudioSource(source));
+    return [
+      ...hostedDefaultAudioSources(authoredSources, target.audio.recordedWordAudio),
+      ...configured,
+      ...targetSpeechSynthesisSources(configured, target.experiences.audio)
+    ];
+  }
+  function hostedDefaultAudioSources(authoredSources, recordedWordAudio) {
+    if (!recordedWordAudio) return [];
+    const hosted = authoredSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return hosted.enabled ? [{ ...hosted }] : [];
+  }
+  function targetSpeechSynthesisSources(configured, experience) {
+    if (experience !== "speech-synthesis") return [];
+    if (configured.some(isBrowserTextToSpeechSource)) return [];
+    return [TARGET_SPEECH_SYNTHESIS_SOURCE];
+  }
+  function isYomuHostedAudioSource(source) {
+    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+      candidate,
+      id: audioCandidateDeckId(candidate, index)
+    })), mode, bagKey, shuffledAudio);
+  }
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
+  }
+  function isBrowserTextToSpeechSource(source) {
+    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+  }
+  function audioSubSourceProviderName(name) {
+    const trimmed = name.trim().normalize("NFC");
+    return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+  }
+  function audioSubSourceNameKey(name) {
+    return audioSubSourceProviderName(name).toLowerCase();
+  }
+  function disabledAudioSubSourceNameKeys(source) {
+    return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
+  }
+  function audioSubSourceFilterKey(source) {
+    return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
+  }
+  function registerAudioAttempt(triedUrls, candidate) {
+    const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+    if (triedUrls.has(candidateKey2)) return false;
+    triedUrls.add(candidateKey2);
+    return true;
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      audioSubSourceFilterKey(source),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function audioCandidateDeckId(candidate, index) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      index
+    ].join("\0");
+  }
+  function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
+    if (mode !== "random" || !entries2.length) return entries2;
+    const byId = new Map(entries2.map((entry) => [entry.id, entry]));
+    const ordered = [];
+    for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
+      const entry = byId.get(id);
+      if (entry) ordered.push(entry);
+    }
+    return ordered;
+  }
+  function getAudioSourceBagKey(sources, card) {
+    return [
+      "audio-sources",
+      card.spelling,
+      card.reading,
+      ...sources.map(getAudioSourceSignature)
+    ].join("");
+  }
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
+  }
+  function getAudioSourceSignature(source) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim(),
+      audioSubSourceFilterKey(source)
+    ].join("\0");
+  }
+  Logger.scope("Settings");
+  const AUDIO_SOURCE_TYPE_VALUES = [
+    "jpod101",
+    "language-pod-101",
+    "jisho",
+    "bunpro",
+    "lingua-libre",
+    "wiktionary",
+    "jiten-tts",
+    "jpdb-tts",
+    "text-to-speech",
+    "text-to-speech-reading",
+    "custom",
+    "custom-json"
+  ];
+  const DEFAULT_AUDIO_SOURCES = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: false },
+    { type: "language-pod-101", url: "", voice: "", enabled: false },
+    { type: "jisho", url: "", voice: "", enabled: false },
+    { type: "bunpro", url: "", voice: "", enabled: false },
+    { type: "jiten-tts", url: "", voice: "", enabled: false },
+    { type: "jpdb-tts", url: "", voice: "", enabled: false },
+    { type: "text-to-speech", url: "", voice: "", enabled: false }
+  ];
+  new Set(AUDIO_SOURCE_TYPE_VALUES);
+  new Set(
+    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+  );
+  const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
+    "kanji-doodle",
+    "word",
+    "type-word",
+    "recall-cloze",
+    "listen-pitch",
+    "speaking"
+  ];
+  new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
+  ({
+    languageProfiles: [createDefaultLanguageProfile()],
+    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
+  });
+  new Set(FURIGANA_HIDE_STATE_GROUPS);
+  new Set(
+    "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
+  );
+  new Set("heiban,atamadaka,nakadaka,odaka".split(","));
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+  `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+  roleSelectors("menu,menubar,toolbar,tablist");
+  new Set(
+    "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+  );
+  new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+  selectorPairs("control,toggle,player", ["class"]);
+  new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+  const POS_LABELS = {
+    abbr: "abbreviation",
+    adj: "adjective",
+    "adj-f": "pre-noun adjective",
+    "adj-i": "i-adjective",
+    "adj-ix": "yoi/ii adjective",
+    "adj-na": "na-adjective",
+    "adj-no": "no-adjective",
+    "adj-pn": "pre-noun adjectival",
+    "adj-t": "taru adjective",
+    adv: "adverb",
+    "adv-to": "adverb taking to",
+    arch: "archaic",
+    ateji: "phonetic kanji spelling",
+    aux: "auxiliary",
+    "aux-adj": "auxiliary adjective",
+    "aux-v": "auxiliary verb",
+    col: "colloquial",
+    conj: "conjunction",
+    cop: "copula",
+    ctr: "counter",
+    dated: "dated term",
+    derog: "derogatory",
+    exp: "expression",
+    fam: "familiar language",
+    fem: "female language",
+    form: "formal language",
+    gikun: "special kanji reading",
+    hon: "honorific language",
+    hum: "humble language",
+    id: "idiomatic expression",
+    ik: "irregular kana form",
+    io: "irregular okurigana",
+    int: "interjection",
+    joc: "jocular language",
+    male: "male language",
+    n: "noun",
+    "n-adv": "adverbial noun",
+    "n-pr": "proper noun",
+    "n-pref": "noun used as a prefix",
+    "n-suf": "noun used as a suffix",
+    "n-t": "temporal noun",
+    "net-sl": "internet slang",
+    num: "number",
+    obs: "obsolete term",
+    obsc: "obscure term",
+    ok: "outdated kana form",
+    "on-mim": "onomatopoeic or mimetic word",
+    pn: "pronoun",
+    poet: "poetic term",
+    pol: "polite language",
+    pref: "prefix",
+    prt: "particle",
+    proverb: "proverb",
+    rare: "rare term",
+    rk: "rare kana form",
+    sens: "sensitive term",
+    sl: "slang",
+    suf: "suffix",
+    unc: "unclassified",
+    uk: "usually written using kana alone",
+    vi: "intransitive verb",
+    vt: "transitive verb",
+    v1: "ichidan verb",
+    v5: "godan verb",
+    v5aru: "aru ending",
+    v5b: "bu ending",
+    v5g: "gu ending",
+    v5k: "ku ending",
+    v5m: "mu ending",
+    v5n: "nu ending",
+    v5r: "ru ending",
+    v5s: "su ending",
+    v5t: "tsu ending",
+    v5u: "u ending",
+    vk: "kuru verb",
+    vs: "suru verb",
+    "vs-c": "su verb",
+    "vs-i": "suru verb",
+    "vs-s": "suru verb (special class)",
+    vulgar: "vulgar expression",
+    vz: "zuru verb"
   };
-}
-function structuredLinkSearchReference(rawHref, context) {
-  return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
-}
-function structuredLinkKanjiReference(rawHref, context) {
-  return context.internalSearchLinks ? parseStructuredKanjiReference(rawHref) : null;
-}
-function structuredLinkHref(rawHref, searchReference, kanjiReference) {
-  if (searchReference) return "#jpdb-reader-dictionary-lookup";
-  if (kanjiReference) return "#jpdb-reader-kanji-lookup";
-  return normalizeStructuredHref(rawHref);
-}
-function isExternalStructuredHref(href) {
-  return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith("#"));
-}
-function structuredLinkAttrs(link, dictionary, lang) {
-  return [
-  ' class="gloss-link"',
-  ` data-external="${link.external}"`,
-  dictionaryAttribute(dictionary),
-  kanjiReferenceActionAttribute(link),
-  searchReferenceQueryAttribute(link),
-  searchReferenceReadingAttribute(link),
-  hrefAttribute(link.href),
-  externalLinkAttributes(link.external),
-  langAttribute(lang)
-  ].join("");
-}
-function kanjiReferenceActionAttribute(link) {
-  return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
-}
-function dictionaryAttribute(dictionary) {
-  return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
-}
-function searchReferenceQueryAttribute(link) {
-  return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : "";
-}
-function searchReferenceReadingAttribute(link) {
-  return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : "";
-}
-function hrefAttribute(href) {
-  return href ? ` href="${escapeHtml(href)}"` : "";
-}
-function externalLinkAttributes(external) {
-  return external ? ' target="_blank" rel="noopener noreferrer"' : "";
-}
-function langAttribute(lang) {
-  return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
-}
-function renderStructuredImage(record2, dictionary) {
-  const path = typeof record2.path === "string" ? record2.path : "";
-  const title = typeof record2.title === "string" ? record2.title : "";
-  const description = structuredImageDescription(record2);
-  const src = structuredImageSrc(path);
-  const alt = escapeHtml(description || title || "Dictionary image");
-  const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
-  return `<span${renderStructuredImageAttributes(record2, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
-}
-function renderStructuredImageAttributes(record2, dictionary) {
-  return [
-  ` class="gloss-image-link"`,
-  dictionaryAttribute(dictionary),
-  structuredImageStateAttribute(record2)
-  ].join("");
-}
-function structuredImageStateAttribute(record2) {
-  const path = typeof record2.path === "string" ? record2.path : "";
-  return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
-}
-function structuredImageSrc(path) {
-  return /^data:image\//i.test(path) ? path : "";
-}
-function structuredImageDescription(record2) {
-  if (typeof record2.description === "string") return record2.description;
-  return typeof record2.alt === "string" ? record2.alt : "";
-}
-function isStructuredImageRecord(record2) {
-  return record2.type === "image" || "path" in record2;
-}
-function normalizeStructuredHref(href) {
-  if (!href) return "";
-  if (/^https?:\/\//i.test(href) || href.startsWith("#")) return href;
-  if (href.startsWith("?")) return `https://jpdb.io/search${href}`;
+  function formatPartOfSpeech(tags = []) {
+    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
+    return [...new Set(labels)].join(", ");
+  }
+  function formatPartOfSpeechDetails(tags = []) {
+    return tags.length ? tags.join(", ").toUpperCase() : "";
+  }
+  Logger.scope("DictionaryArchiveCache");
+  Logger.scope("Yomitan");
+  function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
+  function glossaryValueToText(value) {
+    return glossaryValueToProfileText(value, {
+      includeDirectDataAttributes: true,
+      fallbackTextKeys: GLOSSARY_DISPLAY_TEXT_KEYS
+    });
+  }
+  function glossaryValueToProfileText(value, options) {
+    const primitiveText = primitiveGlossaryText(value);
+    if (primitiveText !== void 0) return primitiveText;
+    if (Array.isArray(value)) {
+      return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
+    }
+    return isRecord(value) ? glossaryRecordToText(value, options) : "";
+  }
+  function primitiveGlossaryText(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return void 0;
+  }
+  function glossaryRecordToText(record2, options) {
+    if (typeof record2.text === "string") return record2.text;
+    if ("content" in record2) return glossaryValueToProfileText(record2.content, options);
+    const values = glossaryRecordTextValues(record2, options);
+    if (values.length) return values.join(" ");
+    if ("path" in record2) return glossaryPathRecordText(record2);
+    return "";
+  }
+  function glossaryPathRecordText(record2) {
+    return String(record2.description || record2.alt || "");
+  }
+  function glossaryRecordTextValues(record2, options) {
+    const values = [];
+    for (const [key, childValue] of Object.entries(record2)) {
+      if (!shouldReadRecordTextKey(key, options)) continue;
+      const childText = glossaryValueToProfileText(childValue, options);
+      if (childText) values.push(childText);
+    }
+    return values;
+  }
+  function shouldReadRecordTextKey(key, options) {
+    return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
+  }
+  const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
+    "br",
+    "ruby",
+    "rt",
+    "rp",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "th",
+    "td",
+    "div",
+    "span",
+    "ol",
+    "ul",
+    "li",
+    "details",
+    "summary"
+  ]);
+  const STRUCTURED_STYLE_PROPERTIES = {
+    fontStyle: "font-style",
+    fontWeight: "font-weight",
+    fontSize: "font-size",
+    color: "color",
+    background: "background",
+    backgroundColor: "background-color",
+    textDecorationStyle: "text-decoration-style",
+    textDecorationColor: "text-decoration-color",
+    borderColor: "border-color",
+    borderStyle: "border-style",
+    borderRadius: "border-radius",
+    borderWidth: "border-width",
+    clipPath: "clip-path",
+    verticalAlign: "vertical-align",
+    textAlign: "text-align",
+    textEmphasis: "text-emphasis",
+    textShadow: "text-shadow",
+    margin: "margin",
+    marginTop: "margin-top",
+    marginLeft: "margin-left",
+    marginRight: "margin-right",
+    marginBottom: "margin-bottom",
+    padding: "padding",
+    paddingTop: "padding-top",
+    paddingLeft: "padding-left",
+    paddingRight: "padding-right",
+    paddingBottom: "padding-bottom",
+    wordBreak: "word-break",
+    whiteSpace: "white-space",
+    cursor: "cursor",
+    listStyleType: "list-style-type"
+  };
+  const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
+  function renderStructuredGlossaryHtml(value, dictionary = "", options = {}) {
+    return renderGlossaryValue(value, {
+      dictionary,
+      internalSearchLinks: options.internalSearchLinks ?? false
+    });
+  }
+  function renderGlossaryValue(value, context) {
+    if (value == null) return "";
+    if (isStructuredPrimitive(value)) return escapeHtml(String(value));
+    if (Array.isArray(value)) return renderGlossaryArray(value, context);
+    if (!isRecord(value)) return "";
+    return renderGlossaryRecord(value, context);
+  }
+  function isStructuredPrimitive(value) {
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+  }
+  function renderGlossaryArray(value, context) {
+    return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+  }
+  function renderGlossaryRecord(record2, context) {
+    return renderDirectGlossaryRecord(record2, context) ?? renderTaggedGlossaryRecord(record2, context);
+  }
+  const DIRECT_GLOSSARY_RECORD_RENDERERS = [
+    renderTextGlossaryRecord,
+    renderStructuredContentGlossaryRecord,
+    renderImageGlossaryRecord,
+    renderTextContentGlossaryRecord
+  ];
+  function renderDirectGlossaryRecord(record2, context) {
+    for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
+      const html = render(record2, context);
+      if (html !== null) return html;
+    }
+    return null;
+  }
+  function renderTextGlossaryRecord(record2) {
+    return typeof record2.text === "string" ? escapeHtml(record2.text) : null;
+  }
+  function renderStructuredContentGlossaryRecord(record2, context) {
+    return record2.type === "structured-content" ? renderStructuredContent(record2, context) : null;
+  }
+  function renderImageGlossaryRecord(record2, context) {
+    return isStructuredImageRecord(record2) ? renderStructuredImage(record2, context.dictionary) : null;
+  }
+  function renderTextContentGlossaryRecord(record2, context) {
+    return record2.type === "text" && "content" in record2 ? renderGlossaryValue(record2.content, context) : null;
+  }
+  function renderStructuredContent(record2, context) {
+    const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
+    return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record2.content, context)}</span>`;
+  }
+  function renderTaggedGlossaryRecord(record2, context) {
+    const tag = structuredRecordTag(record2);
+    if (!tag) return renderRecordValues(record2, context);
+    return renderKnownTaggedGlossaryRecord(record2, tag, context) ?? structuredFallbackContent(record2, taggedRecordContent(record2, tag, context));
+  }
+  function renderKnownTaggedGlossaryRecord(record2, tag, context) {
+    if (tag === "a") return renderStructuredLink(record2, context);
+    if (tag === "img") return renderStructuredImage(record2, context.dictionary);
+    const content = taggedRecordContent(record2, tag, context);
+    if (tag === "table") return renderStructuredTable(record2, content, context.dictionary);
+    if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record2, tag, content, context.dictionary);
+    return null;
+  }
+  function taggedRecordContent(record2, tag, context) {
+    return tag === "br" ? "" : renderGlossaryValue(record2.content, context);
+  }
+  function structuredFallbackContent(record2, content) {
+    return content || escapeHtml(glossaryValueToText(record2));
+  }
+  function structuredRecordTag(record2) {
+    if (typeof record2.tag === "string") return record2.tag.toLowerCase();
+    return "content" in record2 ? "span" : "";
+  }
+  function renderRecordValues(record2, context) {
+    return Object.values(record2).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+  }
+  function renderStructuredTable(record2, content, dictionary) {
+    return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record2, "table", dictionary)}>${content}</table></div>`;
+  }
+  function renderStructuredElement(record2, tag, content, dictionary) {
+    const attrs = renderStructuredElementAttributes(record2, tag, dictionary);
+    return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
+  }
+  function renderStructuredElementAttributes(record2, tag, dictionary) {
+    return [
+      ` class="gloss-sc-${escapeHtml(tag)}"`,
+      dictionaryDataAttribute(dictionary),
+      renderStructuredDataAttributes(record2.data),
+      renderDirectDataAttributes(record2),
+      structuredStyleAttribute(record2.style),
+      structuredStringAttribute("title", record2.title),
+      structuredStringAttribute("lang", record2.lang),
+      ...structuredStateAttributes(record2, tag)
+    ].filter(Boolean).join("");
+  }
+  function dictionaryDataAttribute(dictionary) {
+    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+  }
+  function structuredStyleAttribute(value) {
+    const style = renderStructuredStyle(value);
+    return style ? ` style="${escapeHtml(style)}"` : "";
+  }
+  function structuredStringAttribute(name, value) {
+    return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
+  }
+  function structuredStateAttributes(record2, tag) {
+    return [
+      tag === "details" && record2.open === true ? " open" : "",
+      tableCellSpanAttribute(record2, tag, "colSpan", "colspan"),
+      tableCellSpanAttribute(record2, tag, "rowSpan", "rowspan")
+    ];
+  }
+  function tableCellSpanAttribute(record2, tag, key, attr) {
+    const value = Number(record2[key]);
+    return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
+  }
+  function isTableCellTag(tag) {
+    return tag === "td" || tag === "th";
+  }
+  function renderStructuredDataAttributes(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+    return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
+  }
+  function renderStructuredDataAttribute(key, rawValue) {
+    return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
+  }
+  function isStructuredAttributeValue(value) {
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+  }
+  function renderDirectDataAttributes(record2) {
+    return Object.entries(record2).map(renderDirectDataAttribute).filter(Boolean).join("");
+  }
+  function renderDirectDataAttribute([key, value]) {
+    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
+  }
+  function isDirectDataAttribute(key, value) {
+    return key.startsWith("data-") && isStructuredAttributeValue(value);
+  }
+  function renderStructuredStyle(value) {
+    const style = structuredStyleRecord(value);
+    if (!style) return "";
+    const declarations = [];
+    const decoration = structuredTextDecoration(style.textDecorationLine);
+    if (decoration) declarations.push(decoration);
+    for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
+      const declaration = structuredStyleDeclaration(key, property, style[key]);
+      if (declaration) declarations.push(declaration);
+    }
+    return declarations.join("");
+  }
+  function structuredStyleRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  function structuredTextDecoration(value) {
+    if (typeof value === "string") return `text-decoration:${value};`;
+    if (Array.isArray(value)) return `text-decoration:${value.map(String).join(" ")};`;
+    return "";
+  }
+  function structuredStyleDeclaration(key, property, rawValue) {
+    if (typeof rawValue === "string") return `${property}:${rawValue};`;
+    if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
+    return "";
+  }
+  function renderStructuredLink(record2, context) {
+    const content = renderGlossaryValue(record2.content, context) || escapeHtml(glossaryValueToText(record2));
+    const link = structuredLinkModel(record2, context);
+    const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
+    return `<a${structuredLinkAttrs(link, context.dictionary, record2.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
+  }
+  function structuredLinkModel(record2, context) {
+    const rawHref = typeof record2.href === "string" ? record2.href : "";
+    const searchReference = structuredLinkSearchReference(rawHref, context);
+    const kanjiReference = structuredLinkKanjiReference(rawHref, context);
+    const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
+    return {
+      href,
+      external: isExternalStructuredHref(href),
+      searchReference,
+      kanjiReference
+    };
+  }
+  function structuredLinkSearchReference(rawHref, context) {
+    return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
+  }
+  function structuredLinkKanjiReference(rawHref, context) {
+    return context.internalSearchLinks ? parseStructuredKanjiReference(rawHref) : null;
+  }
+  function structuredLinkHref(rawHref, searchReference, kanjiReference) {
+    if (searchReference) return "#jpdb-reader-dictionary-lookup";
+    if (kanjiReference) return "#jpdb-reader-kanji-lookup";
+    return normalizeStructuredHref(rawHref);
+  }
+  function isExternalStructuredHref(href) {
+    return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith("#"));
+  }
+  function structuredLinkAttrs(link, dictionary, lang) {
+    return [
+      ' class="gloss-link"',
+      ` data-external="${link.external}"`,
+      dictionaryAttribute(dictionary),
+      kanjiReferenceActionAttribute(link),
+      searchReferenceQueryAttribute(link),
+      searchReferenceReadingAttribute(link),
+      hrefAttribute(link.href),
+      externalLinkAttributes(link.external),
+      langAttribute(lang)
+    ].join("");
+  }
+  function kanjiReferenceActionAttribute(link) {
+    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
+  }
+  function dictionaryAttribute(dictionary) {
+    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+  }
+  function searchReferenceQueryAttribute(link) {
+    return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : "";
+  }
+  function searchReferenceReadingAttribute(link) {
+    return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : "";
+  }
+  function hrefAttribute(href) {
+    return href ? ` href="${escapeHtml(href)}"` : "";
+  }
+  function externalLinkAttributes(external) {
+    return external ? ' target="_blank" rel="noopener noreferrer"' : "";
+  }
+  function langAttribute(lang) {
+    return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
+  }
+  function renderStructuredImage(record2, dictionary) {
+    const path = typeof record2.path === "string" ? record2.path : "";
+    const title = typeof record2.title === "string" ? record2.title : "";
+    const description = structuredImageDescription(record2);
+    const src = structuredImageSrc(path);
+    const alt = escapeHtml(description || title || "Dictionary image");
+    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
+    return `<span${renderStructuredImageAttributes(record2, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
+  }
+  function renderStructuredImageAttributes(record2, dictionary) {
+    return [
+      ` class="gloss-image-link"`,
+      dictionaryAttribute(dictionary),
+      structuredImageStateAttribute(record2)
+    ].join("");
+  }
+  function structuredImageStateAttribute(record2) {
+    const path = typeof record2.path === "string" ? record2.path : "";
+    return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
+  }
+  function structuredImageSrc(path) {
+    return /^data:image\//i.test(path) ? path : "";
+  }
+  function structuredImageDescription(record2) {
+    if (typeof record2.description === "string") return record2.description;
+    return typeof record2.alt === "string" ? record2.alt : "";
+  }
+  function isStructuredImageRecord(record2) {
+    return record2.type === "image" || "path" in record2;
+  }
+  function normalizeStructuredHref(href) {
+    if (!href) return "";
+    if (/^https?:\/\//i.test(href) || href.startsWith("#")) return href;
+    if (href.startsWith("?")) return `https://jpdb.io/search${href}`;
   return "";
 }
 function parseStructuredSearchReference(href) {
@@ -13370,35 +13693,35 @@ function yomuCardTemplates(settings) {
   const language = settings.interfaceLanguage;
   const recognitionFront = `
 <main class="yomu-card yomu-front">
-    <div class="yomu-expression">{{Expression}}</div>
-    ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ""}
-    ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ""}
-    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
+  <div class="yomu-expression">{{Expression}}</div>
+  ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ""}
+  ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ""}
+  ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
 </main>`;
   const contextFront = `
 <main class="yomu-card yomu-front">
-    {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
-    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
+  {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
+  ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
+  <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
 </main>`;
   const back = `
 {{FrontSide}}
 <main class="yomu-card yomu-back">
-    <section class="yomu-section yomu-answer">
-        <div class="yomu-expression">{{Expression}}</div>
-        {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
-        {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
-    </section>
-    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
-    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
-    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
-    <section class="yomu-section yomu-meta">
-        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
-        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
-        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
-        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
-    </section>
+  <section class="yomu-section yomu-answer">
+    <div class="yomu-expression">{{Expression}}</div>
+    {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
+    {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
+  </section>
+  {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+  {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
+  {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
+  <section class="yomu-section yomu-meta">
+    {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
+    {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
+    {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
+    {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
+    {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
+  </section>
 </main>`;
   const templateName = settings.ankiTemplateMode === "context" ? YOMU_CONTEXT_TEMPLATE_NAME : YOMU_RECOGNITION_TEMPLATE_NAME;
   return {
@@ -13412,53 +13735,53 @@ function yomuCardCss() {
   const color = ANKI_CARD_COLOR_TOKENS;
   return `
 .card {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-    font-size: 20px;
-    line-height: 1.45;
-    text-align: left;
-    color: ${color.text};
-    background: ${color.background};
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+  font-size: 20px;
+  line-height: 1.45;
+  text-align: left;
+  color: ${color.text};
+  background: ${color.background};
 }
 .yomu-card { max-width: 760px; margin: 0 auto; padding: 22px; }
 .yomu-expression { font-size: 44px; font-weight: 850; letter-spacing: 0; line-height: 1.1; }
 .yomu-reading { margin-top: 6px; color: ${color.muted}; font-size: 24px; }
 .yomu-prompt { margin-top: 14px; color: ${color.muted}; font-size: 16px; }
 .yomu-sentence {
-    margin-top: 18px;
-    padding: 14px 16px;
-    border: 1px solid ${color.sentenceBorder};
-    border-radius: 12px;
-    background: ${color.sentenceBackground};
-    color: ${color.sentenceText};
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid ${color.sentenceBorder};
+  border-radius: 12px;
+  background: ${color.sentenceBackground};
+  color: ${color.sentenceText};
 }
 .yomu-highlight { color: ${color.highlight}; font-weight: 800; }
 .yomu-sentence-front { font-size: 28px; }
 .yomu-image img, .yomu-image { max-width: 100%; border-radius: 10px; margin-top: 16px; }
 .yomu-section {
-    margin-top: 16px;
-    padding: 14px 16px;
-    border: 1px solid ${color.sectionBorder};
-    border-radius: 12px;
-    background: ${color.sectionBackground};
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid ${color.sectionBorder};
+  border-radius: 12px;
+  background: ${color.sectionBackground};
 }
 .yomu-section h2 {
-    margin: 0 0 10px;
-    color: ${color.headingText};
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
+  margin: 0 0 10px;
+  color: ${color.headingText};
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 .yomu-definition, .yomu-dict-entry, .yomu-kanji-entry { margin-top: 12px; }
 .yomu-definition:first-child, .yomu-dict-entry:first-child, .yomu-kanji-entry:first-child { margin-top: 0; }
 .yomu-pos, .yomu-dict-label, .yomu-tags {
-    display: inline-block;
-    margin: 0 8px 6px 0;
-    color: ${color.labelText};
-    font-size: 14px;
-    font-style: italic;
+  display: inline-block;
+  margin: 0 8px 6px 0;
+  color: ${color.labelText};
+  font-size: 14px;
+  font-style: italic;
 }
 .yomu-glossary div { margin-top: 4px; }
 .yomu-dict-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
@@ -13466,13 +13789,13 @@ function yomuCardCss() {
 .yomu-dict-reading, .yomu-kanji-reading { color: ${color.readingText}; }
 .yomu-kanji-char { font-size: 34px; }
 .yomu-chip {
-    display: inline-block;
-    margin: 2px 6px 2px 0;
-    padding: 2px 8px;
-    border: 1px solid ${color.chipBorder};
-    border-radius: 999px;
-    color: ${color.chipText};
-    font-size: 14px;
+  display: inline-block;
+  margin: 2px 6px 2px 0;
+  padding: 2px 8px;
+  border: 1px solid ${color.chipBorder};
+  border-radius: 999px;
+  color: ${color.chipText};
+  font-size: 14px;
 }
 .yomu-meta > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .yomu-meta > div:first-child { margin-top: 0; }

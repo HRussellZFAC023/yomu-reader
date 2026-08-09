@@ -4075,13 +4075,37 @@
       clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
     }
   };
+  const TARGET_AWARE_UI_COPY = Object.freeze({
+    en: Object.freeze({
+      puckStudyTarget: "Study {language}",
+      puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+      puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+      puckFilterYoutubeTarget: "Filter YouTube for {language}",
+      popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+      contextOccurrences: "In context ×{count}",
+      loadTargetSubtitles: "Load {language} subtitles",
+      loadOutputSubtitles: "Load {language} subtitles"
+    }),
+    ja: Object.freeze({
+      puckStudyTarget: "{language}を学習",
+      puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+      puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+      puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+      popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+      contextOccurrences: "文脈内 ×{count}",
+      loadTargetSubtitles: "{language}字幕を読み込む",
+      loadOutputSubtitles: "{language}字幕を読み込む"
+    })
+  });
   const COPY = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
-      onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+      onboardingEyebrow: "{language}, wherever it appears",
+      onboardingCopy: "Make {language} text, subtitles, and images tappable.",
       onboardingLanguage: "Settings language",
+      onboardingOutputLanguage: "Definition and translation language (output)",
+      onboardingTargetLanguage: "Language you are reading (target)",
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
@@ -4100,7 +4124,7 @@
       onboardingUseWithoutApiKey: "Use without API key",
       closeOnboarding: "Close welcome",
       featureText: "Text",
-      featureTextBody: "Hover or tap scanned Japanese.",
+      featureTextBody: "Hover or tap scanned {language}.",
       featureImages: "Images",
       featureImagesBody: "Read any image by tapping it.",
       featureVideo: "Video",
@@ -4108,7 +4132,7 @@
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "Review words and kanji on the study page.",
+      featureStudyBody: "Review words and characters on the study page.",
       featureGame: "Game",
       featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
       scanPage: "Scan page",
@@ -4333,7 +4357,7 @@
       ocrInteractionModeManual: "Tap or hover",
       ocrInteractionModeOff: "Off",
       puckMenuLabel: `${APP_NAME} menu`,
-      puckStudyPage: "Study page",
+      ...TARGET_AWARE_UI_COPY.en,
       puckPauseAnnotations: "Pause annotations",
       puckResumeAnnotations: "Resume annotations",
       puckOcrAuto: "OCR: Auto",
@@ -4812,8 +4836,6 @@
       enableSubtitleAutoHide: "Auto-hide panel while playing",
       disableSubtitleAutoHide: "Keep panel open while playing",
       subtitlePanelOptions: "Panel options",
-      loadJapaneseSubtitles: "Load Japanese subtitles",
-      loadNativeSubtitles: "Load native subtitles",
       searchAnimeSubtitles: "Search anime subtitles",
       toggleNativeSubtitleBlur: "Toggle native subtitle blur",
       subtitleTrackDetectedSingular: "1 subtitle track detected",
@@ -5334,9 +5356,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -5354,7 +5378,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -5362,7 +5386,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -5604,8 +5628,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -6036,7 +6058,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -6044,7 +6066,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -6546,7 +6567,8 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-    ...SUBTITLE_SETTINGS_COPY.ja
+    ...SUBTITLE_SETTINGS_COPY.ja,
+    ...TARGET_AWARE_UI_COPY.ja
   };
   const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
   let jaGrammarRuleCopyPromise;
@@ -9581,9 +9603,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KATAKANA_MIDDLE_DOT = "・";
   const JAPANESE_SENTENCE_PUNCTUATION = "、。！？・";
   const COMBINING_KANA_MARKS = "゙゚";
-  const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
-  const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
-  const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
   const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
   const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
   const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
@@ -9593,9 +9612,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
   const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
   const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
-  const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
   const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
-  const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
   const KANJI_RE$1 = new RegExp(KANJI_PATTERN, "u");
   const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
   const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
@@ -10052,7 +10069,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${candidate.term}
 ${candidate.conditions}`;
   }
-  function escapeRegExp(value) {
+  function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
   function uniqueStrings(values, options = {}) {
@@ -10220,9 +10237,6 @@ ${spelling}`);
   }
   let cachedSegmenterConstructor;
   let cachedJapaneseWordSegmenter;
-  function fallbackJapaneseSegments(text2) {
-    return segmentJapaneseText(text2);
-  }
   function segmentJapaneseText(text2) {
     const segmenter = japaneseWordSegmenter();
     if (!segmenter) {
@@ -10806,50 +10820,36 @@ ${spelling}`);
   function isSupportedLanguageProfileSchemaVersion(value) {
     return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_CAPABILITY_IDS = [
-    "term-lookup",
-    "character-lookup",
-    "segmentation",
-    "morphology",
-    "reading-annotation",
-    "pronunciation",
-    "frequency",
-    "examples",
-    "grammar",
-    "audio",
-    "text-to-speech",
-    "ocr",
-    "subtitles",
-    "mining",
-    "srs",
-    "grading",
-    "typing",
-    "handwriting"
-  ];
-  const NO_CAPABILITIES = Object.freeze(
-    Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
-  );
   const CORE_DELIVERED_CAPABILITIES = Object.freeze({
     "term-lookup": true,
+    "character-lookup": true,
     segmentation: true,
+    "reading-annotation": true,
     pronunciation: true,
+    frequency: true,
+    examples: true,
+    audio: true,
     "text-to-speech": true,
+    ocr: true,
     subtitles: true,
     typing: true,
+    handwriting: true,
     mining: true,
     srs: true,
     grading: true
   });
-  function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+  function learningTargetCapabilities(experiences, hasGrammarRules = false) {
     return Object.freeze({
-      ...NO_CAPABILITIES,
-      ...declared,
       ...CORE_DELIVERED_CAPABILITIES,
+      // A literal depth-0 dictionary candidate is lookup, not morphology.
+      // Morphology is present only when a target owns deinflection, bounded
+      // rewrite rules, or a target-specific subsegment Adapter.
+      morphology: experiences.morphology !== "dictionary-forms",
       // Derived, never declared: a target has grammar support exactly when it
       // ships grammar rules. Same principle as the block above — the capability
       // reports the machinery instead of promising alongside it.
@@ -10865,13 +10865,15 @@ ${spelling}`);
     const normalizeText = spec.normalizeText ?? defaultNormalizeText;
     const segment = spec.segment ?? ((text2) => defaultSegment(text2, language2));
     const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+    const experiences = learningTargetExperiences(spec);
     return Object.freeze({
       interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
       id: spec.id,
       language: language2,
       direction,
       collationLocale: spec.collationLocale ?? language2,
-      capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+      capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
+      experiences,
       featureSemantics: Object.freeze({
         ...spec.featureSemantics,
         phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -10879,7 +10881,7 @@ ${spelling}`);
       typography: Object.freeze({
         contentLocale: language2,
         direction,
-        readingAnnotationMode: "none",
+        readingAnnotationMode: "ruby",
         supportsVerticalWriting: false,
         ...spec.typography
       }),
@@ -10891,6 +10893,7 @@ ${spelling}`);
       audio: Object.freeze({
         speechSynthesisLocale: regionalTag,
         templateLanguageToken: base,
+        recordedWordAudio: false,
         ...spec.audio
       }),
       ocr: Object.freeze({
@@ -10922,6 +10925,32 @@ ${spelling}`);
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
       normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
     });
+  }
+  function learningTargetExperiences(spec) {
+    return Object.freeze({
+      characterLookup: "term-dictionary",
+      morphology: morphologyExperience(spec),
+      readingAnnotation: "dictionary-reading",
+      frequency: "dictionary-rank-or-context-occurrences",
+      audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
+      ocr: "target-locale",
+      handwriting: "self-check",
+      ...spec.experiences
+    });
+  }
+  function morphologyExperience(spec) {
+    return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+  }
+  function inferredMorphologyExperience(spec) {
+    if (spec.lookupCandidates) return "deinflection";
+    return hasBoundedMorphology(spec) ? "bounded-rewrites" : "dictionary-forms";
+  }
+  function hasBoundedMorphology(spec) {
+    if (spec.lookupRewrites?.length) return true;
+    return Boolean(spec.lookupSubsegments);
+  }
+  function audioExperience(recordedWordAudio) {
+    return recordedWordAudio ? "recorded-and-speech-synthesis" : "speech-synthesis";
   }
   function maximizedLocaleTag(language2) {
     try {
@@ -11432,15 +11461,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     language: "ja",
     direction: "ltr",
     collationLocale: "ja",
-    capabilities: {
-      "character-lookup": true,
-      morphology: true,
-      "reading-annotation": true,
-      frequency: true,
-      examples: true,
-      audio: true,
-      ocr: true,
-      handwriting: true
+    experiences: {
+      characterLookup: "character-dictionary",
+      morphology: "deinflection",
+      audio: "recorded-and-speech-synthesis",
+      handwriting: "stroke-feedback"
     },
     featureSemantics: {
       characterSystem: "kanji",
@@ -11464,7 +11489,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     },
     audio: {
       speechSynthesisLocale: "ja-JP",
-      templateLanguageToken: "ja"
+      templateLanguageToken: "ja",
+      recordedWordAudio: true
     },
     ocr: {
       defaultLanguage: "ja-JP",
@@ -11699,6 +11725,314 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     ]
   });
+  const FOUNDATION_LEVEL = "Foundation";
+  const HSK_STANDARD_COURSE_LEVEL_SCALE = Object.freeze({
+    id: "hsk-standard-course",
+    levels: Object.freeze(["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"])
+  });
+  const YEE_CEFR_BAND_LEVEL_SCALE = Object.freeze({
+    id: "tr-yee-cefr-band",
+    levels: Object.freeze(["A1–A2"])
+  });
+  function foundationScale(id) {
+    return Object.freeze({ id, levels: Object.freeze([FOUNDATION_LEVEL]) });
+  }
+  function oneRuleGrammar(referenceUrl, levelScale, rule) {
+    return createLearningTargetGrammar({ referenceUrl, levelScale, rules: [rule] });
+  }
+  function foundationGrammar(targetScaleId, referenceUrl, rule) {
+    return oneRuleGrammar(referenceUrl, foundationScale(targetScaleId), {
+      ...rule,
+      level: FOUNDATION_LEVEL
+    });
+  }
+  const ALBANIAN_EXISTENTIALS = "https://edizionicafoscari.unive.it/media/pdf/journals/balcania-et-slavia/2024/1/iss-4-1-2024.pdf#page=18";
+  const CLASSICAL_GREEK_ONLINE = "https://lrc.la.utexas.edu/eieol/grkol/0";
+  const MSA_NOMINAL_SENTENCES = "https://openbooks.lib.msu.edu/elemarabicll/chapter/grammar-2/";
+  const CUHK_CANTONESE_NEGATION = "https://www.cuhk.edu.hk/lin/cbrc/CantoneseGrammar/multimedia/13.htm";
+  const HSK_STANDARD_COURSE_3 = "https://www.hskstandardcourse.com/hsk-standard-course-level-3/";
+  const PRINCETON_YUELAIYUE = "https://commons.princeton.edu/chinesecharacters/%E8%B6%8A%E6%9D%A5%E8%B6%8A/";
+  const DANISH_PRESENTATIVE_DER = "https://ordnet.dk/ddo/ordbog/der";
+  const DUTCH_PRESENTATIVE_ER = "https://onzetaal.nl/taalloket/wel-of-geen-er";
+  const BRITISH_COUNCIL_THERE = "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/using-there-there-are";
+  const FINNISH_POSSESSION = "https://kielitoimistonohjepankki.fi/ohje/lauseenvastikkeet-tehdakseen-rakenne-pelaan-voittaakseni-rakenteen-tekija/";
+  const GREEK_NEGATION = "https://www.greek-language.gr/digitalResources/modern_greek/tools/lexica/glossology_edu/iframe.html?heading=2&id=173";
+  const HUNGARIAN_POSSESSION = "https://www.gutenberg.org/files/76725/76725-h/76725-h.htm";
+  const INDONESIAN_NEGATIVE_EXISTENTIAL = "https://seasite.niu.edu/flin/archive/103_handouts/sentences_and_phrases.htm";
+  const ITALIAN_PRESENTATIVE_CI = "https://www.treccani.it/enciclopedia/ci_%28La-grammatica-italiana%29/";
+  const KHMER_NEGATION = "https://seasite.niu.edu/khmer/grammar_note/grammar_note7/grammar_note7_text.htm";
+  const KOREAN_DESIRE = "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=62657";
+  const LAO_NEGATION = "https://seasite.niu.edu/lao/LaoLanguage/grammar_notes/grammar2.htm";
+  const LATIN_NEGATIVE_COPULA = "https://www.usu.edu/markdamen/Latin1000/Presentation/transcriptions/04T.pdf";
+  const MONGOLIAN_NEGATION = "https://library.huree.edu.mn/data/201021/2023-05-19/An%20Elementary%20Mongolian%20Grammar%20%28%20PDFDrive.com%20%29.pdf";
+  const PERSIAN_NEGATIVE_COPULA = "https://sites.la.utexas.edu/persian_online_resources/verbs/long-copulas-1/";
+  const POLISH_NEGATIVE_EXISTENTIAL = "https://zpe.gov.pl/a/odmiana-rzeczownika-i-przymiotnika/D1DL299KT";
+  const PORTUGUESE_EXISTENTIAL_HAVER = "https://ciberduvidas.iscte-iul.pt/consultorio/perguntas/haverexistir/3409";
+  const ROMANIAN_NECESSITY = "https://slaviccenters.duke.edu/sites/slaviccenters.duke.edu/files/site-images/2016_romanian_verbs_conjugated.pdf";
+  const CROATIAN_EXISTENTIAL_NEMA = "https://bosnian.coerll.utexas.edu/c8/m2/lekcija1/grammar/";
+  const SWEDISH_PRESENTATIVE_FINNS = "https://svenska.se/grammatik/";
+  const TAGALOG_EXISTENTIALS = "https://seasite.niu.edu/trans/tagalog/Grammar%201/Sentences1/Existential_Sentences.htm";
+  const THAI_COPULAR_NEGATION = "https://seasite.niu.edu/thai/FLTH/1styearthai.htm";
+  const YEE_A1_A2 = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden-turkce.";
+  const YEE_VAR_YOK = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden4/hayatin-icinden4";
+  const VIETNAMESE_COMPLETION = "https://seasite.niu.edu/vietnamese/uniLesson8/L8_grammar.htm";
+  const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
+    sq: foundationGrammar("sq-foundation", ALBANIAN_EXISTENTIALS, {
+      ruleId: "sq-existential-ka-ketu",
+      name: "Existence with ka … këtu",
+      displayNames: { en: "Existence with ka … këtu", ja: "ka … këtu の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Kk]a\s+\p{L}+(?:-\p{L}+)?\s+këtu(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ALBANIAN_EXISTENTIALS
+    }),
+    grc: foundationGrammar("grc-classical-foundation", CLASSICAL_GREEK_ONLINE, {
+      ruleId: "grc-negation-ou",
+      name: "Negation with οὐ",
+      displayNames: { en: "Negation with οὐ", ja: "οὐ による否定" },
+      patternSource: String.raw`(?<!\p{L})(?:[Οο]ὐ|[Οο]ὐκ|[Οο]ὐχ)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CLASSICAL_GREEK_ONLINE
+    }),
+    ar: foundationGrammar("ar-msa-foundation", MSA_NOMINAL_SENTENCES, {
+      ruleId: "ar-msa-laysa-negation",
+      name: "Nominal negation with laysa",
+      displayNames: { en: "Nominal negation with laysa", ja: "laysa（ليس）による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})(?:ليس|ليست|لست|لسنا|لستم|لستن|ليسا|ليستا|ليسوا|لسن)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MSA_NOMINAL_SENTENCES
+    }),
+    yue: foundationGrammar("yue-foundation", CUHK_CANTONESE_NEGATION, {
+      ruleId: "yue-copular-negation-m-haih",
+      name: "Copular negation with 唔係",
+      displayNames: { en: "Copular negation with 唔係", ja: "唔係 によるコピュラ否定" },
+      patternSource: String.raw`唔係`,
+      priority: 20,
+      confidence: "high",
+      url: CUHK_CANTONESE_NEGATION
+    }),
+    zh: oneRuleGrammar(HSK_STANDARD_COURSE_3, HSK_STANDARD_COURSE_LEVEL_SCALE, {
+      ruleId: "zh-hsk3-yuelaiyue",
+      level: "HSK 3",
+      name: "Increasing degree with 越来越",
+      displayNames: { en: "Increasing degree with 越来越", ja: "越来越 による程度変化" },
+      patternSource: String.raw`(?:越来越|越來越)(?:冷|热|熱|好|忙|难|難|喜欢|喜歡|想)`,
+      priority: 20,
+      confidence: "high",
+      url: PRINCETON_YUELAIYUE
+    }),
+    da: foundationGrammar("da-foundation", DANISH_PRESENTATIVE_DER, {
+      ruleId: "da-presentative-der-er",
+      name: "Presentative der er",
+      displayNames: { en: "Presentative der er", ja: "der er の存在構文" },
+      patternSource: String.raw`(?:^|(?<=[.!?…]\s))[Dd]er\s+er\s+(?:en|et|mange|ingen|to|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: DANISH_PRESENTATIVE_DER
+    }),
+    nl: foundationGrammar("nl-foundation", DUTCH_PRESENTATIVE_ER, {
+      ruleId: "nl-presentative-er-is-zijn",
+      name: "Presentative er is / er zijn",
+      displayNames: { en: "Presentative er is / er zijn", ja: "er is / er zijn の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Ee]r\s+(?:is|zijn)\s+(?:een|geen|veel|twee|drie|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: DUTCH_PRESENTATIVE_ER
+    }),
+    en: oneRuleGrammar(BRITISH_COUNCIL_THERE, CEFR_GRAMMAR_LEVEL_SCALE, {
+      ruleId: "en-a1-there-is-are",
+      level: "A1",
+      name: "Existence with there is / there are",
+      displayNames: { en: "Existence with there is / there are", ja: "there is / there are の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Tt]here\s+(?:is|are)\s+(?:a|an|some|many|no|one|two|three|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: BRITISH_COUNCIL_THERE
+    }),
+    fi: foundationGrammar("fi-foundation", FINNISH_POSSESSION, {
+      ruleId: "fi-adessive-possession",
+      name: "Possession with adessive + on",
+      displayNames: { en: "Possession with adessive + on", ja: "接格 ＋ on の所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]inulla|[Ss]inulla|[Hh]änellä|[Mm]eillä|[Tt]eillä|[Hh]eillä)\s+on(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: FINNISH_POSSESSION
+    }),
+    el: foundationGrammar("el-modern-foundation", GREEK_NEGATION, {
+      ruleId: "el-indicative-negation-den",
+      name: "Indicative negation with δεν",
+      displayNames: { en: "Indicative negation with δεν", ja: "δεν による直説法の否定" },
+      patternSource: String.raw`(?<!\p{L})[Δδ]εν\s+\p{L}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: GREEK_NEGATION
+    }),
+    hu: foundationGrammar("hu-foundation", HUNGARIAN_POSSESSION, {
+      ruleId: "hu-dative-possession-van",
+      name: "Possession with dative + van",
+      displayNames: { en: "Possession with dative + van", ja: "与格 ＋ van の所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Nn]ekem|[Nn]eked|[Nn]eki|[Nn]ekünk|[Nn]ektek|[Nn]ekik)\s+van(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: HUNGARIAN_POSSESSION
+    }),
+    id: foundationGrammar("id-foundation", INDONESIAN_NEGATIVE_EXISTENTIAL, {
+      ruleId: "id-negative-existential-tidak-ada",
+      name: "Negative existence with tidak ada",
+      displayNames: { en: "Negative existence with tidak ada", ja: "tidak ada の否定存在文" },
+      patternSource: String.raw`(?<!\p{L})[Tt]idak\s+ada(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: INDONESIAN_NEGATIVE_EXISTENTIAL
+    }),
+    it: foundationGrammar("it-foundation", ITALIAN_PRESENTATIVE_CI, {
+      ruleId: "it-presentative-ci",
+      name: "Presentative c’è / ci sono",
+      displayNames: { en: "Presentative c’è / ci sono", ja: "c’è / ci sono の存在構文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Cc][’']è|[Cc]i\s+sono)\s+(?:un|uno|una|due|tre|molti|molte|alcuni|alcune)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ITALIAN_PRESENTATIVE_CI
+    }),
+    km: foundationGrammar("km-foundation", KHMER_NEGATION, {
+      ruleId: "km-discontinuous-negation",
+      name: "Discontinuous negation with មិន … ទេ",
+      displayNames: { en: "Discontinuous negation with មិន … ទេ", ja: "មិន … ទេ の呼応否定" },
+      patternSource: String.raw`មិន[^\n។៕!?]{1,50}?ទេ`,
+      priority: 20,
+      confidence: "high",
+      url: KHMER_NEGATION
+    }),
+    ko: foundationGrammar("ko-foundation", KOREAN_DESIRE, {
+      ruleId: "ko-desire-go-sipda",
+      name: "Desire with -고 싶다",
+      displayNames: { en: "Desire with -고 싶다", ja: "-고 싶다（希望）" },
+      patternSource: String.raw`[가-힣]{1,8}고\s+싶(?:다|어요|습니다|어|었어요|었다|습니까|니|죠)(?![가-힣])`,
+      priority: 20,
+      confidence: "high",
+      url: KOREAN_DESIRE
+    }),
+    lo: foundationGrammar("lo-foundation", LAO_NEGATION, {
+      ruleId: "lo-preverbal-negation-bo",
+      name: "Preverbal negation with ບໍ່",
+      displayNames: { en: "Preverbal negation with ບໍ່", ja: "ບໍ່ による動詞・形容詞の否定" },
+      patternSource: String.raw`ບໍ່\s*(?:ແມ່ນ|ໄປ|ມາ|ມັກ|ດີ|ງາມ|ຮູ້)`,
+      priority: 20,
+      confidence: "high",
+      url: LAO_NEGATION
+    }),
+    la: foundationGrammar("la-classical-foundation", LATIN_NEGATIVE_COPULA, {
+      ruleId: "la-negative-copula-non-est",
+      name: "Negative copula with nōn est",
+      displayNames: { en: "Negative copula with nōn est", ja: "nōn est によるコピュラ否定" },
+      patternSource: String.raw`(?<!\p{L})[Nn][oō]n\s+est(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: LATIN_NEGATIVE_COPULA
+    }),
+    mn: foundationGrammar("mn-khalkha-foundation", MONGOLIAN_NEGATION, {
+      ruleId: "mn-nominal-negation-bish",
+      name: "Nominal negation with биш",
+      displayNames: { en: "Nominal negation with биш", ja: "биш による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})биш(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MONGOLIAN_NEGATION
+    }),
+    fa: foundationGrammar("fa-iranian-foundation", PERSIAN_NEGATIVE_COPULA, {
+      ruleId: "fa-negative-long-copula",
+      name: "Negative long copula",
+      displayNames: { en: "Negative long copula", ja: "否定長形コピュラ نیست" },
+      patternSource: String.raw`(?<!\p{L})نیست(?:م|ی|یم|ید|ند)?(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PERSIAN_NEGATIVE_COPULA
+    }),
+    pl: foundationGrammar("pl-foundation", POLISH_NEGATIVE_EXISTENTIAL, {
+      ruleId: "pl-negative-existential-nie-ma",
+      name: "Absence or non-possession with nie ma + genitive",
+      displayNames: { en: "Absence or non-possession with nie ma + genitive", ja: "nie ma ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ie\s+ma(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: POLISH_NEGATIVE_EXISTENTIAL
+    }),
+    pt: foundationGrammar("pt-foundation", PORTUGUESE_EXISTENTIAL_HAVER, {
+      ruleId: "pt-existential-ha",
+      name: "Existence with impersonal há",
+      displayNames: { en: "Existence with impersonal há", ja: "非人称 há の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Hh]á\s+(?:um|uma|dois|duas|três|muitos|muitas|alguns|algumas)\s+(?:pessoas?|problemas?|livros?|casas?|lugares?)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PORTUGUESE_EXISTENTIAL_HAVER
+    }),
+    ro: foundationGrammar("ro-foundation", ROMANIAN_NECESSITY, {
+      ruleId: "ro-necessity-trebuie-sa",
+      name: "Necessity with trebuie să",
+      displayNames: { en: "Necessity with trebuie să", ja: "trebuie să による必要・義務" },
+      patternSource: String.raw`(?<!\p{L})[Tt]rebuie\s+să\s+\p{Ll}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ROMANIAN_NECESSITY
+    }),
+    sh: foundationGrammar("sh-shtokavian-foundation", CROATIAN_EXISTENTIAL_NEMA, {
+      ruleId: "sh-existential-nema-genitive",
+      name: "Absence or non-possession with nema + genitive",
+      displayNames: { en: "Absence or non-possession with nema + genitive", ja: "nema ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ema\s+(?:kave|kruha|vode|problema|vremena|ljudi)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CROATIAN_EXISTENTIAL_NEMA
+    }),
+    sv: foundationGrammar("sv-foundation", SWEDISH_PRESENTATIVE_FINNS, {
+      ruleId: "sv-presentative-det-finns",
+      name: "Presentative det finns",
+      displayNames: { en: "Presentative det finns", ja: "det finns の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Dd]et\s+finns\s+(?:en|ett|många|inga|två|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: SWEDISH_PRESENTATIVE_FINNS
+    }),
+    tl: foundationGrammar("tl-tagalog-foundation", TAGALOG_EXISTENTIALS, {
+      ruleId: "tl-existential-may-mayroon",
+      name: "Existence with may / mayroon",
+      displayNames: { en: "Existence with may / mayroon", ja: "may / mayroon の存在文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]ay|[Mm]ayroon(?:g)?)\s+(?:isang|mga|dalawang|tatlong|\p{L}{3,})(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: TAGALOG_EXISTENTIALS
+    }),
+    th: foundationGrammar("th-foundation", THAI_COPULAR_NEGATION, {
+      ruleId: "th-copular-negation-mai-chai",
+      name: "Copular negation with ไม่ใช่",
+      displayNames: { en: "Copular negation with ไม่ใช่", ja: "ไม่ใช่ によるコピュラ否定" },
+      patternSource: String.raw`ไม่ใช่`,
+      priority: 20,
+      confidence: "high",
+      url: THAI_COPULAR_NEGATION
+    }),
+    tr: oneRuleGrammar(YEE_A1_A2, YEE_CEFR_BAND_LEVEL_SCALE, {
+      ruleId: "tr-a1-a2-existence-var-yok",
+      level: "A1–A2",
+      name: "Existence or possession with var / yok",
+      displayNames: { en: "Existence or possession with var / yok", ja: "var / yok の存在・所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:bir\s+)?\p{L}{2,}\s+(?:var|yok)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: YEE_VAR_YOK
+    }),
+    vi: foundationGrammar("vi-foundation", VIETNAMESE_COMPLETION, {
+      ruleId: "vi-completed-da-roi",
+      name: "Completed action with đã … rồi",
+      displayNames: { en: "Completed action with đã … rồi", ja: "đã … rồi の完了表現" },
+      patternSource: String.raw`(?<!\p{L})[Đđ]ã\s+[^\n.!?]{1,50}?\s+rồi(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: VIETNAMESE_COMPLETION
+    })
+  });
   const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
   const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
   const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
@@ -11881,42 +12215,39 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     ]
   });
-  function referenceOnly(referenceUrl) {
-    return createLearningTargetGrammar({ referenceUrl });
-  }
   const GRAMMAR_BY_TARGET = Object.freeze({
-    sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-    grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-    ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-    yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-    zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-    da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-    nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-    en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-    fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
+    sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+    grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+    ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+    yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+    zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+    da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+    nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+    en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+    fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
     fr: FRENCH_GRAMMAR,
     de: GERMAN_GRAMMAR,
-    el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-    hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-    id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-    it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-    km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-    ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-    lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-    la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-    mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-    fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-    pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-    pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-    ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
+    el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+    hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+    id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+    it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+    km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+    ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+    lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+    la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+    mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+    fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+    pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+    pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+    ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
     ru: RUSSIAN_GRAMMAR,
-    sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
+    sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
     es: SPANISH_GRAMMAR,
-    sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-    tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-    th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-    tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-    vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
+    sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+    tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+    th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+    tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+    vi: FOUNDATION_GRAMMAR_BY_TARGET.vi
   });
   function grammarForRosterTarget(language2) {
     return GRAMMAR_BY_TARGET[language2];
@@ -12019,16 +12350,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const KOREAN_LEARNING_TARGET = createLearningTargetModule({
     id: "korean-thin-v1",
     language: "ko",
-    capabilities: {
-      "reading-annotation": true,
-      ocr: true,
-      // Korean is a hand-written module rather than a generic roster entry, so it
-      // misses anything the roster loop derives. Tatoeba mounts for ko with text
-      // availability 'available' exactly as it does for the other 31 — caught by the
-      // registry-agreement assertion in learning-target-contract.test.ts, which is
-      // the whole reason that test exists.
-      examples: true
-    },
     featureSemantics: {
       characterSystem: "hangul",
       phoneticScripts: ["hangul"],
@@ -12647,42 +12968,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         id: `${language2.id}-roster-v1`,
         language: language2.runtimeLocale,
         direction: language2.direction,
-        capabilities: {
-          morphology: lookupRewrites.length > 0,
-          "reading-annotation": readingAnnotation,
-          // MEASURED against config/dictionaries/published/v1/catalog.json
-          // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
-          // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
-          // so two capabilities the shipped catalogue already supplies were
-          // switched off for the languages that can use them. The Han branch
-          // is where the data is, and character-lookup already gates on
-          // isUnifiedIdeograph as well, so this reaches only real Han runs —
-          // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
-          // pitch out, exactly as character-lookup.ts anticipated.
-          "character-lookup": usesHanScript,
-          frequency: usesHanScript,
-          // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
-          // is a registered, mounted, licence-checked example source for
-          // every non-Japanese target and reports text availability
-          // 'available' for all of them (Japanese uses Immersion Kit
-          // instead, which is why it is declared separately). The flag said
-          // Japanese-only, so 32 languages that already had example
-          // sentences were reporting none. Audio is deliberately NOT implied
-          // here — Tatoeba answers 'per-item' for audio and outright 'none'
-          // for the smaller corpora, so a boolean would overclaim it.
-          // tests/reader/languages/learning-target-contract.test.ts asserts
-          // this against the live registry so it cannot go stale again.
-          examples: true
+        experiences: {
+          // Published zh/yue character banks warrant a dedicated
+          // per-character surface. Other scripts use the normal term
+          // dictionary with a single grapheme as their query.
+          characterLookup: usesHanScript ? "character-dictionary" : "term-dictionary"
         },
         featureSemantics: {
           characterSystem: language2.defaultScript,
           phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
           pronunciation: "ipa",
-          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
+          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "dictionary reading"
         },
         grammar: grammarForRosterTarget(language2.id),
         sentenceBoundaries: sentenceBoundariesForScripts(language2.scripts),
-        typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
         ocr: ocrHintFor(language2.runtimeLocale),
         detectsText: scriptDetector(language2.scripts),
         lookupRewrites,
@@ -14712,8 +15011,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isTargetDefaultOcrLanguageTag(value) {
     const tag = value?.trim().toLowerCase();
     if (!tag) return false;
-    return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
+    return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
   }
+  const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = /* @__PURE__ */ new Set(["ja-jp", "ko-kr"]);
   function targetSpeechSynthesisLocale() {
     return activeLearningTarget().audio.speechSynthesisLocale;
   }
@@ -16204,8 +16504,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
       targetLanguage2
     );
-    if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
-    return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
+    if (targetLanguage2 === "ja" && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+      return savedLookupLinksInDefaultOrder(links);
+    }
+    return targetLanguage2 === "ja" && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
   }
   const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
   function normalizeDictionaryPreferences(value) {
@@ -16302,15 +16604,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!Array.isArray(value)) return builtIns;
     const normalized = [];
     const seen = /* @__PURE__ */ new Set();
-    const defaults = new Set(builtIns.map((link) => link.id));
+    const defaults = new Map(builtIns.map((link) => [link.id, link]));
     let extras = 0;
     const add = (link) => {
       const id = link.id.trim();
       if (!id || seen.has(id)) return;
-      const known = defaults.has(id);
+      const builtIn = defaults.get(id);
+      const known = Boolean(builtIn);
+      if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
       if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
       seen.add(id);
-      normalized.push({ ...link, id });
+      normalized.push(builtIn ? { ...builtIn, enabled: link.enabled, priority: link.priority } : { ...link, id });
       if (!known) extras++;
     };
     for (const item of value) {
@@ -16319,6 +16623,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
     return withLookupLinkPriorities(normalized);
+  }
+  function isBuiltInLookupLinkForAnotherTarget(id) {
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.some((link) => link.id === id) || isTargetLookupLinkId(id);
   }
   function isRemovedBuiltInLookupLink(link) {
     return isRemovedBuiltInLookupLinkId(link.id);
@@ -16645,14 +16952,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return { settings, changed };
   }
   const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  const TARGET_SPEECH_SYNTHESIS_SOURCE = { type: "text-to-speech", url: "", voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source) => source.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return defaultAudioSources(settings.audioSources, sources);
+  }
+  function defaultAudioSources(authoredSources, enabledSources) {
+    const target = activeLearningTarget();
+    const configured = enabledSources.filter((source) => !isYomuHostedAudioSource(source));
     return [
-      ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source) => !isYomuHostedAudioSource(source))
+      ...hostedDefaultAudioSources(authoredSources, target.audio.recordedWordAudio),
+      ...configured,
+      ...targetSpeechSynthesisSources(configured, target.experiences.audio)
     ];
+  }
+  function hostedDefaultAudioSources(authoredSources, recordedWordAudio) {
+    if (!recordedWordAudio) return [];
+    const hosted = authoredSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return hosted.enabled ? [{ ...hosted }] : [];
+  }
+  function targetSpeechSynthesisSources(configured, experience) {
+    if (experience !== "speech-synthesis") return [];
+    if (configured.some(isBrowserTextToSpeechSource)) return [];
+    return [TARGET_SPEECH_SYNTHESIS_SOURCE];
   }
   function isYomuHostedAudioSource(source) {
     return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
@@ -18596,7 +18919,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isSafeTokenSpan(token, offset, text2) {
     if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-    return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
+    return learningTargetForToken(token).isLookupableText(text2.slice(token.start, token.end));
   }
   function miningInsightTokenKeys(tokens) {
     const sentences = /* @__PURE__ */ new Map();
@@ -18652,7 +18975,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (mode === "off") return false;
     if (mode === "hover") return true;
     if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== "difficult-kanji" || hasDifficultKanji(surface);
+    if (mode !== "difficult-kanji") return true;
+    return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
@@ -18784,7 +19108,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return Boolean(first2 && second && first2 === second && READING_KANA_ONLY_RE.test(first2));
   }
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
+    const target = learningTargetForToken(token);
+    if (target.typography.readingAnnotationMode === "none") return [];
     const sources = sourceTokenRubies(surface, token);
+    if (target.experiences.characterLookup === "term-dictionary") {
+      return sources.filter((ruby) => localRubyRange(surface, token, ruby));
+    }
     if (preserveTokenRubies) {
       return sources.flatMap((ruby) => {
         const range = localRubyRange(surface, token, ruby);
@@ -18801,7 +19130,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$1.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
+    if (!surface || !reading || reading === surface) return [];
+    if (surface.trim() === token.card.spelling.trim()) {
+      return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+    }
+    if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE$1.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -18810,8 +19143,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         end: token.start + ruby.end
       }));
     }
-    if (surface.trim() !== token.card.spelling.trim()) return [];
-    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+    return [];
+  }
+  function learningTargetForToken(token) {
+    return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {
     const range = localRubyRange(surface, token, ruby);
@@ -32577,7 +32912,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function jpdbAudioIdMatchesVoice(audioId, prefixes) {
     const normalized = audioId.trim().toLowerCase();
-    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp(prefix)}\\d+/`).test(normalized));
+    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp$1(prefix)}\\d+/`).test(normalized));
   }
   async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
     const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
@@ -32944,7 +33279,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return urls;
   }
   function commonsSearchApiUrl(term, source) {
-    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp(term)}[0123456789]*.ogg/i`;
+    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp$1(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp$1(term)}[0123456789]*.ogg/i`;
     return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
   }
   function commonsSearchTitles(response) {
@@ -32964,10 +33299,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Object.values(filePages).map((filePage) => filePage.imageinfo?.[0]).filter((image) => Boolean(image?.url && isValidCommonsAudioFilename(title, image.user ?? "", term, source))).map((image) => image?.url ?? "");
   }
   function findHtmlElementById(html, tag, id) {
-    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, "i"));
+    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp$1(id)}\\1`, "i"));
   }
   function htmlAttributeValue(html, attribute) {
-    const match = new RegExp(`\\b${escapeRegExp(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
+    const match = new RegExp(`\\b${escapeRegExp$1(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
     return match?.[2] ?? null;
   }
   function findHtmlElementByClass(html, tag, className) {
@@ -33027,7 +33362,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return attempt(() => new URL(src, baseUrl).href, "", "candidates.resolveAudioSourceUrl");
   }
   function getHtmlAttribute(attributes, name) {
-    const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
+    const match = new RegExp(`\\b${escapeRegExp$1(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
     return match ? decodeHtmlAttribute(match[2]) : null;
   }
   function decodeHtmlAttribute(value) {
@@ -33039,9 +33374,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isValidCommonsAudioFilename(filename, fileUser, term, source) {
     if (!filename) return false;
     if (source === "lingua-libre") {
-      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp(fileUser)}-${escapeRegExp(term)}\\.wav$`, "i").test(filename);
+      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp$1(fileUser)}-${escapeRegExp$1(term)}\\.wav$`, "i").test(filename);
     }
-    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp(term)}\\d*\\.ogg$`, "i").test(filename);
+    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp$1(term)}\\d*\\.ogg$`, "i").test(filename);
   }
   function normalizeAudioUrl(value, sourceUrl) {
     try {
@@ -40335,7 +40670,7 @@ ${normalizedReading}`;
   function metaDescriptionReading(doc, spelling) {
     if (!spelling) return "";
     const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-    const escaped = escapeRegExp(spelling);
+    const escaped = escapeRegExp$1(spelling);
     const match = new RegExp(`${escaped}\\s*[（(]([^）)]+)[）)]`).exec(description);
     const reading = cleanText$1(match?.[1] ?? "");
     return JAPANESE_RE$1.test(reading) ? reading : "";
@@ -43727,7 +44062,7 @@ ${normalizedReading}`;
   }
   function metaKeyword(doc, kanji) {
     const description = doc.querySelector('meta[name="description"]')?.content ?? "";
-    const match = new RegExp(`${escapeRegExp(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
+    const match = new RegExp(`${escapeRegExp$1(kanji)}[^—-]*[—-]\\s*([^\\n]+)`).exec(description);
     return cleanText$1(match?.[1] ?? "");
   }
   function cleanInfoTableValue(cell) {
@@ -51941,6 +52276,40 @@ ${entry.reading}`);
   const DEFAULT_TIMEOUT_MS = 8e3;
   const TRANSLATION_CACHE_LIMIT = 320;
   const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
+  const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
+    "sq",
+    "ar",
+    "yue",
+    "zh",
+    "da",
+    "nl",
+    "en",
+    "fi",
+    "fr",
+    "de",
+    "el",
+    "hu",
+    "id",
+    "it",
+    "km",
+    "ko",
+    "lo",
+    "la",
+    "mn",
+    "fa",
+    "pl",
+    "pt",
+    "ro",
+    "ru",
+    "bs",
+    "es",
+    "sv",
+    "tl",
+    "th",
+    "tr",
+    "vi",
+    "ja"
+  ]);
   const log$m = Logger.scope("GoogleTranslation");
   const translationCache = /* @__PURE__ */ new Map();
   const translationInFlight = /* @__PURE__ */ new Map();
@@ -51964,6 +52333,13 @@ ${entry.reading}`);
         supported: false
       };
     }
+    if (locale.language === "fil") {
+      return {
+        logicalLanguage,
+        providerLanguage: "tl",
+        supported: true
+      };
+    }
     if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
       return {
         logicalLanguage,
@@ -51972,6 +52348,13 @@ ${entry.reading}`);
         // output; the logical profile remains sr-Latn everywhere else.
         providerLanguage: "bs",
         supported: true
+      };
+    }
+    if (!GOOGLE_TRANSLATION_LANGUAGE_CODES.has(locale.language)) {
+      return {
+        logicalLanguage,
+        providerLanguage: null,
+        supported: false
       };
     }
     return {
@@ -53051,23 +53434,29 @@ ${entry.reading}`);
     const rawPitch = Array.isArray(source.pitchAccents) ? source.pitchAccents : Array.isArray(source.pitchAccent) ? source.pitchAccent : [];
     return rawPitch.filter((pitch) => Number.isInteger(pitch) && pitch >= 0).slice(0, 3);
   }
-  function targetSupportsCharacterLookup() {
-    return activeLearningTarget().capabilities["character-lookup"];
+  function targetUsesCharacterDictionary() {
+    const target = activeLearningTarget();
+    return target.capabilities["character-lookup"] && target.experiences.characterLookup === "character-dictionary";
   }
   function usesJapaneseProviders() {
     return activeLearningTarget().language === "ja";
   }
   function usesJapaneseCharacterStudy() {
-    return targetSupportsCharacterLookup() && usesJapaneseProviders();
+    return targetUsesCharacterDictionary() && usesJapaneseProviders();
   }
   function targetSupportsHandwriting() {
     return activeLearningTarget().capabilities.handwriting;
   }
+  function targetCanHandwriteText(value, target = activeLearningTarget()) {
+    return target.capabilities.handwriting && Boolean(value.trim()) && target.isLookupableText(value);
+  }
   function targetCanLookupCharacter(value) {
-    return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
+    const target = activeLearningTarget();
+    return target.capabilities["character-lookup"] && target.experiences.characterLookup === "character-dictionary" && isUnifiedIdeograph(value);
   }
   function targetCanHandwriteCharacter(value) {
-    return targetSupportsHandwriting() && isUnifiedIdeograph(value);
+    const target = activeLearningTarget();
+    return target.capabilities.handwriting && target.experiences.handwriting === "stroke-feedback" && isUnifiedIdeograph(value);
   }
   async function filterJitenKanjiWords(button2, context) {
     if (button2.disabled) return;
@@ -60067,7 +60456,7 @@ ${spelling}`);
   }
   function ocrTokensWithFallbackGaps(text2, tokens, fallbackCardFromText) {
     const safeTokens = tokens.filter((token) => isRenderableOcrToken(token, text2.length));
-    const fallbackTokens = fallbackJapaneseSegments(text2).filter((segment) => !safeTokens.some((token) => rangesOverlap(segment.start, segment.end, token.start, token.end))).map((segment) => ocrFallbackToken(text2, segment, fallbackCardFromText));
+    const fallbackTokens = segmentTargetLanguageText(text2).filter((segment) => !safeTokens.some((token) => rangesOverlap(segment.start, segment.end, token.start, token.end))).map((segment) => ocrFallbackToken(text2, segment, fallbackCardFromText));
     return fallbackTokens.length ? [...safeTokens, ...fallbackTokens].sort(compareOcrTokens) : safeTokens;
   }
   function ocrTokensWithVocabulary(text2, tokens, vocabulary2) {
@@ -60092,7 +60481,7 @@ ${spelling}`);
     return Number.isFinite(token.start) && Number.isFinite(token.end) && token.start >= 0 && token.end <= textLength && token.end > token.start;
   }
   function ocrFallbackToken(sentence, segment, fallbackCardFromText) {
-    const card = fallbackCardFromText(segment.surface);
+    const card = fallbackCardFromText(segment.text);
     return {
       card,
       start: segment.start,
@@ -61171,7 +61560,7 @@ ${reading}`);
   function clearNewTabOfflineCache() {
     return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  const CURRENT_YOMU_VERSION = "1.8.89".trim() ? "1.8.89".trim() : "dev";
+  const CURRENT_YOMU_VERSION = "1.8.90".trim() ? "1.8.90".trim() : "dev";
   function latestYomuVersionFromVersionJson(value) {
     if (!value || typeof value !== "object") return null;
     const record2 = value;
@@ -97625,13 +98014,29 @@ ${reading}`);
     return activeTargetLanguageDisplayName(settings.interfaceLanguage);
   }
   function activeTargetLanguageDisplayName(interfaceLanguage) {
-    return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+    return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
   }
-  function languageDisplayNameFor(tag, interfaceLanguage) {
-    return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
+  function targetLanguageDisplayNameFor(tag, interfaceLanguage) {
+    const uiLanguage = resolveUiLanguage(interfaceLanguage);
+    const subtag = languageSubtag(tag) ?? "ja";
+    return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
   }
-  function settingsText(language2) {
-    const targetName = activeTargetLanguageDisplayName(language2);
+  function rosterIdentityDisplayName(subtag, uiLanguage) {
+    const identity = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
+    return TARGET_IDENTITY_NAMES[identity]?.[uiLanguage];
+  }
+  const TARGET_IDENTITY_NAMES = {
+    sh: { en: "Serbo-Croatian", ja: "セルボ・クロアチア語" },
+    tl: { en: "Tagalog", ja: "タガログ語" }
+  };
+  const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG = {
+    bs: "sh",
+    fil: "tl",
+    hr: "sh",
+    sr: "sh"
+  };
+  function settingsText(language2, targetLanguage2) {
+    const targetName = targetLanguage2 ? targetLanguageDisplayNameFor(targetLanguage2, language2) : activeTargetLanguageDisplayName(language2);
     return (key) => {
       const message = uiText(language2, key);
       return message.includes("{language}") ? formatUiText(language2, key, { language: targetName }) : message;
@@ -99501,7 +99906,7 @@ ${reading}`);
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
                         ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
                     </div>
-                    <div data-language-family="preferred-target-sites">
+                    <div class="jp-only" data-language-family="preferred-target-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
                     </div>
@@ -99678,9 +100083,9 @@ ${reading}`);
   function multilingualSettingsCopy(language2) {
     return language2 === "ja" ? {
       languageProfileTitle: "言語プロフィール",
-      learnerLanguage: "あなたの言語（辞書の定義）",
-      targetLanguage: "学習する言語",
-      languageProfileHelp: "学習する言語は、辞書の定義言語や画面の表示言語とは別に選べます。",
+      learnerLanguage: "定義・翻訳の言語（出力）",
+      targetLanguage: "学習する言語（対象）",
+      languageProfileHelp: "対象はページで読む言語、出力は辞書の定義と翻訳の言語です。画面の表示言語は別に選べます。",
       translationTitle: "定義の自動翻訳",
       translationHelp: "有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。",
       translationEmpty: "現在の情報源はすでにあなたの言語で定義されています。",
@@ -99688,9 +100093,9 @@ ${reading}`);
       translateAutomatically: (learnerLanguage2) => `${learnerLanguage2}へ自動翻訳`
     } : {
       languageProfileTitle: "Language profile",
-      learnerLanguage: "Your language (dictionary definitions)",
-      targetLanguage: "Language you are learning",
-      languageProfileHelp: "Choose the language you are learning separately from dictionary definitions and the interface.",
+      learnerLanguage: "Definition and translation language (output)",
+      targetLanguage: "Language you are reading (target)",
+      languageProfileHelp: "Target controls page text and lookup. Output controls definitions and translations. Interface controls Yomu labels.",
       translationTitle: "Automatic definition translation",
       translationHelp: "When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.",
       translationEmpty: "Your current definition sources already use your language.",
@@ -100530,7 +100935,7 @@ ${reading}`);
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div class="jpzhyueko-only" data-language-family="reading-annotation">
+                    <div data-language-family="reading-annotation">
                         ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
                         ${renderFuriganaDifficultyNote(settings)}
                         ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
@@ -106830,9 +107235,15 @@ ${reading}`);
       immersionGrid.className = "jpdb-reader-onboarding-immersion-grid";
       const defaultColumn = document.createElement("div");
       defaultColumn.className = "jpdb-reader-onboarding-option-column";
+      const preferredSiteLanguageLabel = checkboxLabel(
+        this.preferJapaneseSiteLanguageInput,
+        this.text("preferJapaneseSiteLanguage")
+      );
+      preferredSiteLanguageLabel.classList.add("jp-only");
+      preferredSiteLanguageLabel.dataset.languageFamily = "preferred-target-sites";
       defaultColumn.append(
         checkboxLabel(this.youtubeImmersionInput, this.text("youtubeImmersionEnabled")),
-        checkboxLabel(this.preferJapaneseSiteLanguageInput, this.text("preferJapaneseSiteLanguage")),
+        preferredSiteLanguageLabel,
         checkboxLabel(this.offlineDictionariesInput, this.text("onboardingInstallOfflineDictionaries"))
       );
       const scanColumn = document.createElement("div");
@@ -106881,17 +107292,7 @@ ${reading}`);
         this.learnerLanguageSelect?.setAttribute("lang", selected.runtimeLocale);
         this.learnerLanguageSelect?.setAttribute("dir", selected.direction);
       });
-      this.targetLanguageSelect.addEventListener("change", () => {
-        const selected = this.targetLanguageSelect?.selectedOptions[0];
-        if (selected) {
-          this.targetLanguageSelect.lang = selected.lang;
-          this.targetLanguageSelect.dir = selected.dir;
-          if (this.youtubeImmersionInput && !this.youtubeImmersionChoiceTouched) {
-            const settings = this.options.getSettings();
-            this.youtubeImmersionInput.checked = settings.youtubeImmersionEnabled && (settings.youtubeImmersionEnabledChosen || languageFamilyIncludes("jp-only", selected.value));
-          }
-        }
-      });
+      this.targetLanguageSelect.addEventListener("change", () => this.syncTargetLanguageSelection());
       this.panel.addEventListener("click", (event) => {
         this.handleWordLookup(event);
       });
@@ -106900,6 +107301,7 @@ ${reading}`);
         if (this.handleWordLookup(event)) event.preventDefault();
       });
       this.panel.append(closeButton, eyebrow, title, copy2, basics, actions, immersionOptions, featureList);
+      syncLanguageFamilyDom(this.panel, this.targetLanguageSelect.value);
       this.syncThemeSwitch();
       this.syncAccentPicker(this.accentColorInput.value);
       this.syncManualPageScanShortcut();
@@ -106923,8 +107325,25 @@ ${reading}`);
       this.options.lookupText(expression, word.dataset.sentence || expression, word);
       return true;
     }
+    syncTargetLanguageSelection() {
+      const select2 = this.targetLanguageSelect;
+      if (!select2) return;
+      const selected = select2.selectedOptions[0];
+      if (!selected) return;
+      select2.lang = selected.lang;
+      select2.dir = selected.dir;
+      this.syncYoutubeImmersionChoice(selected.value);
+      syncLanguageFamilyDom(this.panel, selected.value);
+      this.localize(this.options.getSettings().interfaceLanguage);
+    }
+    syncYoutubeImmersionChoice(targetLanguage2) {
+      const input2 = this.youtubeImmersionInput;
+      if (!input2) return;
+      if (this.youtubeImmersionChoiceTouched) return;
+      input2.checked = defaultYoutubeImmersionChoice(this.options.getSettings(), targetLanguage2);
+    }
     localize(language2) {
-      const text2 = settingsText(language2);
+      const text2 = settingsText(language2, this.targetLanguageSelect?.value);
       const panel = this.panel;
       if (!panel) return;
       panel.setAttribute("aria-label", text2("welcomeLabel"));
@@ -107172,6 +107591,11 @@ ${reading}`);
       this.manualPageScanShortcutLabel.hidden = selectedMode(this.pageScanModeInputs, "auto") !== "manual";
     }
   }
+  function defaultYoutubeImmersionChoice(settings, targetLanguage2) {
+    if (!settings.youtubeImmersionEnabled) return false;
+    if (settings.youtubeImmersionEnabledChosen) return true;
+    return languageFamilyIncludes("jp-only", targetLanguage2);
+  }
   function pageScanModeFromSettings(settings) {
     if (settings.annotationsPaused) return "off";
     return settings.manualScanEnabled ? "manual" : "auto";
@@ -107183,12 +107607,9 @@ ${reading}`);
     return value === "en" || value === "ja" || value === "auto" ? value : fallback;
   }
   function onboardingLanguageProfileCopy(language2) {
-    return language2 === "ja" ? {
-      learnerLanguage: "あなたの言語（辞書の定義）",
-      targetLanguage: "学習する言語"
-    } : {
-      learnerLanguage: "Your language (dictionary definitions)",
-      targetLanguage: "Language you are learning"
+    return {
+      learnerLanguage: uiText(language2, "onboardingOutputLanguage"),
+      targetLanguage: uiText(language2, "onboardingTargetLanguage")
     };
   }
   function learnerLanguageOptionLabel(language2) {
@@ -109385,6 +109806,174 @@ ${reading}`);
   function shouldHonorExplicitYouTubeSideLayout(layout) {
     return layout.margin > 0 && layout.viewportWidth >= 900;
   }
+  const SUBTITLE_COMPATIBILITY_ALIASES = Object.freeze({
+    ja: Object.freeze(["jp", "nihongo", "nihon-go", "日文", "日語", "日本字幕"]),
+    en: Object.freeze(["英文"])
+  });
+  const SUBTITLE_LANGUAGE_DESCRIPTORS = Object.freeze(
+    LEARNING_TARGET_ROSTER.map((target) => {
+      const tag = languageSubtag(target.runtimeLocale) ?? target.runtimeLocale;
+      const compatibilityAliases = SUBTITLE_COMPATIBILITY_ALIASES[target.id] ?? [];
+      const nativeNameWithoutQualifier = target.nativeName.replace(/\s*[（(][^）)]*[）)]\s*/gu, "").trim();
+      return Object.freeze({
+        id: target.id,
+        tag,
+        exactAliases: uniqueAliases([
+          target.id,
+          target.runtimeLocale,
+          tag,
+          target.englishName,
+          target.nativeName,
+          nativeNameWithoutQualifier,
+          ...compatibilityAliases
+        ]),
+        nameHints: uniqueAliases([
+          target.englishName,
+          target.nativeName,
+          nativeNameWithoutQualifier,
+          languageDisplayName(tag, "ja"),
+          ...compatibilityAliases.filter((alias) => alias.length > 3 || /[^\x00-\x7f]/u.test(alias))
+        ])
+      });
+    })
+  );
+  const SUBTITLE_LANGUAGE_BY_ID = new Map(
+    SUBTITLE_LANGUAGE_DESCRIPTORS.map((descriptor) => [descriptor.id, descriptor])
+  );
+  const SUBTITLE_LANGUAGE_BY_EXACT_ALIAS = /* @__PURE__ */ new Map();
+  for (const descriptor of SUBTITLE_LANGUAGE_DESCRIPTORS) {
+    for (const alias of descriptor.exactAliases) {
+      SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.set(foldSubtitleLanguageText(alias), descriptor.tag);
+    }
+  }
+  const SUBTITLE_LANGUAGE_NAME_HINTS = SUBTITLE_LANGUAGE_DESCRIPTORS.flatMap((descriptor) => descriptor.nameHints.map((alias) => {
+    const folded = foldSubtitleLanguageText(alias);
+    return { alias: folded, tag: descriptor.tag, pattern: subtitleLanguageNamePattern(folded) };
+  })).filter((hint) => hint.alias).sort((a, b) => b.alias.length - a.alias.length);
+  const SUBTITLE_LANGUAGE_TAGS = new Set(SUBTITLE_LANGUAGE_DESCRIPTORS.map((descriptor) => descriptor.tag));
+  function inferSubtitleLanguage(label, url = "") {
+    const urlHint = subtitleUrlHintText(url);
+    return [
+      inferNamedSubtitleLanguage(label),
+      inferNamedSubtitleLanguage(urlHint),
+      inferSubtitleLanguageCode(label, hasSubtitleMarker(label)),
+      inferSubtitleLanguageCode(urlHint, true),
+      inferKanaSubtitleLanguage(label)
+    ].find((language2) => Boolean(language2));
+  }
+  function inferKanaSubtitleLanguage(value) {
+    return /[\u3040-\u30ff]/u.test(value) ? "ja" : void 0;
+  }
+  function normalizeSubtitleLanguage(language2) {
+    if (!language2) return void 0;
+    return [
+      SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.get(foldSubtitleLanguageText(language2)),
+      normalizedRosterSubtitleLanguage(language2),
+      language2
+    ].find((candidate) => Boolean(candidate));
+  }
+  function normalizedRosterSubtitleLanguage(language2) {
+    const rosterId = learningTargetRosterIdForTag(language2);
+    return rosterId ? SUBTITLE_LANGUAGE_BY_ID.get(rosterId)?.tag : void 0;
+  }
+  function isGenericSubtitleLabel(value) {
+    const cleaned = value.trim();
+    return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?)$/iu.test(cleaned) || SUBTITLE_LANGUAGE_BY_EXACT_ALIAS.has(foldSubtitleLanguageText(cleaned));
+  }
+  function inferNamedSubtitleLanguage(value) {
+    const text2 = foldSubtitleLanguageText(decodeSubtitleLanguageText(value));
+    if (!text2) return void 0;
+    const candidates = SUBTITLE_LANGUAGE_NAME_HINTS.flatMap((hint) => languageNameMatches(text2, hint.pattern).map((index) => ({
+      tag: hint.tag,
+      score: subtitleLanguageCueScore(text2, index, index + hint.alias.length),
+      index,
+      length: hint.alias.length
+    })));
+    return candidates.sort((left, right) => right.score - left.score || left.index - right.index || right.length - left.length)[0]?.tag;
+  }
+  function subtitleLanguageNamePattern(alias) {
+    const value = escapeRegExp(alias);
+    return /[^\x00-\x7f]/u.test(alias) ? new RegExp(`(${value})`, "gu") : new RegExp(`(?:^|[^\\p{Script=Latin}\\p{Number}])(${value})(?![\\p{Script=Latin}\\p{Number}])`, "gu");
+  }
+  function languageNameMatches(text2, pattern) {
+    return [...text2.matchAll(pattern)].map((match) => match.index + match[0].length - (match[1]?.length ?? 0));
+  }
+  function subtitleLanguageCueScore(text2, start, end) {
+    if (isWholeSubtitleLabelMatch(text2, start, end)) return 120;
+    const before = text2.slice(Math.max(0, start - 28), start);
+    const after = text2.slice(end, Math.min(text2.length, end + 28));
+    return contextualSubtitleLanguageScore(before, after);
+  }
+  function isWholeSubtitleLabelMatch(text2, start, end) {
+    return start === 0 && end === text2.length;
+  }
+  function contextualSubtitleLanguageScore(before, after) {
+    if (hasSubtitleDeclarationCue(before, after)) return 100;
+    if (hasContentDescriptionCue(before, after)) return -40;
+    return 10;
+  }
+  function hasSubtitleDeclarationCue(before, after) {
+    return /^\s*(?:[-–—:()[\]]*\s*)?(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(after) || /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\s*(?:[-–—:()[\]]*\s*)?$/iu.test(before);
+  }
+  function hasContentDescriptionCue(before, after) {
+    return /\b(?:for|learn|learning|lesson|course|movie|film|drama|show|video|anime)\s*$/iu.test(before) || /^\s*(?:movie|film|drama|show|video|anime|lesson|course)\b/iu.test(after);
+  }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  function inferSubtitleLanguageCode(value, allowWhitespaceDelimited) {
+    const text2 = decodeSubtitleLanguageText(value);
+    return [...text2.matchAll(/[a-z]{2,3}/giu)].map((match) => subtitleLanguageCodeCandidate(text2, match, allowWhitespaceDelimited)).find((language2) => Boolean(language2));
+  }
+  function subtitleLanguageCodeCandidate(text2, match, allowWhitespaceDelimited) {
+    const start = Number(match.index);
+    const end = start + match[0].length;
+    if (!hasSubtitleLanguageCodeBoundary(text2, start, end, allowWhitespaceDelimited)) return void 0;
+    return knownSubtitleLanguageCode(normalizeSubtitleLanguage(match[0]));
+  }
+  function knownSubtitleLanguageCode(language2) {
+    if (!language2) return void 0;
+    return SUBTITLE_LANGUAGE_TAGS.has(language2) ? language2 : void 0;
+  }
+  function hasSubtitleLanguageCodeBoundary(text2, start, end, allowWhitespaceDelimited) {
+    const adjacent = [text2.charAt(start - 1), text2.charAt(end)];
+    if (adjacent.some(isLatinLetterOrNumber)) return false;
+    return allowWhitespaceDelimited || hasStructuredCodeBoundary(text2, start, end);
+  }
+  function hasStructuredCodeBoundary(text2, start, end) {
+    return [text2.charAt(start - 1), text2.charAt(end)].some((character) => /[._/()[\]{}-]/u.test(character)) || isWholeSubtitleLabelMatch(text2, start, end);
+  }
+  function hasSubtitleMarker(value) {
+    return /\b(?:subtitles?|captions?|closed[ -]captions?|cc|language|lang)\b/iu.test(value);
+  }
+  function subtitleUrlHintText(value) {
+    if (!value) return "";
+    try {
+      const parsed = new URL(value, document.baseURI);
+      return decodeSubtitleLanguageText([
+        parsed.pathname,
+        ...parsed.searchParams.values()
+      ].join(" "));
+    } catch {
+      return decodeSubtitleLanguageText(value);
+    }
+  }
+  function decodeSubtitleLanguageText(value) {
+    try {
+      return decodeURIComponent(value.replace(/\+/g, " "));
+    } catch {
+      return value;
+    }
+  }
+  function foldSubtitleLanguageText(value) {
+    return value.normalize("NFKD").replace(/\p{Mark}/gu, "").trim().toLocaleLowerCase().replace(/_/g, "-");
+  }
+  function isLatinLetterOrNumber(value) {
+    return Boolean(value && /[\p{Script=Latin}\p{Number}]/u.test(value));
+  }
+  function uniqueAliases(values) {
+    return Object.freeze([...new Set(values.filter(Boolean))]);
+  }
   function collectPageSubtitleSources(root = document) {
     const pageTitle = pageSubtitleTitle(root);
     return dedupeSubtitleSources([
@@ -109399,23 +109988,23 @@ ${reading}`);
   function subtitleSourceFromTrack(track, pageTitle) {
     if (!isSubtitleTrackElement(track)) return null;
     const url = subtitleTrackSourceUrl(track);
-    if (!url) return null;
-    const label = subtitleTrackSourceLabel(track, url, pageTitle);
-    return {
+    const rawLabel = firstSubtitleText([track.label, track.srclang, track.getAttribute("aria-label")]);
+    return pageSubtitleSource({
       url,
-      label,
-      language: normalizeSubtitleLanguage(track.srclang || inferSubtitleLanguage(label, url)),
-      sourceKey: pageSubtitleSourceKey("track", url)
-    };
+      rawLabel,
+      label: subtitleTrackSourceLabel(track, url, pageTitle),
+      explicitLanguage: track.srclang,
+      sourceKind: "track"
+    });
   }
   function isSubtitleTrackElement(track) {
     return !track.kind || /subtitles|captions/i.test(track.kind);
   }
   function subtitleTrackSourceUrl(track) {
-    return subtitleSourceUrl(track.src || track.getAttribute("src") || "");
+    return subtitleSourceUrl(firstSubtitleText([track.src, track.getAttribute("src")]));
   }
   function subtitleTrackSourceLabel(track, url, pageTitle) {
-    return subtitleSourceLabel(track.label || track.srclang || track.getAttribute("aria-label") || "", url, {
+    return subtitleSourceLabel(firstSubtitleText([track.label, track.srclang, track.getAttribute("aria-label")]), url, {
       pageTitle,
       preferPageTitleForGeneric: true
     });
@@ -109424,15 +110013,15 @@ ${reading}`);
     return Array.from(root.querySelectorAll("a[href]")).map((link) => subtitleSourceFromLink(link, pageTitle)).filter((source) => Boolean(source));
   }
   function subtitleSourceFromLink(link, pageTitle) {
-    const url = subtitleSourceUrl(link.href || link.getAttribute("href") || "");
-    if (!url) return null;
-    const label = subtitleSourceLabel(linkSubtitleLabelText(link), url, { pageTitle });
-    return {
+    const url = subtitleSourceUrl(firstSubtitleText([link.href, link.getAttribute("href")]));
+    const rawLabel = linkSubtitleLabelText(link);
+    return pageSubtitleSource({
       url,
-      label,
-      language: normalizeSubtitleLanguage(link.lang || inferSubtitleLanguage(label, url)),
-      sourceKey: pageSubtitleSourceKey("link", url)
-    };
+      rawLabel,
+      label: subtitleSourceLabel(rawLabel, url, { pageTitle }),
+      explicitLanguage: link.lang,
+      sourceKind: "link"
+    });
   }
   function collectConfigSubtitleSources(root, pageTitle) {
     return subtitleConfigElements(root).flatMap((element2, index) => subtitleSourcesFromConfigElement(element2, pageTitle, index));
@@ -109481,37 +110070,58 @@ ${reading}`);
   function subtitleSourcesFromConfigValue(value, pageTitle, keyPrefix) {
     const sources = [];
     const seenObjects = /* @__PURE__ */ new Set();
-    const visit = (current, path) => {
-      const decoded = subtitleConfigTaggedValue(current);
-      if (decoded !== current) {
-        visit(decoded, path);
-        return;
-      }
-      if (Array.isArray(current)) {
-        for (const item of current) visit(item, path);
-        return;
-      }
-      if (!current || typeof current !== "object") return;
-      if (seenObjects.has(current)) return;
-      seenObjects.add(current);
-      const record2 = current;
-      const source = subtitleSourceFromConfigRecord(record2, pageTitle, keyPrefix, sources.length, path);
-      if (source) sources.push(source);
-      for (const [key, child] of Object.entries(record2)) visit(child, [...path, key]);
-    };
-    visit(value, []);
+    const collect = { pageTitle, keyPrefix, sources, seenObjects };
+    visitSubtitleConfigValue(value, [], collect);
     return sources;
   }
+  function visitSubtitleConfigValue(current, path, collect) {
+    const decoded = subtitleConfigTaggedValue(current);
+    if (decoded !== current) return visitSubtitleConfigValue(decoded, path, collect);
+    if (Array.isArray(current)) return visitSubtitleConfigArray(current, path, collect);
+    const record2 = subtitleConfigObject(current);
+    if (record2) visitSubtitleConfigRecord(record2, path, collect);
+  }
+  function visitSubtitleConfigArray(values, path, collect) {
+    values.forEach((value) => visitSubtitleConfigValue(value, path, collect));
+  }
+  function visitSubtitleConfigRecord(record2, path, collect) {
+    if (collect.seenObjects.has(record2)) return;
+    collect.seenObjects.add(record2);
+    const source = subtitleSourceFromConfigRecord(record2, collect.pageTitle, collect.keyPrefix, collect.sources.length, path);
+    if (source) collect.sources.push(source);
+    Object.entries(record2).forEach(([key, child]) => visitSubtitleConfigValue(child, [...path, key], collect));
+  }
+  function subtitleConfigObject(value) {
+    return value && typeof value === "object" ? value : void 0;
+  }
   function subtitleSourceFromConfigRecord(record2, pageTitle, keyPrefix, index, path) {
+    if (!isSubtitleConfigRecord(record2, path)) return null;
     const url = subtitleConfigRecordUrl(record2);
-    if (!url || !isSubtitleConfigRecord(record2, path)) return null;
-    const label = subtitleConfigSourceLabel(subtitleConfigRecordLabel(record2), url, pageTitle);
-    return {
+    const rawLabel = subtitleConfigRecordLabel(record2);
+    return pageSubtitleSource({
       url,
-      label,
-      language: normalizeSubtitleLanguage(subtitleConfigRecordLanguage(record2) || inferSubtitleLanguage(label, url)),
-      sourceKey: pageSubtitleSourceKey(`${keyPrefix}-${index}`, url)
+      rawLabel,
+      label: subtitleConfigSourceLabel(rawLabel, url, pageTitle),
+      explicitLanguage: subtitleConfigRecordLanguage(record2),
+      sourceKind: `${keyPrefix}-${index}`
+    });
+  }
+  function pageSubtitleSource(descriptor) {
+    if (!descriptor.url) return null;
+    return {
+      url: descriptor.url,
+      label: descriptor.label,
+      language: subtitleSourceLanguage(descriptor),
+      sourceKey: pageSubtitleSourceKey(descriptor.sourceKind, descriptor.url)
     };
+  }
+  function subtitleSourceLanguage(descriptor) {
+    const inferred = [
+      descriptor.explicitLanguage,
+      inferSubtitleLanguage(descriptor.rawLabel, descriptor.url),
+      inferSubtitleLanguage(descriptor.label, descriptor.url)
+    ].find((language2) => Boolean(language2));
+    return normalizeSubtitleLanguage(inferred);
   }
   function subtitleConfigRecordUrl(record2) {
     for (const key of ["src", "file", "url", "href"]) {
@@ -109547,12 +110157,21 @@ ${reading}`);
     return typeof decoded === "string" ? decoded.trim() : "";
   }
   function subtitleConfigTaggedValue(value) {
-    if (!Array.isArray(value) || value.length !== 2) return value;
-    if (typeof value[0] !== "number" && typeof value[0] !== "string") return value;
+    if (!Array.isArray(value)) return value;
+    if (value.length !== 2) return value;
+    if (!["number", "string"].includes(typeof value[0])) return value;
     return value[1];
   }
   function linkSubtitleLabelText(link) {
-    return link.getAttribute("download") || link.getAttribute("aria-label") || link.getAttribute("title") || link.textContent || "";
+    return firstSubtitleText([
+      link.getAttribute("download"),
+      link.getAttribute("aria-label"),
+      link.getAttribute("title"),
+      link.textContent
+    ]);
+  }
+  function firstSubtitleText(values) {
+    return values.find((value) => Boolean(value)) ?? "";
   }
   function subtitleSourceUrl(value) {
     const url = resolveSubtitleSourceUrl(value);
@@ -109610,16 +110229,17 @@ ${reading}`);
   }
   function genericSubtitleLabel(cleaned, filename, options) {
     if (shouldUsePageTitleForGeneric(cleaned, options)) return options.pageTitle ?? "";
-    return cleaned || filename || "Subtitle file";
+    return firstSubtitleText([cleaned, filename, "Subtitle file"]);
   }
   function shouldUsePageTitleForGeneric(cleaned, options) {
     if (!options.pageTitle) return false;
     return !cleaned || Boolean(options.preferPageTitleForGeneric && cleaned);
   }
   function specificSubtitleLabel(cleaned, filename) {
-    if (cleaned && !isGenericSubtitleLabel(cleaned)) return cleaned;
-    if (filename && !isGenericSubtitleLabel(filename)) return filename;
-    return "";
+    return [cleaned, filename].find(isSpecificSubtitleLabel) ?? "";
+  }
+  function isSpecificSubtitleLabel(value) {
+    return Boolean(value) && !isGenericSubtitleLabel(value);
   }
   function subtitleSourceFilenameLabel(url) {
     try {
@@ -109632,28 +110252,6 @@ ${reading}`);
   }
   function cleanSubtitleTitle(value) {
     return value.replace(/\.(vtt|srt|ass|ssa)$/i, "").replace(/\s+/g, " ").trim();
-  }
-  function isGenericSubtitleLabel(value) {
-    return /^(?:vtt|srt|ass|ssa|subtitles?|captions?|cc|closed captions?|日本語|英語|japanese|english|native|ja(?:panese)?|en(?:glish)?)$/i.test(value.trim());
-  }
-  function inferSubtitleLanguage(label, url = "") {
-    const text2 = `${label} ${url}`;
-    if (hasJapaneseSubtitleLanguageHint(text2)) return "ja";
-    if (hasEnglishSubtitleLanguageHint(text2)) return "en";
-    if (/[\u3040-\u30ff\u3400-\u9fff]/u.test(label)) return "ja";
-    return void 0;
-  }
-  function normalizeSubtitleLanguage(language2) {
-    if (!language2) return void 0;
-    if (/^(ja|jp|jpn)(?:[-_]|$)/i.test(language2)) return "ja";
-    if (/^(en|eng)(?:[-_]|$)/i.test(language2)) return "en";
-    return language2;
-  }
-  function hasJapaneseSubtitleLanguageHint(text2) {
-    return /(^|[\s._/()[\]{}-])(?:ja|jp|jpn|japanese|nihongo|nihon-go)(?=$|[\s._/()[\]{}-])/i.test(text2) || /(?:日本語|日本字幕|日(?:本)?語字幕|日文|日語|日本語字幕)/u.test(text2);
-  }
-  function hasEnglishSubtitleLanguageHint(text2) {
-    return /(^|[\s._/()[\]{}-])(?:en|eng|english|native)(?=$|[\s._/()[\]{}-])/i.test(text2) || /英(?:語|文)(?:字幕)?/u.test(text2);
   }
   function pageSubtitleSourceKey(kind, url) {
     return `${kind}:${normalizedSubtitleUrl(url)}`;
@@ -110555,7 +111153,7 @@ ${reading}`);
     }
   }
   function readYouTubeConfigStringFromScripts(key) {
-    const escapedKey = escapeRegExp(key);
+    const escapedKey = escapeRegExp$1(key);
     const patterns = [
       new RegExp(`"${escapedKey}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u"),
       new RegExp(`${escapedKey}\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "u")
@@ -110569,9 +111167,21 @@ ${reading}`);
   }
   const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
   const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
-  async function discoverYouTubeCaptionTracks() {
-    const pageTracks = getYouTubeCaptionTracks();
-    const androidTracks = await getAndroidYouTubeCaptionTracks();
+  async function discoverCurrentYouTubeCaptionTracks(options) {
+    if (!isYouTubePage()) return null;
+    const videoId = getYouTubeVideoId();
+    if (!videoId) return null;
+    options.onVideoId(videoId);
+    const tracks = await discoverYouTubeCaptionTracks(options);
+    return currentYouTubeDiscoveryTracks(tracks, options);
+  }
+  function currentYouTubeDiscoveryTracks(tracks, options) {
+    if (!tracks.length) return null;
+    return options.contextKey === options.currentContextKey() ? tracks : null;
+  }
+  async function discoverYouTubeCaptionTracks(options = {}) {
+    const pageTracks = getYouTubeCaptionTracks(options);
+    const androidTracks = await getAndroidYouTubeCaptionTracks(options.preferredTranslationLanguages);
     return uniqueYouTubeCaptionTrackCandidates([
       ...pageTracks,
       ...androidTracks
@@ -110583,6 +111193,9 @@ ${reading}`);
     const tried = /* @__PURE__ */ new Set();
     const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(track.url), options, tried);
     if (primary.length) return primary;
+    return loadFallbackYouTubeTrackCues(track, options, tried);
+  }
+  async function loadFallbackYouTubeTrackCues(track, options, tried) {
     for (const candidate of await fallbackYouTubeCaptionCandidates(track)) {
       const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
       if (!cues.length) continue;
@@ -110596,19 +111209,23 @@ ${reading}`);
     for (const url of urls) {
       if (tried.has(url)) continue;
       tried.add(url);
-      try {
-        const text2 = await options.requestText(url);
-        if (!text2.trim()) throw new Error("YouTube timedtext response was empty.");
-        const cues = normalizeSubtitleCues(parseSubtitleText(text2, {
-          smoothYouTubeFragments: true,
-          youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
-        }));
-        if (cues.length) return cues;
-      } catch (error) {
-        options.onRequestError?.(track, url, error);
-      }
+      const cues = await loadYouTubeCueUrl(track, url, options);
+      if (cues.length) return cues;
     }
     return [];
+  }
+  async function loadYouTubeCueUrl(track, url, options) {
+    try {
+      const text2 = await options.requestText(url);
+      if (!text2.trim()) throw new Error("YouTube timedtext response was empty.");
+      return normalizeSubtitleCues(parseSubtitleText(text2, {
+        smoothYouTubeFragments: true,
+        youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
+      }));
+    } catch (error) {
+      options.onRequestError?.(track, url, error);
+      return [];
+    }
   }
   function applyPreferredYouTubeCaptionCandidate(track) {
     const preferred = findPreferredYouTubeCaptionCandidate(track);
@@ -110618,24 +111235,34 @@ ${reading}`);
     track.youtubeTrack = preferred.raw;
   }
   async function loadFirstUsableYouTubeSibling(track, tracks, options) {
-    const siblings = tracks.filter((candidate) => candidate.kind === "youtube" && candidate !== track && compatibleYouTubeCaptionTracks(candidate, track) && candidate.url);
+    const siblings = tracks.filter((candidate) => isUsableYouTubeSibling(candidate, track));
     for (const sibling of siblings) {
-      const cues = sibling.cues?.length ? sibling.cues : await loadYouTubeTrackCues(sibling, options);
+      const cues = await usableYouTubeSiblingCues(sibling, options);
       if (!cues.length) continue;
       sibling.cues = cues;
       return { track: sibling, cues };
     }
     return null;
   }
-  function getYouTubeCaptionTracks() {
+  function isUsableYouTubeSibling(candidate, track) {
+    return [
+      candidate.kind === "youtube",
+      candidate !== track,
+      compatibleYouTubeCaptionTracks(candidate, track),
+      Boolean(candidate.url)
+    ].every(Boolean);
+  }
+  async function usableYouTubeSiblingCues(sibling, options) {
+    if (sibling.cues?.length) return sibling.cues;
+    return loadYouTubeTrackCues(sibling, options);
+  }
+  function getYouTubeCaptionTracks(options = {}) {
     const playerTracks = getYouTubePlayerCaptionTracks();
-    const response = getYouTubePlayerResponse();
-    const renderer = response?.captions?.playerCaptionsTracklistRenderer;
-    const rawTracks = renderer?.captionTracks;
+    const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
     return uniqueYouTubeCaptionTracks([
       ...playerTracks,
-      ...Array.isArray(rawTracks) ? rawTracks : []
-    ], renderer?.translationLanguages);
+      ...extractYouTubeTrackArray(renderer?.captionTracks)
+    ], renderer?.translationLanguages, options.preferredTranslationLanguages);
   }
   function youtubeVideoHasNativeCaptions() {
     if (getYouTubeCaptionTracks().length) return true;
@@ -110645,22 +111272,32 @@ ${reading}`);
   }
   async function fallbackYouTubeCaptionCandidates(track) {
     if (track.kind !== "youtube") return [];
-    const candidates = await getAndroidYouTubeCaptionTracks();
+    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""]);
     return candidates.filter((candidate) => youtubeCaptionCandidateMatchesTrack(candidate, track)).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
   }
   function youtubeCaptionCandidateMatchesTrack(candidate, track) {
     return compatibleYouTubeCaptionTracks(candidate, track);
   }
   function activateYouTubeCaptionTrack(track) {
-    if (!isYouTubePage()) return;
-    const player = youtubeCaptionPlayer();
-    if (!player?.setOption) return;
+    const player = activeYouTubeCaptionPlayer();
+    if (!player) return;
+    activateYouTubeCaptionPlayer(track, player);
+  }
+  function activateYouTubeCaptionPlayer(track, player) {
     try {
       player.loadModule?.("captions");
-      setYouTubeCaptionTrack(player, findMatchingYouTubePlayerTrack(track, player) ?? track.youtubeTrack);
+      setYouTubeCaptionTrack(player, preferredYouTubePlayerTrack(track, player));
       player.setOption("captions", "reload", true);
     } catch {
     }
+  }
+  function activeYouTubeCaptionPlayer() {
+    if (!isYouTubePage()) return null;
+    const player = youtubeCaptionPlayer();
+    return player?.setOption ? player : null;
+  }
+  function preferredYouTubePlayerTrack(track, player) {
+    return [findMatchingYouTubePlayerTrack(track, player), track.youtubeTrack].find(Boolean);
   }
   function youtubeCaptionPlayer() {
     return document.querySelector("#movie_player");
@@ -110681,46 +111318,87 @@ ${reading}`);
   }
   function isYouTubeOwnedVideoElement(video) {
     if (!isYouTubePage()) return true;
-    if (isYouTubeFeedPreviewVideo(video)) return false;
+    const context = youtubeVideoOwnershipContext(video);
+    if (!context) return false;
+    return youtubeVideoOwnership(context);
+  }
+  function youtubeVideoOwnershipContext(video) {
+    if (!video) return null;
+    if (isYouTubeFeedPreviewVideo(video)) return null;
     const currentVideoId = getYouTubeVideoId();
-    if (!video || !currentVideoId) return false;
+    if (!currentVideoId) return null;
     const player = video.closest(YOUTUBE_VIDEO_PLAYER_SELECTOR);
     const owner = video.closest(YOUTUBE_VIDEO_OWNER_SELECTOR);
-    const playerVideoId = getYouTubePlayerVideoId(player ?? owner);
-    if (playerVideoId && playerVideoId !== currentVideoId) {
-      if (video.classList.contains("html5-main-video")) return true;
-      return isLikelyVisibleYouTubeWatchVideo(video);
-    }
-    return Boolean(owner) || isLikelyVisibleYouTubeWatchVideo(video);
+    return { video, currentVideoId, playerVideoId: getYouTubePlayerVideoId(youtubePlayerOrOwner(player, owner)), owner };
+  }
+  function youtubePlayerOrOwner(player, owner) {
+    return player ?? owner;
+  }
+  function youtubeVideoOwnership(context) {
+    if (youtubePlayerVideoIdIsStale(context)) return staleYouTubeVideoOwnership(context.video);
+    return [Boolean(context.owner), isLikelyVisibleYouTubeWatchVideo(context.video)].some(Boolean);
+  }
+  function youtubePlayerVideoIdIsStale(context) {
+    return Boolean(context.playerVideoId) && context.playerVideoId !== context.currentVideoId;
+  }
+  function staleYouTubeVideoOwnership(video) {
+    if (video.classList.contains("html5-main-video")) return true;
+    return isLikelyVisibleYouTubeWatchVideo(video);
   }
   function shouldRefreshYouTubeTrackUrl(next, current) {
     if (!next || next === current) return false;
     return youtubeTrackUrlScore(next) >= youtubeTrackUrlScore(current);
   }
   function isAutoGeneratedSubtitleTrack(track) {
-    return track.sourceType === "asr" || track.sourceType === "translation" || Boolean(track.autoGenerated) || /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ""}`);
+    return [
+      track.sourceType === "asr",
+      track.sourceType === "translation",
+      Boolean(track.autoGenerated),
+      /asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(`${track.label} ${track.language ?? ""}`)
+    ].some(Boolean);
   }
   function youtubeCaptionTrackIdentity(track) {
     if (track.youtubeIdentity) return track.youtubeIdentity;
     const language2 = normalizedYouTubeLanguageCode(track.language);
-    const sourceType = track.sourceType ?? (track.autoGenerated ? "asr" : "manual");
-    const sourceLanguage = normalizedYouTubeLanguageCode(track.sourceLanguage) || language2;
-    const targetLanguage2 = normalizedYouTubeLanguageCode(track.targetLanguage) || (sourceType === "translation" ? language2 : "");
+    const sourceType = youtubeCaptionSourceType(track);
+    const sourceLanguage = firstYouTubeLanguage(track.sourceLanguage, language2);
+    const targetLanguage2 = youtubeCaptionTargetLanguage(track.targetLanguage, sourceType, language2);
     return [
       sourceType,
       sourceLanguage,
-      targetLanguage2 || language2,
+      firstYouTubeLanguage(targetLanguage2, language2),
       track.vssId ?? "",
-      track.vssId ? "" : normalizedYouTubeCaptionLabel(track.label)
+      youtubeCaptionLabelIdentity(track)
     ].join(":");
+  }
+  function youtubeCaptionSourceType(track) {
+    if (track.sourceType) return track.sourceType;
+    return track.autoGenerated ? "asr" : "manual";
+  }
+  function firstYouTubeLanguage(primary, fallback) {
+    return [normalizedYouTubeLanguageCode(primary), fallback].find(Boolean) ?? "";
+  }
+  function youtubeCaptionTargetLanguage(targetLanguage2, sourceType, language2) {
+    const explicit = normalizedYouTubeLanguageCode(targetLanguage2);
+    if (explicit) return explicit;
+    return sourceType === "translation" ? language2 : "";
+  }
+  function youtubeCaptionLabelIdentity(track) {
+    if (track.vssId) return "";
+    return normalizedYouTubeCaptionLabel(track.label);
   }
   function compatibleYouTubeCaptionTracks(candidate, track) {
     if (youtubeCaptionTrackIdentity(candidate) === youtubeCaptionTrackIdentity(track)) return true;
     if (hasSpecificYouTubeCaptionIdentity(track)) return false;
-    return Boolean(candidate.language && track.language && normalizedYouTubeLanguageCode(candidate.language) === normalizedYouTubeLanguageCode(track.language));
+    return youtubeTrackLanguagesMatch(candidate, track);
   }
   function hasSpecificYouTubeCaptionIdentity(track) {
-    return Boolean(track.youtubeIdentity || track.sourceType || track.sourceLanguage || track.targetLanguage || track.vssId);
+    return [track.youtubeIdentity, track.sourceType, track.sourceLanguage, track.targetLanguage, track.vssId].some(Boolean);
+  }
+  function youtubeTrackLanguagesMatch(candidate, track) {
+    if (!candidate.language) return false;
+    if (!track.language) return false;
+    return normalizedYouTubeLanguageCode(candidate.language) === normalizedYouTubeLanguageCode(track.language);
   }
   function normalizedYouTubeLanguageCode(language2) {
     return (language2 ?? "").trim().toLowerCase();
@@ -110733,9 +111411,12 @@ ${reading}`);
     const videoId = getYouTubeVideoId();
     if (!videoId) return [];
     const playerVideoId = getYouTubePlayerVideoId(player);
-    const tracks = player?.getAudioTrack?.()?.captionTracks;
     if (playerVideoId && playerVideoId !== videoId) return [];
-    return Array.isArray(tracks) ? tracks.filter((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId)) : [];
+    return playerCaptionTracks(player).filter((track) => youtubeRawCaptionTrackMatchesVideo(track, videoId));
+  }
+  function playerCaptionTracks(player) {
+    const tracks = player?.getAudioTrack?.()?.captionTracks;
+    return Array.isArray(tracks) ? tracks : [];
   }
   function getYouTubePlayerVideoId(player) {
     try {
@@ -110745,16 +111426,23 @@ ${reading}`);
     }
   }
   function isLikelyVisibleYouTubeWatchVideo(video) {
-    if (!video.isConnected) return false;
-    if (video.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]")) return false;
+    if ([!video.isConnected, Boolean(video.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]"))].some(Boolean)) return false;
     const rect = video.getBoundingClientRect();
     const width = Math.max(rect.width, video.clientWidth);
     const height = Math.max(rect.height, video.clientHeight);
     if (width >= 240 && height >= 135) return true;
-    return video.classList.contains("html5-main-video") && (video.readyState >= 1 || width > 0 || height > 0);
+    return recoverableYouTubeMainVideo(video, width, height);
   }
-  function uniqueYouTubeCaptionTracks(rawTracks, rawTranslationLanguages = []) {
-    return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages));
+  function recoverableYouTubeMainVideo(video, width, height) {
+    if (!video.classList.contains("html5-main-video")) return false;
+    return [video.readyState >= 1, width > 0, height > 0].some(Boolean);
+  }
+  function uniqueYouTubeCaptionTracks(rawTracks, rawTranslationLanguages = [], preferredTranslationLanguages = []) {
+    return uniqueYouTubeCaptionTrackCandidates(youtubeCaptionTracksWithTranslations(
+      rawTracks,
+      rawTranslationLanguages,
+      preferredTranslationLanguages
+    ));
   }
   function uniqueYouTubeCaptionTrackCandidates(candidates) {
     const tracks = /* @__PURE__ */ new Map();
@@ -110765,9 +111453,9 @@ ${reading}`);
     }
     return [...tracks.values()];
   }
-  function youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages) {
+  function youtubeCaptionTracksWithTranslations(rawTracks, rawTranslationLanguages, preferredLanguages) {
     const baseTracks = rawTracks.map(parseYouTubeCaptionTrack).filter((track) => Boolean(track));
-    const translationLanguages = preferredYouTubeTranslationLanguages(rawTranslationLanguages);
+    const translationLanguages = preferredYouTubeTranslationLanguages(rawTranslationLanguages, preferredLanguages);
     if (!translationLanguages.length) return baseTracks;
     return [
       ...baseTracks,
@@ -110795,11 +111483,16 @@ ${reading}`);
     };
     return { ...parsed, youtubeIdentity: youtubeCaptionTrackIdentity(parsed) };
   }
-  function preferredYouTubeTranslationLanguages(rawLanguages) {
+  function preferredYouTubeTranslationLanguages(rawLanguages, preferredLanguages) {
     const languages2 = rawLanguages.map(parseYouTubeTranslationLanguage).filter((language2) => Boolean(language2));
     if (!languages2.length) return [];
     const byCode = new Map(languages2.map((language2) => [language2.code, language2]));
-    const preferred = uniqueNonEmptyStrings$1(["ja", "en", normalizedYouTubeLanguageCode(readYouTubeConfigString$1("HL"))]);
+    const preferred = uniqueNonEmptyStrings$1([
+      ...preferredLanguages.map((language2) => normalizedYouTubeLanguageCode(language2)),
+      "ja",
+      "en",
+      normalizedYouTubeLanguageCode(readYouTubeConfigString$1("HL"))
+    ]);
     return preferred.flatMap((code) => {
       const language2 = byCode.get(code);
       return language2 ? [language2] : [];
@@ -110850,11 +111543,11 @@ ${reading}`);
   function applyYouTubeCaptionClientName(url, clientName) {
     if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
   }
-  async function getAndroidYouTubeCaptionTracks() {
+  async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = []) {
     const request = androidYouTubeCaptionRequest();
     if (!request) return [];
     try {
-      return await fetchAndroidYouTubeCaptionTracks(request);
+      return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages);
     } catch {
       return [];
     }
@@ -110874,11 +111567,11 @@ ${reading}`);
       videoId
     };
   }
-  async function fetchAndroidYouTubeCaptionTracks(request) {
+  async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages) {
     const response = await fetch(request.url, request.init);
     if (!response.ok) return [];
     const payload = await response.json();
-    return androidYouTubeCaptionTracksFromPayload(payload, request.videoId);
+    return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);
   }
   function androidYouTubeCaptionRequestBody(videoId) {
     return JSON.stringify({
@@ -110892,11 +111585,23 @@ ${reading}`);
       videoId
     });
   }
-  function androidYouTubeCaptionTracksFromPayload(payload, videoId) {
+  function androidYouTubeCaptionTracksFromPayload(payload, videoId, preferredTranslationLanguages) {
     if (!isMatchingYouTubePlayerResponse(payload, videoId)) return [];
-    const renderer = payload.captions?.playerCaptionsTracklistRenderer;
-    const rawTracks = renderer?.captionTracks;
-    return uniqueYouTubeCaptionTracks(Array.isArray(rawTracks) ? rawTracks : [], renderer?.translationLanguages);
+    const renderer = youtubeCaptionRenderer(payload);
+    return uniqueYouTubeCaptionTracks(
+      extractYouTubeTrackArray(rendererCaptionTracks(renderer)),
+      rendererTranslationLanguages(renderer),
+      preferredTranslationLanguages
+    );
+  }
+  function youtubeCaptionRenderer(payload) {
+    return payload.captions?.playerCaptionsTracklistRenderer;
+  }
+  function rendererCaptionTracks(renderer) {
+    return renderer?.captionTracks;
+  }
+  function rendererTranslationLanguages(renderer) {
+    return renderer?.translationLanguages;
   }
   function youtubeCaptionTrackLabel(record2, language2) {
     return firstYouTubeCaptionTrackLabel(record2, language2) || "YouTube subtitles";
@@ -110911,11 +111616,22 @@ ${reading}`);
   }
   function youtubeCaptionText(value) {
     if (typeof value === "string") return value;
-    if (!value || typeof value !== "object") return "";
-    const record2 = value;
+    const record2 = youtubeCaptionTextRecord(value);
+    if (!record2) return "";
+    return youtubeCaptionTextFromRecord(record2);
+  }
+  function youtubeCaptionTextFromRecord(record2) {
     if (typeof record2.simpleText === "string") return record2.simpleText;
     if (!Array.isArray(record2.runs)) return "";
-    return record2.runs.map((run) => typeof run === "object" && run ? run.text : "").filter((text2) => typeof text2 === "string").join("");
+    return record2.runs.map(youtubeCaptionRunText).filter((text2) => typeof text2 === "string").join("");
+  }
+  function youtubeCaptionTextRecord(value) {
+    if (!value) return null;
+    return typeof value === "object" ? value : null;
+  }
+  function youtubeCaptionRunText(run) {
+    if (!run) return "";
+    return typeof run === "object" ? run.text : "";
   }
   function youtubeCaptionAutoSuffix(autoGenerated, label) {
     return autoGenerated && !/asr|auto(?:matic)?|auto-generated|自動生成|自動字幕/i.test(label) ? " · auto-generated" : "";
@@ -110931,27 +111647,32 @@ ${reading}`);
     ];
   }
   function findMatchingYouTubePlayerTrack(track, player) {
-    const rawTracks = [
+    const rawTracks = youtubePlayerRawTracks(player);
+    const targetIdentity = youtubeCaptionTrackIdentity(track);
+    const exact = rawTracks.find((raw) => youtubePlayerTrackHasIdentity(raw, targetIdentity));
+    if (exact) return exact;
+    if (track.sourceType === "translation") return matchingYouTubeTranslationTrack(track, rawTracks);
+    return rawTracks.find((raw) => youtubePlayerTrackHasLanguage(raw, track.language)) ?? null;
+  }
+  function youtubePlayerRawTracks(player) {
+    return [
       ...extractYouTubeTrackArray(player.getAudioTrack?.()?.captionTracks),
       ...extractYouTubeTrackArray(player.getOption?.("captions", "tracklist"))
     ];
-    const targetIdentity = youtubeCaptionTrackIdentity(track);
-    const exact = rawTracks.find((raw) => {
-      const parsed = parseYouTubeCaptionTrack(raw);
-      return parsed && youtubeCaptionTrackIdentity(parsed) === targetIdentity;
-    });
-    if (exact) return exact;
-    if (track.sourceType === "translation") {
-      const source = rawTracks.find((raw) => {
-        const parsed = parseYouTubeCaptionTrack(raw);
-        return parsed?.language && track.sourceLanguage && normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(track.sourceLanguage);
-      }) ?? youtubePlayerTranslationSource(track);
-      return source ? translatedYouTubePlayerTrack(track, source) : null;
-    }
-    return rawTracks.find((raw) => {
-      const parsed = parseYouTubeCaptionTrack(raw);
-      return parsed?.language && track.language && normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(track.language);
-    }) ?? null;
+  }
+  function youtubePlayerTrackHasIdentity(raw, identity) {
+    const parsed = parseYouTubeCaptionTrack(raw);
+    return Boolean(parsed) && youtubeCaptionTrackIdentity(parsed) === identity;
+  }
+  function matchingYouTubeTranslationTrack(track, rawTracks) {
+    const source = rawTracks.find((raw) => youtubePlayerTrackHasLanguage(raw, track.sourceLanguage)) ?? youtubePlayerTranslationSource(track);
+    return source ? translatedYouTubePlayerTrack(track, source) : null;
+  }
+  function youtubePlayerTrackHasLanguage(raw, language2) {
+    if (!language2) return false;
+    const parsed = parseYouTubeCaptionTrack(raw);
+    if (!parsed?.language) return false;
+    return normalizedYouTubeLanguageCode(parsed.language) === normalizedYouTubeLanguageCode(language2);
   }
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
@@ -110964,13 +111685,18 @@ ${reading}`);
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isNonNullObject(raw) && raw.translationLanguage) return raw.translationLanguage;
-    const languageCode = track.targetLanguage || track.language;
+    const existing = youtubeTrackTranslationLanguage(raw);
+    if (existing) return existing;
+    const languageCode = firstYouTubeLanguage(track.targetLanguage, normalizedYouTubeLanguageCode(track.language));
     if (!languageCode) return null;
     return {
       languageCode,
       languageName: { simpleText: languageCode }
     };
+  }
+  function youtubeTrackTranslationLanguage(value) {
+    if (!isNonNullObject(value)) return void 0;
+    return value.translationLanguage;
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
@@ -110979,13 +111705,19 @@ ${reading}`);
   }
   function findPreferredYouTubeCaptionCandidate(track) {
     if (track.kind !== "youtube") return null;
-    const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
-    const candidates = uniqueYouTubeCaptionTracks([
-      ...getYouTubePlayerCaptionTracks(),
-      ...renderer?.captionTracks ?? []
-    ], renderer?.translationLanguages);
+    const candidates = preferredYouTubeCaptionCandidates(track);
     const targetIdentity = youtubeCaptionTrackIdentity(track);
     return candidates.filter((candidate) => youtubeCaptionTrackIdentity(candidate) === targetIdentity).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url))[0] ?? null;
+  }
+  function preferredYouTubeCaptionCandidates(track) {
+    const renderer = getYouTubePlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
+    return uniqueYouTubeCaptionTracks([
+      ...getYouTubePlayerCaptionTracks(),
+      ...extractYouTubeTrackArray(renderer?.captionTracks)
+    ], renderer?.translationLanguages, youtubeTrackPreferredLanguages(track));
+  }
+  function youtubeTrackPreferredLanguages(track) {
+    return [track.targetLanguage, track.language].map((language2) => language2 ?? "");
   }
   function extractYouTubeTrackArray(value) {
     if (Array.isArray(value)) return value;
@@ -111537,7 +112269,11 @@ ${reading}`);
     const sourceTrack = options.tracks.find((t) => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
-    const translatedCues = await translateSubtitleCues(sourceCues, sourceTrack.language || "en", track.targetLanguage || track.language || targetSubtitleLanguageTag());
+    const translatedCues = await translateSubtitleCues(
+      sourceCues,
+      track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || "en",
+      track.targetLanguage || track.language || targetSubtitleLanguageTag()
+    );
     track.cues = translatedCues;
     return { track, cues: translatedCues };
   }
@@ -111646,17 +112382,36 @@ ${reading}`);
     return subtitleTrackRank(a) - subtitleTrackRank(b) || (a.language ?? "").localeCompare(b.language ?? "", void 0, { sensitivity: "base" }) || a.label.localeCompare(b.label, void 0, { sensitivity: "base" });
   }
   function isTargetLanguageSubtitleTrack(track) {
-    const language2 = explicitSubtitleLanguage(track);
+    const language2 = subtitleTrackLanguage(track);
     if (language2) return isTargetSubtitleLanguage(language2);
     return isTargetSubtitleLanguage(inferSubtitleLanguage(track.label, track.language));
   }
   function isEnglishSubtitleTrack(track) {
-    const language2 = explicitSubtitleLanguage(track);
-    if (language2) return language2 === "en";
-    return inferSubtitleLanguage(track.label, track.language) === "en";
+    return isSubtitleTrackLanguage(track, "en");
   }
-  function shouldReplaceWaitingNativeTrack(selected, replacement, cues) {
-    return isWaitingNativeTrack(selected, cues) && (hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement));
+  function subtitleTrackLanguage(track) {
+    if (!track) return void 0;
+    const language2 = track.targetLanguage ?? track.language;
+    if (isLanguageCode(language2)) return normalizeSubtitleLanguage(language2);
+    return inferSubtitleLanguage(track.label, track.language);
+  }
+  function isSubtitleTrackLanguage(track, expectedLanguage) {
+    const expected = normalizeSubtitleLanguage(expectedLanguage);
+    return Boolean(expected && subtitleTrackLanguage(track) === expected);
+  }
+  function isOutputLanguageSubtitleTrack(track, outputLanguage) {
+    return isSubtitleTrackLanguage(track, outputLanguage) || !subtitleTrackLanguage(track) && isGenericOutputSubtitleLabel(track.label);
+  }
+  function shouldReplaceWaitingNativeTrack(selected, replacement, cues, expectedLanguage, expectedRole = "target") {
+    if (!isWaitingNativeTrack(selected, cues)) return false;
+    return expectedLanguage ? tracksHaveLanguage(selected, replacement, expectedLanguage, expectedRole) : tracksHaveSameRoleOrLanguage(selected, replacement);
+  }
+  function tracksHaveLanguage(selected, replacement, language2, role) {
+    const matches = role === "output" ? isOutputLanguageSubtitleTrack : isSubtitleTrackLanguage;
+    return matches(selected, language2) && matches(replacement, language2);
+  }
+  function tracksHaveSameRoleOrLanguage(selected, replacement) {
+    return hasSameSubtitleRole(selected, replacement) || hasSameNormalizedSubtitleLanguage(selected, replacement);
   }
   function isWaitingNativeTrack(selected, cues) {
     return Boolean(selected && selected.kind === "native" && !cues.length);
@@ -111669,13 +112424,11 @@ ${reading}`);
     const replacementLanguage = normalizeSubtitleLanguage(replacement.language);
     return Boolean(selectedLanguage && replacementLanguage && selectedLanguage === replacementLanguage);
   }
-  function explicitSubtitleLanguage(track) {
-    const language2 = track.targetLanguage ?? track.language;
-    if (!isLanguageCode(language2)) return void 0;
-    return normalizeSubtitleLanguage(language2);
-  }
   function isLanguageCode(language2) {
     return Boolean(language2?.trim().match(/^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/i));
+  }
+  function isGenericOutputSubtitleLabel(label) {
+    return /(^|[.\-_\s()[\]])(?:native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(label);
   }
   function subtitleTrackRank(track) {
     return SUBTITLE_TRACK_RANKS.find((rule) => rule.matches(track))?.rank ?? 5;
@@ -111695,6 +112448,9 @@ ${reading}`);
   }
   function renderSubtitleTrackPanel(state2) {
     const language2 = state2.language;
+    const displayLocale = resolveUiLanguage(language2);
+    const targetName = languageDisplayName(state2.targetLanguage, displayLocale);
+    const outputName = languageDisplayName(state2.outputLanguage, displayLocale);
     return `
         ${renderDrawerHead({
       mode: "tracks",
@@ -111727,9 +112483,9 @@ ${reading}`);
     })}
         <div class="jpdb-subtitle-list-scroll"${state2.virtual ? ' data-virtualized="true"' : ""}>
             <div class="jpdb-subtitle-track-tools">
-                <button type="button" data-action="load">${escapeHtml$2(uiText(language2, "loadJapaneseSubtitles"))}</button>
-                <button type="button" data-action="load-secondary">${escapeHtml$2(uiText(language2, "loadNativeSubtitles"))}</button>
-                <a href="${escapeHtml$2(jimakuAnimeSearchUrl(state2.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml$2(uiText(language2, "searchAnimeSubtitles"))}</a>
+                <button type="button" data-action="load">${escapeHtml$2(formatUiText(language2, "loadTargetSubtitles", { language: targetName }))}</button>
+                <button type="button" data-action="load-secondary">${escapeHtml$2(formatUiText(language2, "loadOutputSubtitles", { language: outputName }))}</button>
+                ${state2.targetLanguage === "ja" ? `<a href="${escapeHtml$2(jimakuAnimeSearchUrl(state2.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml$2(uiText(language2, "searchAnimeSubtitles"))}</a>` : ""}
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml$2(trackPanelSummaryText(state2.autoDetected, language2))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml$2(uiText(language2, "subtitleTracksHint"))}</div>
@@ -111750,6 +112506,15 @@ ${reading}`);
     const trimmed = query.trim();
     if (!trimmed) return "https://jimaku.cc/";
     return `https://jimaku.cc/opensearch/redirect?anime=true&query=${encodeURIComponent(trimmed)}`;
+  }
+  function subtitleAnimeSearchQuery(video, pageTitle = document.title) {
+    const raw = [
+      video?.dataset.yomuAnimeSearch,
+      video?.dataset.yomuVideoTitle,
+      video?.title,
+      pageTitle
+    ].find((value) => Boolean(value)) ?? "";
+    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/^\s*(?:watch|stream)\s+/iu, "").replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, "").replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, "").replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, " ").replace(/\b(?:subbed|dubbed)\b/giu, " ").replace(/\s+\b(?:online|free|hd)\b\s*$/iu, "").replace(/\s+/gu, " ").trim().slice(0, 120);
   }
   function subtitleDrawerMetaText(options) {
     const primaryTrack = options.tracks.find((track) => track.id === options.selectedTrackId);
@@ -111829,14 +112594,14 @@ ${reading}`);
   }
   function compactSyntheticTranslationTrackLabel(label, language2) {
     const prefix = uiText(language2, "translation");
-    const match = label.match(new RegExp(`^${escapeRegExp(prefix)}\\s*\\((.+)\\)$`, "iu"));
+    const match = label.match(new RegExp(`^${escapeRegExp$1(prefix)}\\s*\\((.+)\\)$`, "iu"));
     if (!match) return "";
     return `${prefix}: ${compactTrackSourceLabel(match[1] ?? "")}`;
   }
   function compactAutoGeneratedTrackLabel(label, language2) {
     const localizedAuto = uiText(language2, "autoGeneratedSubtitle");
     const patterns = [
-      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp(localizedAuto)}$`, "u"),
+      new RegExp(`^(.+?)\\s+\\u00b7\\s+${escapeRegExp$1(localizedAuto)}$`, "u"),
       /^(.+?)\s+\u00b7\s+auto-generated$/iu
     ];
     const match = patterns.map((pattern) => label.match(pattern)).find(Boolean);
@@ -111867,6 +112632,368 @@ ${reading}`);
       `${count} ${uiText(language2, count === 1 ? "subtitleLineSingular" : "subtitleLinePlural")}`,
       secondary ? `${uiText(language2, "nativeSubtitles")}: ${secondary}` : ""
     ];
+  }
+  function resolveSubtitleLanguageContext(settings) {
+    const target = activeLearningTarget();
+    const targetContent = contentLanguage(target.typography.contentLocale, target.subtitles.languageTag);
+    const output = outputLanguageOf(settings);
+    const outputContent = contentLanguage(output, output);
+    return {
+      generation: activeLearningTargetGeneration(),
+      targetLanguage: target.subtitles.languageTag,
+      outputLanguage: languageSubtag(output) ?? output,
+      targetContent,
+      outputContent,
+      preferredTranslationLanguages: uniqueLanguages([
+        target.subtitles.languageTag,
+        languageSubtag(output) ?? output
+      ])
+    };
+  }
+  function sameSubtitleLanguageContext(left, right) {
+    return subtitleLanguageContextKey(left) === subtitleLanguageContextKey(right);
+  }
+  function subtitleLanguageContextKey(context) {
+    return [
+      context.generation,
+      context.targetLanguage,
+      context.outputLanguage,
+      context.targetContent.lang,
+      context.outputContent.lang
+    ].join(":");
+  }
+  function subtitleContentLanguage(track, fallback) {
+    const language2 = subtitleTrackLanguage(track);
+    return language2 ? contentLanguage(language2, language2) : fallback;
+  }
+  function subtitleContentAttributes(content) {
+    return `lang="${content.lang}" dir="${content.dir}"`;
+  }
+  function syncSubtitleContentLanguage(element2, content) {
+    if (element2.lang !== content.lang) element2.lang = content.lang;
+    if (element2.dir !== content.dir) element2.dir = content.dir;
+  }
+  function contentLanguage(locale, fallback) {
+    const lang = canonicalLanguageTag(locale) ?? canonicalLanguageTag(fallback) ?? fallback;
+    return { lang, dir: localeDirection(lang) };
+  }
+  function uniqueLanguages(languages2) {
+    return [...new Set(languages2.map((language2) => language2.trim().toLowerCase()).filter(Boolean))];
+  }
+  function planSubtitleLanguageReconciliation(tracks, selectedTrackId, secondaryTrackId, previous, next) {
+    if (sameSubtitleLanguageContext(previous, next)) return null;
+    const removedTrackIds = translatedTrackIdsForChangedSelection(tracks, previous, next);
+    const targetChanged = targetLanguageChanged(previous, next);
+    const selected = tracks.find((track) => track.id === selectedTrackId);
+    const secondary = tracks.find((track) => track.id === secondaryTrackId);
+    const resetPrimary = targetChanged || invalidSelection(selected, selectedTrackId, removedTrackIds, next.targetLanguage);
+    const resetSecondary = shouldResetSecondary(targetChanged, previous, next, secondary, secondaryTrackId, removedTrackIds);
+    return { removedTrackIds, resetPrimary, resetSecondary };
+  }
+  function translatedTrackIdsForChangedSelection(tracks, previous, next) {
+    if (!subtitleLanguageSelectionChanged(previous, next)) return /* @__PURE__ */ new Set();
+    return new Set(tracks.filter((track) => Boolean(track.translatedFromTrackId) || track.sourceType === "translation").map((track) => track.id));
+  }
+  function subtitleLanguageSelectionChanged(previous, next) {
+    return previous.generation !== next.generation || previous.targetLanguage !== next.targetLanguage || previous.outputLanguage !== next.outputLanguage;
+  }
+  function targetLanguageChanged(previous, next) {
+    return previous.generation !== next.generation || previous.targetLanguage !== next.targetLanguage;
+  }
+  function invalidSelection(track, trackId, removedTrackIds, expectedLanguage) {
+    if (removedTrackIds.has(trackId)) return true;
+    return Boolean(track && !isSubtitleTrackLanguage(track, expectedLanguage));
+  }
+  function shouldResetSecondary(targetChanged, previous, next, track, trackId, removedTrackIds) {
+    if (targetChanged) return true;
+    if (previous.outputLanguage !== next.outputLanguage) return true;
+    return invalidOutputSelection(track, trackId, removedTrackIds, next.outputLanguage);
+  }
+  function invalidOutputSelection(track, trackId, removedTrackIds, outputLanguage) {
+    if (removedTrackIds.has(trackId)) return true;
+    return Boolean(track && !isOutputLanguageSubtitleTrack(track, outputLanguage));
+  }
+  function automaticSubtitleLanguagePair(tracks, context) {
+    const primary = preferredTrack(tracks, context.targetLanguage);
+    const secondary = context.outputLanguage === context.targetLanguage ? void 0 : preferredOutputTrack(tracks.filter((track) => track.id !== primary?.id), context.outputLanguage);
+    return { primary, secondary };
+  }
+  function subtitleLanguageActions(plan, pair, selectedTrackId, secondaryTrackId) {
+    return [
+      ...subtitleLanguageResetActions(plan, selectedTrackId, secondaryTrackId),
+      ...subtitleLanguageSelectionActions(plan, pair)
+    ];
+  }
+  function disableSubtitleTextTrack(track) {
+    if (track) track.mode = "disabled";
+  }
+  function subtitleLanguageResetActions(plan, selectedTrackId, secondaryTrackId) {
+    const actions = [];
+    if (primaryResetActionNeeded(plan, selectedTrackId)) actions.push({ type: "reset-primary", trackId: "" });
+    if (secondaryResetActionNeeded(plan, secondaryTrackId)) actions.push({ type: "reset-secondary", trackId: "" });
+    return actions;
+  }
+  function subtitleLanguageSelectionActions(plan, pair) {
+    const actions = [];
+    if (shouldSelectPrimary(plan, pair.primary)) actions.push({ type: "select-primary", trackId: pair.primary.id });
+    if (shouldSelectSecondary(plan, pair.secondary)) actions.push({ type: "select-secondary", trackId: pair.secondary.id });
+    return actions;
+  }
+  function primaryResetActionNeeded(plan, trackId) {
+    return plan.resetPrimary && Boolean(trackId);
+  }
+  function secondaryResetActionNeeded(plan, trackId) {
+    return plan.resetSecondary && Boolean(trackId);
+  }
+  function shouldSelectPrimary(plan, track) {
+    return plan.resetPrimary && Boolean(track);
+  }
+  function shouldSelectSecondary(plan, track) {
+    return plan.resetSecondary && Boolean(track);
+  }
+  function preferredTrack(tracks, language2) {
+    return [...tracks].filter((track) => isSubtitleTrackLanguage(track, language2)).sort((left, right) => Number(Boolean(left.translatedFromTrackId)) - Number(Boolean(right.translatedFromTrackId)) || compareSubtitleTrackOptions(left, right))[0];
+  }
+  function preferredOutputTrack(tracks, language2) {
+    return [...tracks].filter((track) => isOutputLanguageSubtitleTrack(track, language2)).sort((left, right) => Number(!isSubtitleTrackLanguage(left, language2)) - Number(!isSubtitleTrackLanguage(right, language2)) || compareSubtitleTrackOptions(left, right))[0];
+  }
+  function renderSubtitlePrimary(input2) {
+    const activeCue = input2.cue;
+    const parsedHasReaderWords = input2.parsedHtml?.includes("jpdb-reader-word") ?? false;
+    const karaokeActive = input2.karaokeMode && cueHasExactWordTimings(activeCue);
+    const mode = subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords);
+    return {
+      html: renderSubtitlePrimaryHtml(input2, mode),
+      karaokeActive,
+      shouldRequestParse: input2.hasParser && !input2.parsedHtml,
+      nextRenderedPrimary: nextRenderedPrimaryCache(input2, karaokeActive)
+    };
+  }
+  function subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords) {
+    if (parsedHasReaderWords) return "parsed";
+    if (hasPlainKaraokeRender(input2, karaokeActive)) return "karaoke";
+    if (input2.parsedHtml) return "parsed";
+    if (hasReusablePrimaryParserCache(input2)) return "cached-parser";
+    return parserFallbackRenderMode(input2.hasParser);
+  }
+  function hasPlainKaraokeRender(input2, karaokeActive) {
+    return Boolean(karaokeActive && input2.cue);
+  }
+  function parserFallbackRenderMode(hasParser) {
+    return hasParser ? "loading-parser" : "plain";
+  }
+  function hasReusablePrimaryParserCache(input2) {
+    return Boolean(input2.hasParser && input2.lastRenderedText === input2.text && input2.lastRenderedHtml);
+  }
+  function renderSubtitlePrimaryHtml(input2, mode) {
+    return SUBTITLE_PRIMARY_RENDERERS[mode](input2);
+  }
+  const SUBTITLE_PRIMARY_RENDERERS = {
+    parsed: (input2) => input2.parsedHtml ?? "",
+    karaoke: (input2) => renderSubtitleKaraokeCue(input2.cue, input2.time),
+    "cached-parser": (input2) => input2.lastRenderedHtml,
+    "loading-parser": (input2) => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input2.text)}</span>`,
+    plain: (input2) => escapeWithBreaks(input2.text)
+  };
+  function nextRenderedPrimaryCache(input2, karaokeActive) {
+    if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
+    return karaokeActive ? { text: input2.text, html: "" } : void 0;
+  }
+  const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
+  const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
+  const SUBTITLE_SECONDARY_CLEAR_CLASS = "jpdb-subtitle-secondary-clear";
+  const TOGGLE_NATIVE_BLUR_ACTION = "toggle-native-blur";
+  function syncSubtitleSecondaryBlurState(button2, nativeBlurred, language2 = "en") {
+    button2.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
+    button2.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
+    setAttributeIfChanged(button2, "aria-pressed", String(nativeBlurred));
+    const label = uiText(language2, "toggleNativeSubtitleBlur");
+    setAttributeIfChanged(button2, "title", label);
+    setAttributeIfChanged(button2, "aria-label", label);
+  }
+  function setAttributeIfChanged(element2, name, value) {
+    if (element2.getAttribute(name) === value) return;
+    element2.setAttribute(name, value);
+  }
+  function createSubtitleSecondaryLine() {
+    const button2 = document.createElement("button");
+    button2.className = SUBTITLE_SECONDARY_CLASS;
+    button2.type = "button";
+    button2.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
+    return button2;
+  }
+  function reconcileSubtitleSecondaryLine(options) {
+    if (!options.host) return;
+    const existing = options.host.querySelector(`.${SUBTITLE_SECONDARY_CLASS}`);
+    const text2 = visibleSubtitleSecondaryText(options.visible, options.text);
+    if (!text2) return removeSubtitleSecondaryLine(existing);
+    const line = existingSubtitleSecondaryLine(existing);
+    syncSubtitleContentLanguage(line, options.content);
+    syncSubtitleSecondaryText(line, text2);
+    syncSubtitleSecondaryBlurState(line, options.blurred, options.language);
+    if (!existing) options.host.append(line);
+  }
+  function visibleSubtitleSecondaryText(visible, text2) {
+    if (!visible) return "";
+    return text2 ?? "";
+  }
+  function removeSubtitleSecondaryLine(existing) {
+    existing?.remove();
+  }
+  function existingSubtitleSecondaryLine(existing) {
+    return existing ?? createSubtitleSecondaryLine();
+  }
+  function createSubtitlePrimaryRow(primaryHtml, content) {
+    const row = document.createElement("div");
+    row.className = "jpdb-subtitle-primary-row";
+    const primary = document.createElement("div");
+    primary.className = "jpdb-subtitle-primary";
+    syncSubtitleContentLanguage(primary, content);
+    setInnerHtml(primary, primaryHtml);
+    row.append(primary);
+    return row;
+  }
+  function reconcileSubtitlePrimaryRow(input2) {
+    if (!input2.host) return { changed: false, appliedHtml: input2.appliedHtml };
+    const row = input2.host.querySelector(".jpdb-subtitle-primary-row");
+    if (input2.html === null) return clearSubtitlePrimaryRow(row);
+    return reconcileVisibleSubtitlePrimaryRow({
+      host: input2.host,
+      html: input2.html,
+      appliedHtml: input2.appliedHtml,
+      content: input2.content
+    }, row);
+  }
+  function clearSubtitlePrimaryRow(row) {
+    if (!row) return { changed: false, appliedHtml: "" };
+    row.remove();
+    return { changed: true, appliedHtml: "" };
+  }
+  function reconcileVisibleSubtitlePrimaryRow(input2, row) {
+    const primary = row?.querySelector(".jpdb-subtitle-primary");
+    if (!primary) return createVisibleSubtitlePrimaryRow(input2, row);
+    syncSubtitleContentLanguage(primary, input2.content);
+    if (input2.appliedHtml === input2.html) return { changed: false, appliedHtml: input2.appliedHtml };
+    setInnerHtml(primary, input2.html);
+    return { changed: true, appliedHtml: input2.html };
+  }
+  function createVisibleSubtitlePrimaryRow(input2, row) {
+    row?.remove();
+    input2.host.prepend(createSubtitlePrimaryRow(input2.html, input2.content));
+    return { changed: true, appliedHtml: input2.html };
+  }
+  function syncSubtitleSecondaryText(button2, text2) {
+    if (button2.dataset.subtitleSecondaryText === text2) return;
+    button2.dataset.subtitleSecondaryText = text2;
+    setInnerHtml(button2, escapeWithBreaks(text2));
+  }
+  function renderSubtitleKaraokeCue(cue, time) {
+    if (!cue?.text.trim()) return "";
+    if (!cueHasExactWordTimings(cue)) return escapeWithBreaks(cue.text);
+    const words = cue.words;
+    if (!words.length) return "";
+    const progress = karaokeCharacterProgress(cue, words, time);
+    return renderKaraokeTextParts(cue.text, progress);
+  }
+  const SHADOW_ACTION_LABELS = {
+    replay: { en: "Replay", ja: "再生" },
+    loop: { en: "Loop", ja: "ループ" },
+    stop: { en: "Stop", ja: "停止" },
+    "auto-pause": { en: "Auto pause", ja: "自動停止" },
+    record: { en: "Record", ja: "録音" },
+    "stop-record": { en: "Stop", ja: "録音停止" },
+    "play-recording": { en: "Play yours", ja: "録音を再生" },
+    "record-unavailable": { en: "Mic unavailable", ja: "マイクを使用できません" }
+  };
+  const SHADOW_CONTEXT_LABELS = {
+    en: { prev: "Previous line", next: "Next line" },
+    ja: { prev: "前の行へ", next: "次の行へ" }
+  };
+  function renderSubtitleShadowCueCard(options) {
+    const hiddenClass = options.textVisible ? "" : " jpdb-subtitle-shadow-line-hidden";
+    return `
+        <div class="jpdb-subtitle-shadow-card">
+            ${renderOptionalShadowContextLine(options.neighbors.prev, "prev", options.language, options.primaryContent)}
+            <div class="jpdb-subtitle-shadow-current">
+                <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(options.cue.start)}-${formatSubtitleTime(options.cue.end)}</span>
+                <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" ${subtitleContentAttributes(options.primaryContent)} data-transcript-text data-parse-key="${escapeHtml$2(options.parseKey)}"${options.parsedLine.parsedKeyAttribute}${options.parsedLine.provisionalAttribute}>${options.parsedLine.html}</strong>
+                ${renderShadowSecondaryLine(options)}
+            </div>
+            ${renderOptionalShadowContextLine(options.neighbors.next, "next", options.language, options.primaryContent)}
+            <div class="jpdb-subtitle-shadow-actions">${options.actionsHtml}</div>
+        </div>
+    `;
+  }
+  function subtitleShadowActionLabel(language2, action) {
+    return SHADOW_ACTION_LABELS[action][resolveUiLanguage(language2)];
+  }
+  function renderSubtitleShadowActions(state2) {
+    const actions = [
+      replayShadowAction(state2),
+      loopShadowAction(state2),
+      autoPauseShadowAction(state2),
+      toggleTextShadowAction(state2),
+      recordShadowAction(state2),
+      ...optionalPlayRecordingAction(state2)
+    ];
+    return `${actions.map(renderSubtitleShadowAction).join("")}${renderShadowRecordingNote(state2)}`;
+  }
+  function replayShadowAction(state2) {
+    return shadowActionButton("shadow-replay", subtitleShadowActionLabel(state2.language, "replay"), "repeat", false);
+  }
+  function loopShadowAction(state2) {
+    const action = state2.loopEnabled ? "stop" : "loop";
+    return shadowActionButton("shadow-loop", subtitleShadowActionLabel(state2.language, action), "repeat", state2.loopEnabled);
+  }
+  function autoPauseShadowAction(state2) {
+    return shadowActionButton("shadow-auto-pause", subtitleShadowActionLabel(state2.language, "auto-pause"), "pause", state2.autoPause);
+  }
+  function toggleTextShadowAction(state2) {
+    const action = state2.textVisible ? "hide" : "show";
+    const icon = state2.textVisible ? "eye-off" : "eye";
+    return shadowActionButton("shadow-toggle-text", uiText(state2.language, action), icon, !state2.textVisible);
+  }
+  function recordShadowAction(state2) {
+    const action = state2.recording ? "stop-record" : "record";
+    const icon = state2.recording ? "stop" : "mic";
+    return shadowActionButton("shadow-record", subtitleShadowActionLabel(state2.language, action), icon, state2.recording);
+  }
+  function optionalPlayRecordingAction(state2) {
+    if (!state2.hasRecording) return [];
+    return [shadowActionButton(
+      "shadow-play-recording",
+      subtitleShadowActionLabel(state2.language, "play-recording"),
+      "play",
+      false
+    )];
+  }
+  function shadowActionButton(action, label, icon, pressed) {
+    return { action, label, icon, pressed };
+  }
+  function renderSubtitleShadowAction(action) {
+    return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action.action}" title="${escapeHtml$2(action.label)}" aria-label="${escapeHtml$2(action.label)}" aria-pressed="${action.pressed}">${subtitleIcon(action.icon)}<span>${escapeHtml$2(action.label)}</span></button>`;
+  }
+  function renderShadowRecordingNote(state2) {
+    if (!state2.recordingUnavailable) return "";
+    if (state2.recording) return "";
+    return `<span class="jpdb-subtitle-shadow-note">${escapeHtml$2(subtitleShadowActionLabel(state2.language, "record-unavailable"))}</span>`;
+  }
+  function renderOptionalShadowContextLine(cue, direction, language2, content) {
+    if (!cue) return "";
+    return renderShadowContextLine(cue, direction, language2, content);
+  }
+  function renderShadowContextLine(cue, direction, language2, content) {
+    const text2 = cue.text.trim();
+    if (!text2) return "";
+    const label = SHADOW_CONTEXT_LABELS[resolveUiLanguage(language2)][direction];
+    return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" ${subtitleContentAttributes(content)}>${escapeWithBreaks(text2)}</button>`;
+  }
+  function renderShadowSecondaryLine(options) {
+    const text2 = options.secondaryVisible ? options.secondaryText?.trim() : "";
+    if (!text2) return "";
+    const blurClass = options.secondaryBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
+    const label = uiText(options.language, "toggleNativeSubtitleBlur");
+    return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" aria-pressed="${options.secondaryBlurred}" ${subtitleContentAttributes(options.secondaryContent)}>${escapeWithBreaks(text2)}</button>`;
   }
   function hasSelectedSubtitleTrackOrLines(selectedTrackId, hasLines) {
     return Boolean(selectedTrackId || hasLines);
@@ -112050,6 +113177,43 @@ ${reading}`);
   }
   function genericCaptionButtonScope(video) {
     return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
+  }
+  function mirrorNativeFullscreenCues(options) {
+    if (!canMirrorNativeFullscreenCues(options.video)) return previousNativeFullscreenCueMirror(options);
+    try {
+      const mirror = nativeFullscreenCueMirror(options);
+      clearNativeFullscreenCues(mirror.track);
+      addNativeFullscreenCues(mirror.track, options.cues);
+      mirror.track.mode = "showing";
+      return mirror;
+    } catch {
+      return failedNativeFullscreenCueMirror(options);
+    }
+  }
+  function canMirrorNativeFullscreenCues(video) {
+    return typeof video.addTextTrack === "function" && typeof VTTCue === "function";
+  }
+  function nativeFullscreenCueMirror(options) {
+    if (options.video === options.trackVideo && options.track) return { track: options.track, video: options.video };
+    return {
+      track: options.video.addTextTrack("subtitles", options.label, options.language),
+      video: options.video
+    };
+  }
+  function previousNativeFullscreenCueMirror(options) {
+    return { track: options.track, video: options.trackVideo };
+  }
+  function failedNativeFullscreenCueMirror(options) {
+    if (options.video === options.trackVideo) return previousNativeFullscreenCueMirror(options);
+    return { track: void 0, video: options.video };
+  }
+  function clearNativeFullscreenCues(track) {
+    Array.from(track.cues ?? []).forEach((cue) => track.removeCue(cue));
+  }
+  function addNativeFullscreenCues(track, cues) {
+    cues.filter((cue) => cue.end > cue.start).forEach((cue) => {
+      track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
+    });
   }
   const POPOVER_GAP_PX = 8;
   const VIEWPORT_MARGIN_PX = 9;
@@ -112260,84 +113424,6 @@ ${reading}`);
     if (node instanceof HTMLVideoElement) return true;
     return node instanceof Element && Boolean(node.querySelector("video"));
   }
-  function renderSubtitlePrimary(input2) {
-    const activeCue = input2.cue;
-    const parsedHasReaderWords = input2.parsedHtml?.includes("jpdb-reader-word") ?? false;
-    const karaokeActive = input2.karaokeMode && cueHasExactWordTimings(activeCue);
-    const mode = subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords);
-    return {
-      html: renderSubtitlePrimaryHtml(input2, mode),
-      karaokeActive,
-      shouldRequestParse: input2.hasParser && !input2.parsedHtml,
-      nextRenderedPrimary: nextRenderedPrimaryCache(input2, karaokeActive)
-    };
-  }
-  function subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords) {
-    if (parsedHasReaderWords) return "parsed";
-    if (hasPlainKaraokeRender(input2, karaokeActive)) return "karaoke";
-    if (input2.parsedHtml) return "parsed";
-    if (hasReusablePrimaryParserCache(input2)) return "cached-parser";
-    return parserFallbackRenderMode(input2.hasParser);
-  }
-  function hasPlainKaraokeRender(input2, karaokeActive) {
-    return Boolean(karaokeActive && input2.cue);
-  }
-  function parserFallbackRenderMode(hasParser) {
-    return hasParser ? "loading-parser" : "plain";
-  }
-  function hasReusablePrimaryParserCache(input2) {
-    return Boolean(input2.hasParser && input2.lastRenderedText === input2.text && input2.lastRenderedHtml);
-  }
-  function renderSubtitlePrimaryHtml(input2, mode) {
-    return SUBTITLE_PRIMARY_RENDERERS[mode](input2);
-  }
-  const SUBTITLE_PRIMARY_RENDERERS = {
-    parsed: (input2) => input2.parsedHtml ?? "",
-    karaoke: (input2) => renderSubtitleKaraokeCue(input2.cue, input2.time),
-    "cached-parser": (input2) => input2.lastRenderedHtml,
-    "loading-parser": (input2) => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input2.text)}</span>`,
-    plain: (input2) => escapeWithBreaks(input2.text)
-  };
-  function nextRenderedPrimaryCache(input2, karaokeActive) {
-    if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
-    return karaokeActive ? { text: input2.text, html: "" } : void 0;
-  }
-  const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
-  const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
-  const SUBTITLE_SECONDARY_CLEAR_CLASS = "jpdb-subtitle-secondary-clear";
-  const TOGGLE_NATIVE_BLUR_ACTION = "toggle-native-blur";
-  function syncSubtitleSecondaryBlurState(button2, nativeBlurred, language2 = "en") {
-    button2.classList.toggle(SUBTITLE_SECONDARY_BLURRED_CLASS, nativeBlurred);
-    button2.classList.toggle(SUBTITLE_SECONDARY_CLEAR_CLASS, !nativeBlurred);
-    setAttributeIfChanged(button2, "aria-pressed", String(nativeBlurred));
-    const label = uiText(language2, "toggleNativeSubtitleBlur");
-    setAttributeIfChanged(button2, "title", label);
-    setAttributeIfChanged(button2, "aria-label", label);
-  }
-  function setAttributeIfChanged(element2, name, value) {
-    if (element2.getAttribute(name) === value) return;
-    element2.setAttribute(name, value);
-  }
-  function createSubtitleSecondaryLine() {
-    const button2 = document.createElement("button");
-    button2.className = SUBTITLE_SECONDARY_CLASS;
-    button2.type = "button";
-    button2.dataset.action = TOGGLE_NATIVE_BLUR_ACTION;
-    return button2;
-  }
-  function syncSubtitleSecondaryText(button2, text2) {
-    if (button2.dataset.subtitleSecondaryText === text2) return;
-    button2.dataset.subtitleSecondaryText = text2;
-    setInnerHtml(button2, escapeWithBreaks(text2));
-  }
-  function renderSubtitleKaraokeCue(cue, time) {
-    if (!cue?.text.trim()) return "";
-    if (!cueHasExactWordTimings(cue)) return escapeWithBreaks(cue.text);
-    const words = cue.words;
-    if (!words.length) return "";
-    const progress = karaokeCharacterProgress(cue, words, time);
-    return renderKaraokeTextParts(cue.text, progress);
-  }
   function updatePageSubtitleTrack(track, source) {
     if (track.label === source.label && track.language === source.language && track.sourceKey === source.sourceKey) return false;
     track.label = source.label;
@@ -112357,7 +113443,7 @@ ${reading}`);
   function loadedTrackState(cues) {
     return cues.length ? "ready" : "waiting";
   }
-  function subtitleFilesFromHostEvent(event) {
+  function subtitleFilesFromHostEvent(event, languages2) {
     const rawDetail = event instanceof CustomEvent ? event.detail : void 0;
     const detail = isNonNullObject(rawDetail) ? rawDetail : {};
     const explicitJobs = [
@@ -112365,7 +113451,7 @@ ${reading}`);
       ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
     ];
     return {
-      jobs: explicitJobs.length ? explicitJobs : inferHostedSubtitleFileJobs(hostedFiles(detail.files)),
+      jobs: explicitJobs.length ? explicitJobs : inferHostedSubtitleFileJobs(hostedFiles(detail.files), languages2),
       openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel)
     };
   }
@@ -112373,14 +113459,14 @@ ${reading}`);
     if (typeof file.text === "function") return file.text();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ""));
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read subtitle file."));
+      reader.addEventListener("load", () => resolve(String(reader.result ?? "")), { once: true });
+      reader.addEventListener("error", () => reject(reader.error ?? new Error("Could not read subtitle file.")), { once: true });
       reader.readAsText(file);
     });
   }
-  function subtitleFilePickerJobs(kind, files) {
+  function subtitleFilePickerJobs(kind, files, languages2) {
     if (files.length <= 1 || kind === "secondary") return files.map((file) => ({ kind, file }));
-    return inferHostedSubtitleFileJobs(files);
+    return inferHostedSubtitleFileJobs(files, languages2);
   }
   function createPageSubtitleTrack(source, index) {
     return {
@@ -112392,41 +113478,114 @@ ${reading}`);
       sourceKey: source.sourceKey
     };
   }
-  function ensureTranslatedJapaneseTrack(tracks, interfaceLanguage) {
-    if (tracks.some((track) => isTargetLanguageSubtitleTrack(track))) return false;
-    const source = tracks.filter((track) => isEnglishSubtitleTrack(track)).sort(compareSubtitleTrackOptions)[0];
-    if (!source || tracks.some((track) => track.translatedFromTrackId === source.id)) return false;
+  function ensureTranslatedTargetTrack(tracks, interfaceLanguage, languages2) {
+    const source = targetTranslationSource(tracks, languages2);
+    if (!source) return false;
     tracks.push({
-      id: `translated-${source.id}`,
-      label: `${uiText(interfaceLanguage, "translation")} (${source.label})`,
-      kind: source.kind,
-      language: "ja",
+      id: `translated-${languages2.targetLanguage}-${source.track.id}`,
+      label: `${uiText(interfaceLanguage, "translation")} (${source.track.label})`,
+      kind: source.track.kind,
+      language: languages2.targetLanguage,
       autoGenerated: true,
-      translatedFromTrackId: source.id
+      translatedFromTrackId: source.track.id,
+      sourceLanguage: source.language,
+      targetLanguage: languages2.targetLanguage
     });
     return true;
+  }
+  function targetTranslationSource(tracks, languages2) {
+    if (!translationTargetAvailable(tracks, languages2.targetLanguage)) return void 0;
+    return tracks.flatMap((track) => {
+      const language2 = translationSourceLanguage(track, languages2);
+      return language2 ? [{ track, language: language2 }] : [];
+    }).sort((left, right) => compareTranslationSources(left, right, languages2.outputLanguage))[0];
+  }
+  function translationTargetAvailable(tracks, targetLanguage2) {
+    return !tracks.some((track) => isSubtitleTrackLanguage(track, targetLanguage2)) && googleTranslationLanguageCapability(targetLanguage2).supported;
+  }
+  function translationSourceLanguage(track, languages2) {
+    const language2 = resolvedTranslationSourceLanguage(track, languages2.outputLanguage);
+    if (!language2) return void 0;
+    if (translationSourceMatchesTarget(language2, languages2.targetLanguage)) return void 0;
+    return supportedTranslationSourceLanguage(language2);
+  }
+  function resolvedTranslationSourceLanguage(track, outputLanguage) {
+    const explicit = subtitleTrackLanguage(track);
+    if (explicit) return explicit;
+    return isOutputLanguageSubtitleTrack(track, outputLanguage) ? outputLanguage : void 0;
+  }
+  function translationSourceMatchesTarget(sourceLanguage, targetLanguage2) {
+    return isSubtitleTrackLanguage({ label: "", language: sourceLanguage }, targetLanguage2);
+  }
+  function supportedTranslationSourceLanguage(language2) {
+    const capability = googleTranslationLanguageCapability(language2);
+    return capability.supported ? capability.logicalLanguage : void 0;
+  }
+  function compareTranslationSources(left, right, outputLanguage) {
+    return Number(right.language === outputLanguage) - Number(left.language === outputLanguage) || Number(right.language === "en") - Number(left.language === "en") || compareSubtitleTrackOptions(left.track, right.track);
   }
   function isSyntheticTranslatedSelection(tracks, selectedTrackId) {
     return Boolean(selectedTrackId && tracks.find((track) => track.id === selectedTrackId)?.translatedFromTrackId);
   }
-  function autoSelectablePageTrackRole(option, state2) {
-    if (isTargetLanguageSubtitleTrack(option) && (!state2.selectedTrackId || Boolean(state2.selected?.translatedFromTrackId) || shouldReplaceWaitingNativeTrack(state2.selected, option, state2.cues))) return "primary";
-    if (isEnglishSubtitleTrack(option) && (!state2.secondaryTrackId || shouldReplaceWaitingNativeTrack(state2.secondary, option, state2.secondaryCues))) return "secondary";
+  function autoSelectablePageTrackRole(option, state2, languages2) {
+    if (isSubtitleTrackLanguage(option, languages2.targetLanguage) && (!state2.selectedTrackId || Boolean(state2.selected?.translatedFromTrackId) || shouldReplaceWaitingNativeTrack(state2.selected, option, state2.cues, languages2.targetLanguage))) return "primary";
+    if (languages2.outputLanguage !== languages2.targetLanguage && isOutputLanguageSubtitleTrack(option, languages2.outputLanguage) && (!state2.secondaryTrackId || shouldReplaceWaitingNativeTrack(state2.secondary, option, state2.secondaryCues, languages2.outputLanguage, "output"))) return "secondary";
     return null;
   }
-  function autoSelectableNativeTrackRole(option, tracks, selectedTrackId, secondaryTrackId) {
-    if (isTargetLanguageSubtitleTrack(option) && (!selectedTrackId || isSyntheticTranslatedSelection(tracks, selectedTrackId))) return "primary";
-    return !secondaryTrackId && isEnglishSubtitleTrack(option) ? "secondary" : null;
+  function autoSelectableNativeTrackRole(option, tracks, selectedTrackId, secondaryTrackId, languages2) {
+    if (isSubtitleTrackLanguage(option, languages2.targetLanguage) && (!selectedTrackId || isSyntheticTranslatedSelection(tracks, selectedTrackId))) return "primary";
+    return !secondaryTrackId && languages2.outputLanguage !== languages2.targetLanguage && isOutputLanguageSubtitleTrack(option, languages2.outputLanguage) ? "secondary" : null;
   }
-  function findAutoPrimaryYouTubeTrack(tracks, selectedTrackId, autoSelectSuppressedVideoId, videoId) {
+  function findAutoPrimaryYouTubeTrack(tracks, selectedTrackId, autoSelectSuppressedVideoId, videoId, languages2) {
     if (selectedTrackId && !isSyntheticTranslatedSelection(tracks, selectedTrackId)) return void 0;
     if (autoSelectSuppressedVideoId && autoSelectSuppressedVideoId === videoId) return void 0;
-    const candidate = [...tracks].filter((track) => track.kind === "youtube" && isTargetLanguageSubtitleTrack(track)).sort((a, b) => Number(Boolean(a.translatedFromTrackId)) - Number(Boolean(b.translatedFromTrackId)) || compareSubtitleTrackOptions(a, b))[0];
+    const candidate = [...tracks].filter((track) => track.kind === "youtube" && isSubtitleTrackLanguage(track, languages2.targetLanguage)).sort((a, b) => Number(Boolean(a.translatedFromTrackId)) - Number(Boolean(b.translatedFromTrackId)) || compareSubtitleTrackOptions(a, b))[0];
     return candidate?.id === selectedTrackId ? void 0 : candidate;
   }
-  function findAutoSecondaryYouTubeTrack(tracks, primaryTrackId, secondaryTrackId) {
-    if (!primaryTrackId || secondaryTrackId) return void 0;
-    return [...tracks].filter((track) => track.kind === "youtube" && track.id !== primaryTrackId && isEnglishSubtitleTrack(track)).sort(compareNativeOverlaySubtitleTrackOptions)[0];
+  function findAutoSecondaryYouTubeTrack(tracks, primaryTrackId, secondaryTrackId, languages2) {
+    if (!primaryTrackId || secondaryTrackId || languages2.outputLanguage === languages2.targetLanguage) return void 0;
+    return [...tracks].filter((track) => track.kind === "youtube" && track.id !== primaryTrackId && isOutputLanguageSubtitleTrack(track, languages2.outputLanguage)).sort(compareNativeOverlaySubtitleTrackOptions)[0];
+  }
+  function planYouTubeTrackDiscovery(options) {
+    const primary = findAutoPrimaryYouTubeTrack(
+      options.tracks,
+      options.selectedTrackId,
+      options.autoSelectSuppressedVideoId,
+      options.videoId,
+      options.languages
+    );
+    const primaryTrackId = rediscoveredPrimaryTrackId(primary, options);
+    const secondary = findAutoSecondaryYouTubeTrack(
+      options.tracks,
+      selectedPrimaryTrackId(primary, options.selectedTrackId),
+      options.secondaryTrackId,
+      options.languages
+    );
+    const selections = youtubeTrackDiscoverySelections(primaryTrackId, optionalSubtitleTrackId(secondary));
+    return {
+      selections,
+      refreshPanel: shouldRefreshYouTubeTrackPanel(selections, options.tracksChanged)
+    };
+  }
+  function selectedPrimaryTrackId(primary, selectedTrackId) {
+    return primary ? primary.id : selectedTrackId;
+  }
+  function optionalSubtitleTrackId(track) {
+    return track ? track.id : "";
+  }
+  function rediscoveredPrimaryTrackId(primary, options) {
+    if (primary) return primary.id;
+    if (options.updatedSelectedTrack) return options.selectedTrackId;
+    return "";
+  }
+  function youtubeTrackDiscoverySelections(primaryTrackId, secondaryTrackId) {
+    const selections = [];
+    if (primaryTrackId) selections.push({ role: "primary", trackId: primaryTrackId });
+    if (secondaryTrackId) selections.push({ role: "secondary", trackId: secondaryTrackId });
+    return selections;
+  }
+  function shouldRefreshYouTubeTrackPanel(selections, tracksChanged) {
+    return selections.length === 0 && tracksChanged;
   }
   function hostedSubtitleFileJobs(kind, value) {
     return hostedFiles(value).map((file) => ({ kind, file }));
@@ -112444,11 +113603,11 @@ ${reading}`);
     if (typeof File !== "undefined" && value instanceof File) return true;
     return Boolean(value && typeof value === "object" && typeof value.name === "string" && typeof value.slice === "function");
   }
-  function inferHostedSubtitleFileJobs(files) {
+  function inferHostedSubtitleFileJobs(files, languages2) {
     const subtitleFiles = files.filter((file) => /\.(?:srt|vtt|ass|ssa)$/iu.test(file.name));
     if (!subtitleFiles.length) return [];
-    const primary = subtitleFiles.filter((file) => isJapaneseSubtitleFile(file.name));
-    const secondary = subtitleFiles.filter((file) => isTranslationSubtitleFile(file.name));
+    const primary = subtitleFiles.filter((file) => isSubtitleTrackLanguage({ label: file.name }, languages2.targetLanguage));
+    const secondary = subtitleFiles.filter((file) => !primary.includes(file) && isTranslationSubtitleFile(file.name, languages2.outputLanguage));
     const fallback = subtitleFiles.filter((file) => !primary.includes(file) && !secondary.includes(file));
     const selected = primary.shift() ?? fallback.shift() ?? secondary.shift();
     return selected ? [
@@ -112456,11 +113615,8 @@ ${reading}`);
       ...[...primary, ...fallback, ...secondary].map((file) => ({ kind: "secondary", file }))
     ] : [];
   }
-  function isTranslationSubtitleFile(name) {
-    return isEnglishSubtitleTrack({ label: name }) || /(^|[.\-_\s()[\]])(?:translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
-  }
-  function isJapaneseSubtitleFile(name) {
-    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
+  function isTranslationSubtitleFile(name, outputLanguage) {
+    return isOutputLanguageSubtitleTrack({ label: name }, outputLanguage);
   }
   function normalizeHostedSubtitleOpenPanel(value) {
     return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
@@ -112742,10 +113898,7 @@ ${reading}`);
     ].join(" ");
   }
   function isAllowedCaptionText(text2, options) {
-    return hasCaptionTextLength(text2) && (options.allowNonJapanese || isJapaneseCaptionText(text2));
-  }
-  function isJapaneseCaptionText(text2) {
-    return Boolean(text2 && /[\u3040-\u30ff\u3400-\u9fff]/.test(text2));
+    return hasCaptionTextLength(text2) && (options.allowAnyCaptionScript || isTargetLanguageText(text2));
   }
   function hasCaptionTextLength(text2) {
     return text2.length >= 2 && text2.length <= 180;
@@ -113875,54 +115028,82 @@ ${reading}`);
     })}${renderBatchMiningToolbar(state2)}</div><div class="jpdb-subtitle-list-scroll jpdb-subtitle-batch-scroll">${renderBatchMiningBody(state2)}</div><div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$2(uiText(language2, "resizeTranscriptPanel"))}"></div>`;
   }
   function renderBatchMiningToolbar(state2) {
-    const language2 = state2.language;
-    const selectedCount = state2.selectedKeys.size;
-    const candidateCount = state2.candidates.length;
-    const scanLabel = subtitleText(language2, state2.status === "ready" ? "bmRescan" : "bmScan");
     const buttons = [
-      `<button type="button" data-action="bm-scan" ${state2.status === "scanning" ? "disabled" : ""}>${subtitleIcon("transcript")}<span>${escapeHtml$2(scanLabel)}</span></button>`
+      renderBatchMiningScanButton(state2),
+      ...renderBatchMiningCandidateActions(state2)
     ];
-    if (candidateCount) {
-      buttons.push(
-        `<button type="button" data-action="bm-add" ${selectedCount ? "" : "disabled"}>${subtitleIcon("check")}<span>${escapeHtml$2(subtitleText(language2, "bmAdd"))}</span></button>`,
-        `<button type="button" data-action="bm-copy" ${selectedCount ? "" : "disabled"}>${subtitleIcon("copy")}<span>${escapeHtml$2(subtitleText(language2, "bmCopy"))}</span></button>`,
-        renderBatchMiningGradeGroup({
-          action: "bm-grade-selected",
-          label: subtitleText(language2, "bmGradeSelected"),
-          grades: state2.reviewGrades,
-          disabled: selectedCount === 0,
-          className: "jpdb-subtitle-batch-grade-selected"
-        }),
-        `<button type="button" data-action="bm-all" ${selectedCount === candidateCount ? "disabled" : ""}>${escapeHtml$2(subtitleText(language2, "selectAll"))}</button>`
-      );
-      if (selectedCount) buttons.push(`<button type="button" data-action="bm-clear">${escapeHtml$2(subtitleText(language2, "clearSelection"))}</button>`);
-    }
-    return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml$2(subtitleText(language2, "bmToolbar"))}">${buttons.join("")}</div>`;
+    return `<div class="jpdb-subtitle-batch-toolbar" role="toolbar" aria-label="${escapeHtml$2(subtitleText(state2.language, "bmToolbar"))}">${buttons.join("")}</div>`;
+  }
+  function renderBatchMiningScanButton(state2) {
+    const key = state2.status === "ready" ? "bmRescan" : "bmScan";
+    const label = subtitleText(state2.language, key);
+    return `<button type="button" data-action="bm-scan" ${disabledAttribute(state2.status === "scanning")}>${subtitleIcon("transcript")}<span>${escapeHtml$2(label)}</span></button>`;
+  }
+  function renderBatchMiningCandidateActions(state2) {
+    if (!state2.candidates.length) return [];
+    const selectedCount = state2.selectedKeys.size;
+    const language2 = state2.language;
+    return [
+      `<button type="button" data-action="bm-add" ${disabledAttribute(selectedCount === 0)}>${subtitleIcon("check")}<span>${escapeHtml$2(subtitleText(language2, "bmAdd"))}</span></button>`,
+      `<button type="button" data-action="bm-copy" ${disabledAttribute(selectedCount === 0)}>${subtitleIcon("copy")}<span>${escapeHtml$2(subtitleText(language2, "bmCopy"))}</span></button>`,
+      renderBatchMiningGradeGroup({
+        action: "bm-grade-selected",
+        label: subtitleText(language2, "bmGradeSelected"),
+        grades: state2.reviewGrades,
+        disabled: selectedCount === 0,
+        className: "jpdb-subtitle-batch-grade-selected"
+      }),
+      `<button type="button" data-action="bm-all" ${disabledAttribute(selectedCount === state2.candidates.length)}>${escapeHtml$2(subtitleText(language2, "selectAll"))}</button>`,
+      ...renderBatchMiningClearAction(state2)
+    ];
+  }
+  function renderBatchMiningClearAction(state2) {
+    if (!state2.selectedKeys.size) return [];
+    return [`<button type="button" data-action="bm-clear">${escapeHtml$2(subtitleText(state2.language, "clearSelection"))}</button>`];
+  }
+  function disabledAttribute(disabled) {
+    return disabled ? "disabled" : "";
   }
   function renderBatchMiningBody(state2) {
-    if (state2.status === "failed") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(state2.errorMessage || subtitleText(state2.language, "bmFailed"))}</div>`;
-    }
-    if (state2.status === "scanning") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(formatSubtitleText(state2.language, "bmScanning", {
-        count: state2.summary.parsedRows,
-        total: state2.summary.rows
-      }))}</div>`;
-    }
-    if (state2.status === "idle") {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(subtitleText(state2.language, "bmReady"))}</div>`;
-    }
-    if (!state2.candidates.length) {
-      return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(subtitleText(state2.language, "bmNoCandidates"))}</div>`;
-    }
+    return BATCH_MINING_BODY_RENDERERS[state2.status](state2);
+  }
+  const BATCH_MINING_BODY_RENDERERS = {
+    failed: (state2) => batchMiningEmptyState(state2.errorMessage || subtitleText(state2.language, "bmFailed")),
+    scanning: (state2) => batchMiningEmptyState(formatSubtitleText(state2.language, "bmScanning", {
+      count: state2.summary.parsedRows,
+      total: state2.summary.rows
+    })),
+    idle: (state2) => batchMiningEmptyState(subtitleText(state2.language, "bmReady")),
+    ready: (state2) => renderReadyBatchMiningBody(state2)
+  };
+  function renderReadyBatchMiningBody(state2) {
+    if (!state2.candidates.length) return batchMiningEmptyState(subtitleText(state2.language, "bmNoCandidates"));
     return `<div class="jpdb-subtitle-batch-list" role="list">${state2.candidates.map((candidate) => renderBatchMiningCandidate(candidate, state2)).join("")}</div>`;
+  }
+  function batchMiningEmptyState(message) {
+    return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(message)}</div>`;
   }
   function renderBatchMiningCandidate(candidate, state2) {
     const language2 = state2.language;
     const selected = state2.selectedKeys.has(candidate.key);
-    const selectLabel = subtitleText(language2, selected ? "bmDeselect" : "bmSelect");
+    const selectLabel = subtitleText(language2, batchMiningSelectLabelKey(selected));
     const wordLabel = `${selectLabel}: ${candidate.card.spelling}`;
-    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml$2(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml$2(wordLabel)}">${selected ? subtitleIcon("check") : ""}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" lang="ja">${escapeHtml$2(candidate.card.spelling)}</span>${candidate.card.reading && candidate.card.reading !== candidate.card.spelling ? `<span class="jpdb-subtitle-batch-reading" lang="ja">${escapeHtml$2(candidate.card.reading)}</span>` : ""}</button><div class="jpdb-subtitle-batch-meta">${candidate.iPlusOne ? `<span class="jpdb-subtitle-batch-badge">${escapeHtml$2(subtitleText(language2, "bmIPlusOne"))}</span>` : ""}<span>${escapeHtml$2(cardStateLabel(candidate.state, language2))}</span><span>${escapeHtml$2(formatSubtitleText(language2, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml$2(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" lang="ja">${escapeHtml$2(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state2)}</div>`;
+    const content = subtitleContentAttributes(state2.targetContent);
+    return `<div class="jpdb-subtitle-batch-row" role="listitem" data-batch-candidate-key="${escapeHtml$2(candidate.key)}" data-selected="${selected}"><button class="jpdb-subtitle-batch-check" type="button" data-action="bm-toggle" aria-pressed="${selected}" aria-label="${escapeHtml$2(wordLabel)}">${batchMiningSelectedIcon(selected)}</button><button class="jpdb-subtitle-batch-word" type="button" data-action="bm-open"><span class="jpdb-subtitle-batch-expression" ${content}>${escapeHtml$2(candidate.card.spelling)}</span>${renderBatchMiningReading(candidate, content)}</button><div class="jpdb-subtitle-batch-meta">${renderBatchMiningIPlusOneBadge(candidate, language2)}<span>${escapeHtml$2(cardStateLabel(candidate.state, language2))}</span><span>${escapeHtml$2(formatSubtitleText(language2, "bmOccurrences", { count: candidate.occurrences }))}</span><span>${escapeHtml$2(formatSubtitleTime(candidate.start))}</span></div><div class="jpdb-subtitle-batch-sentence" ${content}>${escapeHtml$2(candidate.sentence)}</div>${renderBatchMiningCandidateGrades(candidate, state2)}</div>`;
+  }
+  function batchMiningSelectLabelKey(selected) {
+    return selected ? "bmDeselect" : "bmSelect";
+  }
+  function batchMiningSelectedIcon(selected) {
+    return selected ? subtitleIcon("check") : "";
+  }
+  function renderBatchMiningReading(candidate, content) {
+    if (!candidate.card.reading || candidate.card.reading === candidate.card.spelling) return "";
+    return `<span class="jpdb-subtitle-batch-reading" ${content}>${escapeHtml$2(candidate.card.reading)}</span>`;
+  }
+  function renderBatchMiningIPlusOneBadge(candidate, language2) {
+    if (!candidate.iPlusOne) return "";
+    return `<span class="jpdb-subtitle-batch-badge">${escapeHtml$2(subtitleText(language2, "bmIPlusOne"))}</span>`;
   }
   function renderBatchMiningCandidateGrades(candidate, state2) {
     if (!state2.reviewGrades.length) return "";
@@ -114513,9 +115694,9 @@ ${reading}`);
     renderPanelHtml(state2) {
       const settings = this.deps.getSettings();
       const language2 = settings.interfaceLanguage;
-      const rowCount = state2.totalRowCount ?? state2.rows.length;
-      const rowIndexOffset = state2.rowIndexOffset ?? 0;
+      const { rowCount, rowIndexOffset } = transcriptPanelRowBounds(state2);
       const transcriptRows = this.deps.getTranscriptRows();
+      const primaryContent = this.primaryContentLanguage();
       return `
             ${renderDrawerHead({
         mode: "lines",
@@ -114541,30 +115722,37 @@ ${reading}`);
         options: this.deps.panelOptionsState(settings.subtitlePausePanel, language2),
         extraActions: `<button class="jpdb-subtitle-jump-current" type="button" data-action="jump-current" title="${escapeHtml$2(uiText(language2, "jumpToCurrentSubtitle"))}" aria-label="${escapeHtml$2(uiText(language2, "jumpToCurrentSubtitle"))}">${subtitleIcon("locate")}</button>`
       })}
-            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
-                ${state2.virtual ? this.renderVirtualSpacer(state2.virtual.topSpacer) : ""}
-                ${state2.rows.length ? state2.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows)).join("") : this.renderWaitingState()}
-                ${state2.virtual ? this.renderVirtualSpacer(state2.virtual.bottomSpacer) : ""}
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${transcriptVirtualizedAttribute(state2.virtual)}>
+                ${this.renderTranscriptVirtualSpacer(state2.virtual, "topSpacer")}
+                ${this.renderTranscriptRows(state2, rowIndexOffset, transcriptRows, primaryContent)}
+                ${this.renderTranscriptVirtualSpacer(state2.virtual, "bottomSpacer")}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$2(uiText(language2, "resizeTranscriptPanel"))}"></div>
         `;
     }
+    renderTranscriptRows(state2, rowIndexOffset, transcriptRows, primaryContent) {
+      if (!state2.rows.length) return this.renderWaitingState();
+      return state2.rows.map((row, index) => this.renderRow(row, rowIndexOffset + index, state2.currentRowIndex, transcriptRows, primaryContent)).join("");
+    }
+    renderTranscriptVirtualSpacer(virtual, side) {
+      if (!virtual) return "";
+      return this.renderVirtualSpacer(virtual[side]);
+    }
     renderVirtualSpacer(height) {
       return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
     }
-    renderRow(row, index, currentIndex, rows = this.deps.getTranscriptRows()) {
+    renderRow(row, index, currentIndex, rows = this.deps.getTranscriptRows(), primaryContent = this.primaryContentLanguage()) {
       const cue = row.cue;
       const settings = this.deps.getSettings();
       const htmlCache = this.deps.getHtmlCache();
       const parsedKey = this.deps.transcriptRowParseKey(row, index, rows, settings);
       const parsed = this.parsedRowHtml(parsedKey, settings, htmlCache);
-      const parsedKeyAttribute = parsed ? ` data-parsed-key="${escapeHtml$2(parsedKey)}"` : "";
-      const provisionalAttribute = parsed && !htmlCache.parsedHtmlCache.has(parsedKey) ? ' data-parsed-provisional="true"' : "";
+      const parsedAttributes = transcriptParsedAttributes(parsed, parsedKey, htmlCache);
       const seekLabel = `${uiText(settings.interfaceLanguage, "seekSubtitleLine")} ${formatSubtitleTime(cue.start)}`;
       return `
-            <div class="jpdb-subtitle-list-row ${index === currentIndex ? "active" : ""}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$2(seekLabel)}">
+            <div class="jpdb-subtitle-list-row ${transcriptActiveRowClass(index, currentIndex)}" data-action="cue" data-row-index="${index}" data-cue-index="${row.cueIndex}" role="button" tabindex="0" aria-label="${escapeHtml$2(seekLabel)}">
                 <div class="jpdb-subtitle-row-body">
-                    <strong class="jpdb-subtitle-row-text" lang="ja" data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$2(parsedKey)}"${parsedKeyAttribute}${provisionalAttribute}>${parsed ?? escapeWithBreaks(cue.text)}</strong>
+                    <strong class="jpdb-subtitle-row-text" ${subtitleContentAttributes(primaryContent)} data-transcript-text data-row-index="${index}" data-parse-key="${escapeHtml$2(parsedKey)}"${parsedAttributes}>${transcriptRowHtml(parsed, cue.text)}</strong>
                 </div>
                 <div class="jpdb-subtitle-row-tools">
                     ${this.renderRowPeekButton(cue, index, settings)}
@@ -114589,37 +115777,52 @@ ${reading}`);
     renderWaitingState() {
       const selected = this.deps.getTracks().find((track) => track.id === this.deps.getSelectedTrackId());
       const language2 = this.deps.getSettings().interfaceLanguage;
-      const label = selected?.label ? `: ${escapeHtml$2(selected.label)}` : "";
-      const status = selected?.loadingState === "loading" ? uiText(language2, "loadingSubtitleLines") : uiText(language2, "waitingForCaptionLines");
+      const label = transcriptWaitingTrackLabel(selected);
+      const status = transcriptWaitingStatus(selected, language2);
       return `<div class="jpdb-subtitle-list-empty">${escapeHtml$2(status)}${label}. ${escapeHtml$2(uiText(language2, "subtitleCurrentLineWillAppear"))}</div>`;
     }
     toggleRowTranslationPeek(target) {
-      const button2 = target.closest('[data-action="peek-row"]');
-      const row = target.closest(".jpdb-subtitle-list-row");
-      if (!button2 || !row) return;
-      const existing = row.querySelector(".jpdb-subtitle-row-secondary");
-      const language2 = this.deps.getSettings().interfaceLanguage;
-      if (existing) {
-        existing.remove();
-        button2.setAttribute("aria-pressed", "false");
-        button2.setAttribute("title", uiText(language2, "peekSubtitleTranslation"));
-        button2.setAttribute("aria-label", uiText(language2, "peekSubtitleTranslation"));
-        setInnerHtml(button2, subtitleIcon("eye"));
-        return;
-      }
-      const cue = this.deps.getTranscriptRows()[this.deps.rowIndexFromTarget(button2)]?.cue;
-      const secondary = cue ? findAlignedCue(this.deps.getSecondaryCues(), cue) : void 0;
+      const targets2 = transcriptTranslationPeekTargets(target);
+      if (!targets2) return;
+      if (targets2.existing) return this.closeRowTranslationPeek(targets2);
+      this.openRowTranslationPeek(targets2);
+    }
+    closeRowTranslationPeek(targets2) {
+      targets2.existing?.remove();
+      const label = uiText(this.deps.getSettings().interfaceLanguage, "peekSubtitleTranslation");
+      targets2.button.setAttribute("aria-pressed", "false");
+      targets2.button.setAttribute("title", label);
+      targets2.button.setAttribute("aria-label", label);
+      setInnerHtml(targets2.button, subtitleIcon("eye"));
+    }
+    openRowTranslationPeek(targets2) {
+      const secondary = alignedPeekSubtitleCue(
+        this.deps.getTranscriptRows(),
+        this.deps.getSecondaryCues(),
+        this.deps.rowIndexFromTarget(targets2.button)
+      );
       if (!secondary?.text.trim()) return;
-      const body = row.querySelector(".jpdb-subtitle-row-body") ?? row;
+      const body = transcriptPeekRowBody(targets2.row);
       const peek = document.createElement("div");
       peek.className = "jpdb-subtitle-row-secondary";
-      peek.lang = "en";
+      syncSubtitleContentLanguage(peek, this.secondaryContentLanguage());
       peek.textContent = secondary.text.trim();
       body.append(peek);
-      button2.setAttribute("aria-pressed", "true");
-      button2.setAttribute("title", uiText(language2, "hideSubtitleTranslation"));
-      button2.setAttribute("aria-label", uiText(language2, "hideSubtitleTranslation"));
-      setInnerHtml(button2, subtitleIcon("eye-off"));
+      const label = uiText(this.deps.getSettings().interfaceLanguage, "hideSubtitleTranslation");
+      targets2.button.setAttribute("aria-pressed", "true");
+      targets2.button.setAttribute("title", label);
+      targets2.button.setAttribute("aria-label", label);
+      setInnerHtml(targets2.button, subtitleIcon("eye-off"));
+    }
+    primaryContentLanguage() {
+      const context = resolveSubtitleLanguageContext(this.deps.getSettings());
+      const track = this.deps.getTracks().find((candidate) => candidate.id === this.deps.getSelectedTrackId());
+      return subtitleContentLanguage(track, context.targetContent);
+    }
+    secondaryContentLanguage() {
+      const context = resolveSubtitleLanguageContext(this.deps.getSettings());
+      const track = this.deps.getTracks().find((candidate) => candidate.id === this.deps.getSecondaryTrackId());
+      return subtitleContentLanguage(track, context.outputContent);
     }
     handlePanelClick(event) {
       this.deps.handleClick(event);
@@ -114629,14 +115832,20 @@ ${reading}`);
       event.stopPropagation();
     }
     handlePanelKeydown(event) {
-      if (event.key === "Escape" && this.deps.isPanelOptionsMenuOpen()) {
-        event.preventDefault();
-        event.stopPropagation();
-        this.deps.closePanelOptionsMenu();
-        this.deps.getPanel()?.querySelector('[data-action="panel-options"]')?.focus();
-        return;
-      }
-      if (event.key !== "Enter" && event.key !== " ") return;
+      if (this.handlePanelOptionsEscape(event)) return;
+      this.handleTranscriptRowActivation(event);
+    }
+    handlePanelOptionsEscape(event) {
+      if (event.key !== "Escape") return false;
+      if (!this.deps.isPanelOptionsMenuOpen()) return false;
+      event.preventDefault();
+      event.stopPropagation();
+      this.deps.closePanelOptionsMenu();
+      this.deps.getPanel()?.querySelector('[data-action="panel-options"]')?.focus();
+      return true;
+    }
+    handleTranscriptRowActivation(event) {
+      if (!TRANSCRIPT_ROW_ACTIVATION_KEYS.has(event.key)) return;
       const target = event.target;
       if (target.closest("button, input, [data-resize-transcript], .jpdb-reader-word")) return;
       const row = target.closest(".jpdb-subtitle-list-row[data-row-index]");
@@ -114645,6 +115854,50 @@ ${reading}`);
       event.stopPropagation();
       this.deps.seekToTranscriptRow(this.deps.rowIndexFromTarget(row));
     }
+  }
+  const TRANSCRIPT_ROW_ACTIVATION_KEYS = /* @__PURE__ */ new Set(["Enter", " "]);
+  function transcriptPanelRowBounds(state2) {
+    return {
+      rowCount: state2.totalRowCount ?? state2.rows.length,
+      rowIndexOffset: state2.rowIndexOffset ?? 0
+    };
+  }
+  function transcriptVirtualizedAttribute(virtual) {
+    return virtual ? ' data-virtualized="true"' : "";
+  }
+  function transcriptParsedAttributes(parsed, parsedKey, htmlCache) {
+    if (!parsed) return "";
+    const provisional = htmlCache.parsedHtmlCache.has(parsedKey) ? "" : ' data-parsed-provisional="true"';
+    return ` data-parsed-key="${escapeHtml$2(parsedKey)}"${provisional}`;
+  }
+  function transcriptActiveRowClass(index, currentIndex) {
+    return index === currentIndex ? "active" : "";
+  }
+  function transcriptRowHtml(parsed, text2) {
+    return parsed ?? escapeWithBreaks(text2);
+  }
+  function transcriptWaitingTrackLabel(track) {
+    return track?.label ? `: ${escapeHtml$2(track.label)}` : "";
+  }
+  function transcriptWaitingStatus(track, language2) {
+    return uiText(language2, track?.loadingState === "loading" ? "loadingSubtitleLines" : "waitingForCaptionLines");
+  }
+  function transcriptTranslationPeekTargets(target) {
+    const button2 = target.closest('[data-action="peek-row"]');
+    const row = target.closest(".jpdb-subtitle-list-row");
+    if (!button2 || !row) return void 0;
+    return {
+      button: button2,
+      row,
+      existing: row.querySelector(".jpdb-subtitle-row-secondary")
+    };
+  }
+  function alignedPeekSubtitleCue(rows, secondaryCues, rowIndex) {
+    const cue = rows[rowIndex]?.cue;
+    return cue ? findAlignedCue(secondaryCues, cue) : void 0;
+  }
+  function transcriptPeekRowBody(row) {
+    return row.querySelector(".jpdb-subtitle-row-body") ?? row;
   }
   function applyKaraokeClassToWordElement(element2, cursor, progress) {
     element2.classList.remove("jpdb-subtitle-word-pending", "jpdb-subtitle-word-spoken", "jpdb-subtitle-word-current");
@@ -114930,9 +116183,8 @@ ${reading}`);
   function videoRectKey(rect) {
     return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
   }
-  function subtitleAnimeSearchQuery(video) {
-    const raw = video?.dataset.yomuAnimeSearch || video?.dataset.yomuVideoTitle || video?.title || document.title || "";
-    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/^\s*(?:watch|stream)\s+/iu, "").replace(/\s+(?:episode|ep\.?)\s*\d+(?:\.\d+)?\b.*$/iu, "").replace(/\s*[-|·]\s*(?:watch|stream|free|anime|online|subbed|dubbed|hd)\b.*$/iu, "").replace(/\b(?:english|eng)\s+(?:subbed|sub|dubbed|dub)\b/giu, " ").replace(/\b(?:subbed|dubbed)\b/giu, " ").replace(/\s+\b(?:online|free|hd)\b\s*$/iu, "").replace(/\s+/gu, " ").trim().slice(0, 120);
+  function renderedTracksWindow(virtual, rowCount) {
+    return virtual ? { start: virtual.start, end: virtual.end, rowCount } : void 0;
   }
   function clearWindowTimeout(id) {
     if (id !== void 0) window.clearTimeout(id);
@@ -115123,18 +116375,10 @@ ${reading}`);
     button2.classList.add("jpdb-subtitle-copy-flash");
     window.setTimeout(() => button2.classList.remove("jpdb-subtitle-copy-flash"), 1200);
   }
-  function createSubtitlePrimaryRow(primaryHtml) {
-    const row = document.createElement("div");
-    row.className = "jpdb-subtitle-primary-row";
-    const primary = document.createElement("div");
-    primary.className = "jpdb-subtitle-primary";
-    setInnerHtml(primary, primaryHtml);
-    row.append(primary);
-    return row;
-  }
   class SubtitlePlayerController {
     constructor(options) {
       this.options = options;
+      this.subtitleLanguageContext = resolveSubtitleLanguageContext(options.getSettings());
     }
     root;
     subtitleEl;
@@ -115342,6 +116586,7 @@ ${reading}`);
     transcriptLayoutReferenceViewport = "";
     primarySelectionRequest = 0;
     secondarySelectionRequest = 0;
+    subtitleLanguageContext;
     subtitleSourceContextKey = "";
     pausePanelOpen = false;
     pausePanelDismissed = false;
@@ -115616,6 +116861,7 @@ ${reading}`);
       if (!this.root) return;
       if (this.runtimeSignalsInitialized) this.syncRuntimeSignals();
       const settings = this.options.getSettings();
+      this.reconcileSubtitleLanguageContext(settings);
       const annotationsModeChanged = this.prepareAnnotationsModeRender(settings);
       this.syncRootVisibility(settings);
       this.syncTranscriptPlacementClass();
@@ -115629,6 +116875,40 @@ ${reading}`);
       this.render();
       this.renderOpenSubtitlePanel(annotationsModeChanged);
       this.hideControlsImmediately();
+    }
+    reconcileSubtitleLanguageContext(settings) {
+      const next = resolveSubtitleLanguageContext(settings);
+      const plan = planSubtitleLanguageReconciliation(
+        this.tracks,
+        this.selectedTrackId,
+        this.secondaryTrackId,
+        this.subtitleLanguageContext,
+        next
+      );
+      if (!plan) return;
+      this.subtitleLanguageContext = next;
+      this.removeSubtitleTrackIds(plan.removedTrackIds);
+      disableSubtitleTextTrack(this.nativeFullscreenCueTrack);
+      this.nativeFullscreenCueTrack = void 0;
+      ensureTranslatedTargetTrack(this.tracks, settings.interfaceLanguage, next);
+      const pair = automaticSubtitleLanguagePair(this.tracks, next);
+      for (const action of subtitleLanguageActions(plan, pair, this.selectedTrackId, this.secondaryTrackId)) this.applySubtitleLanguageAction(action);
+      this.refreshNativeFullscreenCueMirror();
+      this.lastYouTubeTrackDiscoveryAt = 0;
+      if (isYouTubePage()) void this.discoverYouTubeTracksThrottled(true);
+    }
+    applySubtitleLanguageAction(action) {
+      const actions = {
+        "reset-primary": () => this.resetPrimarySubtitleState(),
+        "reset-secondary": () => this.resetSecondarySubtitleState(),
+        "select-primary": () => {
+          void this.selectTrack(action.trackId, { auto: true });
+        },
+        "select-secondary": () => {
+          void this.selectSecondaryTrack(action.trackId, { auto: true });
+        }
+      };
+      actions[action.type]();
     }
     prepareAnnotationsModeRender(settings) {
       const previous = this.lastRefreshAnnotationsPaused;
@@ -115825,6 +117105,9 @@ ${reading}`);
     }
     discoverVideoCandidate() {
       return Array.from(document.querySelectorAll("video")).filter((video) => this.isSubtitleVideoCandidate(video)).sort(compareSubtitleVideoCandidates)[0];
+    }
+    hasDiscoverableVideoCandidate() {
+      return Boolean(this.discoverVideoCandidate());
     }
     isSubtitleVideoCandidate(video) {
       if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
@@ -116055,18 +117338,14 @@ ${reading}`);
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
     addNativeTrack(track) {
-      if (isYouTubePage()) return;
-      if (track === this.nativeFullscreenCueTrack || track.label === NATIVE_FULLSCREEN_CUE_TRACK_LABEL) return;
-      if (this.tracks.some((item) => item.track === track)) return;
-      const id = `native-${this.tracks.length}`;
-      const label = track.label || track.language || `${uiText(this.options.getSettings().interfaceLanguage, "subtitleFallbackLabel")} ${this.tracks.length + 1}`;
-      const option = { id, label, kind: "native", language: track.language, track };
+      if (this.shouldIgnoreNativeTrack(track)) return;
+      const option = this.createNativeTrackOption(track);
       this.tracks.push(option);
       this.markNativeCueListsDirty();
       this.observeNativeTrack(track);
       this.maybeAutoSelectNativeTrack(option);
-      if (ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage)) {
-        this.maybeAutoSelectTranslatedJapaneseTrack();
+      if (ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage, this.subtitleLanguageContext)) {
+        this.maybeAutoSelectTranslatedTargetTrack();
       }
       window.setTimeout(() => {
         if (this.destroyed) return;
@@ -116074,6 +117353,19 @@ ${reading}`);
         this.syncControls();
       }, 0);
       this.syncControls();
+    }
+    shouldIgnoreNativeTrack(track) {
+      return [
+        isYouTubePage(),
+        track === this.nativeFullscreenCueTrack,
+        track.label === NATIVE_FULLSCREEN_CUE_TRACK_LABEL,
+        this.tracks.some((item) => item.track === track)
+      ].some(Boolean);
+    }
+    createNativeTrackOption(track) {
+      const fallback = `${uiText(this.options.getSettings().interfaceLanguage, "subtitleFallbackLabel")} ${this.tracks.length + 1}`;
+      const label = [track.label, track.language].find(Boolean) ?? fallback;
+      return { id: `native-${this.tracks.length}`, label, kind: "native", language: track.language, track };
     }
     observeNativeTrack(track) {
       track.addEventListener("cuechange", () => this.updateFromNativeTrack(track), this.eventOptions());
@@ -116100,12 +117392,11 @@ ${reading}`);
       return changes;
     }
     finishPageSubtitleTrackDiscovery(changes) {
-      const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
-      if (generated) this.maybeAutoSelectTranslatedJapaneseTrack();
-      if (changes.added || changes.updated || changes.removed || generated) {
-        this.renderTrackPanel();
-        this.syncControls();
-      }
+      const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage, this.subtitleLanguageContext);
+      if (generated) this.maybeAutoSelectTranslatedTargetTrack();
+      if (![generated, ...Object.values(changes)].some(Boolean)) return;
+      this.renderTrackPanel();
+      this.syncControls();
     }
     addOrUpdatePageSubtitleTrack(source) {
       const existing = this.findPageSubtitleTrack(source);
@@ -116119,7 +117410,7 @@ ${reading}`);
       return this.tracks.find((track) => track.sourceKey === source.sourceKey || track.url && sameSubtitleUrl(track.url, source.url));
     }
     maybeAutoSelectPageSubtitleTrack(option) {
-      if (option.kind !== "remote" || !option.url) return;
+      if (![option.kind === "remote", Boolean(option.url)].every(Boolean)) return;
       const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       const secondary = this.tracks.find((track) => track.id === this.secondaryTrackId);
       const role = autoSelectablePageTrackRole(option, {
@@ -116129,14 +117420,17 @@ ${reading}`);
         secondary,
         cues: this.cues,
         secondaryCues: this.secondaryCues
-      });
-      if (role === "primary") {
-        void this.selectTrack(option.id, { auto: true });
-        return;
-      }
-      if (role === "secondary") {
-        void this.selectSecondaryTrack(option.id, { auto: true });
-      }
+      }, this.subtitleLanguageContext);
+      if (!role) return;
+      const select2 = {
+        primary: () => {
+          void this.selectTrack(option.id, { auto: true });
+        },
+        secondary: () => {
+          void this.selectSecondaryTrack(option.id, { auto: true });
+        }
+      };
+      select2[role]();
     }
     maybeAutoSelectNativeTrack(option) {
       const track = option.track;
@@ -116145,13 +117439,14 @@ ${reading}`);
         option,
         this.tracks,
         this.selectedTrackId,
-        this.secondaryTrackId
+        this.secondaryTrackId,
+        this.subtitleLanguageContext
       );
       if (role) this.autoSelectNativeTrack(option, track, role);
     }
-    maybeAutoSelectTranslatedJapaneseTrack() {
+    maybeAutoSelectTranslatedTargetTrack() {
       if (this.selectedTrackId) return;
-      const synthetic = this.tracks.find((track) => track.translatedFromTrackId && isTargetLanguageSubtitleTrack(track));
+      const synthetic = this.tracks.find((track) => track.translatedFromTrackId && isSubtitleTrackLanguage(track, this.subtitleLanguageContext.targetLanguage));
       if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
     }
     autoSelectNativeTrack(option, track, role) {
@@ -116625,17 +117920,19 @@ ${reading}`);
       let selected = this.tracks.find((track) => track.id === this.selectedTrackId);
       if (!this.shouldUseDomCaptionFallback(selected)) return null;
       selected = this.ensureDomCaptionFallbackTrack(selected);
+      return this.readStableDomCaptionFallback(selected);
+    }
+    readStableDomCaptionFallback(selected) {
       this.ensureYouTubeDomCaptionFallbackActive(selected);
       const text2 = readPageCaptionText(this.video, this.root, {
-        allowNonJapanese: this.shouldAllowNonJapaneseDomCaptionFallback(selected)
+        allowAnyCaptionScript: this.shouldAllowAnyCaptionScriptDomCaptionFallback(selected)
       });
       if (!text2) {
         this.clearDomCaptionFallbackIfExpired();
         return null;
       }
       this.keepDomCaptionCueAlive(text2);
-      if (!this.isDomCaptionStable(text2, performance.now())) return null;
-      return { text: text2, selected };
+      return this.isDomCaptionStable(text2, performance.now()) ? { text: text2, selected } : null;
     }
     // The synthetic DOM-caption cue gets a 4s guess for its duration; lines
     // the page keeps showing longer used to expire mid-display and could
@@ -116690,7 +117987,7 @@ ${reading}`);
         sourceKey: YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY
       };
     }
-    shouldAllowNonJapaneseDomCaptionFallback(selected) {
+    shouldAllowAnyCaptionScriptDomCaptionFallback(selected) {
       return Boolean(selected?.kind === "youtube" && selected.sourceKey !== YOUTUBE_DOM_CAPTION_FALLBACK_SOURCE_KEY && !isTargetLanguageSubtitleTrack(selected));
     }
     clearDomCaptionFallbackIfExpired() {
@@ -116752,6 +118049,7 @@ ${reading}`);
       const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text: text2 }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
+      this.setNativeTrackModes();
       this.render();
       this.renderOpenSubtitlePanel();
       this.syncControls();
@@ -116785,39 +118083,31 @@ ${reading}`);
       if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
     }
     applyPrimaryRow(html) {
-      const host = this.subtitleEl;
-      if (!host) return false;
-      const row = host.querySelector(".jpdb-subtitle-primary-row");
-      if (html === null) {
-        this.lastAppliedPrimaryRowHtml = "";
-        if (!row) return false;
-        row.remove();
-        return true;
-      }
-      const inner = row?.querySelector(".jpdb-subtitle-primary");
-      if (inner && this.lastAppliedPrimaryRowHtml === html) return false;
-      this.lastAppliedPrimaryRowHtml = html;
-      if (inner) {
-        setInnerHtml(inner, html);
-        return true;
-      }
-      row?.remove();
-      host.prepend(createSubtitlePrimaryRow(html));
-      return true;
+      const content = subtitleContentLanguage(
+        this.tracks.find((track) => track.id === this.selectedTrackId),
+        this.subtitleLanguageContext.targetContent
+      );
+      const result = reconcileSubtitlePrimaryRow({
+        host: this.subtitleEl,
+        html,
+        appliedHtml: this.lastAppliedPrimaryRowHtml,
+        content
+      });
+      this.lastAppliedPrimaryRowHtml = result.appliedHtml;
+      return result.changed;
     }
     applySecondaryLine(settings) {
-      const host = this.subtitleEl;
-      if (!host) return;
-      const existing = host.querySelector(`.${SUBTITLE_SECONDARY_CLASS}`);
-      const text2 = settings.subtitleSecondaryVisible ? this.secondaryCue?.text ?? "" : "";
-      if (!text2) {
-        existing?.remove();
-        return;
-      }
-      const line = existing ?? createSubtitleSecondaryLine();
-      syncSubtitleSecondaryText(line, text2);
-      syncSubtitleSecondaryBlurState(line, settings.subtitleNativeBlurred, settings.interfaceLanguage);
-      if (!existing) host.append(line);
+      reconcileSubtitleSecondaryLine({
+        host: this.subtitleEl,
+        text: this.secondaryCue?.text,
+        visible: settings.subtitleSecondaryVisible,
+        content: subtitleContentLanguage(
+          this.tracks.find((track) => track.id === this.secondaryTrackId),
+          this.subtitleLanguageContext.outputContent
+        ),
+        blurred: settings.subtitleNativeBlurred,
+        language: settings.interfaceLanguage
+      });
     }
     // A cache-hit render (e.g. stepping back to a previous line) inserts fresh
     // DOM, so JPDB/Anki state colors must be re-applied to the new nodes even
@@ -118351,27 +119641,24 @@ ${reading}`);
     showNativeFullscreenCueTrack(video) {
       const cues = this.nativeFullscreenMirrorCues();
       if (!cues.length && this.restoreHostTracksForNativeFullscreen()) {
-        const track = this.nativeFullscreenCueTrack;
-        if (track && track.mode !== "disabled") track.mode = "disabled";
+        disableSubtitleTextTrack(this.nativeFullscreenCueTrack);
         return;
       }
       this.reSuppressHostTracksAfterNativeFullscreen();
-      if (typeof video.addTextTrack !== "function" || typeof VTTCue !== "function") return;
-      try {
-        if (this.nativeFullscreenCueVideo !== video) {
-          this.nativeFullscreenCueTrack = void 0;
-          this.nativeFullscreenCueVideo = video;
-        }
-        const track = this.nativeFullscreenCueTrack ?? video.addTextTrack("subtitles", NATIVE_FULLSCREEN_CUE_TRACK_LABEL, "ja");
-        this.nativeFullscreenCueTrack = track;
-        for (const existing of Array.from(track.cues ?? [])) track.removeCue(existing);
-        for (const cue of cues) {
-          if (!(cue.end > cue.start)) continue;
-          track.addCue(new VTTCue(cue.start, cue.end, cue.originalText ?? cue.text));
-        }
-        track.mode = "showing";
-      } catch {
-      }
+      const content = subtitleContentLanguage(
+        this.tracks.find((track) => track.id === this.selectedTrackId),
+        this.subtitleLanguageContext.targetContent
+      );
+      const mirror = mirrorNativeFullscreenCues({
+        track: this.nativeFullscreenCueTrack,
+        trackVideo: this.nativeFullscreenCueVideo,
+        video,
+        cues,
+        label: NATIVE_FULLSCREEN_CUE_TRACK_LABEL,
+        language: content.lang
+      });
+      this.nativeFullscreenCueTrack = mirror.track;
+      this.nativeFullscreenCueVideo = mirror.video;
     }
     // The m.youtube DOM-caption fallback never fills this.cues; it synthesizes
     // one short-lived cue at a time into currentCue. Mirror whichever stream
@@ -118488,12 +119775,12 @@ ${reading}`);
       input2.click();
     }
     async loadSubtitleFilesFromPicker(kind, files) {
-      const jobs = subtitleFilePickerJobs(kind, files);
+      const jobs = subtitleFilePickerJobs(kind, files, this.subtitleLanguageContext);
       if (!jobs.length) return;
       await this.loadHostedSubtitleFileJobs({ jobs, openPanel: false });
     }
     loadSubtitleFilesFromHost(event) {
-      const request = subtitleFilesFromHostEvent(event);
+      const request = subtitleFilesFromHostEvent(event, this.subtitleLanguageContext);
       if (!request.jobs.length) return;
       void this.loadHostedSubtitleFileJobs(request);
     }
@@ -118716,6 +120003,7 @@ ${reading}`);
       this.setNativeTrackModes();
       this.updateFromLoadedCues();
       this.render();
+      this.refreshNativeFullscreenCueMirror();
       this.refreshTranscriptPanelAfterTrackChange();
       this.syncControls();
     }
@@ -118749,23 +120037,33 @@ ${reading}`);
     async discoverYouTubeTracksThrottled(force = false) {
       if (this.youtubeTrackDiscoveryInFlight) return;
       const now = performance.now();
-      const interval = this.tracks.some((track) => track.kind === "youtube") ? 5e3 : 1500;
-      if (!force && now - this.lastYouTubeTrackDiscoveryAt < interval) return;
+      if (!this.shouldStartYouTubeTrackDiscovery(force, now)) return;
       this.lastYouTubeTrackDiscoveryAt = now;
       this.youtubeTrackDiscoveryInFlight = true;
+      const contextKey = subtitleLanguageContextKey(this.subtitleLanguageContext);
+      await this.runYouTubeTrackDiscovery(contextKey);
+    }
+    shouldStartYouTubeTrackDiscovery(force, now) {
+      const interval = this.tracks.some((track) => track.kind === "youtube") ? 5e3 : 1500;
+      return force || now - this.lastYouTubeTrackDiscoveryAt >= interval;
+    }
+    async runYouTubeTrackDiscovery(contextKey) {
       try {
         await this.discoverYouTubeTracks();
       } finally {
         this.youtubeTrackDiscoveryInFlight = false;
+        if (contextKey !== subtitleLanguageContextKey(this.subtitleLanguageContext)) void this.discoverYouTubeTracksThrottled(true);
       }
     }
     async discoverYouTubeTracks() {
-      if (!isYouTubePage()) return;
-      const videoId = getYouTubeVideoId();
-      if (!videoId) return;
-      this.updateYouTubeDiscoveryVideo(videoId);
-      const tracks = await discoverYouTubeCaptionTracks();
-      if (!tracks.length) return;
+      const contextKey = subtitleLanguageContextKey(this.subtitleLanguageContext);
+      const tracks = await discoverCurrentYouTubeCaptionTracks({
+        preferredTranslationLanguages: this.subtitleLanguageContext.preferredTranslationLanguages,
+        contextKey,
+        currentContextKey: () => subtitleLanguageContextKey(this.subtitleLanguageContext),
+        onVideoId: (videoId) => this.updateYouTubeDiscoveryVideo(videoId)
+      });
+      if (!tracks) return;
       this.removeYouTubeDomCaptionFallbackTracks();
       const { added, updatedSelectedTrack } = this.mergeYouTubeCaptionTracks(tracks);
       this.finishYouTubeTrackDiscovery(added, updatedSelectedTrack);
@@ -118832,31 +120130,32 @@ ${reading}`);
       });
     }
     finishYouTubeTrackDiscovery(added, updatedSelectedTrack) {
-      const generated = ensureTranslatedJapaneseTrack(this.tracks, this.options.getSettings().interfaceLanguage);
-      const autoPrimaryTrack = findAutoPrimaryYouTubeTrack(
-        this.tracks,
-        this.selectedTrackId,
-        this.youtubeAutoSelectSuppressedVideoId,
-        this.youtubeVideoId
-      );
-      const primaryTrackId = autoPrimaryTrack?.id || (updatedSelectedTrack && this.selectedTrackId ? this.selectedTrackId : "");
-      const autoSecondaryTrack = findAutoSecondaryYouTubeTrack(
-        this.tracks,
-        autoPrimaryTrack?.id ?? this.selectedTrackId,
-        this.secondaryTrackId
-      );
-      if (primaryTrackId) {
-        void this.selectTrack(primaryTrackId, { auto: true });
-        if (autoSecondaryTrack) void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
-        return;
-      }
-      if (autoSecondaryTrack) {
-        void this.selectSecondaryTrack(autoSecondaryTrack.id, { auto: true });
-        return;
-      }
-      if (!added && !generated) return;
+      const generated = ensureTranslatedTargetTrack(this.tracks, this.options.getSettings().interfaceLanguage, this.subtitleLanguageContext);
+      const plan = planYouTubeTrackDiscovery({
+        tracks: this.tracks,
+        selectedTrackId: this.selectedTrackId,
+        secondaryTrackId: this.secondaryTrackId,
+        autoSelectSuppressedVideoId: this.youtubeAutoSelectSuppressedVideoId,
+        videoId: this.youtubeVideoId,
+        languages: this.subtitleLanguageContext,
+        updatedSelectedTrack,
+        tracksChanged: [added, generated].some(Boolean)
+      });
+      plan.selections.forEach((selection) => this.applyYouTubeTrackDiscoverySelection(selection));
+      if (!plan.refreshPanel) return;
       this.renderTrackPanel();
       this.syncControls();
+    }
+    applyYouTubeTrackDiscoverySelection(selection) {
+      const select2 = {
+        primary: (trackId) => {
+          void this.selectTrack(trackId, { auto: true });
+        },
+        secondary: (trackId) => {
+          void this.selectSecondaryTrack(trackId, { auto: true });
+        }
+      };
+      select2[selection.role](selection.trackId);
     }
     syncControls() {
       const hasLines = this.hasVisibleSubtitleLines();
@@ -119627,35 +120926,28 @@ ${reading}`);
       return this.renderShadowCueCard(state2.cue, cueText, state2);
     }
     renderShadowCueCard(cue, cueText, state2) {
-      const language2 = state2.settings.interfaceLanguage;
-      const parsedLine = this.shadowParsedLine(cueText, state2.parseKey, state2.settings);
-      const hiddenClass = this.shadowTextVisible ? "" : " jpdb-subtitle-shadow-line-hidden";
-      const secondary = this.renderShadowSecondaryLine(state2);
-      const neighbors = this.shadowCueNeighbors(cue);
-      return `
-            <div class="jpdb-subtitle-shadow-card">
-                ${this.renderShadowContextLine(neighbors.prev, "prev", language2)}
-                <div class="jpdb-subtitle-shadow-current">
-                    <span class="jpdb-subtitle-shadow-time">${formatSubtitleTime(cue.start)}-${formatSubtitleTime(cue.end)}</span>
-                    <strong class="jpdb-subtitle-shadow-line jpdb-subtitle-row-text${hiddenClass}" lang="ja" data-transcript-text data-parse-key="${escapeHtml$2(state2.parseKey)}"${parsedLine.parsedKeyAttribute}${parsedLine.provisionalAttribute}>${parsedLine.html}</strong>
-                    ${secondary}
-                </div>
-                ${this.renderShadowContextLine(neighbors.next, "next", language2)}
-                <div class="jpdb-subtitle-shadow-actions">
-                    ${this.renderShadowActions(language2)}
-                </div>
-            </div>
-        `;
-    }
-    // Surrounding lines for context (kotu-style): tappable to jump the loop/focus
-    // onto them. Rendered as plain (escaped) text — the parsed/highlighted treatment
-    // stays reserved for the focused current line.
-    renderShadowContextLine(cue, direction, language2) {
-      const text2 = cue?.text.trim();
-      if (!cue || !text2) return "";
-      const japanese = resolveUiLanguage(language2) === "ja";
-      const label = direction === "prev" ? japanese ? "前の行へ" : "Previous line" : japanese ? "次の行へ" : "Next line";
-      return `<button type="button" class="jpdb-subtitle-shadow-context jpdb-subtitle-shadow-context-${direction}" data-action="shadow-goto" data-shadow-goto="${direction}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" lang="ja">${escapeWithBreaks(text2)}</button>`;
+      return renderSubtitleShadowCueCard({
+        cue,
+        parseKey: state2.parseKey,
+        parsedLine: this.shadowParsedLine(cueText, state2.parseKey, state2.settings),
+        textVisible: this.shadowTextVisible,
+        secondaryText: state2.secondary?.text,
+        secondaryVisible: state2.settings.subtitleSecondaryVisible,
+        secondaryBlurred: state2.settings.subtitleNativeBlurred,
+        neighbors: this.shadowCueNeighbors(cue),
+        language: state2.settings.interfaceLanguage,
+        primaryContent: subtitleContentLanguage(this.tracks.find((track) => track.id === this.selectedTrackId), this.subtitleLanguageContext.targetContent),
+        secondaryContent: subtitleContentLanguage(this.tracks.find((track) => track.id === this.secondaryTrackId), this.subtitleLanguageContext.outputContent),
+        actionsHtml: renderSubtitleShadowActions({
+          language: state2.settings.interfaceLanguage,
+          recording: (this.shadowRecorder?.state ?? "inactive") !== "inactive",
+          loopEnabled: this.shadowLoopEnabled,
+          autoPause: state2.settings.subtitleShadowAutoPause,
+          textVisible: this.shadowTextVisible,
+          hasRecording: Boolean(this.shadowRecordingUrl),
+          recordingUnavailable: this.shadowRecordingUnavailable
+        })
+      });
     }
     shadowParsedLine(cueText, parseKey, settings) {
       const parsed = this.shadowParsedHtml(parseKey, settings);
@@ -119669,53 +120961,6 @@ ${reading}`);
     shadowParsedHtml(parseKey, settings) {
       if (!this.shouldParseSubtitles(settings)) return void 0;
       return this.cachedParsedCueHtml(parseKey, settings) ?? this.htmlCache.provisionalParsedHtmlCache.get(parseKey);
-    }
-    renderShadowSecondaryLine(state2) {
-      if (!state2.settings.subtitleSecondaryVisible) return "";
-      const text2 = state2.secondary?.text.trim();
-      if (!text2) return "";
-      const blurClass = state2.settings.subtitleNativeBlurred ? SUBTITLE_SECONDARY_BLURRED_CLASS : SUBTITLE_SECONDARY_CLEAR_CLASS;
-      const label = uiText(state2.settings.interfaceLanguage, "toggleNativeSubtitleBlur");
-      return `<button class="jpdb-subtitle-shadow-secondary ${blurClass}" type="button" data-action="toggle-native-blur" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" aria-pressed="${state2.settings.subtitleNativeBlurred}">${escapeWithBreaks(text2)}</button>`;
-    }
-    renderShadowActions(language2) {
-      const recording = Boolean(this.shadowRecorder && this.shadowRecorder.state !== "inactive");
-      const loopAction = this.shadowLoopEnabled ? "stop" : "loop";
-      const toggleIcon = this.shadowTextVisible ? "eye-off" : "eye";
-      const recordLabel = this.shadowActionLabel(language2, recording ? "stop-record" : "record");
-      return `
-            ${this.renderShadowAction("shadow-replay", this.shadowActionLabel(language2, "replay"), "repeat", false)}
-            ${this.renderShadowAction("shadow-loop", this.shadowActionLabel(language2, loopAction), "repeat", this.shadowLoopEnabled)}
-            ${this.renderShadowAction("shadow-auto-pause", this.shadowActionLabel(language2, "auto-pause"), "pause", this.options.getSettings().subtitleShadowAutoPause)}
-            ${this.renderShadowAction("shadow-toggle-text", uiText(language2, this.shadowTextVisible ? "hide" : "show"), toggleIcon, !this.shadowTextVisible)}
-            ${this.renderShadowAction("shadow-record", recordLabel, recording ? "stop" : "mic", recording)}
-            ${this.shadowRecordingUrl ? this.renderShadowAction("shadow-play-recording", this.shadowActionLabel(language2, "play-recording"), "play", false) : ""}
-            ${this.shadowRecordingUnavailable && !recording ? `<span class="jpdb-subtitle-shadow-note">${escapeHtml$2(this.shadowActionLabel(language2, "record-unavailable"))}</span>` : ""}
-        `;
-    }
-    renderShadowAction(action, label, icon, pressed) {
-      return `<button class="jpdb-subtitle-shadow-action" type="button" data-action="${action}" title="${escapeHtml$2(label)}" aria-label="${escapeHtml$2(label)}" aria-pressed="${pressed}">${subtitleIcon(icon)}<span>${escapeHtml$2(label)}</span></button>`;
-    }
-    shadowActionLabel(language2, action) {
-      const japanese = resolveUiLanguage(language2) === "ja";
-      switch (action) {
-        case "replay":
-          return japanese ? "再生" : "Replay";
-        case "loop":
-          return japanese ? "ループ" : "Loop";
-        case "stop":
-          return japanese ? "停止" : "Stop";
-        case "auto-pause":
-          return japanese ? "自動停止" : "Auto pause";
-        case "record":
-          return japanese ? "録音" : "Record";
-        case "stop-record":
-          return japanese ? "録音停止" : "Stop";
-        case "play-recording":
-          return japanese ? "録音を再生" : "Play yours";
-        case "record-unavailable":
-          return japanese ? "マイクを使用できません" : "Mic unavailable";
-      }
     }
     requestParsedShadowLineIfNeeded(cue, key, signature, settings) {
       if (!this.shouldParseSubtitles(settings) || this.cachedParsedCueHtml(key, settings) !== void 0) {
@@ -119756,7 +121001,8 @@ ${reading}`);
         pausePanelEnabled: settings.subtitlePausePanel,
         placement: this.effectiveTranscriptPlacement,
         optionsMenuOpen: this.panelOptionsMenuOpen,
-        language: settings.interfaceLanguage
+        language: settings.interfaceLanguage,
+        targetContent: this.subtitleLanguageContext.targetContent
       };
     }
     batchMiningReviewGrades(settings) {
@@ -120775,7 +122021,8 @@ ${reading}`);
       return this.transcriptPanel;
     }
     renderTrackPanel() {
-      if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "tracks") return;
+      const panel = this.renderableTracksPanel();
+      if (!panel) return;
       if (this.holdPanelRenderDuringPress(() => this.renderTrackPanel())) return;
       this.transcriptTextTargetsByParseKey.clear();
       const state2 = subtitleTrackPanelState(this.tracks);
@@ -120785,8 +122032,8 @@ ${reading}`);
         timing: this.trackTimingControlState(track.id)
       }));
       const virtual = this.tracksVirtualWindow(tracks.length);
-      this.renderedTracksVirtualWindow = virtual ? { start: virtual.start, end: virtual.end, rowCount: tracks.length } : void 0;
-      setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
+      this.renderedTracksVirtualWindow = renderedTracksWindow(virtual, tracks.length);
+      setInnerHtml(panel, renderSubtitleTrackPanel({
         ...state2,
         tracks,
         selectedTrackId: this.selectedTrackId,
@@ -120796,6 +122043,8 @@ ${reading}`);
         placement: this.effectiveTranscriptPlacement,
         optionsMenuOpen: this.panelOptionsMenuOpen,
         language: settings.interfaceLanguage,
+        targetLanguage: this.subtitleLanguageContext.targetLanguage,
+        outputLanguage: this.subtitleLanguageContext.outputLanguage,
         animeSearchQuery: subtitleAnimeSearchQuery(this.video),
         virtual
       }));
@@ -120803,6 +122052,12 @@ ${reading}`);
       this.bindTranscriptResizeHandle();
       this.bindTracksScroller();
       this.syncPanelState();
+    }
+    renderableTracksPanel() {
+      const panel = this.transcriptPanel;
+      if (!panel) return void 0;
+      const renderable = [!panel.hidden, !this.transcriptPanelClosing, this.panelMode === "tracks"].every(Boolean);
+      return renderable ? panel : void 0;
     }
     // Render only the visible window of track rows (plus overscan) when a video
     // exposes more than the threshold of (auto-translated) caption tracks, so the
@@ -123237,7 +124492,7 @@ ${reading}`);
     return Object.keys(data).length ? { data_: data } : void 0;
   }
   function readYouTubeConfigScriptObject(key) {
-    const escapedKey = escapeRegExp(key);
+    const escapedKey = escapeRegExp$1(key);
     const pattern = new RegExp(`"${escapedKey}"\\s*:\\s*(\\{.+?\\})\\s*,\\s*"`, "su");
     for (const script of Array.from(document.scripts)) {
       const text2 = script.textContent ?? "";
@@ -123421,7 +124676,7 @@ ${reading}`);
   }
   function youTubeSapisidCookie() {
     for (const name of ["SAPISID", "__Secure-3PAPISID", "__Secure-1PAPISID"]) {
-      const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp(name)}=([^;\\s]+)`, "u"));
+      const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escapeRegExp$1(name)}=([^;\\s]+)`, "u"));
       if (match?.[1]) return match[1];
     }
     return "";
@@ -123896,6 +125151,10 @@ ${reading}`);
   ];
   const JA_MARKER_VALUE_RE = /^(?:ja(?:[-_]jp)?|jp(?::ja)?)$/i;
   const JA_PATH_SEGMENT_RE = /^ja(?:[-_]jp)?$/i;
+  const LOCAL_DEVELOPMENT_HOSTS = /* @__PURE__ */ new Set(["0.0.0.0", "[::]", "[::1]"]);
+  const LOCALHOST_NAME_RE = /(?:^|\.)localhost$/u;
+  const IPV4_LOOPBACK_HOST_RE = /^127(?:\.\d{1,3}){3}$/u;
+  const IPV4_MAPPED_LOOPBACK_HOST_RE = /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/u;
   let alternateRedirectCleanup;
   let preferenceRevision = 0;
   let currentPreferenceEnabled = false;
@@ -123970,7 +125229,7 @@ ${reading}`);
   }
   function preferredJapaneseSiteUrl(sourceHref, root) {
     const current = parseHttpUrl(sourceHref);
-    if (!current) return null;
+    if (!current || isLocalDevelopmentUrl(current)) return null;
     const alternate = japaneseAlternateLinkUrl(current, root);
     const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericUrl(current, root);
     if (target) applyParams(target);
@@ -123979,7 +125238,7 @@ ${reading}`);
   }
   function preferredDefaultSiteUrl(sourceHref, root) {
     const current = parseHttpUrl(sourceHref);
-    if (!current) return null;
+    if (!current || isLocalDevelopmentUrl(current)) return null;
     const target = defaultAlternateLinkUrl(current, root) ?? withoutJapaneseMarkers(current);
     if (!target || target.href === current.href) return null;
     return target.href;
@@ -124335,6 +125594,15 @@ ${reading}`);
     } catch {
       return null;
     }
+  }
+  function isLocalDevelopmentUrl(url) {
+    const hostname = url.hostname.toLowerCase().replace(/\.+$/u, "");
+    return [
+      LOCAL_DEVELOPMENT_HOSTS.has(hostname),
+      LOCALHOST_NAME_RE.test(hostname),
+      IPV4_LOOPBACK_HOST_RE.test(hostname),
+      IPV4_MAPPED_LOOPBACK_HOST_RE.test(hostname)
+    ].some(Boolean);
   }
   function japaneseAlternateLinkUrl(current, root) {
     return alternateLinkUrl(current, root, /^ja(?:[-_]|$)/i, alts);
@@ -126317,7 +127585,7 @@ ${reading}`);
       return settings.localDictionariesEnabled ? this.options.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
     }
     lookupAnkiLocalKanji(card, settings) {
-      return targetSupportsCharacterLookup() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
+      return targetUsesCharacterDictionary() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
     }
     lookupAnkiLocalMeta(card, settings) {
       return settings.localDictionariesEnabled ? this.options.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
@@ -126665,10 +127933,136 @@ ${reading}`);
   function pronunciationRow(kind, content) {
     return `<div class="jpdb-reader-pronunciation" data-pronunciation-kind="${kind}">${content}</div>`;
   }
+  function hasFrequencyRankEvidence(card, metaEntries, providerRanks) {
+    return frequencyRank(card.frequencyRank) !== null || metaEntries.some((entry) => entry.mode === "freq" && Boolean(formatMetaFrequency(entry.data))) || Object.values(providerRanks ?? {}).some((evidence) => frequencyRank(evidence?.rank) !== null);
+  }
+  function contextOccurrenceCount({ spelling, language: language2 = "ja" }, context = "") {
+    let normalize = normalizeIdentityText;
+    const target = learningTargetModuleFor(language2);
+    if (target) normalize = (value) => target.normalizeText(value);
+    const surface = normalize(spelling);
+    const text2 = normalize(context);
+    if (!surface) return 0;
+    let count = 0;
+    for (let offset = text2.indexOf(surface); offset >= 0; offset = text2.indexOf(surface, offset + surface.length)) {
+      count++;
+    }
+    return count;
+  }
+  function frequencyProviderForLookupId(id) {
+    if (id === "jiten-frequency") return "jiten";
+    if (id === "jpdb-frequency") return "jpdb";
+    if (id === "bunpro-frequency") return "bunpro";
+    return null;
+  }
+  const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
+  function bunproFrequencyRank(card, info) {
+    const lists = (info?.frequencies ?? []).filter((entry) => Number.isInteger(entry.rank) && entry.rank > 0);
+    if (!info || !lists.length) return null;
+    const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
+    return {
+      provider: "bunpro",
+      rank: primary.rank,
+      spelling: normalizeIdentityText(card.spelling || info.expression),
+      reading: normalizeIdentityText(card.reading || info.reading),
+      source: "live-search",
+      lists
+    };
+  }
+  function listOrderIndex(list) {
+    const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
+    return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
+  }
+  function liveFrequencyEnabled(settings, provider) {
+    const frequencyEnabled = settings.dictionaryLookupLinks.some(
+      (link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
+    );
+    const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
+    return frequencyEnabled && lookupEnabled;
+  }
+  function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+    const ranks = {};
+    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+    if (jitenRank) {
+      ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+    }
+    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+    if (jpdb) ranks.jpdb = jpdb;
+    return ranks;
+  }
+  function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+    const text2 = frequency.trim();
+    const match = /([\d,]+)/.exec(text2);
+    const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+    if (!Number.isInteger(rank) || rank <= 0) return null;
+    return {
+      provider: "jpdb",
+      rank,
+      spelling: kanji,
+      reading: kanji,
+      source: "kanji",
+      display: /^top\b/i.test(text2) ? text2 : void 0
+    };
+  }
+  function cardFrequencyRanks(card, isJpdbBackedCard) {
+    const rank = frequencyRank(card.frequencyRank);
+    if (!rank) return {};
+    const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
+    return provider ? {
+      [provider]: rankEvidence(provider, rank, card, "card")
+    } : {};
+  }
+  function jitenFrequencyRankForCard(card, info) {
+    const rank = frequencyRank(info?.mainReading?.frequencyRank);
+    return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
+  }
+  function exactJitenFrequencyRank(card, candidates) {
+    return exactSearchFrequencyRank("jiten", card, candidates);
+  }
+  function exactJpdbFrequencyRank(card, candidates) {
+    return exactSearchFrequencyRank("jpdb", card, candidates);
+  }
+  function exactSearchFrequencyRank(provider, card, candidates) {
+    const spelling = normalizeIdentityText(card.spelling);
+    const reading = normalizeIdentityText(card.reading);
+    const match = candidates.find(
+      (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
+    );
+    const rank = frequencyRank(match?.frequencyRank);
+    return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
+  }
+  function withFrequencyRank(ranks, evidence) {
+    return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
+  }
+  function rankEvidence(provider, rank, card, source) {
+    return {
+      provider,
+      rank,
+      spelling: normalizeIdentityText(card.spelling),
+      reading: normalizeIdentityText(card.reading),
+      source
+    };
+  }
+  function frequencyRank(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+  }
+  function normalizeIdentityText(value) {
+    return value.normalize("NFKC").trim();
+  }
   function bunproDefinitionStatusAttributes(status) {
     if (!status) return "";
     const reason = "reason" in status ? ` data-bunpro-definition-reason="${escapeHtml$2(status.reason)}"` : "";
     return ` data-bunpro-definition-status="${escapeHtml$2(status.state)}"${reason}`;
+  }
+  function activeContentLanguageAxes(settings) {
+    const targetLanguage2 = activeLearningTargetLanguage();
+    const outputLanguage = outputLanguageOf(settings);
+    return {
+      targetLanguage: targetLanguage2,
+      targetName: targetLanguageDisplayNameFor(targetLanguage2, settings.interfaceLanguage),
+      outputLanguage,
+      outputName: targetLanguageDisplayNameFor(outputLanguage, settings.interfaceLanguage)
+    };
   }
   class CardPopoverRenderer {
     constructor(dependencies) {
@@ -126686,7 +128080,7 @@ ${reading}`);
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, data, view, trigger)}
+                ${this.renderHeader(card, sentence, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${expressionComponents}
                 ${definitionSources}
@@ -126733,11 +128127,13 @@ ${reading}`);
         audioButtonTitle: uiText(language2, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
       };
     }
-    renderHeader(card, data, view, trigger) {
+    renderHeader(card, sentence, data, view, trigger) {
+      const wordPills = this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks);
+      const pills = appendWordPill(wordPills, this.renderContextFrequencyPill(card, sentence, data, view.language));
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, data, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
+                ${pills}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${renderPronunciation({
@@ -126753,19 +128149,33 @@ ${reading}`);
             </div>
         </div>`;
     }
+    renderContextFrequencyPill(card, sentence, data, language2) {
+      if (data.loading || hasFrequencyRankEvidence(card, data.metaEntries, data.frequencyRanks)) return "";
+      const count = contextOccurrenceCount(card, sentence);
+      if (!count) return "";
+      const label = formatUiText(language2, "contextOccurrences", { count });
+      return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle("frequency:context")}" title="${escapeHtml$2(label)}">${escapeHtml$2(label)}</span>`;
+    }
     renderTitleRow(card, data, view) {
       const pitchTarget = cardUsesPitchAccentPronunciation(card);
       const pitchClass = pitchTarget ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading) : "";
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
-      const kanjiNavigation = targetSupportsCharacterLookup() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
+      const kanjiNavigation = targetUsesCharacterDictionary() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
       const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
       const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
       const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
       const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
+      const settings = this.settings();
+      const axes = activeContentLanguageAxes(settings);
+      const axesLabel = formatUiText(view.language, "popupLanguageAxes", {
+        target: axes.targetName,
+        output: axes.outputName
+      });
       const kanjiNavigationAttributes = kanjiNavigation ? ` data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$2(kanjiNavigation.label)}"` : "";
       return `<div class="jpdb-reader-title-row">
             <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence}${kanjiNavigationAttributes}>${spellingContent}</div>
             ${renderMeta(view.metaItems)}
+            <div class="jpdb-reader-language-axes" data-target-language="${escapeHtml$2(axes.targetLanguage)}" data-output-language="${escapeHtml$2(axes.outputLanguage)}">${escapeHtml$2(axesLabel)}</div>
         </div>`;
     }
     renderPartOfSpeech(view) {
@@ -127181,6 +128591,11 @@ ${reading}`);
   }
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
+  }
+  function appendWordPill(wordPills, pill) {
+    if (!pill) return wordPills;
+    const closingTag = wordPills.includes("jpdb-reader-word-pills") ? wordPills.lastIndexOf("</div>") : -1;
+    return closingTag >= 0 ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}` : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;
   }
   function uniqueExpressionComponents(components2) {
     const seen = /* @__PURE__ */ new Set();
@@ -128784,106 +130199,6 @@ ${component.reading}`;
     const queryString2 = params.toString();
     return queryString2 ? `${url}?${queryString2}` : url;
   }
-  function frequencyProviderForLookupId(id) {
-    if (id === "jiten-frequency") return "jiten";
-    if (id === "jpdb-frequency") return "jpdb";
-    if (id === "bunpro-frequency") return "bunpro";
-    return null;
-  }
-  const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
-  function bunproFrequencyRank(card, info) {
-    const lists = (info?.frequencies ?? []).filter((entry) => Number.isInteger(entry.rank) && entry.rank > 0);
-    if (!info || !lists.length) return null;
-    const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
-    return {
-      provider: "bunpro",
-      rank: primary.rank,
-      spelling: normalizeIdentityText(card.spelling || info.expression),
-      reading: normalizeIdentityText(card.reading || info.reading),
-      source: "live-search",
-      lists
-    };
-  }
-  function listOrderIndex(list) {
-    const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list);
-    return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
-  }
-  function liveFrequencyEnabled(settings, provider) {
-    const frequencyEnabled = settings.dictionaryLookupLinks.some(
-      (link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
-    );
-    const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
-    return frequencyEnabled && lookupEnabled;
-  }
-  function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
-    const ranks = {};
-    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
-    if (jitenRank) {
-      ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
-    }
-    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
-    if (jpdb) ranks.jpdb = jpdb;
-    return ranks;
-  }
-  function jpdbKanjiFrequencyEvidence(kanji, frequency) {
-    const text2 = frequency.trim();
-    const match = /([\d,]+)/.exec(text2);
-    const rank = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
-    if (!Number.isInteger(rank) || rank <= 0) return null;
-    return {
-      provider: "jpdb",
-      rank,
-      spelling: kanji,
-      reading: kanji,
-      source: "kanji",
-      display: /^top\b/i.test(text2) ? text2 : void 0
-    };
-  }
-  function cardFrequencyRanks(card, isJpdbBackedCard) {
-    const rank = frequencyRank(card.frequencyRank);
-    if (!rank) return {};
-    const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
-    return provider ? {
-      [provider]: rankEvidence(provider, rank, card, "card")
-    } : {};
-  }
-  function jitenFrequencyRankForCard(card, info) {
-    const rank = frequencyRank(info?.mainReading?.frequencyRank);
-    return rank ? rankEvidence("jiten", rank, card, "live-search") : null;
-  }
-  function exactJitenFrequencyRank(card, candidates) {
-    return exactSearchFrequencyRank("jiten", card, candidates);
-  }
-  function exactJpdbFrequencyRank(card, candidates) {
-    return exactSearchFrequencyRank("jpdb", card, candidates);
-  }
-  function exactSearchFrequencyRank(provider, card, candidates) {
-    const spelling = normalizeIdentityText(card.spelling);
-    const reading = normalizeIdentityText(card.reading);
-    const match = candidates.find(
-      (candidate) => normalizeIdentityText(candidate.spelling) === spelling && normalizeIdentityText(candidate.reading) === reading && frequencyRank(candidate.frequencyRank) !== null
-    );
-    const rank = frequencyRank(match?.frequencyRank);
-    return match && rank ? rankEvidence(provider, rank, match, "live-search") : null;
-  }
-  function withFrequencyRank(ranks, evidence) {
-    return evidence ? { ...ranks, [evidence.provider]: evidence } : ranks;
-  }
-  function rankEvidence(provider, rank, card, source) {
-    return {
-      provider,
-      rank,
-      spelling: normalizeIdentityText(card.spelling),
-      reading: normalizeIdentityText(card.reading),
-      source
-    };
-  }
-  function frequencyRank(value) {
-    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
-  }
-  function normalizeIdentityText(value) {
-    return value.normalize("NFKC").trim();
-  }
   const log$7 = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
@@ -129153,7 +130468,7 @@ ${component.reading}`;
     }
     loadLocalKanjiEntries(card) {
       const settings = this.settings();
-      if (!targetSupportsCharacterLookup() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+      if (!targetUsesCharacterDictionary() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
         log$7.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
@@ -130835,7 +132150,7 @@ ${component.reading}`;
       undoReviewFailed: "Could not undo the review.",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
-      drawKanji: "Draw kanji",
+      drawKanji: "Write by hand",
       clearSearch: "Clear search",
       searchSuggestions: "Search suggestions",
       studyNavigation: "Study navigation",
@@ -130899,8 +132214,8 @@ ${component.reading}`;
       noSource: "No source",
       liveReview: "live review",
       searchRecognizing: "Recognizing...",
-      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
-      typeOrPasteKanji: "Type or paste kanji",
+      searchNoHandwritingMatch: "No handwriting match yet. Type or paste the text instead.",
+      typeOrPasteKanji: "Type or paste text",
       searching: "Searching...",
       searchLocalDictionariesFailed: "Could not search local dictionaries.",
       externalDictionarySearch: "External dictionary search",
@@ -130933,6 +132248,10 @@ ${component.reading}`;
       typeWordWriteChar: "Write the highlighted kanji — kana stays in place",
       typeWordProgress: "Handwriting progress",
       typeWordAllDone: "Kanji written",
+      typeWordWriteWord: "Write the word from memory",
+      typeWordCompare: "Compare with the answer",
+      typeWordSelfCheckPrompt: "Does your writing match?",
+      typeWordMatched: "It matches",
       studyTourType: "Produce the word — type or write it.",
       studySummaryLabel: "Step results",
       studySummaryKanji: "Kanji",
@@ -131118,7 +132437,7 @@ ${component.reading}`;
     undoReviewFailed: "レビューを取り消せませんでした。",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
-    drawKanji: "漢字を書く",
+    drawKanji: "手書き入力",
     clearSearch: "検索をクリア",
     searchSuggestions: "検索候補",
     studyNavigation: "学習ナビゲーション",
@@ -131182,8 +132501,8 @@ ${component.reading}`;
     noSource: "ソースなし",
     liveReview: "ライブレビュー",
     searchRecognizing: "認識中...",
-    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
-    typeOrPasteKanji: "漢字を入力または貼り付け",
+    searchNoHandwritingMatch: "手書き候補がまだありません。テキストを入力または貼り付けてください。",
+    typeOrPasteKanji: "テキストを入力または貼り付け",
     searching: "検索中...",
     searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
     externalDictionarySearch: "外部辞書検索",
@@ -131216,6 +132535,10 @@ ${component.reading}`;
     typeWordWriteChar: "強調された漢字を書いてください。かなはそのまま表示されます",
     typeWordProgress: "手書きの進捗",
     typeWordAllDone: "漢字を書けました",
+    typeWordWriteWord: "単語を思い出して書いてください",
+    typeWordCompare: "答えと比べる",
+    typeWordSelfCheckPrompt: "書いたものは答えと合っていますか？",
+    typeWordMatched: "合っている",
     studyTourType: "単語を書き出します。入力か手書きで。",
     studySummaryLabel: "ステップの結果",
     studySummaryKanji: "漢字",
@@ -131604,6 +132927,9 @@ ${component.reading}`;
     "dismiss-study-tour",
     "recall-submit",
     "type-word-submit",
+    "type-word-handwriting-check",
+    "type-word-handwriting-match",
+    "type-word-handwriting-retry",
     "type-word-skip",
     "type-word-mode",
     "jpdb-kanji-action",
@@ -133414,7 +134740,7 @@ ${entry.url}`),
     return card.kanjiKeyword;
   }
   const firstTruthy = (values) => values.find(Boolean) ?? "";
-  async function recognizeGoogleJapaneseHandwriting(strokes) {
+  async function recognizeGoogleHandwriting(strokes, target = activeLearningTarget()) {
     if (typeof fetch !== "function" || !strokes.length) return [];
     const response = await fetch(NEW_TAB_HANDWRITING_GOOGLE_URL, {
       method: "POST",
@@ -133427,7 +134753,7 @@ ${entry.url}`),
             writing_area_height: 240
           },
           ink: googleHandwritingInk(strokes),
-          language: "ja"
+          language: target.language
         }]
       })
     });
@@ -133436,13 +134762,19 @@ ${entry.url}`),
   }
   const googleHandwritingInk = (strokes) => strokes.map((stroke) => [stroke.map((point) => Math.round(point.x * 240)), stroke.map((point) => Math.round(point.y * 240)), []]).filter((stroke) => stroke[0].length > 1 && stroke[1].length > 1);
   function googleHandwritingPredictionQueries(response) {
-    const results = Array.isArray(response) && response.length > 1 && Array.isArray(response[1]) && Array.isArray(response[1][0]) && Array.isArray(response[1][0][1]) ? response[1][0][1] : [];
+    const results = nestedArrayAtPath(response, [1, 0, 1]);
     return uniqueTrimmedStrings(results.flatMap((result) => {
       const text2 = typeof result === "string" ? result.trim() : "";
-      if (!text2) return [];
-      const kanji = kanjiCharacters$1(text2);
-      return kanji.length === 1 && Array.from(text2).length === 1 ? kanji : [];
+      return text2 ? [text2] : [];
     })).slice(0, 8);
+  }
+  function nestedArrayAtPath(value, path) {
+    let current = value;
+    for (const index of path) {
+      if (!Array.isArray(current)) return [];
+      current = current[index];
+    }
+    return Array.isArray(current) ? current : [];
   }
   const shouldWaitForMoreDoodleStrokes = (strokes, expectedStrokes) => expectedStrokes > 0 && strokes.length < expectedStrokes;
   const visibleCardKanji = (card) => card ? kanjiCharacters$1(card.spelling)[0] ?? card.spelling[0] ?? "" : "";
@@ -135156,11 +136488,11 @@ ${entry.url}`),
           return true;
         case "search-handwriting-toggle":
           event.preventDefault();
-          if (usesJapaneseCharacterStudy()) this.toggleSearchHandwriting(root);
+          if (targetSupportsHandwriting()) this.toggleSearchHandwriting(root);
           return true;
         case "handwriting-candidate":
           event.preventDefault();
-          if (targetCanLookupCharacter(this.searchActionQuery(target))) {
+          if (targetCanHandwriteText(this.searchActionQuery(target))) {
             this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
           }
           return true;
@@ -135397,7 +136729,7 @@ ${entry.url}`),
       this.toggleSearchHandwriting(root, true);
     }
     installSearchHandwriting(root) {
-      if (!usesJapaneseCharacterStudy()) {
+      if (!targetSupportsHandwriting()) {
         root.querySelector("[data-newtab-handwriting]")?.remove();
         this.syncSearchHandwritingToggle(root);
         return;
@@ -135425,7 +136757,7 @@ ${entry.url}`),
       });
     }
     ensureSearchHandwritingPanel(root) {
-      if (!usesJapaneseCharacterStudy()) return null;
+      if (!targetSupportsHandwriting()) return null;
       const existing = root.querySelector("[data-newtab-handwriting]");
       if (existing) return existing;
       const results = this.searchResultsMount(root);
@@ -135435,7 +136767,7 @@ ${entry.url}`),
       return panel;
     }
     toggleSearchHandwriting(root, open) {
-      if (!usesJapaneseCharacterStudy()) return;
+      if (!targetSupportsHandwriting()) return;
       const panel = this.ensureSearchHandwritingPanel(root);
       if (!panel) return;
       panel.open = open ?? !panel.open;
@@ -135454,13 +136786,13 @@ ${entry.url}`),
       const panel = root.querySelector("[data-newtab-handwriting]");
       const toggle = root.querySelector(newTabActionSelector("search-handwriting-toggle"));
       if (!toggle) return;
-      const enabled = usesJapaneseCharacterStudy();
+      const enabled = targetSupportsHandwriting();
       toggle.hidden = !enabled;
       toggle.disabled = !enabled;
       toggle.setAttribute("aria-expanded", String(enabled && Boolean(panel?.open)));
     }
     scheduleSearchHandwritingRecognition(root) {
-      if (!usesJapaneseCharacterStudy()) {
+      if (!targetSupportsHandwriting()) {
         this.clearSearchHandwriting(root);
         return;
       }
@@ -135478,8 +136810,9 @@ ${entry.url}`),
       }, NEW_TAB_HANDWRITING_DEBOUNCE_MS);
     }
     async recognizeSearchHandwriting(root, strokes, generation) {
-      if (!usesJapaneseCharacterStudy()) return;
-      const recognizedCandidates = await recognizeGoogleJapaneseHandwriting(strokes).catch((error) => {
+      if (!targetSupportsHandwriting()) return;
+      const target = activeLearningTarget();
+      const recognizedCandidates = await recognizeGoogleHandwriting(strokes, target).catch((error) => {
         log$3.warn("Search handwriting failed", error);
         return [];
       });
@@ -135487,8 +136820,8 @@ ${entry.url}`),
         log$3.warn("Search handwriting geometry failed", error);
         return [];
       });
-      if (!usesJapaneseCharacterStudy() || !root.isConnected || this.currentRoute() !== "search" || generation !== this.searchHandwritingGeneration) return;
-      const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).filter(targetCanLookupCharacter).slice(0, 8);
+      if (activeLearningTarget() !== target || !root.isConnected || this.currentRoute() !== "search" || generation !== this.searchHandwritingGeneration) return;
+      const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).filter((candidate) => targetCanHandwriteText(candidate, target)).slice(0, 8);
       const message = candidates.length ? "" : this.deps.text("searchNoHandwritingMatch");
       this.renderSearchHandwritingCandidates(root, candidates, message);
     }
@@ -135527,12 +136860,13 @@ ${entry.url}`),
     renderSearchHandwritingCandidates(root, candidates, message) {
       const mount = root.querySelector("[data-newtab-handwriting-candidates]");
       if (!mount) return;
-      if (!usesJapaneseCharacterStudy()) {
+      if (!targetSupportsHandwriting()) {
         mount.hidden = true;
         mount.replaceChildren();
         return;
       }
-      candidates = candidates.filter(targetCanLookupCharacter);
+      const target = activeLearningTarget();
+      candidates = candidates.filter((candidate) => targetCanHandwriteText(candidate, target));
       mount.hidden = !candidates.length && !message;
       replaceChildrenWith(
         mount,
@@ -135540,7 +136874,8 @@ ${entry.url}`),
           class: "jpdb-reader-parseable",
           type: "button",
           dataset: { newtabAction: newTabAction("handwriting-candidate"), query: candidate },
-          lang: "ja"
+          lang: target.typography.contentLocale,
+          dir: target.direction
         }, candidate)),
         message ? el("span", { class: "jpdb-reader-newtab-handwriting-message jpdb-reader-parseable", lang: resolveUiLanguage(this.deps.language()) === "ja" ? "ja" : "en" }, message) : null,
         message && !candidates.length ? renderSearchHandwritingManualAction(this.deps.language()) : null
@@ -136803,6 +138138,237 @@ ${entry.url}`),
   }
   function recallClozeTarget(sentence, candidates) {
     return candidates.filter((candidate) => candidate && sentence.includes(candidate)).sort((a, b) => b.length - a.length)[0] ?? "";
+  }
+  function applyTypeWordSelfCheckAction(state2 = {}, action) {
+    if (action === "reveal") return { kind: "update", state: { ...state2, selfCheckRevealed: true } };
+    if (action === "retry") return selfCheckAssessment(state2, "incorrect", false);
+    if (state2.feedback === "correct") return { kind: "navigate" };
+    return selfCheckAssessment(state2, "correct", true);
+  }
+  function selfCheckAssessment(state2, outcome, selfCheckRevealed) {
+    if (!state2.selfCheckRevealed) return { kind: "idle" };
+    return {
+      kind: "update",
+      state: { ...state2, feedback: outcome, selfCheckRevealed },
+      outcome
+    };
+  }
+  function nextTypeWordHandwritingIndex(chars, start) {
+    const relative = chars.slice(start).findIndex(targetCanHandwriteCharacter);
+    return relative < 0 ? chars.length : start + relative;
+  }
+  function resolveTypeWordAnswerMode(configured, supportsHandwriting) {
+    if (configured !== "handwriting") return "keyboard";
+    return supportsHandwriting ? "handwriting" : "keyboard";
+  }
+  function mountTypeWordAnswer(options) {
+    if (!options.root) return;
+    const mode = resolveTypeWordAnswerMode(options.configuredMode, options.supportsHandwriting);
+    const state2 = Object.assign({ answer: "" }, options.state);
+    const surface = TYPE_WORD_MODE_SURFACES[mode];
+    const content = surface.render(options, state2);
+    delete options.root.dataset.newtabAnswerDetailsRequest;
+    Object.assign(options.root.dataset, { typeWordMode: mode, typeWordOutcome: state2.feedback || "pending" });
+    options.root.replaceChildren(content, renderTypeWordSecondaryControls(mode, options.supportsHandwriting, options.text));
+    const feedback = renderTypeWordFeedback(state2.feedback, options.targetText, options.text);
+    if (feedback) content.after(feedback);
+    surface.activate(options, options.root);
+  }
+  const TYPE_WORD_MODE_SURFACES = {
+    keyboard: {
+      render: (options, state2) => renderTypeWordKeyboard({
+        ...options.keyboard,
+        answer: state2.answer,
+        feedback: state2.feedback,
+        audioButton: options.keyboard.audioButton(),
+        text: options.text
+      }),
+      activate: (options, root) => {
+        if (!options.keyboard.revealAnswer) options.keyboard.focus(root);
+      }
+    },
+    handwriting: {
+      render: (options) => options.handwriting.render(),
+      activate: (options, root) => options.handwriting.install(root)
+    }
+  };
+  function typeWordOutcomeLabel(outcome, target, text2) {
+    const label = text2(TYPE_WORD_OUTCOME_COPY[outcome]);
+    return TYPE_WORD_TARGET_OUTCOMES.has(outcome) ? `${label} · ${isolate(target)}` : label;
+  }
+  const TYPE_WORD_OUTCOME_COPY = {
+    correct: "recallCorrect",
+    accepted: "recallAccepted",
+    incorrect: "typeWordTryAgain",
+    empty: "recallEmpty",
+    skipped: "typeWordSkipped"
+  };
+  const TYPE_WORD_TARGET_OUTCOMES = /* @__PURE__ */ new Set(["correct", "accepted"]);
+  function renderTypeWordSecondaryControls(mode, supportsHandwriting, text2) {
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-type-secondary" },
+      renderTypeWordModeToggle({ mode, supportsHandwriting, text: text2 }),
+      el("button", {
+        class: "jpdb-reader-newtab-type-skip",
+        type: "button",
+        dataset: { newtabAction: newTabAction("type-word-skip") }
+      }, text2("typeWordSkip"))
+    );
+  }
+  function renderTypeWordFeedback(feedback, target, text2) {
+    if (!feedback) return null;
+    return el("div", {
+      class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result",
+      dataset: { newtabTypeResult: feedback },
+      role: "status",
+      "aria-live": "polite"
+    }, typeWordOutcomeLabel(feedback, target, text2));
+  }
+  function targetSupportsTypeWordHandwriting(target, text2) {
+    return target.experiences.handwriting === "self-check" ? targetCanHandwriteText(text2, target) : Array.from(text2).some(targetCanHandwriteCharacter);
+  }
+  function renderTypeWordModeToggle(options) {
+    const button2 = (value, label) => el("button", {
+      class: "jpdb-reader-newtab-type-mode",
+      type: "button",
+      dataset: { newtabAction: newTabAction("type-word-mode"), typeWordMode: value, active: String(options.mode === value) },
+      "aria-pressed": String(options.mode === value),
+      disabled: value === "handwriting" && !options.supportsHandwriting,
+      title: value === "handwriting" && !options.supportsHandwriting ? options.text("typeWordHandwritingUnavailable") : void 0
+    }, label);
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-type-modes", role: "group", "aria-label": options.text("typeWordModeGroup") },
+      button2("keyboard", options.text("typeWordModeKeyboard")),
+      button2("handwriting", options.text("typeWordModeHandwriting"))
+    );
+  }
+  function renderTypeWordKeyboard(options) {
+    const readyToContinue = options.feedback === "correct" || options.feedback === "accepted";
+    return el(
+      "form",
+      { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
+      options.audioButton,
+      el("input", {
+        class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
+        dataset: { newtabTypeInput: true },
+        value: options.answer,
+        placeholder: options.text("typeWordPlaceholder"),
+        autocomplete: "off",
+        autocapitalize: "none",
+        autocorrect: "off",
+        spellcheck: false,
+        inputmode: "text",
+        enterkeyhint: "done",
+        lang: options.language,
+        dir: options.direction,
+        "aria-label": options.text("typeWordPlaceholder"),
+        disabled: options.revealAnswer,
+        readOnly: readyToContinue
+      }),
+      el("button", {
+        class: "jpdb-reader-newtab-recall-check",
+        type: "button",
+        dataset: { newtabAction: newTabAction("type-word-submit") },
+        "aria-label": options.text(readyToContinue ? "continueStudying" : "recallCheck")
+      }, `${options.text(readyToContinue ? "continueStudying" : "recallCheck")} →`)
+    );
+  }
+  function renderStrokeFeedbackHandwriting(options) {
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(options.chars.length), typeWordProgress: String(options.progress) } },
+      el(
+        "div",
+        { class: "jpdb-reader-newtab-type-handwriting-track", "aria-label": options.text("typeWordProgress") },
+        options.chars.map((character, index) => {
+          const fixed = options.isFixed(character);
+          let content = "＿";
+          let done = false;
+          let active = false;
+          if (fixed) content = character;
+          else if (index < options.progress) {
+            content = character;
+            done = true;
+          } else if (index === options.progress) active = true;
+          return el("span", {
+            class: "jpdb-reader-newtab-type-handwriting-cell",
+            lang: "ja",
+            dataset: { fixed: String(fixed), done: String(done), active: String(active) }
+          }, content);
+        })
+      ),
+      options.progress >= options.chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, options.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, options.text("typeWordWriteChar")),
+      options.doodleFront
+    );
+  }
+  function renderSelfCheckHandwriting(options) {
+    const revealed = Boolean(options.state?.selfCheckRevealed);
+    const passed = options.state?.feedback === "correct";
+    return el(
+      "div",
+      {
+        class: "jpdb-reader-newtab-type-handwriting jpdb-reader-newtab-type-handwriting-self-check",
+        dataset: { typeWordSelfCheck: true }
+      },
+      el("p", { class: "jpdb-reader-newtab-type-handwriting-prompt" }, options.text("typeWordWriteWord")),
+      selfCheckDoodleFront(options.text),
+      el("div", {
+        class: "jpdb-reader-newtab-type-self-check-answer jpdb-reader-parseable",
+        dataset: { typeWordSelfCheckAnswer: true },
+        lang: options.language,
+        dir: options.direction,
+        hidden: !revealed
+      }, options.targetText),
+      passed ? selfCheckButton("jpdb-reader-newtab-recall-check", "type-word-handwriting-match", `${options.text("continueStudying")} →`) : el(
+        "div",
+        { class: "jpdb-reader-newtab-type-self-check-actions" },
+        selfCheckButton("jpdb-reader-newtab-recall-check", "type-word-handwriting-check", options.text("typeWordCompare"), { hidden: revealed, disabled: true }),
+        el(
+          "div",
+          { dataset: { typeWordSelfCheckChoices: true }, hidden: !revealed },
+          el("p", {}, options.text("typeWordSelfCheckPrompt")),
+          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", "type-word-handwriting-match", options.text("typeWordMatched")),
+          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", "type-word-handwriting-retry", options.text("typeWordTryAgain"))
+        )
+      )
+    );
+  }
+  function installSelfCheckDoodle(answer, interfaceLanguage) {
+    const check = answer.querySelector(newTabActionSelector("type-word-handwriting-check"));
+    installKanjiDoodle(answer, interfaceLanguage, {
+      onChange: (strokes) => {
+        if (check) check.disabled = strokes.length === 0;
+      },
+      onClear: () => {
+        if (check) check.disabled = true;
+      }
+    });
+  }
+  function selfCheckDoodleFront(text2) {
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-kanji-front" },
+      el(
+        "div",
+        { class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden" },
+        el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": text2("drawKanji") })
+      ),
+      el(
+        "div",
+        { class: "jpdb-reader-doodle-tools jpdb-reader-newtab-doodle-actions" },
+        el("button", { class: "jpdb-reader-btn jpdb-reader-doodle-control", type: "button", dataset: { doodleClear: true } }, text2("clear"))
+      )
+    );
+  }
+  function selfCheckButton(className, action, label, attrs = {}) {
+    return el("button", {
+      class: className,
+      type: "button",
+      dataset: { newtabAction: newTabAction(action) },
+      ...attrs
+    }, label);
   }
   const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
   const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
@@ -139423,8 +140989,11 @@ ${options.version}`;
     listenSpeakingScoring = false;
     listenSpeakingScoreGeneration = 0;
     // Handwriting sub-mode progress: how many leading characters of the target
-    // the learner has cleared (kana/KanjiVG-missing chars auto-advance).
+    // the learner has cleared (kana scaffolding auto-advances).
     typeHandwritingProgress = /* @__PURE__ */ new Map();
+    // Per-card fallback when a promised stroke reference is absent. The learner
+    // self-checks explicitly; absence of data must never be scored as correct.
+    typeHandwritingSelfCheck = /* @__PURE__ */ new Set();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     studyHintDepth = /* @__PURE__ */ new Map();
@@ -139463,6 +141032,9 @@ ${options.version}`;
       },
       "recall-submit": (root) => this.submitRecallAnswer(root),
       "type-word-submit": (root) => this.submitTypeWordAnswer(root),
+      "type-word-handwriting-check": (root) => this.handleTypeWordHandwritingSelfCheck(root, "reveal"),
+      "type-word-handwriting-match": (root) => this.handleTypeWordHandwritingSelfCheck(root, "match"),
+      "type-word-handwriting-retry": (root) => this.handleTypeWordHandwritingSelfCheck(root, "retry"),
       "type-word-skip": (root) => this.skipTypeWord(root),
       "type-word-mode": (root, target) => this.handleTypeWordModeClick(root, target),
       "listen-pick": (root, target) => this.handleListenPick(root, target),
@@ -139680,6 +141252,7 @@ ${options.version}`;
       this.doodlePreviewCache.clear();
       this.studyStepStates.clear();
       this.typeHandwritingProgress.clear();
+      this.typeHandwritingSelfCheck.clear();
       this.studyHintDepth.clear();
       this.immersionAudioPlayer.reset();
       this.statsController.reset();
@@ -144203,122 +145776,56 @@ ${options.version}`;
       );
     }
     renderTypeWordAnswer(answer, card) {
-      if (!answer) return;
-      delete answer.dataset.newtabAnswerDetailsRequest;
-      const configuredMode = this.typeWordInputMode();
-      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
-      const mode = configuredMode === "handwriting" && supportsHandwriting ? "handwriting" : "keyboard";
-      const feedback = this.stepState(cardKey(card))?.type?.feedback;
-      answer.dataset.typeWordMode = mode;
-      answer.dataset.typeWordOutcome = feedback ?? "pending";
-      replaceChildrenWith(
-        answer,
-        mode === "handwriting" ? this.renderTypeWordHandwriting(card) : this.renderTypeWordKeyboard(card, feedback),
-        feedback ? el("div", {
-          class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result",
-          dataset: { newtabTypeResult: feedback },
-          role: "status",
-          "aria-live": "polite"
-        }, this.typeWordOutcomeLabel(feedback, card)) : null,
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-type-secondary" },
-          this.renderTypeWordModeToggle(mode, card),
-          el("button", {
-            class: "jpdb-reader-newtab-type-skip",
-            type: "button",
-            dataset: { newtabAction: newTabAction("type-word-skip") }
-          }, this.text("typeWordSkip"))
-        )
-      );
-      if (mode === "handwriting") this.installTypeWordDoodle(answer, card);
-      else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer);
+      const cardTarget = newTabCardTarget(card);
+      mountTypeWordAnswer({
+        root: answer,
+        configuredMode: this.typeWordInputMode(),
+        supportsHandwriting: this.typeWordSupportsHandwriting(card),
+        state: this.stepState(cardKey(card))?.type,
+        targetText: this.typeWordTarget(card),
+        keyboard: {
+          language: cardTarget.typography.contentLocale,
+          direction: cardTarget.direction,
+          revealAnswer: this.state.revealAnswer,
+          audioButton: () => this.renderStudyWordAudioButton(card),
+          focus: (root) => this.focusStudyInputSoon(root, "[data-newtab-type-input]")
+        },
+        handwriting: {
+          render: () => this.renderTypeWordHandwriting(card),
+          install: (root) => this.installTypeWordDoodle(root, card)
+        },
+        text: (key) => this.text(key)
+      });
     }
-    renderTypeWordModeToggle(mode, card) {
-      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
-      const button2 = (value, label) => el("button", {
-        class: "jpdb-reader-newtab-type-mode",
-        type: "button",
-        dataset: { newtabAction: newTabAction("type-word-mode"), typeWordMode: value, active: String(mode === value) },
-        "aria-pressed": String(mode === value),
-        disabled: value === "handwriting" && !supportsHandwriting,
-        title: value === "handwriting" && !supportsHandwriting ? this.text("typeWordHandwritingUnavailable") : void 0
-      }, label);
-      return el(
-        "div",
-        { class: "jpdb-reader-newtab-type-modes", role: "group", "aria-label": this.text("typeWordModeGroup") },
-        button2("keyboard", this.text("typeWordModeKeyboard")),
-        button2("handwriting", this.text("typeWordModeHandwriting"))
-      );
-    }
-    renderTypeWordKeyboard(card, feedback) {
-      const readyToContinue = feedback === "correct" || feedback === "accepted";
-      const target = newTabCardTarget(card);
-      return el(
-        "form",
-        { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
-        this.renderStudyWordAudioButton(card),
-        el("input", {
-          class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
-          dataset: { newtabTypeInput: true },
-          value: this.stepState(cardKey(card))?.type?.answer ?? "",
-          placeholder: this.text("typeWordPlaceholder"),
-          autocomplete: "off",
-          autocapitalize: "none",
-          autocorrect: "off",
-          spellcheck: false,
-          inputmode: "text",
-          enterkeyhint: "done",
-          lang: target.typography.contentLocale,
-          dir: target.direction,
-          "aria-label": this.text("typeWordPlaceholder"),
-          disabled: this.state.revealAnswer,
-          readOnly: readyToContinue
-        }),
-        el("button", {
-          class: "jpdb-reader-newtab-recall-check",
-          type: "button",
-          dataset: { newtabAction: newTabAction("type-word-submit") },
-          "aria-label": this.text(readyToContinue ? "continueStudying" : "recallCheck")
-        }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
-      );
-    }
-    // Handwriting grades only the word's kanji. Kana remains visible as fixed
-    // scaffolding, so 飲み物 is presented as ＿み＿ and never asks the learner
+    // Grade only kanji; kana scaffolding stays visible (飲み物 -> ＿み＿) and never asks for token strokes.
     // to scribble a token stroke merely to advance past み.
     renderTypeWordHandwriting(card) {
+      if (this.typeWordUsesSelfCheck(card)) {
+        return this.renderTypeWordSelfCheckHandwriting(card);
+      }
       const target = this.typeWordTarget(card);
       const chars = Array.from(target);
       const progress = this.typeWordHandwritingProgress(card, chars);
-      return el(
-        "div",
-        { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress) } },
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-type-handwriting-track", "aria-label": this.text("typeWordProgress") },
-          chars.map((character, index) => {
-            const fixed = !isKanjiCharacter$1(character);
-            const done = !fixed && index < progress;
-            return el("span", {
-              class: "jpdb-reader-newtab-type-handwriting-cell",
-              lang: "ja",
-              dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === progress) }
-            }, fixed || done ? character : "＿");
-          })
-        ),
-        progress >= chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, this.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, this.text("typeWordWriteChar")),
-        this.kanjiDoodleFront()
-      );
+      return renderStrokeFeedbackHandwriting({
+        chars,
+        progress,
+        doodleFront: this.kanjiDoodleFront(),
+        isFixed: (character) => !isKanjiCharacter$1(character),
+        text: (key) => this.text(key)
+      });
     }
     installTypeWordDoodle(answer, card) {
+      if (this.typeWordUsesSelfCheck(card)) {
+        this.installTypeWordSelfCheckDoodle(answer);
+        return;
+      }
       if (!usesJapaneseCharacterStudy()) return;
       const chars = Array.from(this.typeWordTarget(card));
-      const progress = this.typeWordHandwritingProgress(card, chars);
-      if (progress >= chars.length) return;
-      const current = chars[progress] ?? "";
+      const character = chars[this.typeWordHandwritingProgress(card, chars)];
+      if (!character) return;
       installKanjiDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage, {
         onChange: (strokes) => {
-          void this.assessTypeWordDoodle(answer, card, current, strokes);
+          void this.assessTypeWordDoodle(answer, card, character, strokes);
         },
         onClear: () => this.clearDoodleAssessment({ ...this.studySlots(answer.closest(".jpdb-reader-newtab") ?? answer), answer })
       });
@@ -144330,7 +145837,9 @@ ${options.version}`;
       if (!targetCanLookupCharacter(character) || !answer.isConnected || this.visibleWords[this.index] !== card) return;
       const expectedStrokes = details.vg?.strokeCount ?? 0;
       if (!expectedStrokes || !details.vg?.strokeShapes?.length) {
-        this.advanceTypeWordHandwriting(answer, card, "correct");
+        this.typeHandwritingSelfCheck.add(cardKey(card));
+        const root = answer.closest(".jpdb-reader-newtab");
+        if (root) this.renderWord(root, card);
         return;
       }
       if (shouldWaitForMoreDoodleStrokes(strokes, expectedStrokes)) {
@@ -144345,7 +145854,7 @@ ${options.version}`;
       const key = cardKey(card);
       const chars = Array.from(this.typeWordTarget(card));
       const progress = this.typeWordHandwritingProgress(card, chars);
-      const next = this.nextTypeWordHandwritingIndex(chars, progress + 1);
+      const next = nextTypeWordHandwritingIndex(chars, progress + 1);
       this.typeHandwritingProgress.set(key, next);
       if (next >= chars.length) {
         this.recordTypeOutcome(card, charOutcome === "wrong" ? "incorrect" : "correct");
@@ -144357,25 +145866,47 @@ ${options.version}`;
       if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
     }
     typeWordSupportsHandwriting(card) {
-      return Array.from(this.typeWordTarget(card)).some(targetCanHandwriteCharacter);
+      const target = newTabCardTarget(card);
+      return targetSupportsTypeWordHandwriting(target, this.typeWordTarget(card));
+    }
+    typeWordUsesSelfCheck(card) {
+      return Boolean(card && (newTabCardTarget(card).experiences.handwriting === "self-check" || this.typeHandwritingSelfCheck.has(cardKey(card))));
+    }
+    renderTypeWordSelfCheckHandwriting(card) {
+      const target = newTabCardTarget(card);
+      return renderSelfCheckHandwriting({
+        targetText: this.typeWordTarget(card),
+        language: target.typography.contentLocale,
+        direction: target.direction,
+        state: this.stepState(cardKey(card))?.type,
+        text: (key) => this.text(key)
+      });
+    }
+    installTypeWordSelfCheckDoodle(answer) {
+      installSelfCheckDoodle(answer, () => this.dependencies.getSettings().interfaceLanguage);
+    }
+    handleTypeWordHandwritingSelfCheck(root, action) {
+      const card = this.visibleWords[this.index];
+      if (!this.typeWordUsesSelfCheck(card)) return;
+      const state2 = this.ensureStepState(cardKey(card));
+      const transition = applyTypeWordSelfCheckAction(state2.type, action);
+      if (transition.kind === "update") {
+        state2.type = { ...state2.type, ...transition.state };
+        this.recordTypeOutcome(card, transition.outcome);
+        this.renderWord(root, card);
+      }
+      if (transition.kind === "navigate") this.continueTypeWord(root, card);
     }
     typeWordHandwritingProgress(card, chars = Array.from(this.typeWordTarget(card))) {
       const key = cardKey(card);
       const stored = Math.min(this.typeHandwritingProgress.get(key) ?? 0, chars.length);
-      const normalized = this.nextTypeWordHandwritingIndex(chars, stored);
+      const normalized = nextTypeWordHandwritingIndex(chars, stored);
       if (normalized !== stored) this.typeHandwritingProgress.set(key, normalized);
       return normalized;
-    }
-    nextTypeWordHandwritingIndex(chars, start) {
-      const relative = chars.slice(start).findIndex(targetCanLookupCharacter);
-      return relative < 0 ? chars.length : start + relative;
     }
     typeWordTarget(card) {
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       return (cloze.hasCloze ? cloze.answer : "").trim() || card.spelling.trim();
-    }
-    focusTypeWordInputSoon(answer) {
-      this.focusStudyInputSoon(answer, "[data-newtab-type-input]");
     }
     setTypeWordInputMode(root, mode) {
       const settings = this.dependencies.getSettings();
@@ -144414,21 +145945,18 @@ ${options.version}`;
       const card = this.visibleWords[this.index];
       if (!card) return;
       this.recordTypeOutcome(card, "skipped");
+      this.continueTypeWord(root, card);
+    }
+    continueTypeWord(root, card) {
       if (!this.navigateStudyStep("next")) this.renderWord(root, card);
     }
     // First attempt counts: once an outcome is recorded for this card it is never
     // overwritten (a retype/redraw does not launder a first miss into a pass).
     recordTypeOutcome(card, outcome) {
+      if (!outcome) return;
       const state2 = this.ensureStepState(cardKey(card));
       if (state2.type?.outcome !== void 0) return;
       state2.type = { ...state2.type, outcome };
-    }
-    typeWordOutcomeLabel(outcome, card) {
-      if (outcome === "correct") return `${this.text("recallCorrect")} · ${isolate(this.typeWordTarget(card))}`;
-      if (outcome === "accepted") return `${this.text("recallAccepted")} · ${isolate(this.typeWordTarget(card))}`;
-      if (outcome === "incorrect") return this.text("typeWordTryAgain");
-      if (outcome === "empty") return this.text("recallEmpty");
-      return this.text("typeWordSkipped");
     }
     renderWordAnswer(answer, _card) {
       if (!answer) return;

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Yomu Academy API",
-    "version": "1.8.89",
+    "version": "1.8.90",
     "description": "Accounts, secure browser sessions, Reader device pairing, encrypted SRS sync, class progress, learning feedback, and protected Academy media. Browser mutations marked `x-yomu-same-origin` also require an Origin header matching https://yomureader.com.",
     "contact": {
       "name": "Yomu",

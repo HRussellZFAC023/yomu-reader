@@ -2383,13 +2383,37 @@ const LOCAL_DICTIONARY_STORAGE_COPY = {
   clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
   }
 };
+const TARGET_AWARE_UI_COPY = Object.freeze({
+  en: Object.freeze({
+  puckStudyTarget: "Study {language}",
+  puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+  puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+  puckFilterYoutubeTarget: "Filter YouTube for {language}",
+  popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+  contextOccurrences: "In context ×{count}",
+  loadTargetSubtitles: "Load {language} subtitles",
+  loadOutputSubtitles: "Load {language} subtitles"
+  }),
+  ja: Object.freeze({
+  puckStudyTarget: "{language}を学習",
+  puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+  puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+  puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+  popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+  contextOccurrences: "文脈内 ×{count}",
+  loadTargetSubtitles: "{language}字幕を読み込む",
+  loadOutputSubtitles: "{language}字幕を読み込む"
+  })
+});
 const COPY = {
   en: {
   settingsTitle: `${APP_NAME} Settings`,
   welcomeLabel: `${APP_NAME} welcome`,
-  onboardingEyebrow: "Japanese, wherever it appears",
-  onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+  onboardingEyebrow: "{language}, wherever it appears",
+  onboardingCopy: "Make {language} text, subtitles, and images tappable.",
   onboardingLanguage: "Settings language",
+  onboardingOutputLanguage: "Definition and translation language (output)",
+  onboardingTargetLanguage: "Language you are reading (target)",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -2408,7 +2432,7 @@ const COPY = {
   onboardingUseWithoutApiKey: "Use without API key",
   closeOnboarding: "Close welcome",
   featureText: "Text",
-  featureTextBody: "Hover or tap scanned Japanese.",
+  featureTextBody: "Hover or tap scanned {language}.",
   featureImages: "Images",
   featureImagesBody: "Read any image by tapping it.",
   featureVideo: "Video",
@@ -2416,7 +2440,7 @@ const COPY = {
   featureControl: "Control",
   featureControlBody: "Tune features, shortcuts, and color.",
   featureStudy: "Study",
-  featureStudyBody: "Review words and kanji on the study page.",
+  featureStudyBody: "Review words and characters on the study page.",
   featureGame: "Game",
   featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
   scanPage: "Scan page",
@@ -2641,7 +2665,7 @@ const COPY = {
   ocrInteractionModeManual: "Tap or hover",
   ocrInteractionModeOff: "Off",
   puckMenuLabel: `${APP_NAME} menu`,
-  puckStudyPage: "Study page",
+  ...TARGET_AWARE_UI_COPY.en,
   puckPauseAnnotations: "Pause annotations",
   puckResumeAnnotations: "Resume annotations",
   puckOcrAuto: "OCR: Auto",
@@ -3120,8 +3144,6 @@ const COPY = {
   enableSubtitleAutoHide: "Auto-hide panel while playing",
   disableSubtitleAutoHide: "Keep panel open while playing",
   subtitlePanelOptions: "Panel options",
-  loadJapaneseSubtitles: "Load Japanese subtitles",
-  loadNativeSubtitles: "Load native subtitles",
   searchAnimeSubtitles: "Search anime subtitles",
   toggleNativeSubtitleBlur: "Toggle native subtitle blur",
   subtitleTrackDetectedSingular: "1 subtitle track detected",
@@ -3623,9 +3645,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -3643,7 +3667,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -3651,7 +3675,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -3893,8 +3917,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -4325,7 +4347,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -4333,7 +4355,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -4835,7 +4856,8 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-  ...SUBTITLE_SETTINGS_COPY.ja
+  ...SUBTITLE_SETTINGS_COPY.ja,
+  ...TARGET_AWARE_UI_COPY.ja
 };
 function resolveUiLanguage(language) {
   if (language === "ja" || language === "en") return language;
@@ -5935,217 +5957,6 @@ function rotateRepeatedAudioLead(ids, lastPlayed) {
 function removeAudioDeckId(ids, id) {
   const index = ids.indexOf(id);
   if (index >= 0) ids.splice(index, 1);
-}
-const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
-function getOrderedAudioSources(settings) {
-  const sources = settings.audioSources.filter((source) => source.enabled);
-  if (!settings.audioEnableDefaultSources) return sources;
-  const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
-  return [
-  ...hosted.enabled ? [{ ...hosted }] : [],
-  ...sources.filter((source) => !isYomuHostedAudioSource(source))
-  ];
-}
-function isYomuHostedAudioSource(source) {
-  return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-}
-function preloadableAudioSources(sources, settings) {
-  return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
-}
-function cheapCandidatePreloadAudioSources(sources, card) {
-  return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
-}
-function canResolveAudioCandidatesWithoutNetwork(source, card) {
-  switch (source.type) {
-  case "custom":
-  case "jpod101":
-  case "bunpro":
-    return true;
-  case "jiten-tts":
-    return hasJitenAudioReference(card);
-  default:
-    return false;
-  }
-}
-function hasJitenAudioReference(card) {
-  return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
-}
-function isPositiveFiniteInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value > 0;
-}
-function isFiniteNonNegativeInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
-}
-function audioPreloadLimits(options) {
-  return {
-  sourceLimit: Math.max(1, options.sourceLimit ?? 1),
-  candidateLimit: Math.max(1, options.candidateLimit ?? 1),
-  prepareAudio: options.prepareAudio !== false
-  };
-}
-function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
-  return orderAudioDeckEntries(candidates.map((candidate, index) => ({
-  candidate,
-  id: audioCandidateDeckId(candidate, index)
-  })), mode, bagKey, shuffledAudio);
-}
-function audioCandidateSelectionMode(sourceType, mode) {
-  return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
-}
-function orderAudioSources(sources, card) {
-  return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
-}
-function audioSourceDeckEntries(sources, bagKey) {
-  return sources.map((source, index) => {
-  const signature = getAudioSourceSignature(source);
-  return {
-    source,
-    id: getAudioSourceDeckId(signature, index),
-    bagKey,
-    signature
-  };
-  });
-}
-function isBrowserTextToSpeechSource(source) {
-  return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
-}
-function isApiTextToSpeechSource(source) {
-  return source.type === "jiten-tts" || source.type === "jpdb-tts";
-}
-function isTextToSpeechFallbackSource(source) {
-  return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
-}
-function audioSubSourceProviderName(name) {
-  const trimmed = name.trim().normalize("NFC");
-  return trimmed.split(/\s+/, 1)[0] ?? trimmed;
-}
-function audioSubSourceNameKey(name) {
-  return audioSubSourceProviderName(name).toLowerCase();
-}
-function disabledAudioSubSourceNameKeys(source) {
-  return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
-}
-function audioSubSourceFilterKey(source) {
-  return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
-}
-function registerAudioAttempt(triedUrls, candidate) {
-  const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
-  if (triedUrls.has(candidateKey2)) return false;
-  triedUrls.add(candidateKey2);
-  return true;
-}
-function getAudioBagKey(source, card) {
-  return [
-  source.type,
-  source.url,
-  source.voice,
-  audioSubSourceFilterKey(source),
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function getJpdbAudioBagKey(audioIds) {
-  return [
-  "jpdb-audio",
-  ...[...audioIds].sort()
-  ].join("");
-}
-function getAudioCandidateCacheKey(source, card) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim(),
-  audioSubSourceFilterKey(source),
-  card.spelling,
-  card.reading
-  ].join("");
-}
-function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  mode,
-  audioViaBlob ? "blob" : "direct"
-  ].join("");
-}
-function cloneAudioCandidates(candidates) {
-  return candidates.map((candidate) => ({ ...candidate }));
-}
-function normalizeAttemptedAudioUrl(value) {
-  try {
-  const url = new URL(value, location.href);
-  url.hash = "";
-  return url.href;
-  } catch {
-  return value;
-  }
-}
-function audioCandidateDeckId(candidate, index) {
-  if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
-  return [
-  normalizeAttemptedAudioUrl(candidate.url),
-  normalizeAttemptedAudioUrl(candidate.sourceUrl),
-  index
-  ].join("\0");
-}
-function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
-  if (mode !== "random" || !entries2.length) return entries2;
-  const byId = new Map(entries2.map((entry) => [entry.id, entry]));
-  const ordered = [];
-  for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
-  const entry = byId.get(id);
-  if (entry) ordered.push(entry);
-  }
-  return ordered;
-}
-function getAudioSourceBagKey(sources, card) {
-  return [
-  "audio-sources",
-  card.spelling,
-  card.reading,
-  ...sources.map(getAudioSourceSignature)
-  ].join("");
-}
-function getAudioSourceDeckId(signature, index) {
-  return `${index}\0${signature}`;
-}
-function getAudioSourceSignature(source) {
-  return [
-  source.type,
-  source.url.trim(),
-  source.voice.trim(),
-  audioSubSourceFilterKey(source)
-  ].join("\0");
-}
-function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
-  const language = options.language ?? "en";
-  const requestOptions = {
-  method: options.method ?? "GET",
-  headers: options.headers,
-  data: options.data,
-  proxyUrl: options.proxyUrl,
-  allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
-  allowPublicProxies: options.allowPublicProxies,
-  allowConfiguredProxy: options.allowConfiguredProxy,
-  preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
-  credentials: options.credentials,
-  withCredentials: options.withCredentials,
-  timeoutMs,
-  failureLabel: uiText(language, "audioRequest"),
-  timeoutLabel: uiText(language, "audioRequestTimedOut")
-  };
-  return responseType === "blob" ? requestBlob(responseUrl, requestOptions) : requestText(responseUrl, requestOptions);
-}
-function shouldPreferFetchForAudioRequests() {
-  return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
-}
-function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
-  return new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result || ""));
-  reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
-  reader.readAsDataURL(blob);
-  });
 }
 const RTL_SCRIPTS = /* @__PURE__ */ new Set([
   "Adlm",
@@ -7320,50 +7131,36 @@ function grammarMatchContains(outer, inner) {
   return inner.index >= outer.index && inner.index + inner.match.length <= outer.index + outer.match.length;
 }
 const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_CAPABILITY_IDS = [
-  "term-lookup",
-  "character-lookup",
-  "segmentation",
-  "morphology",
-  "reading-annotation",
-  "pronunciation",
-  "frequency",
-  "examples",
-  "grammar",
-  "audio",
-  "text-to-speech",
-  "ocr",
-  "subtitles",
-  "mining",
-  "srs",
-  "grading",
-  "typing",
-  "handwriting"
-];
-const NO_CAPABILITIES = Object.freeze(
-  Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
-);
 const CORE_DELIVERED_CAPABILITIES = Object.freeze({
   "term-lookup": true,
+  "character-lookup": true,
   segmentation: true,
+  "reading-annotation": true,
   pronunciation: true,
+  frequency: true,
+  examples: true,
+  audio: true,
   "text-to-speech": true,
+  ocr: true,
   subtitles: true,
   typing: true,
+  handwriting: true,
   mining: true,
   srs: true,
   grading: true
 });
-function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+function learningTargetCapabilities(experiences, hasGrammarRules = false) {
   return Object.freeze({
-  ...NO_CAPABILITIES,
-  ...declared,
   ...CORE_DELIVERED_CAPABILITIES,
+  // A literal depth-0 dictionary candidate is lookup, not morphology.
+  // Morphology is present only when a target owns deinflection, bounded
+  // rewrite rules, or a target-specific subsegment Adapter.
+  morphology: experiences.morphology !== "dictionary-forms",
   // Derived, never declared: a target has grammar support exactly when it
   // ships grammar rules. Same principle as the block above — the capability
   // reports the machinery instead of promising alongside it.
@@ -7379,13 +7176,15 @@ function createLearningTargetModule(spec) {
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
   const segment = spec.segment ?? ((text) => defaultSegment(text, language));
   const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+  const experiences = learningTargetExperiences(spec);
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
   language,
   direction,
   collationLocale: spec.collationLocale ?? language,
-  capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+  capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
+  experiences,
   featureSemantics: Object.freeze({
     ...spec.featureSemantics,
     phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -7393,7 +7192,7 @@ function createLearningTargetModule(spec) {
   typography: Object.freeze({
     contentLocale: language,
     direction,
-    readingAnnotationMode: "none",
+    readingAnnotationMode: "ruby",
     supportsVerticalWriting: false,
     ...spec.typography
   }),
@@ -7405,6 +7204,7 @@ function createLearningTargetModule(spec) {
   audio: Object.freeze({
     speechSynthesisLocale: regionalTag,
     templateLanguageToken: base,
+    recordedWordAudio: false,
     ...spec.audio
   }),
   ocr: Object.freeze({
@@ -7436,6 +7236,32 @@ function createLearningTargetModule(spec) {
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
   });
+}
+function learningTargetExperiences(spec) {
+  return Object.freeze({
+  characterLookup: "term-dictionary",
+  morphology: morphologyExperience(spec),
+  readingAnnotation: "dictionary-reading",
+  frequency: "dictionary-rank-or-context-occurrences",
+  audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
+  ocr: "target-locale",
+  handwriting: "self-check",
+  ...spec.experiences
+  });
+}
+function morphologyExperience(spec) {
+  return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+}
+function inferredMorphologyExperience(spec) {
+  if (spec.lookupCandidates) return "deinflection";
+  return hasBoundedMorphology(spec) ? "bounded-rewrites" : "dictionary-forms";
+}
+function hasBoundedMorphology(spec) {
+  if (spec.lookupRewrites?.length) return true;
+  return Boolean(spec.lookupSubsegments);
+}
+function audioExperience(recordedWordAudio) {
+  return recordedWordAudio ? "recorded-and-speech-synthesis" : "speech-synthesis";
 }
 function maximizedLocaleTag(language) {
   try {
@@ -7946,15 +7772,11 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   language: "ja",
   direction: "ltr",
   collationLocale: "ja",
-  capabilities: {
-  "character-lookup": true,
-  morphology: true,
-  "reading-annotation": true,
-  frequency: true,
-  examples: true,
-  audio: true,
-  ocr: true,
-  handwriting: true
+  experiences: {
+  characterLookup: "character-dictionary",
+  morphology: "deinflection",
+  audio: "recorded-and-speech-synthesis",
+  handwriting: "stroke-feedback"
   },
   featureSemantics: {
   characterSystem: "kanji",
@@ -7978,7 +7800,8 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   },
   audio: {
   speechSynthesisLocale: "ja-JP",
-  templateLanguageToken: "ja"
+  templateLanguageToken: "ja",
+  recordedWordAudio: true
   },
   ocr: {
   defaultLanguage: "ja-JP",
@@ -8213,1462 +8036,1962 @@ const GERMAN_GRAMMAR = createLearningTargetGrammar({
   }
   ]
 });
-const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
-const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
-const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
-const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
-const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
-const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
-const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
-  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-  referenceUrl: CORNELL_GRAMMAR,
-  rules: [
-  {
-    ruleId: "ru-a1-kto-chto-eto",
-    level: "A1",
-    name: "Кто/что это? identification question",
-    displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
-    patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
-    priority: 10,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=19`
-  },
-  {
-    ruleId: "ru-a1-possessive-starter",
-    level: "A1",
-    name: "Possession with это + possessive",
-    displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
-    patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
-    priority: 12,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=19`
-  },
-  {
-    ruleId: "ru-a1-request-imperative",
-    level: "A1",
-    name: "Requests with дай(те), скажи(те), покажи(те)",
-    displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
-    patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
-    priority: 14,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=20`
-  },
-  {
-    ruleId: "ru-a1-dative-nravitsya",
-    level: "A1",
-    name: "нравится with a dative experiencer",
-    displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
-    patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
-    priority: 16,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=21`
-  },
-  {
-    ruleId: "ru-a1-potomu-chto",
-    level: "A1",
-    name: "Reason with потому что",
-    displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
-    patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
-    priority: 18,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=22`
-  },
-  {
-    ruleId: "ru-a1-gde-mozhno-infinitive",
-    level: "A1",
-    name: "Где можно + infinitive",
-    displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
-    priority: 20,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=22`
-  },
-  {
-    ruleId: "ru-a1-want-can-infinitive",
-    level: "A1",
-    name: "хотеть/мочь + infinitive",
-    displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
-    priority: 22,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=23`
-  },
-  {
-    ruleId: "ru-a1-need-infinitive",
-    level: "A1",
-    name: "Necessity with надо/нужно",
-    displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
-    patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
-    priority: 24,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=24`
-  }
-  ]
+const FOUNDATION_LEVEL = "Foundation";
+const HSK_STANDARD_COURSE_LEVEL_SCALE = Object.freeze({
+  id: "hsk-standard-course",
+  levels: Object.freeze(["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"])
 });
-const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
-const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
-const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
-const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
-const SPANISH_GRAMMAR = createLearningTargetGrammar({
-  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-  referenceUrl: CERVANTES_A1_A2,
-  rules: [
-  {
-    ruleId: "es-me-gusta-infinitive",
-    level: "A1",
-    name: "gustar + infinitive",
-    displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 10,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p1223a1`
-  },
-  {
-    ruleId: "es-existential-hay",
-    level: "A1",
-    name: "Existence with hay",
-    displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
-    patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
-    priority: 12,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p133a1`
-  },
-  {
-    ruleId: "es-causal-porque",
-    level: "A1",
-    name: "Reason with porque",
-    displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
-    patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
-    priority: 14,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p1534a1`
-  },
-  {
-    ruleId: "es-negation-no",
-    level: "A1",
-    name: "Verb negation with no",
-    displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
-    patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
-    priority: 16,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p133a1`
-  },
-  {
-    ruleId: "es-present-perfect",
-    level: "A2",
-    name: "Present perfect",
-    displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
-    patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
-    priority: 18,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p916a2`
-  },
-  {
-    ruleId: "es-estar-gerundio",
-    level: "A2",
-    name: "Progressive with estar",
-    displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
-    patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
-    priority: 20,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p942a2`
-  },
-  {
-    ruleId: "es-tener-que",
-    level: "A2",
-    name: "Obligation with tener que",
-    displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 22,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p121a2`
-  },
-  {
-    ruleId: "es-ir-a-infinitive",
-    level: "A2",
-    name: "Near future with ir a",
-    displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 24,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p121a2`
-  }
-  ]
+const YEE_CEFR_BAND_LEVEL_SCALE = Object.freeze({
+  id: "tr-yee-cefr-band",
+  levels: Object.freeze(["A1–A2"])
 });
-function referenceOnly(referenceUrl) {
-  return createLearningTargetGrammar({ referenceUrl });
+function foundationScale(id) {
+  return Object.freeze({ id, levels: Object.freeze([FOUNDATION_LEVEL]) });
 }
-const GRAMMAR_BY_TARGET = Object.freeze({
-  sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-  grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-  ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-  yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-  zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-  da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-  nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-  en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-  fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
-  fr: FRENCH_GRAMMAR,
-  de: GERMAN_GRAMMAR,
-  el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-  hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-  id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-  it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-  km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-  ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-  lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-  la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-  mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-  fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-  pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-  pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-  ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
-  ru: RUSSIAN_GRAMMAR,
-  sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
-  es: SPANISH_GRAMMAR,
-  sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-  tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-  th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-  tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-  vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
-});
-function grammarForRosterTarget(language) {
-  return GRAMMAR_BY_TARGET[language];
+function oneRuleGrammar(referenceUrl, levelScale, rule) {
+  return createLearningTargetGrammar({ referenceUrl, levelScale, rules: [rule] });
 }
-const KOREAN_SEGMENT_SUFFIXES = [
-  "에게서",
-  "이라고",
-  "으로",
-  "에서",
-  "에게",
-  "한테",
-  "까지",
-  "부터",
-  "처럼",
-  "보다",
-  "에는",
-  "라고",
-  "하고",
-  "은",
-  "는",
-  "이",
-  "가",
-  "을",
-  "를",
-  "의",
-  "에",
-  "와",
-  "과",
-  "로",
-  "도",
-  "만"
-];
-const REWRITES = {
-  es: [
-  { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
-  { suffix: "es", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "s", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
-  ],
-  de: [
-  { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
-  { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-  { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-  { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
-  ],
-  ru: [
-  { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
-  { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
-  ],
-  ar: [
-  { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
-  { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
-  { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
-  { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
-  { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
-  { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
-  { prefix: "ال", minStemLength: 3, reason: "article prefix" },
-  { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
-  { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
-  { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
-  { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
-  ]
-};
-function lookupRewritesForTarget(target) {
-  return REWRITES[target] ?? [];
-}
-function koreanLookupSubsegments(segment, maxLength) {
-  const candidates = /* @__PURE__ */ new Set();
-  if (segment.length <= maxLength) candidates.add(segment);
-  for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
-  if (!segment.endsWith(suffix)) continue;
-  const stem = segment.slice(0, -suffix.length);
-  if (stem && stem.length <= maxLength) candidates.add(stem);
-  }
-  return [...candidates];
-}
-const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
-const KOREAN_LEARNING_TARGET = createLearningTargetModule({
-  id: "korean-thin-v1",
-  language: "ko",
-  capabilities: {
-  "reading-annotation": true,
-  ocr: true,
-  // Korean is a hand-written module rather than a generic roster entry, so it
-  // misses anything the roster loop derives. Tatoeba mounts for ko with text
-  // availability 'available' exactly as it does for the other 31 — caught by the
-  // registry-agreement assertion in learning-target-contract.test.ts, which is
-  // the whole reason that test exists.
-  examples: true
-  },
-  featureSemantics: {
-  characterSystem: "hangul",
-  phoneticScripts: ["hangul"],
-  pronunciation: "ipa",
-  readingAnnotation: "hangul"
-  },
-  grammar: grammarForRosterTarget("ko"),
-  typography: {
-  readingAnnotationMode: "ruby"
-  },
-  subtitles: {
-  languageAliases: ["kor", "korean"]
-  },
-  // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
-  // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
-  lookupStartsAtSegmentBoundary: false,
-  lookupSubsegments: koreanLookupSubsegments,
-  detectsText: HAS_HANGUL
-});
-const ENGLISH_FALLBACK_MESSAGES = {
-  setupTitle: "Set up Yomu in your language",
-  learnerLanguageLabel: "Your language",
-  targetLanguageLabel: "Language you are learning",
-  targetJapanese: "Japanese",
-  recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-  automaticTranslationLabel: "Translate automatically into {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-  setupProgress: "Language setup {current} of {total}",
-  continueAction: "Continue",
-  originalDefinitionLabel: "Original {language}",
-  // D43: a locale that is in scope but not yet selectable says why, in its own
-  // language, so the person who came looking for it can read the answer. The
-  // interface never offers one of these and then quietly speaks English.
-  interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
-  interfaceTranslationPending: "Translation is still in progress."
-};
-function defineLocaleCatalog(locale, reviewStatus, messages) {
-  return Object.freeze({
-  locale,
-  reviewStatus,
-  sourceLocale: "en",
-  messages: Object.freeze(messages)
+function foundationGrammar(targetScaleId, referenceUrl, rule) {
+  return oneRuleGrammar(referenceUrl, foundationScale(targetScaleId), {
+  ...rule,
+  level: FOUNDATION_LEVEL
   });
 }
-defineLocaleCatalog("ar", "machine-draft", {
-  setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-  learnerLanguageLabel: "لغتك",
-  targetLanguageLabel: "اللغة التي تتعلمها",
-  targetJapanese: "اليابانية",
-  recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-  automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-  dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-  setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-  continueAction: "متابعة",
-  originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
-  interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
-  interfaceTranslationPending: "الترجمة قيد التقدم."
-});
-defineLocaleCatalog("da", "machine-draft", {
-  setupTitle: "Opsæt よむ på dit sprog",
-  learnerLanguageLabel: "Dit sprog",
-  targetLanguageLabel: "Det sprog, du lærer",
-  targetJapanese: "Japansk",
-  recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-  automaticTranslationLabel: "Oversæt automatisk til {language}",
-  dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-  setupProgress: "Sprogopsætning: {current} af {total}",
-  continueAction: "Fortsæt",
-  originalDefinitionLabel: "Original på {language}",
-  interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
-  interfaceTranslationPending: "Oversættelsen er stadig i gang."
-});
-defineLocaleCatalog("de", "machine-draft", {
-  setupTitle: "よむ in deiner Sprache einrichten",
-  learnerLanguageLabel: "Deine Sprache",
-  targetLanguageLabel: "Sprache, die du lernst",
-  targetJapanese: "Japanisch",
-  recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-  automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-  dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-  setupProgress: "Sprache einrichten: {current} von {total}",
-  continueAction: "Weiter",
-  originalDefinitionLabel: "Originaldefinition auf {language}",
-  interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
-  interfaceTranslationPending: "Die Übersetzung läuft noch."
-});
-defineLocaleCatalog("el", "machine-draft", {
-  setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-  learnerLanguageLabel: "Η γλώσσα σας",
-  targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-  targetJapanese: "Ιαπωνικά",
-  recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-  automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-  dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-  setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-  continueAction: "Συνέχεια",
-  originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
-  interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
-  interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
-});
-defineLocaleCatalog(
-  "en",
-  "source-approved",
-  ENGLISH_FALLBACK_MESSAGES
-);
-defineLocaleCatalog("es", "machine-draft", {
-  setupTitle: "Configura Yomu en tu idioma",
-  learnerLanguageLabel: "Tu idioma",
-  targetLanguageLabel: "Idioma que estás aprendiendo",
-  targetJapanese: "Japonés",
-  recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-  automaticTranslationLabel: "Traducir automáticamente al {language}",
-  dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-  setupProgress: "Configuración del idioma: {current} de {total}",
-  continueAction: "Continuar",
-  originalDefinitionLabel: "Definición original ({language})",
-  interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
-  interfaceTranslationPending: "La traducción sigue en curso."
-});
-defineLocaleCatalog("fa", "machine-draft", {
-  setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-  learnerLanguageLabel: "زبان شما",
-  targetLanguageLabel: "زبانی که یاد می‌گیرید",
-  targetJapanese: "ژاپنی",
-  recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-  automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-  dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-  setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-  continueAction: "ادامه",
-  originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
-  interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
-  interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
-});
-defineLocaleCatalog("fi", "machine-draft", {
-  setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-  learnerLanguageLabel: "Oma kielesi",
-  targetLanguageLabel: "Opiskelemasi kieli",
-  targetJapanese: "Japani",
-  recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-  automaticTranslationLabel: "Käännä automaattisesti: {language}",
-  dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-  setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-  continueAction: "Jatka",
-  originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
-  interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
-  interfaceTranslationPending: "Käännös on vielä kesken."
-});
-defineLocaleCatalog("fr", "machine-draft", {
-  setupTitle: "Configurez よむ dans votre langue",
-  learnerLanguageLabel: "Votre langue",
-  targetLanguageLabel: "Langue que vous apprenez",
-  targetJapanese: "Japonais",
-  recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-  automaticTranslationLabel: "Traduire automatiquement en {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-  setupProgress: "Configuration de la langue : {current} sur {total}",
-  continueAction: "Continuer",
-  originalDefinitionLabel: "Définition originale en {language}",
-  interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
-  interfaceTranslationPending: "La traduction est en cours."
-});
-defineLocaleCatalog("grc", "machine-draft", {
-  setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-  learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-  targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-  targetJapanese: "Ἰαπωνική",
-  recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-  automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-  dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-  setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-  continueAction: "Πρόβαινε",
-  originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
-  interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
-  interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
-});
-defineLocaleCatalog("hu", "machine-draft", {
-  setupTitle: "A よむ beállítása az Ön nyelvén",
-  learnerLanguageLabel: "Az Ön nyelve",
-  targetLanguageLabel: "A tanult nyelv",
-  targetJapanese: "Japán",
-  recommendedDictionariesTitle: "Ajánlott japán szótárak",
-  automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-  dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-  setupProgress: "Nyelvi beállítás: {current}/{total}",
-  continueAction: "Folytatás",
-  originalDefinitionLabel: "Eredeti meghatározás ({language})",
-  interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
-  interfaceTranslationPending: "A fordítás még folyamatban van."
-});
-defineLocaleCatalog("id", "machine-draft", {
-  setupTitle: "Siapkan Yomu dalam bahasa Anda",
-  learnerLanguageLabel: "Bahasa Anda",
-  targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-  targetJapanese: "Bahasa Jepang",
-  recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-  automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-  dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-  setupProgress: "Penyiapan bahasa {current} dari {total}",
-  continueAction: "Lanjutkan",
-  originalDefinitionLabel: "Definisi asli dalam {language}",
-  interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
-  interfaceTranslationPending: "Penerjemahan masih berlangsung."
-});
-defineLocaleCatalog("it", "machine-draft", {
-  setupTitle: "Configura よむ nella tua lingua",
-  learnerLanguageLabel: "La tua lingua",
-  targetLanguageLabel: "Lingua che stai imparando",
-  targetJapanese: "Giapponese",
-  recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-  automaticTranslationLabel: "Traduci automaticamente in {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-  setupProgress: "Configurazione della lingua: {current} di {total}",
-  continueAction: "Continua",
-  originalDefinitionLabel: "Definizione originale in {language}",
-  interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
-  interfaceTranslationPending: "La traduzione è ancora in corso."
-});
-defineLocaleCatalog("km", "machine-draft", {
-  setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-  learnerLanguageLabel: "ភាសារបស់អ្នក",
-  targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-  targetJapanese: "ភាសាជប៉ុន",
-  recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-  automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-  dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-  setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-  continueAction: "បន្ត",
-  originalDefinitionLabel: "និយមន័យដើម ({language})",
-  interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
-  interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
-});
-defineLocaleCatalog("ko", "machine-draft", {
-  setupTitle: "내 언어로 よむ 설정하기",
-  learnerLanguageLabel: "사용 언어",
-  targetLanguageLabel: "학습할 언어",
-  targetJapanese: "일본어",
-  recommendedDictionariesTitle: "추천 일본어 사전",
-  automaticTranslationLabel: "{language}로 자동 번역",
-  dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-  setupProgress: "언어 설정: {total}단계 중 {current}단계",
-  continueAction: "계속",
-  originalDefinitionLabel: "원문({language})",
-  interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
-  interfaceTranslationPending: "번역이 아직 진행 중입니다."
-});
-defineLocaleCatalog("la", "machine-draft", {
-  setupTitle: "Configura よむ in lingua tua",
-  learnerLanguageLabel: "Lingua tua",
-  targetLanguageLabel: "Lingua quam discis",
-  targetJapanese: "Lingua Iaponica",
-  recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-  automaticTranslationLabel: "Automatice verte in {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-  setupProgress: "Configuratio linguae: {current} ex {total}",
-  continueAction: "Perge",
-  originalDefinitionLabel: "Definitio originalis ({language})",
-  interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
-  interfaceTranslationPending: "Translatio adhuc geritur."
-});
-defineLocaleCatalog("lo", "machine-draft", {
-  setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-  learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-  targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-  targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-  recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-  automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-  dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-  setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-  continueAction: "ສືບຕໍ່",
-  originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
-  interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
-  interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
-});
-defineLocaleCatalog("mn", "machine-draft", {
-  setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-  learnerLanguageLabel: "Таны хэл",
-  targetLanguageLabel: "Таны сурч буй хэл",
-  targetJapanese: "Япон хэл",
-  recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-  automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-  dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-  setupProgress: "Хэлний тохиргоо: {current}/{total}",
-  continueAction: "Үргэлжлүүлэх",
-  originalDefinitionLabel: "Эх тайлбар ({language})",
-  interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
-  interfaceTranslationPending: "Орчуулга хийгдсээр байна."
-});
-defineLocaleCatalog("nl", "machine-draft", {
-  setupTitle: "Stel よむ in jouw taal in",
-  learnerLanguageLabel: "Jouw taal",
-  targetLanguageLabel: "Taal die je leert",
-  targetJapanese: "Japans",
-  recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-  automaticTranslationLabel: "Automatisch vertalen naar {language}",
-  dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-  setupProgress: "Taal instellen: {current} van {total}",
-  continueAction: "Doorgaan",
-  originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
-  interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
-  interfaceTranslationPending: "De vertaling is nog bezig."
-});
-defineLocaleCatalog("pl", "machine-draft", {
-  setupTitle: "Skonfiguruj Yomu w swoim języku",
-  learnerLanguageLabel: "Twój język",
-  targetLanguageLabel: "Język, którego się uczysz",
-  targetJapanese: "Japoński",
-  recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-  automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-  dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-  setupProgress: "Konfiguracja języka: {current} z {total}",
-  continueAction: "Kontynuuj",
-  originalDefinitionLabel: "Oryginalna definicja ({language})",
-  interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
-  interfaceTranslationPending: "Tłumaczenie wciąż trwa."
-});
-defineLocaleCatalog("pt", "machine-draft", {
-  setupTitle: "Configure o Yomu no seu idioma",
-  learnerLanguageLabel: "O seu idioma",
-  targetLanguageLabel: "Idioma que está a aprender",
-  targetJapanese: "Japonês",
-  recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-  automaticTranslationLabel: "Traduzir automaticamente para {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-  setupProgress: "Configuração do idioma: {current} de {total}",
-  continueAction: "Continuar",
-  originalDefinitionLabel: "Definição original ({language})",
-  interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
-  interfaceTranslationPending: "A tradução ainda está em andamento."
-});
-defineLocaleCatalog("ro", "machine-draft", {
-  setupTitle: "Configurează Yomu în limba ta",
-  learnerLanguageLabel: "Limba ta",
-  targetLanguageLabel: "Limba pe care o înveți",
-  targetJapanese: "Japoneză",
-  recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-  automaticTranslationLabel: "Tradu automat în {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-  setupProgress: "Configurarea limbii: {current} din {total}",
-  continueAction: "Continuă",
-  originalDefinitionLabel: "Definiția originală în {language}",
-  interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
-  interfaceTranslationPending: "Traducerea este încă în curs."
-});
-defineLocaleCatalog("ru", "machine-draft", {
-  setupTitle: "Настройте Yomu на своём языке",
-  learnerLanguageLabel: "Ваш язык",
-  targetLanguageLabel: "Язык, который вы изучаете",
-  targetJapanese: "Японский",
-  recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-  automaticTranslationLabel: "Автоматически переводить на {language}",
-  dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-  setupProgress: "Настройка языка: {current} из {total}",
-  continueAction: "Продолжить",
-  originalDefinitionLabel: "Оригинал определения ({language})",
-  interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
-  interfaceTranslationPending: "Перевод ещё выполняется."
-});
-defineLocaleCatalog("sh", "machine-draft", {
-  setupTitle: "Podesite Yomu na svom jeziku",
-  learnerLanguageLabel: "Vaš jezik",
-  targetLanguageLabel: "Jezik koji učite",
-  targetJapanese: "Japanski",
-  recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-  automaticTranslationLabel: "Automatski prevod na jezik {language}",
-  dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-  setupProgress: "Podešavanje jezika: {current} od {total}",
-  continueAction: "Nastavi",
-  originalDefinitionLabel: "Originalna definicija ({language})",
-  interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
-  interfaceTranslationPending: "Prijevod je još u toku."
-});
-defineLocaleCatalog("sq", "machine-draft", {
-  setupTitle: "Konfiguro よむ në gjuhën tënde",
-  learnerLanguageLabel: "Gjuha jote",
-  targetLanguageLabel: "Gjuha që po mëson",
-  targetJapanese: "Japonisht",
-  recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-  automaticTranslationLabel: "Përkthe automatikisht në {language}",
-  dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-  setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-  continueAction: "Vazhdo",
-  originalDefinitionLabel: "Origjinali në {language}",
-  interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
-  interfaceTranslationPending: "Përkthimi është në vazhdim."
-});
-defineLocaleCatalog("sv", "machine-draft", {
-  setupTitle: "Ställ in よむ på ditt språk",
-  learnerLanguageLabel: "Ditt språk",
-  targetLanguageLabel: "Språket du lär dig",
-  targetJapanese: "Japanska",
-  recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-  automaticTranslationLabel: "Översätt automatiskt till {language}",
-  dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-  setupProgress: "Språkinställning: {current} av {total}",
-  continueAction: "Fortsätt",
-  originalDefinitionLabel: "Ursprunglig definition på {language}",
-  interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
-  interfaceTranslationPending: "Översättningen pågår fortfarande."
-});
-defineLocaleCatalog("th", "machine-draft", {
-  setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-  learnerLanguageLabel: "ภาษาของคุณ",
-  targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-  targetJapanese: "ภาษาญี่ปุ่น",
-  recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-  automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-  dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-  setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-  continueAction: "ดำเนินการต่อ",
-  originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
-  interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
-  interfaceTranslationPending: "การแปลยังดำเนินอยู่"
-});
-defineLocaleCatalog("tl", "machine-draft", {
-  setupTitle: "I-set up ang Yomu sa iyong wika",
-  learnerLanguageLabel: "Iyong wika",
-  targetLanguageLabel: "Wikang pinag-aaralan mo",
-  targetJapanese: "Wikang Hapon",
-  recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-  automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-  dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-  setupProgress: "Pag-set up ng wika: {current} sa {total}",
-  continueAction: "Magpatuloy",
-  originalDefinitionLabel: "Orihinal na depinisyon ({language})",
-  interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
-  interfaceTranslationPending: "Isinasalin pa ito."
-});
-defineLocaleCatalog("tr", "machine-draft", {
-  setupTitle: "Yomu'yu dilinizde ayarlayın",
-  learnerLanguageLabel: "Diliniz",
-  targetLanguageLabel: "Öğrendiğiniz dil",
-  targetJapanese: "Japonca",
-  recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-  automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-  dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-  setupProgress: "Dil ayarı: {current}/{total}",
-  continueAction: "Devam et",
-  originalDefinitionLabel: "Orijinal tanım ({language})",
-  interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
-  interfaceTranslationPending: "Çeviri hâlâ sürüyor."
-});
-defineLocaleCatalog("vi", "machine-draft", {
-  setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-  learnerLanguageLabel: "Ngôn ngữ của bạn",
-  targetLanguageLabel: "Ngôn ngữ bạn đang học",
-  targetJapanese: "Tiếng Nhật",
-  recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-  automaticTranslationLabel: "Tự động dịch sang {language}",
-  dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-  setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-  continueAction: "Tiếp tục",
-  originalDefinitionLabel: "Định nghĩa gốc ({language})",
-  interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
-  interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
-});
-defineLocaleCatalog("yue", "machine-draft", {
-  setupTitle: "用你嘅語言設定よむ",
-  learnerLanguageLabel: "你嘅語言",
-  targetLanguageLabel: "你學緊嘅語言",
-  targetJapanese: "日文",
-  recommendedDictionariesTitle: "推薦嘅日文字典",
-  automaticTranslationLabel: "自動翻譯做{language}",
-  dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-  setupProgress: "語言設定：第{current}步，共{total}步",
-  continueAction: "繼續",
-  originalDefinitionLabel: "原文（{language}）",
-  interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
-  interfaceTranslationPending: "翻譯仲進行中。"
-});
-defineLocaleCatalog("zh", "machine-draft", {
-  setupTitle: "用您的语言设置よむ",
-  learnerLanguageLabel: "您的语言",
-  targetLanguageLabel: "您正在学习的语言",
-  targetJapanese: "日语",
-  recommendedDictionariesTitle: "推荐日语词典",
-  automaticTranslationLabel: "自动翻译为{language}",
-  dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-  setupProgress: "语言设置：第{current}步，共{total}步",
-  continueAction: "继续",
-  originalDefinitionLabel: "{language}原文",
-  interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
-  interfaceTranslationPending: "翻译仍在进行中。"
-});
-const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
-new Set(MESSAGE_NAMESPACES);
-const OCR_LANGUAGE_HINTS = Object.freeze({
-  fil: "tl",
-  yue: "zh",
-  grc: "el"
-});
-const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-  LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
-  const lookupRewrites = lookupRewritesForTarget(language.id);
-  const readingAnnotation = language.id === "zh" || language.id === "yue";
-  const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
-  return createLearningTargetModule({
-    id: `${language.id}-roster-v1`,
-    language: language.runtimeLocale,
-    direction: language.direction,
-    capabilities: {
-      morphology: lookupRewrites.length > 0,
-      "reading-annotation": readingAnnotation,
-      // MEASURED against config/dictionaries/published/v1/catalog.json
-      // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
-      // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
-      // so two capabilities the shipped catalogue already supplies were
-      // switched off for the languages that can use them. The Han branch
-      // is where the data is, and character-lookup already gates on
-      // isUnifiedIdeograph as well, so this reaches only real Han runs —
-      // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
-      // pitch out, exactly as character-lookup.ts anticipated.
-      "character-lookup": usesHanScript,
-      frequency: usesHanScript,
-      // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
-      // is a registered, mounted, licence-checked example source for
-      // every non-Japanese target and reports text availability
-      // 'available' for all of them (Japanese uses Immersion Kit
-      // instead, which is why it is declared separately). The flag said
-      // Japanese-only, so 32 languages that already had example
-      // sentences were reporting none. Audio is deliberately NOT implied
-      // here — Tatoeba answers 'per-item' for audio and outright 'none'
-      // for the smaller corpora, so a boolean would overclaim it.
-      // tests/reader/languages/learning-target-contract.test.ts asserts
-      // this against the live registry so it cannot go stale again.
-      examples: true
-    },
+const ALBANIAN_EXISTENTIALS = "https://edizionicafoscari.unive.it/media/pdf/journals/balcania-et-slavia/2024/1/iss-4-1-2024.pdf#page=18";
+const CLASSICAL_GREEK_ONLINE = "https://lrc.la.utexas.edu/eieol/grkol/0";
+const MSA_NOMINAL_SENTENCES = "https://openbooks.lib.msu.edu/elemarabicll/chapter/grammar-2/";
+const CUHK_CANTONESE_NEGATION = "https://www.cuhk.edu.hk/lin/cbrc/CantoneseGrammar/multimedia/13.htm";
+const HSK_STANDARD_COURSE_3 = "https://www.hskstandardcourse.com/hsk-standard-course-level-3/";
+const PRINCETON_YUELAIYUE = "https://commons.princeton.edu/chinesecharacters/%E8%B6%8A%E6%9D%A5%E8%B6%8A/";
+const DANISH_PRESENTATIVE_DER = "https://ordnet.dk/ddo/ordbog/der";
+const DUTCH_PRESENTATIVE_ER = "https://onzetaal.nl/taalloket/wel-of-geen-er";
+const BRITISH_COUNCIL_THERE = "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/using-there-there-are";
+const FINNISH_POSSESSION = "https://kielitoimistonohjepankki.fi/ohje/lauseenvastikkeet-tehdakseen-rakenne-pelaan-voittaakseni-rakenteen-tekija/";
+const GREEK_NEGATION = "https://www.greek-language.gr/digitalResources/modern_greek/tools/lexica/glossology_edu/iframe.html?heading=2&id=173";
+const HUNGARIAN_POSSESSION = "https://www.gutenberg.org/files/76725/76725-h/76725-h.htm";
+const INDONESIAN_NEGATIVE_EXISTENTIAL = "https://seasite.niu.edu/flin/archive/103_handouts/sentences_and_phrases.htm";
+const ITALIAN_PRESENTATIVE_CI = "https://www.treccani.it/enciclopedia/ci_%28La-grammatica-italiana%29/";
+const KHMER_NEGATION = "https://seasite.niu.edu/khmer/grammar_note/grammar_note7/grammar_note7_text.htm";
+const KOREAN_DESIRE = "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=62657";
+const LAO_NEGATION = "https://seasite.niu.edu/lao/LaoLanguage/grammar_notes/grammar2.htm";
+const LATIN_NEGATIVE_COPULA = "https://www.usu.edu/markdamen/Latin1000/Presentation/transcriptions/04T.pdf";
+const MONGOLIAN_NEGATION = "https://library.huree.edu.mn/data/201021/2023-05-19/An%20Elementary%20Mongolian%20Grammar%20%28%20PDFDrive.com%20%29.pdf";
+const PERSIAN_NEGATIVE_COPULA = "https://sites.la.utexas.edu/persian_online_resources/verbs/long-copulas-1/";
+const POLISH_NEGATIVE_EXISTENTIAL = "https://zpe.gov.pl/a/odmiana-rzeczownika-i-przymiotnika/D1DL299KT";
+const PORTUGUESE_EXISTENTIAL_HAVER = "https://ciberduvidas.iscte-iul.pt/consultorio/perguntas/haverexistir/3409";
+const ROMANIAN_NECESSITY = "https://slaviccenters.duke.edu/sites/slaviccenters.duke.edu/files/site-images/2016_romanian_verbs_conjugated.pdf";
+const CROATIAN_EXISTENTIAL_NEMA = "https://bosnian.coerll.utexas.edu/c8/m2/lekcija1/grammar/";
+const SWEDISH_PRESENTATIVE_FINNS = "https://svenska.se/grammatik/";
+const TAGALOG_EXISTENTIALS = "https://seasite.niu.edu/trans/tagalog/Grammar%201/Sentences1/Existential_Sentences.htm";
+const THAI_COPULAR_NEGATION = "https://seasite.niu.edu/thai/FLTH/1styearthai.htm";
+const YEE_A1_A2 = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden-turkce.";
+const YEE_VAR_YOK = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden4/hayatin-icinden4";
+const VIETNAMESE_COMPLETION = "https://seasite.niu.edu/vietnamese/uniLesson8/L8_grammar.htm";
+const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
+  sq: foundationGrammar("sq-foundation", ALBANIAN_EXISTENTIALS, {
+  ruleId: "sq-existential-ka-ketu",
+  name: "Existence with ka … këtu",
+  displayNames: { en: "Existence with ka … këtu", ja: "ka … këtu の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Kk]a\s+\p{L}+(?:-\p{L}+)?\s+këtu(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: ALBANIAN_EXISTENTIALS
+  }),
+  grc: foundationGrammar("grc-classical-foundation", CLASSICAL_GREEK_ONLINE, {
+  ruleId: "grc-negation-ou",
+  name: "Negation with οὐ",
+  displayNames: { en: "Negation with οὐ", ja: "οὐ による否定" },
+  patternSource: String.raw`(?<!\p{L})(?:[Οο]ὐ|[Οο]ὐκ|[Οο]ὐχ)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: CLASSICAL_GREEK_ONLINE
+  }),
+  ar: foundationGrammar("ar-msa-foundation", MSA_NOMINAL_SENTENCES, {
+  ruleId: "ar-msa-laysa-negation",
+  name: "Nominal negation with laysa",
+  displayNames: { en: "Nominal negation with laysa", ja: "laysa（ليس）による名詞文の否定" },
+  patternSource: String.raw`(?<!\p{L})(?:ليس|ليست|لست|لسنا|لستم|لستن|ليسا|ليستا|ليسوا|لسن)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: MSA_NOMINAL_SENTENCES
+  }),
+  yue: foundationGrammar("yue-foundation", CUHK_CANTONESE_NEGATION, {
+  ruleId: "yue-copular-negation-m-haih",
+  name: "Copular negation with 唔係",
+  displayNames: { en: "Copular negation with 唔係", ja: "唔係 によるコピュラ否定" },
+  patternSource: String.raw`唔係`,
+  priority: 20,
+  confidence: "high",
+  url: CUHK_CANTONESE_NEGATION
+  }),
+  zh: oneRuleGrammar(HSK_STANDARD_COURSE_3, HSK_STANDARD_COURSE_LEVEL_SCALE, {
+  ruleId: "zh-hsk3-yuelaiyue",
+  level: "HSK 3",
+  name: "Increasing degree with 越来越",
+  displayNames: { en: "Increasing degree with 越来越", ja: "越来越 による程度変化" },
+  patternSource: String.raw`(?:越来越|越來越)(?:冷|热|熱|好|忙|难|難|喜欢|喜歡|想)`,
+  priority: 20,
+  confidence: "high",
+  url: PRINCETON_YUELAIYUE
+  }),
+  da: foundationGrammar("da-foundation", DANISH_PRESENTATIVE_DER, {
+  ruleId: "da-presentative-der-er",
+  name: "Presentative der er",
+  displayNames: { en: "Presentative der er", ja: "der er の存在構文" },
+  patternSource: String.raw`(?:^|(?<=[.!?…]\s))[Dd]er\s+er\s+(?:en|et|mange|ingen|to|tre|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DANISH_PRESENTATIVE_DER
+  }),
+  nl: foundationGrammar("nl-foundation", DUTCH_PRESENTATIVE_ER, {
+  ruleId: "nl-presentative-er-is-zijn",
+  name: "Presentative er is / er zijn",
+  displayNames: { en: "Presentative er is / er zijn", ja: "er is / er zijn の存在構文" },
+  patternSource: String.raw`(?<!\p{L})[Ee]r\s+(?:is|zijn)\s+(?:een|geen|veel|twee|drie|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DUTCH_PRESENTATIVE_ER
+  }),
+  en: oneRuleGrammar(BRITISH_COUNCIL_THERE, CEFR_GRAMMAR_LEVEL_SCALE, {
+  ruleId: "en-a1-there-is-are",
+  level: "A1",
+  name: "Existence with there is / there are",
+  displayNames: { en: "Existence with there is / there are", ja: "there is / there are の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]here\s+(?:is|are)\s+(?:a|an|some|many|no|one|two|three|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: BRITISH_COUNCIL_THERE
+  }),
+  fi: foundationGrammar("fi-foundation", FINNISH_POSSESSION, {
+  ruleId: "fi-adessive-possession",
+  name: "Possession with adessive + on",
+  displayNames: { en: "Possession with adessive + on", ja: "接格 ＋ on の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Mm]inulla|[Ss]inulla|[Hh]änellä|[Mm]eillä|[Tt]eillä|[Hh]eillä)\s+on(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: FINNISH_POSSESSION
+  }),
+  el: foundationGrammar("el-modern-foundation", GREEK_NEGATION, {
+  ruleId: "el-indicative-negation-den",
+  name: "Indicative negation with δεν",
+  displayNames: { en: "Indicative negation with δεν", ja: "δεν による直説法の否定" },
+  patternSource: String.raw`(?<!\p{L})[Δδ]εν\s+\p{L}{2,}(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: GREEK_NEGATION
+  }),
+  hu: foundationGrammar("hu-foundation", HUNGARIAN_POSSESSION, {
+  ruleId: "hu-dative-possession-van",
+  name: "Possession with dative + van",
+  displayNames: { en: "Possession with dative + van", ja: "与格 ＋ van の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Nn]ekem|[Nn]eked|[Nn]eki|[Nn]ekünk|[Nn]ektek|[Nn]ekik)\s+van(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: HUNGARIAN_POSSESSION
+  }),
+  id: foundationGrammar("id-foundation", INDONESIAN_NEGATIVE_EXISTENTIAL, {
+  ruleId: "id-negative-existential-tidak-ada",
+  name: "Negative existence with tidak ada",
+  displayNames: { en: "Negative existence with tidak ada", ja: "tidak ada の否定存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]idak\s+ada(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: INDONESIAN_NEGATIVE_EXISTENTIAL
+  }),
+  it: foundationGrammar("it-foundation", ITALIAN_PRESENTATIVE_CI, {
+  ruleId: "it-presentative-ci",
+  name: "Presentative c’è / ci sono",
+  displayNames: { en: "Presentative c’è / ci sono", ja: "c’è / ci sono の存在構文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Cc][’']è|[Cc]i\s+sono)\s+(?:un|uno|una|due|tre|molti|molte|alcuni|alcune)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ITALIAN_PRESENTATIVE_CI
+    }),
+    km: foundationGrammar("km-foundation", KHMER_NEGATION, {
+      ruleId: "km-discontinuous-negation",
+      name: "Discontinuous negation with មិន … ទេ",
+      displayNames: { en: "Discontinuous negation with មិន … ទេ", ja: "មិន … ទេ の呼応否定" },
+      patternSource: String.raw`មិន[^\n។៕!?]{1,50}?ទេ`,
+      priority: 20,
+      confidence: "high",
+      url: KHMER_NEGATION
+    }),
+    ko: foundationGrammar("ko-foundation", KOREAN_DESIRE, {
+      ruleId: "ko-desire-go-sipda",
+      name: "Desire with -고 싶다",
+      displayNames: { en: "Desire with -고 싶다", ja: "-고 싶다（希望）" },
+      patternSource: String.raw`[가-힣]{1,8}고\s+싶(?:다|어요|습니다|어|었어요|었다|습니까|니|죠)(?![가-힣])`,
+      priority: 20,
+      confidence: "high",
+      url: KOREAN_DESIRE
+    }),
+    lo: foundationGrammar("lo-foundation", LAO_NEGATION, {
+      ruleId: "lo-preverbal-negation-bo",
+      name: "Preverbal negation with ບໍ່",
+      displayNames: { en: "Preverbal negation with ບໍ່", ja: "ບໍ່ による動詞・形容詞の否定" },
+      patternSource: String.raw`ບໍ່\s*(?:ແມ່ນ|ໄປ|ມາ|ມັກ|ດີ|ງາມ|ຮູ້)`,
+      priority: 20,
+      confidence: "high",
+      url: LAO_NEGATION
+    }),
+    la: foundationGrammar("la-classical-foundation", LATIN_NEGATIVE_COPULA, {
+      ruleId: "la-negative-copula-non-est",
+      name: "Negative copula with nōn est",
+      displayNames: { en: "Negative copula with nōn est", ja: "nōn est によるコピュラ否定" },
+      patternSource: String.raw`(?<!\p{L})[Nn][oō]n\s+est(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: LATIN_NEGATIVE_COPULA
+    }),
+    mn: foundationGrammar("mn-khalkha-foundation", MONGOLIAN_NEGATION, {
+      ruleId: "mn-nominal-negation-bish",
+      name: "Nominal negation with биш",
+      displayNames: { en: "Nominal negation with биш", ja: "биш による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})биш(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MONGOLIAN_NEGATION
+    }),
+    fa: foundationGrammar("fa-iranian-foundation", PERSIAN_NEGATIVE_COPULA, {
+      ruleId: "fa-negative-long-copula",
+      name: "Negative long copula",
+      displayNames: { en: "Negative long copula", ja: "否定長形コピュラ نیست" },
+      patternSource: String.raw`(?<!\p{L})نیست(?:م|ی|یم|ید|ند)?(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PERSIAN_NEGATIVE_COPULA
+    }),
+    pl: foundationGrammar("pl-foundation", POLISH_NEGATIVE_EXISTENTIAL, {
+      ruleId: "pl-negative-existential-nie-ma",
+      name: "Absence or non-possession with nie ma + genitive",
+      displayNames: { en: "Absence or non-possession with nie ma + genitive", ja: "nie ma ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ie\s+ma(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: POLISH_NEGATIVE_EXISTENTIAL
+    }),
+    pt: foundationGrammar("pt-foundation", PORTUGUESE_EXISTENTIAL_HAVER, {
+      ruleId: "pt-existential-ha",
+      name: "Existence with impersonal há",
+      displayNames: { en: "Existence with impersonal há", ja: "非人称 há の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Hh]á\s+(?:um|uma|dois|duas|três|muitos|muitas|alguns|algumas)\s+(?:pessoas?|problemas?|livros?|casas?|lugares?)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PORTUGUESE_EXISTENTIAL_HAVER
+    }),
+    ro: foundationGrammar("ro-foundation", ROMANIAN_NECESSITY, {
+      ruleId: "ro-necessity-trebuie-sa",
+      name: "Necessity with trebuie să",
+      displayNames: { en: "Necessity with trebuie să", ja: "trebuie să による必要・義務" },
+      patternSource: String.raw`(?<!\p{L})[Tt]rebuie\s+să\s+\p{Ll}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ROMANIAN_NECESSITY
+    }),
+    sh: foundationGrammar("sh-shtokavian-foundation", CROATIAN_EXISTENTIAL_NEMA, {
+      ruleId: "sh-existential-nema-genitive",
+      name: "Absence or non-possession with nema + genitive",
+      displayNames: { en: "Absence or non-possession with nema + genitive", ja: "nema ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ema\s+(?:kave|kruha|vode|problema|vremena|ljudi)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CROATIAN_EXISTENTIAL_NEMA
+    }),
+    sv: foundationGrammar("sv-foundation", SWEDISH_PRESENTATIVE_FINNS, {
+      ruleId: "sv-presentative-det-finns",
+      name: "Presentative det finns",
+      displayNames: { en: "Presentative det finns", ja: "det finns の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Dd]et\s+finns\s+(?:en|ett|många|inga|två|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: SWEDISH_PRESENTATIVE_FINNS
+    }),
+    tl: foundationGrammar("tl-tagalog-foundation", TAGALOG_EXISTENTIALS, {
+      ruleId: "tl-existential-may-mayroon",
+      name: "Existence with may / mayroon",
+      displayNames: { en: "Existence with may / mayroon", ja: "may / mayroon の存在文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]ay|[Mm]ayroon(?:g)?)\s+(?:isang|mga|dalawang|tatlong|\p{L}{3,})(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: TAGALOG_EXISTENTIALS
+    }),
+    th: foundationGrammar("th-foundation", THAI_COPULAR_NEGATION, {
+      ruleId: "th-copular-negation-mai-chai",
+      name: "Copular negation with ไม่ใช่",
+      displayNames: { en: "Copular negation with ไม่ใช่", ja: "ไม่ใช่ によるコピュラ否定" },
+      patternSource: String.raw`ไม่ใช่`,
+      priority: 20,
+      confidence: "high",
+      url: THAI_COPULAR_NEGATION
+    }),
+    tr: oneRuleGrammar(YEE_A1_A2, YEE_CEFR_BAND_LEVEL_SCALE, {
+      ruleId: "tr-a1-a2-existence-var-yok",
+      level: "A1–A2",
+      name: "Existence or possession with var / yok",
+      displayNames: { en: "Existence or possession with var / yok", ja: "var / yok の存在・所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:bir\s+)?\p{L}{2,}\s+(?:var|yok)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: YEE_VAR_YOK
+    }),
+    vi: foundationGrammar("vi-foundation", VIETNAMESE_COMPLETION, {
+      ruleId: "vi-completed-da-roi",
+      name: "Completed action with đã … rồi",
+      displayNames: { en: "Completed action with đã … rồi", ja: "đã … rồi の完了表現" },
+      patternSource: String.raw`(?<!\p{L})[Đđ]ã\s+[^\n.!?]{1,50}?\s+rồi(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: VIETNAMESE_COMPLETION
+    })
+  });
+  const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
+  const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
+  const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
+  const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
+  const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
+  const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
+  const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CORNELL_GRAMMAR,
+    rules: [
+      {
+        ruleId: "ru-a1-kto-chto-eto",
+        level: "A1",
+        name: "Кто/что это? identification question",
+        displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
+        patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
+        priority: 10,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-possessive-starter",
+        level: "A1",
+        name: "Possession with это + possessive",
+        displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
+        patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-request-imperative",
+        level: "A1",
+        name: "Requests with дай(те), скажи(те), покажи(те)",
+        displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
+        patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
+        priority: 14,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=20`
+      },
+      {
+        ruleId: "ru-a1-dative-nravitsya",
+        level: "A1",
+        name: "нравится with a dative experiencer",
+        displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
+        patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=21`
+      },
+      {
+        ruleId: "ru-a1-potomu-chto",
+        level: "A1",
+        name: "Reason with потому что",
+        displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
+        patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-gde-mozhno-infinitive",
+        level: "A1",
+        name: "Где можно + infinitive",
+        displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-want-can-infinitive",
+        level: "A1",
+        name: "хотеть/мочь + infinitive",
+        displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=23`
+      },
+      {
+        ruleId: "ru-a1-need-infinitive",
+        level: "A1",
+        name: "Necessity with надо/нужно",
+        displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
+        patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=24`
+      }
+    ]
+  });
+  const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
+  const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
+  const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
+  const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
+  const SPANISH_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CERVANTES_A1_A2,
+    rules: [
+      {
+        ruleId: "es-me-gusta-infinitive",
+        level: "A1",
+        name: "gustar + infinitive",
+        displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 10,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1223a1`
+      },
+      {
+        ruleId: "es-existential-hay",
+        level: "A1",
+        name: "Existence with hay",
+        displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
+        patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-causal-porque",
+        level: "A1",
+        name: "Reason with porque",
+        displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
+        patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
+        priority: 14,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1534a1`
+      },
+      {
+        ruleId: "es-negation-no",
+        level: "A1",
+        name: "Verb negation with no",
+        displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
+        patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-present-perfect",
+        level: "A2",
+        name: "Present perfect",
+        displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
+        patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p916a2`
+      },
+      {
+        ruleId: "es-estar-gerundio",
+        level: "A2",
+        name: "Progressive with estar",
+        displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
+        patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p942a2`
+      },
+      {
+        ruleId: "es-tener-que",
+        level: "A2",
+        name: "Obligation with tener que",
+        displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      },
+      {
+        ruleId: "es-ir-a-infinitive",
+        level: "A2",
+        name: "Near future with ir a",
+        displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      }
+    ]
+  });
+  const GRAMMAR_BY_TARGET = Object.freeze({
+    sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+    grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+    ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+    yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+    zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+    da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+    nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+    en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+    fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
+    fr: FRENCH_GRAMMAR,
+    de: GERMAN_GRAMMAR,
+    el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+    hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+    id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+    it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+    km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+    ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+    lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+    la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+    mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+    fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+    pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+    pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+    ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
+    ru: RUSSIAN_GRAMMAR,
+    sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
+    es: SPANISH_GRAMMAR,
+    sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+    tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+    th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+    tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+    vi: FOUNDATION_GRAMMAR_BY_TARGET.vi
+  });
+  function grammarForRosterTarget(language) {
+    return GRAMMAR_BY_TARGET[language];
+  }
+  const KOREAN_SEGMENT_SUFFIXES = [
+    "에게서",
+    "이라고",
+    "으로",
+    "에서",
+    "에게",
+    "한테",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "에는",
+    "라고",
+    "하고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "의",
+    "에",
+    "와",
+    "과",
+    "로",
+    "도",
+    "만"
+  ];
+  const REWRITES = {
+    es: [
+      { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+      { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+    ],
+    de: [
+      { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+      { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+    ],
+    ru: [
+      { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+      { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+    ],
+    ar: [
+      { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+      { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+      { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+      { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+      { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+    ]
+  };
+  function lookupRewritesForTarget(target) {
+    return REWRITES[target] ?? [];
+  }
+  function koreanLookupSubsegments(segment, maxLength) {
+    const candidates = /* @__PURE__ */ new Set();
+    if (segment.length <= maxLength) candidates.add(segment);
+    for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+      if (!segment.endsWith(suffix)) continue;
+      const stem = segment.slice(0, -suffix.length);
+      if (stem && stem.length <= maxLength) candidates.add(stem);
+    }
+    return [...candidates];
+  }
+  const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
+  const KOREAN_LEARNING_TARGET = createLearningTargetModule({
+    id: "korean-thin-v1",
+    language: "ko",
     featureSemantics: {
-      characterSystem: language.defaultScript,
-      phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
+      characterSystem: "hangul",
+      phoneticScripts: ["hangul"],
       pronunciation: "ipa",
-      readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
+      readingAnnotation: "hangul"
     },
-    grammar: grammarForRosterTarget(language.id),
-    sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
-    typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
-    ocr: ocrHintFor(language.runtimeLocale),
-    detectsText: scriptDetector(language.scripts),
-    lookupRewrites,
-    ...usesHanScript ? {
-      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
-      // Let the installed dictionary arbitrate inside a real Han
-      // run, and accept expression hits only.
-      lookupStartsAtSegmentBoundary: false,
-      lookupRunSegments: hanIdeographSegments,
-      lookupSweepMode: "left-to-right-longest-exact",
-      pointerWordSegments: hanIdeographSegments
-    } : {}
+    grammar: grammarForRosterTarget("ko"),
+    typography: {
+      readingAnnotationMode: "ruby"
+    },
+    subtitles: {
+      languageAliases: ["kor", "korean"]
+    },
+    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+    lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
+    detectsText: HAS_HANGUL
   });
-  })
-);
-function sentenceBoundariesForScripts(scripts) {
-  const has = (script) => scripts.includes(script);
-  const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
-  const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
-  return { terminators, whitespaceIsBoundary };
-}
-function ocrHintFor(runtimeLocale) {
-  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
-  return hint ? { languageHint: hint } : void 0;
-}
-function scriptDetector(scripts) {
-  return new RegExp(
-  scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
-  "u"
+  const ENGLISH_FALLBACK_MESSAGES = {
+    setupTitle: "Set up Yomu in your language",
+    learnerLanguageLabel: "Your language",
+    targetLanguageLabel: "Language you are learning",
+    targetJapanese: "Japanese",
+    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
+    automaticTranslationLabel: "Translate automatically into {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
+    setupProgress: "Language setup {current} of {total}",
+    continueAction: "Continue",
+    originalDefinitionLabel: "Original {language}",
+    // D43: a locale that is in scope but not yet selectable says why, in its own
+    // language, so the person who came looking for it can read the answer. The
+    // interface never offers one of these and then quietly speaks English.
+    interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
+    interfaceTranslationPending: "Translation is still in progress."
+  };
+  function defineLocaleCatalog(locale, reviewStatus, messages) {
+    return Object.freeze({
+      locale,
+      reviewStatus,
+      sourceLocale: "en",
+      messages: Object.freeze(messages)
+    });
+  }
+  defineLocaleCatalog("ar", "machine-draft", {
+    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
+    learnerLanguageLabel: "لغتك",
+    targetLanguageLabel: "اللغة التي تتعلمها",
+    targetJapanese: "اليابانية",
+    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
+    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
+    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
+    continueAction: "متابعة",
+    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
+    interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+    interfaceTranslationPending: "الترجمة قيد التقدم."
+  });
+  defineLocaleCatalog("da", "machine-draft", {
+    setupTitle: "Opsæt よむ på dit sprog",
+    learnerLanguageLabel: "Dit sprog",
+    targetLanguageLabel: "Det sprog, du lærer",
+    targetJapanese: "Japansk",
+    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
+    automaticTranslationLabel: "Oversæt automatisk til {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
+    setupProgress: "Sprogopsætning: {current} af {total}",
+    continueAction: "Fortsæt",
+    originalDefinitionLabel: "Original på {language}",
+    interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+    interfaceTranslationPending: "Oversættelsen er stadig i gang."
+  });
+  defineLocaleCatalog("de", "machine-draft", {
+    setupTitle: "よむ in deiner Sprache einrichten",
+    learnerLanguageLabel: "Deine Sprache",
+    targetLanguageLabel: "Sprache, die du lernst",
+    targetJapanese: "Japanisch",
+    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
+    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
+    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
+    setupProgress: "Sprache einrichten: {current} von {total}",
+    continueAction: "Weiter",
+    originalDefinitionLabel: "Originaldefinition auf {language}",
+    interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+    interfaceTranslationPending: "Die Übersetzung läuft noch."
+  });
+  defineLocaleCatalog("el", "machine-draft", {
+    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
+    learnerLanguageLabel: "Η γλώσσα σας",
+    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
+    targetJapanese: "Ιαπωνικά",
+    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
+    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
+    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
+    continueAction: "Συνέχεια",
+    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+    interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+    interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
+  });
+  defineLocaleCatalog(
+    "en",
+    "source-approved",
+    ENGLISH_FALLBACK_MESSAGES
   );
-}
-const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-let registryRevision = 0;
-function learningTargetRegistryRevision() {
-  return registryRevision;
-}
-function registerLearningTargetModule(module) {
-  if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
-  throw new Error(
-    `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+  defineLocaleCatalog("es", "machine-draft", {
+    setupTitle: "Configura Yomu en tu idioma",
+    learnerLanguageLabel: "Tu idioma",
+    targetLanguageLabel: "Idioma que estás aprendiendo",
+    targetJapanese: "Japonés",
+    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
+    automaticTranslationLabel: "Traducir automáticamente al {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
+    setupProgress: "Configuración del idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definición original ({language})",
+    interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
+    interfaceTranslationPending: "La traducción sigue en curso."
+  });
+  defineLocaleCatalog("fa", "machine-draft", {
+    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
+    learnerLanguageLabel: "زبان شما",
+    targetLanguageLabel: "زبانی که یاد می‌گیرید",
+    targetJapanese: "ژاپنی",
+    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
+    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
+    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
+    continueAction: "ادامه",
+    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
+    interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
+    interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
+  });
+  defineLocaleCatalog("fi", "machine-draft", {
+    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
+    learnerLanguageLabel: "Oma kielesi",
+    targetLanguageLabel: "Opiskelemasi kieli",
+    targetJapanese: "Japani",
+    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
+    automaticTranslationLabel: "Käännä automaattisesti: {language}",
+    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
+    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
+    continueAction: "Jatka",
+    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+    interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+    interfaceTranslationPending: "Käännös on vielä kesken."
+  });
+  defineLocaleCatalog("fr", "machine-draft", {
+    setupTitle: "Configurez よむ dans votre langue",
+    learnerLanguageLabel: "Votre langue",
+    targetLanguageLabel: "Langue que vous apprenez",
+    targetJapanese: "Japonais",
+    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
+    automaticTranslationLabel: "Traduire automatiquement en {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
+    setupProgress: "Configuration de la langue : {current} sur {total}",
+    continueAction: "Continuer",
+    originalDefinitionLabel: "Définition originale en {language}",
+    interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
+    interfaceTranslationPending: "La traduction est en cours."
+  });
+  defineLocaleCatalog("grc", "machine-draft", {
+    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
+    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
+    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
+    targetJapanese: "Ἰαπωνική",
+    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
+    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
+    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
+    continueAction: "Πρόβαινε",
+    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+    interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+    interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
+  });
+  defineLocaleCatalog("hu", "machine-draft", {
+    setupTitle: "A よむ beállítása az Ön nyelvén",
+    learnerLanguageLabel: "Az Ön nyelve",
+    targetLanguageLabel: "A tanult nyelv",
+    targetJapanese: "Japán",
+    recommendedDictionariesTitle: "Ajánlott japán szótárak",
+    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
+    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
+    setupProgress: "Nyelvi beállítás: {current}/{total}",
+    continueAction: "Folytatás",
+    originalDefinitionLabel: "Eredeti meghatározás ({language})",
+    interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+    interfaceTranslationPending: "A fordítás még folyamatban van."
+  });
+  defineLocaleCatalog("id", "machine-draft", {
+    setupTitle: "Siapkan Yomu dalam bahasa Anda",
+    learnerLanguageLabel: "Bahasa Anda",
+    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
+    targetJapanese: "Bahasa Jepang",
+    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
+    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
+    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
+    setupProgress: "Penyiapan bahasa {current} dari {total}",
+    continueAction: "Lanjutkan",
+    originalDefinitionLabel: "Definisi asli dalam {language}",
+    interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+    interfaceTranslationPending: "Penerjemahan masih berlangsung."
+  });
+  defineLocaleCatalog("it", "machine-draft", {
+    setupTitle: "Configura よむ nella tua lingua",
+    learnerLanguageLabel: "La tua lingua",
+    targetLanguageLabel: "Lingua che stai imparando",
+    targetJapanese: "Giapponese",
+    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
+    automaticTranslationLabel: "Traduci automaticamente in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
+    setupProgress: "Configurazione della lingua: {current} di {total}",
+    continueAction: "Continua",
+    originalDefinitionLabel: "Definizione originale in {language}",
+    interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
+    interfaceTranslationPending: "La traduzione è ancora in corso."
+  });
+  defineLocaleCatalog("km", "machine-draft", {
+    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
+    learnerLanguageLabel: "ភាសារបស់អ្នក",
+    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
+    targetJapanese: "ភាសាជប៉ុន",
+    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
+    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
+    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
+    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
+    continueAction: "បន្ត",
+    originalDefinitionLabel: "និយមន័យដើម ({language})",
+    interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+    interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
+  });
+  defineLocaleCatalog("ko", "machine-draft", {
+    setupTitle: "내 언어로 よむ 설정하기",
+    learnerLanguageLabel: "사용 언어",
+    targetLanguageLabel: "학습할 언어",
+    targetJapanese: "일본어",
+    recommendedDictionariesTitle: "추천 일본어 사전",
+    automaticTranslationLabel: "{language}로 자동 번역",
+    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
+    setupProgress: "언어 설정: {total}단계 중 {current}단계",
+    continueAction: "계속",
+    originalDefinitionLabel: "원문({language})",
+    interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+    interfaceTranslationPending: "번역이 아직 진행 중입니다."
+  });
+  defineLocaleCatalog("la", "machine-draft", {
+    setupTitle: "Configura よむ in lingua tua",
+    learnerLanguageLabel: "Lingua tua",
+    targetLanguageLabel: "Lingua quam discis",
+    targetJapanese: "Lingua Iaponica",
+    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
+    automaticTranslationLabel: "Automatice verte in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
+    setupProgress: "Configuratio linguae: {current} ex {total}",
+    continueAction: "Perge",
+    originalDefinitionLabel: "Definitio originalis ({language})",
+    interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+    interfaceTranslationPending: "Translatio adhuc geritur."
+  });
+  defineLocaleCatalog("lo", "machine-draft", {
+    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
+    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
+    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
+    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
+    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
+    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
+    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
+    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
+    continueAction: "ສືບຕໍ່",
+    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+    interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+    interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
+  });
+  defineLocaleCatalog("mn", "machine-draft", {
+    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
+    learnerLanguageLabel: "Таны хэл",
+    targetLanguageLabel: "Таны сурч буй хэл",
+    targetJapanese: "Япон хэл",
+    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
+    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
+    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
+    setupProgress: "Хэлний тохиргоо: {current}/{total}",
+    continueAction: "Үргэлжлүүлэх",
+    originalDefinitionLabel: "Эх тайлбар ({language})",
+    interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+    interfaceTranslationPending: "Орчуулга хийгдсээр байна."
+  });
+  defineLocaleCatalog("nl", "machine-draft", {
+    setupTitle: "Stel よむ in jouw taal in",
+    learnerLanguageLabel: "Jouw taal",
+    targetLanguageLabel: "Taal die je leert",
+    targetJapanese: "Japans",
+    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
+    automaticTranslationLabel: "Automatisch vertalen naar {language}",
+    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
+    setupProgress: "Taal instellen: {current} van {total}",
+    continueAction: "Doorgaan",
+    originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+    interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+    interfaceTranslationPending: "De vertaling is nog bezig."
+  });
+  defineLocaleCatalog("pl", "machine-draft", {
+    setupTitle: "Skonfiguruj Yomu w swoim języku",
+    learnerLanguageLabel: "Twój język",
+    targetLanguageLabel: "Język, którego się uczysz",
+    targetJapanese: "Japoński",
+    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
+    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
+    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
+    setupProgress: "Konfiguracja języka: {current} z {total}",
+    continueAction: "Kontynuuj",
+    originalDefinitionLabel: "Oryginalna definicja ({language})",
+    interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
+    interfaceTranslationPending: "Tłumaczenie wciąż trwa."
+  });
+  defineLocaleCatalog("pt", "machine-draft", {
+    setupTitle: "Configure o Yomu no seu idioma",
+    learnerLanguageLabel: "O seu idioma",
+    targetLanguageLabel: "Idioma que está a aprender",
+    targetJapanese: "Japonês",
+    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
+    automaticTranslationLabel: "Traduzir automaticamente para {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
+    setupProgress: "Configuração do idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definição original ({language})",
+    interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
+    interfaceTranslationPending: "A tradução ainda está em andamento."
+  });
+  defineLocaleCatalog("ro", "machine-draft", {
+    setupTitle: "Configurează Yomu în limba ta",
+    learnerLanguageLabel: "Limba ta",
+    targetLanguageLabel: "Limba pe care o înveți",
+    targetJapanese: "Japoneză",
+    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
+    automaticTranslationLabel: "Tradu automat în {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
+    setupProgress: "Configurarea limbii: {current} din {total}",
+    continueAction: "Continuă",
+    originalDefinitionLabel: "Definiția originală în {language}",
+    interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+    interfaceTranslationPending: "Traducerea este încă în curs."
+  });
+  defineLocaleCatalog("ru", "machine-draft", {
+    setupTitle: "Настройте Yomu на своём языке",
+    learnerLanguageLabel: "Ваш язык",
+    targetLanguageLabel: "Язык, который вы изучаете",
+    targetJapanese: "Японский",
+    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
+    automaticTranslationLabel: "Автоматически переводить на {language}",
+    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
+    setupProgress: "Настройка языка: {current} из {total}",
+    continueAction: "Продолжить",
+    originalDefinitionLabel: "Оригинал определения ({language})",
+    interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+    interfaceTranslationPending: "Перевод ещё выполняется."
+  });
+  defineLocaleCatalog("sh", "machine-draft", {
+    setupTitle: "Podesite Yomu na svom jeziku",
+    learnerLanguageLabel: "Vaš jezik",
+    targetLanguageLabel: "Jezik koji učite",
+    targetJapanese: "Japanski",
+    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
+    automaticTranslationLabel: "Automatski prevod na jezik {language}",
+    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
+    setupProgress: "Podešavanje jezika: {current} od {total}",
+    continueAction: "Nastavi",
+    originalDefinitionLabel: "Originalna definicija ({language})",
+    interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+    interfaceTranslationPending: "Prijevod je još u toku."
+  });
+  defineLocaleCatalog("sq", "machine-draft", {
+    setupTitle: "Konfiguro よむ në gjuhën tënde",
+    learnerLanguageLabel: "Gjuha jote",
+    targetLanguageLabel: "Gjuha që po mëson",
+    targetJapanese: "Japonisht",
+    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
+    automaticTranslationLabel: "Përkthe automatikisht në {language}",
+    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
+    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
+    continueAction: "Vazhdo",
+    originalDefinitionLabel: "Origjinali në {language}",
+    interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+    interfaceTranslationPending: "Përkthimi është në vazhdim."
+  });
+  defineLocaleCatalog("sv", "machine-draft", {
+    setupTitle: "Ställ in よむ på ditt språk",
+    learnerLanguageLabel: "Ditt språk",
+    targetLanguageLabel: "Språket du lär dig",
+    targetJapanese: "Japanska",
+    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
+    automaticTranslationLabel: "Översätt automatiskt till {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
+    setupProgress: "Språkinställning: {current} av {total}",
+    continueAction: "Fortsätt",
+    originalDefinitionLabel: "Ursprunglig definition på {language}",
+    interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+    interfaceTranslationPending: "Översättningen pågår fortfarande."
+  });
+  defineLocaleCatalog("th", "machine-draft", {
+    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
+    learnerLanguageLabel: "ภาษาของคุณ",
+    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
+    targetJapanese: "ภาษาญี่ปุ่น",
+    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
+    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
+    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
+    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
+    continueAction: "ดำเนินการต่อ",
+    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+    interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+    interfaceTranslationPending: "การแปลยังดำเนินอยู่"
+  });
+  defineLocaleCatalog("tl", "machine-draft", {
+    setupTitle: "I-set up ang Yomu sa iyong wika",
+    learnerLanguageLabel: "Iyong wika",
+    targetLanguageLabel: "Wikang pinag-aaralan mo",
+    targetJapanese: "Wikang Hapon",
+    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
+    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
+    setupProgress: "Pag-set up ng wika: {current} sa {total}",
+    continueAction: "Magpatuloy",
+    originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+    interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+    interfaceTranslationPending: "Isinasalin pa ito."
+  });
+  defineLocaleCatalog("tr", "machine-draft", {
+    setupTitle: "Yomu'yu dilinizde ayarlayın",
+    learnerLanguageLabel: "Diliniz",
+    targetLanguageLabel: "Öğrendiğiniz dil",
+    targetJapanese: "Japonca",
+    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
+    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
+    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
+    setupProgress: "Dil ayarı: {current}/{total}",
+    continueAction: "Devam et",
+    originalDefinitionLabel: "Orijinal tanım ({language})",
+    interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+    interfaceTranslationPending: "Çeviri hâlâ sürüyor."
+  });
+  defineLocaleCatalog("vi", "machine-draft", {
+    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
+    learnerLanguageLabel: "Ngôn ngữ của bạn",
+    targetLanguageLabel: "Ngôn ngữ bạn đang học",
+    targetJapanese: "Tiếng Nhật",
+    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
+    automaticTranslationLabel: "Tự động dịch sang {language}",
+    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
+    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
+    continueAction: "Tiếp tục",
+    originalDefinitionLabel: "Định nghĩa gốc ({language})",
+    interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+    interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
+  });
+  defineLocaleCatalog("yue", "machine-draft", {
+    setupTitle: "用你嘅語言設定よむ",
+    learnerLanguageLabel: "你嘅語言",
+    targetLanguageLabel: "你學緊嘅語言",
+    targetJapanese: "日文",
+    recommendedDictionariesTitle: "推薦嘅日文字典",
+    automaticTranslationLabel: "自動翻譯做{language}",
+    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
+    setupProgress: "語言設定：第{current}步，共{total}步",
+    continueAction: "繼續",
+    originalDefinitionLabel: "原文（{language}）",
+    interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+    interfaceTranslationPending: "翻譯仲進行中。"
+  });
+  defineLocaleCatalog("zh", "machine-draft", {
+    setupTitle: "用您的语言设置よむ",
+    learnerLanguageLabel: "您的语言",
+    targetLanguageLabel: "您正在学习的语言",
+    targetJapanese: "日语",
+    recommendedDictionariesTitle: "推荐日语词典",
+    automaticTranslationLabel: "自动翻译为{language}",
+    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
+    setupProgress: "语言设置：第{current}步，共{total}步",
+    continueAction: "继续",
+    originalDefinitionLabel: "{language}原文",
+    interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+    interfaceTranslationPending: "翻译仍在进行中。"
+  });
+  const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
+  new Set(MESSAGE_NAMESPACES);
+  const OCR_LANGUAGE_HINTS = Object.freeze({
+    fil: "tl",
+    yue: "zh",
+    grc: "el"
+  });
+  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
+    LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
+      const lookupRewrites = lookupRewritesForTarget(language.id);
+      const readingAnnotation = language.id === "zh" || language.id === "yue";
+      const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
+      return createLearningTargetModule({
+        id: `${language.id}-roster-v1`,
+        language: language.runtimeLocale,
+        direction: language.direction,
+        experiences: {
+          // Published zh/yue character banks warrant a dedicated
+          // per-character surface. Other scripts use the normal term
+          // dictionary with a single grapheme as their query.
+          characterLookup: usesHanScript ? "character-dictionary" : "term-dictionary"
+        },
+        featureSemantics: {
+          characterSystem: language.defaultScript,
+          phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
+          pronunciation: "ipa",
+          readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "dictionary reading"
+        },
+        grammar: grammarForRosterTarget(language.id),
+        sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
+        ocr: ocrHintFor(language.runtimeLocale),
+        detectsText: scriptDetector(language.scripts),
+        lookupRewrites,
+        ...usesHanScript ? {
+          // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+          // Let the installed dictionary arbitrate inside a real Han
+          // run, and accept expression hits only.
+          lookupStartsAtSegmentBoundary: false,
+          lookupRunSegments: hanIdeographSegments,
+          lookupSweepMode: "left-to-right-longest-exact",
+          pointerWordSegments: hanIdeographSegments
+        } : {}
+      });
+    })
   );
+  function sentenceBoundariesForScripts(scripts) {
+    const has = (script) => scripts.includes(script);
+    const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
+    const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
+    return { terminators, whitespaceIsBoundary };
   }
-  const base = languageSubtag(module.language);
-  if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-  const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-  stack.push(module);
-  MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-  registryRevision++;
-  return module;
-}
-function learningTargetModuleFor(language) {
-  const canonical = canonicalLanguageTag(language);
-  const base = languageSubtag(canonical);
-  return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
-}
-function defaultLearningTargetModule() {
-  return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
-}
-function registerBuiltInLearningTargetModule(module) {
-  registerLearningTargetModule(module);
-}
-registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
-let cachedTarget = null;
-let cachedForLanguage = "";
-let cachedForRegistryRevision = -1;
-function activeLearningTarget() {
-  const revision = learningTargetRegistryRevision();
-  if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
-  return cachedTarget;
+  function ocrHintFor(runtimeLocale) {
+    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+    return hint ? { languageHint: hint } : void 0;
   }
-  cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
-  cachedForLanguage = requestedTargetLanguage;
-  cachedForRegistryRevision = revision;
-  return cachedTarget;
-}
-function targetSpeechSynthesisLocale() {
-  return activeLearningTarget().audio.speechSynthesisLocale;
-}
-function targetAudioTemplateLanguageToken() {
-  return activeLearningTarget().audio.templateLanguageToken;
-}
-const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
-function isValidJpdbAudioId(value) {
-  return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes("..") && !value.startsWith("//"));
-}
-function normalizeJpdbAudioGroup(value) {
-  const ids = value.split("+").map((item) => item.trim()).filter(Boolean);
-  return ids.length && ids.every(isValidJpdbAudioId) ? ids.join("+") : "";
-}
-const JPDB_AUDIO_BASE_URL = "https://jpdb.io/static/v";
-const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
-const JPDB_AUDIO_XOR_BYTES = [6, 35, 84, 15];
-const LOOPBACK_AUDIO_HOSTS$1 = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
-function normalizeJpdbAudioIds(value) {
-  return uniqueJpdbAudioValues(normalizeJpdbAudioGroups(value).flatMap((group) => group.split("+")));
-}
-function jpdbAudioPlaybackCandidates(value) {
-  const groups = normalizeJpdbAudioGroups(value);
-  return groups.map((group) => ({ audioIds: group.split("+"), deckId: `jpdb:${group}` }));
-}
-function jpdbAudioRequest(audioId, language = "en") {
-  if (!isValidJpdbAudioId(audioId)) throw new Error(uiText(language, "invalidJpdbAudioId"));
-  if (audioId.startsWith("/static/user/")) {
-  return { url: new URL(audioId, "https://jpdb.io").toString(), encoded: false };
+  function scriptDetector(scripts) {
+    return new RegExp(
+      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
+      "u"
+    );
   }
-  const devUrl = localDevJpdbAudioUrl(audioId);
-  if (devUrl) {
-  return {
-    url: devUrl,
-    headers: jpdbAudioHeaders(),
-    encoded: true
+  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  let registryRevision = 0;
+  function learningTargetRegistryRevision() {
+    return registryRevision;
+  }
+  function registerLearningTargetModule(module) {
+    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+      throw new Error(
+        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+      );
+    }
+    const base = languageSubtag(module.language);
+    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+    stack.push(module);
+    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
+    registryRevision++;
+    return module;
+  }
+  function learningTargetModuleFor(language) {
+    const canonical = canonicalLanguageTag(language);
+    const base = languageSubtag(canonical);
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
+  }
+  function defaultLearningTargetModule() {
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+  }
+  function registerBuiltInLearningTargetModule(module) {
+    registerLearningTargetModule(module);
+  }
+  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
+  let requestedTargetLanguage = DEFAULT_LEARNING_TARGET_LANGUAGE;
+  let cachedTarget = null;
+  let cachedForLanguage = "";
+  let cachedForRegistryRevision = -1;
+  function activeLearningTarget() {
+    const revision = learningTargetRegistryRevision();
+    if (cachedTarget && cachedForLanguage === requestedTargetLanguage && cachedForRegistryRevision === revision) {
+      return cachedTarget;
+    }
+    cachedTarget = learningTargetModuleFor(requestedTargetLanguage) ?? defaultLearningTargetModule();
+    cachedForLanguage = requestedTargetLanguage;
+    cachedForRegistryRevision = revision;
+    return cachedTarget;
+  }
+  const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  const TARGET_SPEECH_SYNTHESIS_SOURCE = { type: "text-to-speech", url: "", voice: "", enabled: true };
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source) => source.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    return defaultAudioSources(settings.audioSources, sources);
+  }
+  function defaultAudioSources(authoredSources, enabledSources) {
+    const target = activeLearningTarget();
+    const configured = enabledSources.filter((source) => !isYomuHostedAudioSource(source));
+    return [
+      ...hostedDefaultAudioSources(authoredSources, target.audio.recordedWordAudio),
+      ...configured,
+      ...targetSpeechSynthesisSources(configured, target.experiences.audio)
+    ];
+  }
+  function hostedDefaultAudioSources(authoredSources, recordedWordAudio) {
+    if (!recordedWordAudio) return [];
+    const hosted = authoredSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return hosted.enabled ? [{ ...hosted }] : [];
+  }
+  function targetSpeechSynthesisSources(configured, experience) {
+    if (experience !== "speech-synthesis") return [];
+    if (configured.some(isBrowserTextToSpeechSource)) return [];
+    return [TARGET_SPEECH_SYNTHESIS_SOURCE];
+  }
+  function isYomuHostedAudioSource(source) {
+    return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+  }
+  function preloadableAudioSources(sources, settings) {
+    return settings.audioTtsMode === "source-order" ? sources.filter((source) => !isBrowserTextToSpeechSource(source)) : sources.filter((source) => !isTextToSpeechFallbackSource(source));
+  }
+  function cheapCandidatePreloadAudioSources(sources, card) {
+    return sources.filter((source) => canResolveAudioCandidatesWithoutNetwork(source, card));
+  }
+  function canResolveAudioCandidatesWithoutNetwork(source, card) {
+    switch (source.type) {
+      case "custom":
+      case "jpod101":
+      case "bunpro":
+        return true;
+      case "jiten-tts":
+        return hasJitenAudioReference(card);
+      default:
+        return false;
+    }
+  }
+  function hasJitenAudioReference(card) {
+    return isPositiveFiniteInteger(card.jitenWordId) && isFiniteNonNegativeInteger(card.jitenReadingIndex) || card.source === "jiten" && isPositiveFiniteInteger(card.vid) && isFiniteNonNegativeInteger(card.sid);
+  }
+  function isPositiveFiniteInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0;
+  }
+  function isFiniteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0;
+  }
+  function audioPreloadLimits(options) {
+    return {
+      sourceLimit: Math.max(1, options.sourceLimit ?? 1),
+      candidateLimit: Math.max(1, options.candidateLimit ?? 1),
+      prepareAudio: options.prepareAudio !== false
+    };
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+      candidate,
+      id: audioCandidateDeckId(candidate, index)
+    })), mode, bagKey, shuffledAudio);
+  }
+  function audioCandidateSelectionMode(sourceType, mode) {
+    return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
+  }
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
+  }
+  function isBrowserTextToSpeechSource(source) {
+    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+  }
+  function isApiTextToSpeechSource(source) {
+    return source.type === "jiten-tts" || source.type === "jpdb-tts";
+  }
+  function isTextToSpeechFallbackSource(source) {
+    return isApiTextToSpeechSource(source) || isBrowserTextToSpeechSource(source);
+  }
+  function audioSubSourceProviderName(name) {
+    const trimmed = name.trim().normalize("NFC");
+    return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+  }
+  function audioSubSourceNameKey(name) {
+    return audioSubSourceProviderName(name).toLowerCase();
+  }
+  function disabledAudioSubSourceNameKeys(source) {
+    return new Set((source.subSources ?? []).filter((subSource) => !subSource.enabled).map((subSource) => audioSubSourceNameKey(subSource.name)));
+  }
+  function audioSubSourceFilterKey(source) {
+    return [...disabledAudioSubSourceNameKeys(source)].sort().join("");
+  }
+  function registerAudioAttempt(triedUrls, candidate) {
+    const candidateKey2 = normalizeAttemptedAudioUrl(candidate.url);
+    if (triedUrls.has(candidateKey2)) return false;
+    triedUrls.add(candidateKey2);
+    return true;
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      audioSubSourceFilterKey(source),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function getJpdbAudioBagKey(audioIds) {
+    return [
+      "jpdb-audio",
+      ...[...audioIds].sort()
+    ].join("");
+  }
+  function getAudioCandidateCacheKey(source, card) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim(),
+      audioSubSourceFilterKey(source),
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function preparedAudioCacheKey(candidate, mode, audioViaBlob) {
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      mode,
+      audioViaBlob ? "blob" : "direct"
+    ].join("");
+  }
+  function cloneAudioCandidates(candidates) {
+    return candidates.map((candidate) => ({ ...candidate }));
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function audioCandidateDeckId(candidate, index) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      index
+    ].join("\0");
+  }
+  function orderAudioDeckEntries(entries2, mode, bagKey, shuffledAudio) {
+    if (mode !== "random" || !entries2.length) return entries2;
+    const byId = new Map(entries2.map((entry) => [entry.id, entry]));
+    const ordered = [];
+    for (const id of shuffledAudio.order(bagKey, entries2.map((entry) => entry.id))) {
+      const entry = byId.get(id);
+      if (entry) ordered.push(entry);
+    }
+    return ordered;
+  }
+  function getAudioSourceBagKey(sources, card) {
+    return [
+      "audio-sources",
+      card.spelling,
+      card.reading,
+      ...sources.map(getAudioSourceSignature)
+    ].join("");
+  }
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
+  }
+  function getAudioSourceSignature(source) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim(),
+      audioSubSourceFilterKey(source)
+    ].join("\0");
+  }
+  function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
+    const language = options.language ?? "en";
+    const requestOptions = {
+      method: options.method ?? "GET",
+      headers: options.headers,
+      data: options.data,
+      proxyUrl: options.proxyUrl,
+      allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
+      allowPublicProxies: options.allowPublicProxies,
+      allowConfiguredProxy: options.allowConfiguredProxy,
+      preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
+      credentials: options.credentials,
+      withCredentials: options.withCredentials,
+      timeoutMs,
+      failureLabel: uiText(language, "audioRequest"),
+      timeoutLabel: uiText(language, "audioRequestTimedOut")
+    };
+    return responseType === "blob" ? requestBlob(responseUrl, requestOptions) : requestText(responseUrl, requestOptions);
+  }
+  function shouldPreferFetchForAudioRequests() {
+    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
+  }
+  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
+      reader.readAsDataURL(blob);
+    });
+  }
+  function targetSpeechSynthesisLocale() {
+    return activeLearningTarget().audio.speechSynthesisLocale;
+  }
+  function targetAudioTemplateLanguageToken() {
+    return activeLearningTarget().audio.templateLanguageToken;
+  }
+  const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
+  function isValidJpdbAudioId(value) {
+    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes("..") && !value.startsWith("//"));
+  }
+  function normalizeJpdbAudioGroup(value) {
+    const ids = value.split("+").map((item) => item.trim()).filter(Boolean);
+    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join("+") : "";
+  }
+  const JPDB_AUDIO_BASE_URL = "https://jpdb.io/static/v";
+  const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
+  const JPDB_AUDIO_XOR_BYTES = [6, 35, 84, 15];
+  const LOOPBACK_AUDIO_HOSTS$1 = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
+  function normalizeJpdbAudioIds(value) {
+    return uniqueJpdbAudioValues(normalizeJpdbAudioGroups(value).flatMap((group) => group.split("+")));
+  }
+  function jpdbAudioPlaybackCandidates(value) {
+    const groups = normalizeJpdbAudioGroups(value);
+    return groups.map((group) => ({ audioIds: group.split("+"), deckId: `jpdb:${group}` }));
+  }
+  function jpdbAudioRequest(audioId, language = "en") {
+    if (!isValidJpdbAudioId(audioId)) throw new Error(uiText(language, "invalidJpdbAudioId"));
+    if (audioId.startsWith("/static/user/")) {
+      return { url: new URL(audioId, "https://jpdb.io").toString(), encoded: false };
+    }
+    const devUrl = localDevJpdbAudioUrl(audioId);
+    if (devUrl) {
+      return {
+        url: devUrl,
+        headers: jpdbAudioHeaders(),
+        encoded: true
+      };
+    }
+    return {
+      url: `${JPDB_AUDIO_BASE_URL}/${encodeJpdbAudioPath(audioId)}`,
+      headers: jpdbAudioHeaders(),
+      encoded: true
+    };
+  }
+  async function fetchJpdbAudioBlob(audioId, settings) {
+    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
+    const response = await requestAudioUrl(request.url, "blob", settings.audioTimeoutMs, {
+      headers: request.headers,
+      proxyUrl: settings.corsProxyUrl,
+      language: settings.interfaceLanguage,
+      allowDirectCrossOrigin: !settings.corsProxyUrl.trim(),
+      credentials: "same-origin",
+      withCredentials: true
+    });
+    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, "jpdbAudioPlayableFileMissing"));
+    return decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage);
+  }
+  async function decodeJpdbAudioBlob(response, encoded, language = "en") {
+    const bytes = new Uint8Array(await blobArrayBuffer(response, language));
+    const decoded = encoded ? decodeJpdbAudioBytes(bytes) : bytes;
+    const sniffedType = jpdbAudioMimeTypeForBytes(decoded);
+    if (!sniffedType) {
+      if (!encoded && isAudioBlobType(response.type)) return new Blob([blobPart(decoded)], { type: response.type });
+      throw new Error(uiText(language, "jpdbAudioResponseNotPlayable"));
+    }
+    return new Blob([blobPart(decoded)], { type: sniffedType });
+  }
+  function jpdbAudioPageSourceUrl(audioId) {
+    return audioId.startsWith("/static/user/") ? "https://jpdb.io/" : JPDB_AUDIO_BASE_URL;
+  }
+  function normalizeJpdbAudioGroups(value) {
+    const values = Array.isArray(value) ? value : value.split(",");
+    return uniqueJpdbAudioValues(values.map(normalizeJpdbAudioGroup).filter(Boolean));
+  }
+  function blobArrayBuffer(blob, language = "en") {
+    if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error ?? new Error(uiText(language, "couldNotReadAudioBlob")));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+  function jpdbAudioHeaders() {
+    const headers = { "X-Access": JPDB_AUDIO_ACCESS_HEADER };
+    if (shouldForceJpdbCafAudio()) headers["X-ForceCAF"] = "1";
+    return headers;
+  }
+  function shouldForceJpdbCafAudio() {
+    const audio = document.createElement("audio");
+    return audio.canPlayType("audio/ogg; codecs=opus") === "" && audio.canPlayType("audio/x-caf") !== "";
+  }
+  function decodeJpdbAudioBytes(bytes) {
+    const decoded = new Uint8Array(bytes);
+    JPDB_AUDIO_XOR_BYTES.forEach((mask, index) => {
+      if (index < decoded.length) decoded[index] = decoded[index] ^ mask;
+    });
+    return decoded;
+  }
+  function jpdbAudioMimeTypeForBytes(bytes) {
+    if (startsWithAscii(bytes, "OggS")) return "audio/ogg; codecs=opus";
+    if (startsWithAscii(bytes, "caff")) return "audio/x-caf";
+    if (startsWithAscii(bytes, "RIFF")) return "audio/wav";
+    if (startsWithAscii(bytes, "ID3") || isMp3Frame(bytes)) return "audio/mpeg";
+    if (asciiAt(bytes, 4, "ftyp")) return "audio/mp4";
+    return "";
+  }
+  function startsWithAscii(bytes, signature) {
+    return asciiAt(bytes, 0, signature);
+  }
+  function asciiAt(bytes, offset, signature) {
+    if (bytes.length < offset + signature.length) return false;
+    return Array.from(signature).every((char, index) => bytes[offset + index] === char.charCodeAt(0));
+  }
+  function isMp3Frame(bytes) {
+    return bytes.length >= 2 && bytes[0] === 255 && (bytes[1] & 224) === 224;
+  }
+  function isAudioBlobType(type) {
+    return /^audio\//i.test(type.trim());
+  }
+  function blobPart(bytes) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  function localDevJpdbAudioUrl(audioId) {
+    if (!isLocalNewTabDevOrigin()) return "";
+    const url = new URL(`/__yomu-jpdb-audio/${encodeJpdbAudioPath(audioId)}`, location.href);
+    if (shouldForceJpdbCafAudio()) url.searchParams.set("force_caf", "1");
+    return url.toString();
+  }
+  function isLocalNewTabDevOrigin() {
+    if (typeof window === "undefined" || typeof location === "undefined") return false;
+    if (window.__YOMU_READER_RUNTIME__ !== "newtab") return false;
+    return /^https?:$/.test(location.protocol) && LOOPBACK_AUDIO_HOSTS$1.has(location.hostname.replace(/^\[|\]$/g, ""));
+  }
+  function encodeJpdbAudioPath(value) {
+    return value.split("/").map(encodeURIComponent).join("/");
+  }
+  function uniqueJpdbAudioValues(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.filter((value) => {
+      const key = normalizeAttemptedAudioUrl(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function jpdbVocabularyIdentityFromUrl$1(value) {
+    if (!value) return null;
+    try {
+      const url = new URL(value, "https://jpdb.io");
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      const vid = Number.parseInt(parts[1] ?? "", 10);
+      return {
+        vid: Number.isFinite(vid) ? vid : 0,
+        spelling: decodeUrlPathPart(parts[2] ?? ""),
+        reading: decodeUrlPathPart(parts[3] ?? "")
+      };
+    } catch {
+      return null;
+    }
+  }
+  function decodeUrlPathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  const JITEN_TTS_API_BASE_URL = "https://api.jiten.moe/api/tts";
+  const JITEN_TTS_RANDOM_VOICES = ["female", "female2", "male", "male2", "asmr"];
+  function jitenTtsVoicesForValue(value) {
+    const voice = value?.trim();
+    return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
+  }
+  function jitenWordTtsUrl(wordId, readingIndex, voice) {
+    return `${JITEN_TTS_API_BASE_URL}/word/${wordId}/${readingIndex}?voice=${encodeURIComponent(voice)}`;
+  }
+  const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
+  const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
+  const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1"]);
+  const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+  const JPDB_VOCABULARY_BASE_URL = "https://jpdb.io/vocabulary";
+  const JPDB_SEARCH_URL = "https://jpdb.io/search";
+  const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
+  const JPDB_TTS_VOICE_PREFIXES = {
+    female: ["f"],
+    male: ["m"],
+    f1: ["f1"],
+    f2: ["f2"],
+    m1: ["m1"],
+    m2: ["m2"]
   };
+  const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
+  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
+  const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
+  const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
+  function formatAudioUrl(template, card) {
+    const replacements = {
+      term: card.spelling,
+      reading: card.reading,
+      language: targetAudioTemplateLanguageToken()
+    };
+    return template.replace(
+      /\{(term|reading|language)\}/g,
+      (_, key) => encodeURIComponent(replacements[key] ?? "")
+    );
   }
-  return {
-  url: `${JPDB_AUDIO_BASE_URL}/${encodeJpdbAudioPath(audioId)}`,
-  headers: jpdbAudioHeaders(),
-  encoded: true
+  function findAudioUrl(value, sourceUrl, mode = "first") {
+    const urls = findAudioUrls(value, sourceUrl);
+    if (!urls.length) return null;
+    return mode === "random" ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
+  }
+  function findAudioUrls(value, sourceUrl) {
+    const direct = directAudioUrlsForValue(value, sourceUrl);
+    return direct ?? [];
+  }
+  async function fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language = "en") {
+    const response = await requestAudioUrl(url, "blob", timeoutMs, { proxyUrl, language });
+    if (isJsonAudioResponse(response)) {
+      const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
+      if (!nestedUrl) throw new Error(uiText(language, "audioJsonMissingPlayableUrl"));
+      return fetchAudioBlob(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
+    }
+    if (!(response instanceof Blob)) throw new Error(uiText(language, "audioSourceReturnedNoAudio"));
+    await assertPlayableAudioBlob(response, url, sourceUrl, language);
+    return response;
+  }
+  function directAudioUrlsForValue(value, sourceUrl) {
+    if (!value) return [];
+    if (typeof value === "string") return findAudioUrlsInString(value, sourceUrl);
+    return structuredAudioUrlsForValue(value, sourceUrl);
+  }
+  function shouldForceBlobAudioPlayback(sourceType) {
+    return sourceType === "jpod101";
+  }
+  function shouldForceBlobAudioCandidate(candidate) {
+    return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url) || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl) || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
+  }
+  function shouldFetchDirectMediaAsBlob(url) {
+    return /^https?:\/\//i.test(url) && !isLoopbackAudioUrl(url);
+  }
+  function shouldFetchMediaUrlAsBlobBeforePlayback(url) {
+    return isKnownCorsBlockedPublicAudioCdnUrl(url);
+  }
+  function structuredAudioUrlsForValue(value, sourceUrl) {
+    if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
+    return typeof value === "object" ? findAudioUrlsInRecord(value, sourceUrl) : null;
+  }
+  function findAudioUrlsInString(value, sourceUrl) {
+    if (value.startsWith("data:audio/")) return [value];
+    if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
+    return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi)).map((match) => match[0]).filter(isLikelyAudioUrl).map((url) => normalizeAudioUrl(url, sourceUrl)));
+  }
+  function findAudioUrlsInRecord(record2, sourceUrl) {
+    const known = uniqueAudioUrls([...preferredAudioRecordUrls(record2, sourceUrl), ...directAudioRecordUrls(record2, sourceUrl)]);
+    return known.length ? known : nestedAudioRecordUrls(record2, sourceUrl);
+  }
+  function preferredAudioRecordUrls(record2, sourceUrl) {
+    return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record2[key], sourceUrl));
+  }
+  function directAudioRecordUrls(record2, sourceUrl) {
+    return typeof record2.url === "string" && isLikelyAudioRecord(record2) ? findAudioUrls(record2.url, sourceUrl) : [];
+  }
+  function nestedAudioRecordUrls(record2, sourceUrl) {
+    const knownKeys = /* @__PURE__ */ new Set(["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"]);
+    return uniqueAudioUrls(Object.entries(record2).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
+  }
+  async function isUnavailableJapanesePod101Audio(blob) {
+    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+      const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+      return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
+    } catch {
+      return true;
+    }
+  }
+  function isJsonAudioResponse(response) {
+    return response instanceof Blob && response.type.includes("json");
+  }
+  async function assertPlayableAudioBlob(response, url, sourceUrl, language = "en") {
+    if (isErrorDocumentAudioBlob(response) || !isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl)) {
+      throw new Error(formatNonAudioResponseMessage(language, response.type));
+    }
+    if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
+      throw new Error(uiText(language, "japanesePod101NoAudio"));
+    }
+  }
+  function formatNonAudioResponseMessage(language, contentType) {
+    const label = contentType || uiText(language, "audioUnknownContentType");
+    return uiText(language, "audioRequestReturnedNonAudioWithType").replace("{type}", label);
+  }
+  function isErrorDocumentAudioBlob(blob) {
+    const type = blob.type.toLowerCase();
+    return type.startsWith("text/") || ["html", "xml", "json"].some((marker) => type.includes(marker));
+  }
+  function isLikelyAudioBlob(blob) {
+    return blob.type.toLowerCase().startsWith("audio/");
+  }
+  async function getAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
+  }
+  function shouldCacheAudioCandidates(source, candidates) {
+    if (!candidates.length) return false;
+    return source.type !== "jpdb-tts" || candidates.length > 1;
+  }
+  const AUDIO_CANDIDATE_LOADERS = {
+    custom: loadCustomAudioCandidates,
+    "custom-json": loadCustomJsonAudioCandidates,
+    jpod101: loadJapanesePod101AudioCandidates,
+    "language-pod-101": loadLanguagePod101AudioCandidates,
+    jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
+    bunpro: async (source, card) => bunproPronunciationAudioCandidates(source, card),
+    "lingua-libre": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs, proxyUrl)),
+    wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs, proxyUrl)),
+    "jiten-tts": async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
+    "jpdb-tts": async (source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(filterJpdbAudioIdsForVoice(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl), source.voice))
   };
-}
-async function fetchJpdbAudioBlob(audioId, settings) {
-  const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
-  const response = await requestAudioUrl(request.url, "blob", settings.audioTimeoutMs, {
-  headers: request.headers,
-  proxyUrl: settings.corsProxyUrl,
-  language: settings.interfaceLanguage,
-  allowDirectCrossOrigin: !settings.corsProxyUrl.trim(),
-  credentials: "same-origin",
-  withCredentials: true
-  });
-  if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, "jpdbAudioPlayableFileMissing"));
-  return decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage);
-}
-async function decodeJpdbAudioBlob(response, encoded, language = "en") {
-  const bytes = new Uint8Array(await blobArrayBuffer(response, language));
-  const decoded = encoded ? decodeJpdbAudioBytes(bytes) : bytes;
-  const sniffedType = jpdbAudioMimeTypeForBytes(decoded);
-  if (!sniffedType) {
-  if (!encoded && isAudioBlobType(response.type)) return new Blob([blobPart(decoded)], { type: response.type });
-  throw new Error(uiText(language, "jpdbAudioResponseNotPlayable"));
+  async function loadNoAudioCandidates() {
+    return [];
   }
-  return new Blob([blobPart(decoded)], { type: sniffedType });
-}
-function jpdbAudioPageSourceUrl(audioId) {
-  return audioId.startsWith("/static/user/") ? "https://jpdb.io/" : JPDB_AUDIO_BASE_URL;
-}
-function normalizeJpdbAudioGroups(value) {
-  const values = Array.isArray(value) ? value : value.split(",");
-  return uniqueJpdbAudioValues(values.map(normalizeJpdbAudioGroup).filter(Boolean));
-}
-function blobArrayBuffer(blob, language = "en") {
-  if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
-  return new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = () => reject(reader.error ?? new Error(uiText(language, "couldNotReadAudioBlob")));
-  reader.readAsArrayBuffer(blob);
-  });
-}
-function jpdbAudioHeaders() {
-  const headers = { "X-Access": JPDB_AUDIO_ACCESS_HEADER };
-  if (shouldForceJpdbCafAudio()) headers["X-ForceCAF"] = "1";
-  return headers;
-}
-function shouldForceJpdbCafAudio() {
-  const audio = document.createElement("audio");
-  return audio.canPlayType("audio/ogg; codecs=opus") === "" && audio.canPlayType("audio/x-caf") !== "";
-}
-function decodeJpdbAudioBytes(bytes) {
-  const decoded = new Uint8Array(bytes);
-  JPDB_AUDIO_XOR_BYTES.forEach((mask, index) => {
-  if (index < decoded.length) decoded[index] = decoded[index] ^ mask;
-  });
-  return decoded;
-}
-function jpdbAudioMimeTypeForBytes(bytes) {
-  if (startsWithAscii(bytes, "OggS")) return "audio/ogg; codecs=opus";
-  if (startsWithAscii(bytes, "caff")) return "audio/x-caf";
-  if (startsWithAscii(bytes, "RIFF")) return "audio/wav";
-  if (startsWithAscii(bytes, "ID3") || isMp3Frame(bytes)) return "audio/mpeg";
-  if (asciiAt(bytes, 4, "ftyp")) return "audio/mp4";
-  return "";
-}
-function startsWithAscii(bytes, signature) {
-  return asciiAt(bytes, 0, signature);
-}
-function asciiAt(bytes, offset, signature) {
-  if (bytes.length < offset + signature.length) return false;
-  return Array.from(signature).every((char, index) => bytes[offset + index] === char.charCodeAt(0));
-}
-function isMp3Frame(bytes) {
-  return bytes.length >= 2 && bytes[0] === 255 && (bytes[1] & 224) === 224;
-}
-function isAudioBlobType(type) {
-  return /^audio\//i.test(type.trim());
-}
-function blobPart(bytes) {
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-}
-function localDevJpdbAudioUrl(audioId) {
-  if (!isLocalNewTabDevOrigin()) return "";
-  const url = new URL(`/__yomu-jpdb-audio/${encodeJpdbAudioPath(audioId)}`, location.href);
-  if (shouldForceJpdbCafAudio()) url.searchParams.set("force_caf", "1");
-  return url.toString();
-}
-function isLocalNewTabDevOrigin() {
-  if (typeof window === "undefined" || typeof location === "undefined") return false;
-  if (window.__YOMU_READER_RUNTIME__ !== "newtab") return false;
-  return /^https?:$/.test(location.protocol) && LOOPBACK_AUDIO_HOSTS$1.has(location.hostname.replace(/^\[|\]$/g, ""));
-}
-function encodeJpdbAudioPath(value) {
-  return value.split("/").map(encodeURIComponent).join("/");
-}
-function uniqueJpdbAudioValues(values) {
-  const seen = /* @__PURE__ */ new Set();
-  return values.filter((value) => {
-  const key = normalizeAttemptedAudioUrl(value);
-  if (seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-}
-function jpdbVocabularyIdentityFromUrl$1(value) {
-  if (!value) return null;
-  try {
-  const url = new URL(value, "https://jpdb.io");
-  const parts = url.pathname.split("/").filter(Boolean);
-  if (parts[0] !== "vocabulary") return null;
-  const vid = Number.parseInt(parts[1] ?? "", 10);
-  return {
-    vid: Number.isFinite(vid) ? vid : 0,
-    spelling: decodeUrlPathPart(parts[2] ?? ""),
-    reading: decodeUrlPathPart(parts[3] ?? "")
-  };
-  } catch {
-  return null;
+  const BUNPRO_PRONUNCIATION_AUDIO_BASE_URL = "https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/pronunciation/";
+  const BUNPRO_AUDIO_VOICES = ["female", "male"];
+  async function bunproPronunciationAudioCandidates(source, card) {
+    const word = card.spelling.trim();
+    if (!word || !JAPANESE_TEXT_RE.test(word)) return [];
+    const voiceFilter = source.voice.trim().toLowerCase();
+    return BUNPRO_AUDIO_VOICES.filter((voice) => !voiceFilter || voice === voiceFilter).map((voice) => {
+      const url = `${BUNPRO_PRONUNCIATION_AUDIO_BASE_URL}${encodeURIComponent(word)}-${voice}.mp3`;
+      return { url, sourceUrl: url };
+    });
   }
-}
-function decodeUrlPathPart(value) {
-  try {
-  return decodeURIComponent(value);
-  } catch {
-  return value;
+  async function loadCustomAudioCandidates(source, card) {
+    if (!source.url.trim()) return [];
+    const url = formatAudioUrl(source.url, card);
+    return [{ url, sourceUrl: url }];
   }
-}
-const JITEN_TTS_API_BASE_URL = "https://api.jiten.moe/api/tts";
-const JITEN_TTS_RANDOM_VOICES = ["female", "female2", "male", "male2", "asmr"];
-function jitenTtsVoicesForValue(value) {
-  const voice = value?.trim();
-  return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
-}
-function jitenWordTtsUrl(wordId, readingIndex, voice) {
-  return `${JITEN_TTS_API_BASE_URL}/word/${wordId}/${readingIndex}?voice=${encodeURIComponent(voice)}`;
-}
-const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
-const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
-const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1"]);
-const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
-const JPDB_VOCABULARY_BASE_URL = "https://jpdb.io/vocabulary";
-const JPDB_SEARCH_URL = "https://jpdb.io/search";
-const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
-const JPDB_TTS_VOICE_PREFIXES = {
-  female: ["f"],
-  male: ["m"],
-  f1: ["f1"],
-  f2: ["f2"],
-  m1: ["m1"],
-  m2: ["m2"]
-};
-const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
-const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
-const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
-const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
-const preconnectedAudioOrigins = /* @__PURE__ */ new Set();
-function formatAudioUrl(template, card) {
-  const replacements = {
-  term: card.spelling,
-  reading: card.reading,
-  language: targetAudioTemplateLanguageToken()
-  };
-  return template.replace(
-  /\{(term|reading|language)\}/g,
-  (_, key) => encodeURIComponent(replacements[key] ?? "")
-  );
-}
-function findAudioUrl(value, sourceUrl, mode = "first") {
-  const urls = findAudioUrls(value, sourceUrl);
-  if (!urls.length) return null;
-  return mode === "random" ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
-}
-function findAudioUrls(value, sourceUrl) {
-  const direct = directAudioUrlsForValue(value, sourceUrl);
-  return direct ?? [];
-}
-async function fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language = "en") {
-  const response = await requestAudioUrl(url, "blob", timeoutMs, { proxyUrl, language });
-  if (isJsonAudioResponse(response)) {
-  const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
-  if (!nestedUrl) throw new Error(uiText(language, "audioJsonMissingPlayableUrl"));
-  return fetchAudioBlob(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
+  async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    const template = source.url.trim();
+    if (!template) return [];
+    const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
+    const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
+    if (typeof response !== "string") return [];
+    return customJsonAudioCandidates(JSON.parse(response), source, sourceUrl);
   }
-  if (!(response instanceof Blob)) throw new Error(uiText(language, "audioSourceReturnedNoAudio"));
-  await assertPlayableAudioBlob(response, url, sourceUrl, language);
-  return response;
-}
-function directAudioUrlsForValue(value, sourceUrl) {
-  if (!value) return [];
-  if (typeof value === "string") return findAudioUrlsInString(value, sourceUrl);
-  return structuredAudioUrlsForValue(value, sourceUrl);
-}
-function shouldForceBlobAudioPlayback(sourceType) {
-  return sourceType === "jpod101";
-}
-function shouldForceBlobAudioCandidate(candidate) {
-  return isKnownCorsBlockedPublicAudioCdnUrl(candidate.url) || isKnownCorsBlockedPublicAudioCdnUrl(candidate.sourceUrl) || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl);
-}
-function shouldFetchDirectMediaAsBlob(url) {
-  return /^https?:\/\//i.test(url) && !isLoopbackAudioUrl(url);
-}
-function shouldFetchMediaUrlAsBlobBeforePlayback(url) {
-  return isKnownCorsBlockedPublicAudioCdnUrl(url);
-}
-function structuredAudioUrlsForValue(value, sourceUrl) {
-  if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
-  return typeof value === "object" ? findAudioUrlsInRecord(value, sourceUrl) : null;
-}
-function findAudioUrlsInString(value, sourceUrl) {
-  if (value.startsWith("data:audio/")) return [value];
-  if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
-  return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi)).map((match) => match[0]).filter(isLikelyAudioUrl).map((url) => normalizeAudioUrl(url, sourceUrl)));
-}
-function findAudioUrlsInRecord(record2, sourceUrl) {
-  const known = uniqueAudioUrls([...preferredAudioRecordUrls(record2, sourceUrl), ...directAudioRecordUrls(record2, sourceUrl)]);
-  return known.length ? known : nestedAudioRecordUrls(record2, sourceUrl);
-}
-function preferredAudioRecordUrls(record2, sourceUrl) {
-  return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record2[key], sourceUrl));
-}
-function directAudioRecordUrls(record2, sourceUrl) {
-  return typeof record2.url === "string" && isLikelyAudioRecord(record2) ? findAudioUrls(record2.url, sourceUrl) : [];
-}
-function nestedAudioRecordUrls(record2, sourceUrl) {
-  const knownKeys = /* @__PURE__ */ new Set(["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"]);
-  return uniqueAudioUrls(Object.entries(record2).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
-}
-async function isUnavailableJapanesePod101Audio(blob) {
-  if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
-  try {
-  const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
-  const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
-  return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
-  } catch {
-  return true;
+  function customJsonAudioCandidates(payload, source, sourceUrl) {
+    const named = namedAudioSubSources(payload);
+    recordAudioSubSourceNames(source.url, named.map((entry) => audioSubSourceProviderName(entry.name)));
+    const disabled = disabledAudioSubSourceNameKeys(source);
+    if (named.length && disabled.size) {
+      const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
+      return uniqueAudioUrls(allowed.flatMap((entry) => findAudioUrls(entry.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
+    }
+    return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
   }
-}
-function isJsonAudioResponse(response) {
-  return response instanceof Blob && response.type.includes("json");
-}
-async function assertPlayableAudioBlob(response, url, sourceUrl, language = "en") {
-  if (isErrorDocumentAudioBlob(response) || !isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl)) {
-  throw new Error(formatNonAudioResponseMessage(language, response.type));
+  function namedAudioSubSources(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const record2 = value;
+    const entries2 = [];
+    for (const list of [record2.audioSources, record2.sources]) {
+      if (!Array.isArray(list)) continue;
+      for (const item of list) {
+        const entry = namedAudioSubSource(item);
+        if (entry) entries2.push(entry);
+      }
+    }
+    return entries2;
   }
-  if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
-  throw new Error(uiText(language, "japanesePod101NoAudio"));
+  function namedAudioSubSource(value) {
+    if (!value || typeof value !== "object") return null;
+    const record2 = value;
+    if (typeof record2.name !== "string" || !record2.name.trim()) return null;
+    if (typeof record2.url !== "string" || !record2.url.trim()) return null;
+    return { name: record2.name.trim(), url: record2.url };
   }
-}
-function formatNonAudioResponseMessage(language, contentType) {
-  const label = contentType || uiText(language, "audioUnknownContentType");
-  return uiText(language, "audioRequestReturnedNonAudioWithType").replace("{type}", label);
-}
-function isErrorDocumentAudioBlob(blob) {
-  const type = blob.type.toLowerCase();
-  return type.startsWith("text/") || ["html", "xml", "json"].some((marker) => type.includes(marker));
-}
-function isLikelyAudioBlob(blob) {
-  return blob.type.toLowerCase().startsWith("audio/");
-}
-async function getAudioCandidates(source, card, timeoutMs, proxyUrl) {
-  return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
-}
-function shouldCacheAudioCandidates(source, candidates) {
-  if (!candidates.length) return false;
-  return source.type !== "jpdb-tts" || candidates.length > 1;
-}
-const AUDIO_CANDIDATE_LOADERS = {
-  custom: loadCustomAudioCandidates,
-  "custom-json": loadCustomJsonAudioCandidates,
-  jpod101: loadJapanesePod101AudioCandidates,
-  "language-pod-101": loadLanguagePod101AudioCandidates,
-  jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
-  bunpro: async (source, card) => bunproPronunciationAudioCandidates(source, card),
-  "lingua-libre": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs, proxyUrl)),
-  wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs, proxyUrl)),
-  "jiten-tts": async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
-  "jpdb-tts": async (source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(filterJpdbAudioIdsForVoice(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl), source.voice))
-};
-async function loadNoAudioCandidates() {
-  return [];
-}
-const BUNPRO_PRONUNCIATION_AUDIO_BASE_URL = "https://dk3kgylsgq3k1.cloudfront.net/audio/vocab/pronunciation/";
-const BUNPRO_AUDIO_VOICES = ["female", "male"];
-async function bunproPronunciationAudioCandidates(source, card) {
-  const word = card.spelling.trim();
-  if (!word || !JAPANESE_TEXT_RE.test(word)) return [];
-  const voiceFilter = source.voice.trim().toLowerCase();
-  return BUNPRO_AUDIO_VOICES.filter((voice) => !voiceFilter || voice === voiceFilter).map((voice) => {
-  const url = `${BUNPRO_PRONUNCIATION_AUDIO_BASE_URL}${encodeURIComponent(word)}-${voice}.mp3`;
-  return { url, sourceUrl: url };
-  });
-}
-async function loadCustomAudioCandidates(source, card) {
-  if (!source.url.trim()) return [];
-  const url = formatAudioUrl(source.url, card);
-  return [{ url, sourceUrl: url }];
-}
-async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) {
-  const template = source.url.trim();
-  if (!template) return [];
-  const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
-  const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
-  if (typeof response !== "string") return [];
-  return customJsonAudioCandidates(JSON.parse(response), source, sourceUrl);
-}
-function customJsonAudioCandidates(payload, source, sourceUrl) {
-  const named = namedAudioSubSources(payload);
-  recordAudioSubSourceNames(source.url, named.map((entry) => audioSubSourceProviderName(entry.name)));
-  const disabled = disabledAudioSubSourceNameKeys(source);
-  if (named.length && disabled.size) {
-  const allowed = named.filter((entry) => !disabled.has(audioSubSourceNameKey(entry.name)));
-  return uniqueAudioUrls(allowed.flatMap((entry) => findAudioUrls(entry.url, sourceUrl))).map((url) => ({ url, sourceUrl }));
+  const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
+  function recordAudioSubSourceNames(url, names) {
+    const template = url.trim();
+    if (!template) return [];
+    const known = knownAudioSubSourcesByUrl.get(template) ?? [];
+    const seen = new Set(known.map(audioSubSourceNameKey));
+    const merged = [...known];
+    for (const name of names) {
+      const trimmed = name.trim();
+      if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
+      seen.add(audioSubSourceNameKey(trimmed));
+      merged.push(trimmed);
+    }
+    knownAudioSubSourcesByUrl.set(template, merged);
+    return [...merged];
   }
-  return findAudioUrls(payload, sourceUrl).map((url) => ({ url, sourceUrl }));
-}
-function namedAudioSubSources(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
-  const record2 = value;
-  const entries2 = [];
-  for (const list of [record2.audioSources, record2.sources]) {
-  if (!Array.isArray(list)) continue;
-  for (const item of list) {
-    const entry = namedAudioSubSource(item);
-    if (entry) entries2.push(entry);
+  function withAudioQueryPlaceholders(template) {
+    if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
+    const [base, fragment = ""] = splitUrlFragment(template);
+    const separator = base.includes("?") ? "&" : "?";
+    return `${base}${separator}term={term}&reading={reading}${fragment}`;
   }
+  function splitUrlFragment(value) {
+    const hash = value.indexOf("#");
+    return hash < 0 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
   }
-  return entries2;
-}
-function namedAudioSubSource(value) {
-  if (!value || typeof value !== "object") return null;
-  const record2 = value;
-  if (typeof record2.name !== "string" || !record2.name.trim()) return null;
-  if (typeof record2.url !== "string" || !record2.url.trim()) return null;
-  return { name: record2.name.trim(), url: record2.url };
-}
-const knownAudioSubSourcesByUrl = /* @__PURE__ */ new Map();
-function recordAudioSubSourceNames(url, names) {
-  const template = url.trim();
-  if (!template) return [];
-  const known = knownAudioSubSourcesByUrl.get(template) ?? [];
-  const seen = new Set(known.map(audioSubSourceNameKey));
-  const merged = [...known];
-  for (const name of names) {
-  const trimmed = name.trim();
-  if (!trimmed || seen.has(audioSubSourceNameKey(trimmed))) continue;
-  seen.add(audioSubSourceNameKey(trimmed));
-  merged.push(trimmed);
+  async function loadJapanesePod101AudioCandidates(_source, card) {
+    const url = getJapanesePod101Url(card);
+    return [{ url, sourceUrl: url }];
   }
-  knownAudioSubSourcesByUrl.set(template, merged);
-  return [...merged];
-}
-function withAudioQueryPlaceholders(template) {
-  if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
-  const [base, fragment = ""] = splitUrlFragment(template);
-  const separator = base.includes("?") ? "&" : "?";
-  return `${base}${separator}term={term}&reading={reading}${fragment}`;
-}
-function splitUrlFragment(value) {
-  const hash = value.indexOf("#");
-  return hash < 0 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
-}
-async function loadJapanesePod101AudioCandidates(_source, card) {
-  const url = getJapanesePod101Url(card);
-  return [{ url, sourceUrl: url }];
-}
-async function loadLanguagePod101AudioCandidates(_source, card, timeoutMs, proxyUrl) {
-  const urls = await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl);
-  return urlsToAudioCandidates(urls.length ? urls : [getJapanesePod101Url(card)]);
-}
-function urlsToAudioCandidates(urls) {
-  return urls.map((url) => ({ url, sourceUrl: url }));
-}
-function jpdbAudioIdsToCandidates(audioIds) {
-  return normalizeJpdbAudioIds(audioIds).map((audioId) => ({
-  url: jpdbAudioRequest(audioId).url,
-  sourceUrl: jpdbAudioPageSourceUrl(audioId),
-  jpdbAudioId: audioId
-  }));
-}
-function filterJpdbAudioIdsForVoice(audioIds, voice) {
-  const normalized = voice.trim().toLowerCase();
-  const prefixes = JPDB_TTS_VOICE_PREFIXES[normalized];
-  if (prefixes) return audioIds.filter((audioId) => jpdbAudioIdMatchesVoice(audioId, prefixes));
-  return audioIds;
-}
-function jpdbAudioIdMatchesVoice(audioId, prefixes) {
-  const normalized = audioId.trim().toLowerCase();
-  return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp(prefix)}\\d+/`).test(normalized));
-}
-async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
-  const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
-  if (!reference) return [];
-  const voices = jitenTtsVoicesForSource(source);
-  return voices.map((voice) => {
-  const url = jitenWordTtsUrl(reference.wordId, reference.readingIndex, voice);
-  return { url, sourceUrl: url };
-  });
-}
-function jitenTtsVoicesForSource(source) {
-  return jitenTtsVoicesForValue(source.voice);
-}
-function jitenAudioReferenceFromCard(card) {
-  const wordId = finitePositiveInteger(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger(card.vid) : void 0);
-  const readingIndex = finiteNonNegativeInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger(card.sid) : void 0);
-  return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
-}
-async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
-  const queries = uniqueStrings([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
-  for (const query of queries) {
-  const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
-  const response = await requestAudioUrl(url, "text", timeoutMs, {
-    proxyUrl,
-    allowDirectCrossOrigin: false,
-    preferFetch: true
-  }).catch(() => "");
-  if (typeof response !== "string") continue;
-  const reference = bestJitenAudioReference(card, jitenVocabularySearchResults(response));
-  if (reference) return reference;
+  async function loadLanguagePod101AudioCandidates(_source, card, timeoutMs, proxyUrl) {
+    const urls = await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl);
+    return urlsToAudioCandidates(urls.length ? urls : [getJapanesePod101Url(card)]);
   }
-  return null;
-}
-function jitenVocabularySearchResults(response) {
-  try {
-  const payload = JSON.parse(response);
-  if (!payload || typeof payload !== "object") return [];
-  const results = payload.results;
-  return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result) => Boolean(result)) : [];
-  } catch {
-  return [];
+  function urlsToAudioCandidates(urls) {
+    return urls.map((url) => ({ url, sourceUrl: url }));
   }
-}
-function normalizeJitenAudioReferenceSearchResult(value) {
-  if (!value || typeof value !== "object") return null;
-  const record2 = value;
-  const wordId = finitePositiveInteger(record2.wordId);
-  const readingIndex = finiteNonNegativeInteger(record2.readingIndex);
-  if (wordId === void 0 || readingIndex === void 0) return null;
-  return {
-  wordId,
-  readingIndex,
-  text: typeof record2.text === "string" ? record2.text.trim() : "",
-  reading: cleanJitenRubyText(typeof record2.rubyText === "string" ? record2.rubyText : "").trim()
-  };
-}
-function bestJitenAudioReference(card, results) {
-  if (!results.length) return null;
-  const spelling = card.spelling.trim();
-  const reading = card.reading.trim();
-  const exact = results.find((result) => result.text === spelling && (!reading || result.reading === reading));
-  const spellingOnly = exact ?? results.find((result) => result.text === spelling);
-  const readingOnly = spellingOnly ?? results.find((result) => reading && result.reading === reading);
-  const match = readingOnly ?? results[0];
-  return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
-}
-function cleanJitenRubyText(value) {
-  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
-}
-function finitePositiveInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
-}
-function finiteNonNegativeInteger(value) {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
-}
-function getJapanesePod101Url(card) {
-  const spelling = card.spelling.trim();
-  const reading = card.reading.trim() || spelling;
-  const params = new URLSearchParams();
-  if (spelling && spelling !== reading) params.set("kanji", spelling);
-  params.set("kana", reading);
-  return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
+  function jpdbAudioIdsToCandidates(audioIds) {
+    return normalizeJpdbAudioIds(audioIds).map((audioId) => ({
+      url: jpdbAudioRequest(audioId).url,
+      sourceUrl: jpdbAudioPageSourceUrl(audioId),
+      jpdbAudioId: audioId
+    }));
+  }
+  function filterJpdbAudioIdsForVoice(audioIds, voice) {
+    const normalized = voice.trim().toLowerCase();
+    const prefixes = JPDB_TTS_VOICE_PREFIXES[normalized];
+    if (prefixes) return audioIds.filter((audioId) => jpdbAudioIdMatchesVoice(audioId, prefixes));
+    return audioIds;
+  }
+  function jpdbAudioIdMatchesVoice(audioId, prefixes) {
+    const normalized = audioId.trim().toLowerCase();
+    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp(prefix)}\\d+/`).test(normalized));
+  }
+  async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
+    if (!reference) return [];
+    const voices = jitenTtsVoicesForSource(source);
+    return voices.map((voice) => {
+      const url = jitenWordTtsUrl(reference.wordId, reference.readingIndex, voice);
+      return { url, sourceUrl: url };
+    });
+  }
+  function jitenTtsVoicesForSource(source) {
+    return jitenTtsVoicesForValue(source.voice);
+  }
+  function jitenAudioReferenceFromCard(card) {
+    const wordId = finitePositiveInteger(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger(card.vid) : void 0);
+    const readingIndex = finiteNonNegativeInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger(card.sid) : void 0);
+    return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
+  }
+  async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
+    const queries = uniqueStrings([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
+    for (const query of queries) {
+      const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
+      const response = await requestAudioUrl(url, "text", timeoutMs, {
+        proxyUrl,
+        allowDirectCrossOrigin: false,
+        preferFetch: true
+      }).catch(() => "");
+      if (typeof response !== "string") continue;
+      const reference = bestJitenAudioReference(card, jitenVocabularySearchResults(response));
+      if (reference) return reference;
+    }
+    return null;
+  }
+  function jitenVocabularySearchResults(response) {
+    try {
+      const payload = JSON.parse(response);
+      if (!payload || typeof payload !== "object") return [];
+      const results = payload.results;
+      return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result) => Boolean(result)) : [];
+    } catch {
+      return [];
+    }
+  }
+  function normalizeJitenAudioReferenceSearchResult(value) {
+    if (!value || typeof value !== "object") return null;
+    const record2 = value;
+    const wordId = finitePositiveInteger(record2.wordId);
+    const readingIndex = finiteNonNegativeInteger(record2.readingIndex);
+    if (wordId === void 0 || readingIndex === void 0) return null;
+    return {
+      wordId,
+      readingIndex,
+      text: typeof record2.text === "string" ? record2.text.trim() : "",
+      reading: cleanJitenRubyText(typeof record2.rubyText === "string" ? record2.rubyText : "").trim()
+    };
+  }
+  function bestJitenAudioReference(card, results) {
+    if (!results.length) return null;
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    const exact = results.find((result) => result.text === spelling && (!reading || result.reading === reading));
+    const spellingOnly = exact ?? results.find((result) => result.text === spelling);
+    const readingOnly = spellingOnly ?? results.find((result) => reading && result.reading === reading);
+    const match = readingOnly ?? results[0];
+    return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
+  }
+  function cleanJitenRubyText(value) {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+  }
+  function finitePositiveInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
+  }
+  function finiteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
+  }
+  function getJapanesePod101Url(card) {
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim() || spelling;
+    const params = new URLSearchParams();
+    if (spelling && spelling !== reading) params.set("kanji", spelling);
+    params.set("kana", reading);
+    return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
 }
 function isJapanesePod101Url(value) {
   try {

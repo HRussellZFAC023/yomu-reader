@@ -1,7 +1,7 @@
 "openapi": "3.1.0"
 "info":
   "title": "Yomu Support API"
-  "version": "1.8.89"
+  "version": "1.8.90"
   "description": "Public funding status, contribution checkout, verified donation claims, and provider webhook ingress."
   "contact":
     "name": "Yomu"

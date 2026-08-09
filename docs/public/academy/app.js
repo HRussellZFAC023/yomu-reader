@@ -30469,9 +30469,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const KATAKANA_MIDDLE_DOT = "・";
   const JAPANESE_SENTENCE_PUNCTUATION = "、。！？・";
   const COMBINING_KANA_MARKS = "゙゚";
-  const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
-  const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
-  const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
   const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
   const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
   const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
@@ -30481,9 +30478,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
   const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
   const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
-  const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
   const HAS_JAPANESE$1 = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
-  const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
   const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
   const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
   const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
@@ -31546,50 +31541,36 @@ ${spelling}`);
   function isSupportedLanguageProfileSchemaVersion(value) {
     return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+  const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10;
+  const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10];
   function isSupportedLearningTargetModuleInterfaceVersion(value) {
     return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
   }
-  const LEARNING_TARGET_CAPABILITY_IDS = [
-    "term-lookup",
-    "character-lookup",
-    "segmentation",
-    "morphology",
-    "reading-annotation",
-    "pronunciation",
-    "frequency",
-    "examples",
-    "grammar",
-    "audio",
-    "text-to-speech",
-    "ocr",
-    "subtitles",
-    "mining",
-    "srs",
-    "grading",
-    "typing",
-    "handwriting"
-  ];
-  const NO_CAPABILITIES = Object.freeze(
-    Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id2) => [id2, false]))
-  );
   const CORE_DELIVERED_CAPABILITIES = Object.freeze({
     "term-lookup": true,
+    "character-lookup": true,
     segmentation: true,
+    "reading-annotation": true,
     pronunciation: true,
+    frequency: true,
+    examples: true,
+    audio: true,
     "text-to-speech": true,
+    ocr: true,
     subtitles: true,
     typing: true,
+    handwriting: true,
     mining: true,
     srs: true,
     grading: true
   });
-  function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+  function learningTargetCapabilities(experiences, hasGrammarRules = false) {
     return Object.freeze({
-      ...NO_CAPABILITIES,
-      ...declared,
       ...CORE_DELIVERED_CAPABILITIES,
+      // A literal depth-0 dictionary candidate is lookup, not morphology.
+      // Morphology is present only when a target owns deinflection, bounded
+      // rewrite rules, or a target-specific subsegment Adapter.
+      morphology: experiences.morphology !== "dictionary-forms",
       // Derived, never declared: a target has grammar support exactly when it
       // ships grammar rules. Same principle as the block above — the capability
       // reports the machinery instead of promising alongside it.
@@ -31605,13 +31586,15 @@ ${spelling}`);
     const normalizeText = spec.normalizeText ?? defaultNormalizeText;
     const segment2 = spec.segment ?? ((text2) => defaultSegment(text2, language2));
     const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+    const experiences = learningTargetExperiences(spec);
     return Object.freeze({
       interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
       id: spec.id,
       language: language2,
       direction,
       collationLocale: spec.collationLocale ?? language2,
-      capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+      capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
+      experiences,
       featureSemantics: Object.freeze({
         ...spec.featureSemantics,
         phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -31619,7 +31602,7 @@ ${spelling}`);
       typography: Object.freeze({
         contentLocale: language2,
         direction,
-        readingAnnotationMode: "none",
+        readingAnnotationMode: "ruby",
         supportsVerticalWriting: false,
         ...spec.typography
       }),
@@ -31631,6 +31614,7 @@ ${spelling}`);
       audio: Object.freeze({
         speechSynthesisLocale: regionalTag,
         templateLanguageToken: base,
+        recordedWordAudio: false,
         ...spec.audio
       }),
       ocr: Object.freeze({
@@ -31662,6 +31646,32 @@ ${spelling}`);
       matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
       normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
     });
+  }
+  function learningTargetExperiences(spec) {
+    return Object.freeze({
+      characterLookup: "term-dictionary",
+      morphology: morphologyExperience(spec),
+      readingAnnotation: "dictionary-reading",
+      frequency: "dictionary-rank-or-context-occurrences",
+      audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
+      ocr: "target-locale",
+      handwriting: "self-check",
+      ...spec.experiences
+    });
+  }
+  function morphologyExperience(spec) {
+    return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+  }
+  function inferredMorphologyExperience(spec) {
+    if (spec.lookupCandidates) return "deinflection";
+    return hasBoundedMorphology(spec) ? "bounded-rewrites" : "dictionary-forms";
+  }
+  function hasBoundedMorphology(spec) {
+    if (spec.lookupRewrites?.length) return true;
+    return Boolean(spec.lookupSubsegments);
+  }
+  function audioExperience(recordedWordAudio) {
+    return recordedWordAudio ? "recorded-and-speech-synthesis" : "speech-synthesis";
   }
   function maximizedLocaleTag(language2) {
     try {
@@ -31714,15 +31724,11 @@ ${spelling}`);
     language: "ja",
     direction: "ltr",
     collationLocale: "ja",
-    capabilities: {
-      "character-lookup": true,
-      morphology: true,
-      "reading-annotation": true,
-      frequency: true,
-      examples: true,
-      audio: true,
-      ocr: true,
-      handwriting: true
+    experiences: {
+      characterLookup: "character-dictionary",
+      morphology: "deinflection",
+      audio: "recorded-and-speech-synthesis",
+      handwriting: "stroke-feedback"
     },
     featureSemantics: {
       characterSystem: "kanji",
@@ -31746,7 +31752,8 @@ ${spelling}`);
     },
     audio: {
       speechSynthesisLocale: "ja-JP",
-      templateLanguageToken: "ja"
+      templateLanguageToken: "ja",
+      recordedWordAudio: true
     },
     ocr: {
       defaultLanguage: "ja-JP",
@@ -34471,6 +34478,314 @@ ${spelling}`);
       }
     ]
   });
+  const FOUNDATION_LEVEL = "Foundation";
+  const HSK_STANDARD_COURSE_LEVEL_SCALE = Object.freeze({
+    id: "hsk-standard-course",
+    levels: Object.freeze(["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"])
+  });
+  const YEE_CEFR_BAND_LEVEL_SCALE = Object.freeze({
+    id: "tr-yee-cefr-band",
+    levels: Object.freeze(["A1–A2"])
+  });
+  function foundationScale(id2) {
+    return Object.freeze({ id: id2, levels: Object.freeze([FOUNDATION_LEVEL]) });
+  }
+  function oneRuleGrammar(referenceUrl, levelScale, rule) {
+    return createLearningTargetGrammar({ referenceUrl, levelScale, rules: [rule] });
+  }
+  function foundationGrammar(targetScaleId, referenceUrl, rule) {
+    return oneRuleGrammar(referenceUrl, foundationScale(targetScaleId), {
+      ...rule,
+      level: FOUNDATION_LEVEL
+    });
+  }
+  const ALBANIAN_EXISTENTIALS = "https://edizionicafoscari.unive.it/media/pdf/journals/balcania-et-slavia/2024/1/iss-4-1-2024.pdf#page=18";
+  const CLASSICAL_GREEK_ONLINE = "https://lrc.la.utexas.edu/eieol/grkol/0";
+  const MSA_NOMINAL_SENTENCES = "https://openbooks.lib.msu.edu/elemarabicll/chapter/grammar-2/";
+  const CUHK_CANTONESE_NEGATION = "https://www.cuhk.edu.hk/lin/cbrc/CantoneseGrammar/multimedia/13.htm";
+  const HSK_STANDARD_COURSE_3 = "https://www.hskstandardcourse.com/hsk-standard-course-level-3/";
+  const PRINCETON_YUELAIYUE = "https://commons.princeton.edu/chinesecharacters/%E8%B6%8A%E6%9D%A5%E8%B6%8A/";
+  const DANISH_PRESENTATIVE_DER = "https://ordnet.dk/ddo/ordbog/der";
+  const DUTCH_PRESENTATIVE_ER = "https://onzetaal.nl/taalloket/wel-of-geen-er";
+  const BRITISH_COUNCIL_THERE = "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/using-there-there-are";
+  const FINNISH_POSSESSION = "https://kielitoimistonohjepankki.fi/ohje/lauseenvastikkeet-tehdakseen-rakenne-pelaan-voittaakseni-rakenteen-tekija/";
+  const GREEK_NEGATION = "https://www.greek-language.gr/digitalResources/modern_greek/tools/lexica/glossology_edu/iframe.html?heading=2&id=173";
+  const HUNGARIAN_POSSESSION = "https://www.gutenberg.org/files/76725/76725-h/76725-h.htm";
+  const INDONESIAN_NEGATIVE_EXISTENTIAL = "https://seasite.niu.edu/flin/archive/103_handouts/sentences_and_phrases.htm";
+  const ITALIAN_PRESENTATIVE_CI = "https://www.treccani.it/enciclopedia/ci_%28La-grammatica-italiana%29/";
+  const KHMER_NEGATION = "https://seasite.niu.edu/khmer/grammar_note/grammar_note7/grammar_note7_text.htm";
+  const KOREAN_DESIRE = "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=62657";
+  const LAO_NEGATION = "https://seasite.niu.edu/lao/LaoLanguage/grammar_notes/grammar2.htm";
+  const LATIN_NEGATIVE_COPULA = "https://www.usu.edu/markdamen/Latin1000/Presentation/transcriptions/04T.pdf";
+  const MONGOLIAN_NEGATION = "https://library.huree.edu.mn/data/201021/2023-05-19/An%20Elementary%20Mongolian%20Grammar%20%28%20PDFDrive.com%20%29.pdf";
+  const PERSIAN_NEGATIVE_COPULA = "https://sites.la.utexas.edu/persian_online_resources/verbs/long-copulas-1/";
+  const POLISH_NEGATIVE_EXISTENTIAL = "https://zpe.gov.pl/a/odmiana-rzeczownika-i-przymiotnika/D1DL299KT";
+  const PORTUGUESE_EXISTENTIAL_HAVER = "https://ciberduvidas.iscte-iul.pt/consultorio/perguntas/haverexistir/3409";
+  const ROMANIAN_NECESSITY = "https://slaviccenters.duke.edu/sites/slaviccenters.duke.edu/files/site-images/2016_romanian_verbs_conjugated.pdf";
+  const CROATIAN_EXISTENTIAL_NEMA = "https://bosnian.coerll.utexas.edu/c8/m2/lekcija1/grammar/";
+  const SWEDISH_PRESENTATIVE_FINNS = "https://svenska.se/grammatik/";
+  const TAGALOG_EXISTENTIALS = "https://seasite.niu.edu/trans/tagalog/Grammar%201/Sentences1/Existential_Sentences.htm";
+  const THAI_COPULAR_NEGATION = "https://seasite.niu.edu/thai/FLTH/1styearthai.htm";
+  const YEE_A1_A2 = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden-turkce.";
+  const YEE_VAR_YOK = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden4/hayatin-icinden4";
+  const VIETNAMESE_COMPLETION = "https://seasite.niu.edu/vietnamese/uniLesson8/L8_grammar.htm";
+  const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
+    sq: foundationGrammar("sq-foundation", ALBANIAN_EXISTENTIALS, {
+      ruleId: "sq-existential-ka-ketu",
+      name: "Existence with ka … këtu",
+      displayNames: { en: "Existence with ka … këtu", ja: "ka … këtu の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Kk]a\s+\p{L}+(?:-\p{L}+)?\s+këtu(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ALBANIAN_EXISTENTIALS
+    }),
+    grc: foundationGrammar("grc-classical-foundation", CLASSICAL_GREEK_ONLINE, {
+      ruleId: "grc-negation-ou",
+      name: "Negation with οὐ",
+      displayNames: { en: "Negation with οὐ", ja: "οὐ による否定" },
+      patternSource: String.raw`(?<!\p{L})(?:[Οο]ὐ|[Οο]ὐκ|[Οο]ὐχ)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CLASSICAL_GREEK_ONLINE
+    }),
+    ar: foundationGrammar("ar-msa-foundation", MSA_NOMINAL_SENTENCES, {
+      ruleId: "ar-msa-laysa-negation",
+      name: "Nominal negation with laysa",
+      displayNames: { en: "Nominal negation with laysa", ja: "laysa（ليس）による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})(?:ليس|ليست|لست|لسنا|لستم|لستن|ليسا|ليستا|ليسوا|لسن)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MSA_NOMINAL_SENTENCES
+    }),
+    yue: foundationGrammar("yue-foundation", CUHK_CANTONESE_NEGATION, {
+      ruleId: "yue-copular-negation-m-haih",
+      name: "Copular negation with 唔係",
+      displayNames: { en: "Copular negation with 唔係", ja: "唔係 によるコピュラ否定" },
+      patternSource: String.raw`唔係`,
+      priority: 20,
+      confidence: "high",
+      url: CUHK_CANTONESE_NEGATION
+    }),
+    zh: oneRuleGrammar(HSK_STANDARD_COURSE_3, HSK_STANDARD_COURSE_LEVEL_SCALE, {
+      ruleId: "zh-hsk3-yuelaiyue",
+      level: "HSK 3",
+      name: "Increasing degree with 越来越",
+      displayNames: { en: "Increasing degree with 越来越", ja: "越来越 による程度変化" },
+      patternSource: String.raw`(?:越来越|越來越)(?:冷|热|熱|好|忙|难|難|喜欢|喜歡|想)`,
+      priority: 20,
+      confidence: "high",
+      url: PRINCETON_YUELAIYUE
+    }),
+    da: foundationGrammar("da-foundation", DANISH_PRESENTATIVE_DER, {
+      ruleId: "da-presentative-der-er",
+      name: "Presentative der er",
+      displayNames: { en: "Presentative der er", ja: "der er の存在構文" },
+      patternSource: String.raw`(?:^|(?<=[.!?…]\s))[Dd]er\s+er\s+(?:en|et|mange|ingen|to|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: DANISH_PRESENTATIVE_DER
+    }),
+    nl: foundationGrammar("nl-foundation", DUTCH_PRESENTATIVE_ER, {
+      ruleId: "nl-presentative-er-is-zijn",
+      name: "Presentative er is / er zijn",
+      displayNames: { en: "Presentative er is / er zijn", ja: "er is / er zijn の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Ee]r\s+(?:is|zijn)\s+(?:een|geen|veel|twee|drie|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: DUTCH_PRESENTATIVE_ER
+    }),
+    en: oneRuleGrammar(BRITISH_COUNCIL_THERE, CEFR_GRAMMAR_LEVEL_SCALE, {
+      ruleId: "en-a1-there-is-are",
+      level: "A1",
+      name: "Existence with there is / there are",
+      displayNames: { en: "Existence with there is / there are", ja: "there is / there are の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Tt]here\s+(?:is|are)\s+(?:a|an|some|many|no|one|two|three|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: BRITISH_COUNCIL_THERE
+    }),
+    fi: foundationGrammar("fi-foundation", FINNISH_POSSESSION, {
+      ruleId: "fi-adessive-possession",
+      name: "Possession with adessive + on",
+      displayNames: { en: "Possession with adessive + on", ja: "接格 ＋ on の所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]inulla|[Ss]inulla|[Hh]änellä|[Mm]eillä|[Tt]eillä|[Hh]eillä)\s+on(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: FINNISH_POSSESSION
+    }),
+    el: foundationGrammar("el-modern-foundation", GREEK_NEGATION, {
+      ruleId: "el-indicative-negation-den",
+      name: "Indicative negation with δεν",
+      displayNames: { en: "Indicative negation with δεν", ja: "δεν による直説法の否定" },
+      patternSource: String.raw`(?<!\p{L})[Δδ]εν\s+\p{L}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: GREEK_NEGATION
+    }),
+    hu: foundationGrammar("hu-foundation", HUNGARIAN_POSSESSION, {
+      ruleId: "hu-dative-possession-van",
+      name: "Possession with dative + van",
+      displayNames: { en: "Possession with dative + van", ja: "与格 ＋ van の所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Nn]ekem|[Nn]eked|[Nn]eki|[Nn]ekünk|[Nn]ektek|[Nn]ekik)\s+van(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: HUNGARIAN_POSSESSION
+    }),
+    id: foundationGrammar("id-foundation", INDONESIAN_NEGATIVE_EXISTENTIAL, {
+      ruleId: "id-negative-existential-tidak-ada",
+      name: "Negative existence with tidak ada",
+      displayNames: { en: "Negative existence with tidak ada", ja: "tidak ada の否定存在文" },
+      patternSource: String.raw`(?<!\p{L})[Tt]idak\s+ada(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: INDONESIAN_NEGATIVE_EXISTENTIAL
+    }),
+    it: foundationGrammar("it-foundation", ITALIAN_PRESENTATIVE_CI, {
+      ruleId: "it-presentative-ci",
+      name: "Presentative c’è / ci sono",
+      displayNames: { en: "Presentative c’è / ci sono", ja: "c’è / ci sono の存在構文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Cc][’']è|[Cc]i\s+sono)\s+(?:un|uno|una|due|tre|molti|molte|alcuni|alcune)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ITALIAN_PRESENTATIVE_CI
+    }),
+    km: foundationGrammar("km-foundation", KHMER_NEGATION, {
+      ruleId: "km-discontinuous-negation",
+      name: "Discontinuous negation with មិន … ទេ",
+      displayNames: { en: "Discontinuous negation with មិន … ទេ", ja: "មិន … ទេ の呼応否定" },
+      patternSource: String.raw`មិន[^\n។៕!?]{1,50}?ទេ`,
+      priority: 20,
+      confidence: "high",
+      url: KHMER_NEGATION
+    }),
+    ko: foundationGrammar("ko-foundation", KOREAN_DESIRE, {
+      ruleId: "ko-desire-go-sipda",
+      name: "Desire with -고 싶다",
+      displayNames: { en: "Desire with -고 싶다", ja: "-고 싶다（希望）" },
+      patternSource: String.raw`[가-힣]{1,8}고\s+싶(?:다|어요|습니다|어|었어요|었다|습니까|니|죠)(?![가-힣])`,
+      priority: 20,
+      confidence: "high",
+      url: KOREAN_DESIRE
+    }),
+    lo: foundationGrammar("lo-foundation", LAO_NEGATION, {
+      ruleId: "lo-preverbal-negation-bo",
+      name: "Preverbal negation with ບໍ່",
+      displayNames: { en: "Preverbal negation with ບໍ່", ja: "ບໍ່ による動詞・形容詞の否定" },
+      patternSource: String.raw`ບໍ່\s*(?:ແມ່ນ|ໄປ|ມາ|ມັກ|ດີ|ງາມ|ຮູ້)`,
+      priority: 20,
+      confidence: "high",
+      url: LAO_NEGATION
+    }),
+    la: foundationGrammar("la-classical-foundation", LATIN_NEGATIVE_COPULA, {
+      ruleId: "la-negative-copula-non-est",
+      name: "Negative copula with nōn est",
+      displayNames: { en: "Negative copula with nōn est", ja: "nōn est によるコピュラ否定" },
+      patternSource: String.raw`(?<!\p{L})[Nn][oō]n\s+est(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: LATIN_NEGATIVE_COPULA
+    }),
+    mn: foundationGrammar("mn-khalkha-foundation", MONGOLIAN_NEGATION, {
+      ruleId: "mn-nominal-negation-bish",
+      name: "Nominal negation with биш",
+      displayNames: { en: "Nominal negation with биш", ja: "биш による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})биш(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MONGOLIAN_NEGATION
+    }),
+    fa: foundationGrammar("fa-iranian-foundation", PERSIAN_NEGATIVE_COPULA, {
+      ruleId: "fa-negative-long-copula",
+      name: "Negative long copula",
+      displayNames: { en: "Negative long copula", ja: "否定長形コピュラ نیست" },
+      patternSource: String.raw`(?<!\p{L})نیست(?:م|ی|یم|ید|ند)?(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PERSIAN_NEGATIVE_COPULA
+    }),
+    pl: foundationGrammar("pl-foundation", POLISH_NEGATIVE_EXISTENTIAL, {
+      ruleId: "pl-negative-existential-nie-ma",
+      name: "Absence or non-possession with nie ma + genitive",
+      displayNames: { en: "Absence or non-possession with nie ma + genitive", ja: "nie ma ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ie\s+ma(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: POLISH_NEGATIVE_EXISTENTIAL
+    }),
+    pt: foundationGrammar("pt-foundation", PORTUGUESE_EXISTENTIAL_HAVER, {
+      ruleId: "pt-existential-ha",
+      name: "Existence with impersonal há",
+      displayNames: { en: "Existence with impersonal há", ja: "非人称 há の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Hh]á\s+(?:um|uma|dois|duas|três|muitos|muitas|alguns|algumas)\s+(?:pessoas?|problemas?|livros?|casas?|lugares?)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PORTUGUESE_EXISTENTIAL_HAVER
+    }),
+    ro: foundationGrammar("ro-foundation", ROMANIAN_NECESSITY, {
+      ruleId: "ro-necessity-trebuie-sa",
+      name: "Necessity with trebuie să",
+      displayNames: { en: "Necessity with trebuie să", ja: "trebuie să による必要・義務" },
+      patternSource: String.raw`(?<!\p{L})[Tt]rebuie\s+să\s+\p{Ll}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ROMANIAN_NECESSITY
+    }),
+    sh: foundationGrammar("sh-shtokavian-foundation", CROATIAN_EXISTENTIAL_NEMA, {
+      ruleId: "sh-existential-nema-genitive",
+      name: "Absence or non-possession with nema + genitive",
+      displayNames: { en: "Absence or non-possession with nema + genitive", ja: "nema ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ema\s+(?:kave|kruha|vode|problema|vremena|ljudi)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CROATIAN_EXISTENTIAL_NEMA
+    }),
+    sv: foundationGrammar("sv-foundation", SWEDISH_PRESENTATIVE_FINNS, {
+      ruleId: "sv-presentative-det-finns",
+      name: "Presentative det finns",
+      displayNames: { en: "Presentative det finns", ja: "det finns の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Dd]et\s+finns\s+(?:en|ett|många|inga|två|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: SWEDISH_PRESENTATIVE_FINNS
+    }),
+    tl: foundationGrammar("tl-tagalog-foundation", TAGALOG_EXISTENTIALS, {
+      ruleId: "tl-existential-may-mayroon",
+      name: "Existence with may / mayroon",
+      displayNames: { en: "Existence with may / mayroon", ja: "may / mayroon の存在文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]ay|[Mm]ayroon(?:g)?)\s+(?:isang|mga|dalawang|tatlong|\p{L}{3,})(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: TAGALOG_EXISTENTIALS
+    }),
+    th: foundationGrammar("th-foundation", THAI_COPULAR_NEGATION, {
+      ruleId: "th-copular-negation-mai-chai",
+      name: "Copular negation with ไม่ใช่",
+      displayNames: { en: "Copular negation with ไม่ใช่", ja: "ไม่ใช่ によるコピュラ否定" },
+      patternSource: String.raw`ไม่ใช่`,
+      priority: 20,
+      confidence: "high",
+      url: THAI_COPULAR_NEGATION
+    }),
+    tr: oneRuleGrammar(YEE_A1_A2, YEE_CEFR_BAND_LEVEL_SCALE, {
+      ruleId: "tr-a1-a2-existence-var-yok",
+      level: "A1–A2",
+      name: "Existence or possession with var / yok",
+      displayNames: { en: "Existence or possession with var / yok", ja: "var / yok の存在・所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:bir\s+)?\p{L}{2,}\s+(?:var|yok)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: YEE_VAR_YOK
+    }),
+    vi: foundationGrammar("vi-foundation", VIETNAMESE_COMPLETION, {
+      ruleId: "vi-completed-da-roi",
+      name: "Completed action with đã … rồi",
+      displayNames: { en: "Completed action with đã … rồi", ja: "đã … rồi の完了表現" },
+      patternSource: String.raw`(?<!\p{L})[Đđ]ã\s+[^\n.!?]{1,50}?\s+rồi(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: VIETNAMESE_COMPLETION
+    })
+  });
   const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
   const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
   const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
@@ -34653,42 +34968,39 @@ ${spelling}`);
       }
     ]
   });
-  function referenceOnly(referenceUrl) {
-    return createLearningTargetGrammar({ referenceUrl });
-  }
   const GRAMMAR_BY_TARGET = Object.freeze({
-    sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-    grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-    ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-    yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-    zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-    da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-    nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-    en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-    fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
+    sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+    grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+    ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+    yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+    zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+    da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+    nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+    en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+    fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
     fr: FRENCH_GRAMMAR,
     de: GERMAN_GRAMMAR,
-    el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-    hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-    id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-    it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-    km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-    ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-    lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-    la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-    mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-    fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-    pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-    pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-    ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
+    el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+    hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+    id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+    it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+    km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+    ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+    lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+    la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+    mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+    fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+    pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+    pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+    ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
     ru: RUSSIAN_GRAMMAR,
-    sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
+    sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
     es: SPANISH_GRAMMAR,
-    sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-    tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-    th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-    tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-    vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
+    sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+    tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+    th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+    tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+    vi: FOUNDATION_GRAMMAR_BY_TARGET.vi
   });
   function grammarForRosterTarget(language2) {
     return GRAMMAR_BY_TARGET[language2];
@@ -34791,16 +35103,6 @@ ${spelling}`);
   const KOREAN_LEARNING_TARGET = createLearningTargetModule({
     id: "korean-thin-v1",
     language: "ko",
-    capabilities: {
-      "reading-annotation": true,
-      ocr: true,
-      // Korean is a hand-written module rather than a generic roster entry, so it
-      // misses anything the roster loop derives. Tatoeba mounts for ko with text
-      // availability 'available' exactly as it does for the other 31 — caught by the
-      // registry-agreement assertion in learning-target-contract.test.ts, which is
-      // the whole reason that test exists.
-      examples: true
-    },
     featureSemantics: {
       characterSystem: "hangul",
       phoneticScripts: ["hangul"],
@@ -36384,42 +36686,20 @@ ${spelling}`);
         id: `${language2.id}-roster-v1`,
         language: language2.runtimeLocale,
         direction: language2.direction,
-        capabilities: {
-          morphology: lookupRewrites.length > 0,
-          "reading-annotation": readingAnnotation,
-          // MEASURED against config/dictionaries/published/v1/catalog.json
-          // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
-          // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
-          // so two capabilities the shipped catalogue already supplies were
-          // switched off for the languages that can use them. The Han branch
-          // is where the data is, and character-lookup already gates on
-          // isUnifiedIdeograph as well, so this reaches only real Han runs —
-          // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
-          // pitch out, exactly as character-lookup.ts anticipated.
-          "character-lookup": usesHanScript,
-          frequency: usesHanScript,
-          // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
-          // is a registered, mounted, licence-checked example source for
-          // every non-Japanese target and reports text availability
-          // 'available' for all of them (Japanese uses Immersion Kit
-          // instead, which is why it is declared separately). The flag said
-          // Japanese-only, so 32 languages that already had example
-          // sentences were reporting none. Audio is deliberately NOT implied
-          // here — Tatoeba answers 'per-item' for audio and outright 'none'
-          // for the smaller corpora, so a boolean would overclaim it.
-          // tests/reader/languages/learning-target-contract.test.ts asserts
-          // this against the live registry so it cannot go stale again.
-          examples: true
+        experiences: {
+          // Published zh/yue character banks warrant a dedicated
+          // per-character surface. Other scripts use the normal term
+          // dictionary with a single grapheme as their query.
+          characterLookup: usesHanScript ? "character-dictionary" : "term-dictionary"
         },
         featureSemantics: {
           characterSystem: language2.defaultScript,
           phoneticScripts: readingAnnotation ? [language2.id === "yue" ? "jyutping" : "pinyin"] : [],
           pronunciation: "ipa",
-          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "none"
+          readingAnnotation: readingAnnotation ? language2.id === "yue" ? "jyutping" : "pinyin" : "dictionary reading"
         },
         grammar: grammarForRosterTarget(language2.id),
         sentenceBoundaries: sentenceBoundariesForScripts(language2.scripts),
-        typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
         ocr: ocrHintFor(language2.runtimeLocale),
         detectsText: scriptDetector(language2.scripts),
         lookupRewrites,
@@ -36478,9 +36758,6 @@ ${spelling}`);
   }
   function normalizeLearningTargetLanguage(value) {
     return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
-  }
-  function registeredLearningTargetModules() {
-    return [...MODULE_STACKS_BY_LANGUAGE.values()].flatMap((stack) => stack.at(-1) ?? []);
   }
   function defaultLearningTargetModule() {
     return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
@@ -36979,8 +37256,9 @@ ${spelling}`);
   function isTargetDefaultOcrLanguageTag(value) {
     const tag = value?.trim().toLowerCase();
     if (!tag) return false;
-    return registeredLearningTargetModules().some((module) => module.capabilities.ocr && module.ocr.defaultLanguage.toLowerCase() === tag);
+    return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
   }
+  const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = /* @__PURE__ */ new Set(["ja-jp", "ko-kr"]);
   function targetSpeechSynthesisLocale() {
     return activeLearningTarget().audio.speechSynthesisLocale;
   }
@@ -38079,13 +38357,37 @@ ${spelling}`);
       clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
     }
   };
+  const TARGET_AWARE_UI_COPY = Object.freeze({
+    en: Object.freeze({
+      puckStudyTarget: "Study {language}",
+      puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+      puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+      puckFilterYoutubeTarget: "Filter YouTube for {language}",
+      popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+      contextOccurrences: "In context ×{count}",
+      loadTargetSubtitles: "Load {language} subtitles",
+      loadOutputSubtitles: "Load {language} subtitles"
+    }),
+    ja: Object.freeze({
+      puckStudyTarget: "{language}を学習",
+      puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+      puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+      puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+      popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+      contextOccurrences: "文脈内 ×{count}",
+      loadTargetSubtitles: "{language}字幕を読み込む",
+      loadOutputSubtitles: "{language}字幕を読み込む"
+    })
+  });
   const COPY$c = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
-      onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
+      onboardingEyebrow: "{language}, wherever it appears",
+      onboardingCopy: "Make {language} text, subtitles, and images tappable.",
       onboardingLanguage: "Settings language",
+      onboardingOutputLanguage: "Definition and translation language (output)",
+      onboardingTargetLanguage: "Language you are reading (target)",
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
@@ -38104,7 +38406,7 @@ ${spelling}`);
       onboardingUseWithoutApiKey: "Use without API key",
       closeOnboarding: "Close welcome",
       featureText: "Text",
-      featureTextBody: "Hover or tap scanned Japanese.",
+      featureTextBody: "Hover or tap scanned {language}.",
       featureImages: "Images",
       featureImagesBody: "Read any image by tapping it.",
       featureVideo: "Video",
@@ -38112,7 +38414,7 @@ ${spelling}`);
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "Review words and kanji on the study page.",
+      featureStudyBody: "Review words and characters on the study page.",
       featureGame: "Game",
       featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
       scanPage: "Scan page",
@@ -38337,7 +38639,7 @@ ${spelling}`);
       ocrInteractionModeManual: "Tap or hover",
       ocrInteractionModeOff: "Off",
       puckMenuLabel: `${APP_NAME} menu`,
-      puckStudyPage: "Study page",
+      ...TARGET_AWARE_UI_COPY.en,
       puckPauseAnnotations: "Pause annotations",
       puckResumeAnnotations: "Resume annotations",
       puckOcrAuto: "OCR: Auto",
@@ -38816,8 +39118,6 @@ ${spelling}`);
       enableSubtitleAutoHide: "Auto-hide panel while playing",
       disableSubtitleAutoHide: "Keep panel open while playing",
       subtitlePanelOptions: "Panel options",
-      loadJapaneseSubtitles: "Load Japanese subtitles",
-      loadNativeSubtitles: "Load native subtitles",
       searchAnimeSubtitles: "Search anime subtitles",
       toggleNativeSubtitleBlur: "Toggle native subtitle blur",
       subtitleTrackDetectedSingular: "1 subtitle track detected",
@@ -39338,9 +39638,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -39358,7 +39660,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -39366,7 +39668,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -39608,8 +39910,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -40040,7 +40340,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -40048,7 +40348,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -40550,7 +40849,8 @@ recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
 `),
-    ...SUBTITLE_SETTINGS_COPY.ja
+    ...SUBTITLE_SETTINGS_COPY.ja,
+    ...TARGET_AWARE_UI_COPY.ja
   };
   function resolveUiLanguage(language2) {
     if (language2 === "ja" || language2 === "en") return language2;
@@ -41979,8 +42279,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       !hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
       targetLanguage2
     );
-    if (isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) return savedLookupLinksInDefaultOrder(links);
-    return isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
+    if (targetLanguage2 === "ja" && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+      return savedLookupLinksInDefaultOrder(links);
+    }
+    return targetLanguage2 === "ja" && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
   }
   const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
   function normalizeDictionaryPreferences(value) {
@@ -42077,15 +42379,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!Array.isArray(value)) return builtIns;
     const normalized2 = [];
     const seen = /* @__PURE__ */ new Set();
-    const defaults = new Set(builtIns.map((link) => link.id));
+    const defaults = new Map(builtIns.map((link) => [link.id, link]));
     let extras = 0;
     const add = (link) => {
       const id2 = link.id.trim();
       if (!id2 || seen.has(id2)) return;
-      const known = defaults.has(id2);
+      const builtIn = defaults.get(id2);
+      const known = Boolean(builtIn);
+      if (!known && isBuiltInLookupLinkForAnotherTarget(id2)) return;
       if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
       seen.add(id2);
-      normalized2.push({ ...link, id: id2 });
+      normalized2.push(builtIn ? { ...builtIn, enabled: link.enabled, priority: link.priority } : { ...link, id: id2 });
       if (!known) extras++;
     };
     for (const item2 of value) {
@@ -42094,6 +42398,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
     return withLookupLinkPriorities(normalized2);
+  }
+  function isBuiltInLookupLinkForAnotherTarget(id2) {
+    return DEFAULT_DICTIONARY_LOOKUP_LINKS.some((link) => link.id === id2) || isTargetLookupLinkId(id2);
   }
   function isRemovedBuiltInLookupLink(link) {
     return isRemovedBuiltInLookupLinkId(link.id);
@@ -42420,14 +42727,30 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return { settings, changed };
   }
   const YOMU_HOSTED_AUDIO_SOURCE = { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true };
+  const TARGET_SPEECH_SYNTHESIS_SOURCE = { type: "text-to-speech", url: "", voice: "", enabled: true };
   function getOrderedAudioSources(settings) {
     const sources = settings.audioSources.filter((source2) => source2.enabled);
     if (!settings.audioEnableDefaultSources) return sources;
-    const hosted = settings.audioSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return defaultAudioSources(settings.audioSources, sources);
+  }
+  function defaultAudioSources(authoredSources, enabledSources) {
+    const target2 = activeLearningTarget();
+    const configured = enabledSources.filter((source2) => !isYomuHostedAudioSource(source2));
     return [
-      ...hosted.enabled ? [{ ...hosted }] : [],
-      ...sources.filter((source2) => !isYomuHostedAudioSource(source2))
+      ...hostedDefaultAudioSources(authoredSources, target2.audio.recordedWordAudio),
+      ...configured,
+      ...targetSpeechSynthesisSources(configured, target2.experiences.audio)
     ];
+  }
+  function hostedDefaultAudioSources(authoredSources, recordedWordAudio) {
+    if (!recordedWordAudio) return [];
+    const hosted = authoredSources.find(isYomuHostedAudioSource) ?? YOMU_HOSTED_AUDIO_SOURCE;
+    return hosted.enabled ? [{ ...hosted }] : [];
+  }
+  function targetSpeechSynthesisSources(configured, experience) {
+    if (experience !== "speech-synthesis") return [];
+    if (configured.some(isBrowserTextToSpeechSource)) return [];
+    return [TARGET_SPEECH_SYNTHESIS_SOURCE];
   }
   function isYomuHostedAudioSource(source2) {
     return source2.type === "custom-json" && source2.url.trim() === YOMU_HOSTED_AUDIO_URL;
@@ -44371,7 +44694,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function isSafeTokenSpan(token, offset, text2) {
     if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-    return HAS_JAPANESE_LETTER.test(text2.slice(token.start, token.end));
+    return learningTargetForToken(token).isLookupableText(text2.slice(token.start, token.end));
   }
   function miningInsightTokenKeys(tokens) {
     const sentences = /* @__PURE__ */ new Map();
@@ -44427,7 +44750,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (mode === "off") return false;
     if (mode === "hover") return true;
     if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    return mode !== "difficult-kanji" || hasDifficultKanji(surface);
+    if (mode !== "difficult-kanji") return true;
+    return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
@@ -44559,7 +44883,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return Boolean(first2 && second && first2 === second && READING_KANA_ONLY_RE.test(first2));
   }
   function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
+    const target2 = learningTargetForToken(token);
+    if (target2.typography.readingAnnotationMode === "none") return [];
     const sources = sourceTokenRubies(surface, token);
+    if (target2.experiences.characterLookup === "term-dictionary") {
+      return sources.filter((ruby) => localRubyRange(surface, token, ruby));
+    }
     if (preserveTokenRubies) {
       return sources.flatMap((ruby) => {
         const range2 = localRubyRange(surface, token, ruby);
@@ -44576,7 +44905,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !READING_KANA_ONLY_RE.test(reading)) return [];
+    if (!surface || !reading || reading === surface) return [];
+    if (surface.trim() === token.card.spelling.trim()) {
+      return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+    }
+    if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -44585,8 +44918,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
         end: token.start + ruby.end
       }));
     }
-    if (surface.trim() !== token.card.spelling.trim()) return [];
-    return [{ text: reading, start: token.start, end: token.end, length: token.length }];
+    return [];
+  }
+  function learningTargetForToken(token) {
+    return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {
     const range2 = localRubyRange(surface, token, ruby);
@@ -280133,7 +280468,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       undoReviewFailed: "Could not undo the review.",
       searchWordsOrKanji: "Search words or kanji",
       draw: "Draw",
-      drawKanji: "Draw kanji",
+      drawKanji: "Write by hand",
       clearSearch: "Clear search",
       searchSuggestions: "Search suggestions",
       studyNavigation: "Study navigation",
@@ -280197,8 +280532,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       noSource: "No source",
       liveReview: "live review",
       searchRecognizing: "Recognizing...",
-      searchNoHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
-      typeOrPasteKanji: "Type or paste kanji",
+      searchNoHandwritingMatch: "No handwriting match yet. Type or paste the text instead.",
+      typeOrPasteKanji: "Type or paste text",
       searching: "Searching...",
       searchLocalDictionariesFailed: "Could not search local dictionaries.",
       externalDictionarySearch: "External dictionary search",
@@ -280231,6 +280566,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
       typeWordWriteChar: "Write the highlighted kanji — kana stays in place",
       typeWordProgress: "Handwriting progress",
       typeWordAllDone: "Kanji written",
+      typeWordWriteWord: "Write the word from memory",
+      typeWordCompare: "Compare with the answer",
+      typeWordSelfCheckPrompt: "Does your writing match?",
+      typeWordMatched: "It matches",
       studyTourType: "Produce the word — type or write it.",
       studySummaryLabel: "Step results",
       studySummaryKanji: "Kanji",
@@ -280416,7 +280755,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     undoReviewFailed: "レビューを取り消せませんでした。",
     searchWordsOrKanji: "単語・漢字を検索",
     draw: "手書き",
-    drawKanji: "漢字を書く",
+    drawKanji: "手書き入力",
     clearSearch: "検索をクリア",
     searchSuggestions: "検索候補",
     studyNavigation: "学習ナビゲーション",
@@ -280480,8 +280819,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     noSource: "ソースなし",
     liveReview: "ライブレビュー",
     searchRecognizing: "認識中...",
-    searchNoHandwritingMatch: "手書き候補がまだありません。漢字を入力または貼り付けてください。",
-    typeOrPasteKanji: "漢字を入力または貼り付け",
+    searchNoHandwritingMatch: "手書き候補がまだありません。テキストを入力または貼り付けてください。",
+    typeOrPasteKanji: "テキストを入力または貼り付け",
     searching: "検索中...",
     searchLocalDictionariesFailed: "ローカル辞書を検索できませんでした。",
     externalDictionarySearch: "外部辞書検索",
@@ -280514,6 +280853,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     typeWordWriteChar: "強調された漢字を書いてください。かなはそのまま表示されます",
     typeWordProgress: "手書きの進捗",
     typeWordAllDone: "漢字を書けました",
+    typeWordWriteWord: "単語を思い出して書いてください",
+    typeWordCompare: "答えと比べる",
+    typeWordSelfCheckPrompt: "書いたものは答えと合っていますか？",
+    typeWordMatched: "合っている",
     studyTourType: "単語を書き出します。入力か手書きで。",
     studySummaryLabel: "ステップの結果",
     studySummaryKanji: "漢字",
@@ -291333,23 +291676,29 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function jitenDeckLabel$1(deck) {
     return deck?.name ? `Jiten: ${deck.name}` : "Jiten";
   }
-  function targetSupportsCharacterLookup() {
-    return activeLearningTarget().capabilities["character-lookup"];
+  function targetUsesCharacterDictionary() {
+    const target2 = activeLearningTarget();
+    return target2.capabilities["character-lookup"] && target2.experiences.characterLookup === "character-dictionary";
   }
   function usesJapaneseProviders() {
     return activeLearningTarget().language === "ja";
   }
   function usesJapaneseCharacterStudy() {
-    return targetSupportsCharacterLookup() && usesJapaneseProviders();
+    return targetUsesCharacterDictionary() && usesJapaneseProviders();
   }
   function targetSupportsHandwriting() {
     return activeLearningTarget().capabilities.handwriting;
   }
+  function targetCanHandwriteText(value, target2 = activeLearningTarget()) {
+    return target2.capabilities.handwriting && Boolean(value.trim()) && target2.isLookupableText(value);
+  }
   function targetCanLookupCharacter(value) {
-    return targetSupportsCharacterLookup() && isUnifiedIdeograph(value);
+    const target2 = activeLearningTarget();
+    return target2.capabilities["character-lookup"] && target2.experiences.characterLookup === "character-dictionary" && isUnifiedIdeograph(value);
   }
   function targetCanHandwriteCharacter(value) {
-    return targetSupportsHandwriting() && isUnifiedIdeograph(value);
+    const target2 = activeLearningTarget();
+    return target2.capabilities.handwriting && target2.experiences.handwriting === "stroke-feedback" && isUnifiedIdeograph(value);
   }
   function assertReviewableApiCardState(states) {
     if (states.includes("blacklisted")) throw userFacingError("reviewBlockedBlacklisted");
@@ -291909,7 +292258,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       return settings.localDictionariesEnabled ? this.options.dictionaries.lookup(card.spelling, card.reading, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
     }
     lookupAnkiLocalKanji(card, settings) {
-      return targetSupportsCharacterLookup() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
+      return targetUsesCharacterDictionary() && settings.localDictionariesEnabled && settings.localDictionaryShowKanji ? this.options.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
     }
     lookupAnkiLocalMeta(card, settings) {
       return settings.localDictionariesEnabled ? this.options.dictionaries.lookupTermMeta(card.spelling, 12, settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
@@ -300495,10 +300844,171 @@ ${entry2.reading || ""}`;
   function pronunciationRow(kind, content) {
     return `<div class="jpdb-reader-pronunciation" data-pronunciation-kind="${kind}">${content}</div>`;
   }
+  function hasFrequencyRankEvidence(card, metaEntries, providerRanks) {
+    return frequencyRank(card.frequencyRank) !== null || metaEntries.some((entry2) => entry2.mode === "freq" && Boolean(formatMetaFrequency(entry2.data))) || Object.values(providerRanks ?? {}).some((evidence2) => frequencyRank(evidence2?.rank) !== null);
+  }
+  function contextOccurrenceCount({ spelling, language: language2 = "ja" }, context2 = "") {
+    let normalize2 = normalizeIdentityText;
+    const target2 = learningTargetModuleFor(language2);
+    if (target2) normalize2 = (value) => target2.normalizeText(value);
+    const surface = normalize2(spelling);
+    const text2 = normalize2(context2);
+    if (!surface) return 0;
+    let count2 = 0;
+    for (let offset = text2.indexOf(surface); offset >= 0; offset = text2.indexOf(surface, offset + surface.length)) {
+      count2++;
+    }
+    return count2;
+  }
+  function frequencyProviderForLookupId(id2) {
+    if (id2 === "jiten-frequency") return "jiten";
+    if (id2 === "jpdb-frequency") return "jpdb";
+    if (id2 === "bunpro-frequency") return "bunpro";
+    return null;
+  }
+  const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
+  function bunproFrequencyRank(card, info) {
+    const lists = (info?.frequencies ?? []).filter((entry2) => Number.isInteger(entry2.rank) && entry2.rank > 0);
+    if (!info || !lists.length) return null;
+    const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
+    return {
+      provider: "bunpro",
+      rank: primary.rank,
+      spelling: normalizeIdentityText(card.spelling || info.expression),
+      reading: normalizeIdentityText(card.reading || info.reading),
+      source: "live-search",
+      lists
+    };
+  }
+  function listOrderIndex(list2) {
+    const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list2);
+    return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
+  }
+  function liveFrequencyEnabled(settings, provider) {
+    const frequencyEnabled = settings.dictionaryLookupLinks.some(
+      (link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
+    );
+    const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
+    return frequencyEnabled && lookupEnabled;
+  }
+  function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
+    const ranks = {};
+    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
+    if (jitenRank) {
+      ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
+    }
+    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
+    if (jpdb) ranks.jpdb = jpdb;
+    return ranks;
+  }
+  function jpdbKanjiFrequencyEvidence(kanji, frequency) {
+    const text2 = frequency.trim();
+    const match = /([\d,]+)/.exec(text2);
+    const rank2 = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
+    if (!Number.isInteger(rank2) || rank2 <= 0) return null;
+    return {
+      provider: "jpdb",
+      rank: rank2,
+      spelling: kanji,
+      reading: kanji,
+      source: "kanji",
+      display: /^top\b/i.test(text2) ? text2 : void 0
+    };
+  }
+  function cardFrequencyRanks(card, isJpdbBackedCard) {
+    const rank2 = frequencyRank(card.frequencyRank);
+    if (!rank2) return {};
+    const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
+    return provider ? {
+      [provider]: rankEvidence(provider, rank2, card, "card")
+    } : {};
+  }
+  function jitenFrequencyRankForCard(card, info) {
+    const rank2 = frequencyRank(info?.mainReading?.frequencyRank);
+    return rank2 ? rankEvidence("jiten", rank2, card, "live-search") : null;
+  }
+  function exactJitenFrequencyRank(card, candidates) {
+    return exactSearchFrequencyRank("jiten", card, candidates);
+  }
+  function exactJpdbFrequencyRank(card, candidates) {
+    return exactSearchFrequencyRank("jpdb", card, candidates);
+  }
+  function exactSearchFrequencyRank(provider, card, candidates) {
+    const spelling = normalizeIdentityText(card.spelling);
+    const reading = normalizeIdentityText(card.reading);
+    const match = candidates.find(
+      (candidate2) => normalizeIdentityText(candidate2.spelling) === spelling && normalizeIdentityText(candidate2.reading) === reading && frequencyRank(candidate2.frequencyRank) !== null
+    );
+    const rank2 = frequencyRank(match?.frequencyRank);
+    return match && rank2 ? rankEvidence(provider, rank2, match, "live-search") : null;
+  }
+  function withFrequencyRank(ranks, evidence2) {
+    return evidence2 ? { ...ranks, [evidence2.provider]: evidence2 } : ranks;
+  }
+  function rankEvidence(provider, rank2, card, source2) {
+    return {
+      provider,
+      rank: rank2,
+      spelling: normalizeIdentityText(card.spelling),
+      reading: normalizeIdentityText(card.reading),
+      source: source2
+    };
+  }
+  function frequencyRank(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+  }
+  function normalizeIdentityText(value) {
+    return value.normalize("NFKC").trim();
+  }
   function bunproDefinitionStatusAttributes(status2) {
     if (!status2) return "";
     const reason = "reason" in status2 ? ` data-bunpro-definition-reason="${escapeHtml$2(status2.reason)}"` : "";
     return ` data-bunpro-definition-status="${escapeHtml$2(status2.state)}"${reason}`;
+  }
+  const LANGUAGE_ENDONYMS = Object.freeze({
+    ja: "日本語",
+    zh: "中文",
+    yue: "粵語",
+    lzh: "文言"
+  });
+  function headwordLanguageEndonym(language2) {
+    return LANGUAGE_ENDONYMS[language2] ?? language2;
+  }
+  function headwordLanguageName(language2, locale = "en") {
+    const display = languageDisplayName(language2, locale);
+    return display === language2 ? headwordLanguageEndonym(language2) : display;
+  }
+  function activeTargetLanguageDisplayName(interfaceLanguage) {
+    return targetLanguageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
+  }
+  function targetLanguageDisplayNameFor(tag, interfaceLanguage) {
+    const uiLanguage = resolveUiLanguage(interfaceLanguage);
+    const subtag = languageSubtag(tag) ?? "ja";
+    return rosterIdentityDisplayName(subtag, uiLanguage) ?? headwordLanguageName(subtag, uiLanguage);
+  }
+  function rosterIdentityDisplayName(subtag, uiLanguage) {
+    const identity2 = ROSTER_IDENTITY_BY_RUNTIME_SUBTAG[subtag] ?? subtag;
+    return TARGET_IDENTITY_NAMES[identity2]?.[uiLanguage];
+  }
+  const TARGET_IDENTITY_NAMES = {
+    sh: { en: "Serbo-Croatian", ja: "セルボ・クロアチア語" },
+    tl: { en: "Tagalog", ja: "タガログ語" }
+  };
+  const ROSTER_IDENTITY_BY_RUNTIME_SUBTAG = {
+    bs: "sh",
+    fil: "tl",
+    hr: "sh",
+    sr: "sh"
+  };
+  function activeContentLanguageAxes(settings) {
+    const targetLanguage2 = activeLearningTargetLanguage();
+    const outputLanguage = outputLanguageOf(settings);
+    return {
+      targetLanguage: targetLanguage2,
+      targetName: targetLanguageDisplayNameFor(targetLanguage2, settings.interfaceLanguage),
+      outputLanguage,
+      outputName: targetLanguageDisplayNameFor(outputLanguage, settings.interfaceLanguage)
+    };
   }
   class CardPopoverRenderer {
     constructor(dependencies) {
@@ -300516,7 +301026,7 @@ ${entry2.reading || ""}`;
             <div class="jpdb-reader-sheet-handle"></div>
             <div class="jpdb-reader-popover-body" data-card-popover${bunproDefinitionStatusAttributes(data.bunproDefinitionStatus)}>
                 ${this.dependencies.renderWordHistory(view.language, trigger)}
-                ${this.renderHeader(card, data, view, trigger)}
+                ${this.renderHeader(card, sentence, data, view, trigger)}
                 ${this.renderPartOfSpeech(view)}
                 ${expressionComponents}
                 ${definitionSources}
@@ -300563,11 +301073,13 @@ ${entry2.reading || ""}`;
         audioButtonTitle: uiText(language2, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
       };
     }
-    renderHeader(card, data, view, trigger) {
+    renderHeader(card, sentence, data, view, trigger) {
+      const wordPills = this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks);
+      const pills = appendWordPill(wordPills, this.renderContextFrequencyPill(card, sentence, data, view.language));
       return `<div class="jpdb-reader-header">
             <div class="jpdb-reader-heading">
                 ${this.renderTitleRow(card, data, view)}
-                ${this.dependencies.renderWordPills(card, view.jpdbUrl, data.metaEntries, void 0, trigger, data.ankiLookup, data.frequencyRanks)}
+                ${pills}
             </div>
             <div class="jpdb-reader-card-tools">
                 ${renderPronunciation({
@@ -300583,19 +301095,33 @@ ${entry2.reading || ""}`;
             </div>
         </div>`;
     }
+    renderContextFrequencyPill(card, sentence, data, language2) {
+      if (data.loading || hasFrequencyRankEvidence(card, data.metaEntries, data.frequencyRanks)) return "";
+      const count2 = contextOccurrenceCount(card, sentence);
+      if (!count2) return "";
+      const label = formatUiText(language2, "contextOccurrences", { count: count2 });
+      return `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-frequency-source="context" style="${pillStyle("frequency:context")}" title="${escapeHtml$2(label)}">${escapeHtml$2(label)}</span>`;
+    }
     renderTitleRow(card, data, view) {
       const pitchTarget = cardUsesPitchAccentPronunciation(card);
       const pitchClass = pitchTarget ? getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading) : "";
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
-      const kanjiNavigation = targetSupportsCharacterLookup() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
+      const kanjiNavigation = targetUsesCharacterDictionary() ? { enabled: true, label: uiText(view.language, "showKanji") } : void 0;
       const componentSegments = pitchTarget && !pitchClass && !data.loading && this.settings().showPitchAccent ? headwordComponentPitchSegments(card, data.expressionComponents ?? [], data.componentPitches ?? []) : [];
       const componentSpelling = componentSegments.length ? renderHeadwordComponentPitchSpans(card, componentSegments, this.settings(), kanjiNavigation) : "";
       const spellingContent = componentSpelling || renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation);
       const pitchEvidence = componentSpelling ? ' data-pitch-evidence="components"' : "";
+      const settings = this.settings();
+      const axes = activeContentLanguageAxes(settings);
+      const axesLabel = formatUiText(view.language, "popupLanguageAxes", {
+        target: axes.targetName,
+        output: axes.outputName
+      });
       const kanjiNavigationAttributes = kanjiNavigation ? ` data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$2(kanjiNavigation.label)}"` : "";
       return `<div class="jpdb-reader-title-row">
             <div class="${spellingClass}" data-yomu-headword data-pitch-class="${pitchClass}"${pitchEvidence}${kanjiNavigationAttributes}>${spellingContent}</div>
             ${renderMeta(view.metaItems)}
+            <div class="jpdb-reader-language-axes" data-target-language="${escapeHtml$2(axes.targetLanguage)}" data-output-language="${escapeHtml$2(axes.outputLanguage)}">${escapeHtml$2(axesLabel)}</div>
         </div>`;
     }
     renderPartOfSpeech(view) {
@@ -301011,6 +301537,11 @@ ${entry2.reading || ""}`;
   }
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
+  }
+  function appendWordPill(wordPills, pill) {
+    if (!pill) return wordPills;
+    const closingTag = wordPills.includes("jpdb-reader-word-pills") ? wordPills.lastIndexOf("</div>") : -1;
+    return closingTag >= 0 ? `${wordPills.slice(0, closingTag)}${pill}${wordPills.slice(closingTag)}` : `${wordPills}<div class="jpdb-reader-word-pills">${pill}</div>`;
   }
   function uniqueExpressionComponents(components2) {
     const seen = /* @__PURE__ */ new Set();
@@ -304159,106 +304690,6 @@ ${entry2.reading}`);
       timeout
     ]).finally(() => window.clearTimeout(timeoutId));
   }
-  function frequencyProviderForLookupId(id2) {
-    if (id2 === "jiten-frequency") return "jiten";
-    if (id2 === "jpdb-frequency") return "jpdb";
-    if (id2 === "bunpro-frequency") return "bunpro";
-    return null;
-  }
-  const BUNPRO_PRIMARY_LIST_ORDER = ["general", "dictionary", "netflix", "anime", "novels"];
-  function bunproFrequencyRank(card, info) {
-    const lists = (info?.frequencies ?? []).filter((entry2) => Number.isInteger(entry2.rank) && entry2.rank > 0);
-    if (!info || !lists.length) return null;
-    const primary = [...lists].sort((a, b) => listOrderIndex(a.list) - listOrderIndex(b.list))[0];
-    return {
-      provider: "bunpro",
-      rank: primary.rank,
-      spelling: normalizeIdentityText(card.spelling || info.expression),
-      reading: normalizeIdentityText(card.reading || info.reading),
-      source: "live-search",
-      lists
-    };
-  }
-  function listOrderIndex(list2) {
-    const index = BUNPRO_PRIMARY_LIST_ORDER.indexOf(list2);
-    return index < 0 ? BUNPRO_PRIMARY_LIST_ORDER.length : index;
-  }
-  function liveFrequencyEnabled(settings, provider) {
-    const frequencyEnabled = settings.dictionaryLookupLinks.some(
-      (link) => link.enabled && frequencyProviderForLookupId(link.id) === provider
-    );
-    const lookupEnabled = settings.dictionaryLookupLinks.some((link) => link.enabled && link.id === provider);
-    return frequencyEnabled && lookupEnabled;
-  }
-  function kanjiFrequencyRanks(kanji, jitenKanjiRank, jpdbKanjiFrequency) {
-    const ranks = {};
-    const jitenRank = frequencyRank(jitenKanjiRank ?? null);
-    if (jitenRank) {
-      ranks.jiten = { provider: "jiten", rank: jitenRank, spelling: kanji, reading: kanji, source: "kanji" };
-    }
-    const jpdb = jpdbKanjiFrequencyEvidence(kanji, jpdbKanjiFrequency ?? "");
-    if (jpdb) ranks.jpdb = jpdb;
-    return ranks;
-  }
-  function jpdbKanjiFrequencyEvidence(kanji, frequency) {
-    const text2 = frequency.trim();
-    const match = /([\d,]+)/.exec(text2);
-    const rank2 = match?.[1] ? Number.parseInt(match[1].replace(/,/g, ""), 10) : NaN;
-    if (!Number.isInteger(rank2) || rank2 <= 0) return null;
-    return {
-      provider: "jpdb",
-      rank: rank2,
-      spelling: kanji,
-      reading: kanji,
-      source: "kanji",
-      display: /^top\b/i.test(text2) ? text2 : void 0
-    };
-  }
-  function cardFrequencyRanks(card, isJpdbBackedCard) {
-    const rank2 = frequencyRank(card.frequencyRank);
-    if (!rank2) return {};
-    const provider = card.source === "jiten" || card.reviewSource === "jiten-api" ? "jiten" : isJpdbBackedCard(card) ? "jpdb" : null;
-    return provider ? {
-      [provider]: rankEvidence(provider, rank2, card, "card")
-    } : {};
-  }
-  function jitenFrequencyRankForCard(card, info) {
-    const rank2 = frequencyRank(info?.mainReading?.frequencyRank);
-    return rank2 ? rankEvidence("jiten", rank2, card, "live-search") : null;
-  }
-  function exactJitenFrequencyRank(card, candidates) {
-    return exactSearchFrequencyRank("jiten", card, candidates);
-  }
-  function exactJpdbFrequencyRank(card, candidates) {
-    return exactSearchFrequencyRank("jpdb", card, candidates);
-  }
-  function exactSearchFrequencyRank(provider, card, candidates) {
-    const spelling = normalizeIdentityText(card.spelling);
-    const reading = normalizeIdentityText(card.reading);
-    const match = candidates.find(
-      (candidate2) => normalizeIdentityText(candidate2.spelling) === spelling && normalizeIdentityText(candidate2.reading) === reading && frequencyRank(candidate2.frequencyRank) !== null
-    );
-    const rank2 = frequencyRank(match?.frequencyRank);
-    return match && rank2 ? rankEvidence(provider, rank2, match, "live-search") : null;
-  }
-  function withFrequencyRank(ranks, evidence2) {
-    return evidence2 ? { ...ranks, [evidence2.provider]: evidence2 } : ranks;
-  }
-  function rankEvidence(provider, rank2, card, source2) {
-    return {
-      provider,
-      rank: rank2,
-      spelling: normalizeIdentityText(card.spelling),
-      reading: normalizeIdentityText(card.reading),
-      source: source2
-    };
-  }
-  function frequencyRank(value) {
-    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
-  }
-  function normalizeIdentityText(value) {
-    return value.normalize("NFKC").trim();
-  }
   const log$j = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
@@ -304528,7 +304959,7 @@ ${entry2.reading}`);
     }
     loadLocalKanjiEntries(card) {
       const settings = this.settings();
-      if (!targetSupportsCharacterLookup() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
+      if (!targetUsesCharacterDictionary() || !settings.localDictionariesEnabled || !settings.localDictionaryShowKanji || !isLocalKanjiDictionaryCard(card)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_LOCAL_TIMEOUT_MS, "local kanji dictionary", this.dependencies.dictionaries.lookupKanji(card.spelling, settings.localDictionaryMaxResults, settings.dictionaryPreferences).catch((error) => {
         log$j.warn("Local kanji lookup failed", { term: card.spelling }, error);
         return [];
@@ -312586,6 +313017,9 @@ ${normalizedReading}`;
     "dismiss-study-tour",
     "recall-submit",
     "type-word-submit",
+    "type-word-handwriting-check",
+    "type-word-handwriting-match",
+    "type-word-handwriting-retry",
     "type-word-skip",
     "type-word-mode",
     "jpdb-kanji-action",
@@ -314409,7 +314843,7 @@ ${entry2.url}`),
     return card.kanjiKeyword;
   }
   const firstTruthy = (values) => values.find(Boolean) ?? "";
-  async function recognizeGoogleJapaneseHandwriting(strokes) {
+  async function recognizeGoogleHandwriting(strokes, target2 = activeLearningTarget()) {
     if (typeof fetch !== "function" || !strokes.length) return [];
     const response = await fetch(NEW_TAB_HANDWRITING_GOOGLE_URL, {
       method: "POST",
@@ -314422,7 +314856,7 @@ ${entry2.url}`),
             writing_area_height: 240
           },
           ink: googleHandwritingInk(strokes),
-          language: "ja"
+          language: target2.language
         }]
       })
     });
@@ -314431,13 +314865,19 @@ ${entry2.url}`),
   }
   const googleHandwritingInk = (strokes) => strokes.map((stroke) => [stroke.map((point) => Math.round(point.x * 240)), stroke.map((point) => Math.round(point.y * 240)), []]).filter((stroke) => stroke[0].length > 1 && stroke[1].length > 1);
   function googleHandwritingPredictionQueries(response) {
-    const results = Array.isArray(response) && response.length > 1 && Array.isArray(response[1]) && Array.isArray(response[1][0]) && Array.isArray(response[1][0][1]) ? response[1][0][1] : [];
+    const results = nestedArrayAtPath(response, [1, 0, 1]);
     return uniqueTrimmedStrings(results.flatMap((result2) => {
       const text2 = typeof result2 === "string" ? result2.trim() : "";
-      if (!text2) return [];
-      const kanji = kanjiCharacters$1(text2);
-      return kanji.length === 1 && Array.from(text2).length === 1 ? kanji : [];
+      return text2 ? [text2] : [];
     })).slice(0, 8);
+  }
+  function nestedArrayAtPath(value, path) {
+    let current = value;
+    for (const index of path) {
+      if (!Array.isArray(current)) return [];
+      current = current[index];
+    }
+    return Array.isArray(current) ? current : [];
   }
   const shouldWaitForMoreDoodleStrokes = (strokes, expectedStrokes) => expectedStrokes > 0 && strokes.length < expectedStrokes;
   const visibleCardKanji = (card) => card ? kanjiCharacters$1(card.spelling)[0] ?? card.spelling[0] ?? "" : "";
@@ -316151,11 +316591,11 @@ ${entry2.url}`),
           return true;
         case "search-handwriting-toggle":
           event.preventDefault();
-          if (usesJapaneseCharacterStudy()) this.toggleSearchHandwriting(root);
+          if (targetSupportsHandwriting()) this.toggleSearchHandwriting(root);
           return true;
         case "handwriting-candidate":
           event.preventDefault();
-          if (targetCanLookupCharacter(this.searchActionQuery(target2))) {
+          if (targetCanHandwriteText(this.searchActionQuery(target2))) {
             this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target2));
           }
           return true;
@@ -316392,7 +316832,7 @@ ${entry2.url}`),
       this.toggleSearchHandwriting(root, true);
     }
     installSearchHandwriting(root) {
-      if (!usesJapaneseCharacterStudy()) {
+      if (!targetSupportsHandwriting()) {
         root.querySelector("[data-newtab-handwriting]")?.remove();
         this.syncSearchHandwritingToggle(root);
         return;
@@ -316420,7 +316860,7 @@ ${entry2.url}`),
       });
     }
     ensureSearchHandwritingPanel(root) {
-      if (!usesJapaneseCharacterStudy()) return null;
+      if (!targetSupportsHandwriting()) return null;
       const existing = root.querySelector("[data-newtab-handwriting]");
       if (existing) return existing;
       const results = this.searchResultsMount(root);
@@ -316430,7 +316870,7 @@ ${entry2.url}`),
       return panel;
     }
     toggleSearchHandwriting(root, open) {
-      if (!usesJapaneseCharacterStudy()) return;
+      if (!targetSupportsHandwriting()) return;
       const panel = this.ensureSearchHandwritingPanel(root);
       if (!panel) return;
       panel.open = open ?? !panel.open;
@@ -316449,13 +316889,13 @@ ${entry2.url}`),
       const panel = root.querySelector("[data-newtab-handwriting]");
       const toggle = root.querySelector(newTabActionSelector("search-handwriting-toggle"));
       if (!toggle) return;
-      const enabled = usesJapaneseCharacterStudy();
+      const enabled = targetSupportsHandwriting();
       toggle.hidden = !enabled;
       toggle.disabled = !enabled;
       toggle.setAttribute("aria-expanded", String(enabled && Boolean(panel?.open)));
     }
     scheduleSearchHandwritingRecognition(root) {
-      if (!usesJapaneseCharacterStudy()) {
+      if (!targetSupportsHandwriting()) {
         this.clearSearchHandwriting(root);
         return;
       }
@@ -316473,8 +316913,9 @@ ${entry2.url}`),
       }, NEW_TAB_HANDWRITING_DEBOUNCE_MS);
     }
     async recognizeSearchHandwriting(root, strokes, generation2) {
-      if (!usesJapaneseCharacterStudy()) return;
-      const recognizedCandidates = await recognizeGoogleJapaneseHandwriting(strokes).catch((error) => {
+      if (!targetSupportsHandwriting()) return;
+      const target2 = activeLearningTarget();
+      const recognizedCandidates = await recognizeGoogleHandwriting(strokes, target2).catch((error) => {
         log$8.warn("Search handwriting failed", error);
         return [];
       });
@@ -316482,8 +316923,8 @@ ${entry2.url}`),
         log$8.warn("Search handwriting geometry failed", error);
         return [];
       });
-      if (!usesJapaneseCharacterStudy() || !root.isConnected || this.currentRoute() !== "search" || generation2 !== this.searchHandwritingGeneration) return;
-      const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).filter(targetCanLookupCharacter).slice(0, 8);
+      if (activeLearningTarget() !== target2 || !root.isConnected || this.currentRoute() !== "search" || generation2 !== this.searchHandwritingGeneration) return;
+      const candidates = uniqueTrimmedStrings([...recognizedCandidates, ...geometryCandidates]).filter((candidate2) => targetCanHandwriteText(candidate2, target2)).slice(0, 8);
       const message = candidates.length ? "" : this.deps.text("searchNoHandwritingMatch");
       this.renderSearchHandwritingCandidates(root, candidates, message);
     }
@@ -316522,12 +316963,13 @@ ${entry2.url}`),
     renderSearchHandwritingCandidates(root, candidates, message) {
       const mount = root.querySelector("[data-newtab-handwriting-candidates]");
       if (!mount) return;
-      if (!usesJapaneseCharacterStudy()) {
+      if (!targetSupportsHandwriting()) {
         mount.hidden = true;
         mount.replaceChildren();
         return;
       }
-      candidates = candidates.filter(targetCanLookupCharacter);
+      const target2 = activeLearningTarget();
+      candidates = candidates.filter((candidate2) => targetCanHandwriteText(candidate2, target2));
       mount.hidden = !candidates.length && !message;
       replaceChildrenWith(
         mount,
@@ -316535,7 +316977,8 @@ ${entry2.url}`),
           class: "jpdb-reader-parseable",
           type: "button",
           dataset: { newtabAction: newTabAction("handwriting-candidate"), query: candidate2 },
-          lang: "ja"
+          lang: target2.typography.contentLocale,
+          dir: target2.direction
         }, candidate2)),
         message ? el("span", { class: "jpdb-reader-newtab-handwriting-message jpdb-reader-parseable", lang: resolveUiLanguage(this.deps.language()) === "ja" ? "ja" : "en" }, message) : null,
         message && !candidates.length ? renderSearchHandwritingManualAction(this.deps.language()) : null
@@ -317572,6 +318015,237 @@ ${entry2.url}`),
   }
   function recallClozeTarget(sentence, candidates) {
     return candidates.filter((candidate2) => candidate2 && sentence.includes(candidate2)).sort((a, b) => b.length - a.length)[0] ?? "";
+  }
+  function applyTypeWordSelfCheckAction(state = {}, action2) {
+    if (action2 === "reveal") return { kind: "update", state: { ...state, selfCheckRevealed: true } };
+    if (action2 === "retry") return selfCheckAssessment(state, "incorrect", false);
+    if (state.feedback === "correct") return { kind: "navigate" };
+    return selfCheckAssessment(state, "correct", true);
+  }
+  function selfCheckAssessment(state, outcome, selfCheckRevealed) {
+    if (!state.selfCheckRevealed) return { kind: "idle" };
+    return {
+      kind: "update",
+      state: { ...state, feedback: outcome, selfCheckRevealed },
+      outcome
+    };
+  }
+  function nextTypeWordHandwritingIndex(chars, start) {
+    const relative = chars.slice(start).findIndex(targetCanHandwriteCharacter);
+    return relative < 0 ? chars.length : start + relative;
+  }
+  function resolveTypeWordAnswerMode(configured, supportsHandwriting) {
+    if (configured !== "handwriting") return "keyboard";
+    return supportsHandwriting ? "handwriting" : "keyboard";
+  }
+  function mountTypeWordAnswer(options) {
+    if (!options.root) return;
+    const mode = resolveTypeWordAnswerMode(options.configuredMode, options.supportsHandwriting);
+    const state = Object.assign({ answer: "" }, options.state);
+    const surface = TYPE_WORD_MODE_SURFACES[mode];
+    const content = surface.render(options, state);
+    delete options.root.dataset.newtabAnswerDetailsRequest;
+    Object.assign(options.root.dataset, { typeWordMode: mode, typeWordOutcome: state.feedback || "pending" });
+    options.root.replaceChildren(content, renderTypeWordSecondaryControls(mode, options.supportsHandwriting, options.text));
+    const feedback2 = renderTypeWordFeedback(state.feedback, options.targetText, options.text);
+    if (feedback2) content.after(feedback2);
+    surface.activate(options, options.root);
+  }
+  const TYPE_WORD_MODE_SURFACES = {
+    keyboard: {
+      render: (options, state) => renderTypeWordKeyboard({
+        ...options.keyboard,
+        answer: state.answer,
+        feedback: state.feedback,
+        audioButton: options.keyboard.audioButton(),
+        text: options.text
+      }),
+      activate: (options, root) => {
+        if (!options.keyboard.revealAnswer) options.keyboard.focus(root);
+      }
+    },
+    handwriting: {
+      render: (options) => options.handwriting.render(),
+      activate: (options, root) => options.handwriting.install(root)
+    }
+  };
+  function typeWordOutcomeLabel(outcome, target2, text2) {
+    const label = text2(TYPE_WORD_OUTCOME_COPY[outcome]);
+    return TYPE_WORD_TARGET_OUTCOMES.has(outcome) ? `${label} · ${isolate(target2)}` : label;
+  }
+  const TYPE_WORD_OUTCOME_COPY = {
+    correct: "recallCorrect",
+    accepted: "recallAccepted",
+    incorrect: "typeWordTryAgain",
+    empty: "recallEmpty",
+    skipped: "typeWordSkipped"
+  };
+  const TYPE_WORD_TARGET_OUTCOMES = /* @__PURE__ */ new Set(["correct", "accepted"]);
+  function renderTypeWordSecondaryControls(mode, supportsHandwriting, text2) {
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-type-secondary" },
+      renderTypeWordModeToggle({ mode, supportsHandwriting, text: text2 }),
+      el("button", {
+        class: "jpdb-reader-newtab-type-skip",
+        type: "button",
+        dataset: { newtabAction: newTabAction("type-word-skip") }
+      }, text2("typeWordSkip"))
+    );
+  }
+  function renderTypeWordFeedback(feedback2, target2, text2) {
+    if (!feedback2) return null;
+    return el("div", {
+      class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result",
+      dataset: { newtabTypeResult: feedback2 },
+      role: "status",
+      "aria-live": "polite"
+    }, typeWordOutcomeLabel(feedback2, target2, text2));
+  }
+  function targetSupportsTypeWordHandwriting(target2, text2) {
+    return target2.experiences.handwriting === "self-check" ? targetCanHandwriteText(text2, target2) : Array.from(text2).some(targetCanHandwriteCharacter);
+  }
+  function renderTypeWordModeToggle(options) {
+    const button2 = (value, label) => el("button", {
+      class: "jpdb-reader-newtab-type-mode",
+      type: "button",
+      dataset: { newtabAction: newTabAction("type-word-mode"), typeWordMode: value, active: String(options.mode === value) },
+      "aria-pressed": String(options.mode === value),
+      disabled: value === "handwriting" && !options.supportsHandwriting,
+      title: value === "handwriting" && !options.supportsHandwriting ? options.text("typeWordHandwritingUnavailable") : void 0
+    }, label);
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-type-modes", role: "group", "aria-label": options.text("typeWordModeGroup") },
+      button2("keyboard", options.text("typeWordModeKeyboard")),
+      button2("handwriting", options.text("typeWordModeHandwriting"))
+    );
+  }
+  function renderTypeWordKeyboard(options) {
+    const readyToContinue = options.feedback === "correct" || options.feedback === "accepted";
+    return el(
+      "form",
+      { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
+      options.audioButton,
+      el("input", {
+        class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
+        dataset: { newtabTypeInput: true },
+        value: options.answer,
+        placeholder: options.text("typeWordPlaceholder"),
+        autocomplete: "off",
+        autocapitalize: "none",
+        autocorrect: "off",
+        spellcheck: false,
+        inputmode: "text",
+        enterkeyhint: "done",
+        lang: options.language,
+        dir: options.direction,
+        "aria-label": options.text("typeWordPlaceholder"),
+        disabled: options.revealAnswer,
+        readOnly: readyToContinue
+      }),
+      el("button", {
+        class: "jpdb-reader-newtab-recall-check",
+        type: "button",
+        dataset: { newtabAction: newTabAction("type-word-submit") },
+        "aria-label": options.text(readyToContinue ? "continueStudying" : "recallCheck")
+      }, `${options.text(readyToContinue ? "continueStudying" : "recallCheck")} →`)
+    );
+  }
+  function renderStrokeFeedbackHandwriting(options) {
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(options.chars.length), typeWordProgress: String(options.progress) } },
+      el(
+        "div",
+        { class: "jpdb-reader-newtab-type-handwriting-track", "aria-label": options.text("typeWordProgress") },
+        options.chars.map((character, index) => {
+          const fixed = options.isFixed(character);
+          let content = "＿";
+          let done = false;
+          let active = false;
+          if (fixed) content = character;
+          else if (index < options.progress) {
+            content = character;
+            done = true;
+          } else if (index === options.progress) active = true;
+          return el("span", {
+            class: "jpdb-reader-newtab-type-handwriting-cell",
+            lang: "ja",
+            dataset: { fixed: String(fixed), done: String(done), active: String(active) }
+          }, content);
+        })
+      ),
+      options.progress >= options.chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, options.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, options.text("typeWordWriteChar")),
+      options.doodleFront
+    );
+  }
+  function renderSelfCheckHandwriting(options) {
+    const revealed = Boolean(options.state?.selfCheckRevealed);
+    const passed = options.state?.feedback === "correct";
+    return el(
+      "div",
+      {
+        class: "jpdb-reader-newtab-type-handwriting jpdb-reader-newtab-type-handwriting-self-check",
+        dataset: { typeWordSelfCheck: true }
+      },
+      el("p", { class: "jpdb-reader-newtab-type-handwriting-prompt" }, options.text("typeWordWriteWord")),
+      selfCheckDoodleFront(options.text),
+      el("div", {
+        class: "jpdb-reader-newtab-type-self-check-answer jpdb-reader-parseable",
+        dataset: { typeWordSelfCheckAnswer: true },
+        lang: options.language,
+        dir: options.direction,
+        hidden: !revealed
+      }, options.targetText),
+      passed ? selfCheckButton("jpdb-reader-newtab-recall-check", "type-word-handwriting-match", `${options.text("continueStudying")} →`) : el(
+        "div",
+        { class: "jpdb-reader-newtab-type-self-check-actions" },
+        selfCheckButton("jpdb-reader-newtab-recall-check", "type-word-handwriting-check", options.text("typeWordCompare"), { hidden: revealed, disabled: true }),
+        el(
+          "div",
+          { dataset: { typeWordSelfCheckChoices: true }, hidden: !revealed },
+          el("p", {}, options.text("typeWordSelfCheckPrompt")),
+          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", "type-word-handwriting-match", options.text("typeWordMatched")),
+          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", "type-word-handwriting-retry", options.text("typeWordTryAgain"))
+        )
+      )
+    );
+  }
+  function installSelfCheckDoodle(answer2, interfaceLanguage) {
+    const check2 = answer2.querySelector(newTabActionSelector("type-word-handwriting-check"));
+    installKanjiDoodle(answer2, interfaceLanguage, {
+      onChange: (strokes) => {
+        if (check2) check2.disabled = strokes.length === 0;
+      },
+      onClear: () => {
+        if (check2) check2.disabled = true;
+      }
+    });
+  }
+  function selfCheckDoodleFront(text2) {
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-kanji-front" },
+      el(
+        "div",
+        { class: "jpdb-reader-doodle-stage jpdb-reader-newtab-doodle trace-hidden" },
+        el("canvas", { class: "jpdb-reader-doodle-canvas", "aria-label": text2("drawKanji") })
+      ),
+      el(
+        "div",
+        { class: "jpdb-reader-doodle-tools jpdb-reader-newtab-doodle-actions" },
+        el("button", { class: "jpdb-reader-btn jpdb-reader-doodle-control", type: "button", dataset: { doodleClear: true } }, text2("clear"))
+      )
+    );
+  }
+  function selfCheckButton(className, action2, label, attrs = {}) {
+    return el("button", {
+      class: className,
+      type: "button",
+      dataset: { newtabAction: newTabAction(action2) },
+      ...attrs
+    }, label);
   }
   const PITCH_ITEMS_KEY = "yomu-pitch-items:v1";
   const PITCH_HISTORY_KEY = "yomu-pitch-history:v1";
@@ -321279,8 +321953,11 @@ ${options.version}`;
     listenSpeakingScoring = false;
     listenSpeakingScoreGeneration = 0;
     // Handwriting sub-mode progress: how many leading characters of the target
-    // the learner has cleared (kana/KanjiVG-missing chars auto-advance).
+    // the learner has cleared (kana scaffolding auto-advances).
     typeHandwritingProgress = /* @__PURE__ */ new Map();
+    // Per-card fallback when a promised stroke reference is absent. The learner
+    // self-checks explicitly; absence of data must never be scored as correct.
+    typeHandwritingSelfCheck = /* @__PURE__ */ new Set();
     // Progressive-hint reveal depth per card+step ("card|kanji-doodle:0:飲" -> 2).
     // A hint never prints the full answer; the count folds into the reveal summary.
     studyHintDepth = /* @__PURE__ */ new Map();
@@ -321319,6 +321996,9 @@ ${options.version}`;
       },
       "recall-submit": (root) => this.submitRecallAnswer(root),
       "type-word-submit": (root) => this.submitTypeWordAnswer(root),
+      "type-word-handwriting-check": (root) => this.handleTypeWordHandwritingSelfCheck(root, "reveal"),
+      "type-word-handwriting-match": (root) => this.handleTypeWordHandwritingSelfCheck(root, "match"),
+      "type-word-handwriting-retry": (root) => this.handleTypeWordHandwritingSelfCheck(root, "retry"),
       "type-word-skip": (root) => this.skipTypeWord(root),
       "type-word-mode": (root, target2) => this.handleTypeWordModeClick(root, target2),
       "listen-pick": (root, target2) => this.handleListenPick(root, target2),
@@ -321536,6 +322216,7 @@ ${options.version}`;
       this.doodlePreviewCache.clear();
       this.studyStepStates.clear();
       this.typeHandwritingProgress.clear();
+      this.typeHandwritingSelfCheck.clear();
       this.studyHintDepth.clear();
       this.immersionAudioPlayer.reset();
       this.statsController.reset();
@@ -326059,122 +326740,56 @@ ${options.version}`;
       );
     }
     renderTypeWordAnswer(answer2, card) {
-      if (!answer2) return;
-      delete answer2.dataset.newtabAnswerDetailsRequest;
-      const configuredMode = this.typeWordInputMode();
-      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
-      const mode = configuredMode === "handwriting" && supportsHandwriting ? "handwriting" : "keyboard";
-      const feedback2 = this.stepState(cardKey(card))?.type?.feedback;
-      answer2.dataset.typeWordMode = mode;
-      answer2.dataset.typeWordOutcome = feedback2 ?? "pending";
-      replaceChildrenWith(
-        answer2,
-        mode === "handwriting" ? this.renderTypeWordHandwriting(card) : this.renderTypeWordKeyboard(card, feedback2),
-        feedback2 ? el("div", {
-          class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result",
-          dataset: { newtabTypeResult: feedback2 },
-          role: "status",
-          "aria-live": "polite"
-        }, this.typeWordOutcomeLabel(feedback2, card)) : null,
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-type-secondary" },
-          this.renderTypeWordModeToggle(mode, card),
-          el("button", {
-            class: "jpdb-reader-newtab-type-skip",
-            type: "button",
-            dataset: { newtabAction: newTabAction("type-word-skip") }
-          }, this.text("typeWordSkip"))
-        )
-      );
-      if (mode === "handwriting") this.installTypeWordDoodle(answer2, card);
-      else if (!this.state.revealAnswer) this.focusTypeWordInputSoon(answer2);
+      const cardTarget = newTabCardTarget(card);
+      mountTypeWordAnswer({
+        root: answer2,
+        configuredMode: this.typeWordInputMode(),
+        supportsHandwriting: this.typeWordSupportsHandwriting(card),
+        state: this.stepState(cardKey(card))?.type,
+        targetText: this.typeWordTarget(card),
+        keyboard: {
+          language: cardTarget.typography.contentLocale,
+          direction: cardTarget.direction,
+          revealAnswer: this.state.revealAnswer,
+          audioButton: () => this.renderStudyWordAudioButton(card),
+          focus: (root) => this.focusStudyInputSoon(root, "[data-newtab-type-input]")
+        },
+        handwriting: {
+          render: () => this.renderTypeWordHandwriting(card),
+          install: (root) => this.installTypeWordDoodle(root, card)
+        },
+        text: (key2) => this.text(key2)
+      });
     }
-    renderTypeWordModeToggle(mode, card) {
-      const supportsHandwriting = this.typeWordSupportsHandwriting(card);
-      const button2 = (value, label) => el("button", {
-        class: "jpdb-reader-newtab-type-mode",
-        type: "button",
-        dataset: { newtabAction: newTabAction("type-word-mode"), typeWordMode: value, active: String(mode === value) },
-        "aria-pressed": String(mode === value),
-        disabled: value === "handwriting" && !supportsHandwriting,
-        title: value === "handwriting" && !supportsHandwriting ? this.text("typeWordHandwritingUnavailable") : void 0
-      }, label);
-      return el(
-        "div",
-        { class: "jpdb-reader-newtab-type-modes", role: "group", "aria-label": this.text("typeWordModeGroup") },
-        button2("keyboard", this.text("typeWordModeKeyboard")),
-        button2("handwriting", this.text("typeWordModeHandwriting"))
-      );
-    }
-    renderTypeWordKeyboard(card, feedback2) {
-      const readyToContinue = feedback2 === "correct" || feedback2 === "accepted";
-      const target2 = newTabCardTarget(card);
-      return el(
-        "form",
-        { class: "jpdb-reader-newtab-recall-form jpdb-reader-newtab-type-form", dataset: { newtabTypeForm: true } },
-        this.renderStudyWordAudioButton(card),
-        el("input", {
-          class: "jpdb-reader-newtab-recall-input jpdb-reader-newtab-type-input",
-          dataset: { newtabTypeInput: true },
-          value: this.stepState(cardKey(card))?.type?.answer ?? "",
-          placeholder: this.text("typeWordPlaceholder"),
-          autocomplete: "off",
-          autocapitalize: "none",
-          autocorrect: "off",
-          spellcheck: false,
-          inputmode: "text",
-          enterkeyhint: "done",
-          lang: target2.typography.contentLocale,
-          dir: target2.direction,
-          "aria-label": this.text("typeWordPlaceholder"),
-          disabled: this.state.revealAnswer,
-          readOnly: readyToContinue
-        }),
-        el("button", {
-          class: "jpdb-reader-newtab-recall-check",
-          type: "button",
-          dataset: { newtabAction: newTabAction("type-word-submit") },
-          "aria-label": this.text(readyToContinue ? "continueStudying" : "recallCheck")
-        }, readyToContinue ? `${this.text("continueStudying")} →` : `${this.text("recallCheck")} →`)
-      );
-    }
-    // Handwriting grades only the word's kanji. Kana remains visible as fixed
-    // scaffolding, so 飲み物 is presented as ＿み＿ and never asks the learner
+    // Grade only kanji; kana scaffolding stays visible (飲み物 -> ＿み＿) and never asks for token strokes.
     // to scribble a token stroke merely to advance past み.
     renderTypeWordHandwriting(card) {
+      if (this.typeWordUsesSelfCheck(card)) {
+        return this.renderTypeWordSelfCheckHandwriting(card);
+      }
       const target2 = this.typeWordTarget(card);
       const chars = Array.from(target2);
       const progress2 = this.typeWordHandwritingProgress(card, chars);
-      return el(
-        "div",
-        { class: "jpdb-reader-newtab-type-handwriting", dataset: { typeWordChars: String(chars.length), typeWordProgress: String(progress2) } },
-        el(
-          "div",
-          { class: "jpdb-reader-newtab-type-handwriting-track", "aria-label": this.text("typeWordProgress") },
-          chars.map((character, index) => {
-            const fixed = !isKanjiCharacter(character);
-            const done = !fixed && index < progress2;
-            return el("span", {
-              class: "jpdb-reader-newtab-type-handwriting-cell",
-              lang: "ja",
-              dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === progress2) }
-            }, fixed || done ? character : "＿");
-          })
-        ),
-        progress2 >= chars.length ? el("div", { class: "jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result", dataset: { newtabTypeResult: "correct" } }, this.text("typeWordAllDone")) : el("div", { class: "jpdb-reader-newtab-type-handwriting-prompt", lang: "ja" }, this.text("typeWordWriteChar")),
-        this.kanjiDoodleFront()
-      );
+      return renderStrokeFeedbackHandwriting({
+        chars,
+        progress: progress2,
+        doodleFront: this.kanjiDoodleFront(),
+        isFixed: (character) => !isKanjiCharacter(character),
+        text: (key2) => this.text(key2)
+      });
     }
     installTypeWordDoodle(answer2, card) {
+      if (this.typeWordUsesSelfCheck(card)) {
+        this.installTypeWordSelfCheckDoodle(answer2);
+        return;
+      }
       if (!usesJapaneseCharacterStudy()) return;
       const chars = Array.from(this.typeWordTarget(card));
-      const progress2 = this.typeWordHandwritingProgress(card, chars);
-      if (progress2 >= chars.length) return;
-      const current = chars[progress2] ?? "";
+      const character = chars[this.typeWordHandwritingProgress(card, chars)];
+      if (!character) return;
       installKanjiDoodle(answer2, () => this.dependencies.getSettings().interfaceLanguage, {
         onChange: (strokes) => {
-          void this.assessTypeWordDoodle(answer2, card, current, strokes);
+          void this.assessTypeWordDoodle(answer2, card, character, strokes);
         },
         onClear: () => this.clearDoodleAssessment({ ...this.studySlots(answer2.closest(".jpdb-reader-newtab") ?? answer2), answer: answer2 })
       });
@@ -326186,7 +326801,9 @@ ${options.version}`;
       if (!targetCanLookupCharacter(character) || !answer2.isConnected || this.visibleWords[this.index] !== card) return;
       const expectedStrokes = details.vg?.strokeCount ?? 0;
       if (!expectedStrokes || !details.vg?.strokeShapes?.length) {
-        this.advanceTypeWordHandwriting(answer2, card, "correct");
+        this.typeHandwritingSelfCheck.add(cardKey(card));
+        const root = answer2.closest(".jpdb-reader-newtab");
+        if (root) this.renderWord(root, card);
         return;
       }
       if (shouldWaitForMoreDoodleStrokes(strokes, expectedStrokes)) {
@@ -326201,7 +326818,7 @@ ${options.version}`;
       const key2 = cardKey(card);
       const chars = Array.from(this.typeWordTarget(card));
       const progress2 = this.typeWordHandwritingProgress(card, chars);
-      const next = this.nextTypeWordHandwritingIndex(chars, progress2 + 1);
+      const next = nextTypeWordHandwritingIndex(chars, progress2 + 1);
       this.typeHandwritingProgress.set(key2, next);
       if (next >= chars.length) {
         this.recordTypeOutcome(card, charOutcome === "wrong" ? "incorrect" : "correct");
@@ -326213,25 +326830,47 @@ ${options.version}`;
       if (root && this.visibleWords[this.index] === card) this.renderWord(root, card);
     }
     typeWordSupportsHandwriting(card) {
-      return Array.from(this.typeWordTarget(card)).some(targetCanHandwriteCharacter);
+      const target2 = newTabCardTarget(card);
+      return targetSupportsTypeWordHandwriting(target2, this.typeWordTarget(card));
+    }
+    typeWordUsesSelfCheck(card) {
+      return Boolean(card && (newTabCardTarget(card).experiences.handwriting === "self-check" || this.typeHandwritingSelfCheck.has(cardKey(card))));
+    }
+    renderTypeWordSelfCheckHandwriting(card) {
+      const target2 = newTabCardTarget(card);
+      return renderSelfCheckHandwriting({
+        targetText: this.typeWordTarget(card),
+        language: target2.typography.contentLocale,
+        direction: target2.direction,
+        state: this.stepState(cardKey(card))?.type,
+        text: (key2) => this.text(key2)
+      });
+    }
+    installTypeWordSelfCheckDoodle(answer2) {
+      installSelfCheckDoodle(answer2, () => this.dependencies.getSettings().interfaceLanguage);
+    }
+    handleTypeWordHandwritingSelfCheck(root, action2) {
+      const card = this.visibleWords[this.index];
+      if (!this.typeWordUsesSelfCheck(card)) return;
+      const state = this.ensureStepState(cardKey(card));
+      const transition = applyTypeWordSelfCheckAction(state.type, action2);
+      if (transition.kind === "update") {
+        state.type = { ...state.type, ...transition.state };
+        this.recordTypeOutcome(card, transition.outcome);
+        this.renderWord(root, card);
+      }
+      if (transition.kind === "navigate") this.continueTypeWord(root, card);
     }
     typeWordHandwritingProgress(card, chars = Array.from(this.typeWordTarget(card))) {
       const key2 = cardKey(card);
       const stored = Math.min(this.typeHandwritingProgress.get(key2) ?? 0, chars.length);
-      const normalized2 = this.nextTypeWordHandwritingIndex(chars, stored);
+      const normalized2 = nextTypeWordHandwritingIndex(chars, stored);
       if (normalized2 !== stored) this.typeHandwritingProgress.set(key2, normalized2);
       return normalized2;
-    }
-    nextTypeWordHandwritingIndex(chars, start) {
-      const relative = chars.slice(start).findIndex(targetCanLookupCharacter);
-      return relative < 0 ? chars.length : start + relative;
     }
     typeWordTarget(card) {
       const cloze = buildNewTabRecallCloze(card, this.recallSentenceFromCard(card), newTabCardReading(card));
       return (cloze.hasCloze ? cloze.answer : "").trim() || card.spelling.trim();
-    }
-    focusTypeWordInputSoon(answer2) {
-      this.focusStudyInputSoon(answer2, "[data-newtab-type-input]");
     }
     setTypeWordInputMode(root, mode) {
       const settings = this.dependencies.getSettings();
@@ -326270,21 +326909,18 @@ ${options.version}`;
       const card = this.visibleWords[this.index];
       if (!card) return;
       this.recordTypeOutcome(card, "skipped");
+      this.continueTypeWord(root, card);
+    }
+    continueTypeWord(root, card) {
       if (!this.navigateStudyStep("next")) this.renderWord(root, card);
     }
     // First attempt counts: once an outcome is recorded for this card it is never
     // overwritten (a retype/redraw does not launder a first miss into a pass).
     recordTypeOutcome(card, outcome) {
+      if (!outcome) return;
       const state = this.ensureStepState(cardKey(card));
       if (state.type?.outcome !== void 0) return;
       state.type = { ...state.type, outcome };
-    }
-    typeWordOutcomeLabel(outcome, card) {
-      if (outcome === "correct") return `${this.text("recallCorrect")} · ${isolate(this.typeWordTarget(card))}`;
-      if (outcome === "accepted") return `${this.text("recallAccepted")} · ${isolate(this.typeWordTarget(card))}`;
-      if (outcome === "incorrect") return this.text("typeWordTryAgain");
-      if (outcome === "empty") return this.text("recallEmpty");
-      return this.text("typeWordSkipped");
     }
     renderWordAnswer(answer2, _card) {
       if (!answer2) return;
@@ -364768,6 +365404,40 @@ ${options.version}`;
     blockers,
     dictionaries
   };
+  const GOOGLE_TRANSLATION_LANGUAGE_CODES = /* @__PURE__ */ new Set([
+    "sq",
+    "ar",
+    "yue",
+    "zh",
+    "da",
+    "nl",
+    "en",
+    "fi",
+    "fr",
+    "de",
+    "el",
+    "hu",
+    "id",
+    "it",
+    "km",
+    "ko",
+    "lo",
+    "la",
+    "mn",
+    "fa",
+    "pl",
+    "pt",
+    "ro",
+    "ru",
+    "bs",
+    "es",
+    "sv",
+    "tl",
+    "th",
+    "tr",
+    "vi",
+    "ja"
+  ]);
   Logger.scope("GoogleTranslation");
   function normalizeTranslationLanguage(language2, options = {}) {
     const trimmed = language2.trim();
@@ -364789,6 +365459,13 @@ ${options.version}`;
         supported: false
       };
     }
+    if (locale.language === "fil") {
+      return {
+        logicalLanguage,
+        providerLanguage: "tl",
+        supported: true
+      };
+    }
     if (locale.language === "sr" && (locale.script === "Latn" || logicalLanguage === "sr")) {
       return {
         logicalLanguage,
@@ -364797,6 +365474,13 @@ ${options.version}`;
         // output; the logical profile remains sr-Latn everywhere else.
         providerLanguage: "bs",
         supported: true
+      };
+    }
+    if (!GOOGLE_TRANSLATION_LANGUAGE_CODES.has(locale.language)) {
+      return {
+        logicalLanguage,
+        providerLanguage: null,
+        supported: false
       };
     }
     return {
@@ -365102,19 +365786,6 @@ ${options.version}`;
       };
     }
     return state === "blocked" ? { state, reason: value ?? "Unavailable" } : { state: "source-only" };
-  }
-  const LANGUAGE_ENDONYMS = Object.freeze({
-    ja: "日本語",
-    zh: "中文",
-    yue: "粵語",
-    lzh: "文言"
-  });
-  function headwordLanguageEndonym(language2) {
-    return LANGUAGE_ENDONYMS[language2] ?? language2;
-  }
-  function headwordLanguageName(language2, locale = "en") {
-    const display = languageDisplayName(language2, locale);
-    return display === language2 ? headwordLanguageEndonym(language2) : display;
   }
   const CATEGORY_ORDER = [
     "terms",
@@ -366400,13 +367071,7 @@ ${options.version}`;
   function escapedUiText$4(language2, key2) {
     return escapeHtml$2(uiText(language2, key2));
   }
-  function activeTargetLanguageDisplayName(interfaceLanguage) {
-    return languageDisplayNameFor(activeLearningTargetLanguage(), interfaceLanguage);
-  }
-  function languageDisplayNameFor(tag, interfaceLanguage) {
-    return headwordLanguageName(languageSubtag(tag) ?? "ja", resolveUiLanguage(interfaceLanguage));
-  }
-  function settingsText(language2) {
+  function settingsText(language2, targetLanguage2) {
     const targetName = activeTargetLanguageDisplayName(language2);
     return (key2) => {
       const message = uiText(language2, key2);
@@ -368066,7 +368731,7 @@ ${options.version}`;
                         <input type="hidden" name="youtubeChannelSuggestionSettingsPresent" value="on">
                         ${checkbox("youtubeShowChannelRecommendations", text2("youtubeShowChannelRecommendations"), settings.youtubeShowChannelRecommendations)}
                     </div>
-                    <div data-language-family="preferred-target-sites">
+                    <div class="jp-only" data-language-family="preferred-target-sites">
                         <input type="hidden" name="preferJapaneseSiteLanguageSettingPresent" value="on">
                         ${checkbox("preferJapaneseSiteLanguage", text2("preferJapaneseSiteLanguage"), settings.preferJapaneseSiteLanguage)}
                     </div>
@@ -368225,9 +368890,9 @@ ${options.version}`;
   function multilingualSettingsCopy(language2) {
     return language2 === "ja" ? {
       languageProfileTitle: "言語プロフィール",
-      learnerLanguage: "あなたの言語（辞書の定義）",
-      targetLanguage: "学習する言語",
-      languageProfileHelp: "学習する言語は、辞書の定義言語や画面の表示言語とは別に選べます。",
+      learnerLanguage: "定義・翻訳の言語（出力）",
+      targetLanguage: "学習する言語（対象）",
+      languageProfileHelp: "対象はページで読む言語、出力は辞書の定義と翻訳の言語です。画面の表示言語は別に選べます。",
       translationTitle: "定義の自動翻訳",
       translationHelp: "有効にすると、選んだ情報源の定義テキストだけが Google 翻訳に送信されます。元の定義も保持されます。",
       translationEmpty: "現在の情報源はすでにあなたの言語で定義されています。",
@@ -368235,9 +368900,9 @@ ${options.version}`;
       translateAutomatically: (learnerLanguage2) => `${learnerLanguage2}へ自動翻訳`
     } : {
       languageProfileTitle: "Language profile",
-      learnerLanguage: "Your language (dictionary definitions)",
-      targetLanguage: "Language you are learning",
-      languageProfileHelp: "Choose the language you are learning separately from dictionary definitions and the interface.",
+      learnerLanguage: "Definition and translation language (output)",
+      targetLanguage: "Language you are reading (target)",
+      languageProfileHelp: "Target controls page text and lookup. Output controls definitions and translations. Interface controls Yomu labels.",
       translationTitle: "Automatic definition translation",
       translationHelp: "When enabled, only definition text from the sources you select is sent to Google Translate. The original definition remains available.",
       translationEmpty: "Your current definition sources already use your language.",
@@ -369077,7 +369742,7 @@ ${options.version}`;
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div class="jpzhyueko-only" data-language-family="reading-annotation">
+                    <div data-language-family="reading-annotation">
                         ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
                         ${renderFuriganaDifficultyNote(settings)}
                         ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}

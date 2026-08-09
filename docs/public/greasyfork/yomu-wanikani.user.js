@@ -4236,50 +4236,36 @@ function grammarMatchContains(outer, inner) {
 }
 const EMPTY_LEARNING_TARGET_GRAMMAR = createLearningTargetGrammar();
 const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 9;
-const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [9];
+const LEARNING_TARGET_MODULE_INTERFACE_VERSION = 10;
+const SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS = [10];
 function isSupportedLearningTargetModuleInterfaceVersion(value) {
   return SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.includes(value);
 }
-const LEARNING_TARGET_CAPABILITY_IDS = [
-  "term-lookup",
-  "character-lookup",
-  "segmentation",
-  "morphology",
-  "reading-annotation",
-  "pronunciation",
-  "frequency",
-  "examples",
-  "grammar",
-  "audio",
-  "text-to-speech",
-  "ocr",
-  "subtitles",
-  "mining",
-  "srs",
-  "grading",
-  "typing",
-  "handwriting"
-];
-const NO_CAPABILITIES = Object.freeze(
-  Object.fromEntries(LEARNING_TARGET_CAPABILITY_IDS.map((id) => [id, false]))
-);
 const CORE_DELIVERED_CAPABILITIES = Object.freeze({
   "term-lookup": true,
+  "character-lookup": true,
   segmentation: true,
+  "reading-annotation": true,
   pronunciation: true,
+  frequency: true,
+  examples: true,
+  audio: true,
   "text-to-speech": true,
+  ocr: true,
   subtitles: true,
   typing: true,
+  handwriting: true,
   mining: true,
   srs: true,
   grading: true
 });
-function learningTargetCapabilities(declared = {}, hasGrammarRules = false) {
+function learningTargetCapabilities(experiences, hasGrammarRules = false) {
   return Object.freeze({
-  ...NO_CAPABILITIES,
-  ...declared,
   ...CORE_DELIVERED_CAPABILITIES,
+  // A literal depth-0 dictionary candidate is lookup, not morphology.
+  // Morphology is present only when a target owns deinflection, bounded
+  // rewrite rules, or a target-specific subsegment Adapter.
+  morphology: experiences.morphology !== "dictionary-forms",
   // Derived, never declared: a target has grammar support exactly when it
   // ships grammar rules. Same principle as the block above — the capability
   // reports the machinery instead of promising alongside it.
@@ -4295,13 +4281,15 @@ function createLearningTargetModule(spec) {
   const normalizeText = spec.normalizeText ?? defaultNormalizeText;
   const segment = spec.segment ?? ((text) => defaultSegment(text, language));
   const grammar = spec.grammar ?? EMPTY_LEARNING_TARGET_GRAMMAR;
+  const experiences = learningTargetExperiences(spec);
   return Object.freeze({
   interfaceVersion: spec.interfaceVersion ?? LEARNING_TARGET_MODULE_INTERFACE_VERSION,
   id: spec.id,
   language,
   direction,
   collationLocale: spec.collationLocale ?? language,
-  capabilities: learningTargetCapabilities(spec.capabilities, grammar.rules.length > 0),
+  capabilities: learningTargetCapabilities(experiences, grammar.rules.length > 0),
+  experiences,
   featureSemantics: Object.freeze({
     ...spec.featureSemantics,
     phoneticScripts: Object.freeze([...spec.featureSemantics.phoneticScripts])
@@ -4309,7 +4297,7 @@ function createLearningTargetModule(spec) {
   typography: Object.freeze({
     contentLocale: language,
     direction,
-    readingAnnotationMode: "none",
+    readingAnnotationMode: "ruby",
     supportsVerticalWriting: false,
     ...spec.typography
   }),
@@ -4321,6 +4309,7 @@ function createLearningTargetModule(spec) {
   audio: Object.freeze({
     speechSynthesisLocale: regionalTag,
     templateLanguageToken: base,
+    recordedWordAudio: false,
     ...spec.audio
   }),
   ocr: Object.freeze({
@@ -4352,6 +4341,32 @@ function createLearningTargetModule(spec) {
   matchesLookupCandidateRules: spec.matchesLookupCandidateRules ?? defaultMatchesLookupCandidateRules,
   normalizeReading: spec.normalizeReading ?? defaultNormalizeReading
   });
+}
+function learningTargetExperiences(spec) {
+  return Object.freeze({
+  characterLookup: "term-dictionary",
+  morphology: morphologyExperience(spec),
+  readingAnnotation: "dictionary-reading",
+  frequency: "dictionary-rank-or-context-occurrences",
+  audio: audioExperience(spec.audio?.recordedWordAudio ?? false),
+  ocr: "target-locale",
+  handwriting: "self-check",
+  ...spec.experiences
+  });
+}
+function morphologyExperience(spec) {
+  return spec.experiences?.morphology ?? inferredMorphologyExperience(spec);
+}
+function inferredMorphologyExperience(spec) {
+  if (spec.lookupCandidates) return "deinflection";
+  return hasBoundedMorphology(spec) ? "bounded-rewrites" : "dictionary-forms";
+}
+function hasBoundedMorphology(spec) {
+  if (spec.lookupRewrites?.length) return true;
+  return Boolean(spec.lookupSubsegments);
+}
+function audioExperience(recordedWordAudio) {
+  return recordedWordAudio ? "recorded-and-speech-synthesis" : "speech-synthesis";
 }
 function maximizedLocaleTag(language) {
   try {
@@ -4862,15 +4877,11 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   language: "ja",
   direction: "ltr",
   collationLocale: "ja",
-  capabilities: {
-  "character-lookup": true,
-  morphology: true,
-  "reading-annotation": true,
-  frequency: true,
-  examples: true,
-  audio: true,
-  ocr: true,
-  handwriting: true
+  experiences: {
+  characterLookup: "character-dictionary",
+  morphology: "deinflection",
+  audio: "recorded-and-speech-synthesis",
+  handwriting: "stroke-feedback"
   },
   featureSemantics: {
   characterSystem: "kanji",
@@ -4894,7 +4905,8 @@ const JAPANESE_LEARNING_TARGET = createLearningTargetModule({
   },
   audio: {
   speechSynthesisLocale: "ja-JP",
-  templateLanguageToken: "ja"
+  templateLanguageToken: "ja",
+  recordedWordAudio: true
   },
   ocr: {
   defaultLanguage: "ja-JP",
@@ -5129,2089 +5141,2389 @@ const GERMAN_GRAMMAR = createLearningTargetGrammar({
   }
   ]
 });
-const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
-const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
-const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
-const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
-const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
-const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
-const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
-  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-  referenceUrl: CORNELL_GRAMMAR,
-  rules: [
-  {
-    ruleId: "ru-a1-kto-chto-eto",
-    level: "A1",
-    name: "Кто/что это? identification question",
-    displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
-    patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
-    priority: 10,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=19`
-  },
-  {
-    ruleId: "ru-a1-possessive-starter",
-    level: "A1",
-    name: "Possession with это + possessive",
-    displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
-    patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
-    priority: 12,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=19`
-  },
-  {
-    ruleId: "ru-a1-request-imperative",
-    level: "A1",
-    name: "Requests with дай(те), скажи(те), покажи(те)",
-    displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
-    patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
-    priority: 14,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=20`
-  },
-  {
-    ruleId: "ru-a1-dative-nravitsya",
-    level: "A1",
-    name: "нравится with a dative experiencer",
-    displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
-    patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
-    priority: 16,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=21`
-  },
-  {
-    ruleId: "ru-a1-potomu-chto",
-    level: "A1",
-    name: "Reason with потому что",
-    displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
-    patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
-    priority: 18,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=22`
-  },
-  {
-    ruleId: "ru-a1-gde-mozhno-infinitive",
-    level: "A1",
-    name: "Где можно + infinitive",
-    displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
-    priority: 20,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=22`
-  },
-  {
-    ruleId: "ru-a1-want-can-infinitive",
-    level: "A1",
-    name: "хотеть/мочь + infinitive",
-    displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
-    priority: 22,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=23`
-  },
-  {
-    ruleId: "ru-a1-need-infinitive",
-    level: "A1",
-    name: "Necessity with надо/нужно",
-    displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
-    patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
-    priority: 24,
-    confidence: "high",
-    url: `${RANEPA_A1}#page=24`
-  }
-  ]
+const FOUNDATION_LEVEL = "Foundation";
+const HSK_STANDARD_COURSE_LEVEL_SCALE = Object.freeze({
+  id: "hsk-standard-course",
+  levels: Object.freeze(["HSK 1", "HSK 2", "HSK 3", "HSK 4", "HSK 5", "HSK 6"])
 });
-const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
-const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
-const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
-const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
-const SPANISH_GRAMMAR = createLearningTargetGrammar({
-  levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
-  referenceUrl: CERVANTES_A1_A2,
-  rules: [
-  {
-    ruleId: "es-me-gusta-infinitive",
-    level: "A1",
-    name: "gustar + infinitive",
-    displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 10,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p1223a1`
-  },
-  {
-    ruleId: "es-existential-hay",
-    level: "A1",
-    name: "Existence with hay",
-    displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
-    patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
-    priority: 12,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p133a1`
-  },
-  {
-    ruleId: "es-causal-porque",
-    level: "A1",
-    name: "Reason with porque",
-    displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
-    patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
-    priority: 14,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p1534a1`
-  },
-  {
-    ruleId: "es-negation-no",
-    level: "A1",
-    name: "Verb negation with no",
-    displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
-    patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
-    priority: 16,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p133a1`
-  },
-  {
-    ruleId: "es-present-perfect",
-    level: "A2",
-    name: "Present perfect",
-    displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
-    patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
-    priority: 18,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p916a2`
-  },
-  {
-    ruleId: "es-estar-gerundio",
-    level: "A2",
-    name: "Progressive with estar",
-    displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
-    patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
-    priority: 20,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p942a2`
-  },
-  {
-    ruleId: "es-tener-que",
-    level: "A2",
-    name: "Obligation with tener que",
-    displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 22,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p121a2`
-  },
-  {
-    ruleId: "es-ir-a-infinitive",
-    level: "A2",
-    name: "Near future with ir a",
-    displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
-    patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
-    priority: 24,
-    confidence: "high",
-    url: `${CERVANTES_A1_A2}#p121a2`
-  }
-  ]
+const YEE_CEFR_BAND_LEVEL_SCALE = Object.freeze({
+  id: "tr-yee-cefr-band",
+  levels: Object.freeze(["A1–A2"])
 });
-function referenceOnly(referenceUrl) {
-  return createLearningTargetGrammar({ referenceUrl });
+function foundationScale(id) {
+  return Object.freeze({ id, levels: Object.freeze([FOUNDATION_LEVEL]) });
 }
-const GRAMMAR_BY_TARGET = Object.freeze({
-  sq: referenceOnly("https://lrc.la.utexas.edu/eieol_toc/albol"),
-  grc: referenceOnly("https://en.wikipedia.org/wiki/Ancient_Greek_grammar"),
-  ar: referenceOnly("https://en.wikipedia.org/wiki/Arabic_grammar"),
-  yue: referenceOnly("https://en.wikipedia.org/wiki/Cantonese_grammar"),
-  zh: referenceOnly("https://en.wikipedia.org/wiki/Chinese_grammar"),
-  da: referenceOnly("https://en.wikipedia.org/wiki/Danish_grammar"),
-  nl: referenceOnly("https://en.wikipedia.org/wiki/Dutch_grammar"),
-  en: referenceOnly("https://en.wikipedia.org/wiki/English_grammar"),
-  fi: referenceOnly("https://en.wikipedia.org/wiki/Finnish_grammar"),
-  fr: FRENCH_GRAMMAR,
-  de: GERMAN_GRAMMAR,
-  el: referenceOnly("https://en.wikipedia.org/wiki/Modern_Greek_grammar"),
-  hu: referenceOnly("https://en.wikipedia.org/wiki/Hungarian_grammar"),
-  id: referenceOnly("https://seasite.niu.edu/indonesian/TataBahasa/"),
-  it: referenceOnly("https://en.wikipedia.org/wiki/Italian_grammar"),
-  km: referenceOnly("https://en.wikipedia.org/wiki/Khmer_grammar"),
-  ko: referenceOnly("https://en.wikipedia.org/wiki/Korean_grammar"),
-  lo: referenceOnly("https://en.wikipedia.org/wiki/Lao_grammar"),
-  la: referenceOnly("https://en.wikipedia.org/wiki/Latin_grammar"),
-  mn: referenceOnly("https://www.mongolianlanguage.mn/free-lessons/mongolian-grammar-forms"),
-  fa: referenceOnly("https://en.wikipedia.org/wiki/Persian_grammar"),
-  pl: referenceOnly("https://en.wikipedia.org/wiki/Polish_grammar"),
-  pt: referenceOnly("https://en.wikipedia.org/wiki/Portuguese_grammar"),
-  ro: referenceOnly("https://en.wikipedia.org/wiki/Romanian_grammar"),
-  ru: RUSSIAN_GRAMMAR,
-  sh: referenceOnly("https://en.wikipedia.org/wiki/Serbo-Croatian_grammar"),
-  es: SPANISH_GRAMMAR,
-  sv: referenceOnly("https://en.wikipedia.org/wiki/Swedish_grammar"),
-  tl: referenceOnly("https://en.wikipedia.org/wiki/Tagalog_grammar"),
-  th: referenceOnly("https://www.chula.ac.th/en/highlight/123363/"),
-  tr: referenceOnly("https://en.wikipedia.org/wiki/Turkish_grammar"),
-  vi: referenceOnly("https://en.wikipedia.org/wiki/Vietnamese_grammar")
-});
-function grammarForRosterTarget(language) {
-  return GRAMMAR_BY_TARGET[language];
+function oneRuleGrammar(referenceUrl, levelScale, rule) {
+  return createLearningTargetGrammar({ referenceUrl, levelScale, rules: [rule] });
 }
-const KOREAN_SEGMENT_SUFFIXES = [
-  "에게서",
-  "이라고",
-  "으로",
-  "에서",
-  "에게",
-  "한테",
-  "까지",
-  "부터",
-  "처럼",
-  "보다",
-  "에는",
-  "라고",
-  "하고",
-  "은",
-  "는",
-  "이",
-  "가",
-  "을",
-  "를",
-  "의",
-  "에",
-  "와",
-  "과",
-  "로",
-  "도",
-  "만"
-];
-const REWRITES = {
-  es: [
-  { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
-  { suffix: "es", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "s", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
-  ],
-  de: [
-  { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
-  { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-  { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
-  { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
-  { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
-  ],
-  ru: [
-  { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
-  { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
-  { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
-  { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
-  ],
-  ar: [
-  { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
-  { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
-  { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
-  { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
-  { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
-  { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
-  { prefix: "ال", minStemLength: 3, reason: "article prefix" },
-  { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
-  { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
-  { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
-  { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
-  { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
-  ]
-};
-function lookupRewritesForTarget(target) {
-  return REWRITES[target] ?? [];
-}
-function koreanLookupSubsegments(segment, maxLength) {
-  const candidates = /* @__PURE__ */ new Set();
-  if (segment.length <= maxLength) candidates.add(segment);
-  for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
-  if (!segment.endsWith(suffix)) continue;
-  const stem = segment.slice(0, -suffix.length);
-  if (stem && stem.length <= maxLength) candidates.add(stem);
-  }
-  return [...candidates];
-}
-const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
-const KOREAN_LEARNING_TARGET = createLearningTargetModule({
-  id: "korean-thin-v1",
-  language: "ko",
-  capabilities: {
-  "reading-annotation": true,
-  ocr: true,
-  // Korean is a hand-written module rather than a generic roster entry, so it
-  // misses anything the roster loop derives. Tatoeba mounts for ko with text
-  // availability 'available' exactly as it does for the other 31 — caught by the
-  // registry-agreement assertion in learning-target-contract.test.ts, which is
-  // the whole reason that test exists.
-  examples: true
-  },
-  featureSemantics: {
-  characterSystem: "hangul",
-  phoneticScripts: ["hangul"],
-  pronunciation: "ipa",
-  readingAnnotation: "hangul"
-  },
-  grammar: grammarForRosterTarget("ko"),
-  typography: {
-  readingAnnotationMode: "ruby"
-  },
-  subtitles: {
-  languageAliases: ["kor", "korean"]
-  },
-  // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
-  // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
-  lookupStartsAtSegmentBoundary: false,
-  lookupSubsegments: koreanLookupSubsegments,
-  detectsText: HAS_HANGUL
-});
-const ENGLISH_FALLBACK_MESSAGES = {
-  setupTitle: "Set up Yomu in your language",
-  learnerLanguageLabel: "Your language",
-  targetLanguageLabel: "Language you are learning",
-  targetJapanese: "Japanese",
-  recommendedDictionariesTitle: "Recommended Japanese dictionaries",
-  automaticTranslationLabel: "Translate automatically into {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
-  setupProgress: "Language setup {current} of {total}",
-  continueAction: "Continue",
-  originalDefinitionLabel: "Original {language}",
-  // D43: a locale that is in scope but not yet selectable says why, in its own
-  // language, so the person who came looking for it can read the answer. The
-  // interface never offers one of these and then quietly speaks English.
-  interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
-  interfaceTranslationPending: "Translation is still in progress."
-};
-function defineLocaleCatalog(locale, reviewStatus, messages) {
-  return Object.freeze({
-  locale,
-  reviewStatus,
-  sourceLocale: "en",
-  messages: Object.freeze(messages)
+function foundationGrammar(targetScaleId, referenceUrl, rule) {
+  return oneRuleGrammar(referenceUrl, foundationScale(targetScaleId), {
+  ...rule,
+  level: FOUNDATION_LEVEL
   });
 }
-defineLocaleCatalog("ar", "machine-draft", {
-  setupTitle: "إعداد ⁨よむ⁩ بلغتك",
-  learnerLanguageLabel: "لغتك",
-  targetLanguageLabel: "اللغة التي تتعلمها",
-  targetJapanese: "اليابانية",
-  recommendedDictionariesTitle: "قواميس يابانية موصى بها",
-  automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
-  dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
-  setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
-  continueAction: "متابعة",
-  originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
-  interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
-  interfaceTranslationPending: "الترجمة قيد التقدم."
-});
-defineLocaleCatalog("da", "machine-draft", {
-  setupTitle: "Opsæt よむ på dit sprog",
-  learnerLanguageLabel: "Dit sprog",
-  targetLanguageLabel: "Det sprog, du lærer",
-  targetJapanese: "Japansk",
-  recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
-  automaticTranslationLabel: "Oversæt automatisk til {language}",
-  dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
-  setupProgress: "Sprogopsætning: {current} af {total}",
-  continueAction: "Fortsæt",
-  originalDefinitionLabel: "Original på {language}",
-  interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
-  interfaceTranslationPending: "Oversættelsen er stadig i gang."
-});
-defineLocaleCatalog("de", "machine-draft", {
-  setupTitle: "よむ in deiner Sprache einrichten",
-  learnerLanguageLabel: "Deine Sprache",
-  targetLanguageLabel: "Sprache, die du lernst",
-  targetJapanese: "Japanisch",
-  recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
-  automaticTranslationLabel: "Automatisch auf {language} übersetzen",
-  dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
-  setupProgress: "Sprache einrichten: {current} von {total}",
-  continueAction: "Weiter",
-  originalDefinitionLabel: "Originaldefinition auf {language}",
-  interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
-  interfaceTranslationPending: "Die Übersetzung läuft noch."
-});
-defineLocaleCatalog("el", "machine-draft", {
-  setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
-  learnerLanguageLabel: "Η γλώσσα σας",
-  targetLanguageLabel: "Γλώσσα που μαθαίνετε",
-  targetJapanese: "Ιαπωνικά",
-  recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
-  automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
-  dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
-  setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
-  continueAction: "Συνέχεια",
-  originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
-  interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
-  interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
-});
-defineLocaleCatalog(
-  "en",
-  "source-approved",
-  ENGLISH_FALLBACK_MESSAGES
-);
-defineLocaleCatalog("es", "machine-draft", {
-  setupTitle: "Configura Yomu en tu idioma",
-  learnerLanguageLabel: "Tu idioma",
-  targetLanguageLabel: "Idioma que estás aprendiendo",
-  targetJapanese: "Japonés",
-  recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
-  automaticTranslationLabel: "Traducir automáticamente al {language}",
-  dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
-  setupProgress: "Configuración del idioma: {current} de {total}",
-  continueAction: "Continuar",
-  originalDefinitionLabel: "Definición original ({language})",
-  interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
-  interfaceTranslationPending: "La traducción sigue en curso."
-});
-defineLocaleCatalog("fa", "machine-draft", {
-  setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
-  learnerLanguageLabel: "زبان شما",
-  targetLanguageLabel: "زبانی که یاد می‌گیرید",
-  targetJapanese: "ژاپنی",
-  recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
-  automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
-  dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
-  setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
-  continueAction: "ادامه",
-  originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
-  interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
-  interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
-});
-defineLocaleCatalog("fi", "machine-draft", {
-  setupTitle: "Ota よむ käyttöön omalla kielelläsi",
-  learnerLanguageLabel: "Oma kielesi",
-  targetLanguageLabel: "Opiskelemasi kieli",
-  targetJapanese: "Japani",
-  recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
-  automaticTranslationLabel: "Käännä automaattisesti: {language}",
-  dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
-  setupProgress: "Kieliasetukset: vaihe {current}/{total}",
-  continueAction: "Jatka",
-  originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
-  interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
-  interfaceTranslationPending: "Käännös on vielä kesken."
-});
-defineLocaleCatalog("fr", "machine-draft", {
-  setupTitle: "Configurez よむ dans votre langue",
-  learnerLanguageLabel: "Votre langue",
-  targetLanguageLabel: "Langue que vous apprenez",
-  targetJapanese: "Japonais",
-  recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
-  automaticTranslationLabel: "Traduire automatiquement en {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
-  setupProgress: "Configuration de la langue : {current} sur {total}",
-  continueAction: "Continuer",
-  originalDefinitionLabel: "Définition originale en {language}",
-  interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
-  interfaceTranslationPending: "La traduction est en cours."
-});
-defineLocaleCatalog("grc", "machine-draft", {
-  setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
-  learnerLanguageLabel: "Ἡ σὴ γλῶττα",
-  targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
-  targetJapanese: "Ἰαπωνική",
-  recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
-  automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
-  dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
-  setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
-  continueAction: "Πρόβαινε",
-  originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
-  interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
-  interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
-});
-defineLocaleCatalog("hu", "machine-draft", {
-  setupTitle: "A よむ beállítása az Ön nyelvén",
-  learnerLanguageLabel: "Az Ön nyelve",
-  targetLanguageLabel: "A tanult nyelv",
-  targetJapanese: "Japán",
-  recommendedDictionariesTitle: "Ajánlott japán szótárak",
-  automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
-  dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
-  setupProgress: "Nyelvi beállítás: {current}/{total}",
-  continueAction: "Folytatás",
-  originalDefinitionLabel: "Eredeti meghatározás ({language})",
-  interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
-  interfaceTranslationPending: "A fordítás még folyamatban van."
-});
-defineLocaleCatalog("id", "machine-draft", {
-  setupTitle: "Siapkan Yomu dalam bahasa Anda",
-  learnerLanguageLabel: "Bahasa Anda",
-  targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
-  targetJapanese: "Bahasa Jepang",
-  recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
-  automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
-  dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
-  setupProgress: "Penyiapan bahasa {current} dari {total}",
-  continueAction: "Lanjutkan",
-  originalDefinitionLabel: "Definisi asli dalam {language}",
-  interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
-  interfaceTranslationPending: "Penerjemahan masih berlangsung."
-});
-defineLocaleCatalog("it", "machine-draft", {
-  setupTitle: "Configura よむ nella tua lingua",
-  learnerLanguageLabel: "La tua lingua",
-  targetLanguageLabel: "Lingua che stai imparando",
-  targetJapanese: "Giapponese",
-  recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
-  automaticTranslationLabel: "Traduci automaticamente in {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
-  setupProgress: "Configurazione della lingua: {current} di {total}",
-  continueAction: "Continua",
-  originalDefinitionLabel: "Definizione originale in {language}",
-  interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
-  interfaceTranslationPending: "La traduzione è ancora in corso."
-});
-defineLocaleCatalog("km", "machine-draft", {
-  setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
-  learnerLanguageLabel: "ភាសារបស់អ្នក",
-  targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
-  targetJapanese: "ភាសាជប៉ុន",
-  recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
-  automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
-  dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
-  setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
-  continueAction: "បន្ត",
-  originalDefinitionLabel: "និយមន័យដើម ({language})",
-  interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
-  interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
-});
-defineLocaleCatalog("ko", "machine-draft", {
-  setupTitle: "내 언어로 よむ 설정하기",
-  learnerLanguageLabel: "사용 언어",
-  targetLanguageLabel: "학습할 언어",
-  targetJapanese: "일본어",
-  recommendedDictionariesTitle: "추천 일본어 사전",
-  automaticTranslationLabel: "{language}로 자동 번역",
-  dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
-  setupProgress: "언어 설정: {total}단계 중 {current}단계",
-  continueAction: "계속",
-  originalDefinitionLabel: "원문({language})",
-  interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
-  interfaceTranslationPending: "번역이 아직 진행 중입니다."
-});
-defineLocaleCatalog("la", "machine-draft", {
-  setupTitle: "Configura よむ in lingua tua",
-  learnerLanguageLabel: "Lingua tua",
-  targetLanguageLabel: "Lingua quam discis",
-  targetJapanese: "Lingua Iaponica",
-  recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
-  automaticTranslationLabel: "Automatice verte in {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
-  setupProgress: "Configuratio linguae: {current} ex {total}",
-  continueAction: "Perge",
-  originalDefinitionLabel: "Definitio originalis ({language})",
-  interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
-  interfaceTranslationPending: "Translatio adhuc geritur."
-});
-defineLocaleCatalog("lo", "machine-draft", {
-  setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
-  learnerLanguageLabel: "ພາສາຂອງທ່ານ",
-  targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
-  targetJapanese: "ພາສາຍີ່ປຸ່ນ",
-  recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
-  automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
-  dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
-  setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
-  continueAction: "ສືບຕໍ່",
-  originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
-  interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
-  interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
-});
-defineLocaleCatalog("mn", "machine-draft", {
-  setupTitle: "よむ-г өөрийн хэлээр тохируулах",
-  learnerLanguageLabel: "Таны хэл",
-  targetLanguageLabel: "Таны сурч буй хэл",
-  targetJapanese: "Япон хэл",
-  recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
-  automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
-  dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
-  setupProgress: "Хэлний тохиргоо: {current}/{total}",
-  continueAction: "Үргэлжлүүлэх",
-  originalDefinitionLabel: "Эх тайлбар ({language})",
-  interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
-  interfaceTranslationPending: "Орчуулга хийгдсээр байна."
-});
-defineLocaleCatalog("nl", "machine-draft", {
-  setupTitle: "Stel よむ in jouw taal in",
-  learnerLanguageLabel: "Jouw taal",
-  targetLanguageLabel: "Taal die je leert",
-  targetJapanese: "Japans",
-  recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
-  automaticTranslationLabel: "Automatisch vertalen naar {language}",
-  dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
-  setupProgress: "Taal instellen: {current} van {total}",
-  continueAction: "Doorgaan",
-  originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
-  interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
-  interfaceTranslationPending: "De vertaling is nog bezig."
-});
-defineLocaleCatalog("pl", "machine-draft", {
-  setupTitle: "Skonfiguruj Yomu w swoim języku",
-  learnerLanguageLabel: "Twój język",
-  targetLanguageLabel: "Język, którego się uczysz",
-  targetJapanese: "Japoński",
-  recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
-  automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
-  dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
-  setupProgress: "Konfiguracja języka: {current} z {total}",
-  continueAction: "Kontynuuj",
-  originalDefinitionLabel: "Oryginalna definicja ({language})",
-  interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
-  interfaceTranslationPending: "Tłumaczenie wciąż trwa."
-});
-defineLocaleCatalog("pt", "machine-draft", {
-  setupTitle: "Configure o Yomu no seu idioma",
-  learnerLanguageLabel: "O seu idioma",
-  targetLanguageLabel: "Idioma que está a aprender",
-  targetJapanese: "Japonês",
-  recommendedDictionariesTitle: "Dicionários de japonês recomendados",
-  automaticTranslationLabel: "Traduzir automaticamente para {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
-  setupProgress: "Configuração do idioma: {current} de {total}",
-  continueAction: "Continuar",
-  originalDefinitionLabel: "Definição original ({language})",
-  interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
-  interfaceTranslationPending: "A tradução ainda está em andamento."
-});
-defineLocaleCatalog("ro", "machine-draft", {
-  setupTitle: "Configurează Yomu în limba ta",
-  learnerLanguageLabel: "Limba ta",
-  targetLanguageLabel: "Limba pe care o înveți",
-  targetJapanese: "Japoneză",
-  recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
-  automaticTranslationLabel: "Tradu automat în {language}",
-  dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
-  setupProgress: "Configurarea limbii: {current} din {total}",
-  continueAction: "Continuă",
-  originalDefinitionLabel: "Definiția originală în {language}",
-  interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
-  interfaceTranslationPending: "Traducerea este încă în curs."
-});
-defineLocaleCatalog("ru", "machine-draft", {
-  setupTitle: "Настройте Yomu на своём языке",
-  learnerLanguageLabel: "Ваш язык",
-  targetLanguageLabel: "Язык, который вы изучаете",
-  targetJapanese: "Японский",
-  recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
-  automaticTranslationLabel: "Автоматически переводить на {language}",
-  dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
-  setupProgress: "Настройка языка: {current} из {total}",
-  continueAction: "Продолжить",
-  originalDefinitionLabel: "Оригинал определения ({language})",
-  interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
-  interfaceTranslationPending: "Перевод ещё выполняется."
-});
-defineLocaleCatalog("sh", "machine-draft", {
-  setupTitle: "Podesite Yomu na svom jeziku",
-  learnerLanguageLabel: "Vaš jezik",
-  targetLanguageLabel: "Jezik koji učite",
-  targetJapanese: "Japanski",
-  recommendedDictionariesTitle: "Preporučeni japanski rečnici",
-  automaticTranslationLabel: "Automatski prevod na jezik {language}",
-  dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
-  setupProgress: "Podešavanje jezika: {current} od {total}",
-  continueAction: "Nastavi",
-  originalDefinitionLabel: "Originalna definicija ({language})",
-  interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
-  interfaceTranslationPending: "Prijevod je još u toku."
-});
-defineLocaleCatalog("sq", "machine-draft", {
-  setupTitle: "Konfiguro よむ në gjuhën tënde",
-  learnerLanguageLabel: "Gjuha jote",
-  targetLanguageLabel: "Gjuha që po mëson",
-  targetJapanese: "Japonisht",
-  recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
-  automaticTranslationLabel: "Përkthe automatikisht në {language}",
-  dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
-  setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
-  continueAction: "Vazhdo",
-  originalDefinitionLabel: "Origjinali në {language}",
-  interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
-  interfaceTranslationPending: "Përkthimi është në vazhdim."
-});
-defineLocaleCatalog("sv", "machine-draft", {
-  setupTitle: "Ställ in よむ på ditt språk",
-  learnerLanguageLabel: "Ditt språk",
-  targetLanguageLabel: "Språket du lär dig",
-  targetJapanese: "Japanska",
-  recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
-  automaticTranslationLabel: "Översätt automatiskt till {language}",
-  dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
-  setupProgress: "Språkinställning: {current} av {total}",
-  continueAction: "Fortsätt",
-  originalDefinitionLabel: "Ursprunglig definition på {language}",
-  interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
-  interfaceTranslationPending: "Översättningen pågår fortfarande."
-});
-defineLocaleCatalog("th", "machine-draft", {
-  setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
-  learnerLanguageLabel: "ภาษาของคุณ",
-  targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
-  targetJapanese: "ภาษาญี่ปุ่น",
-  recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
-  automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
-  dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
-  setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
-  continueAction: "ดำเนินการต่อ",
-  originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
-  interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
-  interfaceTranslationPending: "การแปลยังดำเนินอยู่"
-});
-defineLocaleCatalog("tl", "machine-draft", {
-  setupTitle: "I-set up ang Yomu sa iyong wika",
-  learnerLanguageLabel: "Iyong wika",
-  targetLanguageLabel: "Wikang pinag-aaralan mo",
-  targetJapanese: "Wikang Hapon",
-  recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
-  automaticTranslationLabel: "Awtomatikong isalin sa {language}",
-  dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
-  setupProgress: "Pag-set up ng wika: {current} sa {total}",
-  continueAction: "Magpatuloy",
-  originalDefinitionLabel: "Orihinal na depinisyon ({language})",
-  interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
-  interfaceTranslationPending: "Isinasalin pa ito."
-});
-defineLocaleCatalog("tr", "machine-draft", {
-  setupTitle: "Yomu'yu dilinizde ayarlayın",
-  learnerLanguageLabel: "Diliniz",
-  targetLanguageLabel: "Öğrendiğiniz dil",
-  targetJapanese: "Japonca",
-  recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
-  automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
-  dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
-  setupProgress: "Dil ayarı: {current}/{total}",
-  continueAction: "Devam et",
-  originalDefinitionLabel: "Orijinal tanım ({language})",
-  interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
-  interfaceTranslationPending: "Çeviri hâlâ sürüyor."
-});
-defineLocaleCatalog("vi", "machine-draft", {
-  setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
-  learnerLanguageLabel: "Ngôn ngữ của bạn",
-  targetLanguageLabel: "Ngôn ngữ bạn đang học",
-  targetJapanese: "Tiếng Nhật",
-  recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
-  automaticTranslationLabel: "Tự động dịch sang {language}",
-  dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
-  setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
-  continueAction: "Tiếp tục",
-  originalDefinitionLabel: "Định nghĩa gốc ({language})",
-  interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
-  interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
-});
-defineLocaleCatalog("yue", "machine-draft", {
-  setupTitle: "用你嘅語言設定よむ",
-  learnerLanguageLabel: "你嘅語言",
-  targetLanguageLabel: "你學緊嘅語言",
-  targetJapanese: "日文",
-  recommendedDictionariesTitle: "推薦嘅日文字典",
-  automaticTranslationLabel: "自動翻譯做{language}",
-  dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
-  setupProgress: "語言設定：第{current}步，共{total}步",
-  continueAction: "繼續",
-  originalDefinitionLabel: "原文（{language}）",
-  interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
-  interfaceTranslationPending: "翻譯仲進行中。"
-});
-defineLocaleCatalog("zh", "machine-draft", {
-  setupTitle: "用您的语言设置よむ",
-  learnerLanguageLabel: "您的语言",
-  targetLanguageLabel: "您正在学习的语言",
-  targetJapanese: "日语",
-  recommendedDictionariesTitle: "推荐日语词典",
-  automaticTranslationLabel: "自动翻译为{language}",
-  dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
-  setupProgress: "语言设置：第{current}步，共{total}步",
-  continueAction: "继续",
-  originalDefinitionLabel: "{language}原文",
-  interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
-  interfaceTranslationPending: "翻译仍在进行中。"
-});
-const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
-new Set(MESSAGE_NAMESPACES);
-const locales = [
-  {
-  tag: "en",
-  reviewStatus: "source-approved",
-  rtlVerified: true,
-  humanReview: {
-    reviewer: "source locale",
-    evidence: "English is the source of record for every message ID."
-  },
-  available: true,
-  blockers: []
-  },
-  {
-  tag: "ja",
-  reviewStatus: "native-reviewed",
-  rtlVerified: true,
-  humanReview: {
-    reviewer: "owner",
-    evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
-  },
-  available: true,
-  blockers: []
-  },
-  {
-  tag: "ar",
-  reviewStatus: "machine-draft",
-  rtlVerified: false,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "rtl-verification-pending",
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "fa",
-  reviewStatus: "machine-draft",
-  rtlVerified: false,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "rtl-verification-pending",
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "sq",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "grc",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "yue",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "zh",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "da",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "nl",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "fi",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "fr",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "de",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "el",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "hu",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "id",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "it",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "km",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "ko",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "lo",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "la",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "mn",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "pl",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "pt",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "ro",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "ru",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "sh",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "es",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "sv",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "tl",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "th",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "tr",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  },
-  {
-  tag: "vi",
-  reviewStatus: "machine-draft",
-  rtlVerified: true,
-  humanReview: null,
-  available: false,
-  blockers: [
-    "translation-incomplete",
-    "human-review-pending"
-  ]
-  }
-];
-const rtlGate = {
-  items: [
-  {
-    id: "direction-propagation",
-    done: true,
-    note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
-  },
-  {
-    id: "logical-css-properties",
-    done: false,
-    note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
-  },
-  {
-    id: "bidi-isolation",
-    done: false,
-    note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
-  },
-  {
-    id: "font-stacks",
-    done: true,
-    note: "Per-script interface font stacks in the locale manifest."
-  },
-  {
-    id: "geometry-verification",
-    done: false,
-    note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
-  },
-  {
-    id: "viewport-and-zoom-matrix",
-    done: false,
-    note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
-  },
-  {
-    id: "real-app-screenshots",
-    done: false,
-    note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
-  },
-  {
-    id: "owner-acceptance",
-    done: false,
-    note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
-  }
-  ]
-};
-const interfaceLocaleLedger = {
-  locales,
-  rtlGate
-};
-const languages = [
-  {
-  id: "sq",
-  runtimeLocale: "sq",
-  englishName: "Albanian",
-  nativeName: "Shqip",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "grc",
-  runtimeLocale: "grc",
-  englishName: "Ancient Greek",
-  nativeName: "Ἑλληνιστί",
-  defaultScript: "Grek",
-  scripts: [
-    "Grek"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "ar",
-  runtimeLocale: "ar",
-  englishName: "Arabic",
-  nativeName: "العربية",
-  defaultScript: "Arab",
-  scripts: [
-    "Arab"
-  ],
-  direction: "rtl"
-  },
-  {
-  id: "yue",
-  runtimeLocale: "yue-Hant",
-  englishName: "Cantonese",
-  nativeName: "粵語",
-  defaultScript: "Hant",
-  scripts: [
-    "Hant"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "zh",
-  runtimeLocale: "zh-Hans",
-  englishName: "Chinese",
-  nativeName: "中文（简体）",
-  defaultScript: "Hans",
-  scripts: [
-    "Hans",
-    "Hant"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "da",
-  runtimeLocale: "da",
-  englishName: "Danish",
-  nativeName: "Dansk",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "nl",
-  runtimeLocale: "nl",
-  englishName: "Dutch",
-  nativeName: "Nederlands",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "en",
-  runtimeLocale: "en",
-  englishName: "English",
-  nativeName: "English",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "fi",
-  runtimeLocale: "fi",
-  englishName: "Finnish",
-  nativeName: "Suomi",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "fr",
-  runtimeLocale: "fr",
-  englishName: "French",
-  nativeName: "Français",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "de",
-  runtimeLocale: "de",
-  englishName: "German",
-  nativeName: "Deutsch",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "el",
-  runtimeLocale: "el",
-  englishName: "Greek",
-  nativeName: "Ελληνικά",
-  defaultScript: "Grek",
-  scripts: [
-    "Grek"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "hu",
-  runtimeLocale: "hu",
-  englishName: "Hungarian",
-  nativeName: "Magyar",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "id",
-  runtimeLocale: "id",
-  englishName: "Indonesian",
-  nativeName: "Bahasa Indonesia",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "it",
-  runtimeLocale: "it",
-  englishName: "Italian",
-  nativeName: "Italiano",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "km",
-  runtimeLocale: "km",
-  englishName: "Khmer",
-  nativeName: "ខ្មែរ",
-  defaultScript: "Khmr",
-  scripts: [
-    "Khmr"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "ko",
-  runtimeLocale: "ko",
-  englishName: "Korean",
-  nativeName: "한국어",
-  defaultScript: "Kore",
-  scripts: [
-    "Kore"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "lo",
-  runtimeLocale: "lo",
-  englishName: "Lao",
-  nativeName: "ລາວ",
-  defaultScript: "Laoo",
-  scripts: [
-    "Laoo"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "la",
-  runtimeLocale: "la",
-  englishName: "Latin",
-  nativeName: "Latina",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "mn",
-  runtimeLocale: "mn-Cyrl",
-  englishName: "Mongolian",
-  nativeName: "Монгол",
-  defaultScript: "Cyrl",
-  scripts: [
-    "Cyrl",
-    "Mong"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "fa",
-  runtimeLocale: "fa",
-  englishName: "Persian",
-  nativeName: "فارسی",
-  defaultScript: "Arab",
-  scripts: [
-    "Arab"
-  ],
-  direction: "rtl"
-  },
-  {
-  id: "pl",
-  runtimeLocale: "pl",
-  englishName: "Polish",
-  nativeName: "Polski",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "pt",
-  runtimeLocale: "pt",
-  englishName: "Portuguese",
-  nativeName: "Português",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "ro",
-  runtimeLocale: "ro",
-  englishName: "Romanian",
-  nativeName: "Română",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "ru",
-  runtimeLocale: "ru",
-  englishName: "Russian",
-  nativeName: "Русский",
-  defaultScript: "Cyrl",
-  scripts: [
-    "Cyrl"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "sh",
-  runtimeLocale: "sr-Latn",
-  englishName: "Serbo-Croatian",
-  nativeName: "Srpskohrvatski",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn",
-    "Cyrl"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "es",
-  runtimeLocale: "es",
-  englishName: "Spanish",
-  nativeName: "Español",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "sv",
-  runtimeLocale: "sv",
-  englishName: "Swedish",
-  nativeName: "Svenska",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "tl",
-  runtimeLocale: "fil",
-  englishName: "Tagalog",
-  nativeName: "Tagalog",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "th",
-  runtimeLocale: "th",
-  englishName: "Thai",
-  nativeName: "ไทย",
-  defaultScript: "Thai",
-  scripts: [
-    "Thai"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "tr",
-  runtimeLocale: "tr",
-  englishName: "Turkish",
-  nativeName: "Türkçe",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  },
-  {
-  id: "vi",
-  runtimeLocale: "vi",
-  englishName: "Vietnamese",
-  nativeName: "Tiếng Việt",
-  defaultScript: "Latn",
-  scripts: [
-    "Latn"
-  ],
-  direction: "ltr"
-  }
-];
-const languageConfig = {
-  languages
-};
-const LEARNER_LANGUAGE_IDS = [
-  "sq",
-  "grc",
-  "ar",
-  "yue",
-  "zh",
-  "da",
-  "nl",
-  "en",
-  "fi",
-  "fr",
-  "de",
-  "el",
-  "hu",
-  "id",
-  "it",
-  "km",
-  "ko",
-  "lo",
-  "la",
-  "mn",
-  "fa",
-  "pl",
-  "pt",
-  "ro",
-  "ru",
-  "sh",
-  "es",
-  "sv",
-  "tl",
-  "th",
-  "tr",
-  "vi"
-];
-const configuredLanguages = languageConfig.languages;
-const LEARNER_LANGUAGES = Object.freeze(
-  configuredLanguages.map(
-  (language) => Object.freeze({
-    ...language,
-    scripts: Object.freeze([...language.scripts])
-  })
-  )
-);
-const LANGUAGE_BY_ID = new Map(
-  LEARNER_LANGUAGES.map((language) => [language.id, language])
-);
-function learnerLanguageById(id) {
-  const language = LANGUAGE_BY_ID.get(id);
-  if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
-  return language;
-}
-function isLearnerLanguageId(value) {
-  return LEARNER_LANGUAGE_IDS.includes(value);
-}
-const JAPANESE_INTERFACE_LOCALE = Object.freeze({
-  id: "ja",
-  runtimeLocale: "ja",
-  englishName: "Japanese",
-  nativeName: "日本語",
-  defaultScript: "Jpan",
-  direction: "ltr"
-});
-const RTL_SCRIPTS = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
-const SCRIPT_FONT_STACKS = Object.freeze({
-  Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
-  Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
-  Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
-  Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
-  Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
-  Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
-  Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
-  Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
-  Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
-});
-const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
-function scriptFontStack(script) {
-  return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
-}
-function directionForScript(script) {
-  return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
-}
-const LEDGER_ROWS = new Map(
-  interfaceLocaleLedger.locales.map((row) => [row.tag, row])
-);
-function fallbackChainFor(tag, id) {
-  const chain = [];
-  const push = (value) => {
-  if (value !== tag && !chain.includes(value)) chain.push(value);
-  };
-  const base = tag.split("-")[0];
-  push(base);
-  push(id);
-  if (id === "sh") {
-  push("sr");
-  push("hr");
-  push("bs");
-  }
-  if (id === "tl") push("fil");
-  if (id !== "en") push("en");
-  return Object.freeze(chain);
-}
-function buildLocale(source) {
-  const ledger = LEDGER_ROWS.get(source.id);
-  if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
-  return Object.freeze({
-  tag: source.runtimeLocale,
-  id: source.id,
-  fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
-  nativeName: source.nativeName,
-  englishName: source.englishName,
-  script: source.defaultScript,
-  // languages.json and the script table must agree; the script is the
-  // source of truth so one new RTL locale cannot arrive marked ltr.
-  direction: directionForScript(source.defaultScript),
-  fontStack: scriptFontStack(source.defaultScript),
-  reviewStatus: ledger.reviewStatus,
-  available: ledger.available,
-  blockers: Object.freeze([...ledger.blockers])
+const ALBANIAN_EXISTENTIALS = "https://edizionicafoscari.unive.it/media/pdf/journals/balcania-et-slavia/2024/1/iss-4-1-2024.pdf#page=18";
+const CLASSICAL_GREEK_ONLINE = "https://lrc.la.utexas.edu/eieol/grkol/0";
+const MSA_NOMINAL_SENTENCES = "https://openbooks.lib.msu.edu/elemarabicll/chapter/grammar-2/";
+const CUHK_CANTONESE_NEGATION = "https://www.cuhk.edu.hk/lin/cbrc/CantoneseGrammar/multimedia/13.htm";
+const HSK_STANDARD_COURSE_3 = "https://www.hskstandardcourse.com/hsk-standard-course-level-3/";
+const PRINCETON_YUELAIYUE = "https://commons.princeton.edu/chinesecharacters/%E8%B6%8A%E6%9D%A5%E8%B6%8A/";
+const DANISH_PRESENTATIVE_DER = "https://ordnet.dk/ddo/ordbog/der";
+const DUTCH_PRESENTATIVE_ER = "https://onzetaal.nl/taalloket/wel-of-geen-er";
+const BRITISH_COUNCIL_THERE = "https://learnenglish.britishcouncil.org/free-resources/grammar/a1-a2/using-there-there-are";
+const FINNISH_POSSESSION = "https://kielitoimistonohjepankki.fi/ohje/lauseenvastikkeet-tehdakseen-rakenne-pelaan-voittaakseni-rakenteen-tekija/";
+const GREEK_NEGATION = "https://www.greek-language.gr/digitalResources/modern_greek/tools/lexica/glossology_edu/iframe.html?heading=2&id=173";
+const HUNGARIAN_POSSESSION = "https://www.gutenberg.org/files/76725/76725-h/76725-h.htm";
+const INDONESIAN_NEGATIVE_EXISTENTIAL = "https://seasite.niu.edu/flin/archive/103_handouts/sentences_and_phrases.htm";
+const ITALIAN_PRESENTATIVE_CI = "https://www.treccani.it/enciclopedia/ci_%28La-grammatica-italiana%29/";
+const KHMER_NEGATION = "https://seasite.niu.edu/khmer/grammar_note/grammar_note7/grammar_note7_text.htm";
+const KOREAN_DESIRE = "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=62657";
+const LAO_NEGATION = "https://seasite.niu.edu/lao/LaoLanguage/grammar_notes/grammar2.htm";
+const LATIN_NEGATIVE_COPULA = "https://www.usu.edu/markdamen/Latin1000/Presentation/transcriptions/04T.pdf";
+const MONGOLIAN_NEGATION = "https://library.huree.edu.mn/data/201021/2023-05-19/An%20Elementary%20Mongolian%20Grammar%20%28%20PDFDrive.com%20%29.pdf";
+const PERSIAN_NEGATIVE_COPULA = "https://sites.la.utexas.edu/persian_online_resources/verbs/long-copulas-1/";
+const POLISH_NEGATIVE_EXISTENTIAL = "https://zpe.gov.pl/a/odmiana-rzeczownika-i-przymiotnika/D1DL299KT";
+const PORTUGUESE_EXISTENTIAL_HAVER = "https://ciberduvidas.iscte-iul.pt/consultorio/perguntas/haverexistir/3409";
+const ROMANIAN_NECESSITY = "https://slaviccenters.duke.edu/sites/slaviccenters.duke.edu/files/site-images/2016_romanian_verbs_conjugated.pdf";
+const CROATIAN_EXISTENTIAL_NEMA = "https://bosnian.coerll.utexas.edu/c8/m2/lekcija1/grammar/";
+const SWEDISH_PRESENTATIVE_FINNS = "https://svenska.se/grammatik/";
+const TAGALOG_EXISTENTIALS = "https://seasite.niu.edu/trans/tagalog/Grammar%201/Sentences1/Existential_Sentences.htm";
+const THAI_COPULAR_NEGATION = "https://seasite.niu.edu/thai/FLTH/1styearthai.htm";
+const YEE_A1_A2 = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden-turkce.";
+const YEE_VAR_YOK = "https://turkceninsesi.yee.org.tr/programlar/hayatin-icinden4/hayatin-icinden4";
+const VIETNAMESE_COMPLETION = "https://seasite.niu.edu/vietnamese/uniLesson8/L8_grammar.htm";
+const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
+  sq: foundationGrammar("sq-foundation", ALBANIAN_EXISTENTIALS, {
+  ruleId: "sq-existential-ka-ketu",
+  name: "Existence with ka … këtu",
+  displayNames: { en: "Existence with ka … këtu", ja: "ka … këtu の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Kk]a\s+\p{L}+(?:-\p{L}+)?\s+këtu(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: ALBANIAN_EXISTENTIALS
+  }),
+  grc: foundationGrammar("grc-classical-foundation", CLASSICAL_GREEK_ONLINE, {
+  ruleId: "grc-negation-ou",
+  name: "Negation with οὐ",
+  displayNames: { en: "Negation with οὐ", ja: "οὐ による否定" },
+  patternSource: String.raw`(?<!\p{L})(?:[Οο]ὐ|[Οο]ὐκ|[Οο]ὐχ)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: CLASSICAL_GREEK_ONLINE
+  }),
+  ar: foundationGrammar("ar-msa-foundation", MSA_NOMINAL_SENTENCES, {
+  ruleId: "ar-msa-laysa-negation",
+  name: "Nominal negation with laysa",
+  displayNames: { en: "Nominal negation with laysa", ja: "laysa（ليس）による名詞文の否定" },
+  patternSource: String.raw`(?<!\p{L})(?:ليس|ليست|لست|لسنا|لستم|لستن|ليسا|ليستا|ليسوا|لسن)(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: MSA_NOMINAL_SENTENCES
+  }),
+  yue: foundationGrammar("yue-foundation", CUHK_CANTONESE_NEGATION, {
+  ruleId: "yue-copular-negation-m-haih",
+  name: "Copular negation with 唔係",
+  displayNames: { en: "Copular negation with 唔係", ja: "唔係 によるコピュラ否定" },
+  patternSource: String.raw`唔係`,
+  priority: 20,
+  confidence: "high",
+  url: CUHK_CANTONESE_NEGATION
+  }),
+  zh: oneRuleGrammar(HSK_STANDARD_COURSE_3, HSK_STANDARD_COURSE_LEVEL_SCALE, {
+  ruleId: "zh-hsk3-yuelaiyue",
+  level: "HSK 3",
+  name: "Increasing degree with 越来越",
+  displayNames: { en: "Increasing degree with 越来越", ja: "越来越 による程度変化" },
+  patternSource: String.raw`(?:越来越|越來越)(?:冷|热|熱|好|忙|难|難|喜欢|喜歡|想)`,
+  priority: 20,
+  confidence: "high",
+  url: PRINCETON_YUELAIYUE
+  }),
+  da: foundationGrammar("da-foundation", DANISH_PRESENTATIVE_DER, {
+  ruleId: "da-presentative-der-er",
+  name: "Presentative der er",
+  displayNames: { en: "Presentative der er", ja: "der er の存在構文" },
+  patternSource: String.raw`(?:^|(?<=[.!?…]\s))[Dd]er\s+er\s+(?:en|et|mange|ingen|to|tre|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DANISH_PRESENTATIVE_DER
+  }),
+  nl: foundationGrammar("nl-foundation", DUTCH_PRESENTATIVE_ER, {
+  ruleId: "nl-presentative-er-is-zijn",
+  name: "Presentative er is / er zijn",
+  displayNames: { en: "Presentative er is / er zijn", ja: "er is / er zijn の存在構文" },
+  patternSource: String.raw`(?<!\p{L})[Ee]r\s+(?:is|zijn)\s+(?:een|geen|veel|twee|drie|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: DUTCH_PRESENTATIVE_ER
+  }),
+  en: oneRuleGrammar(BRITISH_COUNCIL_THERE, CEFR_GRAMMAR_LEVEL_SCALE, {
+  ruleId: "en-a1-there-is-are",
+  level: "A1",
+  name: "Existence with there is / there are",
+  displayNames: { en: "Existence with there is / there are", ja: "there is / there are の存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]here\s+(?:is|are)\s+(?:a|an|some|many|no|one|two|three|\d+)\s+\p{L}+(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: BRITISH_COUNCIL_THERE
+  }),
+  fi: foundationGrammar("fi-foundation", FINNISH_POSSESSION, {
+  ruleId: "fi-adessive-possession",
+  name: "Possession with adessive + on",
+  displayNames: { en: "Possession with adessive + on", ja: "接格 ＋ on の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Mm]inulla|[Ss]inulla|[Hh]änellä|[Mm]eillä|[Tt]eillä|[Hh]eillä)\s+on(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: FINNISH_POSSESSION
+  }),
+  el: foundationGrammar("el-modern-foundation", GREEK_NEGATION, {
+  ruleId: "el-indicative-negation-den",
+  name: "Indicative negation with δεν",
+  displayNames: { en: "Indicative negation with δεν", ja: "δεν による直説法の否定" },
+  patternSource: String.raw`(?<!\p{L})[Δδ]εν\s+\p{L}{2,}(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: GREEK_NEGATION
+  }),
+  hu: foundationGrammar("hu-foundation", HUNGARIAN_POSSESSION, {
+  ruleId: "hu-dative-possession-van",
+  name: "Possession with dative + van",
+  displayNames: { en: "Possession with dative + van", ja: "与格 ＋ van の所有文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Nn]ekem|[Nn]eked|[Nn]eki|[Nn]ekünk|[Nn]ektek|[Nn]ekik)\s+van(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: HUNGARIAN_POSSESSION
+  }),
+  id: foundationGrammar("id-foundation", INDONESIAN_NEGATIVE_EXISTENTIAL, {
+  ruleId: "id-negative-existential-tidak-ada",
+  name: "Negative existence with tidak ada",
+  displayNames: { en: "Negative existence with tidak ada", ja: "tidak ada の否定存在文" },
+  patternSource: String.raw`(?<!\p{L})[Tt]idak\s+ada(?!\p{L})`,
+  priority: 20,
+  confidence: "high",
+  url: INDONESIAN_NEGATIVE_EXISTENTIAL
+  }),
+  it: foundationGrammar("it-foundation", ITALIAN_PRESENTATIVE_CI, {
+  ruleId: "it-presentative-ci",
+  name: "Presentative c’è / ci sono",
+  displayNames: { en: "Presentative c’è / ci sono", ja: "c’è / ci sono の存在構文" },
+  patternSource: String.raw`(?<!\p{L})(?:[Cc][’']è|[Cc]i\s+sono)\s+(?:un|uno|una|due|tre|molti|molte|alcuni|alcune)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ITALIAN_PRESENTATIVE_CI
+    }),
+    km: foundationGrammar("km-foundation", KHMER_NEGATION, {
+      ruleId: "km-discontinuous-negation",
+      name: "Discontinuous negation with មិន … ទេ",
+      displayNames: { en: "Discontinuous negation with មិន … ទេ", ja: "មិន … ទេ の呼応否定" },
+      patternSource: String.raw`មិន[^\n។៕!?]{1,50}?ទេ`,
+      priority: 20,
+      confidence: "high",
+      url: KHMER_NEGATION
+    }),
+    ko: foundationGrammar("ko-foundation", KOREAN_DESIRE, {
+      ruleId: "ko-desire-go-sipda",
+      name: "Desire with -고 싶다",
+      displayNames: { en: "Desire with -고 싶다", ja: "-고 싶다（希望）" },
+      patternSource: String.raw`[가-힣]{1,8}고\s+싶(?:다|어요|습니다|어|었어요|었다|습니까|니|죠)(?![가-힣])`,
+      priority: 20,
+      confidence: "high",
+      url: KOREAN_DESIRE
+    }),
+    lo: foundationGrammar("lo-foundation", LAO_NEGATION, {
+      ruleId: "lo-preverbal-negation-bo",
+      name: "Preverbal negation with ບໍ່",
+      displayNames: { en: "Preverbal negation with ບໍ່", ja: "ບໍ່ による動詞・形容詞の否定" },
+      patternSource: String.raw`ບໍ່\s*(?:ແມ່ນ|ໄປ|ມາ|ມັກ|ດີ|ງາມ|ຮູ້)`,
+      priority: 20,
+      confidence: "high",
+      url: LAO_NEGATION
+    }),
+    la: foundationGrammar("la-classical-foundation", LATIN_NEGATIVE_COPULA, {
+      ruleId: "la-negative-copula-non-est",
+      name: "Negative copula with nōn est",
+      displayNames: { en: "Negative copula with nōn est", ja: "nōn est によるコピュラ否定" },
+      patternSource: String.raw`(?<!\p{L})[Nn][oō]n\s+est(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: LATIN_NEGATIVE_COPULA
+    }),
+    mn: foundationGrammar("mn-khalkha-foundation", MONGOLIAN_NEGATION, {
+      ruleId: "mn-nominal-negation-bish",
+      name: "Nominal negation with биш",
+      displayNames: { en: "Nominal negation with биш", ja: "биш による名詞文の否定" },
+      patternSource: String.raw`(?<!\p{L})биш(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: MONGOLIAN_NEGATION
+    }),
+    fa: foundationGrammar("fa-iranian-foundation", PERSIAN_NEGATIVE_COPULA, {
+      ruleId: "fa-negative-long-copula",
+      name: "Negative long copula",
+      displayNames: { en: "Negative long copula", ja: "否定長形コピュラ نیست" },
+      patternSource: String.raw`(?<!\p{L})نیست(?:م|ی|یم|ید|ند)?(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PERSIAN_NEGATIVE_COPULA
+    }),
+    pl: foundationGrammar("pl-foundation", POLISH_NEGATIVE_EXISTENTIAL, {
+      ruleId: "pl-negative-existential-nie-ma",
+      name: "Absence or non-possession with nie ma + genitive",
+      displayNames: { en: "Absence or non-possession with nie ma + genitive", ja: "nie ma ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ie\s+ma(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: POLISH_NEGATIVE_EXISTENTIAL
+    }),
+    pt: foundationGrammar("pt-foundation", PORTUGUESE_EXISTENTIAL_HAVER, {
+      ruleId: "pt-existential-ha",
+      name: "Existence with impersonal há",
+      displayNames: { en: "Existence with impersonal há", ja: "非人称 há の存在文" },
+      patternSource: String.raw`(?<!\p{L})[Hh]á\s+(?:um|uma|dois|duas|três|muitos|muitas|alguns|algumas)\s+(?:pessoas?|problemas?|livros?|casas?|lugares?)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: PORTUGUESE_EXISTENTIAL_HAVER
+    }),
+    ro: foundationGrammar("ro-foundation", ROMANIAN_NECESSITY, {
+      ruleId: "ro-necessity-trebuie-sa",
+      name: "Necessity with trebuie să",
+      displayNames: { en: "Necessity with trebuie să", ja: "trebuie să による必要・義務" },
+      patternSource: String.raw`(?<!\p{L})[Tt]rebuie\s+să\s+\p{Ll}{2,}(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: ROMANIAN_NECESSITY
+    }),
+    sh: foundationGrammar("sh-shtokavian-foundation", CROATIAN_EXISTENTIAL_NEMA, {
+      ruleId: "sh-existential-nema-genitive",
+      name: "Absence or non-possession with nema + genitive",
+      displayNames: { en: "Absence or non-possession with nema + genitive", ja: "nema ＋ 生格（不在・非所有）" },
+      patternSource: String.raw`(?<!\p{L})[Nn]ema\s+(?:kave|kruha|vode|problema|vremena|ljudi)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: CROATIAN_EXISTENTIAL_NEMA
+    }),
+    sv: foundationGrammar("sv-foundation", SWEDISH_PRESENTATIVE_FINNS, {
+      ruleId: "sv-presentative-det-finns",
+      name: "Presentative det finns",
+      displayNames: { en: "Presentative det finns", ja: "det finns の存在構文" },
+      patternSource: String.raw`(?<!\p{L})[Dd]et\s+finns\s+(?:en|ett|många|inga|två|tre|\d+)\s+\p{L}+(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: SWEDISH_PRESENTATIVE_FINNS
+    }),
+    tl: foundationGrammar("tl-tagalog-foundation", TAGALOG_EXISTENTIALS, {
+      ruleId: "tl-existential-may-mayroon",
+      name: "Existence with may / mayroon",
+      displayNames: { en: "Existence with may / mayroon", ja: "may / mayroon の存在文" },
+      patternSource: String.raw`(?<!\p{L})(?:[Mm]ay|[Mm]ayroon(?:g)?)\s+(?:isang|mga|dalawang|tatlong|\p{L}{3,})(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: TAGALOG_EXISTENTIALS
+    }),
+    th: foundationGrammar("th-foundation", THAI_COPULAR_NEGATION, {
+      ruleId: "th-copular-negation-mai-chai",
+      name: "Copular negation with ไม่ใช่",
+      displayNames: { en: "Copular negation with ไม่ใช่", ja: "ไม่ใช่ によるコピュラ否定" },
+      patternSource: String.raw`ไม่ใช่`,
+      priority: 20,
+      confidence: "high",
+      url: THAI_COPULAR_NEGATION
+    }),
+    tr: oneRuleGrammar(YEE_A1_A2, YEE_CEFR_BAND_LEVEL_SCALE, {
+      ruleId: "tr-a1-a2-existence-var-yok",
+      level: "A1–A2",
+      name: "Existence or possession with var / yok",
+      displayNames: { en: "Existence or possession with var / yok", ja: "var / yok の存在・所有文" },
+      patternSource: String.raw`(?<!\p{L})(?:bir\s+)?\p{L}{2,}\s+(?:var|yok)(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: YEE_VAR_YOK
+    }),
+    vi: foundationGrammar("vi-foundation", VIETNAMESE_COMPLETION, {
+      ruleId: "vi-completed-da-roi",
+      name: "Completed action with đã … rồi",
+      displayNames: { en: "Completed action with đã … rồi", ja: "đã … rồi の完了表現" },
+      patternSource: String.raw`(?<!\p{L})[Đđ]ã\s+[^\n.!?]{1,50}?\s+rồi(?!\p{L})`,
+      priority: 20,
+      confidence: "high",
+      url: VIETNAMESE_COMPLETION
+    })
   });
-}
-const INTERFACE_LOCALES = Object.freeze(
-  [
-  ...LEARNER_LANGUAGES.map(
-    (language) => buildLocale({ ...language, direction: language.direction })
-  ),
-  buildLocale(JAPANESE_INTERFACE_LOCALE)
-  ].sort((left, right) => {
-  const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
-  return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
-  })
-);
-const LOCALE_BY_KEY = new Map([
-  ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
-  ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
-]);
-(() => {
-  const english = LOCALE_BY_KEY.get("en");
-  if (!english) throw new Error("The interface manifest must always contain English");
-  return english;
-})();
-Object.freeze(
-  INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
-);
-Object.freeze(
-  interfaceLocaleLedger.rtlGate.items.map(
-  (item) => Object.freeze({ ...item })
-  )
-);
-const OCR_LANGUAGE_HINTS = Object.freeze({
-  fil: "tl",
-  yue: "zh",
-  grc: "el"
-});
-const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
-  LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
-  const lookupRewrites = lookupRewritesForTarget(language.id);
-  const readingAnnotation = language.id === "zh" || language.id === "yue";
-  const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
-  return createLearningTargetModule({
-    id: `${language.id}-roster-v1`,
-    language: language.runtimeLocale,
-    direction: language.direction,
-    capabilities: {
-      morphology: lookupRewrites.length > 0,
-      "reading-annotation": readingAnnotation,
-      // MEASURED against config/dictionaries/published/v1/catalog.json
-      // on 2026-08-02: zh has 4 published `kanji` dictionaries and 9
-      // `frequency` ones, yue has 1 and 3. Both flags said Japanese-only,
-      // so two capabilities the shipped catalogue already supplies were
-      // switched off for the languages that can use them. The Han branch
-      // is where the data is, and character-lookup already gates on
-      // isUnifiedIdeograph as well, so this reaches only real Han runs —
-      // and usesJapaneseProviders() still keeps JPDB, Jiten and Japanese
-      // pitch out, exactly as character-lookup.ts anticipated.
-      "character-lookup": usesHanScript,
-      frequency: usesHanScript,
-      // MEASURED 2026-08-02 by running exampleSourcesForTarget: Tatoeba
-      // is a registered, mounted, licence-checked example source for
-      // every non-Japanese target and reports text availability
-      // 'available' for all of them (Japanese uses Immersion Kit
-      // instead, which is why it is declared separately). The flag said
-      // Japanese-only, so 32 languages that already had example
-      // sentences were reporting none. Audio is deliberately NOT implied
-      // here — Tatoeba answers 'per-item' for audio and outright 'none'
-      // for the smaller corpora, so a boolean would overclaim it.
-      // tests/reader/languages/learning-target-contract.test.ts asserts
-      // this against the live registry so it cannot go stale again.
-      examples: true
-    },
-    featureSemantics: {
-      characterSystem: language.defaultScript,
-      phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
-      pronunciation: "ipa",
-      readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "none"
-    },
-    grammar: grammarForRosterTarget(language.id),
-    sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
-    typography: readingAnnotation ? { readingAnnotationMode: "ruby" } : void 0,
-    ocr: ocrHintFor(language.runtimeLocale),
-    detectsText: scriptDetector(language.scripts),
-    lookupRewrites,
-    ...usesHanScript ? {
-      // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
-      // Let the installed dictionary arbitrate inside a real Han
-      // run, and accept expression hits only.
-      lookupStartsAtSegmentBoundary: false,
-      lookupRunSegments: hanIdeographSegments,
-      lookupSweepMode: "left-to-right-longest-exact",
-      pointerWordSegments: hanIdeographSegments
-    } : {}
+  const RANEPA_A1 = "https://ion.ranepa.ru/upload/medialibrary/bab/DOOP_Russkiy-yazyk-kak-inostrannyy.-Element-uroven-_A1_.-Obshchee-vladenie_450-chas.pdf";
+  const CORNELL_GRAMMAR = "https://russian.cornell.edu/grammar/toc.htm";
+  const CHECKED_MODAL_INFINITIVE = String.raw`(?:пойти|поехать)`;
+  const CHECKED_NECESSITY_INFINITIVE = String.raw`пойти`;
+  const CHECKED_WHERE_POSSIBLE_INFINITIVE = String.raw`купить`;
+  const MODAL_CLAUSE_GAP = String.raw`(?:(?![,;:]|(?<!\p{L})(?:а|и|или|но|что)(?!\p{L}))[^.!?…\n]){0,60}?`;
+  const RUSSIAN_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CORNELL_GRAMMAR,
+    rules: [
+      {
+        ruleId: "ru-a1-kto-chto-eto",
+        level: "A1",
+        name: "Кто/что это? identification question",
+        displayNames: { en: "Кто/что это? identification question", ja: "кто/что это? の同定疑問文" },
+        patternSource: String.raw`^(?:[Кк]то|[Чч]то)\s+это(?=\s*(?:[?？]|$))`,
+        priority: 10,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-possessive-starter",
+        level: "A1",
+        name: "Possession with это + possessive",
+        displayNames: { en: "Possession with это + possessive", ja: "это ＋ 所有代名詞" },
+        patternSource: String.raw`(?<!\p{L})[Ээ]то\s+(?:мой|моя|моё|мое|мои|твой|твоя|твоё|твое|твои|наш|наша|наше|наши|ваш|ваша|ваше|ваши)(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=19`
+      },
+      {
+        ruleId: "ru-a1-request-imperative",
+        level: "A1",
+        name: "Requests with дай(те), скажи(те), покажи(те)",
+        displayNames: { en: "Requests with дай(те), скажи(те), покажи(те)", ja: "дай(те) / скажи(те) / покажи(те) の依頼" },
+        patternSource: String.raw`(?<!\p{L})(?:[Дд]айте|[Дд]ай|[Сс]кажите|[Сс]кажи|[Пп]окажите|[Пп]окажи)(?!\p{L})(?:,\s*пожалуйста(?!\p{L}))?`,
+        priority: 14,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=20`
+      },
+      {
+        ruleId: "ru-a1-dative-nravitsya",
+        level: "A1",
+        name: "нравится with a dative experiencer",
+        displayNames: { en: "нравится with a dative experiencer", ja: "与格 ＋ нравится" },
+        patternSource: String.raw`(?<!\p{L})(?:[Мм]не|[Тт]ебе|[Вв]ам)\s+нрав(?:ится|ятся)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=21`
+      },
+      {
+        ruleId: "ru-a1-potomu-chto",
+        level: "A1",
+        name: "Reason with потому что",
+        displayNames: { en: "Reason with потому что", ja: "理由を表す потому что" },
+        patternSource: String.raw`(?<!\p{L})[Пп]отому\s+что(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-gde-mozhno-infinitive",
+        level: "A1",
+        name: "Где можно + infinitive",
+        displayNames: { en: "Где можно + infinitive", ja: "где можно ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Гг]де\s+можно\s+${CHECKED_WHERE_POSSIBLE_INFINITIVE}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=22`
+      },
+      {
+        ruleId: "ru-a1-want-can-infinitive",
+        level: "A1",
+        name: "хотеть/мочь + infinitive",
+        displayNames: { en: "хотеть/мочь + infinitive", ja: "хотеть/мочь ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})(?:[Хх]очу|[Хх]очешь|[Хх]очет|[Хх]отим|[Хх]отите|[Хх]отят|[Мм]огу|[Мм]ожешь|[Мм]ожет|[Мм]ожем|[Мм]ожете|[Мм]огут)(?!\p{L})${MODAL_CLAUSE_GAP}(?<!\p{L})${CHECKED_MODAL_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=23`
+      },
+      {
+        ruleId: "ru-a1-need-infinitive",
+        level: "A1",
+        name: "Necessity with надо/нужно",
+        displayNames: { en: "Necessity with надо/нужно", ja: "надо/нужно で表す必要" },
+        patternSource: String.raw`(?<!\p{L})(?:(?:[Мм]не|[Тт]ебе|[Вв]ам|[Ее]му|[Ее]й|[Нн]ам|[Ии]м)\s+)?(?:[Нн]адо|[Нн]ужно)\s+${CHECKED_NECESSITY_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${RANEPA_A1}#page=24`
+      }
+    ]
   });
-  })
-);
-function sentenceBoundariesForScripts(scripts) {
-  const has = (script) => scripts.includes(script);
-  const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
-  const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
-  return { terminators, whitespaceIsBoundary };
-}
-function ocrHintFor(runtimeLocale) {
-  const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
-  return hint ? { languageHint: hint } : void 0;
-}
-function scriptDetector(scripts) {
-  return new RegExp(
-  scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
-  "u"
-  );
-}
-const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
-const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
-function registerLearningTargetModule(module) {
-  if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
-  throw new Error(
-    `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
-  );
-  }
-  const base = languageSubtag(module.language);
-  if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
-  const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
-  stack.push(module);
-  MODULE_STACKS_BY_LANGUAGE.set(base, stack);
-  return module;
-}
-function learningTargetModuleFor(language) {
-  const canonical = canonicalLanguageTag(language);
-  const base = languageSubtag(canonical);
-  return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
-}
-function normalizeLearningTargetLanguage(value) {
-  return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
-}
-function defaultLearningTargetModule() {
-  return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
-}
-function registerBuiltInLearningTargetModule(module) {
-  registerLearningTargetModule(module);
-}
-registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
-registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
-GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
-const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-  id: "ja",
-  runtimeLocale: "ja",
-  englishName: "Japanese",
-  nativeName: "日本語",
-  defaultScript: "Jpan",
-  scripts: Object.freeze(["Jpan"]),
-  direction: "ltr",
-  studyTargetReadiness: "full"
-});
-const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
-const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
-Object.freeze([
-  JAPANESE_TARGET_ROSTER_ENTRY,
-  ...LEARNER_LANGUAGES.map((language) => Object.freeze({
-  ...language,
-  studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
-  }))
-]);
-Object.freeze(
-  LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
-function canonicalTagForSlice1Language(id) {
-  const runtimeLocale = learnerLanguageById(id).runtimeLocale;
-  return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
-}
-function slice1LanguageIdForTag(value) {
-  if (typeof value !== "string") return null;
-  const input = value.trim().toLowerCase().replace(/_/g, "-");
-  const inputBase = input.split("-")[0] ?? "";
-  if (isLearnerLanguageId(inputBase)) return inputBase;
-  const canonical = canonicalLanguageTag(value);
-  if (!canonical) return null;
-  const base = languageSubtag(canonical);
-  if (!base) return null;
-  if (base === "sr" || base === "hr" || base === "bs") return "sh";
-  if (base === "fil") return "tl";
-  return isLearnerLanguageId(base) ? base : null;
-}
-function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
-  if (typeof value === "string") {
-  const input = value.trim().toLowerCase().replace(/_/g, "-");
-  if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
-  }
-  const canonical = canonicalLanguageTag(value);
-  const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
-  if (canonical && canonicalId) {
-  if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
-  return canonical;
-  }
-  const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
-  return canonicalTagForSlice1Language(fallbackId);
-}
-const ankiFieldNames = (names) => names.split("|");
-const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-  "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-);
-const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-  "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-);
-ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-[
-  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-  "Expression Reading",
-  "Japanese Expression",
-  ...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-[
-  ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-  ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-  ...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-ankiFieldNames(
-  "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-);
-ankiFieldNames(
-  "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-);
-ankiFieldNames(
-  "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-);
-ankiFieldNames(
-  "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
-);
-const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
-  "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
-);
-ankiFieldNames(
-  "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-);
-function normalizeAnkiFieldName(value) {
-  return value.replace(/[_\s-]+/g, "").toLowerCase();
-}
-new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-  return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-  const l1 = relativeLuminance(a, normalizeColor);
-  const l2 = relativeLuminance(b, normalizeColor);
-  const light = Math.max(l1, l2);
-  const dark = Math.min(l1, l2);
-  return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-  const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-  const channel = value / 255;
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  const CERVANTES_A1_A2 = "https://cvc.cervantes.es/ensenanza/biblioteca_ele/plan_curricular/niveles/02_gramatica_inventario_a1-a2.htm";
+  const SPANISH_INFINITIVE = String.raw`(?:ir|\p{Ll}[\p{L}\p{M}]*(?:ar|er|ir))(?:me|te|se|lo|la|los|las|le|les|nos|os)?`;
+  const SPANISH_PARTICIPLE = String.raw`(?:ido|\p{Ll}[\p{L}\p{M}]*(?:ado|ido)|hecho|escrito|visto)`;
+  const SPANISH_GERUND = String.raw`(?:yendo|\p{Ll}[\p{L}\p{M}]*(?:ando|iendo|yendo))`;
+  const SPANISH_GRAMMAR = createLearningTargetGrammar({
+    levelScale: CEFR_GRAMMAR_LEVEL_SCALE,
+    referenceUrl: CERVANTES_A1_A2,
+    rules: [
+      {
+        ruleId: "es-me-gusta-infinitive",
+        level: "A1",
+        name: "gustar + infinitive",
+        displayNames: { en: "gustar + infinitive", ja: "gustar ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Mm]e\s+gusta\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 10,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1223a1`
+      },
+      {
+        ruleId: "es-existential-hay",
+        level: "A1",
+        name: "Existence with hay",
+        displayNames: { en: "Existence with hay", ja: "存在を表す hay" },
+        patternSource: String.raw`(?<!\p{L})[Hh]ay\s+(?:un(?:a|os|as)?|much(?:o|a|os|as)|poc(?:o|a|os|as)|\d+|(?:dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez))\s+\p{L}+(?!\p{L})`,
+        priority: 12,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-causal-porque",
+        level: "A1",
+        name: "Reason with porque",
+        displayNames: { en: "Reason with porque", ja: "理由を表す porque" },
+        patternSource: String.raw`(?<!\p{L})[Pp]orque(?!\p{L})`,
+        priority: 14,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p1534a1`
+      },
+      {
+        ruleId: "es-negation-no",
+        level: "A1",
+        name: "Verb negation with no",
+        displayNames: { en: "Verb negation with no", ja: "no ＋ 動詞" },
+        patternSource: String.raw`(?<!\p{L})[Nn]o\s+(?:soy|eres|es|somos|sois|son|estoy|estás|está|estamos|estáis|están|tengo|tienes|tiene|tenemos|tenéis|tienen)(?!\p{L})`,
+        priority: 16,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p133a1`
+      },
+      {
+        ruleId: "es-present-perfect",
+        level: "A2",
+        name: "Present perfect",
+        displayNames: { en: "Present perfect", ja: "haber ＋ 過去分詞" },
+        patternSource: String.raw`(?<!\p{L})[Hh](?:e|as|a|emos|abéis|an)\s+${SPANISH_PARTICIPLE}(?!\p{L})`,
+        priority: 18,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p916a2`
+      },
+      {
+        ruleId: "es-estar-gerundio",
+        level: "A2",
+        name: "Progressive with estar",
+        displayNames: { en: "Progressive with estar", ja: "estar ＋ 現在分詞" },
+        patternSource: String.raw`(?<!\p{L})[Ee]st(?:oy|ás|á|amos|áis|án)\s+${SPANISH_GERUND}(?!\p{L})`,
+        priority: 20,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p942a2`
+      },
+      {
+        ruleId: "es-tener-que",
+        level: "A2",
+        name: "Obligation with tener que",
+        displayNames: { en: "Obligation with tener que", ja: "tener que ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Tt](?:engo|ienes|iene|enemos|enéis|ienen)\s+que\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 22,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      },
+      {
+        ruleId: "es-ir-a-infinitive",
+        level: "A2",
+        name: "Near future with ir a",
+        displayNames: { en: "Near future with ir a", ja: "ir a ＋ 不定詞" },
+        patternSource: String.raw`(?<!\p{L})[Vv](?:oy|as|a|amos|ais|an)\s+a\s+${SPANISH_INFINITIVE}(?!\p{L})`,
+        priority: 24,
+        confidence: "high",
+        url: `${CERVANTES_A1_A2}#p121a2`
+      }
+    ]
   });
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-  const a = sharedHexToRgb(from, normalizeColor);
-  const b = sharedHexToRgb(to, normalizeColor);
-  return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-  const safe = normalizeHexColor(normalizeColor(color));
-  return [
-  parseInt(safe.slice(1, 3), 16),
-  parseInt(safe.slice(3, 5), 16),
-  parseInt(safe.slice(5, 7), 16)
+  const GRAMMAR_BY_TARGET = Object.freeze({
+    sq: FOUNDATION_GRAMMAR_BY_TARGET.sq,
+    grc: FOUNDATION_GRAMMAR_BY_TARGET.grc,
+    ar: FOUNDATION_GRAMMAR_BY_TARGET.ar,
+    yue: FOUNDATION_GRAMMAR_BY_TARGET.yue,
+    zh: FOUNDATION_GRAMMAR_BY_TARGET.zh,
+    da: FOUNDATION_GRAMMAR_BY_TARGET.da,
+    nl: FOUNDATION_GRAMMAR_BY_TARGET.nl,
+    en: FOUNDATION_GRAMMAR_BY_TARGET.en,
+    fi: FOUNDATION_GRAMMAR_BY_TARGET.fi,
+    fr: FRENCH_GRAMMAR,
+    de: GERMAN_GRAMMAR,
+    el: FOUNDATION_GRAMMAR_BY_TARGET.el,
+    hu: FOUNDATION_GRAMMAR_BY_TARGET.hu,
+    id: FOUNDATION_GRAMMAR_BY_TARGET.id,
+    it: FOUNDATION_GRAMMAR_BY_TARGET.it,
+    km: FOUNDATION_GRAMMAR_BY_TARGET.km,
+    ko: FOUNDATION_GRAMMAR_BY_TARGET.ko,
+    lo: FOUNDATION_GRAMMAR_BY_TARGET.lo,
+    la: FOUNDATION_GRAMMAR_BY_TARGET.la,
+    mn: FOUNDATION_GRAMMAR_BY_TARGET.mn,
+    fa: FOUNDATION_GRAMMAR_BY_TARGET.fa,
+    pl: FOUNDATION_GRAMMAR_BY_TARGET.pl,
+    pt: FOUNDATION_GRAMMAR_BY_TARGET.pt,
+    ro: FOUNDATION_GRAMMAR_BY_TARGET.ro,
+    ru: RUSSIAN_GRAMMAR,
+    sh: FOUNDATION_GRAMMAR_BY_TARGET.sh,
+    es: SPANISH_GRAMMAR,
+    sv: FOUNDATION_GRAMMAR_BY_TARGET.sv,
+    tl: FOUNDATION_GRAMMAR_BY_TARGET.tl,
+    th: FOUNDATION_GRAMMAR_BY_TARGET.th,
+    tr: FOUNDATION_GRAMMAR_BY_TARGET.tr,
+    vi: FOUNDATION_GRAMMAR_BY_TARGET.vi
+  });
+  function grammarForRosterTarget(language) {
+    return GRAMMAR_BY_TARGET[language];
+  }
+  const KOREAN_SEGMENT_SUFFIXES = [
+    "에게서",
+    "이라고",
+    "으로",
+    "에서",
+    "에게",
+    "한테",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "에는",
+    "라고",
+    "하고",
+    "은",
+    "는",
+    "이",
+    "가",
+    "을",
+    "를",
+    "의",
+    "에",
+    "와",
+    "과",
+    "로",
+    "도",
+    "만"
   ];
-}
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-  const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-  if (!shortHex) return fallback;
-  return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-  const numericOpacity = Number(opacity);
-  const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
-  return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-  const accent = sanitizeAccentColor(accentColor);
-  const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-  if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-  return accent;
-  }
-  for (let amount = 0.08; amount <= 1; amount += 0.04) {
-  const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-  if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-    return candidate;
-  }
-  }
-  return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-  const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-  return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
-}
-accessibleOcrBackgroundColor(
-  DEFAULT_ACCENT_COLOR,
-  DEFAULT_OCR_BACKGROUND_OPACITY
-);
-const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
-const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
-function readOutputLanguageField(source) {
-  return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
-}
-function createDefaultLanguageProfile(defaults = {}) {
-  return {
-  schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
-  id: DEFAULT_LANGUAGE_PROFILE_ID,
-  ...outputLanguageFields(normalizeSlice1LearnerLanguage(
-    readOutputLanguageField(defaults),
-    DEFAULT_SLICE1_LEARNER_LANGUAGE
-  )),
-  targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
-  uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
-  parserProvider: normalizeParserProvider(defaults.parserProvider, "local"),
-  dictionaries: emptyProfileDictionaries(),
-  definitionTranslationProviderIds: []
+  const REWRITES = {
+    es: [
+      { suffix: "ces", replacementSuffix: "z", minStemLength: 2, reason: "plural suffix" },
+      { suffix: "es", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "s", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "aron", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ando", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ó", replacementSuffix: "ar", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ieron", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "er", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "iendo", replacementSuffix: "ir", minStemLength: 2, reason: "verb suffix" }
+    ],
+    de: [
+      { prefix: "ge", suffix: "t", replacementSuffix: "en", minStemLength: 3, reason: "participle affixes" },
+      { suffix: "ten", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "te", replacementSuffix: "en", minStemLength: 3, reason: "verb suffix" },
+      { suffix: "ern", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "en", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "er", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "es", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "e", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "n", minStemLength: 3, reason: "inflection suffix" },
+      { suffix: "s", minStemLength: 3, reason: "inflection suffix" }
+    ],
+    ru: [
+      { suffix: "ами", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ями", replacementSuffix: "я", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ого", replacementSuffix: "ий", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ую", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ая", replacementSuffix: "ый", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ом", replacementSuffix: "о", minStemLength: 2, reason: "case suffix" },
+      { suffix: "у", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ы", replacementSuffix: "а", minStemLength: 2, reason: "case suffix" },
+      { suffix: "ила", replacementSuffix: "ить", minStemLength: 2, reason: "verb suffix" },
+      { suffix: "ала", replacementSuffix: "ать", minStemLength: 2, reason: "verb suffix" }
+    ],
+    ar: [
+      { prefix: "وال", minStemLength: 2, reason: "conjunction and article prefixes" },
+      { prefix: "بال", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "لل", minStemLength: 2, reason: "preposition and article prefixes" },
+      { prefix: "و", minStemLength: 3, reason: "conjunction prefix" },
+      { prefix: "ب", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ل", minStemLength: 3, reason: "preposition prefix" },
+      { prefix: "ال", minStemLength: 3, reason: "article prefix" },
+      { suffix: "تها", replacementSuffix: "ة", minStemLength: 2, reason: "pronoun suffix" },
+      { suffix: "ها", blockedStemSuffix: "ت", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "هم", minStemLength: 3, reason: "pronoun suffix" },
+      { suffix: "ون", minStemLength: 3, reason: "plural suffix" },
+      { suffix: "ين", minStemLength: 3, reason: "plural suffix" }
+    ]
   };
-}
-function outputLanguageFields(outputLanguage) {
-  return { outputLanguage, learnerLanguage: outputLanguage };
-}
-function normalizeUiLocale(value, fallback) {
-  if (value === "auto") return "auto";
-  return canonicalLanguageTag(value) ?? fallback;
-}
-function normalizeParserProvider(value, fallback) {
-  return PARSER_PROVIDERS.has(value) ? value : fallback;
-}
-function emptyProfileDictionaries() {
-  return { installed: [], enabled: [], order: [] };
-}
-const LOCAL_DICTIONARY_STORAGE_COPY = {
-  jaImport: {
-  dictionaryImportComplete: "{sources}から{records}件インポートしました。",
-  dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
-  },
-  jaSettings: {
-  localDictionariesEnabled: "インポート済み辞書の定義を表示",
-  localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
-  clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
-  clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
-  clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
-  clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
+  function lookupRewritesForTarget(target) {
+    return REWRITES[target] ?? [];
   }
-};
-function parseUiCopyTable(rows) {
-  const copy = {};
-  rows.trim().split("\n").forEach((row) => {
-  const tab = row.indexOf("	");
-  if (tab < 0) {
-    const key = row.trim();
-    if (key) copy[key] = "";
-    return;
+  function koreanLookupSubsegments(segment, maxLength) {
+    const candidates = /* @__PURE__ */ new Set();
+    if (segment.length <= maxLength) candidates.add(segment);
+    for (const suffix of KOREAN_SEGMENT_SUFFIXES) {
+      if (!segment.endsWith(suffix)) continue;
+      const stem = segment.slice(0, -suffix.length);
+      if (stem && stem.length <= maxLength) candidates.add(stem);
+    }
+    return [...candidates];
   }
-  if (tab === 0) return;
-  copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
+  const HAS_HANGUL = /[가-힣ᄀ-ᇿ㄰-㆏ﾠ-ￜ]/u;
+  const KOREAN_LEARNING_TARGET = createLearningTargetModule({
+    id: "korean-thin-v1",
+    language: "ko",
+    featureSemantics: {
+      characterSystem: "hangul",
+      phoneticScripts: ["hangul"],
+      pronunciation: "ipa",
+      readingAnnotation: "hangul"
+    },
+    grammar: grammarForRosterTarget("ko"),
+    typography: {
+      readingAnnotationMode: "ruby"
+    },
+    subtitles: {
+      languageAliases: ["kor", "korean"]
+    },
+    // ICU returns whole eojeol. A bounded subsegment sweep lets an installed
+    // lemma answer inside 학생이 or 우유를 without teaching core Korean grammar.
+    lookupStartsAtSegmentBoundary: false,
+    lookupSubsegments: koreanLookupSubsegments,
+    detectsText: HAS_HANGUL
   });
-  return copy;
-}
-({
-  ...parseUiCopyTable(String.raw`
+  const ENGLISH_FALLBACK_MESSAGES = {
+    setupTitle: "Set up Yomu in your language",
+    learnerLanguageLabel: "Your language",
+    targetLanguageLabel: "Language you are learning",
+    targetJapanese: "Japanese",
+    recommendedDictionariesTitle: "Recommended Japanese dictionaries",
+    automaticTranslationLabel: "Translate automatically into {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionary} other {# dictionaries}} · {size}",
+    setupProgress: "Language setup {current} of {total}",
+    continueAction: "Continue",
+    originalDefinitionLabel: "Original {language}",
+    // D43: a locale that is in scope but not yet selectable says why, in its own
+    // language, so the person who came looking for it can read the answer. The
+    // interface never offers one of these and then quietly speaks English.
+    interfaceRtlVerificationPending: "Right-to-left layout checks are still running.",
+    interfaceTranslationPending: "Translation is still in progress."
+  };
+  function defineLocaleCatalog(locale, reviewStatus, messages) {
+    return Object.freeze({
+      locale,
+      reviewStatus,
+      sourceLocale: "en",
+      messages: Object.freeze(messages)
+    });
+  }
+  defineLocaleCatalog("ar", "machine-draft", {
+    setupTitle: "إعداد ⁨よむ⁩ بلغتك",
+    learnerLanguageLabel: "لغتك",
+    targetLanguageLabel: "اللغة التي تتعلمها",
+    targetJapanese: "اليابانية",
+    recommendedDictionariesTitle: "قواميس يابانية موصى بها",
+    automaticTranslationLabel: "الترجمة تلقائيًا إلى ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {عدد القواميس: #} other {عدد القواميس: #}} · ⁨{size}⁩",
+    setupProgress: "إعداد اللغة: ⁨{current}⁩ من ⁨{total}⁩",
+    continueAction: "متابعة",
+    originalDefinitionLabel: "التعريف الأصلي باللغة ⁨{language}⁩",
+    interfaceRtlVerificationPending: "لا يزال التحقق من التخطيط من اليمين إلى اليسار جاريًا.",
+    interfaceTranslationPending: "الترجمة قيد التقدم."
+  });
+  defineLocaleCatalog("da", "machine-draft", {
+    setupTitle: "Opsæt よむ på dit sprog",
+    learnerLanguageLabel: "Dit sprog",
+    targetLanguageLabel: "Det sprog, du lærer",
+    targetJapanese: "Japansk",
+    recommendedDictionariesTitle: "Anbefalede japanske ordbøger",
+    automaticTranslationLabel: "Oversæt automatisk til {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbog} other {# ordbøger}} · {size}",
+    setupProgress: "Sprogopsætning: {current} af {total}",
+    continueAction: "Fortsæt",
+    originalDefinitionLabel: "Original på {language}",
+    interfaceRtlVerificationPending: "Kontrollen af højre-til-venstre-layout er stadig i gang.",
+    interfaceTranslationPending: "Oversættelsen er stadig i gang."
+  });
+  defineLocaleCatalog("de", "machine-draft", {
+    setupTitle: "よむ in deiner Sprache einrichten",
+    learnerLanguageLabel: "Deine Sprache",
+    targetLanguageLabel: "Sprache, die du lernst",
+    targetJapanese: "Japanisch",
+    recommendedDictionariesTitle: "Empfohlene Wörterbücher für Japanisch",
+    automaticTranslationLabel: "Automatisch auf {language} übersetzen",
+    dictionaryCountAndSize: "{count, plural, one {# Wörterbuch} other {# Wörterbücher}} · {size}",
+    setupProgress: "Sprache einrichten: {current} von {total}",
+    continueAction: "Weiter",
+    originalDefinitionLabel: "Originaldefinition auf {language}",
+    interfaceRtlVerificationPending: "Die Prüfungen für das Rechts-nach-links-Layout laufen noch.",
+    interfaceTranslationPending: "Die Übersetzung läuft noch."
+  });
+  defineLocaleCatalog("el", "machine-draft", {
+    setupTitle: "Ρυθμίστε το よむ στη γλώσσα σας",
+    learnerLanguageLabel: "Η γλώσσα σας",
+    targetLanguageLabel: "Γλώσσα που μαθαίνετε",
+    targetJapanese: "Ιαπωνικά",
+    recommendedDictionariesTitle: "Προτεινόμενα λεξικά για τα Ιαπωνικά",
+    automaticTranslationLabel: "Αυτόματη μετάφραση στα {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικό} other {# λεξικά}} · {size}",
+    setupProgress: "Ρύθμιση γλώσσας: {current} από {total}",
+    continueAction: "Συνέχεια",
+    originalDefinitionLabel: "Πρωτότυπο κείμενο στα {language}",
+    interfaceRtlVerificationPending: "Οι έλεγχοι διάταξης από δεξιά προς αριστερά είναι σε εξέλιξη.",
+    interfaceTranslationPending: "Η μετάφραση είναι σε εξέλιξη."
+  });
+  defineLocaleCatalog(
+    "en",
+    "source-approved",
+    ENGLISH_FALLBACK_MESSAGES
+  );
+  defineLocaleCatalog("es", "machine-draft", {
+    setupTitle: "Configura Yomu en tu idioma",
+    learnerLanguageLabel: "Tu idioma",
+    targetLanguageLabel: "Idioma que estás aprendiendo",
+    targetJapanese: "Japonés",
+    recommendedDictionariesTitle: "Diccionarios de japonés recomendados",
+    automaticTranslationLabel: "Traducir automáticamente al {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diccionario} other {# diccionarios}} · {size}",
+    setupProgress: "Configuración del idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definición original ({language})",
+    interfaceRtlVerificationPending: "Las comprobaciones del diseño de derecha a izquierda siguen en curso.",
+    interfaceTranslationPending: "La traducción sigue en curso."
+  });
+  defineLocaleCatalog("fa", "machine-draft", {
+    setupTitle: "راه‌اندازی ⁨よむ⁩ به زبان شما",
+    learnerLanguageLabel: "زبان شما",
+    targetLanguageLabel: "زبانی که یاد می‌گیرید",
+    targetJapanese: "ژاپنی",
+    recommendedDictionariesTitle: "واژه‌نامه‌های پیشنهادی زبان ژاپنی",
+    automaticTranslationLabel: "ترجمهٔ خودکار به ⁨{language}⁩",
+    dictionaryCountAndSize: "{count, plural, one {# واژه‌نامه} other {# واژه‌نامه}} · ⁨{size}⁩",
+    setupProgress: "راه‌اندازی زبان: ⁨{current}⁩ از ⁨{total}⁩",
+    continueAction: "ادامه",
+    originalDefinitionLabel: "تعریف اصلی به زبان ⁨{language}⁩",
+    interfaceRtlVerificationPending: "بررسی چیدمان راست‌به‌چپ هنوز در حال انجام است.",
+    interfaceTranslationPending: "ترجمه هنوز در حال انجام است."
+  });
+  defineLocaleCatalog("fi", "machine-draft", {
+    setupTitle: "Ota よむ käyttöön omalla kielelläsi",
+    learnerLanguageLabel: "Oma kielesi",
+    targetLanguageLabel: "Opiskelemasi kieli",
+    targetJapanese: "Japani",
+    recommendedDictionariesTitle: "Suositellut japanin kielen sanakirjat",
+    automaticTranslationLabel: "Käännä automaattisesti: {language}",
+    dictionaryCountAndSize: "{count, plural, one {# sanakirja} other {# sanakirjaa}} · {size}",
+    setupProgress: "Kieliasetukset: vaihe {current}/{total}",
+    continueAction: "Jatka",
+    originalDefinitionLabel: "Alkuperäinen määritelmä ({language})",
+    interfaceRtlVerificationPending: "Oikealta vasemmalle -asettelun tarkistukset ovat vielä kesken.",
+    interfaceTranslationPending: "Käännös on vielä kesken."
+  });
+  defineLocaleCatalog("fr", "machine-draft", {
+    setupTitle: "Configurez よむ dans votre langue",
+    learnerLanguageLabel: "Votre langue",
+    targetLanguageLabel: "Langue que vous apprenez",
+    targetJapanese: "Japonais",
+    recommendedDictionariesTitle: "Dictionnaires de japonais recommandés",
+    automaticTranslationLabel: "Traduire automatiquement en {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionnaire} other {# dictionnaires}} · {size}",
+    setupProgress: "Configuration de la langue : {current} sur {total}",
+    continueAction: "Continuer",
+    originalDefinitionLabel: "Définition originale en {language}",
+    interfaceRtlVerificationPending: "Les vérifications de la mise en page de droite à gauche sont en cours.",
+    interfaceTranslationPending: "La traduction est en cours."
+  });
+  defineLocaleCatalog("grc", "machine-draft", {
+    setupTitle: "Παρασκεύαζε τὸ よむ κατὰ τὴν σὴν γλῶτταν",
+    learnerLanguageLabel: "Ἡ σὴ γλῶττα",
+    targetLanguageLabel: "Ἡ γλῶττα ἣν μανθάνεις",
+    targetJapanese: "Ἰαπωνική",
+    recommendedDictionariesTitle: "Τὰ αἱρετὰ λεξικὰ τῆς Ἰαπωνικῆς",
+    automaticTranslationLabel: "Μεθερμήνευε αὐτομάτως εἰς {language}",
+    dictionaryCountAndSize: "{count, plural, one {# λεξικόν} other {# λεξικά}} · {size}",
+    setupProgress: "Ἡ παρασκευὴ τῆς γλώττης· {current} ἐκ {total}",
+    continueAction: "Πρόβαινε",
+    originalDefinitionLabel: "Τὸ πρωτότυπον ({language})",
+    interfaceRtlVerificationPending: "Οἱ ἔλεγχοι τῆς ἐκ δεξιῶν εἰς ἀριστερὰ διατάξεως ἔτι γίγνονται.",
+    interfaceTranslationPending: "Ἡ μετάφρασις ἔτι γίγνεται."
+  });
+  defineLocaleCatalog("hu", "machine-draft", {
+    setupTitle: "A よむ beállítása az Ön nyelvén",
+    learnerLanguageLabel: "Az Ön nyelve",
+    targetLanguageLabel: "A tanult nyelv",
+    targetJapanese: "Japán",
+    recommendedDictionariesTitle: "Ajánlott japán szótárak",
+    automaticTranslationLabel: "Automatikus fordítás {language} nyelvre",
+    dictionaryCountAndSize: "{count, plural, one {# szótár} other {# szótár}} · {size}",
+    setupProgress: "Nyelvi beállítás: {current}/{total}",
+    continueAction: "Folytatás",
+    originalDefinitionLabel: "Eredeti meghatározás ({language})",
+    interfaceRtlVerificationPending: "A jobbról balra elrendezés ellenőrzése még folyik.",
+    interfaceTranslationPending: "A fordítás még folyamatban van."
+  });
+  defineLocaleCatalog("id", "machine-draft", {
+    setupTitle: "Siapkan Yomu dalam bahasa Anda",
+    learnerLanguageLabel: "Bahasa Anda",
+    targetLanguageLabel: "Bahasa yang sedang Anda pelajari",
+    targetJapanese: "Bahasa Jepang",
+    recommendedDictionariesTitle: "Kamus bahasa Jepang yang direkomendasikan",
+    automaticTranslationLabel: "Terjemahkan secara otomatis ke {language}",
+    dictionaryCountAndSize: "{count, plural, one {# kamus} other {# kamus}} · {size}",
+    setupProgress: "Penyiapan bahasa {current} dari {total}",
+    continueAction: "Lanjutkan",
+    originalDefinitionLabel: "Definisi asli dalam {language}",
+    interfaceRtlVerificationPending: "Pemeriksaan tata letak kanan ke kiri masih berjalan.",
+    interfaceTranslationPending: "Penerjemahan masih berlangsung."
+  });
+  defineLocaleCatalog("it", "machine-draft", {
+    setupTitle: "Configura よむ nella tua lingua",
+    learnerLanguageLabel: "La tua lingua",
+    targetLanguageLabel: "Lingua che stai imparando",
+    targetJapanese: "Giapponese",
+    recommendedDictionariesTitle: "Dizionari di giapponese consigliati",
+    automaticTranslationLabel: "Traduci automaticamente in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dizionario} other {# dizionari}} · {size}",
+    setupProgress: "Configurazione della lingua: {current} di {total}",
+    continueAction: "Continua",
+    originalDefinitionLabel: "Definizione originale in {language}",
+    interfaceRtlVerificationPending: "I controlli del layout da destra a sinistra sono ancora in corso.",
+    interfaceTranslationPending: "La traduzione è ancora in corso."
+  });
+  defineLocaleCatalog("km", "machine-draft", {
+    setupTitle: "រៀបចំ よむ ជាភាសារបស់អ្នក",
+    learnerLanguageLabel: "ភាសារបស់អ្នក",
+    targetLanguageLabel: "ភាសាដែលអ្នកកំពុងរៀន",
+    targetJapanese: "ភាសាជប៉ុន",
+    recommendedDictionariesTitle: "វចនានុក្រមជប៉ុនដែលបានណែនាំ",
+    automaticTranslationLabel: "បកប្រែដោយស្វ័យប្រវត្តិទៅជា {language}",
+    dictionaryCountAndSize: "{count, plural, one {វចនានុក្រម #} other {វចនានុក្រម #}} · {size}",
+    setupProgress: "ការកំណត់ភាសា៖ {current} នៃ {total}",
+    continueAction: "បន្ត",
+    originalDefinitionLabel: "និយមន័យដើម ({language})",
+    interfaceRtlVerificationPending: "ការពិនិត្យប្លង់ពីស្ដាំទៅឆ្វេងកំពុងដំណើរការ។",
+    interfaceTranslationPending: "ការបកប្រែកំពុងដំណើរការ។"
+  });
+  defineLocaleCatalog("ko", "machine-draft", {
+    setupTitle: "내 언어로 よむ 설정하기",
+    learnerLanguageLabel: "사용 언어",
+    targetLanguageLabel: "학습할 언어",
+    targetJapanese: "일본어",
+    recommendedDictionariesTitle: "추천 일본어 사전",
+    automaticTranslationLabel: "{language}로 자동 번역",
+    dictionaryCountAndSize: "{count, plural, one {사전 #개} other {사전 #개}} · {size}",
+    setupProgress: "언어 설정: {total}단계 중 {current}단계",
+    continueAction: "계속",
+    originalDefinitionLabel: "원문({language})",
+    interfaceRtlVerificationPending: "오른쪽에서 왼쪽 레이아웃 검사가 아직 진행 중입니다.",
+    interfaceTranslationPending: "번역이 아직 진행 중입니다."
+  });
+  defineLocaleCatalog("la", "machine-draft", {
+    setupTitle: "Configura よむ in lingua tua",
+    learnerLanguageLabel: "Lingua tua",
+    targetLanguageLabel: "Lingua quam discis",
+    targetJapanese: "Lingua Iaponica",
+    recommendedDictionariesTitle: "Dictionaria linguae Iaponicae commendata",
+    automaticTranslationLabel: "Automatice verte in {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dictionarium} other {# dictionaria}} · {size}",
+    setupProgress: "Configuratio linguae: {current} ex {total}",
+    continueAction: "Perge",
+    originalDefinitionLabel: "Definitio originalis ({language})",
+    interfaceRtlVerificationPending: "Probationes dispositionis a dextra ad sinistram adhuc geruntur.",
+    interfaceTranslationPending: "Translatio adhuc geritur."
+  });
+  defineLocaleCatalog("lo", "machine-draft", {
+    setupTitle: "ຕັ້ງຄ່າ よむ ໃນພາສາຂອງທ່ານ",
+    learnerLanguageLabel: "ພາສາຂອງທ່ານ",
+    targetLanguageLabel: "ພາສາທີ່ທ່ານກຳລັງຮຽນ",
+    targetJapanese: "ພາສາຍີ່ປຸ່ນ",
+    recommendedDictionariesTitle: "ວັດຈະນານຸກົມພາສາຍີ່ປຸ່ນທີ່ແນະນຳ",
+    automaticTranslationLabel: "ແປເປັນ {language} ໂດຍອັດຕະໂນມັດ",
+    dictionaryCountAndSize: "{count, plural, one {# ວັດຈະນານຸກົມ} other {# ວັດຈະນານຸກົມ}} · {size}",
+    setupProgress: "ການຕັ້ງຄ່າພາສາ: ຂັ້ນຕອນ {current} ຂອງ {total}",
+    continueAction: "ສືບຕໍ່",
+    originalDefinitionLabel: "ຄຳນິຍາມຕົ້ນສະບັບ ({language})",
+    interfaceRtlVerificationPending: "ການກວດສອບການຈັດວາງຈາກຂວາໄປຊ້າຍຍັງດຳເນີນຢູ່.",
+    interfaceTranslationPending: "ການແປຍັງດຳເນີນຢູ່."
+  });
+  defineLocaleCatalog("mn", "machine-draft", {
+    setupTitle: "よむ-г өөрийн хэлээр тохируулах",
+    learnerLanguageLabel: "Таны хэл",
+    targetLanguageLabel: "Таны сурч буй хэл",
+    targetJapanese: "Япон хэл",
+    recommendedDictionariesTitle: "Санал болгож буй япон хэлний толь бичгүүд",
+    automaticTranslationLabel: "{language} хэл рүү автоматаар орчуулах",
+    dictionaryCountAndSize: "{count, plural, one {# толь бичиг} other {# толь бичиг}} · {size}",
+    setupProgress: "Хэлний тохиргоо: {current}/{total}",
+    continueAction: "Үргэлжлүүлэх",
+    originalDefinitionLabel: "Эх тайлбар ({language})",
+    interfaceRtlVerificationPending: "Баруунаас зүүн тийш байрлалын шалгалт хийгдсээр байна.",
+    interfaceTranslationPending: "Орчуулга хийгдсээр байна."
+  });
+  defineLocaleCatalog("nl", "machine-draft", {
+    setupTitle: "Stel よむ in jouw taal in",
+    learnerLanguageLabel: "Jouw taal",
+    targetLanguageLabel: "Taal die je leert",
+    targetJapanese: "Japans",
+    recommendedDictionariesTitle: "Aanbevolen Japanse woordenboeken",
+    automaticTranslationLabel: "Automatisch vertalen naar {language}",
+    dictionaryCountAndSize: "{count, plural, one {# woordenboek} other {# woordenboeken}} · {size}",
+    setupProgress: "Taal instellen: {current} van {total}",
+    continueAction: "Doorgaan",
+    originalDefinitionLabel: "Oorspronkelijke definitie ({language})",
+    interfaceRtlVerificationPending: "De controles voor rechts-naar-links-opmaak lopen nog.",
+    interfaceTranslationPending: "De vertaling is nog bezig."
+  });
+  defineLocaleCatalog("pl", "machine-draft", {
+    setupTitle: "Skonfiguruj Yomu w swoim języku",
+    learnerLanguageLabel: "Twój język",
+    targetLanguageLabel: "Język, którego się uczysz",
+    targetJapanese: "Japoński",
+    recommendedDictionariesTitle: "Polecane słowniki języka japońskiego",
+    automaticTranslationLabel: "Tłumacz automatycznie na język {language}",
+    dictionaryCountAndSize: "{count, plural, one {# słownik} few {# słowniki} many {# słowników} other {# słownika}} · {size}",
+    setupProgress: "Konfiguracja języka: {current} z {total}",
+    continueAction: "Kontynuuj",
+    originalDefinitionLabel: "Oryginalna definicja ({language})",
+    interfaceRtlVerificationPending: "Testy układu od prawej do lewej wciąż trwają.",
+    interfaceTranslationPending: "Tłumaczenie wciąż trwa."
+  });
+  defineLocaleCatalog("pt", "machine-draft", {
+    setupTitle: "Configure o Yomu no seu idioma",
+    learnerLanguageLabel: "O seu idioma",
+    targetLanguageLabel: "Idioma que está a aprender",
+    targetJapanese: "Japonês",
+    recommendedDictionariesTitle: "Dicionários de japonês recomendados",
+    automaticTranslationLabel: "Traduzir automaticamente para {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicionário} other {# dicionários}} · {size}",
+    setupProgress: "Configuração do idioma: {current} de {total}",
+    continueAction: "Continuar",
+    originalDefinitionLabel: "Definição original ({language})",
+    interfaceRtlVerificationPending: "As verificações do layout da direita para a esquerda ainda estão em andamento.",
+    interfaceTranslationPending: "A tradução ainda está em andamento."
+  });
+  defineLocaleCatalog("ro", "machine-draft", {
+    setupTitle: "Configurează Yomu în limba ta",
+    learnerLanguageLabel: "Limba ta",
+    targetLanguageLabel: "Limba pe care o înveți",
+    targetJapanese: "Japoneză",
+    recommendedDictionariesTitle: "Dicționare recomandate pentru limba japoneză",
+    automaticTranslationLabel: "Tradu automat în {language}",
+    dictionaryCountAndSize: "{count, plural, one {# dicționar} few {# dicționare} other {# de dicționare}} · {size}",
+    setupProgress: "Configurarea limbii: {current} din {total}",
+    continueAction: "Continuă",
+    originalDefinitionLabel: "Definiția originală în {language}",
+    interfaceRtlVerificationPending: "Verificările aspectului de la dreapta la stânga sunt încă în curs.",
+    interfaceTranslationPending: "Traducerea este încă în curs."
+  });
+  defineLocaleCatalog("ru", "machine-draft", {
+    setupTitle: "Настройте Yomu на своём языке",
+    learnerLanguageLabel: "Ваш язык",
+    targetLanguageLabel: "Язык, который вы изучаете",
+    targetJapanese: "Японский",
+    recommendedDictionariesTitle: "Рекомендуемые словари японского языка",
+    automaticTranslationLabel: "Автоматически переводить на {language}",
+    dictionaryCountAndSize: "{count, plural, one {# словарь} few {# словаря} many {# словарей} other {# словаря}} · {size}",
+    setupProgress: "Настройка языка: {current} из {total}",
+    continueAction: "Продолжить",
+    originalDefinitionLabel: "Оригинал определения ({language})",
+    interfaceRtlVerificationPending: "Проверки вёрстки справа налево ещё идут.",
+    interfaceTranslationPending: "Перевод ещё выполняется."
+  });
+  defineLocaleCatalog("sh", "machine-draft", {
+    setupTitle: "Podesite Yomu na svom jeziku",
+    learnerLanguageLabel: "Vaš jezik",
+    targetLanguageLabel: "Jezik koji učite",
+    targetJapanese: "Japanski",
+    recommendedDictionariesTitle: "Preporučeni japanski rečnici",
+    automaticTranslationLabel: "Automatski prevod na jezik {language}",
+    dictionaryCountAndSize: "{count, plural, one {# rečnik} few {# rečnika} other {# rečnika}} · {size}",
+    setupProgress: "Podešavanje jezika: {current} od {total}",
+    continueAction: "Nastavi",
+    originalDefinitionLabel: "Originalna definicija ({language})",
+    interfaceRtlVerificationPending: "Provjere rasporeda s desna na lijevo još su u toku.",
+    interfaceTranslationPending: "Prijevod je još u toku."
+  });
+  defineLocaleCatalog("sq", "machine-draft", {
+    setupTitle: "Konfiguro よむ në gjuhën tënde",
+    learnerLanguageLabel: "Gjuha jote",
+    targetLanguageLabel: "Gjuha që po mëson",
+    targetJapanese: "Japonisht",
+    recommendedDictionariesTitle: "Fjalorë të rekomanduar për japonishten",
+    automaticTranslationLabel: "Përkthe automatikisht në {language}",
+    dictionaryCountAndSize: "{count, plural, one {# fjalor} other {# fjalorë}} · {size}",
+    setupProgress: "Konfigurimi i gjuhës: {current} nga {total}",
+    continueAction: "Vazhdo",
+    originalDefinitionLabel: "Origjinali në {language}",
+    interfaceRtlVerificationPending: "Kontrollet e faqosjes nga e djathta në të majtë janë në vazhdim.",
+    interfaceTranslationPending: "Përkthimi është në vazhdim."
+  });
+  defineLocaleCatalog("sv", "machine-draft", {
+    setupTitle: "Ställ in よむ på ditt språk",
+    learnerLanguageLabel: "Ditt språk",
+    targetLanguageLabel: "Språket du lär dig",
+    targetJapanese: "Japanska",
+    recommendedDictionariesTitle: "Rekommenderade japanska ordböcker",
+    automaticTranslationLabel: "Översätt automatiskt till {language}",
+    dictionaryCountAndSize: "{count, plural, one {# ordbok} other {# ordböcker}} · {size}",
+    setupProgress: "Språkinställning: {current} av {total}",
+    continueAction: "Fortsätt",
+    originalDefinitionLabel: "Ursprunglig definition på {language}",
+    interfaceRtlVerificationPending: "Kontrollerna av höger-till-vänster-layout pågår fortfarande.",
+    interfaceTranslationPending: "Översättningen pågår fortfarande."
+  });
+  defineLocaleCatalog("th", "machine-draft", {
+    setupTitle: "ตั้งค่า Yomu ในภาษาของคุณ",
+    learnerLanguageLabel: "ภาษาของคุณ",
+    targetLanguageLabel: "ภาษาที่คุณกำลังเรียน",
+    targetJapanese: "ภาษาญี่ปุ่น",
+    recommendedDictionariesTitle: "พจนานุกรมภาษาญี่ปุ่นที่แนะนำ",
+    automaticTranslationLabel: "แปลเป็น{language}โดยอัตโนมัติ",
+    dictionaryCountAndSize: "{count, plural, other {พจนานุกรม # รายการ}} · {size}",
+    setupProgress: "ตั้งค่าภาษา {current} จาก {total}",
+    continueAction: "ดำเนินการต่อ",
+    originalDefinitionLabel: "คำจำกัดความต้นฉบับ ({language})",
+    interfaceRtlVerificationPending: "การตรวจสอบเลย์เอาต์จากขวาไปซ้ายยังดำเนินอยู่",
+    interfaceTranslationPending: "การแปลยังดำเนินอยู่"
+  });
+  defineLocaleCatalog("tl", "machine-draft", {
+    setupTitle: "I-set up ang Yomu sa iyong wika",
+    learnerLanguageLabel: "Iyong wika",
+    targetLanguageLabel: "Wikang pinag-aaralan mo",
+    targetJapanese: "Wikang Hapon",
+    recommendedDictionariesTitle: "Mga inirerekomendang diksyunaryo ng wikang Hapon",
+    automaticTranslationLabel: "Awtomatikong isalin sa {language}",
+    dictionaryCountAndSize: "{count, plural, one {# diksyunaryo} other {# diksyunaryo}} · {size}",
+    setupProgress: "Pag-set up ng wika: {current} sa {total}",
+    continueAction: "Magpatuloy",
+    originalDefinitionLabel: "Orihinal na depinisyon ({language})",
+    interfaceRtlVerificationPending: "Tumatakbo pa ang mga pagsusuri sa layout mula kanan pakaliwa.",
+    interfaceTranslationPending: "Isinasalin pa ito."
+  });
+  defineLocaleCatalog("tr", "machine-draft", {
+    setupTitle: "Yomu'yu dilinizde ayarlayın",
+    learnerLanguageLabel: "Diliniz",
+    targetLanguageLabel: "Öğrendiğiniz dil",
+    targetJapanese: "Japonca",
+    recommendedDictionariesTitle: "Önerilen Japonca sözlükler",
+    automaticTranslationLabel: "Otomatik olarak {language} diline çevir",
+    dictionaryCountAndSize: "{count, plural, one {# sözlük} other {# sözlük}} · {size}",
+    setupProgress: "Dil ayarı: {current}/{total}",
+    continueAction: "Devam et",
+    originalDefinitionLabel: "Orijinal tanım ({language})",
+    interfaceRtlVerificationPending: "Sağdan sola yerleşim denetimleri hâlâ sürüyor.",
+    interfaceTranslationPending: "Çeviri hâlâ sürüyor."
+  });
+  defineLocaleCatalog("vi", "machine-draft", {
+    setupTitle: "Thiết lập Yomu bằng ngôn ngữ của bạn",
+    learnerLanguageLabel: "Ngôn ngữ của bạn",
+    targetLanguageLabel: "Ngôn ngữ bạn đang học",
+    targetJapanese: "Tiếng Nhật",
+    recommendedDictionariesTitle: "Từ điển tiếng Nhật được đề xuất",
+    automaticTranslationLabel: "Tự động dịch sang {language}",
+    dictionaryCountAndSize: "{count, plural, other {# từ điển}} · {size}",
+    setupProgress: "Thiết lập ngôn ngữ: {current} trên {total}",
+    continueAction: "Tiếp tục",
+    originalDefinitionLabel: "Định nghĩa gốc ({language})",
+    interfaceRtlVerificationPending: "Việc kiểm tra bố cục từ phải sang trái vẫn đang diễn ra.",
+    interfaceTranslationPending: "Bản dịch vẫn đang được thực hiện."
+  });
+  defineLocaleCatalog("yue", "machine-draft", {
+    setupTitle: "用你嘅語言設定よむ",
+    learnerLanguageLabel: "你嘅語言",
+    targetLanguageLabel: "你學緊嘅語言",
+    targetJapanese: "日文",
+    recommendedDictionariesTitle: "推薦嘅日文字典",
+    automaticTranslationLabel: "自動翻譯做{language}",
+    dictionaryCountAndSize: "{count, plural, one {# 本字典} other {# 本字典}} · {size}",
+    setupProgress: "語言設定：第{current}步，共{total}步",
+    continueAction: "繼續",
+    originalDefinitionLabel: "原文（{language}）",
+    interfaceRtlVerificationPending: "由右至左排版檢查仲進行中。",
+    interfaceTranslationPending: "翻譯仲進行中。"
+  });
+  defineLocaleCatalog("zh", "machine-draft", {
+    setupTitle: "用您的语言设置よむ",
+    learnerLanguageLabel: "您的语言",
+    targetLanguageLabel: "您正在学习的语言",
+    targetJapanese: "日语",
+    recommendedDictionariesTitle: "推荐日语词典",
+    automaticTranslationLabel: "自动翻译为{language}",
+    dictionaryCountAndSize: "{count, plural, one {#部词典} other {#部词典}} · {size}",
+    setupProgress: "语言设置：第{current}步，共{total}步",
+    continueAction: "继续",
+    originalDefinitionLabel: "{language}原文",
+    interfaceRtlVerificationPending: "从右到左的版式检查仍在进行。",
+    interfaceTranslationPending: "翻译仍在进行中。"
+  });
+  const MESSAGE_NAMESPACES = ["chrome", "setup", "errors", "a11y", "docs"];
+  new Set(MESSAGE_NAMESPACES);
+  const locales = [
+    {
+      tag: "en",
+      reviewStatus: "source-approved",
+      rtlVerified: true,
+      humanReview: {
+        reviewer: "source locale",
+        evidence: "English is the source of record for every message ID."
+      },
+      available: true,
+      blockers: []
+    },
+    {
+      tag: "ja",
+      reviewStatus: "native-reviewed",
+      rtlVerified: true,
+      humanReview: {
+        reviewer: "owner",
+        evidence: "Japanese is a shipped reference locale; tests/reader/i18n.test.ts enforces exact key parity with English and rejects the 未翻訳 placeholder."
+      },
+      available: true,
+      blockers: []
+    },
+    {
+      tag: "ar",
+      reviewStatus: "machine-draft",
+      rtlVerified: false,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "rtl-verification-pending",
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fa",
+      reviewStatus: "machine-draft",
+      rtlVerified: false,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "rtl-verification-pending",
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sq",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "grc",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "yue",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "zh",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "da",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "nl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fi",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "fr",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "de",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "el",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "hu",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "id",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "it",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "km",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ko",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "lo",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "la",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "mn",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "pl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "pt",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ro",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "ru",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sh",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "es",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "sv",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "tl",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "th",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "tr",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    },
+    {
+      tag: "vi",
+      reviewStatus: "machine-draft",
+      rtlVerified: true,
+      humanReview: null,
+      available: false,
+      blockers: [
+        "translation-incomplete",
+        "human-review-pending"
+      ]
+    }
+  ];
+  const rtlGate = {
+    items: [
+      {
+        id: "direction-propagation",
+        done: true,
+        note: "lang/dir stamped on every reader-owned root, shadow host, overlay, popover, bottom sheet, backdrop, new-tab/study app and the hosted docs document. The host page's own documentElement is deliberately NOT touched: Yomu is injected into pages it does not own, and flipping their dir would rewrite the page a learner is reading."
+      },
+      {
+        id: "logical-css-properties",
+        done: false,
+        note: "Shared chrome CSS converted from margin/padding-left/right and text-align:left/right to inline logical properties. Deferred: subtitles-youtube.css and youtube-filter.css, whose offsets are computed against video frame geometry, and every `left`/`right`/`inset` used for positioning, which the plan requires to stay physical."
+      },
+      {
+        id: "bidi-isolation",
+        done: false,
+        note: "HALF DONE, and the half that is missing is the larger one. Substituted values ARE isolated: formatUiText routes through formatIsolated when the interface is RTL, so a term, count, version or source name interpolated into a message cannot reorder the sentence around it. NOT done: systematically wrapping the target terms, definitions, source names, URLs, codes and keyboard shortcuts that chrome renders as their own elements with lang and dir=auto. Those are rendered in dozens of templates and each needs its own decision."
+      },
+      {
+        id: "font-stacks",
+        done: true,
+        note: "Per-script interface font stacks in the locale manifest."
+      },
+      {
+        id: "geometry-verification",
+        done: false,
+        note: "Popover collision/flip, selection anchor and arrow, resize/drag handles, pinned HUD, toast, bottom sheet, nested menus, vertical Japanese text and media controls under an RTL interface. Not verified."
+      },
+      {
+        id: "viewport-and-zoom-matrix",
+        done: false,
+        note: "Arabic, Farsi and a long pseudo-RTL locale at 320/768/1440px, 100%/200% zoom, four anchor edges, keyboard-only navigation and reduced motion. Not run."
+      },
+      {
+        id: "real-app-screenshots",
+        done: false,
+        note: "Approved real-app screenshots, not fixture-only proof. Only the disabled-with-reason picker state has been captured."
+      },
+      {
+        id: "owner-acceptance",
+        done: false,
+        note: "Explicit owner acceptance of Arabic/Farsi overlay and popover behaviour."
+      }
+    ]
+  };
+  const interfaceLocaleLedger = {
+    locales,
+    rtlGate
+  };
+  const languages = [
+    {
+      id: "sq",
+      runtimeLocale: "sq",
+      englishName: "Albanian",
+      nativeName: "Shqip",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "grc",
+      runtimeLocale: "grc",
+      englishName: "Ancient Greek",
+      nativeName: "Ἑλληνιστί",
+      defaultScript: "Grek",
+      scripts: [
+        "Grek"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ar",
+      runtimeLocale: "ar",
+      englishName: "Arabic",
+      nativeName: "العربية",
+      defaultScript: "Arab",
+      scripts: [
+        "Arab"
+      ],
+      direction: "rtl"
+    },
+    {
+      id: "yue",
+      runtimeLocale: "yue-Hant",
+      englishName: "Cantonese",
+      nativeName: "粵語",
+      defaultScript: "Hant",
+      scripts: [
+        "Hant"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "zh",
+      runtimeLocale: "zh-Hans",
+      englishName: "Chinese",
+      nativeName: "中文（简体）",
+      defaultScript: "Hans",
+      scripts: [
+        "Hans",
+        "Hant"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "da",
+      runtimeLocale: "da",
+      englishName: "Danish",
+      nativeName: "Dansk",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "nl",
+      runtimeLocale: "nl",
+      englishName: "Dutch",
+      nativeName: "Nederlands",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "en",
+      runtimeLocale: "en",
+      englishName: "English",
+      nativeName: "English",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fi",
+      runtimeLocale: "fi",
+      englishName: "Finnish",
+      nativeName: "Suomi",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fr",
+      runtimeLocale: "fr",
+      englishName: "French",
+      nativeName: "Français",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "de",
+      runtimeLocale: "de",
+      englishName: "German",
+      nativeName: "Deutsch",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "el",
+      runtimeLocale: "el",
+      englishName: "Greek",
+      nativeName: "Ελληνικά",
+      defaultScript: "Grek",
+      scripts: [
+        "Grek"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "hu",
+      runtimeLocale: "hu",
+      englishName: "Hungarian",
+      nativeName: "Magyar",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "id",
+      runtimeLocale: "id",
+      englishName: "Indonesian",
+      nativeName: "Bahasa Indonesia",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "it",
+      runtimeLocale: "it",
+      englishName: "Italian",
+      nativeName: "Italiano",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "km",
+      runtimeLocale: "km",
+      englishName: "Khmer",
+      nativeName: "ខ្មែរ",
+      defaultScript: "Khmr",
+      scripts: [
+        "Khmr"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ko",
+      runtimeLocale: "ko",
+      englishName: "Korean",
+      nativeName: "한국어",
+      defaultScript: "Kore",
+      scripts: [
+        "Kore"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "lo",
+      runtimeLocale: "lo",
+      englishName: "Lao",
+      nativeName: "ລາວ",
+      defaultScript: "Laoo",
+      scripts: [
+        "Laoo"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "la",
+      runtimeLocale: "la",
+      englishName: "Latin",
+      nativeName: "Latina",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "mn",
+      runtimeLocale: "mn-Cyrl",
+      englishName: "Mongolian",
+      nativeName: "Монгол",
+      defaultScript: "Cyrl",
+      scripts: [
+        "Cyrl",
+        "Mong"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "fa",
+      runtimeLocale: "fa",
+      englishName: "Persian",
+      nativeName: "فارسی",
+      defaultScript: "Arab",
+      scripts: [
+        "Arab"
+      ],
+      direction: "rtl"
+    },
+    {
+      id: "pl",
+      runtimeLocale: "pl",
+      englishName: "Polish",
+      nativeName: "Polski",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "pt",
+      runtimeLocale: "pt",
+      englishName: "Portuguese",
+      nativeName: "Português",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ro",
+      runtimeLocale: "ro",
+      englishName: "Romanian",
+      nativeName: "Română",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "ru",
+      runtimeLocale: "ru",
+      englishName: "Russian",
+      nativeName: "Русский",
+      defaultScript: "Cyrl",
+      scripts: [
+        "Cyrl"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "sh",
+      runtimeLocale: "sr-Latn",
+      englishName: "Serbo-Croatian",
+      nativeName: "Srpskohrvatski",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn",
+        "Cyrl"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "es",
+      runtimeLocale: "es",
+      englishName: "Spanish",
+      nativeName: "Español",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "sv",
+      runtimeLocale: "sv",
+      englishName: "Swedish",
+      nativeName: "Svenska",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "tl",
+      runtimeLocale: "fil",
+      englishName: "Tagalog",
+      nativeName: "Tagalog",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "th",
+      runtimeLocale: "th",
+      englishName: "Thai",
+      nativeName: "ไทย",
+      defaultScript: "Thai",
+      scripts: [
+        "Thai"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "tr",
+      runtimeLocale: "tr",
+      englishName: "Turkish",
+      nativeName: "Türkçe",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    },
+    {
+      id: "vi",
+      runtimeLocale: "vi",
+      englishName: "Vietnamese",
+      nativeName: "Tiếng Việt",
+      defaultScript: "Latn",
+      scripts: [
+        "Latn"
+      ],
+      direction: "ltr"
+    }
+  ];
+  const languageConfig = {
+    languages
+  };
+  const LEARNER_LANGUAGE_IDS = [
+    "sq",
+    "grc",
+    "ar",
+    "yue",
+    "zh",
+    "da",
+    "nl",
+    "en",
+    "fi",
+    "fr",
+    "de",
+    "el",
+    "hu",
+    "id",
+    "it",
+    "km",
+    "ko",
+    "lo",
+    "la",
+    "mn",
+    "fa",
+    "pl",
+    "pt",
+    "ro",
+    "ru",
+    "sh",
+    "es",
+    "sv",
+    "tl",
+    "th",
+    "tr",
+    "vi"
+  ];
+  const configuredLanguages = languageConfig.languages;
+  const LEARNER_LANGUAGES = Object.freeze(
+    configuredLanguages.map(
+      (language) => Object.freeze({
+        ...language,
+        scripts: Object.freeze([...language.scripts])
+      })
+    )
+  );
+  const LANGUAGE_BY_ID = new Map(
+    LEARNER_LANGUAGES.map((language) => [language.id, language])
+  );
+  function learnerLanguageById(id) {
+    const language = LANGUAGE_BY_ID.get(id);
+    if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
+    return language;
+  }
+  function isLearnerLanguageId(value) {
+    return LEARNER_LANGUAGE_IDS.includes(value);
+  }
+  const JAPANESE_INTERFACE_LOCALE = Object.freeze({
+    id: "ja",
+    runtimeLocale: "ja",
+    englishName: "Japanese",
+    nativeName: "日本語",
+    defaultScript: "Jpan",
+    direction: "ltr"
+  });
+  const RTL_SCRIPTS = /* @__PURE__ */ new Set(["Arab", "Hebr", "Thaa", "Nkoo", "Adlm", "Syrc"]);
+  const SCRIPT_FONT_STACKS = Object.freeze({
+    Latn: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Grek: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Cyrl: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+    Arab: '"SF Arabic", "Geeza Pro", "Segoe UI", Tahoma, "Noto Naskh Arabic", system-ui, sans-serif',
+    Jpan: 'system-ui, -apple-system, "Hiragino Sans", "Yu Gothic UI", "Noto Sans JP", sans-serif',
+    Hans: 'system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif',
+    Hant: 'system-ui, -apple-system, "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", sans-serif',
+    Kore: 'system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif',
+    Thai: 'system-ui, -apple-system, "Thonburi", "Leelawadee UI", "Noto Sans Thai", sans-serif',
+    Laoo: 'system-ui, -apple-system, "Lao Sangam MN", "Leelawadee UI", "Noto Sans Lao", sans-serif',
+    Khmr: 'system-ui, -apple-system, "Khmer Sangam MN", "Leelawadee UI", "Noto Sans Khmer", sans-serif',
+    Mong: 'system-ui, -apple-system, "Noto Sans Mongolian", sans-serif'
+  });
+  const FALLBACK_FONT_STACK = SCRIPT_FONT_STACKS.Latn;
+  function scriptFontStack(script) {
+    return SCRIPT_FONT_STACKS[script] ?? FALLBACK_FONT_STACK;
+  }
+  function directionForScript(script) {
+    return RTL_SCRIPTS.has(script) ? "rtl" : "ltr";
+  }
+  const LEDGER_ROWS = new Map(
+    interfaceLocaleLedger.locales.map((row) => [row.tag, row])
+  );
+  function fallbackChainFor(tag, id) {
+    const chain = [];
+    const push = (value) => {
+      if (value !== tag && !chain.includes(value)) chain.push(value);
+    };
+    const base = tag.split("-")[0];
+    push(base);
+    push(id);
+    if (id === "sh") {
+      push("sr");
+      push("hr");
+      push("bs");
+    }
+    if (id === "tl") push("fil");
+    if (id !== "en") push("en");
+    return Object.freeze(chain);
+  }
+  function buildLocale(source) {
+    const ledger = LEDGER_ROWS.get(source.id);
+    if (!ledger) throw new Error(`Interface locale ${source.id} has no review-ledger row`);
+    return Object.freeze({
+      tag: source.runtimeLocale,
+      id: source.id,
+      fallbacks: fallbackChainFor(source.runtimeLocale, source.id),
+      nativeName: source.nativeName,
+      englishName: source.englishName,
+      script: source.defaultScript,
+      // languages.json and the script table must agree; the script is the
+      // source of truth so one new RTL locale cannot arrive marked ltr.
+      direction: directionForScript(source.defaultScript),
+      fontStack: scriptFontStack(source.defaultScript),
+      reviewStatus: ledger.reviewStatus,
+      available: ledger.available,
+      blockers: Object.freeze([...ledger.blockers])
+    });
+  }
+  const INTERFACE_LOCALES = Object.freeze(
+    [
+      ...LEARNER_LANGUAGES.map(
+        (language) => buildLocale({ ...language, direction: language.direction })
+      ),
+      buildLocale(JAPANESE_INTERFACE_LOCALE)
+    ].sort((left, right) => {
+      const rank = (tag) => tag === "en" ? 0 : tag === "ja" ? 1 : 2;
+      return rank(left.tag) - rank(right.tag) || left.englishName.localeCompare(right.englishName, "en");
+    })
+  );
+  const LOCALE_BY_KEY = new Map([
+    ...INTERFACE_LOCALES.map((locale) => [locale.id, locale]),
+    ...INTERFACE_LOCALES.map((locale) => [locale.tag, locale])
+  ]);
+  (() => {
+    const english = LOCALE_BY_KEY.get("en");
+    if (!english) throw new Error("The interface manifest must always contain English");
+    return english;
+  })();
+  Object.freeze(
+    INTERFACE_LOCALES.filter((locale) => locale.direction === "rtl")
+  );
+  Object.freeze(
+    interfaceLocaleLedger.rtlGate.items.map(
+      (item) => Object.freeze({ ...item })
+    )
+  );
+  const OCR_LANGUAGE_HINTS = Object.freeze({
+    fil: "tl",
+    yue: "zh",
+    grc: "el"
+  });
+  const GENERIC_ROSTER_LEARNING_TARGETS = Object.freeze(
+    LEARNER_LANGUAGES.filter((language) => language.id !== "ko").map((language) => {
+      const lookupRewrites = lookupRewritesForTarget(language.id);
+      const readingAnnotation = language.id === "zh" || language.id === "yue";
+      const usesHanScript = language.scripts.some((script) => script === "Hans" || script === "Hant");
+      return createLearningTargetModule({
+        id: `${language.id}-roster-v1`,
+        language: language.runtimeLocale,
+        direction: language.direction,
+        experiences: {
+          // Published zh/yue character banks warrant a dedicated
+          // per-character surface. Other scripts use the normal term
+          // dictionary with a single grapheme as their query.
+          characterLookup: usesHanScript ? "character-dictionary" : "term-dictionary"
+        },
+        featureSemantics: {
+          characterSystem: language.defaultScript,
+          phoneticScripts: readingAnnotation ? [language.id === "yue" ? "jyutping" : "pinyin"] : [],
+          pronunciation: "ipa",
+          readingAnnotation: readingAnnotation ? language.id === "yue" ? "jyutping" : "pinyin" : "dictionary reading"
+        },
+        grammar: grammarForRosterTarget(language.id),
+        sentenceBoundaries: sentenceBoundariesForScripts(language.scripts),
+        ocr: ocrHintFor(language.runtimeLocale),
+        detectsText: scriptDetector(language.scripts),
+        lookupRewrites,
+        ...usesHanScript ? {
+          // ICU's zh/yue word guesses can merge 我去 and split 鍾意.
+          // Let the installed dictionary arbitrate inside a real Han
+          // run, and accept expression hits only.
+          lookupStartsAtSegmentBoundary: false,
+          lookupRunSegments: hanIdeographSegments,
+          lookupSweepMode: "left-to-right-longest-exact",
+          pointerWordSegments: hanIdeographSegments
+        } : {}
+      });
+    })
+  );
+  function sentenceBoundariesForScripts(scripts) {
+    const has = (script) => scripts.includes(script);
+    const terminators = has("Arab") ? [".", "!", "?", "؟"] : has("Deva") ? [".", "!", "?", "।"] : has("Grek") ? [".", "!", "?", ";"] : has("Hans") || has("Hant") ? ["。", "！", "？", "!", "?"] : [".", "!", "?"];
+    const whitespaceIsBoundary = scripts.some((script) => ["Hans", "Hant", "Thai", "Laoo", "Khmr", "Mymr"].includes(script));
+    return { terminators, whitespaceIsBoundary };
+  }
+  function ocrHintFor(runtimeLocale) {
+    const hint = OCR_LANGUAGE_HINTS[runtimeLocale.split("-")[0]];
+    return hint ? { languageHint: hint } : void 0;
+  }
+  function scriptDetector(scripts) {
+    return new RegExp(
+      scripts.map((script) => `\\p{Script=${script === "Hans" || script === "Hant" ? "Han" : script}}`).join("|"),
+      "u"
+    );
+  }
+  const DEFAULT_LEARNING_TARGET_LANGUAGE = "ja";
+  const MODULE_STACKS_BY_LANGUAGE = /* @__PURE__ */ new Map();
+  function registerLearningTargetModule(module) {
+    if (!isSupportedLearningTargetModuleInterfaceVersion(module.interfaceVersion)) {
+      throw new Error(
+        `Learning target "${module.id}" declares contract revision ${String(module.interfaceVersion)}; this build supports ${SUPPORTED_LEARNING_TARGET_MODULE_INTERFACE_VERSIONS.join(", ")}.`
+      );
+    }
+    const base = languageSubtag(module.language);
+    if (!base) throw new Error(`Learning target "${module.id}" has an unusable language tag.`);
+    const stack = MODULE_STACKS_BY_LANGUAGE.get(base) ?? [];
+    stack.push(module);
+    MODULE_STACKS_BY_LANGUAGE.set(base, stack);
+    return module;
+  }
+  function learningTargetModuleFor(language) {
+    const canonical = canonicalLanguageTag(language);
+    const base = languageSubtag(canonical);
+    return base ? MODULE_STACKS_BY_LANGUAGE.get(base)?.at(-1) ?? null : null;
+  }
+  function normalizeLearningTargetLanguage(value) {
+    return learningTargetModuleFor(value)?.language ?? defaultLearningTargetModule().language;
+  }
+  function defaultLearningTargetModule() {
+    return learningTargetModuleFor(DEFAULT_LEARNING_TARGET_LANGUAGE) ?? JAPANESE_LEARNING_TARGET;
+  }
+  function registerBuiltInLearningTargetModule(module) {
+    registerLearningTargetModule(module);
+  }
+  registerBuiltInLearningTargetModule(JAPANESE_LEARNING_TARGET);
+  registerBuiltInLearningTargetModule(KOREAN_LEARNING_TARGET);
+  GENERIC_ROSTER_LEARNING_TARGETS.forEach(registerBuiltInLearningTargetModule);
+  const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
+  const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
+    id: "ja",
+    runtimeLocale: "ja",
+    englishName: "Japanese",
+    nativeName: "日本語",
+    defaultScript: "Jpan",
+    scripts: Object.freeze(["Jpan"]),
+    direction: "ltr",
+    studyTargetReadiness: "full"
+  });
+  const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+  const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
+  Object.freeze([
+    JAPANESE_TARGET_ROSTER_ENTRY,
+    ...LEARNER_LANGUAGES.map((language) => Object.freeze({
+      ...language,
+      studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+    }))
+  ]);
+  Object.freeze(
+    LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
+  );
+  function canonicalTagForSlice1Language(id) {
+    const runtimeLocale = learnerLanguageById(id).runtimeLocale;
+    return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
+  }
+  function slice1LanguageIdForTag(value) {
+    if (typeof value !== "string") return null;
+    const input = value.trim().toLowerCase().replace(/_/g, "-");
+    const inputBase = input.split("-")[0] ?? "";
+    if (isLearnerLanguageId(inputBase)) return inputBase;
+    const canonical = canonicalLanguageTag(value);
+    if (!canonical) return null;
+    const base = languageSubtag(canonical);
+    if (!base) return null;
+    if (base === "sr" || base === "hr" || base === "bs") return "sh";
+    if (base === "fil") return "tl";
+    return isLearnerLanguageId(base) ? base : null;
+  }
+  function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
+    if (typeof value === "string") {
+      const input = value.trim().toLowerCase().replace(/_/g, "-");
+      if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
+    }
+    const canonical = canonicalLanguageTag(value);
+    const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
+    if (canonical && canonicalId) {
+      if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
+      return canonical;
+    }
+    const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
+    return canonicalTagForSlice1Language(fallbackId);
+  }
+  const ankiFieldNames = (names) => names.split("|");
+  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+  );
+  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+  );
+  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    "Expression Reading",
+    "Japanese Expression",
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  ankiFieldNames(
+    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+  );
+  ankiFieldNames(
+    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+  );
+  ankiFieldNames(
+    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+  );
+  ankiFieldNames(
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+  );
+  const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+  );
+  ankiFieldNames(
+    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+  );
+  function normalizeAnkiFieldName(value) {
+    return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+  const FALLBACK_HEX_COLOR = "#000000";
+  function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+  }
+  function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+    const l1 = relativeLuminance(a, normalizeColor);
+    const l2 = relativeLuminance(b, normalizeColor);
+    const light = Math.max(l1, l2);
+    const dark = Math.min(l1, l2);
+    return (light + 0.05) / (dark + 0.05);
+  }
+  function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+    const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+      const channel = value / 255;
+      return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  }
+  function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+    const a = sharedHexToRgb(from, normalizeColor);
+    const b = sharedHexToRgb(to, normalizeColor);
+    return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+    const safe = normalizeHexColor(normalizeColor(color));
+    return [
+      parseInt(safe.slice(1, 3), 16),
+      parseInt(safe.slice(3, 5), 16),
+      parseInt(safe.slice(5, 7), 16)
+    ];
+  }
+  const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+  const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+  const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+  const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+  const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+  function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+    if (typeof value !== "string") return fallback;
+    const trimmed = value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+    const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+    if (!shortHex) return fallback;
+    return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+  }
+  function accessibleOcrBackgroundOpacity(opacity) {
+    const numericOpacity = Number(opacity);
+    const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+    return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+  }
+  function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+    const accent = sanitizeAccentColor(accentColor);
+    const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+    if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+      return accent;
+    }
+    for (let amount = 0.08; amount <= 1; amount += 0.04) {
+      const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+      if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+        return candidate;
+      }
+    }
+    return "#000000";
+  }
+  function ocrRenderedBackgroundContrast(color, opacity) {
+    const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+    return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+  }
+  accessibleOcrBackgroundColor(
+    DEFAULT_ACCENT_COLOR,
+    DEFAULT_OCR_BACKGROUND_OPACITY
+  );
+  const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
+  const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
+  function readOutputLanguageField(source) {
+    return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
+  }
+  function createDefaultLanguageProfile(defaults = {}) {
+    return {
+      schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
+      id: DEFAULT_LANGUAGE_PROFILE_ID,
+      ...outputLanguageFields(normalizeSlice1LearnerLanguage(
+        readOutputLanguageField(defaults),
+        DEFAULT_SLICE1_LEARNER_LANGUAGE
+      )),
+      targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
+      uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
+      parserProvider: normalizeParserProvider(defaults.parserProvider, "local"),
+      dictionaries: emptyProfileDictionaries(),
+      definitionTranslationProviderIds: []
+    };
+  }
+  function outputLanguageFields(outputLanguage) {
+    return { outputLanguage, learnerLanguage: outputLanguage };
+  }
+  function normalizeUiLocale(value, fallback) {
+    if (value === "auto") return "auto";
+    return canonicalLanguageTag(value) ?? fallback;
+  }
+  function normalizeParserProvider(value, fallback) {
+    return PARSER_PROVIDERS.has(value) ? value : fallback;
+  }
+  function emptyProfileDictionaries() {
+    return { installed: [], enabled: [], order: [] };
+  }
+  const LOCAL_DICTIONARY_STORAGE_COPY = {
+    jaImport: {
+      dictionaryImportComplete: "{sources}から{records}件インポートしました。",
+      dictionaryImportResultWithFailures: "{sources}から{records}件インポートしました。{failed}ファイルのインポートに失敗しました: {files}。"
+    },
+    jaSettings: {
+      localDictionariesEnabled: "インポート済み辞書の定義を表示",
+      localDictionarySiteStorageHelp: "インポート済み辞書は、インポートしたサイトに保存されます。他のサイトではJitenなどのオンラインソースが使われます。",
+      clearLocalDictionarySiteStorage: "無効にして保存済み辞書を削除",
+      clearLocalDictionarySiteStorageConfirm: "インポート済み辞書を無効にし、このサイトの保存コピーを削除しますか？\n\n以前のバージョンのコピーが残っているサイトは、次回訪問時に自動的に削除されます。辞書はいつでも再インポートできます。",
+      clearLocalDictionarySiteStorageClearing: "インポート済み辞書を無効にし、このサイトのコピーを削除中...",
+      clearLocalDictionarySiteStorageDone: "インポート済み辞書を無効にしました。このサイトのコピーは削除され、他のサイトも訪問時に順次削除されます。"
+    }
+  };
+  const TARGET_AWARE_UI_COPY = Object.freeze({
+    en: Object.freeze({
+      puckStudyTarget: "Study {language}",
+      puckLearningTarget: `${APP_NAME} — learning target: {language}`,
+      puckAutoDetectTargetSubtitles: "Auto-detect {language} subtitles",
+      puckFilterYoutubeTarget: "Filter YouTube for {language}",
+      popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
+      contextOccurrences: "In context ×{count}",
+      loadTargetSubtitles: "Load {language} subtitles",
+      loadOutputSubtitles: "Load {language} subtitles"
+    }),
+    ja: Object.freeze({
+      puckStudyTarget: "{language}を学習",
+      puckLearningTarget: `${APP_NAME} — 学習対象：{language}`,
+      puckAutoDetectTargetSubtitles: "{language}の字幕を自動検出",
+      puckFilterYoutubeTarget: "YouTubeを{language}向けに絞る",
+      popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
+      contextOccurrences: "文脈内 ×{count}",
+      loadTargetSubtitles: "{language}字幕を読み込む",
+      loadOutputSubtitles: "{language}字幕を読み込む"
+    })
+  });
+  ({
+    en: {
+      ...TARGET_AWARE_UI_COPY.en
+    }
+  });
+  function parseUiCopyTable(rows) {
+    const copy = {};
+    rows.trim().split("\n").forEach((row) => {
+      const tab = row.indexOf("	");
+      if (tab < 0) {
+        const key = row.trim();
+        if (key) copy[key] = "";
+        return;
+      }
+      if (tab === 0) return;
+      copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
+    });
+    return copy;
+  }
+  ({
+    ...parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中
 interfaceLocaleRtlPending	右から左へのレイアウト確認が進行中です
@@ -7220,9 +7532,11 @@ interfaceLocaleBlockedNote	これらの言語も準備中です。それぞれ�
 interfaceLocaleReadyCount	表示言語{total}件のうち{ready}件が使えます。
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
-onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingEyebrow	{language}がある場所ならどこでも
+onboardingCopy	本文、字幕、画像の{language}をタップ可能にします。
 onboardingLanguage	表示言語
+onboardingOutputLanguage	定義・翻訳の言語（出力）
+onboardingTargetLanguage	ページで読む言語（対象）
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -7240,7 +7554,7 @@ onboardingAddApiKey	APIキーを追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	日本語をホバー/タップできます。
+featureTextBody	スキャンした{language}をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
@@ -7248,7 +7562,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページで単語と漢字を復習。
+featureStudyBody	学習ページで単語と文字を復習。
 featureGame	ゲーム
 featureGameBody	Yomuアプリをインストールすると、ゲームやPC上のどこでも使えます。
 automatic	自動
@@ -7490,8 +7804,6 @@ subtitleResetDefaults	標準に戻す
 enableSubtitleAutoHide	再生中はパネルを自動で隠す
 disableSubtitleAutoHide	再生中もパネルを開いたままにする
 subtitlePanelOptions	パネル設定
-loadJapaneseSubtitles	日本語字幕を読み込む
-loadNativeSubtitles	母語字幕を読み込む
 searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
@@ -7721,9 +8033,9 @@ openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 `)
-});
-({
-  ...parseUiCopyTable(String.raw`
+  });
+  ({
+    ...parseUiCopyTable(String.raw`
 settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
@@ -7921,7 +8233,7 @@ showFloatingButton	設定ボタンを表示
 pageScanMode	ウェブページの{language}
 pageScanModeOff	ページを変更しない
 pageScanModeAuto	{language}を自動で検出
-pageScanModeManual	指示したときだけ日本語を検出
+pageScanModeManual	指示したときだけ{language}を検出
 manualPageScanShortcut	手動ページスキャンのショートカット
 manualScanEnabled	手動ページスキャン
 ocrInteractionMode	画像OCRスキャン
@@ -7929,7 +8241,6 @@ ocrInteractionModeAuto	自動
 ocrInteractionModeManual	タップ/ホバー
 ocrInteractionModeOff	オフ
 puckMenuLabel	よむ メニュー
-puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 puckOcrAuto	OCR: 自動
@@ -8430,1462 +8741,1463 @@ recommendedKanjiumPitch	ピッチアクセント専用です。定義には語�
 recommendedJpdbv2Kana	JPDB由来のおすすめ頻度バッジです。
 recommendedBccwj	BCCWJ由来の頻度バッジです。
 recommendedJiten	Jiten由来の頻度バッジです。
-`)
-});
-const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
-const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
-const shared = [
-  {
-  id: "wiktionary-en",
-  label: "Wiktionary EN",
-  code: "wiktionaryEn",
-  urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
-  components: [
-    "definition",
-    "sentences"
-  ],
-  enabled: true
-  },
-  {
-  id: "wiktionary-native",
-  label: "Wiktionary",
-  code: "wiktionary",
-  urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
-  components: [
-    "definition"
-  ],
-  enabled: false
-  },
-  {
-  id: "glosbe",
-  label: "Glosbe",
-  code: "glosbe",
-  urlTemplate: "https://glosbe.com/%code%/en/{query}",
-  components: [
-    "definition",
-    "sentences"
-  ],
-  enabled: false
-  },
-  {
-  id: "tatoeba",
-  label: "Tatoeba",
-  code: "tatoeba",
-  urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
-  components: [
-    "sentences"
-  ],
-  enabled: true
-  },
-  {
-  id: "forvo",
-  label: "Forvo",
-  code: "forvo",
-  urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
-  components: [
-    "audio"
-  ],
-  enabled: true
-  },
-  {
-  id: "youglish",
-  label: "YouGlish",
-  code: "youglish",
-  urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: true
-  },
-  {
-  id: "reverso",
-  label: "Reverso",
-  code: "reverso",
-  urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
-  components: [
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
-  id: "wordreference",
-  label: "WordReference",
-  code: "wordreference",
-  urlTemplate: "https://www.wordreference.com/%code%/{query}",
-  components: [
-    "definition",
-    "sentences",
-    "audio"
-  ],
-  enabled: false
-  },
-  {
-  id: "linguee",
-  label: "Linguee",
-  code: "linguee",
-  urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
-  components: [
-    "sentences"
-  ],
-  enabled: false
+`),
+    ...TARGET_AWARE_UI_COPY.ja
+  });
+  const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
+  const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
+  const shared = [
+    {
+      id: "wiktionary-en",
+      label: "Wiktionary EN",
+      code: "wiktionaryEn",
+      urlTemplate: "https://en.wiktionary.org/wiki/{query}#%code%",
+      components: [
+        "definition",
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "wiktionary-native",
+      label: "Wiktionary",
+      code: "wiktionary",
+      urlTemplate: "https://%code%.wiktionary.org/wiki/{query}",
+      components: [
+        "definition"
+      ],
+      enabled: false
+    },
+    {
+      id: "glosbe",
+      label: "Glosbe",
+      code: "glosbe",
+      urlTemplate: "https://glosbe.com/%code%/en/{query}",
+      components: [
+        "definition",
+        "sentences"
+      ],
+      enabled: false
+    },
+    {
+      id: "tatoeba",
+      label: "Tatoeba",
+      code: "tatoeba",
+      urlTemplate: "https://tatoeba.org/en/sentences/search?from=%code%&to=eng&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: true
+    },
+    {
+      id: "forvo",
+      label: "Forvo",
+      code: "forvo",
+      urlTemplate: "https://forvo.com/word/{query}/#language-%code%",
+      components: [
+        "audio"
+      ],
+      enabled: true
+    },
+    {
+      id: "youglish",
+      label: "YouGlish",
+      code: "youglish",
+      urlTemplate: "https://youglish.com/pronounce/{query}/%code%",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: true
+    },
+    {
+      id: "reverso",
+      label: "Reverso",
+      code: "reverso",
+      urlTemplate: "https://context.reverso.net/translation/%code%-english/{query}",
+      components: [
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "wordreference",
+      label: "WordReference",
+      code: "wordreference",
+      urlTemplate: "https://www.wordreference.com/%code%/{query}",
+      components: [
+        "definition",
+        "sentences",
+        "audio"
+      ],
+      enabled: false
+    },
+    {
+      id: "linguee",
+      label: "Linguee",
+      code: "linguee",
+      urlTemplate: "https://www.linguee.com/english-%code%/search?source=%code%&query={query}",
+      components: [
+        "sentences"
+      ],
+      enabled: false
+    }
+  ];
+  const targets = {
+    sq: {
+      codes: {
+        wiktionaryEn: "Albanian",
+        wiktionary: "sq",
+        glosbe: "sq",
+        tatoeba: "sqi",
+        forvo: "sq"
+      },
+      links: [
+        {
+          id: "fjalorthi",
+          label: "Fjalorthi",
+          urlTemplate: "https://fjalorthi.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    grc: {
+      codes: {
+        wiktionaryEn: "Ancient_Greek",
+        glosbe: "grc",
+        tatoeba: "grc"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "LSJ",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ar: {
+      codes: {
+        wiktionaryEn: "Arabic",
+        wiktionary: "ar",
+        glosbe: "ar",
+        tatoeba: "ara",
+        forvo: "ar",
+        reverso: "arabic",
+        youglish: "arabic"
+      },
+      links: [
+        {
+          id: "maajim",
+          label: "Maajim",
+          urlTemplate: "https://maajim.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    yue: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "yue",
+        glosbe: "yue",
+        tatoeba: "yue",
+        forvo: "yue"
+      },
+      links: [
+        {
+          id: "words-hk",
+          label: "words.hk",
+          urlTemplate: "https://words.hk/zidin/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cantowords",
+          label: "CantoWords",
+          urlTemplate: "https://cantowords.com/dictionary/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "cantodict",
+          label: "CantoDict",
+          urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "cccanto",
+          label: "CC-Canto",
+          urlTemplate: "https://cantonese.org/search.php?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    zh: {
+      codes: {
+        wiktionaryEn: "Chinese",
+        wiktionary: "zh",
+        glosbe: "zh",
+        tatoeba: "cmn",
+        forvo: "zh",
+        reverso: "chinese",
+        linguee: "chinese",
+        youglish: "chinese"
+      },
+      links: [
+        {
+          id: "mdbg",
+          label: "MDBG",
+          urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "purpleculture",
+          label: "Purple Culture",
+          urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio",
+            "images"
+          ]
+        },
+        {
+          id: "zdic",
+          label: "Zdic",
+          urlTemplate: "https://www.zdic.net/hans/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    da: {
+      codes: {
+        wiktionaryEn: "Danish",
+        wiktionary: "da",
+        glosbe: "da",
+        tatoeba: "dan",
+        forvo: "da",
+        linguee: "danish"
+      },
+      links: [
+        {
+          id: "ddo",
+          label: "Den Danske Ordbog",
+          urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    nl: {
+      codes: {
+        wiktionaryEn: "Dutch",
+        wiktionary: "nl",
+        glosbe: "nl",
+        tatoeba: "nld",
+        forvo: "nl",
+        reverso: "dutch",
+        wordreference: "nlen",
+        linguee: "dutch",
+        youglish: "dutch"
+      },
+      links: [
+        {
+          id: "woorden",
+          label: "woorden.org",
+          urlTemplate: "https://www.woorden.org/woord/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "mijnwoordenboek",
+          label: "MijnWoordenboek",
+          urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    en: {
+      codes: {
+        wiktionaryEn: "English",
+        tatoeba: "eng",
+        forvo: "en",
+        youglish: "english"
+      },
+      links: [
+        {
+          id: "cambridge",
+          label: "Cambridge",
+          urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    fi: {
+      codes: {
+        wiktionaryEn: "Finnish",
+        wiktionary: "fi",
+        glosbe: "fi",
+        tatoeba: "fin",
+        forvo: "fi",
+        linguee: "finnish"
+      },
+      links: [
+        {
+          id: "kotus",
+          label: "Kielitoimiston",
+          urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "suomisanakirja",
+          label: "Suomisanakirja",
+          urlTemplate: "https://www.suomisanakirja.fi/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    fr: {
+      codes: {
+        wiktionaryEn: "French",
+        wiktionary: "fr",
+        glosbe: "fr",
+        tatoeba: "fra",
+        forvo: "fr",
+        reverso: "french",
+        wordreference: "fren",
+        linguee: "french",
+        youglish: "french"
+      },
+      links: [
+        {
+          id: "cnrtl",
+          label: "CNRTL",
+          urlTemplate: "https://www.cnrtl.fr/definition/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "larousse",
+          label: "Larousse",
+          urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    de: {
+      codes: {
+        wiktionaryEn: "German",
+        wiktionary: "de",
+        glosbe: "de",
+        tatoeba: "deu",
+        forvo: "de",
+        reverso: "german",
+        wordreference: "deen",
+        youglish: "german"
+      },
+      links: [
+        {
+          id: "dwds",
+          label: "DWDS",
+          urlTemplate: "https://www.dwds.de/wb/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "duden",
+          label: "Duden",
+          urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    el: {
+      codes: {
+        wiktionaryEn: "Greek",
+        wiktionary: "el",
+        glosbe: "el",
+        tatoeba: "ell",
+        forvo: "el",
+        youglish: "greek"
+      },
+      links: [
+        {
+          id: "triantafyllides",
+          label: "Triantafyllides",
+          urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    hu: {
+      codes: {
+        wiktionaryEn: "Hungarian",
+        wiktionary: "hu",
+        glosbe: "hu",
+        tatoeba: "hun",
+        forvo: "hu",
+        linguee: "hungarian"
+      },
+      links: [
+        {
+          id: "wikiszotar",
+          label: "WikiSzotar",
+          urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    id: {
+      codes: {
+        wiktionaryEn: "Indonesian",
+        wiktionary: "id",
+        glosbe: "id",
+        tatoeba: "ind",
+        forvo: "id",
+        youglish: "indonesian"
+      },
+      links: [
+        {
+          id: "kbbi-web",
+          label: "KBBI",
+          urlTemplate: "https://kbbi.web.id/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "kbbi-co",
+          label: "KBBI.co.id",
+          urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    it: {
+      codes: {
+        wiktionaryEn: "Italian",
+        wiktionary: "it",
+        glosbe: "it",
+        tatoeba: "ita",
+        forvo: "it",
+        reverso: "italian",
+        wordreference: "iten",
+        linguee: "italian",
+        youglish: "italian"
+      },
+      links: [
+        {
+          id: "treccani",
+          label: "Treccani",
+          urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "demauro",
+          label: "De Mauro",
+          urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    km: {
+      codes: {
+        wiktionaryEn: "Khmer",
+        wiktionary: "km",
+        glosbe: "km",
+        tatoeba: "khm",
+        forvo: "km"
+      },
+      links: [
+        {
+          id: "khmerdict",
+          label: "Khmer Dictionary",
+          urlTemplate: "https://khmerdict.com/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ko: {
+      codes: {
+        wiktionaryEn: "Korean",
+        wiktionary: "ko",
+        glosbe: "ko",
+        tatoeba: "kor",
+        forvo: "ko",
+        youglish: "korean"
+      },
+      links: [
+        {
+          id: "naver",
+          label: "Naver",
+          urlTemplate: "https://dict.naver.com/dict.search?query={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "krdict",
+          label: "Krdict",
+          urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "daum",
+          label: "Daum",
+          urlTemplate: "https://dic.daum.net/search.do?q={query}",
+          components: [
+            "definition",
+            "audio"
+          ]
+        }
+      ]
+    },
+    lo: {
+      codes: {
+        wiktionaryEn: "Lao",
+        wiktionary: "lo",
+        glosbe: "lo",
+        tatoeba: "lao",
+        forvo: "lo"
+      },
+      links: [
+        {
+          id: "laoswords",
+          label: "Lao Dictionary",
+          urlTemplate: "https://www.laoswords.com/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    la: {
+      codes: {
+        wiktionaryEn: "Latin",
+        wiktionary: "la",
+        glosbe: "la",
+        tatoeba: "lat",
+        forvo: "la"
+      },
+      links: [
+        {
+          id: "logeion",
+          label: "Logeion",
+          urlTemplate: "https://logeion.uchicago.edu/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "lsj",
+          label: "Lewis & Short",
+          urlTemplate: "https://lsj.gr/wiki/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "olivetti",
+          label: "Olivetti",
+          urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "scaife",
+          label: "Scaife",
+          urlTemplate: "https://scaife.perseus.org/search/?q={query}",
+          components: [
+            "sentences"
+          ]
+        }
+      ]
+    },
+    mn: {
+      codes: {
+        wiktionaryEn: "Mongolian",
+        wiktionary: "mn",
+        glosbe: "mn",
+        tatoeba: "mon",
+        forvo: "mn"
+      },
+      links: [
+        {
+          id: "mongoltoli",
+          label: "Mongoltoli",
+          urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "toli-query",
+          label: "Toli",
+          urlTemplate: "https://toli.query.mn/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    fa: {
+      codes: {
+        wiktionaryEn: "Persian",
+        wiktionary: "fa",
+        glosbe: "fa",
+        tatoeba: "pes",
+        forvo: "fa",
+        youglish: "persian"
+      },
+      links: [
+        {
+          id: "vajehyab",
+          label: "Vajehyab",
+          urlTemplate: "https://www.vajehyab.com/?q={query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "abadis",
+          label: "Abadis",
+          urlTemplate: "https://abadis.ir/fatofa/{query}/",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dehkhoda",
+          label: "Dehkhoda",
+          urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pl: {
+      codes: {
+        wiktionaryEn: "Polish",
+        wiktionary: "pl",
+        glosbe: "pl",
+        tatoeba: "pol",
+        forvo: "pl",
+        reverso: "polish",
+        wordreference: "plen",
+        linguee: "polish",
+        youglish: "polish"
+      },
+      links: [
+        {
+          id: "sjp-pwn",
+          label: "SJP PWN",
+          urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    pt: {
+      codes: {
+        wiktionaryEn: "Portuguese",
+        wiktionary: "pt",
+        glosbe: "pt",
+        tatoeba: "por",
+        forvo: "pt",
+        reverso: "portuguese",
+        wordreference: "pten",
+        linguee: "portuguese",
+        youglish: "portuguese"
+      },
+      links: [
+        {
+          id: "priberam",
+          label: "Priberam",
+          urlTemplate: "https://dicionario.priberam.org/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "dicio",
+          label: "Dicio",
+          urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    ro: {
+      codes: {
+        wiktionaryEn: "Romanian",
+        wiktionary: "ro",
+        glosbe: "ro",
+        tatoeba: "ron",
+        forvo: "ro",
+        reverso: "romanian",
+        wordreference: "roen",
+        linguee: "romanian",
+        youglish: "romanian"
+      },
+      links: [
+        {
+          id: "dexonline",
+          label: "dexonline",
+          urlTemplate: "https://dexonline.ro/definitie/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    ru: {
+      codes: {
+        wiktionaryEn: "Russian",
+        wiktionary: "ru",
+        glosbe: "ru",
+        tatoeba: "rus",
+        forvo: "ru",
+        reverso: "russian",
+        youglish: "russian"
+      },
+      links: [
+        {
+          id: "openrussian",
+          label: "OpenRussian",
+          urlTemplate: "https://en.openrussian.org/ru/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        },
+        {
+          id: "gramota",
+          label: "Gramota",
+          urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "kartaslov",
+          label: "Kartaslov",
+          urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    sh: {
+      codes: {
+        wiktionaryEn: "Serbo-Croatian",
+        wiktionary: "sh",
+        glosbe: "sh",
+        tatoeba: "hrv",
+        forvo: "hr"
+      },
+      links: [
+        {
+          id: "rjecnik-hr",
+          label: "Skolski rjecnik",
+          urlTemplate: "https://rjecnik.hr/search/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    es: {
+      codes: {
+        wiktionaryEn: "Spanish",
+        wiktionary: "es",
+        glosbe: "es",
+        tatoeba: "spa",
+        forvo: "es",
+        reverso: "spanish",
+        wordreference: "esen",
+        linguee: "spanish",
+        youglish: "spanish"
+      },
+      links: [
+        {
+          id: "rae",
+          label: "RAE",
+          urlTemplate: "https://dle.rae.es/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "spanishdict",
+          label: "SpanishDict",
+          urlTemplate: "https://www.spanishdict.com/translate/{query}",
+          components: [
+            "definition",
+            "sentences",
+            "audio"
+          ]
+        }
+      ]
+    },
+    sv: {
+      codes: {
+        wiktionaryEn: "Swedish",
+        wiktionary: "sv",
+        glosbe: "sv",
+        tatoeba: "swe",
+        forvo: "sv",
+        reverso: "swedish",
+        wordreference: "sven",
+        linguee: "swedish",
+        youglish: "swedish"
+      },
+      links: [
+        {
+          id: "svenska-se",
+          label: "svenska.se",
+          urlTemplate: "https://svenska.se/?q={query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    tl: {
+      codes: {
+        wiktionaryEn: "Tagalog",
+        wiktionary: "tl",
+        glosbe: "tl",
+        tatoeba: "tgl",
+        forvo: "tl"
+      },
+      links: [
+        {
+          id: "tagalog-com",
+          label: "Tagalog.com",
+          urlTemplate: "https://www.tagalog.com/dictionary/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "diksiyonaryo-ph",
+          label: "Diksiyonaryo.ph",
+          urlTemplate: "https://diksiyonaryo.ph/search/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "pinoydictionary",
+          label: "PinoyDictionary",
+          urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    th: {
+      codes: {
+        wiktionaryEn: "Thai",
+        wiktionary: "th",
+        glosbe: "th",
+        tatoeba: "tha",
+        forvo: "th",
+        youglish: "thai"
+      },
+      links: [
+        {
+          id: "longdo",
+          label: "Longdo",
+          urlTemplate: "https://dict.longdo.com/search/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        }
+      ]
+    },
+    tr: {
+      codes: {
+        wiktionaryEn: "Turkish",
+        wiktionary: "tr",
+        glosbe: "tr",
+        tatoeba: "tur",
+        forvo: "tr",
+        reverso: "turkish",
+        youglish: "turkish"
+      },
+      links: [
+        {
+          id: "tdk",
+          label: "TDK Sozluk",
+          urlTemplate: "https://sozluk.gov.tr/?ara={query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "tureng",
+          label: "Tureng",
+          urlTemplate: "https://tureng.com/en/turkish-english/{query}",
+          components: [
+            "definition",
+            "sentences"
+          ]
+        },
+        {
+          id: "seslisozluk",
+          label: "Sesli Sozluk",
+          urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    },
+    vi: {
+      codes: {
+        wiktionaryEn: "Vietnamese",
+        wiktionary: "vi",
+        glosbe: "vi",
+        tatoeba: "vie",
+        forvo: "vi",
+        youglish: "vietnamese"
+      },
+      links: [
+        {
+          id: "tratu-soha",
+          label: "Tra tu Soha",
+          urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vdict",
+          label: "VDict",
+          urlTemplate: "https://vdict.com/{query},2,0,0.html",
+          components: [
+            "definition"
+          ]
+        },
+        {
+          id: "vtudien",
+          label: "Vtudien",
+          urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
+          components: [
+            "definition"
+          ]
+        }
+      ]
+    }
+  };
+  const catalogue = {
+    shared,
+    targets
+  };
+  const CATALOGUE = catalogue;
+  /* @__PURE__ */ new Set([
+    ...CATALOGUE.shared.map((site) => site.id),
+    ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
+  ]);
+  const JPDB_LOOKUP_LINK = {
+    id: "jpdb",
+    label: "JPDB",
+    urlTemplate: "https://jpdb.io/search?q={query}",
+    enabled: true
+  };
+  const JITEN_LIVE_FREQUENCY_PILL = {
+    id: "jiten-frequency",
+    label: "Jiten",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const JPDB_LIVE_FREQUENCY_PILL = {
+    id: "jpdb-frequency",
+    label: "JPDB",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const JISHO_LOOKUP_LINK = {
+    id: "jisho",
+    label: "Jisho",
+    urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
+    enabled: true
+  };
+  const JITEN_LOOKUP_LINK = {
+    id: "jiten",
+    label: "Jiten",
+    urlTemplate: "https://jiten.moe/parse?text={query}",
+    enabled: true
+  };
+  const BUNPRO_LOOKUP_LINK = {
+    id: "bunpro",
+    label: "Bunpro",
+    urlTemplate: "https://bunpro.jp/search?query={query}",
+    enabled: true
+  };
+  const BUNPRO_LIVE_FREQUENCY_PILL = {
+    id: "bunpro-frequency",
+    label: "Bunpro",
+    urlTemplate: "",
+    enabled: true,
+    action: "frequency-live"
+  };
+  const WEBLIO_LOOKUP_LINK = {
+    id: "weblio",
+    label: "Weblio",
+    urlTemplate: "https://www.weblio.jp/content/{query}",
+    enabled: false
+  };
+  const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
+  const KOTOBANK_LOOKUP_LINK = {
+    id: "kotobank",
+    label: "Kotobank",
+    urlTemplate: "https://kotobank.jp/search?q={query}",
+    enabled: false
+  };
+  const TAKOBOTO_LOOKUP_LINK = {
+    id: "takoboto",
+    label: "Takoboto",
+    urlTemplate: "https://takoboto.jp/?q={query}",
+    enabled: false
+  };
+  const WIKTIONARY_LOOKUP_LINK = {
+    id: "wiktionary-ja",
+    label: "Wiktionary",
+    urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
+    enabled: false
+  };
+  const IMMERSION_KIT_LOOKUP_LINK = {
+    id: "immersion-kit",
+    label: "Immersion Kit",
+    urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+    enabled: false
+  };
+  const NADESHIKO_LOOKUP_LINK = {
+    id: "nadeshiko",
+    label: "Nadeshiko",
+    urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
+    enabled: false
+  };
+  const UCHISEN_LOOKUP_LINK = {
+    id: "uchisen",
+    label: "Uchisen",
+    urlTemplate: "https://uchisen.com/kanji/{query}",
+    enabled: false
+  };
+  const COPY_LOOKUP_LINK = {
+    id: "copy",
+    label: "Copy",
+    urlTemplate: "",
+    enabled: true,
+    action: "copy"
+  };
+  const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+    YOMU_LOOKUP_LINK,
+    JITEN_LOOKUP_LINK,
+    JITEN_LIVE_FREQUENCY_PILL,
+    JPDB_LOOKUP_LINK,
+    JPDB_LIVE_FREQUENCY_PILL,
+    BUNPRO_LOOKUP_LINK,
+    BUNPRO_LIVE_FREQUENCY_PILL,
+    JISHO_LOOKUP_LINK,
+    WEBLIO_LOOKUP_LINK,
+    KOTOBANK_LOOKUP_LINK,
+    TAKOBOTO_LOOKUP_LINK,
+    WIKTIONARY_LOOKUP_LINK,
+    IMMERSION_KIT_LOOKUP_LINK,
+    NADESHIKO_LOOKUP_LINK,
+    UCHISEN_LOOKUP_LINK,
+    COPY_LOOKUP_LINK
+  ];
+  [
+    { ...JPDB_LOOKUP_LINK, enabled: false },
+    { ...JISHO_LOOKUP_LINK, enabled: true },
+    COPY_LOOKUP_LINK
+  ];
+  [[
+    // The Yomu-first default immediately before the Nadeshiko search pill was
+    // added. Untouched installs receive the new pill beside Immersion Kit;
+    // custom orders still keep their order and get new built-ins appended.
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    BUNPRO_LOOKUP_LINK.id,
+    BUNPRO_LIVE_FREQUENCY_PILL.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    // The jiten-first default that shipped before Yomu was promoted to the front
+    // of the pill row. Users who never re-ordered their pills are migrated to the
+    // current Yomu-first default order instead of being pinned to the old layout.
+    JITEN_LOOKUP_LINK.id,
+    JITEN_LIVE_FREQUENCY_PILL.id,
+    JPDB_LOOKUP_LINK.id,
+    JPDB_LIVE_FREQUENCY_PILL.id,
+    YOMU_LOOKUP_LINK.id,
+    BUNPRO_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id
+  ]];
+  Logger.scope("Settings");
+  const AUDIO_SOURCE_TYPE_VALUES = [
+    "jpod101",
+    "language-pod-101",
+    "jisho",
+    "bunpro",
+    "lingua-libre",
+    "wiktionary",
+    "jiten-tts",
+    "jpdb-tts",
+    "text-to-speech",
+    "text-to-speech-reading",
+    "custom",
+    "custom-json"
+  ];
+  const DEFAULT_AUDIO_SOURCES = [
+    { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+    { type: "jpod101", url: "", voice: "", enabled: false },
+    { type: "language-pod-101", url: "", voice: "", enabled: false },
+    { type: "jisho", url: "", voice: "", enabled: false },
+    { type: "bunpro", url: "", voice: "", enabled: false },
+    { type: "jiten-tts", url: "", voice: "", enabled: false },
+    { type: "jpdb-tts", url: "", voice: "", enabled: false },
+    { type: "text-to-speech", url: "", voice: "", enabled: false }
+  ];
+  new Set(AUDIO_SOURCE_TYPE_VALUES);
+  new Set(
+    DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+  );
+  const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
+    "kanji-doodle",
+    "word",
+    "type-word",
+    "recall-cloze",
+    "listen-pitch",
+    "speaking"
+  ];
+  new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
+  ({
+    languageProfiles: [createDefaultLanguageProfile()],
+    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
+  });
+  new Set(FURIGANA_HIDE_STATE_GROUPS);
+  new Set(
+    "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
+  );
+  new Set("heiban,atamadaka,nakadaka,odaka".split(","));
+  const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
+  const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
+  `a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
+  `[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
+  `time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
+  `button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
+  `header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
+  `[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
+  roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
+  `button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
+  roleSelectors("menu,menubar,toolbar,tablist");
+  new Set(
+    "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
+  );
+  new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+  selectorPairs("control,toggle,player", ["class"]);
+  new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
+  const KANJI_WANIKANI_SOURCE_ID = "__kanji_wanikani__";
+  Logger.scope("DictionaryArchiveCache");
+  Logger.scope("Yomitan");
+  new TextDecoder();
+  Logger.scope("YomitanSettingsImport");
+  Logger.scope("Yomitan");
+  function definitionSourceStateKey(sourceId) {
+    return `definition-source:${sourceId}`;
   }
-];
-const targets = {
-  sq: {
-  codes: {
-    wiktionaryEn: "Albanian",
-    wiktionary: "sq",
-    glosbe: "sq",
-    tatoeba: "sqi",
-    forvo: "sq"
-  },
-  links: [
-    {
-      id: "fjalorthi",
-      label: "Fjalorthi",
-      urlTemplate: "https://fjalorthi.com/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  grc: {
-  codes: {
-    wiktionaryEn: "Ancient_Greek",
-    glosbe: "grc",
-    tatoeba: "grc"
-  },
-  links: [
-    {
-      id: "logeion",
-      label: "Logeion",
-      urlTemplate: "https://logeion.uchicago.edu/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "lsj",
-      label: "LSJ",
-      urlTemplate: "https://lsj.gr/wiki/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "scaife",
-      label: "Scaife",
-      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
-      components: [
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ar: {
-  codes: {
-    wiktionaryEn: "Arabic",
-    wiktionary: "ar",
-    glosbe: "ar",
-    tatoeba: "ara",
-    forvo: "ar",
-    reverso: "arabic",
-    youglish: "arabic"
-  },
-  links: [
-    {
-      id: "maajim",
-      label: "Maajim",
-      urlTemplate: "https://maajim.com/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  yue: {
-  codes: {
-    wiktionaryEn: "Chinese",
-    wiktionary: "yue",
-    glosbe: "yue",
-    tatoeba: "yue",
-    forvo: "yue"
-  },
-  links: [
-    {
-      id: "words-hk",
-      label: "words.hk",
-      urlTemplate: "https://words.hk/zidin/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "cantowords",
-      label: "CantoWords",
-      urlTemplate: "https://cantowords.com/dictionary/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "cantodict",
-      label: "CantoDict",
-      urlTemplate: "https://www.cantonese.sheik.co.uk/dictionary/search/?searchtype=1&text={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "cccanto",
-      label: "CC-Canto",
-      urlTemplate: "https://cantonese.org/search.php?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  zh: {
-  codes: {
-    wiktionaryEn: "Chinese",
-    wiktionary: "zh",
-    glosbe: "zh",
-    tatoeba: "cmn",
-    forvo: "zh",
-    reverso: "chinese",
-    linguee: "chinese",
-    youglish: "chinese"
-  },
-  links: [
-    {
-      id: "mdbg",
-      label: "MDBG",
-      urlTemplate: "https://www.mdbg.net/chinese/dictionary?page=worddict&wdrst=0&wdqb={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "purpleculture",
-      label: "Purple Culture",
-      urlTemplate: "https://www.purpleculture.net/dictionary-details/?word={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio",
-        "images"
-      ]
-    },
-    {
-      id: "zdic",
-      label: "Zdic",
-      urlTemplate: "https://www.zdic.net/hans/{query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  da: {
-  codes: {
-    wiktionaryEn: "Danish",
-    wiktionary: "da",
-    glosbe: "da",
-    tatoeba: "dan",
-    forvo: "da",
-    linguee: "danish"
-  },
-  links: [
-    {
-      id: "ddo",
-      label: "Den Danske Ordbog",
-      urlTemplate: "https://ordnet.dk/ddo/ordbog?query={query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  nl: {
-  codes: {
-    wiktionaryEn: "Dutch",
-    wiktionary: "nl",
-    glosbe: "nl",
-    tatoeba: "nld",
-    forvo: "nl",
-    reverso: "dutch",
-    wordreference: "nlen",
-    linguee: "dutch",
-    youglish: "dutch"
-  },
-  links: [
-    {
-      id: "woorden",
-      label: "woorden.org",
-      urlTemplate: "https://www.woorden.org/woord/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "mijnwoordenboek",
-      label: "MijnWoordenboek",
-      urlTemplate: "https://www.mijnwoordenboek.nl/vertaal/NL/EN/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  en: {
-  codes: {
-    wiktionaryEn: "English",
-    tatoeba: "eng",
-    forvo: "en",
-    youglish: "english"
-  },
-  links: [
-    {
-      id: "cambridge",
-      label: "Cambridge",
-      urlTemplate: "https://dictionary.cambridge.org/dictionary/english/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  fi: {
-  codes: {
-    wiktionaryEn: "Finnish",
-    wiktionary: "fi",
-    glosbe: "fi",
-    tatoeba: "fin",
-    forvo: "fi",
-    linguee: "finnish"
-  },
-  links: [
-    {
-      id: "kotus",
-      label: "Kielitoimiston",
-      urlTemplate: "https://www.kielitoimistonsanakirja.fi/#/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "suomisanakirja",
-      label: "Suomisanakirja",
-      urlTemplate: "https://www.suomisanakirja.fi/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  fr: {
-  codes: {
-    wiktionaryEn: "French",
-    wiktionary: "fr",
-    glosbe: "fr",
-    tatoeba: "fra",
-    forvo: "fr",
-    reverso: "french",
-    wordreference: "fren",
-    linguee: "french",
-    youglish: "french"
-  },
-  links: [
-    {
-      id: "cnrtl",
-      label: "CNRTL",
-      urlTemplate: "https://www.cnrtl.fr/definition/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "larousse",
-      label: "Larousse",
-      urlTemplate: "https://www.larousse.fr/dictionnaires/francais/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  de: {
-  codes: {
-    wiktionaryEn: "German",
-    wiktionary: "de",
-    glosbe: "de",
-    tatoeba: "deu",
-    forvo: "de",
-    reverso: "german",
-    wordreference: "deen",
-    youglish: "german"
-  },
-  links: [
-    {
-      id: "dwds",
-      label: "DWDS",
-      urlTemplate: "https://www.dwds.de/wb/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "duden",
-      label: "Duden",
-      urlTemplate: "https://www.duden.de/suchen/dudenonline/{query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  el: {
-  codes: {
-    wiktionaryEn: "Greek",
-    wiktionary: "el",
-    glosbe: "el",
-    tatoeba: "ell",
-    forvo: "el",
-    youglish: "greek"
-  },
-  links: [
-    {
-      id: "triantafyllides",
-      label: "Triantafyllides",
-      urlTemplate: "https://www.greek-language.gr/greekLang/modern_greek/tools/lexica/triantafyllides/search.html?lq={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  hu: {
-  codes: {
-    wiktionaryEn: "Hungarian",
-    wiktionary: "hu",
-    glosbe: "hu",
-    tatoeba: "hun",
-    forvo: "hu",
-    linguee: "hungarian"
-  },
-  links: [
-    {
-      id: "wikiszotar",
-      label: "WikiSzotar",
-      urlTemplate: "https://wikiszotar.hu/ertelmezo-szotar/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  id: {
-  codes: {
-    wiktionaryEn: "Indonesian",
-    wiktionary: "id",
-    glosbe: "id",
-    tatoeba: "ind",
-    forvo: "id",
-    youglish: "indonesian"
-  },
-  links: [
-    {
-      id: "kbbi-web",
-      label: "KBBI",
-      urlTemplate: "https://kbbi.web.id/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "kbbi-co",
-      label: "KBBI.co.id",
-      urlTemplate: "https://kbbi.co.id/arti-kata/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  it: {
-  codes: {
-    wiktionaryEn: "Italian",
-    wiktionary: "it",
-    glosbe: "it",
-    tatoeba: "ita",
-    forvo: "it",
-    reverso: "italian",
-    wordreference: "iten",
-    linguee: "italian",
-    youglish: "italian"
-  },
-  links: [
-    {
-      id: "treccani",
-      label: "Treccani",
-      urlTemplate: "https://www.treccani.it/vocabolario/{query}/",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "demauro",
-      label: "De Mauro",
-      urlTemplate: "https://dizionario.internazionale.it/parola/{queryAscii}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  km: {
-  codes: {
-    wiktionaryEn: "Khmer",
-    wiktionary: "km",
-    glosbe: "km",
-    tatoeba: "khm",
-    forvo: "km"
-  },
-  links: [
-    {
-      id: "khmerdict",
-      label: "Khmer Dictionary",
-      urlTemplate: "https://khmerdict.com/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ko: {
-  codes: {
-    wiktionaryEn: "Korean",
-    wiktionary: "ko",
-    glosbe: "ko",
-    tatoeba: "kor",
-    forvo: "ko",
-    youglish: "korean"
-  },
-  links: [
-    {
-      id: "naver",
-      label: "Naver",
-      urlTemplate: "https://dict.naver.com/dict.search?query={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "krdict",
-      label: "Krdict",
-      urlTemplate: "https://krdict.korean.go.kr/eng/dicMarinerSearch/search?nationCode=6&ParaWordNo=&mainSearchWord={query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "daum",
-      label: "Daum",
-      urlTemplate: "https://dic.daum.net/search.do?q={query}",
-      components: [
-        "definition",
-        "audio"
-      ]
-    }
-  ]
-  },
-  lo: {
-  codes: {
-    wiktionaryEn: "Lao",
-    wiktionary: "lo",
-    glosbe: "lo",
-    tatoeba: "lao",
-    forvo: "lo"
-  },
-  links: [
-    {
-      id: "laoswords",
-      label: "Lao Dictionary",
-      urlTemplate: "https://www.laoswords.com/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  la: {
-  codes: {
-    wiktionaryEn: "Latin",
-    wiktionary: "la",
-    glosbe: "la",
-    tatoeba: "lat",
-    forvo: "la"
-  },
-  links: [
-    {
-      id: "logeion",
-      label: "Logeion",
-      urlTemplate: "https://logeion.uchicago.edu/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "lsj",
-      label: "Lewis & Short",
-      urlTemplate: "https://lsj.gr/wiki/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "olivetti",
-      label: "Olivetti",
-      urlTemplate: "https://www.online-latin-dictionary.com/latin-english-dictionary.php?parola={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "scaife",
-      label: "Scaife",
-      urlTemplate: "https://scaife.perseus.org/search/?q={query}",
-      components: [
-        "sentences"
-      ]
-    }
-  ]
-  },
-  mn: {
-  codes: {
-    wiktionaryEn: "Mongolian",
-    wiktionary: "mn",
-    glosbe: "mn",
-    tatoeba: "mon",
-    forvo: "mn"
-  },
-  links: [
-    {
-      id: "mongoltoli",
-      label: "Mongoltoli",
-      urlTemplate: "https://mongoltoli.mn/search.php?opt=1&word={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "toli-query",
-      label: "Toli",
-      urlTemplate: "https://toli.query.mn/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  fa: {
-  codes: {
-    wiktionaryEn: "Persian",
-    wiktionary: "fa",
-    glosbe: "fa",
-    tatoeba: "pes",
-    forvo: "fa",
-    youglish: "persian"
-  },
-  links: [
-    {
-      id: "vajehyab",
-      label: "Vajehyab",
-      urlTemplate: "https://www.vajehyab.com/?q={query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "abadis",
-      label: "Abadis",
-      urlTemplate: "https://abadis.ir/fatofa/{query}/",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "dehkhoda",
-      label: "Dehkhoda",
-      urlTemplate: "https://dehkhoda.ut.ac.ir/fa/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  pl: {
-  codes: {
-    wiktionaryEn: "Polish",
-    wiktionary: "pl",
-    glosbe: "pl",
-    tatoeba: "pol",
-    forvo: "pl",
-    reverso: "polish",
-    wordreference: "plen",
-    linguee: "polish",
-    youglish: "polish"
-  },
-  links: [
-    {
-      id: "sjp-pwn",
-      label: "SJP PWN",
-      urlTemplate: "https://sjp.pwn.pl/szukaj/{query}.html",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  pt: {
-  codes: {
-    wiktionaryEn: "Portuguese",
-    wiktionary: "pt",
-    glosbe: "pt",
-    tatoeba: "por",
-    forvo: "pt",
-    reverso: "portuguese",
-    wordreference: "pten",
-    linguee: "portuguese",
-    youglish: "portuguese"
-  },
-  links: [
-    {
-      id: "priberam",
-      label: "Priberam",
-      urlTemplate: "https://dicionario.priberam.org/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "dicio",
-      label: "Dicio",
-      urlTemplate: "https://www.dicio.com.br/{queryAscii}/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  ro: {
-  codes: {
-    wiktionaryEn: "Romanian",
-    wiktionary: "ro",
-    glosbe: "ro",
-    tatoeba: "ron",
-    forvo: "ro",
-    reverso: "romanian",
-    wordreference: "roen",
-    linguee: "romanian",
-    youglish: "romanian"
-  },
-  links: [
-    {
-      id: "dexonline",
-      label: "dexonline",
-      urlTemplate: "https://dexonline.ro/definitie/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  ru: {
-  codes: {
-    wiktionaryEn: "Russian",
-    wiktionary: "ru",
-    glosbe: "ru",
-    tatoeba: "rus",
-    forvo: "ru",
-    reverso: "russian",
-    youglish: "russian"
-  },
-  links: [
-    {
-      id: "openrussian",
-      label: "OpenRussian",
-      urlTemplate: "https://en.openrussian.org/ru/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    },
-    {
-      id: "gramota",
-      label: "Gramota",
-      urlTemplate: "https://gramota.ru/poisk?query={query}&mode=all",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "kartaslov",
-      label: "Kartaslov",
-      urlTemplate: "https://kartaslov.ru/%D0%B7%D0%BD%D0%B0%D1%87%D0%B5%D0%BD%D0%B8%D0%B5-%D1%81%D0%BB%D0%BE%D0%B2%D0%B0/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  sh: {
-  codes: {
-    wiktionaryEn: "Serbo-Croatian",
-    wiktionary: "sh",
-    glosbe: "sh",
-    tatoeba: "hrv",
-    forvo: "hr"
-  },
-  links: [
-    {
-      id: "rjecnik-hr",
-      label: "Skolski rjecnik",
-      urlTemplate: "https://rjecnik.hr/search/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  es: {
-  codes: {
-    wiktionaryEn: "Spanish",
-    wiktionary: "es",
-    glosbe: "es",
-    tatoeba: "spa",
-    forvo: "es",
-    reverso: "spanish",
-    wordreference: "esen",
-    linguee: "spanish",
-    youglish: "spanish"
-  },
-  links: [
-    {
-      id: "rae",
-      label: "RAE",
-      urlTemplate: "https://dle.rae.es/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "spanishdict",
-      label: "SpanishDict",
-      urlTemplate: "https://www.spanishdict.com/translate/{query}",
-      components: [
-        "definition",
-        "sentences",
-        "audio"
-      ]
-    }
-  ]
-  },
-  sv: {
-  codes: {
-    wiktionaryEn: "Swedish",
-    wiktionary: "sv",
-    glosbe: "sv",
-    tatoeba: "swe",
-    forvo: "sv",
-    reverso: "swedish",
-    wordreference: "sven",
-    linguee: "swedish",
-    youglish: "swedish"
-  },
-  links: [
-    {
-      id: "svenska-se",
-      label: "svenska.se",
-      urlTemplate: "https://svenska.se/?q={query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  tl: {
-  codes: {
-    wiktionaryEn: "Tagalog",
-    wiktionary: "tl",
-    glosbe: "tl",
-    tatoeba: "tgl",
-    forvo: "tl"
-  },
-  links: [
-    {
-      id: "tagalog-com",
-      label: "Tagalog.com",
-      urlTemplate: "https://www.tagalog.com/dictionary/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "diksiyonaryo-ph",
-      label: "Diksiyonaryo.ph",
-      urlTemplate: "https://diksiyonaryo.ph/search/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "pinoydictionary",
-      label: "PinoyDictionary",
-      urlTemplate: "https://tagalog.pinoydictionary.com/word/{query}/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  th: {
-  codes: {
-    wiktionaryEn: "Thai",
-    wiktionary: "th",
-    glosbe: "th",
-    tatoeba: "tha",
-    forvo: "th",
-    youglish: "thai"
-  },
-  links: [
-    {
-      id: "longdo",
-      label: "Longdo",
-      urlTemplate: "https://dict.longdo.com/search/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    }
-  ]
-  },
-  tr: {
-  codes: {
-    wiktionaryEn: "Turkish",
-    wiktionary: "tr",
-    glosbe: "tr",
-    tatoeba: "tur",
-    forvo: "tr",
-    reverso: "turkish",
-    youglish: "turkish"
-  },
-  links: [
-    {
-      id: "tdk",
-      label: "TDK Sozluk",
-      urlTemplate: "https://sozluk.gov.tr/?ara={query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "tureng",
-      label: "Tureng",
-      urlTemplate: "https://tureng.com/en/turkish-english/{query}",
-      components: [
-        "definition",
-        "sentences"
-      ]
-    },
-    {
-      id: "seslisozluk",
-      label: "Sesli Sozluk",
-      urlTemplate: "https://www.seslisozluk.net/{query}-nedir-ne-demek/",
-      components: [
-        "definition"
-      ]
-    }
-  ]
-  },
-  vi: {
-  codes: {
-    wiktionaryEn: "Vietnamese",
-    wiktionary: "vi",
-    glosbe: "vi",
-    tatoeba: "vie",
-    forvo: "vi",
-    youglish: "vietnamese"
-  },
-  links: [
-    {
-      id: "tratu-soha",
-      label: "Tra tu Soha",
-      urlTemplate: "http://tratu.soha.vn/dict/vn_vn/{query}",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "vdict",
-      label: "VDict",
-      urlTemplate: "https://vdict.com/{query},2,0,0.html",
-      components: [
-        "definition"
-      ]
-    },
-    {
-      id: "vtudien",
-      label: "Vtudien",
-      urlTemplate: "https://vtudien.com/viet-viet/dictionary/nghia-cua-tu-{query}",
-      components: [
-        "definition"
-      ]
-    }
-  ]
+  function kanjiSourceStateKey(sourceId) {
+    return `kanji:${sourceId}`;
   }
-};
-const catalogue = {
-  shared,
-  targets
-};
-const CATALOGUE = catalogue;
-/* @__PURE__ */ new Set([
-  ...CATALOGUE.shared.map((site) => site.id),
-  ...Object.values(CATALOGUE.targets).flatMap((entry) => entry.links.map((site) => site.id))
-]);
-const JPDB_LOOKUP_LINK = {
-  id: "jpdb",
-  label: "JPDB",
-  urlTemplate: "https://jpdb.io/search?q={query}",
-  enabled: true
-};
-const JITEN_LIVE_FREQUENCY_PILL = {
-  id: "jiten-frequency",
-  label: "Jiten",
-  urlTemplate: "",
-  enabled: true,
-  action: "frequency-live"
-};
-const JPDB_LIVE_FREQUENCY_PILL = {
-  id: "jpdb-frequency",
-  label: "JPDB",
-  urlTemplate: "",
-  enabled: true,
-  action: "frequency-live"
-};
-const JISHO_LOOKUP_LINK = {
-  id: "jisho",
-  label: "Jisho",
-  urlTemplate: "https://jisho.org/search/{query}",
-  enabled: false
-};
-const YOMU_LOOKUP_LINK = {
-  id: "yomu-search",
-  label: "Yomu",
-  urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
-  enabled: true
-};
-const JITEN_LOOKUP_LINK = {
-  id: "jiten",
-  label: "Jiten",
-  urlTemplate: "https://jiten.moe/parse?text={query}",
-  enabled: true
-};
-const BUNPRO_LOOKUP_LINK = {
-  id: "bunpro",
-  label: "Bunpro",
-  urlTemplate: "https://bunpro.jp/search?query={query}",
-  enabled: true
-};
-const BUNPRO_LIVE_FREQUENCY_PILL = {
-  id: "bunpro-frequency",
-  label: "Bunpro",
-  urlTemplate: "",
-  enabled: true,
-  action: "frequency-live"
-};
-const WEBLIO_LOOKUP_LINK = {
-  id: "weblio",
-  label: "Weblio",
-  urlTemplate: "https://www.weblio.jp/content/{query}",
-  enabled: false
-};
-const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
-const KOTOBANK_LOOKUP_LINK = {
-  id: "kotobank",
-  label: "Kotobank",
-  urlTemplate: "https://kotobank.jp/search?q={query}",
-  enabled: false
-};
-const TAKOBOTO_LOOKUP_LINK = {
-  id: "takoboto",
-  label: "Takoboto",
-  urlTemplate: "https://takoboto.jp/?q={query}",
-  enabled: false
-};
-const WIKTIONARY_LOOKUP_LINK = {
-  id: "wiktionary-ja",
-  label: "Wiktionary",
-  urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
-  enabled: false
-};
-const IMMERSION_KIT_LOOKUP_LINK = {
-  id: "immersion-kit",
-  label: "Immersion Kit",
-  urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
-  enabled: false
-};
-const NADESHIKO_LOOKUP_LINK = {
-  id: "nadeshiko",
-  label: "Nadeshiko",
-  urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
-  enabled: false
-};
-const UCHISEN_LOOKUP_LINK = {
-  id: "uchisen",
-  label: "Uchisen",
-  urlTemplate: "https://uchisen.com/kanji/{query}",
-  enabled: false
-};
-const COPY_LOOKUP_LINK = {
-  id: "copy",
-  label: "Copy",
-  urlTemplate: "",
-  enabled: true,
-  action: "copy"
-};
-const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-  YOMU_LOOKUP_LINK,
-  JITEN_LOOKUP_LINK,
-  JITEN_LIVE_FREQUENCY_PILL,
-  JPDB_LOOKUP_LINK,
-  JPDB_LIVE_FREQUENCY_PILL,
-  BUNPRO_LOOKUP_LINK,
-  BUNPRO_LIVE_FREQUENCY_PILL,
-  JISHO_LOOKUP_LINK,
-  WEBLIO_LOOKUP_LINK,
-  KOTOBANK_LOOKUP_LINK,
-  TAKOBOTO_LOOKUP_LINK,
-  WIKTIONARY_LOOKUP_LINK,
-  IMMERSION_KIT_LOOKUP_LINK,
-  NADESHIKO_LOOKUP_LINK,
-  UCHISEN_LOOKUP_LINK,
-  COPY_LOOKUP_LINK
-];
-[
-  { ...JPDB_LOOKUP_LINK, enabled: false },
-  { ...JISHO_LOOKUP_LINK, enabled: true },
-  COPY_LOOKUP_LINK
-];
-[[
-  // The Yomu-first default immediately before the Nadeshiko search pill was
-  // added. Untouched installs receive the new pill beside Immersion Kit;
-  // custom orders still keep their order and get new built-ins appended.
-  YOMU_LOOKUP_LINK.id,
-  JITEN_LOOKUP_LINK.id,
-  JITEN_LIVE_FREQUENCY_PILL.id,
-  JPDB_LOOKUP_LINK.id,
-  JPDB_LIVE_FREQUENCY_PILL.id,
-  BUNPRO_LOOKUP_LINK.id,
-  BUNPRO_LIVE_FREQUENCY_PILL.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  // The jiten-first default that shipped before Yomu was promoted to the front
-  // of the pill row. Users who never re-ordered their pills are migrated to the
-  // current Yomu-first default order instead of being pinned to the old layout.
-  JITEN_LOOKUP_LINK.id,
-  JITEN_LIVE_FREQUENCY_PILL.id,
-  JPDB_LOOKUP_LINK.id,
-  JPDB_LIVE_FREQUENCY_PILL.id,
-  YOMU_LOOKUP_LINK.id,
-  BUNPRO_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  YOMU_LOOKUP_LINK.id,
-  JITEN_LOOKUP_LINK.id,
-  JPDB_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  REMOVED_GOO_LOOKUP_LINK_ID,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  JITEN_LOOKUP_LINK.id,
-  JPDB_LOOKUP_LINK.id,
-  YOMU_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  REMOVED_GOO_LOOKUP_LINK_ID,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id
-], [
-  JPDB_LOOKUP_LINK.id,
-  JISHO_LOOKUP_LINK.id,
-  COPY_LOOKUP_LINK.id,
-  YOMU_LOOKUP_LINK.id,
-  JITEN_LOOKUP_LINK.id,
-  WEBLIO_LOOKUP_LINK.id,
-  REMOVED_GOO_LOOKUP_LINK_ID,
-  KOTOBANK_LOOKUP_LINK.id,
-  TAKOBOTO_LOOKUP_LINK.id,
-  WIKTIONARY_LOOKUP_LINK.id,
-  IMMERSION_KIT_LOOKUP_LINK.id,
-  UCHISEN_LOOKUP_LINK.id
-]];
-Logger.scope("Settings");
-const AUDIO_SOURCE_TYPE_VALUES = [
-  "jpod101",
-  "language-pod-101",
-  "jisho",
-  "bunpro",
-  "lingua-libre",
-  "wiktionary",
-  "jiten-tts",
-  "jpdb-tts",
-  "text-to-speech",
-  "text-to-speech-reading",
-  "custom",
-  "custom-json"
-];
-const DEFAULT_AUDIO_SOURCES = [
-  { type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-  { type: "jpod101", url: "", voice: "", enabled: false },
-  { type: "language-pod-101", url: "", voice: "", enabled: false },
-  { type: "jisho", url: "", voice: "", enabled: false },
-  { type: "bunpro", url: "", voice: "", enabled: false },
-  { type: "jiten-tts", url: "", voice: "", enabled: false },
-  { type: "jpdb-tts", url: "", voice: "", enabled: false },
-  { type: "text-to-speech", url: "", voice: "", enabled: false }
-];
-new Set(AUDIO_SOURCE_TYPE_VALUES);
-new Set(
-  DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
-const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-  "kanji-doodle",
-  "word",
-  "type-word",
-  "recall-cloze",
-  "listen-pitch",
-  "speaking"
-];
-new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
-({
-  languageProfiles: [createDefaultLanguageProfile()],
-  dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
-});
-new Set(FURIGANA_HIDE_STATE_GROUPS);
-new Set(
-  "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
-);
-new Set("heiban,atamadaka,nakadaka,odaka".split(","));
-const selectorPairs = (names, attributes = ["class", "id"]) => names.split(",").flatMap((name) => attributes.map((attribute) => `[${attribute}*="${name}" i]`)).join(",");
-const roleSelectors = (names) => names.split(",").map((name) => `[role="${name}"]`).join(",");
-`a[href],button,summary,label,${roleSelectors("button,link,menuitem,option,tab,checkbox,radio,switch")},[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less`;
-`[onclick],[tabindex]:not([tabindex="-1"]),${selectorPairs("audio,button,control,play,sound,speaker,toggle", ["class"])}`;
-`time,[datetime],[aria-label*="author" i],[aria-label*="username" i],${selectorPairs("author,byline,display-name,handle,header,meta,nickname,screen-name,user-name,username", ["class"])}`;
-`button,label,summary,${roleSelectors("button,tab,menuitem,option,checkbox,radio,switch,combobox")}`;
-`header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"],[role="dialog"],[role="listbox"],[role="menu"],[role="menubar"],[role="tablist"],[role="toolbar"],[aria-modal="true"],${selectorPairs("account,chooser,dialog,dropdown,login,menu,modal,panel,picker,profile,signin,toolbar")}`;
-`[role="alert"],[role="status"],[role="region"],[aria-live],${selectorPairs("alert,banner,notice,notification,snackbar,toast", ["class"])},${selectorPairs("assistant,prompt,question", ["class", "id"])}`;
-roleSelectors("option,menuitem,menuitemcheckbox,menuitemradio");
-`button,summary,label,${roleSelectors("button,tab,menuitem,menuitemcheckbox,menuitemradio,option,switch,checkbox,radio,combobox")},[slot="more-button"],.more-button,#more,#less`;
-roleSelectors("menu,menubar,toolbar,tablist");
-new Set(
-  "ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(",")
-);
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
-selectorPairs("control,toggle,player", ["class"]);
-new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
-const KANJI_WANIKANI_SOURCE_ID = "__kanji_wanikani__";
-Logger.scope("DictionaryArchiveCache");
-Logger.scope("Yomitan");
-new TextDecoder();
-Logger.scope("YomitanSettingsImport");
-Logger.scope("Yomitan");
-function definitionSourceStateKey(sourceId) {
-  return `definition-source:${sourceId}`;
-}
-function kanjiSourceStateKey(sourceId) {
-  return `kanji:${sourceId}`;
-}
-const KNOWN_TAGS = /* @__PURE__ */ new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
-const TAG_RE = /<(\/?)(radical|kanji|vocabulary|reading|meaning|ja)>/gu;
-function renderWanikaniMarkup(text) {
-  if (!text) return "";
-  let result = "";
-  let lastIndex = 0;
-  const openTags = [];
-  TAG_RE.lastIndex = 0;
-  let match;
-  while ((match = TAG_RE.exec(text)) !== null) {
-  const [full, closing, tag] = match;
-  result += escapeHtml(text.slice(lastIndex, match.index));
-  lastIndex = match.index + full.length;
-  if (!KNOWN_TAGS.has(tag)) continue;
-  if (closing) {
-    if (openTags.at(-1) === tag) {
-      result += "</span>";
-      openTags.pop();
-    } else {
-      result += escapeHtml(full);
+  const KNOWN_TAGS = /* @__PURE__ */ new Set(["radical", "kanji", "vocabulary", "reading", "meaning", "ja"]);
+  const TAG_RE = /<(\/?)(radical|kanji|vocabulary|reading|meaning|ja)>/gu;
+  function renderWanikaniMarkup(text) {
+    if (!text) return "";
+    let result = "";
+    let lastIndex = 0;
+    const openTags = [];
+    TAG_RE.lastIndex = 0;
+    let match;
+    while ((match = TAG_RE.exec(text)) !== null) {
+      const [full, closing, tag] = match;
+      result += escapeHtml(text.slice(lastIndex, match.index));
+      lastIndex = match.index + full.length;
+      if (!KNOWN_TAGS.has(tag)) continue;
+      if (closing) {
+        if (openTags.at(-1) === tag) {
+          result += "</span>";
+          openTags.pop();
+        } else {
+          result += escapeHtml(full);
+        }
+      } else {
+        result += `<span class="yomu-wanikani-tag yomu-wanikani-tag-${tag}">`;
+        openTags.push(tag);
+      }
     }
-  } else {
-    result += `<span class="yomu-wanikani-tag yomu-wanikani-tag-${tag}">`;
-    openTags.push(tag);
+    result += escapeHtml(text.slice(lastIndex));
+    while (openTags.pop()) result += "</span>";
+    return result;
   }
+  function escapeHtml(value) {
+    return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
   }
-  result += escapeHtml(text.slice(lastIndex));
-  while (openTags.pop()) result += "</span>";
-  return result;
-}
-function escapeHtml(value) {
-  return value.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;").replace(/"/gu, "&quot;").replace(/'/gu, "&#39;");
-}
-function renderWanikaniDefinitionMount(card, settings, sourceAttributes) {
-  if (!settings.wanikaniDefinitionsEnabled || !settings.wanikaniApiToken.trim()) return "";
-  return `<div data-wanikani-definition-mount data-wanikani-expression="${escapeHtml$1(card.spelling)}" data-wanikani-reading="${escapeHtml$1(card.reading)}">
+  function renderWanikaniDefinitionMount(card, settings, sourceAttributes) {
+    if (!settings.wanikaniDefinitionsEnabled || !settings.wanikaniApiToken.trim()) return "";
+    return `<div data-wanikani-definition-mount data-wanikani-expression="${escapeHtml$1(card.spelling)}" data-wanikani-reading="${escapeHtml$1(card.reading)}">
     ${renderLoadingSource(settings.wanikaniDefinitionsAlias || "WaniKani", sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)))}
   </div>`;
-}
-class WanikaniSourceController {
-  constructor(lookup, getSettings, sourceAttributes, onRendered) {
-  this.lookup = lookup;
-  this.getSettings = getSettings;
-  this.sourceAttributes = sourceAttributes;
-  this.onRendered = onRendered;
   }
-  installDefinitionMounts(root, card) {
-  for (const mount of root.querySelectorAll("[data-wanikani-definition-mount]")) {
-    if (mount.dataset.wanikaniLoading === "true" || mount.dataset.wanikaniLoaded === "true") continue;
-    mount.dataset.wanikaniLoading = "true";
-    void this.lookup.lookupCard(card).then((info) => {
-      if (!mount.isConnected) return;
-      if (!info) {
+  class WanikaniSourceController {
+    constructor(lookup, getSettings, sourceAttributes, onRendered) {
+      this.lookup = lookup;
+      this.getSettings = getSettings;
+      this.sourceAttributes = sourceAttributes;
+      this.onRendered = onRendered;
+    }
+    installDefinitionMounts(root, card) {
+      for (const mount of root.querySelectorAll("[data-wanikani-definition-mount]")) {
+        if (mount.dataset.wanikaniLoading === "true" || mount.dataset.wanikaniLoaded === "true") continue;
+        mount.dataset.wanikaniLoading = "true";
+        void this.lookup.lookupCard(card).then((info) => {
+          if (!mount.isConnected) return;
+          if (!info) {
+            mount.remove();
+            return;
+          }
+          const settings = this.getSettings();
+          setInnerHtml(mount, renderWanikaniSource(
+            info,
+            settings,
+            this.sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)),
+            // fallow-ignore-next-line code-duplication
+            settings.wanikaniDefinitionsAlias || "WaniKani"
+          ));
+          mount.dataset.wanikaniLoaded = "true";
+          this.onRendered?.(mount);
+        }).catch(() => {
+          if (mount.isConnected) mount.remove();
+        }).finally(() => delete mount.dataset.wanikaniLoading);
+      }
+    }
+    installKanjiMount(root, kanji) {
+      const mount = root.querySelector("[data-kanji-wanikani-mount]");
+      if (!mount || mount.dataset.wanikaniLoading === "true" || mount.dataset.wanikaniLoaded === "true") return;
+      const settings = this.getSettings();
+      if (!settings.wanikaniKanjiEnabled || !settings.wanikaniApiToken.trim()) {
         mount.remove();
         return;
       }
-      const settings = this.getSettings();
-      setInnerHtml(mount, renderWanikaniSource(
-        info,
-        settings,
-        this.sourceAttributes(definitionSourceStateKey(WANIKANI_DEFINITION_SOURCE_ID)),
-        // fallow-ignore-next-line code-duplication
-        settings.wanikaniDefinitionsAlias || "WaniKani"
-      ));
-      mount.dataset.wanikaniLoaded = "true";
-      this.onRendered?.(mount);
-    }).catch(() => {
-      if (mount.isConnected) mount.remove();
-    }).finally(() => delete mount.dataset.wanikaniLoading);
-  }
-  }
-  installKanjiMount(root, kanji) {
-  const mount = root.querySelector("[data-kanji-wanikani-mount]");
-  if (!mount || mount.dataset.wanikaniLoading === "true" || mount.dataset.wanikaniLoaded === "true") return;
-  const settings = this.getSettings();
-  if (!settings.wanikaniKanjiEnabled || !settings.wanikaniApiToken.trim()) {
-    mount.remove();
-    return;
-  }
-  mount.dataset.wanikaniLoading = "true";
-  setInnerHtml(mount, renderLoadingSource(settings.wanikaniKanjiAlias || "WaniKani", this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
-  void this.lookup.lookupKanji(kanji).then((info) => {
-    if (!mount.isConnected) return;
-    if (!info || info.subject.type !== "kanji") {
-      mount.remove();
-      return;
+      mount.dataset.wanikaniLoading = "true";
+      setInnerHtml(mount, renderLoadingSource(settings.wanikaniKanjiAlias || "WaniKani", this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID))));
+      void this.lookup.lookupKanji(kanji).then((info) => {
+        if (!mount.isConnected) return;
+        if (!info || info.subject.type !== "kanji") {
+          mount.remove();
+          return;
+        }
+        setInnerHtml(mount, renderWanikaniSource(
+          info,
+          settings,
+          this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID)),
+          // fallow-ignore-next-line code-duplication
+          settings.wanikaniKanjiAlias || "WaniKani"
+        ));
+        mount.dataset.wanikaniLoaded = "true";
+        this.onRendered?.(mount);
+      }).catch(() => {
+        if (mount.isConnected) mount.remove();
+      }).finally(() => delete mount.dataset.wanikaniLoading);
     }
-    setInnerHtml(mount, renderWanikaniSource(
-      info,
-      settings,
-      this.sourceAttributes(kanjiSourceStateKey(KANJI_WANIKANI_SOURCE_ID)),
-      // fallow-ignore-next-line code-duplication
-      settings.wanikaniKanjiAlias || "WaniKani"
-    ));
-    mount.dataset.wanikaniLoaded = "true";
-    this.onRendered?.(mount);
-  }).catch(() => {
-    if (mount.isConnected) mount.remove();
-  }).finally(() => delete mount.dataset.wanikaniLoading);
   }
-}
-function renderWanikaniSource(info, settings, attributes, label = "WaniKani") {
-  const subject = info.subject;
-  const meanings = subject.meanings.map((item) => `${escapeHtml$1(item.meaning)}${item.primary ? " <strong>primary</strong>" : ""}${item.acceptedAsCorrect ? "" : " <small>not accepted</small>"}`).join(", ");
-  const readings = subject.readings.map((item) => `${escapeHtml$1(item.reading)}${item.type ? ` <small>${escapeHtml$1(item.type)}</small>` : ""}${item.acceptedAsCorrect ? "" : " <small>not accepted</small>"}`).join(", ");
-  const acceptedAlternatives = subject.auxiliaryMeanings.filter((item) => item.type === "whitelist").map((item) => escapeHtml$1(item.meaning)).join(", ");
-  const blockedAlternatives = subject.auxiliaryMeanings.filter((item) => item.type === "blacklist").map((item) => escapeHtml$1(item.meaning)).join(", ");
-  const synonyms = info.studyMaterial?.meaningSynonyms.map(escapeHtml$1).join(", ") ?? "";
-  const stage = info.assignment ? wanikaniStageLabel$1(info.assignment.srsStage) : "";
-  const due = info.assignment?.availableAt ? formatDate(info.assignment.availableAt, settings.interfaceLanguage) : "";
-  const components = renderSubjectLinks("Components", info.components);
-  const similar = renderSubjectLinks("Visually similar", info.visuallySimilar);
-  const related = renderSubjectLinks("Related vocabulary", info.relatedVocabulary);
-  const sentences = subject.contextSentences.map((sentence) => `<li><span lang="ja">${escapeHtml$1(sentence.ja)}</span><br>${escapeHtml$1(sentence.en)}</li>`).join("");
-  const audio = preferredWanikaniAudio(subject.audio).map((item, index) => `<button type="button" class="jpdb-reader-action-pill" data-action="wanikani-audio" data-audio-url="${escapeHtml$1(item.url)}" aria-label="Play WaniKani pronunciation ${index + 1}"${item.voiceDescription ? ` title="${escapeHtml$1(item.voiceDescription)}"` : ""}>▶ ${escapeHtml$1(item.voiceActorName || `Audio ${index + 1}`)}</button>`).join(" ");
-  const publicDefinitionPayload = [
-  ...subject.meanings.map((item) => item.meaning),
-  ...subject.auxiliaryMeanings.filter((item) => item.type === "whitelist" || item.type === "blacklist").map((item) => item.meaning)
-  ].filter(Boolean).join("\n");
-  return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}>
+  function renderWanikaniSource(info, settings, attributes, label = "WaniKani") {
+    const subject = info.subject;
+    const meanings = subject.meanings.map((item) => `${escapeHtml$1(item.meaning)}${item.primary ? " <strong>primary</strong>" : ""}${item.acceptedAsCorrect ? "" : " <small>not accepted</small>"}`).join(", ");
+    const readings = subject.readings.map((item) => `${escapeHtml$1(item.reading)}${item.type ? ` <small>${escapeHtml$1(item.type)}</small>` : ""}${item.acceptedAsCorrect ? "" : " <small>not accepted</small>"}`).join(", ");
+    const acceptedAlternatives = subject.auxiliaryMeanings.filter((item) => item.type === "whitelist").map((item) => escapeHtml$1(item.meaning)).join(", ");
+    const blockedAlternatives = subject.auxiliaryMeanings.filter((item) => item.type === "blacklist").map((item) => escapeHtml$1(item.meaning)).join(", ");
+    const synonyms = info.studyMaterial?.meaningSynonyms.map(escapeHtml$1).join(", ") ?? "";
+    const stage = info.assignment ? wanikaniStageLabel$1(info.assignment.srsStage) : "";
+    const due = info.assignment?.availableAt ? formatDate(info.assignment.availableAt, settings.interfaceLanguage) : "";
+    const components = renderSubjectLinks("Components", info.components);
+    const similar = renderSubjectLinks("Visually similar", info.visuallySimilar);
+    const related = renderSubjectLinks("Related vocabulary", info.relatedVocabulary);
+    const sentences = subject.contextSentences.map((sentence) => `<li><span lang="ja">${escapeHtml$1(sentence.ja)}</span><br>${escapeHtml$1(sentence.en)}</li>`).join("");
+    const audio = preferredWanikaniAudio(subject.audio).map((item, index) => `<button type="button" class="jpdb-reader-action-pill" data-action="wanikani-audio" data-audio-url="${escapeHtml$1(item.url)}" aria-label="Play WaniKani pronunciation ${index + 1}"${item.voiceDescription ? ` title="${escapeHtml$1(item.voiceDescription)}"` : ""}>▶ ${escapeHtml$1(item.voiceActorName || `Audio ${index + 1}`)}</button>`).join(" ");
+    const publicDefinitionPayload = [
+      ...subject.meanings.map((item) => item.meaning),
+      ...subject.auxiliaryMeanings.filter((item) => item.type === "whitelist" || item.type === "blacklist").map((item) => item.meaning)
+    ].filter(Boolean).join("\n");
+    return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}>
     <summary class="jpdb-reader-local-title">${escapeHtml$1(label)}</summary>
     <div class="jpdb-reader-local-entry yomu-wanikani-body">
         <div class="jpdb-reader-meta">Level ${subject.level}${stage ? ` · ${escapeHtml$1(stage)}` : ""}${due ? ` · due ${escapeHtml$1(due)}` : ""}${info.reviewStatistic ? ` · ${info.reviewStatistic.percentageCorrect}% correct` : ""}</div>
@@ -9908,232 +10220,232 @@ function renderWanikaniSource(info, settings, attributes, label = "WaniKani") {
         ${safeExternalUrl(subject.documentUrl) ? `<p><a href="${escapeHtml$1(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">Open ${escapeHtml$1(subject.characters || subject.slug)} on WaniKani</a></p>` : ""}
     </div>
   </details>`;
-}
-function renderLoadingSource(label, attributes) {
-  return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}><summary class="jpdb-reader-local-title">${escapeHtml$1(label)}</summary><div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">Loading WaniKani…</div></div></details>`;
-}
-function renderMnemonic(label, value) {
-  return value ? `<div class="yomu-wanikani-mnemonic"><strong>${escapeHtml$1(label)}</strong><p>${renderWanikaniMarkup(value)}</p></div>` : "";
-}
-function renderNote(label, value) {
-  return value ? `<div><strong>${escapeHtml$1(label)}</strong><p>${escapeHtml$1(value)}</p></div>` : "";
-}
-function renderSubjectLinks(label, subjects) {
-  if (!subjects.length) return "";
-  return `<p><strong>${escapeHtml$1(label)}:</strong> ${subjects.map((subject) => safeExternalUrl(subject.documentUrl) ? `<a href="${escapeHtml$1(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml$1(subject.characters || primaryMeaning(subject) || subject.slug)}</a>` : escapeHtml$1(subject.characters || primaryMeaning(subject) || subject.slug)).join(", ")}</p>`;
-}
-function wanikaniStageLabel$1(stage) {
-  if (stage <= 0) return "lesson";
-  if (stage <= 4) return `apprentice ${stage}`;
-  if (stage <= 6) return `guru ${stage - 4}`;
-  return stage === 7 ? "master" : stage === 8 ? "enlightened" : "burned";
-}
-function formatDate(value, language) {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-function safeMediaUrl(value) {
-  try {
-  return new URL(value).protocol === "https:";
-  } catch {
-  return false;
   }
-}
-function preferredWanikaniAudio(items) {
-  const preferred = /* @__PURE__ */ new Map();
-  for (const item of items.filter((candidate) => safeMediaUrl(candidate.url))) {
-  const key = item.sourceId !== void 0 ? `source:${item.sourceId}` : item.voiceActorName || item.pronunciation || item.voiceGender ? `voice:${item.voiceActorName ?? ""}:${item.pronunciation ?? ""}:${item.voiceGender ?? ""}` : `url:${item.url}`;
-  const existing = preferred.get(key);
-  if (!existing || audioFormatPreference(item.contentType) > audioFormatPreference(existing.contentType)) {
-    preferred.set(key, item);
+  function renderLoadingSource(label, attributes) {
+    return `<details class="jpdb-reader-local jpdb-reader-source-card yomu-wanikani-source" data-source="wanikani" ${attributes}><summary class="jpdb-reader-local-title">${escapeHtml$1(label)}</summary><div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">Loading WaniKani…</div></div></details>`;
   }
+  function renderMnemonic(label, value) {
+    return value ? `<div class="yomu-wanikani-mnemonic"><strong>${escapeHtml$1(label)}</strong><p>${renderWanikaniMarkup(value)}</p></div>` : "";
   }
-  return [...preferred.values()];
-}
-function audioFormatPreference(contentType) {
-  if (contentType === "audio/mpeg") return 3;
-  if (contentType === "audio/webm") return 2;
-  if (contentType === "audio/ogg") return 1;
-  return 0;
-}
-function safeExternalUrl(value) {
-  try {
-  return new URL(value).protocol === "https:";
-  } catch {
-  return false;
+  function renderNote(label, value) {
+    return value ? `<div><strong>${escapeHtml$1(label)}</strong><p>${escapeHtml$1(value)}</p></div>` : "";
   }
-}
-const WANIKANI_DASHBOARD_URL = "https://www.wanikani.com/dashboard";
-function createWanikaniSrsAdapter(client) {
-  return {
-  id: "wanikani",
-  label: "WaniKani",
-  capabilities: { stats: true, queue: true, review: true, mine: false, import: false },
-  hasCredential: () => client.hasCredential(),
-  // /user must be verified before anything else is trusted or fetched.
-  verify: () => client.getUser().then(() => true, () => false),
-  stats: () => wanikaniStats(client),
-  queue: (limit) => wanikaniQueue(client, limit),
-  review: (request) => reviewWanikaniCard(client, request),
-  mine: () => Promise.reject(new WanikaniApiError("WaniKani has no API to add arbitrary words; only due reviews can be graded from Yomu."))
-  };
-}
-async function wanikaniStats(client) {
-  await client.getUser();
-  const summary = await client.getSummary();
-  return {
-  providerId: "wanikani",
-  fetchedAt: Date.now(),
-  reviewsDue: summaryDueCount(summary),
-  levelCounts: {},
-  raw: summary
-  };
-}
-async function wanikaniQueue(client, limit = 50) {
-  await client.getUser();
-  const maxLevel = await client.effectiveMaxLevel();
-  const summary = await client.getSummary();
-  const dueSubjectIds = summaryDueSubjectIds(summary);
-  const assignments = dueSubjectIds.size ? await client.getAssignments({ subjectIds: [...dueSubjectIds], immediatelyAvailableForReview: true }) : [];
-  const parsedAssignments = parseAssignments(assignments).filter((assignment) => dueSubjectIds.has(assignment.subjectId)).slice(0, Math.max(0, Math.floor(limit)));
-  if (!parsedAssignments.length) {
-  return { providerId: "wanikani", fetchedAt: Date.now(), cards: [], dueCount: 0, newCount: 0, reviewCount: 0 };
+  function renderSubjectLinks(label, subjects) {
+    if (!subjects.length) return "";
+    return `<p><strong>${escapeHtml$1(label)}:</strong> ${subjects.map((subject) => safeExternalUrl(subject.documentUrl) ? `<a href="${escapeHtml$1(subject.documentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml$1(subject.characters || primaryMeaning(subject) || subject.slug)}</a>` : escapeHtml$1(subject.characters || primaryMeaning(subject) || subject.slug)).join(", ")}</p>`;
   }
-  const rawSubjects = await client.getSubjects({ ids: parsedAssignments.map((assignment) => assignment.subjectId) });
-  const subjectById = /* @__PURE__ */ new Map();
-  for (const raw of rawSubjects) {
-  const subject = parseWanikaniSubject(raw);
-  if (subject) subjectById.set(subject.id, subject);
+  function wanikaniStageLabel$1(stage) {
+    if (stage <= 0) return "lesson";
+    if (stage <= 4) return `apprentice ${stage}`;
+    if (stage <= 6) return `guru ${stage - 4}`;
+    return stage === 7 ? "master" : stage === 8 ? "enlightened" : "burned";
   }
-  const allowedSubjects = new Set(subjectsWithinLevel([...subjectById.values()], maxLevel).map((subject) => subject.id));
-  const cards = parsedAssignments.filter((assignment) => allowedSubjects.has(assignment.subjectId)).map((assignment) => reviewableFromAssignment(assignment, subjectById.get(assignment.subjectId))).filter((card) => card !== null);
-  return {
-  providerId: "wanikani",
-  fetchedAt: Date.now(),
-  cards,
-  dueCount: cards.length,
-  newCount: cards.filter((card) => card.state.includes("new")).length,
-  reviewCount: cards.length
-  };
-}
-function reviewableFromAssignment(assignment, subject) {
-  if (!subject) return null;
-  return {
-  providerId: "wanikani",
-  providerCardId: String(assignment.id),
-  providerReviewId: String(assignment.id),
-  providerReviewableId: String(subject.id),
-  kind: subject.type === "radical" ? "unknown" : subject.type === "kanji" ? "kanji" : "vocabulary",
-  expression: subject.characters ?? subject.slug,
-  reading: subject.type === "radical" ? "" : primaryReading(subject) || (subject.characters ?? subject.slug),
-  meanings: [{ glosses: subject.meanings.map((meaning) => meaning.meaning), partOfSpeech: [] }],
-  state: wanikaniAssignmentCardState(assignment),
-  srsLevel: wanikaniStageLabel(assignment.srsStage),
-  dueAt: assignment.availableAt ? Date.parse(assignment.availableAt) : null,
-  sourceUrl: subject.documentUrl || WANIKANI_DASHBOARD_URL,
-  raw: { assignment, subject }
-  };
-}
-function wanikaniAssignmentCardState(assignment) {
-  if (assignment.burnedAt) return ["known"];
-  if (assignment.srsStage === 0) return ["new"];
-  if (assignment.availableAt && Date.parse(assignment.availableAt) <= Date.now()) {
-  return assignment.srsStage >= 7 ? ["due", "mastered"] : ["due", "learning"];
+  function formatDate(value, language) {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? "" : new Intl.DateTimeFormat(language === "ja" ? "ja-JP" : "en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
   }
-  if (assignment.srsStage >= 7) return ["mastered"];
-  return ["learning"];
-}
-function wanikaniStageLabel(srsStage) {
-  if (srsStage <= 0) return "lesson";
-  if (srsStage <= 4) return "apprentice";
-  if (srsStage <= 6) return "guru";
-  if (srsStage === 7) return "master";
-  if (srsStage === 8) return "enlightened";
-  return "burned";
-}
-function parseAssignments(raw) {
-  return raw.map(parseAssignment).filter((assignment) => assignment !== null);
-}
-function parseAssignment(raw) {
-  if (!isRecord(raw)) return null;
-  const data = isRecord(raw.data) ? raw.data : {};
-  const id = typeof raw.id === "number" ? raw.id : Number(raw.id);
-  const subjectId = typeof data.subject_id === "number" ? data.subject_id : Number(data.subject_id);
-  if (!Number.isFinite(id) || !Number.isFinite(subjectId)) return null;
-  return {
-  id,
-  subjectId,
-  subjectType: typeof data.subject_type === "string" ? data.subject_type : "",
-  srsStage: typeof data.srs_stage === "number" ? data.srs_stage : 0,
-  availableAt: typeof data.available_at === "string" ? data.available_at : null,
-  startedAt: typeof data.started_at === "string" ? data.started_at : null,
-  burnedAt: typeof data.burned_at === "string" ? data.burned_at : null,
-  unlockedAt: typeof data.unlocked_at === "string" ? data.unlocked_at : null
-  };
-}
-function summaryDueSubjectIds(summary) {
-  const ids = /* @__PURE__ */ new Set();
-  const reviews = isRecord(summary) && isRecord(summary.data) ? summary.data.reviews : void 0;
-  if (!Array.isArray(reviews)) return ids;
-  const now = Date.now();
-  for (const entry of reviews) {
-  if (!isRecord(entry)) continue;
-  const availableAt = typeof entry.available_at === "string" ? Date.parse(entry.available_at) : NaN;
-  if (Number.isFinite(availableAt) && availableAt > now) continue;
-  const subjectIds = Array.isArray(entry.subject_ids) ? entry.subject_ids : [];
-  for (const subjectId of subjectIds) if (typeof subjectId === "number") ids.add(subjectId);
+  function safeMediaUrl(value) {
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
   }
-  return ids;
-}
-function summaryDueCount(summary) {
-  return summaryDueSubjectIds(summary).size;
-}
-function wanikaniReviewInput(card, grade) {
-  const subject = isRecord(card.raw) && isRecord(card.raw.subject) ? card.raw.subject : void 0;
-  const isRadical = subject?.type === "radical";
-  const failed = grade === "nothing" || grade === "again" || grade === "fail" || grade === "something" || grade === "hard";
-  return {
-  incorrectMeaningAnswers: failed ? 1 : 0,
-  incorrectReadingAnswers: !failed || isRadical ? 0 : 1
-  };
-}
-async function reviewWanikaniCard(client, request) {
-  if (request.card.providerId !== "wanikani" || !request.card.state.includes("due")) {
-  throw new WanikaniApiError("Only a currently due WaniKani assignment can be reviewed. Reload the WaniKani queue and try again.");
+  function preferredWanikaniAudio(items) {
+    const preferred = /* @__PURE__ */ new Map();
+    for (const item of items.filter((candidate) => safeMediaUrl(candidate.url))) {
+      const key = item.sourceId !== void 0 ? `source:${item.sourceId}` : item.voiceActorName || item.pronunciation || item.voiceGender ? `voice:${item.voiceActorName ?? ""}:${item.pronunciation ?? ""}:${item.voiceGender ?? ""}` : `url:${item.url}`;
+      const existing = preferred.get(key);
+      if (!existing || audioFormatPreference(item.contentType) > audioFormatPreference(existing.contentType)) {
+        preferred.set(key, item);
+      }
+    }
+    return [...preferred.values()];
   }
-  const assignmentId = Number(request.card.providerCardId);
-  if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
-  throw new WanikaniApiError("WaniKani grading needs a valid assignment id. Reload the WaniKani queue and try again.");
+  function audioFormatPreference(contentType) {
+    if (contentType === "audio/mpeg") return 3;
+    if (contentType === "audio/webm") return 2;
+    if (contentType === "audio/ogg") return 1;
+    return 0;
   }
-  const input = wanikaniReviewInput(request.card, request.grade);
-  const raw = await client.createReview({
-  assignment_id: assignmentId,
-  incorrect_meaning_answers: input.incorrectMeaningAnswers,
-  incorrect_reading_answers: input.incorrectReadingAnswers
+  function safeExternalUrl(value) {
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  const WANIKANI_DASHBOARD_URL = "https://www.wanikani.com/dashboard";
+  function createWanikaniSrsAdapter(client) {
+    return {
+      id: "wanikani",
+      label: "WaniKani",
+      capabilities: { stats: true, queue: true, review: true, mine: false, import: false },
+      hasCredential: () => client.hasCredential(),
+      // /user must be verified before anything else is trusted or fetched.
+      verify: () => client.getUser().then(() => true, () => false),
+      stats: () => wanikaniStats(client),
+      queue: (limit) => wanikaniQueue(client, limit),
+      review: (request) => reviewWanikaniCard(client, request),
+      mine: () => Promise.reject(new WanikaniApiError("WaniKani has no API to add arbitrary words; only due reviews can be graded from Yomu."))
+    };
+  }
+  async function wanikaniStats(client) {
+    await client.getUser();
+    const summary = await client.getSummary();
+    return {
+      providerId: "wanikani",
+      fetchedAt: Date.now(),
+      reviewsDue: summaryDueCount(summary),
+      levelCounts: {},
+      raw: summary
+    };
+  }
+  async function wanikaniQueue(client, limit = 50) {
+    await client.getUser();
+    const maxLevel = await client.effectiveMaxLevel();
+    const summary = await client.getSummary();
+    const dueSubjectIds = summaryDueSubjectIds(summary);
+    const assignments = dueSubjectIds.size ? await client.getAssignments({ subjectIds: [...dueSubjectIds], immediatelyAvailableForReview: true }) : [];
+    const parsedAssignments = parseAssignments(assignments).filter((assignment) => dueSubjectIds.has(assignment.subjectId)).slice(0, Math.max(0, Math.floor(limit)));
+    if (!parsedAssignments.length) {
+      return { providerId: "wanikani", fetchedAt: Date.now(), cards: [], dueCount: 0, newCount: 0, reviewCount: 0 };
+    }
+    const rawSubjects = await client.getSubjects({ ids: parsedAssignments.map((assignment) => assignment.subjectId) });
+    const subjectById = /* @__PURE__ */ new Map();
+    for (const raw of rawSubjects) {
+      const subject = parseWanikaniSubject(raw);
+      if (subject) subjectById.set(subject.id, subject);
+    }
+    const allowedSubjects = new Set(subjectsWithinLevel([...subjectById.values()], maxLevel).map((subject) => subject.id));
+    const cards = parsedAssignments.filter((assignment) => allowedSubjects.has(assignment.subjectId)).map((assignment) => reviewableFromAssignment(assignment, subjectById.get(assignment.subjectId))).filter((card) => card !== null);
+    return {
+      providerId: "wanikani",
+      fetchedAt: Date.now(),
+      cards,
+      dueCount: cards.length,
+      newCount: cards.filter((card) => card.state.includes("new")).length,
+      reviewCount: cards.length
+    };
+  }
+  function reviewableFromAssignment(assignment, subject) {
+    if (!subject) return null;
+    return {
+      providerId: "wanikani",
+      providerCardId: String(assignment.id),
+      providerReviewId: String(assignment.id),
+      providerReviewableId: String(subject.id),
+      kind: subject.type === "radical" ? "unknown" : subject.type === "kanji" ? "kanji" : "vocabulary",
+      expression: subject.characters ?? subject.slug,
+      reading: subject.type === "radical" ? "" : primaryReading(subject) || (subject.characters ?? subject.slug),
+      meanings: [{ glosses: subject.meanings.map((meaning) => meaning.meaning), partOfSpeech: [] }],
+      state: wanikaniAssignmentCardState(assignment),
+      srsLevel: wanikaniStageLabel(assignment.srsStage),
+      dueAt: assignment.availableAt ? Date.parse(assignment.availableAt) : null,
+      sourceUrl: subject.documentUrl || WANIKANI_DASHBOARD_URL,
+      raw: { assignment, subject }
+    };
+  }
+  function wanikaniAssignmentCardState(assignment) {
+    if (assignment.burnedAt) return ["known"];
+    if (assignment.srsStage === 0) return ["new"];
+    if (assignment.availableAt && Date.parse(assignment.availableAt) <= Date.now()) {
+      return assignment.srsStage >= 7 ? ["due", "mastered"] : ["due", "learning"];
+    }
+    if (assignment.srsStage >= 7) return ["mastered"];
+    return ["learning"];
+  }
+  function wanikaniStageLabel(srsStage) {
+    if (srsStage <= 0) return "lesson";
+    if (srsStage <= 4) return "apprentice";
+    if (srsStage <= 6) return "guru";
+    if (srsStage === 7) return "master";
+    if (srsStage === 8) return "enlightened";
+    return "burned";
+  }
+  function parseAssignments(raw) {
+    return raw.map(parseAssignment).filter((assignment) => assignment !== null);
+  }
+  function parseAssignment(raw) {
+    if (!isRecord(raw)) return null;
+    const data = isRecord(raw.data) ? raw.data : {};
+    const id = typeof raw.id === "number" ? raw.id : Number(raw.id);
+    const subjectId = typeof data.subject_id === "number" ? data.subject_id : Number(data.subject_id);
+    if (!Number.isFinite(id) || !Number.isFinite(subjectId)) return null;
+    return {
+      id,
+      subjectId,
+      subjectType: typeof data.subject_type === "string" ? data.subject_type : "",
+      srsStage: typeof data.srs_stage === "number" ? data.srs_stage : 0,
+      availableAt: typeof data.available_at === "string" ? data.available_at : null,
+      startedAt: typeof data.started_at === "string" ? data.started_at : null,
+      burnedAt: typeof data.burned_at === "string" ? data.burned_at : null,
+      unlockedAt: typeof data.unlocked_at === "string" ? data.unlocked_at : null
+    };
+  }
+  function summaryDueSubjectIds(summary) {
+    const ids = /* @__PURE__ */ new Set();
+    const reviews = isRecord(summary) && isRecord(summary.data) ? summary.data.reviews : void 0;
+    if (!Array.isArray(reviews)) return ids;
+    const now = Date.now();
+    for (const entry of reviews) {
+      if (!isRecord(entry)) continue;
+      const availableAt = typeof entry.available_at === "string" ? Date.parse(entry.available_at) : NaN;
+      if (Number.isFinite(availableAt) && availableAt > now) continue;
+      const subjectIds = Array.isArray(entry.subject_ids) ? entry.subject_ids : [];
+      for (const subjectId of subjectIds) if (typeof subjectId === "number") ids.add(subjectId);
+    }
+    return ids;
+  }
+  function summaryDueCount(summary) {
+    return summaryDueSubjectIds(summary).size;
+  }
+  function wanikaniReviewInput(card, grade) {
+    const subject = isRecord(card.raw) && isRecord(card.raw.subject) ? card.raw.subject : void 0;
+    const isRadical = subject?.type === "radical";
+    const failed = grade === "nothing" || grade === "again" || grade === "fail" || grade === "something" || grade === "hard";
+    return {
+      incorrectMeaningAnswers: failed ? 1 : 0,
+      incorrectReadingAnswers: !failed || isRadical ? 0 : 1
+    };
+  }
+  async function reviewWanikaniCard(client, request) {
+    if (request.card.providerId !== "wanikani" || !request.card.state.includes("due")) {
+      throw new WanikaniApiError("Only a currently due WaniKani assignment can be reviewed. Reload the WaniKani queue and try again.");
+    }
+    const assignmentId = Number(request.card.providerCardId);
+    if (!Number.isInteger(assignmentId) || assignmentId <= 0) {
+      throw new WanikaniApiError("WaniKani grading needs a valid assignment id. Reload the WaniKani queue and try again.");
+    }
+    const input = wanikaniReviewInput(request.card, request.grade);
+    const raw = await client.createReview({
+      assignment_id: assignmentId,
+      incorrect_meaning_answers: input.incorrectMeaningAnswers,
+      incorrect_reading_answers: input.incorrectReadingAnswers
+    });
+    const response = isRecord(raw) ? raw : void 0;
+    const reviewData = response && isRecord(response.data) ? response.data : response;
+    const resourcesUpdated = response && isRecord(response.resources_updated) ? response.resources_updated : reviewData && isRecord(reviewData.resources_updated) ? reviewData.resources_updated : void 0;
+    const assignment = parseAssignment(resourcesUpdated && isRecord(resourcesUpdated.assignment) ? resourcesUpdated.assignment : reviewData);
+    if (!assignment) return { card: request.card, raw };
+    return {
+      card: {
+        ...request.card,
+        state: wanikaniAssignmentCardState(assignment),
+        srsLevel: wanikaniStageLabel(assignment.srsStage),
+        dueAt: assignment.availableAt ? Date.parse(assignment.availableAt) : null
+      },
+      raw
+    };
+  }
+  function isRecord(value) {
+    return typeof value === "object" && value !== null;
+  }
+  registerYomuCompanion("wanikani", {
+    WanikaniClient,
+    WanikaniLookupClient,
+    WanikaniSourceController,
+    renderWanikaniDefinitionMount,
+    createWanikaniSrsAdapter
   });
-  const response = isRecord(raw) ? raw : void 0;
-  const reviewData = response && isRecord(response.data) ? response.data : response;
-  const resourcesUpdated = response && isRecord(response.resources_updated) ? response.resources_updated : reviewData && isRecord(reviewData.resources_updated) ? reviewData.resources_updated : void 0;
-  const assignment = parseAssignment(resourcesUpdated && isRecord(resourcesUpdated.assignment) ? resourcesUpdated.assignment : reviewData);
-  if (!assignment) return { card: request.card, raw };
-  return {
-  card: {
-    ...request.card,
-    state: wanikaniAssignmentCardState(assignment),
-    srsLevel: wanikaniStageLabel(assignment.srsStage),
-    dueAt: assignment.availableAt ? Date.parse(assignment.availableAt) : null
-  },
-  raw
-  };
-}
-function isRecord(value) {
-  return typeof value === "object" && value !== null;
-}
-registerYomuCompanion("wanikani", {
-  WanikaniClient,
-  WanikaniLookupClient,
-  WanikaniSourceController,
-  renderWanikaniDefinitionMount,
-  createWanikaniSrsAdapter
-});
 })();
