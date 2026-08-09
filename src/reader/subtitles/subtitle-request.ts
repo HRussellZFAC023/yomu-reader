@@ -1,8 +1,8 @@
 import { isYouTubePage } from './subtitle-youtube';
 import { getUserscriptHttpRequest, requestViaUserscriptManager } from '../userscript/index';
+import { SubtitleRequestPolicy } from './subtitle-request-policy';
 
 const SUBTITLE_REQUEST_TIMEOUT_MS = 8000;
-const SUBTITLE_REQUEST_MAX_ATTEMPTS = 2;
 const SUBTITLE_REQUEST_RETRY_DELAY_MS = 250;
 
 class SubtitleRequestError extends Error {
@@ -12,21 +12,25 @@ class SubtitleRequestError extends Error {
     }
 }
 
-export async function requestSubtitleText(url: string): Promise<string> {
+const subtitleRequestPolicy = new SubtitleRequestPolicy({
+    classifyFailure: error => ({ status: error instanceof SubtitleRequestError ? error.status : undefined }),
+});
+
+export function requestSubtitleText(url: string): Promise<string> {
     if (/^(blob|data):/i.test(url)) {
         return fetchSubtitleText(url);
     }
-    let lastError: unknown;
-    for (let attempt = 0; attempt < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt += 1) {
-        try {
-            return await requestSubtitleTextOnce(url);
-        } catch (error) {
-            lastError = error;
-            if (!isRetryableSubtitleRequestError(error) || attempt + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
-            await delaySubtitleRetry();
-        }
+    return subtitleRequestPolicy.run(url, () => requestSubtitleTextWithRetry(url));
+}
+
+async function requestSubtitleTextWithRetry(url: string): Promise<string> {
+    try {
+        return await requestSubtitleTextOnce(url);
+    } catch (error) {
+        if (!shouldRetrySubtitleRequest(error)) throw error;
+        await delaySubtitleRetry();
+        return requestSubtitleTextOnce(url);
     }
-    throw lastError;
 }
 
 function requestSubtitleTextOnce(url: string): Promise<string> {
@@ -105,6 +109,14 @@ function isTransientSubtitleStatus(status: number): boolean {
 
 function isRetryableSubtitleRequestError(error: unknown): boolean {
     return !(error instanceof SubtitleRequestError) || error.retryable;
+}
+
+function shouldRetrySubtitleRequest(error: unknown): boolean {
+    // A 429 is an instruction to slow down, not a transport interruption.
+    // Retrying it 250 ms later only deepens the rate limit; the shared policy
+    // schedules the next probe instead.
+    return isRetryableSubtitleRequestError(error)
+        && (!(error instanceof SubtitleRequestError) || error.status !== 429);
 }
 
 function shouldTryAlternateSubtitleTransport(error: unknown): boolean {
