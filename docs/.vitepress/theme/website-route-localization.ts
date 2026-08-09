@@ -52,6 +52,11 @@ function syncPublishedLocaleLinks(): void {
             'href',
             correspondingWebsiteLocaleHref(window.location.pathname, targetLocale),
         );
+        // Locale routes have complete reviewed SSR documents. VitePress skips
+        // links with an explicit target, allowing the browser to load that
+        // document atomically instead of painting the previous language after
+        // its SPA router has already changed the pathname.
+        link.setAttribute('target', '_self');
     });
 }
 

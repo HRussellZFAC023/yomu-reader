@@ -10,6 +10,7 @@ const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'),
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
 const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
+const docsLocaleBrowserSmoke = readFileSync(join(process.cwd(), 'scripts/docs-localization-browser-smoke.mjs'), 'utf8');
 const readerSyncScript = readFileSync(join(process.cwd(), 'scripts/sync-docs-userscript.cjs'), 'utf8');
 const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
     scripts: Record<string, string>;
@@ -172,6 +173,8 @@ describe('release workflow safety', () => {
         expect(smokeStep).toContain('curl --fail --silent "${YOMU_DOCS_PREVIEW_URL}/ja/"');
         expect(smokeStep).toContain('npm run docs:locales:browser');
         expect(smokeStep).not.toContain('continue-on-error:');
+        expect(docsLocaleBrowserSmoke).toContain("page.waitForNavigation({ waitUntil: 'domcontentloaded' })");
+        expect(docsLocaleBrowserSmoke).toContain('did not load its server-rendered document');
     });
 
     it('runs the cross-browser layout release boundary before PRs can merge', () => {

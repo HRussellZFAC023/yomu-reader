@@ -138,6 +138,19 @@ describe('reviewed website locale contract', () => {
         expect(document.querySelector('.VPNavBarTranslations a')?.getAttribute('href')).toBe('/ja/');
     });
 
+    it('leaves locale choices to browser document navigation instead of the VitePress router', () => {
+        window.history.replaceState({}, '', '/learn/reading');
+        document.body.innerHTML = `
+            <div class="VPNavBarTranslations">
+                <a href="/ja/learn/reading"><span>日本語</span></a>
+            </div>
+        `;
+        syncWebsiteRouteLocalization(undefined);
+        const link = document.querySelector<HTMLAnchorElement>('.VPNavBarTranslations a');
+        expect(link?.getAttribute('href')).toBe('/ja/learn/reading');
+        expect(link?.getAttribute('target')).toBe('_self');
+    });
+
     it('uses stable semantic messages and route publications', () => {
         expect(websiteMessage('docs.nav.learningPath', 'ja')).toBe('学習の道筋');
         expect(websiteLocaleForPathname('/ja/learn/reading')).toBe('ja');

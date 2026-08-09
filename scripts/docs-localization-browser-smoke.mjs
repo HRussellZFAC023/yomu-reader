@@ -56,7 +56,7 @@ try {
 
     const frames = await page.evaluate(() => window.__yomuLocaleFrames?.length ?? 0);
     assert.ok(frames >= 1, 'first-frame probe did not observe the final route rendering');
-    console.log(`Docs locale browser smoke passed: SSR/hydration, SPA metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots).`);
+    console.log(`Docs locale browser smoke passed: SSR/hydration, route metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots).`);
 } finally {
     await browser.close();
 }
@@ -92,10 +92,15 @@ async function installFirstFrameProbe(page) {
 
 async function chooseLocale(page, label, href) {
     await page.locator(`.VPNavBarTranslations button[aria-label="${label}"]`).click();
-    await Promise.all([
-        page.waitForURL(url => url.pathname === href),
+    const [navigationResponse] = await Promise.all([
+        page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
         page.locator(`.VPNavBarTranslations a[href="${href}"]`).click(),
     ]);
+    assert.ok(
+        navigationResponse?.ok(),
+        `locale choice ${href} did not load its server-rendered document`,
+    );
+    assert.equal(new URL(navigationResponse.url()).pathname, href);
 }
 
 async function assertHomepage(page, pathname, lang) {
