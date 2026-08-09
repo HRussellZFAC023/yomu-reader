@@ -1,0 +1,72 @@
+import {
+    PITCH_CLASSES,
+    effectiveTokenRubies,
+    inferredInflectedSurfaceRubies,
+    isParticleCard,
+    localRubyRange,
+    miningInsightTokenKey,
+    miningInsightTokenKeys,
+    nonOverlappingTokens,
+    readerCardId,
+    readerCardSource,
+    readerReadingIndex,
+    readerWordClassName,
+    renderHighlightedTextHtml,
+    renderKanjiNavigationText,
+    renderRuby,
+    renderTokenReadings,
+    shouldHideFuriganaForCardState,
+    shouldRenderRuby,
+    tokenPitchClass,
+} from '../dom/token-text-rendering';
+import {
+    mergeStoredYomuSrsCards,
+    mergeStoredYomuSrsDecks,
+    normalizeStoredYomuSrsDeck,
+    removeAcademyVocabularyProvenance,
+    upsertAcademyVocabulary,
+} from '../srs/local-yomu-deck';
+import {
+    addViewportChangeListeners,
+    createHandleDragController,
+    firstChangedTouch,
+    getContainedClosest,
+} from '../popup/handle-drag';
+import { registerAggregateRuntimeModules } from './aggregate-runtime-modules';
+
+registerAggregateRuntimeModules({
+    tokenTextRendering: {
+        PITCH_CLASSES,
+        effectiveTokenRubies,
+        inferredInflectedSurfaceRubies,
+        isParticleCard,
+        localRubyRange,
+        miningInsightTokenKey,
+        miningInsightTokenKeys,
+        nonOverlappingTokens,
+        readerCardId,
+        readerCardSource,
+        readerReadingIndex,
+        readerWordClassName,
+        renderHighlightedTextHtml,
+        renderKanjiNavigationText,
+        renderRuby,
+        renderTokenReadings,
+        shouldHideFuriganaForCardState,
+        shouldRenderRuby,
+        tokenPitchClass,
+    },
+    localYomuDeck: {
+        mergeStoredYomuSrsCards,
+        mergeStoredYomuSrsDecks,
+        normalizeStoredYomuSrsDeck,
+        removeAcademyVocabularyProvenance,
+        upsertAcademyVocabulary,
+    },
+    handleDrag: {
+        addViewportChangeListeners,
+        createHandleDragController,
+        firstChangedTouch,
+        getContainedClosest,
+    },
+});

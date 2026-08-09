@@ -11,6 +11,12 @@ import { isUnifiedIdeograph } from '../languages/han';
 import { activeLearningTarget, learningTargetModuleFor } from '../languages/target-runtime';
 import type { LearningTargetModule } from '../languages/types';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
+import {
+    type KanjiNavigationRenderOptions,
+} from './token-kanji-navigation';
+
+export { kanjiNavigationForElement } from './token-kanji-navigation';
+export type { KanjiNavigationRenderOptions } from './token-kanji-navigation';
 
 const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
@@ -27,11 +33,6 @@ const FURIGANA_GROUP_STATES: Record<ReaderSettings['furiganaHiddenStateGroups'][
     due: ['due'],
     failed: ['failed'],
 };
-
-export interface KanjiNavigationRenderOptions {
-    enabled: boolean;
-    label: string;
-}
 
 export interface TokenRenderOptions {
     allowRuby?: boolean;
@@ -277,17 +278,7 @@ export function renderRuby(
     kanjiNavigation?: KanjiNavigationRenderOptions,
     preserveTokenRubies = false,
 ): string {
-    let html = '';
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-        const start = ruby.start - token.start;
-        const end = ruby.end - token.start;
-        html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-        html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
-        localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, 'inline');
 }
 
 export function renderDetachedReadings(
@@ -296,16 +287,26 @@ export function renderDetachedReadings(
     kanjiNavigation?: KanjiNavigationRenderOptions,
     preserveTokenRubies = false,
 ): string {
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, 'detached');
+}
+
+export function renderTokenReadings(
+    surface: string,
+    token: JPDBToken,
+    kanjiNavigation: KanjiNavigationRenderOptions | undefined,
+    preserveTokenRubies: boolean,
+    layout: 'inline' | 'detached',
+): string {
     let html = '';
     let localOffset = 0;
     for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
         const start = ruby.start - token.start;
         const end = ruby.end - token.start;
         html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-        html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
-        html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-        html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span>`;
-        html += '</span>';
+        const base = renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation);
+        html += layout === 'detached'
+            ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span></span>`
+            : `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
         localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -598,15 +599,6 @@ function rubyBaseKanaRuns(base: string): RubyBaseKanaRun[] {
         }
     }
     return runs;
-}
-
-export function kanjiNavigationForElement(element: HTMLElement): KanjiNavigationRenderOptions | undefined {
-    const host = element.closest<HTMLElement>('[data-jpdb-reader-kanji-nav]');
-    if (!host) return undefined;
-    return {
-        enabled: true,
-        label: host.dataset.jpdbReaderKanjiNavLabel || 'Show kanji',
-    };
 }
 
 export function renderKanjiNavigationText(value: string, options?: KanjiNavigationRenderOptions): string {

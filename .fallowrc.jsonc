@@ -112,6 +112,9 @@
     "src/reader/app/i18n-companion.ts",
     "src/reader/study/mining-context-companion.ts",
     "src/reader/study/sources-companion.ts",
+    "src/reader/dom/token-text-rendering-companion.ts",
+    "src/reader/popup/handle-drag-companion.ts",
+    "src/reader/srs/local-yomu-deck-companion.ts",
     // Greasy Fork companion builds substitute these facade modules through
     // string-valued Vite aliases, so the static import graph cannot discover
     // them from their source import specifiers.

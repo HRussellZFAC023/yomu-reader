@@ -167,6 +167,32 @@ function readerResolveConfig(command: string) {
         alias['./target-runtime'] = targetRuntimeCompanion;
         alias['../languages/target-runtime'] = targetRuntimeCompanion;
         alias['../../languages/target-runtime'] = targetRuntimeCompanion;
+        const tokenTextRenderingCompanion = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'dom',
+            'token-text-rendering-companion.ts',
+        );
+        alias['./token-text-rendering'] = tokenTextRenderingCompanion;
+        alias['../dom/token-text-rendering'] = tokenTextRenderingCompanion;
+        const localYomuDeckCompanion = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'srs',
+            'local-yomu-deck-companion.ts',
+        );
+        alias['./local-yomu-deck'] = localYomuDeckCompanion;
+        const handleDragCompanion = path.join(
+            configRoot,
+            'src',
+            'reader',
+            'popup',
+            'handle-drag-companion.ts',
+        );
+        alias['./handle-drag'] = handleDragCompanion;
+        alias['../popup/handle-drag'] = handleDragCompanion;
         alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
         alias['./decoration-policy'] = path.join(configRoot, 'src', 'reader', 'dom', 'decoration-policy-companion.ts');
         alias['./structured-content'] = path.join(configRoot, 'src', 'reader', 'dictionaries', 'yomitan', 'structured-content-companion.ts');
