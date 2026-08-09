@@ -167,7 +167,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('falls back to Android InnerTube tracks when YouTube web timedtext is empty', async () => {
+    it('falls back to Android InnerTube tracks when YouTube web timedtext transport is unavailable', async () => {
         const { requestedUrls, restore } = stubYouTubeAndroidFallbackEnvironment({
             hl: 'en',
             captionTrack: testYouTubeCaptionTrack({
@@ -186,8 +186,8 @@ describe('reader helpers', () => {
             }, {
                 requestText: async url => {
                     requestedUrls.push(url);
-                    if (!url.includes('android=1')) return '';
-                    if (new URL(url).searchParams.get('fmt') !== 'json3') return '';
+                    if (!url.includes('android=1')) throw new Error('web timedtext unavailable');
+                    if (new URL(url).searchParams.get('fmt') !== 'json3') throw new Error('try Android json3');
                     return JSON.stringify({
                         events: [
                             { tStartMs: 1250, dDurationMs: 1750, segs: [{ utf8: '今日は' }, { utf8: '読む。' }] },
@@ -227,8 +227,8 @@ describe('reader helpers', () => {
             }, {
                 requestText: async url => {
                     requestedUrls.push(url);
-                    if (!url.includes('android=1')) return '';
-                    if (new URL(url).searchParams.get('fmt') !== 'json3') return '';
+                    if (!url.includes('android=1')) throw new Error('web timedtext unavailable');
+                    if (new URL(url).searchParams.get('fmt') !== 'json3') throw new Error('try Android json3');
                     return JSON.stringify({
                         events: [
                             { tStartMs: 1000, dDurationMs: 2000, segs: [{ utf8: '今日は' }, { utf8: '読む。' }] },

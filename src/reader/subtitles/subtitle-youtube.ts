@@ -6,6 +6,18 @@ import { isYouTubeAppHostname } from '../app/youtube-host';
 
 const YOUTUBE_VIDEO_PLAYER_SELECTOR = '#movie_player, .html5-video-player';
 const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
+const YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS = 15_000;
+const YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES = 96;
+const YOUTUBE_CAPTION_SEMANTIC_MISS = Symbol('youtube-caption-semantic-miss');
+
+type YouTubeCaptionRequestText = (url: string) => Promise<string>;
+
+interface YouTubeCaptionLoadState {
+    semanticMisses: Map<string, number>;
+    loads: Map<string, Promise<SubtitleCue[]>>;
+}
+
+const youtubeCaptionLoadStates = new WeakMap<YouTubeCaptionRequestText, YouTubeCaptionLoadState>();
 
 export interface YouTubeSubtitleTrack {
     label: string;
@@ -87,25 +99,58 @@ export async function discoverYouTubeCaptionTracks(options: YouTubeCaptionDiscov
     ]);
 }
 
-export async function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
+export function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
     track: T,
     options: YouTubeTrackLoadOptions<T>,
 ): Promise<SubtitleCue[]> {
-    if (!track.url) return [];
+    if (!track.url) return Promise.resolve([]);
     applyPreferredYouTubeCaptionCandidate(track);
+    const sourceUrl = track.url;
+    const state = youtubeCaptionLoadState(options.requestText);
+    const loadKey = youtubeCaptionLoadKey(track);
+    if (freshYouTubeCaptionSemanticMiss(state, loadKey)) return Promise.resolve([]);
+    const existing = state.loads.get(loadKey);
+    if (existing) return existing;
+
+    const request = loadYouTubeTrackCuesUncached(track, options, state, loadKey, sourceUrl);
+    const tracked = request.finally(() => {
+        if (state.loads.get(loadKey) === tracked) state.loads.delete(loadKey);
+    });
+    state.loads.set(loadKey, tracked);
+    return tracked;
+}
+
+async function loadYouTubeTrackCuesUncached<T extends YouTubeSubtitleTrack>(
+    track: T,
+    options: YouTubeTrackLoadOptions<T>,
+    state: YouTubeCaptionLoadState,
+    loadKey: string,
+    sourceUrl: string,
+): Promise<SubtitleCue[]> {
     const tried = new Set<string>();
-    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(track.url), options, tried);
+    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(sourceUrl), options, tried);
+    if (primary === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+        rememberYouTubeCaptionSemanticMiss(state, loadKey);
+        return [];
+    }
     if (primary.length) return primary;
-    return loadFallbackYouTubeTrackCues(track, options, tried);
+    return loadFallbackYouTubeTrackCues(track, options, state, tried);
 }
 
 async function loadFallbackYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
     track: T,
     options: YouTubeTrackLoadOptions<T>,
+    state: YouTubeCaptionLoadState,
     tried: Set<string>,
 ): Promise<SubtitleCue[]> {
     for (const candidate of await fallbackYouTubeCaptionCandidates(track)) {
         const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
+        if (cues === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+            track.url = candidate.url;
+            track.youtubeTrack = candidate.raw;
+            rememberYouTubeCaptionSemanticMiss(state, youtubeCaptionLoadKey(track));
+            return [];
+        }
         if (!cues.length) continue;
         track.url = candidate.url;
         track.youtubeTrack = candidate.raw;
@@ -119,24 +164,33 @@ async function loadYouTubeCueUrls<T extends YouTubeSubtitleTrack>(
     urls: string[],
     options: YouTubeTrackLoadOptions<T>,
     tried: Set<string>,
-): Promise<SubtitleCue[]> {
+): Promise<SubtitleCue[] | typeof YOUTUBE_CAPTION_SEMANTIC_MISS> {
     for (const url of urls) {
         if (tried.has(url)) continue;
         tried.add(url);
         const cues = await loadYouTubeCueUrl(track, url, options);
-        if (cues.length) return cues;
+        if (youtubeCueLoadSettled(cues)) return cues;
     }
     return [];
+}
+
+function youtubeCueLoadSettled(
+    cues: SubtitleCue[] | typeof YOUTUBE_CAPTION_SEMANTIC_MISS,
+): boolean {
+    return cues === YOUTUBE_CAPTION_SEMANTIC_MISS || cues.length > 0;
 }
 
 async function loadYouTubeCueUrl<T extends YouTubeSubtitleTrack>(
     track: T,
     url: string,
     options: YouTubeTrackLoadOptions<T>,
-): Promise<SubtitleCue[]> {
+): Promise<SubtitleCue[] | typeof YOUTUBE_CAPTION_SEMANTIC_MISS> {
     try {
         const text = await options.requestText(url);
-        if (!text.trim()) throw new Error('YouTube timedtext response was empty.');
+        // A successful but empty timedtext response describes this caption
+        // source, not a broken serialization format. Probing srv3/json3/vtt
+        // and the base URL only repeats the same semantic miss.
+        if (!text.trim()) return YOUTUBE_CAPTION_SEMANTIC_MISS;
         return normalizeSubtitleCues(parseSubtitleText(text, {
             smoothYouTubeFragments: true,
             youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track),
@@ -144,6 +198,59 @@ async function loadYouTubeCueUrl<T extends YouTubeSubtitleTrack>(
     } catch (error) {
         options.onRequestError?.(track, url, error);
         return [];
+    }
+}
+
+export function hasFreshYouTubeCaptionSemanticMiss(
+    track: YouTubeSubtitleTrack,
+    requestText: YouTubeCaptionRequestText,
+): boolean {
+    return Boolean(track.url)
+        && freshYouTubeCaptionSemanticMiss(youtubeCaptionLoadState(requestText), youtubeCaptionLoadKey(track));
+}
+
+function youtubeCaptionLoadState(requestText: YouTubeCaptionRequestText): YouTubeCaptionLoadState {
+    const existing = youtubeCaptionLoadStates.get(requestText);
+    if (existing) return existing;
+    const created = { semanticMisses: new Map<string, number>(), loads: new Map<string, Promise<SubtitleCue[]>>() };
+    youtubeCaptionLoadStates.set(requestText, created);
+    return created;
+}
+
+function youtubeCaptionLoadKey(track: YouTubeSubtitleTrack): string {
+    return `${youtubeCaptionTrackIdentity(track)}|${youtubeCaptionSourceVersion(track.url)}`;
+}
+
+function youtubeCaptionSourceVersion(url: string | undefined): string {
+    if (!url) return '';
+    try {
+        const parsed = new URL(url, typeof location === 'undefined' ? 'https://www.youtube.com/' : location.href);
+        parsed.hash = '';
+        parsed.searchParams.delete('fmt');
+        parsed.searchParams.sort();
+        return parsed.href;
+    } catch {
+        return url;
+    }
+}
+
+function freshYouTubeCaptionSemanticMiss(state: YouTubeCaptionLoadState, key: string, now = Date.now()): boolean {
+    pruneYouTubeCaptionSemanticMisses(state, now);
+    return (state.semanticMisses.get(key) ?? 0) > now;
+}
+
+function rememberYouTubeCaptionSemanticMiss(state: YouTubeCaptionLoadState, key: string, now = Date.now()): void {
+    state.semanticMisses.delete(key);
+    state.semanticMisses.set(key, now + YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS);
+    pruneYouTubeCaptionSemanticMisses(state, now);
+    while (state.semanticMisses.size > YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES) {
+        state.semanticMisses.delete(state.semanticMisses.keys().next().value ?? '');
+    }
+}
+
+function pruneYouTubeCaptionSemanticMisses(state: YouTubeCaptionLoadState, now: number): void {
+    for (const [key, expiresAt] of state.semanticMisses) {
+        if (expiresAt <= now) state.semanticMisses.delete(key);
     }
 }
 

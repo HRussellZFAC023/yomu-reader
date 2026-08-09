@@ -1815,7 +1815,7 @@ describe('reader helpers', () => {
             requestText: async url => {
                 const format = new URL(url).searchParams.get('fmt');
                 requestedFormats.push(format);
-                if (format === 'srv3') return '';
+                if (format === 'srv3') throw new Error('try the next format');
                 if (format !== 'json3') throw new Error('try the next format');
                 return '<timedtext><body><p t="1000" d="3000"><s t="0">今日</s><s t="1200">読む</s></p></body></timedtext>';
             },
@@ -1826,7 +1826,7 @@ describe('reader helpers', () => {
         });
 
         expect(requestedFormats).toEqual(['srv3', 'json3']);
-        expect(requestErrors).toEqual([{ format: 'srv3', message: 'YouTube timedtext response was empty.' }]);
+        expect(requestErrors).toEqual([{ format: 'srv3', message: 'try the next format' }]);
         expect(cues).toMatchObject([{ start: 1, end: 4, text: '今日読む' }]);
     });
 

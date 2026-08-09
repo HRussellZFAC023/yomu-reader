@@ -2,6 +2,7 @@ import { targetSubtitleLanguageTag } from '../languages/resolve';
 import { normalizeSubtitleCues, parseSubtitleText, stripWebVttCueMarkup, type SubtitleCue } from './subtitle-cues';
 import { translateSubtitleCues } from './subtitle-translate';
 import {
+    hasFreshYouTubeCaptionSemanticMiss,
     loadFirstUsableYouTubeSibling,
     loadYouTubeTrackCues,
     type YouTubeSubtitleTrack,
@@ -103,6 +104,22 @@ async function loadYouTubeTrackWithFallback<T extends SubtitleTrackLoadable>(
         track.cues = translatedSource;
         return { track, cues: translatedSource };
     }
+    // An HTTP-200 empty response settles this source identity for a bounded
+    // window. Translation tracks still get their one source-language fallback
+    // above; walking compatible siblings after that would only replay the same
+    // empty caption source under another track object.
+    if (hasFreshYouTubeCaptionSemanticMiss(track, options.requestText)) {
+        track.cues = [];
+        return { track, cues: [] };
+    }
+    return loadYouTubeSiblingOrEmpty(track, options, youtubeOptions);
+}
+
+async function loadYouTubeSiblingOrEmpty<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+    youtubeOptions: YouTubeTrackLoadOptions<T>,
+): Promise<{ track: T; cues: SubtitleCue[] }> {
     const fallback = await loadFirstUsableYouTubeSibling(track, options.tracks, youtubeOptions);
     if (fallback) return fallback;
     track.cues = [];

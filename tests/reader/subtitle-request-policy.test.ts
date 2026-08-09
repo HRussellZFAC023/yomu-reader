@@ -54,6 +54,53 @@ describe('subtitle request retry policy', () => {
         await expect(Promise.all([first, duplicate])).resolves.toEqual(['WEBVTT', 'WEBVTT']);
     });
 
+    it('serializes distinct endpoint variants without sharing their results', async () => {
+        const policy = requestPolicy(() => 0);
+        let resolveJapanese: ((value: string) => void) | undefined;
+        const japaneseOperation = vi.fn(() => new Promise<string>(resolve => { resolveJapanese = resolve; }));
+        const englishOperation = vi.fn(async () => 'ENGLISH');
+        const japanese = policy.run(
+            'https://subs.example/captions?lang=ja&fmt=srv3',
+            japaneseOperation,
+        );
+        const english = policy.run(
+            'https://subs.example/captions?lang=en&fmt=srv3',
+            englishOperation,
+        );
+
+        await Promise.resolve();
+        expect(japaneseOperation).toHaveBeenCalledTimes(1);
+        expect(englishOperation).not.toHaveBeenCalled();
+        resolveJapanese?.('JAPANESE');
+
+        await expect(Promise.all([japanese, english])).resolves.toEqual(['JAPANESE', 'ENGLISH']);
+        expect(englishOperation).toHaveBeenCalledTimes(1);
+    });
+
+    it('allows one parallel dual-track rate-limit probe per endpoint cooldown boundary', async () => {
+        let now = 0;
+        const policy = requestPolicy(() => now);
+        const operation = vi.fn(async () => { throw new TestSubtitleFailure(429); });
+        const urls = [
+            'https://www.youtube.com/api/timedtext?v=video&lang=ja&fmt=srv3',
+            'https://www.youtube.com/api/timedtext?v=video&lang=en&fmt=srv3',
+        ];
+        const loadBoth = (): Promise<PromiseSettledResult<string>[]> => Promise.allSettled(
+            urls.map(url => policy.run(url, operation)),
+        );
+
+        await loadBoth();
+        expect(operation).toHaveBeenCalledTimes(1);
+
+        now = 4_999;
+        await loadBoth();
+        expect(operation).toHaveBeenCalledTimes(1);
+
+        now = 5_000;
+        await loadBoth();
+        expect(operation).toHaveBeenCalledTimes(2);
+    });
+
     it('bounds persistent endpoint rate limits across format and language fallbacks', async () => {
         let now = 0;
         const policy = requestPolicy(() => now);
