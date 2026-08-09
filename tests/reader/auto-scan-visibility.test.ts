@@ -71,6 +71,11 @@ function makeApp(): AppInternals {
     return app;
 }
 
+async function deliverMutationObserverRecords(): Promise<void> {
+    await Promise.resolve();
+    await Promise.resolve();
+}
+
 afterEach(() => {
     vi.restoreAllMocks();
 });
@@ -152,7 +157,10 @@ describe('document body replacement recovery', () => {
             document.dispatchEvent(new Event('visibilitychange'));
 
             document.documentElement.replaceChild(replacement, previous);
-            await new Promise(resolve => setTimeout(resolve, 0));
+            // MutationObserver delivery is a microtask checkpoint. A wall-clock
+            // timer here races Vitest's hard deadline when reused forks run on
+            // a busy host, even though no production timer is involved.
+            await deliverMutationObserverRecords();
             expect(app.handleDocumentBodyReplacement).not.toHaveBeenCalled();
 
             visibility.set('visible');
