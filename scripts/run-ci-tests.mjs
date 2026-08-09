@@ -99,6 +99,13 @@ const ISOLATED_PASS_FILES = [
     // Either half of the hover file followed by projection passes, so isolate
     // this measured producer instead of quarantining the projection consumer.
     join(ROOT, 'tests/reader/hover-lookup.test.ts'),
+    // Imports fake IndexedDB and Yomitan at module scope. In an isolate:false
+    // host, the cached Yomitan module can resolve nextTask's timer against an
+    // earlier jsdom realm after that realm is torn down, so the final import
+    // yield never settles. The same three cases pass alone and in a fresh realm.
+    // Production keeps one page/background realm, so isolate this harness
+    // boundary instead of changing the runtime yield or its timeout.
+    join(ROOT, 'tests/reader/yomitan-exact-candidate-lookup.test.ts'),
 ];
 
 const args = parseArgs(process.argv.slice(2));
