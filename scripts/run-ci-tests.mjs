@@ -106,6 +106,13 @@ const ISOLATED_PASS_FILES = [
     // Production keeps one page/background realm, so isolate this harness
     // boundary instead of changing the runtime yield or its timeout.
     join(ROOT, 'tests/reader/yomitan-exact-candidate-lookup.test.ts'),
+    // This suite is the sole reusable-pass owner that starts the subtitle
+    // housekeeping tick, including a destroy + same-instance re-init case. A
+    // release-gate run reported its tick after jsdom teardown; lifecycle tracing
+    // and three reruns confirmed the normal final destroy without reproducing
+    // the escape. Keep this realm-sensitive producer out of reused forks rather
+    // than isolating whichever later file receives the orphaned callback.
+    join(ROOT, 'tests/reader/subtitles-controller/09-parse-cache-warmup-seek.test.ts'),
 ];
 
 const args = parseArgs(process.argv.slice(2));
