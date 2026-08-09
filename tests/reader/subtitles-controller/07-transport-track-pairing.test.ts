@@ -48,7 +48,7 @@ interface LanguageSwitchInternals {
     }>;
     selectedTrackId: string;
     secondaryTrackId: string;
-    trackSelections: { current: (role: 'primary' | 'secondary') => number };
+    trackSelections: { invalidate: (role: 'primary' | 'secondary') => void };
     selectTrack: (id: string) => Promise<void>;
     selectSecondaryTrack: (id: string) => Promise<void>;
 }
@@ -57,14 +57,18 @@ function stubLanguageSwitchSelection(
     internals: LanguageSwitchInternals,
     selectedTrackId: string,
     secondaryTrackId: string,
-): { primaryRequest: number; secondaryRequest: number } {
+): Array<'primary' | 'secondary'> {
     internals.selectedTrackId = selectedTrackId;
     internals.secondaryTrackId = secondaryTrackId;
-    const primaryRequest = internals.trackSelections.current('primary');
-    const secondaryRequest = internals.trackSelections.current('secondary');
+    const invalidatedRoles: Array<'primary' | 'secondary'> = [];
+    const invalidate = internals.trackSelections.invalidate.bind(internals.trackSelections);
+    internals.trackSelections.invalidate = role => {
+        invalidatedRoles.push(role);
+        invalidate(role);
+    };
     internals.selectTrack = async id => { internals.selectedTrackId = id; };
     internals.selectSecondaryTrack = async id => { internals.secondaryTrackId = id; };
-    return { primaryRequest, secondaryRequest };
+    return invalidatedRoles;
 }
 
 function stubEnglishOnlyYouTubeDiscovery(controller: SubtitlePlayerController): YouTubeTrackDiscoveryInternals {
@@ -243,6 +247,64 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         });
     });
 
+    it('treats a page-fetch deadline as retryable timeout work and tries the userscript transport', async () => {
+        vi.useFakeTimers();
+        let fetchAbortReason: unknown;
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            signal?.addEventListener('abort', () => {
+                fetchAbortReason = signal.reason;
+                reject(new DOMException('Fetch aborted', 'AbortError'));
+            }, { once: true });
+        }));
+        const gmRequest = vi.fn((details: Parameters<UserscriptHttpRequest>[0]) => {
+            details.onload?.({
+                status: 200,
+                responseText: 'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nRecovered after timeout.\n',
+                response: '',
+            });
+        });
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            const request = requestSubtitleText('https://player.example/deadline-recovery-p1.vtt');
+            await Promise.resolve();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(8_000);
+
+            await expect(request).resolves.toContain('Recovered after timeout');
+            expect(fetchAbortReason).toMatchObject({
+                name: 'SubtitleRequestError',
+                message: 'Subtitle request timed out.',
+                retryable: true,
+            });
+            expect(gmRequest).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('keeps caller abort as AbortError without alternate transport or retry', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+            const signal = init?.signal;
+            signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+        }));
+        const gmRequest = vi.fn();
+        const caller = new AbortController();
+
+        await withSubtitleRequestStubs('https://player.example/watch', fetchMock, gmRequest, async () => {
+            const request = requestSubtitleText('https://player.example/caller-abort-p1.vtt', caller.signal);
+            await Promise.resolve();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            caller.abort();
+            await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+            await vi.advanceTimersByTimeAsync(16_000);
+
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(gmRequest).not.toHaveBeenCalled();
+        });
+    });
+
     it('aborts a stale YouTube selection so the next track is not delayed or sent through fallbacks', async () => {
         const originalLocation = window.location;
         const originalFetch = globalThis.fetch;
@@ -327,6 +389,72 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
             controller.destroy();
             Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
             Object.defineProperty(globalThis, 'fetch', { configurable: true, value: originalFetch });
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('aborts stale translated-track network work before it can mutate cues', async () => {
+        let translationSignal: AbortSignal | undefined;
+        const translationAborted = vi.fn();
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+            translationSignal = init?.signal ?? undefined;
+            translationSignal?.addEventListener('abort', () => {
+                translationAborted();
+                reject(translationSignal?.reason);
+            }, { once: true });
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        const { controller } = createInstalledSubtitleController({ annotationsPaused: true, subtitleOverlayVisible: true });
+        attachVideo(controller, { currentTime: 0.5 });
+        const sourceCues = [{ start: 0, end: 2, text: '中止対象九百一', transcriptEligible: true }];
+        const currentCues = [{ start: 0, end: 2, text: 'Current track wins.', transcriptEligible: true }];
+        type SelectionTrack = {
+            id: string;
+            label: string;
+            kind: 'file' | 'remote';
+            language?: string;
+            sourceLanguage?: string;
+            targetLanguage?: string;
+            translatedFromTrackId?: string;
+            cues?: typeof sourceCues;
+        };
+        const translatedTrack: SelectionTrack = {
+            id: 'translated-a',
+            label: 'Translated stale track',
+            kind: 'remote',
+            language: 'en',
+            sourceLanguage: 'ja',
+            targetLanguage: 'en',
+            translatedFromTrackId: 'source-a',
+        };
+        const internals = controllerInternals<{
+            tracks: SelectionTrack[];
+            selectedTrackId: string;
+            cues: Array<{ text: string }>;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [
+            { id: 'source-a', label: 'Source', kind: 'file', language: 'ja', cues: sourceCues },
+            translatedTrack,
+            { id: 'file-b', label: 'Current', kind: 'file', language: 'en', cues: currentCues },
+        ];
+
+        try {
+            const stale = internals.selectTrack('translated-a');
+            await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+            await internals.selectTrack('file-b');
+            await stale;
+
+            expect(translationSignal?.aborted).toBe(true);
+            expect(translationAborted).toHaveBeenCalledTimes(1);
+            expect(translatedTrack.cues).toBeUndefined();
+            expect(internals.selectedTrackId).toBe('file-b');
+            expect(internals.cues.map(cue => cue.text)).toEqual(['Current track wins.']);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
             vi.unstubAllGlobals();
         }
     });
@@ -1003,37 +1131,41 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         expect(internals.selectedTrackId).toBe('youtube-ja');
     });
 
-    it('does not apply an empty native cue load after the controller is destroyed', async () => {
+    it('does not apply stale native hydration after destroy and same-instance init', async () => {
         vi.useFakeTimers();
         try {
             const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
-            const syncControls = vi.fn();
+            const applyNativeTrackCues = vi.fn();
             const internals = controllerInternals<{
                 addNativeTrack: (track: TextTrack) => void;
-                syncControls: () => void;
+                applyNativeTrackCues: typeof applyNativeTrackCues;
             }>(controller);
-            internals.syncControls = syncControls;
-            const nativeTrack = {
-                label: 'English',
-                language: 'en',
+            internals.applyNativeTrackCues = applyNativeTrackCues;
+            const nativeTrackState = {
+                label: 'Japanese',
+                language: 'ja',
                 kind: 'subtitles',
                 mode: 'disabled',
-                cues: [],
+                cues: [] as Array<{ startTime: number; endTime: number; text: string }>,
                 addEventListener: () => undefined,
-            } as unknown as TextTrack;
+            };
+            const nativeTrack = nativeTrackState as unknown as TextTrack;
             internals.addNativeTrack(nativeTrack);
-            expect(nativeTrack.mode).toBe('showing');
-            syncControls.mockClear();
+            expect(nativeTrack.mode).not.toBe('disabled');
 
             document.documentElement.classList.add(
                 'jpdb-subtitle-native-captions-suppressed',
                 'jpdb-subtitle-yomu-captions-active',
             );
             controller.destroy();
+            controller.init();
+            nativeTrackState.cues = [
+                { startTime: 0, endTime: 2, text: '古い字幕一' },
+                { startTime: 2, endTime: 4, text: '古い字幕二' },
+            ];
             await vi.advanceTimersByTimeAsync(1_000);
 
-            expect(syncControls).not.toHaveBeenCalled();
-            expect(nativeTrack.mode).toBe('disabled');
+            expect(applyNativeTrackCues).not.toHaveBeenCalled();
             expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
             expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
         } finally {
@@ -1121,7 +1253,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
             { id: 'translated-ja-english', label: 'Translation', kind: 'remote', language: 'ja', targetLanguage: 'ja', translatedFromTrackId: 'english' },
             { id: 'spanish', label: 'Español', kind: 'file', language: 'es' },
         ];
-        const { primaryRequest, secondaryRequest } = stubLanguageSwitchSelection(
+        const invalidatedRoles = stubLanguageSwitchSelection(
             internals,
             'translated-ja-english',
             'english',
@@ -1133,8 +1265,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         expect(internals.tracks.some(track => track.id === 'translated-ja-english')).toBe(false);
         expect(internals.selectedTrackId).toBe('spanish');
         expect(internals.secondaryTrackId).toBe('english');
-        expect(internals.trackSelections.current('primary')).toBe(primaryRequest + 1);
-        expect(internals.trackSelections.current('secondary')).toBe(secondaryRequest + 1);
+        expect(invalidatedRoles).toEqual(['primary', 'secondary']);
     });
 
     it('switches only the secondary track when OUTPUT changes at runtime', () => {
@@ -1145,7 +1276,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
             { id: 'english', label: 'English', kind: 'file', language: 'en' },
             { id: 'persian', label: 'فارسی', kind: 'file', language: 'fa' },
         ];
-        const { primaryRequest, secondaryRequest } = stubLanguageSwitchSelection(internals, 'japanese', 'english');
+        const invalidatedRoles = stubLanguageSwitchSelection(internals, 'japanese', 'english');
 
         settings.languageProfiles = settings.languageProfiles.map(profile => profile.id === settings.activeLanguageProfileId
             ? { ...profile, outputLanguage: 'fa', learnerLanguage: 'fa' }
@@ -1154,8 +1285,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
 
         expect(internals.selectedTrackId).toBe('japanese');
         expect(internals.secondaryTrackId).toBe('persian');
-        expect(internals.trackSelections.current('primary')).toBe(primaryRequest);
-        expect(internals.trackSelections.current('secondary')).toBe(secondaryRequest + 1);
+        expect(invalidatedRoles).toEqual(['secondary']);
     });
 
     it('restarts an in-flight YouTube discovery after the language context changes', async () => {

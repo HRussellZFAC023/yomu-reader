@@ -1,4 +1,4 @@
-import { abortSignalReason, SharedAbortableOperation } from './shared-abortable-operation';
+import { abortSignalReason, SharedAbortableOperation } from '../core/shared-abortable-operation';
 
 const SUBTITLE_REQUEST_BACKOFF_INITIAL_MS = 5_000;
 const SUBTITLE_REQUEST_BACKOFF_MAX_MS = 60_000;
@@ -45,8 +45,8 @@ export class SubtitleRequestPolicy {
         this.now = options.now ?? (() => Date.now());
     }
 
-    run<T>(url: string, operation: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
-        if (signal?.aborted) return Promise.reject(abortSignalReason(signal));
+    async run<T>(url: string, operation: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
+        throwIfSubtitleRequestCallerAborted(signal);
         const resourceKey = subtitleRequestResourceKey(url);
         const endpointKey = subtitleRequestEndpointKey(url);
         const existing = this.inFlight.get(resourceKey);
@@ -56,7 +56,15 @@ export class SubtitleRequestPolicy {
         this.pruneBackoff(now);
         const cooling = this.activeBackoff(endpointKey, now);
         if (cooling) return Promise.reject(new SubtitleRequestCooldownError(cooling.retryAt - now, cooling.status));
+        return this.startResourceOperation(resourceKey, endpointKey, operation, signal);
+    }
 
+    private startResourceOperation<T>(
+        resourceKey: string,
+        endpointKey: string,
+        operation: (signal: AbortSignal) => Promise<T>,
+        signal?: AbortSignal,
+    ): Promise<T> {
         let entry: SharedAbortableOperation<T>;
         entry = new SharedAbortableOperation<T>(
             requestSignal => this.enqueueEndpointOperation(endpointKey, requestSignal, operation),
@@ -165,6 +173,10 @@ function raceSubtitleRequestAbort<T>(operation: Promise<T>, signal: AbortSignal)
 
 function throwIfSubtitleRequestAborted(signal: AbortSignal): void {
     if (signal.aborted) throw abortSignalReason(signal);
+}
+
+function throwIfSubtitleRequestCallerAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw abortSignalReason(signal);
 }
 
 class SubtitleRequestCooldownError extends Error {

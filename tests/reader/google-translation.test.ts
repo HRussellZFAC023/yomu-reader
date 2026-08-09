@@ -98,6 +98,43 @@ describe('generic Google translation transport', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps shared translation work alive for remaining subscribers and caches only the live result', async () => {
+        let resolveFetch!: (response: Response) => void;
+        let requestSignal: AbortSignal | undefined;
+        const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>(resolve => {
+            requestSignal = init?.signal ?? undefined;
+            resolveFetch = resolve;
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+        const firstController = new AbortController();
+        const secondController = new AbortController();
+
+        const first = translateText('共同翻訳', {
+            sourceLanguage: 'ja',
+            outputLanguage: 'en',
+            signal: firstController.signal,
+        });
+        const second = translateText('共同翻訳', {
+            sourceLanguage: 'ja',
+            outputLanguage: 'en',
+            signal: secondController.signal,
+        });
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+        firstController.abort();
+        await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+        expect(requestSignal?.aborted).toBe(false);
+
+        resolveFetch(new Response(JSON.stringify({ sentences: [{ trans: 'Shared translation' }] }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        await expect(second).resolves.toBe('Shared translation');
+        await expect(translateText('共同翻訳', { sourceLanguage: 'ja', outputLanguage: 'en' }))
+            .resolves.toBe('Shared translation');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('does not send empty or same-language text', async () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);

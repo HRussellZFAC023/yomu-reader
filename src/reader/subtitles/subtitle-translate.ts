@@ -1,4 +1,6 @@
 import { Logger } from '../app/logger';
+import { isAbortError } from '../core/errors';
+import { abortSignalReason } from '../core/shared-abortable-operation';
 import { translateText } from '../translation/google';
 import type { SubtitleCue } from './subtitle-cues';
 
@@ -12,6 +14,7 @@ const log = Logger.scope('SubtitleTranslate');
 interface TranslateSubtitleCueOptions {
     batchSize?: number;
     encodedCharBudget?: number;
+    signal?: AbortSignal;
 }
 
 export async function translateSubtitleCues(
@@ -20,6 +23,7 @@ export async function translateSubtitleCues(
     outputLanguage: string,
     options: TranslateSubtitleCueOptions = {},
 ): Promise<SubtitleCue[]> {
+    throwIfSubtitleTranslationAborted(options.signal);
     if (!cues.length) return [];
     const texts = cues.map(cue => cue.text.trim());
     const batches = batchTexts(
@@ -27,17 +31,27 @@ export async function translateSubtitleCues(
         options.batchSize ?? TRANSLATION_BATCH_SIZE,
         options.encodedCharBudget ?? TRANSLATION_BATCH_ENCODED_CHAR_BUDGET,
     );
-    const translated: string[] = [];
-    for (let index = 0; index < batches.length; index += 1) {
-        if (index > 0) await waitForTranslationTurn();
-        const batch = batches[index] ?? [];
-        const results = await translateBatch(batch, sourceLanguage, outputLanguage);
-        translated.push(...results);
-    }
+    const translated = await translateSubtitleBatches(batches, sourceLanguage, outputLanguage, options.signal);
+    throwIfSubtitleTranslationAborted(options.signal);
     return cues.map((cue, index) => ({
         ...cue,
         text: translated[index] || cue.text,
     }));
+}
+
+async function translateSubtitleBatches(
+    batches: string[][],
+    sourceLanguage: string,
+    outputLanguage: string,
+    signal?: AbortSignal,
+): Promise<string[]> {
+    const translated: string[] = [];
+    for (const [index, batch] of batches.entries()) {
+        if (index > 0) await waitForTranslationTurn(signal);
+        const results = await translateBatch(batch, sourceLanguage, outputLanguage, signal);
+        translated.push(...results);
+    }
+    return translated;
 }
 
 function batchTexts(texts: string[], size: number, encodedCharBudget: number): string[][] {
@@ -60,7 +74,12 @@ function batchTexts(texts: string[], size: number, encodedCharBudget: number): s
     return batches;
 }
 
-async function translateBatch(texts: string[], sourceLanguage: string, outputLanguage: string): Promise<string[]> {
+async function translateBatch(
+    texts: string[],
+    sourceLanguage: string,
+    outputLanguage: string,
+    signal?: AbortSignal,
+): Promise<string[]> {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const done = log.time('Translate subtitle batch', { count: texts.length });
     try {
@@ -68,11 +87,14 @@ async function translateBatch(texts: string[], sourceLanguage: string, outputLan
             sourceLanguage,
             outputLanguage,
             timeoutMs: TRANSLATION_TIMEOUT_MS,
+            signal,
         });
+        throwIfSubtitleTranslationAborted(signal);
         const lines = result.split(TRANSLATION_SEPARATOR);
         log.info('Subtitle batch translated', { count: texts.length, resultCount: lines.length });
         return padTranslationResults(lines, texts);
     } catch (error) {
+        throwIfSubtitleTranslationCancelled(signal, error);
         log.warn('Subtitle batch translation failed', { count: texts.length, error });
         return texts;
     } finally {
@@ -80,8 +102,28 @@ async function translateBatch(texts: string[], sourceLanguage: string, outputLan
     }
 }
 
-function waitForTranslationTurn(): Promise<void> {
-    return new Promise(resolve => globalThis.setTimeout(resolve, 0));
+function waitForTranslationTurn(signal?: AbortSignal): Promise<void> {
+    throwIfSubtitleTranslationAborted(signal);
+    return new Promise((resolve, reject) => {
+        const timer = globalThis.setTimeout(() => {
+            signal?.removeEventListener('abort', onAbort);
+            resolve();
+        }, 0);
+        const onAbort = (): void => {
+            globalThis.clearTimeout(timer);
+            reject(abortSignalReason(signal));
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+    });
+}
+
+function throwIfSubtitleTranslationCancelled(signal: AbortSignal | undefined, error: unknown): void {
+    if (signal?.aborted) throw abortSignalReason(signal);
+    if (isAbortError(error)) throw error;
+}
+
+function throwIfSubtitleTranslationAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw abortSignalReason(signal);
 }
 
 function padTranslationResults(translated: string[], originals: string[]): string[] {

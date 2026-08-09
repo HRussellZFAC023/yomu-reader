@@ -52,6 +52,13 @@ function setupBilingualCueAlignment(cues: AlignedSubtitleCue[], secondaryCues: A
     return { controller, internals, video };
 }
 
+function warmupCues(prefix: '古い' | '新しい'): AlignedSubtitleCue[] {
+    return [
+        { start: 0, end: 4, text: `${prefix}現在`, transcriptEligible: true },
+        { start: 4, end: 8, text: `${prefix}次`, transcriptEligible: true },
+    ];
+}
+
 describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
     registerSubtitleControllerCleanup();
 
@@ -533,14 +540,8 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         });
         const { controller } = createInstalledSubtitleController(settings, { parseJapanese, beforeRenderTokens });
         attachVideo(controller, { currentTime: 1, rect: new DOMRect(0, 0, 960, 540) });
-        const staleCues = [
-            { start: 0, end: 4, text: '古い現在', transcriptEligible: true },
-            { start: 4, end: 8, text: '古い次', transcriptEligible: true },
-        ];
-        const currentCues = [
-            { start: 0, end: 4, text: '新しい現在', transcriptEligible: true },
-            { start: 4, end: 8, text: '新しい次', transcriptEligible: true },
-        ];
+        const staleCues = warmupCues('古い');
+        const currentCues = warmupCues('新しい');
         const internals = controllerInternals<{
             selectTrack: (id: string) => Promise<void>;
             tracks: Array<{
@@ -569,6 +570,44 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             '新しい現在',
             '新しい次',
         ]);
+    });
+
+    it('does not revive stale first-paint prewarm after destroy and same-instance init', async () => {
+        const enrichment = deferred<void>();
+        const parseJapanese = vi.fn(async (text: string) => [makeSubtitleToken(text, {
+            reading: 'ふるい',
+            pitchClass: 'heiban',
+            rubies: [{ start: 0, end: 2, length: 2, text: 'ふるい' }],
+        })]);
+        const beforeRenderTokens = vi.fn(() => enrichment.promise);
+        const { controller } = createInstalledSubtitleController({
+            apiKey: '',
+            jitenApiKey: '',
+            furiganaMode: 'all',
+            localDictionariesEnabled: false,
+        }, { parseJapanese, beforeRenderTokens });
+        attachVideo(controller, { currentTime: 1, rect: new DOMRect(0, 0, 960, 540) });
+        const staleCues = warmupCues('古い');
+        const internals = controllerInternals<{
+            cues: typeof staleCues;
+            currentCue?: typeof staleCues[number];
+            selectTrack: (id: string) => Promise<void>;
+            tracks: Array<{ id: string; label: string; kind: 'file'; cues: typeof staleCues }>;
+        }>(controller);
+        internals.tracks = [{ id: 'file-before-reinit', label: 'Before reinit', kind: 'file', cues: staleCues }];
+
+        const staleSelection = internals.selectTrack('file-before-reinit');
+        await vi.waitFor(() => expect(beforeRenderTokens).toHaveBeenCalledTimes(1));
+        controller.destroy();
+        controller.init();
+        attachVideo(controller, { currentTime: 1, rect: new DOMRect(0, 0, 960, 540) });
+
+        enrichment.resolve();
+        await staleSelection;
+
+        expect(internals.cues).toEqual([]);
+        expect(internals.currentCue).toBeUndefined();
+        expect(parseJapanese.mock.calls.map(([text]) => text)).toEqual(['古い現在']);
     });
 
     it('enriches priority YouTube subtitle batches before rendering cached html', async () => {

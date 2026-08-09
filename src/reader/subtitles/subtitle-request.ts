@@ -106,9 +106,15 @@ async function fetchSubtitleText(
         const response = await fetch(url, { credentials, signal: request.signal });
         assertCompleteSubtitleStatus(response.status);
         return await response.text();
+    } catch (error) {
+        throw subtitleFetchFailure(request.signal, error);
     } finally {
         request.dispose();
     }
+}
+
+function subtitleFetchFailure(signal: AbortSignal, error: unknown): unknown {
+    return signal.aborted ? signal.reason ?? error : error;
 }
 
 function assertCompleteSubtitleStatus(status: number): void {
@@ -159,7 +165,9 @@ function subtitleRequestAbortScope(signal?: AbortSignal): { signal: AbortSignal;
     const relayAbort = (): void => controller.abort(subtitleAbortReason(signal));
     if (signal?.aborted) relayAbort();
     else signal?.addEventListener('abort', relayAbort, { once: true });
-    const timeout = globalThis.setTimeout(() => controller.abort(), SUBTITLE_REQUEST_TIMEOUT_MS);
+    const timeout = globalThis.setTimeout(() => {
+        controller.abort(new SubtitleRequestError('Subtitle request timed out.', true));
+    }, SUBTITLE_REQUEST_TIMEOUT_MS);
     return {
         signal: controller.signal,
         dispose: () => {

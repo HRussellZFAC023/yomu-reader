@@ -1,3 +1,4 @@
+import { isAbortError } from '../core/errors';
 import type { SubtitleTrackSelectionRole } from './subtitle-track-options';
 
 interface SubtitleSelectionState {
@@ -14,28 +15,17 @@ export class SubtitleSelectionLifecycle {
 
     begin(role: SubtitleTrackSelectionRole): number {
         const state = this.states[role];
-        state.controller?.abort();
-        state.requestId += 1;
+        this.supersede(state);
         state.controller = new AbortController();
         return state.requestId;
     }
 
     invalidate(role: SubtitleTrackSelectionRole): void {
-        const state = this.states[role];
-        state.controller?.abort();
-        state.controller = undefined;
-        state.requestId += 1;
+        this.supersede(this.states[role]);
     }
 
     abortAll(): void {
-        for (const state of Object.values(this.states)) {
-            state.controller?.abort();
-            state.controller = undefined;
-        }
-    }
-
-    current(role: SubtitleTrackSelectionRole): number {
-        return this.states[role].requestId;
+        for (const state of Object.values(this.states)) this.supersede(state);
     }
 
     signal(role: SubtitleTrackSelectionRole, requestId: number): AbortSignal | undefined {
@@ -46,4 +36,16 @@ export class SubtitleSelectionLifecycle {
     isCurrent(role: SubtitleTrackSelectionRole, requestId: number): boolean {
         return this.states[role].requestId === requestId;
     }
+
+    private supersede(state: SubtitleSelectionState): void {
+        const controller = state.controller;
+        state.controller = undefined;
+        state.requestId += 1;
+        controller?.abort();
+    }
+}
+
+export function settleSubtitleSelectionFailure(signal: AbortSignal, error: unknown): null {
+    if (signal.aborted || isAbortError(error)) return null;
+    throw error;
 }

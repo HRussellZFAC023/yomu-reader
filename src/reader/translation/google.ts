@@ -1,4 +1,5 @@
 import { pruneOldestCacheEntries } from '../core/cache-utils';
+import { abortSignalReason, SharedAbortableOperation } from '../core/shared-abortable-operation';
 import { Logger } from '../app/logger';
 import { requestJson } from '../network/http';
 
@@ -17,7 +18,7 @@ const GOOGLE_TRANSLATION_LANGUAGE_CODES = new Set([
 
 const log = Logger.scope('GoogleTranslation');
 const translationCache = new Map<string, string>();
-const translationInFlight = new Map<string, Promise<string>>();
+const translationInFlight = new Map<string, SharedAbortableOperation<string>>();
 
 interface GoogleTranslateResponse {
     sentences?: Array<{ trans?: string }>;
@@ -36,6 +37,7 @@ export interface TranslateTextOptions {
     outputLanguage: string;
     timeoutMs?: number;
     includeDictionaryData?: boolean;
+    signal?: AbortSignal;
 }
 
 export interface GoogleTranslationLanguageCapability {
@@ -125,6 +127,7 @@ export function googleTranslationUrl(text: string, options: TranslateTextOptions
 }
 
 export async function translateText(text: string, options: TranslateTextOptions): Promise<string> {
+    throwIfTranslationAborted(options.signal);
     const original = text.trim();
     if (!original) return '';
     const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
@@ -132,21 +135,40 @@ export async function translateText(text: string, options: TranslateTextOptions)
     if (sourceLanguage !== 'auto' && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
 
     const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached !== undefined) return cached;
-    const active = translationInFlight.get(cacheKey);
-    if (active) return active;
-
-    const request = performTranslation(original, {
+    return resolveTranslationRequest(cacheKey, original, {
         ...options,
         sourceLanguage,
         outputLanguage,
     });
-    translationInFlight.set(cacheKey, request);
-    void request.finally(() => {
+}
+
+function resolveTranslationRequest(
+    cacheKey: string,
+    original: string,
+    options: TranslateTextOptions,
+): Promise<string> {
+    const cached = translationCache.get(cacheKey);
+    if (cached !== undefined) return Promise.resolve(cached);
+    const active = translationInFlight.get(cacheKey);
+    if (active) return active.subscribe(options.signal);
+    return startTranslationRequest(cacheKey, original, options);
+}
+
+function startTranslationRequest(
+    cacheKey: string,
+    original: string,
+    options: TranslateTextOptions,
+): Promise<string> {
+    let request: SharedAbortableOperation<string>;
+    request = new SharedAbortableOperation<string>(signal => performTranslation(original, { ...options, signal }), () => {
         if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
-    }).catch(() => undefined);
-    return request;
+    });
+    translationInFlight.set(cacheKey, request);
+    return request.subscribe(options.signal);
+}
+
+function throwIfTranslationAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw abortSignalReason(signal);
 }
 
 function requiredGoogleTranslationLanguage(language: string): string {
@@ -173,9 +195,11 @@ async function performTranslation(text: string, options: TranslateTextOptions): 
             preferFetch: true,
             failureLabel: 'Translation request',
             timeoutLabel: 'Translation timed out.',
+            signal: options.signal,
         }) as GoogleTranslateResponse;
         const translated = (json.sentences ?? []).map(item => item.trans ?? '').join('').trim();
         if (!translated) throw new Error('No translation returned.');
+        throwIfTranslationAborted(options.signal);
         translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text}`, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
         return translated;

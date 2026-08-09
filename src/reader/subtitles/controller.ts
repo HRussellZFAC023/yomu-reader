@@ -135,7 +135,7 @@ import {
     type HostedSubtitleFileLoadRequest,
     type YouTubeTrackDiscoverySelection,
 } from './subtitle-track-selection';
-import { SubtitleSelectionLifecycle } from './subtitle-selection-lifecycle';
+import { settleSubtitleSelectionFailure, SubtitleSelectionLifecycle } from './subtitle-selection-lifecycle';
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
 import { copyText, isEditableTarget } from '../ui/browser';
@@ -201,7 +201,6 @@ import {
 import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
-import { isAbortError } from '../core/errors';
 import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut, NO_EXPLICIT_USER_CHOICE } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { primaryCardState } from '../cards/state';
@@ -5096,8 +5095,7 @@ export class SubtitlePlayerController {
             });
             return this.loadedTrackSelection(request, loaded.track, loaded.cues);
         } catch (error) {
-            if (signal.aborted || isAbortError(error)) return null;
-            throw error;
+            return settleSubtitleSelectionFailure(signal, error);
         }
     }
 

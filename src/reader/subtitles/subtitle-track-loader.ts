@@ -1,5 +1,5 @@
-import { targetSubtitleLanguageTag } from '../languages/resolve';
 import { isAbortError } from '../core/errors';
+import { targetSubtitleLanguageTag } from '../languages/resolve';
 import { normalizeSubtitleCues, parseSubtitleText, stripWebVttCueMarkup, type SubtitleCue } from './subtitle-cues';
 import { translateSubtitleCues } from './subtitle-translate';
 import {
@@ -47,6 +47,7 @@ export async function loadSubtitleTrackCues<T extends SubtitleTrackLoadable>(
 
     if (isRemoteSubtitleTrack(track)) {
         const cues = await loadRemoteTrackCues(track, options);
+        throwIfSubtitleTrackLoadAborted(options.signal);
         track.cues = cues;
         return { track, cues };
     }
@@ -69,7 +70,9 @@ async function loadTranslatedTrackCues<T extends SubtitleTrackLoadable>(
         sourceCues,
         track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || 'en',
         track.targetLanguage || track.language || targetSubtitleLanguageTag(),
+        { signal: options.signal },
     );
+    throwIfSubtitleTrackLoadAborted(options.signal);
     track.cues = translatedCues;
     return { track, cues: translatedCues };
 }
@@ -100,11 +103,13 @@ async function loadYouTubeTrackWithFallback<T extends SubtitleTrackLoadable>(
         signal: options.signal,
     };
     const cues = await loadYouTubeTrackCues(track, youtubeOptions);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (cues.length) {
         track.cues = cues;
         return { track, cues };
     }
     const translatedSource = await loadYouTubeTranslationSourceFallback(track, options);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (translatedSource.length) {
         track.cues = translatedSource;
         return { track, cues: translatedSource };
@@ -135,15 +140,53 @@ async function loadYouTubeTranslationSourceFallback<T extends SubtitleTrackLoada
     track: T,
     options: SubtitleTrackLoadOptions<T>,
 ): Promise<SubtitleCue[]> {
-    if (options.translationFallback === 'skip') return [];
-    if (track.sourceType !== 'translation') return [];
-    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
-    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
-    const targetLanguage = normalizedTrackLanguage(track.targetLanguage || track.language);
-    if (!sourceTrack || !sourceLanguage || !targetLanguage || sourceLanguage === targetLanguage) return [];
-    const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    const plan = youtubeTranslationSourcePlan(track, options);
+    if (!plan) return [];
+    const { cues: sourceCues } = await loadSubtitleTrackCues(plan.sourceTrack, options);
     if (!sourceCues.length) return [];
-    return translateSubtitleCues(sourceCues, sourceTrack.language || sourceTrack.sourceLanguage || sourceLanguage, targetLanguage);
+    return translateSubtitleCues(
+        sourceCues,
+        youtubeTranslationSourceLanguage(plan),
+        plan.targetLanguage,
+        { signal: options.signal },
+    );
+}
+
+interface YouTubeTranslationSourcePlan<T extends SubtitleTrackLoadable> {
+    sourceTrack: T;
+    sourceLanguage: string;
+    targetLanguage: string;
+}
+
+function youtubeTranslationSourcePlan<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+): YouTubeTranslationSourcePlan<T> | null {
+    if (options.translationFallback === 'skip' || track.sourceType !== 'translation') return null;
+    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
+    if (!sourceTrack) return null;
+    return youtubeTranslationLanguagePlan(track, sourceTrack);
+}
+
+function youtubeTranslationLanguagePlan<T extends SubtitleTrackLoadable>(
+    track: T,
+    sourceTrack: T,
+): YouTubeTranslationSourcePlan<T> | null {
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    const targetLanguage = normalizedYouTubeTranslationTargetLanguage(track);
+    if (!sourceLanguage || !targetLanguage) return null;
+    if (sourceLanguage === targetLanguage) return null;
+    return { sourceTrack, sourceLanguage, targetLanguage };
+}
+
+function youtubeTranslationSourceLanguage<T extends SubtitleTrackLoadable>(
+    plan: YouTubeTranslationSourcePlan<T>,
+): string {
+    return plan.sourceTrack.language || plan.sourceTrack.sourceLanguage || plan.sourceLanguage;
+}
+
+function normalizedYouTubeTranslationTargetLanguage(track: SubtitleTrackLoadable): string {
+    return normalizedTrackLanguage(track.targetLanguage || track.language);
 }
 
 function findYouTubeTranslationSourceTrack<T extends SubtitleTrackLoadable>(track: T, tracks: T[]): T | null {
@@ -205,16 +248,43 @@ async function loadRemoteTrackCues<T extends SubtitleTrackLoadable>(
     options: SubtitleTrackLoadOptions<T>,
 ): Promise<SubtitleCue[]> {
     try {
-        const cues = normalizeSubtitleCues(parseSubtitleText(await options.requestText(track.url ?? '', options.signal)), {
-            transcriptEligible: options.transcriptEligible,
-        });
-        if (cues.length) return cues;
-        options.onRemoteEmpty?.(track);
+        return settleRemoteTrackCues(track, options, await requestRemoteTrackCues(track, options));
     } catch (error) {
-        if (options.signal?.aborted || isAbortError(error)) throw error;
-        options.onRemoteError?.(track, error);
+        return settleRemoteTrackError(track, options, error);
     }
+}
+
+async function requestRemoteTrackCues<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+): Promise<SubtitleCue[]> {
+    const text = await options.requestText(track.url ?? '', options.signal);
+    return normalizeSubtitleCues(parseSubtitleText(text), { transcriptEligible: options.transcriptEligible });
+}
+
+function settleRemoteTrackCues<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+    cues: SubtitleCue[],
+): SubtitleCue[] {
+    if (cues.length) return cues;
+    options.onRemoteEmpty?.(track);
     return [];
+}
+
+function settleRemoteTrackError<T extends SubtitleTrackLoadable>(
+    track: T,
+    options: SubtitleTrackLoadOptions<T>,
+    error: unknown,
+): SubtitleCue[] {
+    throwIfRemoteTrackLoadAborted(options.signal, error);
+    options.onRemoteError?.(track, error);
+    return [];
+}
+
+function throwIfRemoteTrackLoadAborted(signal: AbortSignal | undefined, error: unknown): void {
+    throwIfSubtitleTrackLoadAborted(signal);
+    if (isAbortError(error)) throw error;
 }
 
 function throwIfSubtitleTrackLoadAborted(signal?: AbortSignal): void {
