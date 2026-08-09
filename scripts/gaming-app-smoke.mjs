@@ -11,6 +11,8 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(scriptDir, '..');
 const mainPath = path.join(appRoot, 'dist-gaming', 'electron', 'main.cjs');
 const screenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-smoke.png');
+const settingsActionsScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-settings-actions-smoke.png');
+const settingsAccountScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-settings-account-smoke.png');
 const overlayScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-overlay-smoke.png');
 const instantResultScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-instant-result-smoke.png');
 const areaResultScreenshotPath = path.join(appRoot, 'qa-artifacts', 'gaming-app-area-result-smoke.png');
@@ -103,6 +105,8 @@ try {
     if (restoredShortcut !== 'Ctrl+Shift+U') {
         throw new Error(`Capture shortcut did not restore after relaunch: ${restoredShortcut}`);
     }
+    step('verify full-screen Settings actions remain compact');
+    await assertCompactSettingsActions(page);
     step('configure local OCR endpoint');
     await openSettingsPanel(page, 'media');
     await page.locator('text=Image text (OCR)').first().waitFor({ timeout: 10_000 });
@@ -171,7 +175,7 @@ try {
     if (Math.abs(areaRequest.png.width - expectedCrop.width) > 6 || Math.abs(areaRequest.png.height - expectedCrop.height) > 6) {
         throw new Error(`Area capture cropped ${JSON.stringify(areaRequest.png)} of the capture, not the dragged ${JSON.stringify(expectedCrop)}.`);
     }
-    console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
+    console.log(`Yomu Gaming smoke screenshots: ${path.relative(appRoot, screenshotPath)}, ${path.relative(appRoot, settingsActionsScreenshotPath)}, ${path.relative(appRoot, settingsAccountScreenshotPath)}, ${path.relative(appRoot, instantResultScreenshotPath)}, ${path.relative(appRoot, overlayScreenshotPath)}, ${path.relative(appRoot, areaResultScreenshotPath)}`);
     console.log(`Yomu Gaming fixture OCR captures: instant ${fullScreenRequest.png.width}x${fullScreenRequest.png.height}, area ${areaRequest.png.width}x${areaRequest.png.height}; hardware gap note: ${path.relative(appRoot, hardwareGapPath)}`);
     smokePassed = true;
 } finally {
@@ -234,6 +238,81 @@ async function returnToHome(page) {
         await page.locator('[data-action="close-settings"]').first().click();
     }
     await page.locator('.yomu-gaming-home').waitFor({ timeout: 10_000 });
+}
+
+async function assertCompactSettingsActions(page) {
+    const viewportWidth = await page.evaluate(() => window.innerWidth);
+    const actionSelector = [
+        '.jpdb-reader-settings-actions > .jpdb-reader-btn',
+        '.jpdb-reader-help-actions > .jpdb-reader-btn',
+        '.jpdb-reader-audio-sources > .jpdb-reader-btn',
+        '.jpdb-reader-academy-account-link',
+    ].join(',');
+
+    await openSettingsPanel(page, 'media');
+    const addAudio = await actionGeometry(page.locator('[data-action="audio-source-add"]'));
+    assertLabelSizedAction('Add audio source', addAudio, viewportWidth);
+
+    await openSettingsPanel(page, 'newTab');
+    const copyAddress = await actionGeometry(page.locator('[data-action="copy-newtab-url"]'));
+    assertLabelSizedAction('Copy address', copyAddress, viewportWidth);
+    await page.locator('[data-action="copy-newtab-url"]').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: settingsActionsScreenshotPath });
+
+    await openSettingsPanel(page, 'backup');
+    const accountLink = page.locator('.jpdb-reader-academy-account-link');
+    assertActionGeometryCap('Yomu Gaming Academy action', await actionGeometry(accountLink), 280.5, 50);
+    await assertExternalIconGeometry(accountLink);
+    await accountLink.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: settingsAccountScreenshotPath });
+
+    const panels = await page.locator('[data-action="settings-panel"]').evaluateAll(elements =>
+        elements.map(element => element instanceof HTMLElement ? element.dataset.panel ?? '' : '').filter(Boolean),
+    );
+    await assertSettingsActionGeometryCap(page, panels, actionSelector);
+}
+
+async function assertSettingsActionGeometryCap(page, panels, actionSelector) {
+    for (const panel of panels) {
+        await openSettingsPanel(page, panel);
+        const panelActions = await page.locator(actionSelector).evaluateAll(elements => elements.map(element => {
+            const rect = element.getBoundingClientRect();
+            return {
+                text: (element.textContent ?? '').trim().replace(/\s+/g, ' ').slice(0, 80),
+                width: rect.width,
+                height: rect.height,
+            };
+        }));
+        const oversized = panelActions.find(action => action.width > 280.5 || action.height > 50);
+        if (oversized) {
+            throw new Error(`Yomu Gaming Settings still contains an oversized action: ${JSON.stringify({ panel, ...oversized })}`);
+        }
+    }
+}
+
+async function assertExternalIconGeometry(action) {
+    const externalIcon = await action.locator('svg').boundingBox();
+    if (!externalIcon) throw new Error('Yomu Gaming external-link action has no rendered icon.');
+    assertActionGeometryCap('Yomu Gaming external-link icon', externalIcon, 13, 13);
+}
+
+function assertActionGeometryCap(label, geometry, maxWidth, maxHeight) {
+    if (geometry.width > maxWidth) throw new Error(`${label} is too wide: ${JSON.stringify(geometry)}`);
+    if (geometry.height > maxHeight) throw new Error(`${label} is too tall: ${JSON.stringify(geometry)}`);
+}
+
+async function actionGeometry(locator) {
+    await locator.waitFor({ state: 'attached', timeout: 10_000 });
+    const rect = await locator.boundingBox();
+    if (!rect) throw new Error('Yomu Gaming settings action has no rendered geometry.');
+    return { width: rect.width, height: rect.height };
+}
+
+function assertLabelSizedAction(label, geometry, viewportWidth) {
+    const widthRatio = geometry.width / viewportWidth;
+    if (geometry.width > 280.5 || widthRatio > 0.25) {
+        throw new Error(`${label} still stretches across Yomu Gaming Settings: ${JSON.stringify({ ...geometry, viewportWidth, widthRatio })}`);
+    }
 }
 
 async function renderBrowserFixture() {

@@ -306,6 +306,50 @@ textarea {
     padding-bottom: 112px;
 }
 
+/* The shared settings dialog is capped at 1180px, but Gaming deliberately fills the
+   native screen. Its grid/flex action rows therefore inherit several hundred pixels of
+   spare space and stretch short actions into monitor-wide bars. Keep full-width actions
+   in narrow windows, while making wider Gaming actions size to their labels. */
+@media (min-width: 700px) {
+    .yomu-gaming-settings .jpdb-reader-settings-actions:not(.jpdb-reader-settings-actions-single) {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .yomu-gaming-settings .jpdb-reader-settings-actions:not(.jpdb-reader-settings-actions-single) > .jpdb-reader-btn,
+    .yomu-gaming-settings .jpdb-reader-help-actions > .jpdb-reader-btn {
+        flex: 0 1 auto;
+        width: auto;
+        max-width: 280px;
+    }
+
+    .yomu-gaming-settings .jpdb-reader-audio-sources > .jpdb-reader-btn {
+        justify-self: start;
+        max-width: 280px;
+    }
+
+    .yomu-gaming-settings .jpdb-reader-academy-account-link {
+        width: auto;
+        max-width: 280px;
+    }
+}
+
+/* External-link SVGs normally pick up their size from a host-page reset. The standalone
+   Electron renderer has no host, so an unsized icon uses SVG's 300x150 fallback and turns
+   its containing action into a giant card. Own the icon geometry in the Gaming shell. */
+.yomu-gaming-settings .jpdb-reader-btn > svg {
+    display: block;
+    flex: 0 0 auto;
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 .overlay-shell {
     position: fixed;
     inset: 0;
