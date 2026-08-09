@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { normalizeNewTabRecallAnswer } from '../../src/reader/newtab/recall-practice';
+import { applyTypeWordSelfCheckAction } from '../../src/reader/newtab/type-word-rendering';
 import { targetSupportsCharacterLookup, targetSupportsHandwriting } from '../../src/reader/languages/character-lookup';
 import { createNewTabStudySession } from '../../src/reader/newtab/study-session';
 import { suggestedStudyGrade } from '../../src/reader/newtab/study-outcomes';
@@ -216,6 +217,32 @@ describe('type-word step sequencing and gating', () => {
             'speaking',
             'final-reveal',
         ]);
+    });
+});
+
+describe('type-word handwriting self-check transitions', () => {
+    it('reveals once, ignores assessment while hidden, and navigates an already-passed card', () => {
+        expect(applyTypeWordSelfCheckAction(undefined, 'reveal')).toEqual({
+            kind: 'update',
+            state: { selfCheckRevealed: true },
+        });
+        expect(applyTypeWordSelfCheckAction({}, 'match')).toEqual({ kind: 'idle' });
+        expect(applyTypeWordSelfCheckAction({ feedback: 'correct' }, 'match')).toEqual({ kind: 'navigate' });
+    });
+
+    it('records explicit match and retry assessments without losing existing answer state', () => {
+        const state = { answer: '学习', selfCheckRevealed: true };
+
+        expect(applyTypeWordSelfCheckAction(state, 'match')).toEqual({
+            kind: 'update',
+            state: { ...state, feedback: 'correct', selfCheckRevealed: true },
+            outcome: 'correct',
+        });
+        expect(applyTypeWordSelfCheckAction(state, 'retry')).toEqual({
+            kind: 'update',
+            state: { ...state, feedback: 'incorrect', selfCheckRevealed: false },
+            outcome: 'incorrect',
+        });
     });
 });
 

@@ -172,6 +172,7 @@ import {
     renderStrokeFeedbackHandwriting,
     targetSupportsTypeWordHandwriting,
     type TypeWordSelfCheckAction,
+    type TypeWordSelfCheckState,
 } from './type-word-rendering';
 import { normalizeLearningTargetInput } from './typing-input';
 import { PitchSrsStore, pitchSeedFromCard, type PitchSrsItem } from './pitch-srs';
@@ -658,14 +659,9 @@ interface StudyStepState {
     // Type-word production: the in-progress typed answer plus the FIRST-attempt
     // outcome (recall grades reused; 'skipped' when the learner skips). First
     // attempt counts — a later retry never rewrites the recorded outcome.
-    type?: {
-        answer?: string;
+    type?: TypeWordSelfCheckState & {
         /** First attempt only; this is the value folded into the reveal summary. */
         outcome?: NewTabRecallOutcome | 'skipped';
-        /** Latest check; retries can improve this without laundering outcome. */
-        feedback?: NewTabRecallOutcome;
-        /** Generic handwriting is learner-checked; never an invented stroke score. */
-        selfCheckRevealed?: boolean;
     };
     // Pitch-selection pick per card (the chosen downstep position + graded
     // outcome), persisted so it survives step navigation and folds into reveal.
@@ -6613,9 +6609,11 @@ export class NewTabController {
         return targetSupportsTypeWordHandwriting(target, this.typeWordTarget(card));
     }
 
-    private typeWordUsesSelfCheck(card: JPDBCard): boolean {
-        return newTabCardTarget(card).experiences.handwriting === 'self-check'
-            || this.typeHandwritingSelfCheck.has(cardKey(card));
+    private typeWordUsesSelfCheck(card: JPDBCard | undefined): card is JPDBCard {
+        return Boolean(card && (
+            newTabCardTarget(card).experiences.handwriting === 'self-check'
+            || this.typeHandwritingSelfCheck.has(cardKey(card))
+        ));
     }
 
     private renderTypeWordSelfCheckHandwriting(card: JPDBCard): HTMLElement {
@@ -6633,17 +6631,15 @@ export class NewTabController {
 
     private handleTypeWordHandwritingSelfCheck(root: HTMLElement, action: TypeWordSelfCheckAction): void {
         const card = this.visibleWords[this.index];
-        if (!card || !this.typeWordUsesSelfCheck(card)) return;
+        if (!this.typeWordUsesSelfCheck(card)) return;
         const state = this.ensureStepState(cardKey(card));
-        const result = applyTypeWordSelfCheckAction(state.type, action);
-        if (result.navigate) {
-            if (!this.navigateStudyStep('next')) this.renderWord(root, card);
-            return;
+        const transition = applyTypeWordSelfCheckAction(state.type, action);
+        if (transition.kind === 'update') {
+            state.type = { ...state.type, ...transition.state };
+            this.recordTypeOutcome(card, transition.outcome);
+            this.renderWord(root, card);
         }
-        if (!result.state) return;
-        state.type = { ...state.type, ...result.state };
-        if (result.outcome) this.recordTypeOutcome(card, result.outcome);
-        this.renderWord(root, card);
+        if (transition.kind === 'navigate') this.continueTypeWord(root, card);
     }
 
     private typeWordHandwritingProgress(card: JPDBCard, chars = Array.from(this.typeWordTarget(card))): number {
@@ -6702,12 +6698,17 @@ export class NewTabController {
         const card = this.visibleWords[this.index];
         if (!card) return;
         this.recordTypeOutcome(card, 'skipped');
+        this.continueTypeWord(root, card);
+    }
+
+    private continueTypeWord(root: HTMLElement, card: JPDBCard): void {
         if (!this.navigateStudyStep('next')) this.renderWord(root, card);
     }
 
     // First attempt counts: once an outcome is recorded for this card it is never
     // overwritten (a retype/redraw does not launder a first miss into a pass).
-    private recordTypeOutcome(card: JPDBCard, outcome: NewTabRecallOutcome | 'skipped'): void {
+    private recordTypeOutcome(card: JPDBCard, outcome: NewTabRecallOutcome | 'skipped' | undefined): void {
+        if (!outcome) return;
         const state = this.ensureStepState(cardKey(card));
         if (state.type?.outcome !== undefined) return;
         state.type = { ...state.type, outcome };

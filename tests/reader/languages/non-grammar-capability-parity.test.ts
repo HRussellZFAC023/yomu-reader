@@ -189,6 +189,9 @@ describe('A47 non-grammar capability parity', () => {
             metaEntries: [{ expression: 'agua', mode: 'freq', data: 123, dictionary: 'Spanish frequency' }],
         });
         expect(withRank).not.toContain('data-frequency-source="context"');
+
+        expect(contextOccurrenceCount({ ...card, spelling: 'aa' }, 'aaa')).toBe(1);
+        expect(contextOccurrenceCount(card, undefined)).toBe(0);
     });
 
     it('names TARGET and definition/translation OUTPUT separately in the popup', () => {

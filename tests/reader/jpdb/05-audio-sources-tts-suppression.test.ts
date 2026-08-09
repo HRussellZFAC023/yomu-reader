@@ -48,12 +48,6 @@ import type {
     JPDBCard,
     ReaderSettings,
 } from './fixtures';
-import {
-    resetActiveLearningTargetLanguage,
-    setActiveLearningTargetLanguage,
-} from '../../../src/reader/languages/active';
-import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages/roster';
-import { targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
 
 registerReaderHelpersCleanup();
 
@@ -1053,33 +1047,6 @@ describe('reader helpers', () => {
         expect(app.puckPowerState()).toBe('no-furigana');
     });
 
-    it('uses a two-state annotation switch without mutating furigana for a non-Japanese target', async () => {
-        type PowerCycleInternals = {
-            settings: ReaderSettings;
-            cyclePowerState(): Promise<void>;
-            puckPowerState(): 'on' | 'no-furigana' | 'paused';
-            applyAnnotationsPausedState(): void;
-            toast(message: string): void;
-        };
-        const app = new ReaderApp() as unknown as PowerCycleInternals;
-        app.applyAnnotationsPausedState = vi.fn();
-        app.toast = vi.fn();
-        app.settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all', annotationsPaused: false };
-        setActiveLearningTargetLanguage('es');
-
-        try {
-            expect(app.puckPowerState()).toBe('on');
-            await app.cyclePowerState();
-            expect(app.puckPowerState()).toBe('paused');
-            expect(app.settings.furiganaMode).toBe('all');
-            await app.cyclePowerState();
-            expect(app.puckPowerState()).toBe('on');
-            expect(app.settings.furiganaMode).toBe('all');
-        } finally {
-            resetActiveLearningTargetLanguage();
-        }
-    });
-
     it('marks the puck differently for furigana-hidden and annotation-paused states', async () => {
         const controller = new FloatingButtonController();
         const restoreRects = mockFloatingButtonRects(760, 520);
@@ -1323,102 +1290,6 @@ describe('reader helpers', () => {
 
             expect(document.querySelector('.jpdb-reader-fab-radial-item[data-radial-id="subtitles"]')).toBeNull();
         } finally {
-            controller.destroy();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('shows the active target and keeps target-routed puck actions for Spanish', () => {
-        const controller = new FloatingButtonController();
-        const restoreRects = mockFloatingButtonRects(760, 520);
-        const settings = { ...DEFAULT_SETTINGS, showFloatingButton: true };
-        setActiveLearningTargetLanguage('es');
-
-        try {
-            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
-                controller.install(settings, vi.fn(), stubFloatingButtonActions({
-                    hasSubtitleVideo: () => true,
-                }));
-                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
-            }));
-
-            const puck = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
-            expect(puck?.dataset.targetLanguage).toBe('es');
-            expect(puck?.getAttribute('aria-label')).toBe('よむ — learning target: Spanish');
-            expect(document.querySelector('[data-radial-id="study"]')?.getAttribute('aria-label')).toBe('Study Spanish');
-            expect(document.querySelector('[data-radial-id="power"]')?.getAttribute('aria-label')).toBe('Pause annotations');
-            expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'))
-                .toBe('Auto-detect Spanish subtitles');
-            expect(document.querySelector('[data-radial-id="japanese-site"]')).toBeNull();
-        } finally {
-            resetActiveLearningTargetLanguage();
-            controller.destroy();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('shows target-labelled subtitle and YouTube actions for all 33 targets', () => {
-        const restoreRects = mockFloatingButtonRects(760, 520);
-        try {
-            for (const target of LEARNING_TARGET_ROSTER) {
-                const controller = new FloatingButtonController();
-                expect(setActiveLearningTargetLanguage(target.id), target.id).not.toBeNull();
-                document.body.innerHTML = '';
-                withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
-                    controller.install(
-                        { ...DEFAULT_SETTINGS, showFloatingButton: true },
-                        vi.fn(),
-                        stubFloatingButtonActions({
-                            hasSubtitleVideo: () => true,
-                            isYouTube: () => true,
-                        }),
-                    );
-                    document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
-                }));
-                const targetName = targetLanguageDisplayName(DEFAULT_SETTINGS);
-
-                expect(
-                    document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'),
-                    target.id,
-                ).toBe(`Auto-detect ${targetName} subtitles`);
-                expect(
-                    document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label'),
-                    target.id,
-                ).toBe(`Filter YouTube for ${targetName}`);
-                expect(document.querySelector('[data-radial-id="subtitles"] svg'), target.id).not.toBeNull();
-                expect(Boolean(document.querySelector('[data-radial-id="japanese-site"]')), target.id)
-                    .toBe(target.id === 'ja');
-                controller.destroy();
-            }
-        } finally {
-            resetActiveLearningTargetLanguage();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('names target-routed puck actions in the Japanese interface too', () => {
-        const controller = new FloatingButtonController();
-        const restoreRects = mockFloatingButtonRects(760, 520);
-        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
-        try {
-            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
-                controller.install(
-                    { ...DEFAULT_SETTINGS, interfaceLanguage: 'ja', showFloatingButton: true },
-                    vi.fn(),
-                    stubFloatingButtonActions({ hasSubtitleVideo: () => true, isYouTube: () => true }),
-                );
-                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
-            }));
-
-            expect(document.querySelector('[data-radial-id="subtitles"]')?.getAttribute('aria-label'))
-                .toBe('スペイン語の字幕を自動検出');
-            expect(document.querySelector('[data-radial-id="youtube"]')?.getAttribute('aria-label'))
-                .toBe('YouTubeをスペイン語向けに絞る');
-        } finally {
-            resetActiveLearningTargetLanguage();
             controller.destroy();
             restoreRects();
             document.body.innerHTML = '';

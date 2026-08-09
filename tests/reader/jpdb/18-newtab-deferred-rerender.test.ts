@@ -27,6 +27,108 @@ import type {
 
 registerReaderHelpersCleanup();
 
+type DeferredPopoverRenderData = {
+    localEntries: Promise<YomitanTermEntry[]>;
+    jpdbVocabularyInfo?: Promise<null>;
+    jitenVocabularyInfo?: Promise<null>;
+    ankiLookup?: Promise<AnkiLookupResult>;
+    all: Promise<CardRenderData>;
+};
+
+type DeferredPopoverInternals = {
+    activePopover: HTMLElement;
+    settings: typeof DEFAULT_SETTINGS;
+    parsePopoverJapanese: () => Promise<void>;
+    studySources: { installLoaders: (root: ParentNode, sentence: string) => void };
+    immersionPopover: { installLazyLoad: (root: ParentNode, card: JPDBCard, options: object) => void };
+    renderDeferredCardLocalEntries(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        renderData: DeferredPopoverRenderData,
+        fallbackAnkiLookup: AnkiLookupResult,
+        mounted: { instantLocalEntries: null; requestId: number },
+        renderState: { fullRenderCompleted: boolean },
+        isCurrentHoverCard: () => boolean,
+    ): void;
+    renderCompletedCardPopover(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        trigger: 'modal' | 'hover',
+        data: CardRenderData,
+    ): void;
+    installInitialCardBehaviors(
+        popover: HTMLElement,
+        card: JPDBCard,
+        sentence: string | undefined,
+        context: {
+            trigger: 'modal' | 'hover';
+            options: Record<string, unknown>;
+            isCurrentHoverCard: () => boolean;
+        },
+        instantLocalEntries: null,
+    ): void;
+};
+
+function deferredPopoverHarness(settings: Partial<typeof DEFAULT_SETTINGS> = {}) {
+    const app = new ReaderApp();
+    const lookupCard = testAozoraCard();
+    const popover = document.createElement('div');
+    popover.className = 'jpdb-reader-popover';
+    document.body.append(popover);
+    const localEntries = deferred<YomitanTermEntry[]>();
+    const all = deferred<CardRenderData>();
+    const parsePopoverJapanese = vi.fn(async () => undefined);
+    const installLoaders = vi.fn();
+    const installLazyLoad = vi.fn();
+    const internals = app as unknown as DeferredPopoverInternals;
+    internals.activePopover = popover;
+    internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, ...settings };
+
+    return {
+        all,
+        internals,
+        localEntries,
+        lookupCard,
+        popover,
+        render(trigger: 'modal' | 'hover', renderData: DeferredPopoverRenderData = {
+            localEntries: localEntries.promise,
+            all: all.promise,
+        }): void {
+            internals.renderDeferredCardLocalEntries(
+                popover,
+                lookupCard,
+                '青空です。',
+                trigger,
+                renderData,
+                { state: 'not-in-deck', notes: [], primary: null },
+                { instantLocalEntries: null, requestId: 1 },
+                { fullRenderCompleted: false },
+                () => true,
+            );
+        },
+        async settle(): Promise<void> {
+            await Promise.resolve();
+            await Promise.resolve();
+        },
+        trackLoaders(): { installLazyLoad: typeof installLazyLoad; installLoaders: typeof installLoaders } {
+            internals.studySources.installLoaders = installLoaders;
+            internals.immersionPopover.installLazyLoad = installLazyLoad;
+            return { installLazyLoad, installLoaders };
+        },
+        trackParsing(): typeof parsePopoverJapanese {
+            internals.parsePopoverJapanese = parsePopoverJapanese;
+            return parsePopoverJapanese;
+        },
+        destroy(): void {
+            popover.remove();
+            app.destroy();
+        },
+    };
+}
+
 describe('reader helpers', () => {
     it('renders newtab lookup Anki cards without raw all-caps stored-field labels when rendered HTML exists', () => {
         const settings = {
@@ -195,70 +297,21 @@ describe('reader helpers', () => {
     });
 
     it('preserves loaded Immersion Kit examples across deferred and completed popup rerenders', async () => {
-        const app = new ReaderApp();
-        const lookupCard = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
+        const harness = deferredPopoverHarness();
+        const { internals, localEntries, lookupCard, popover } = harness;
+        harness.trackParsing();
         popover.innerHTML = `
             <details open class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit data-immersion-load-state="loaded" data-immersion-lazy-bound="true">
                 <summary class="jpdb-reader-local-title">Immersion Kit</summary>
                 <div class="jpdb-reader-example-card" data-immersion-sentence="青空です。">ready example</div>
             </details>
         `;
-        document.body.append(popover);
         const originalImmersion = popover.querySelector<HTMLElement>('[data-immersion-kit]')!;
-        const localEntries = deferred<YomitanTermEntry[]>();
-        const all = deferred<CardRenderData>();
-        const parsePopoverJapanese = vi.fn(async () => undefined);
-        const internals = app as unknown as {
-            activePopover: HTMLElement;
-            settings: typeof DEFAULT_SETTINGS;
-            parsePopoverJapanese: typeof parsePopoverJapanese;
-            renderDeferredCardLocalEntries(
-                popover: HTMLElement,
-                card: JPDBCard,
-                sentence: string | undefined,
-                trigger: 'modal' | 'hover',
-                renderData: {
-                    localEntries: Promise<YomitanTermEntry[]>;
-                    all: Promise<CardRenderData>;
-                },
-                fallbackAnkiLookup: { state: string; notes: unknown[]; primary: null },
-                mounted: { instantLocalEntries: null; requestId: number },
-                renderState: { fullRenderCompleted: boolean },
-                isCurrentHoverCard: () => boolean,
-            ): void;
-            renderCompletedCardPopover(
-                popover: HTMLElement,
-                card: JPDBCard,
-                sentence: string | undefined,
-                trigger: 'modal' | 'hover',
-                data: CardRenderData,
-            ): void;
-        };
-        internals.activePopover = popover;
-        internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true };
-        internals.parsePopoverJapanese = parsePopoverJapanese;
 
         try {
-            internals.renderDeferredCardLocalEntries(
-                popover,
-                lookupCard,
-                '青空です。',
-                'modal',
-                {
-                    localEntries: localEntries.promise,
-                    all: all.promise,
-                },
-                { state: 'not-in-deck', notes: [], primary: null },
-                { instantLocalEntries: null, requestId: 1 },
-                { fullRenderCompleted: false },
-                () => true,
-            );
-
+            harness.render('modal');
             localEntries.resolve([]);
-            await Promise.resolve();
-            await Promise.resolve();
+            await harness.settle();
 
             expect(popover.querySelector('[data-immersion-kit]')).toBe(originalImmersion);
             expect(popover.querySelector('.jpdb-reader-example-card')?.textContent).toContain('ready example');
@@ -276,68 +329,20 @@ describe('reader helpers', () => {
             expect(popover.querySelector('[data-immersion-kit]')).toBe(originalImmersion);
             expect(popover.querySelector('.jpdb-reader-example-card')?.textContent).toContain('ready example');
         } finally {
-            popover.remove();
-            app.destroy();
+            harness.destroy();
         }
     });
 
     it('rebinds study and Immersion loaders after deferred popup rerenders', async () => {
-        const app = new ReaderApp();
-        const lookupCard = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        document.body.append(popover);
-        const localEntries = deferred<YomitanTermEntry[]>();
-        const all = deferred<CardRenderData>();
-        const parsePopoverJapanese = vi.fn(async () => undefined);
-        const installLoaders = vi.fn();
-        const installLazyLoad = vi.fn();
-        const internals = app as unknown as {
-            activePopover: HTMLElement;
-            settings: typeof DEFAULT_SETTINGS;
-            parsePopoverJapanese: typeof parsePopoverJapanese;
-            studySources: { installLoaders: typeof installLoaders };
-            immersionPopover: { installLazyLoad: typeof installLazyLoad };
-            renderDeferredCardLocalEntries(
-                popover: HTMLElement,
-                card: JPDBCard,
-                sentence: string | undefined,
-                trigger: 'modal' | 'hover',
-                renderData: {
-                    localEntries: Promise<YomitanTermEntry[]>;
-                    all: Promise<CardRenderData>;
-                },
-                fallbackAnkiLookup: { state: string; notes: unknown[]; primary: null },
-                mounted: { instantLocalEntries: null; requestId: number },
-                renderState: { fullRenderCompleted: boolean },
-                isCurrentHoverCard: () => boolean,
-            ): void;
-        };
-        internals.activePopover = popover;
-        internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, studyGrammarEnabled: true, studyTranslationEnabled: true };
-        internals.parsePopoverJapanese = parsePopoverJapanese;
-        internals.studySources.installLoaders = installLoaders;
-        internals.immersionPopover.installLazyLoad = installLazyLoad;
+        const harness = deferredPopoverHarness({ studyGrammarEnabled: true, studyTranslationEnabled: true });
+        const { localEntries, lookupCard, popover } = harness;
+        const { installLazyLoad, installLoaders } = harness.trackLoaders();
+        harness.trackParsing();
 
         try {
-            internals.renderDeferredCardLocalEntries(
-                popover,
-                lookupCard,
-                '青空です。',
-                'modal',
-                {
-                    localEntries: localEntries.promise,
-                    all: all.promise,
-                },
-                { state: 'not-in-deck', notes: [], primary: null },
-                { instantLocalEntries: null, requestId: 1 },
-                { fullRenderCompleted: false },
-                () => true,
-            );
-
+            harness.render('modal');
             localEntries.resolve([]);
-            await Promise.resolve();
-            await Promise.resolve();
+            await harness.settle();
 
             await vi.waitFor(() => {
                 expect(popover.querySelector('[data-study-grammar]')).not.toBeNull();
@@ -346,85 +351,42 @@ describe('reader helpers', () => {
             expect(installLoaders).toHaveBeenCalledWith(popover, '青空です。');
             expect(installLazyLoad).toHaveBeenCalledWith(popover, lookupCard, {});
         } finally {
-            popover.remove();
-            app.destroy();
+            harness.destroy();
         }
     });
 
     it.each(['hover', 'modal'] as const)('coalesces %s deferred popup rerenders before parsing and loading detail sections', async trigger => {
-        const app = new ReaderApp();
-        const lookupCard = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        document.body.append(popover);
-        const localEntries = deferred<YomitanTermEntry[]>();
+        const harness = deferredPopoverHarness({ studyGrammarEnabled: true, studyTranslationEnabled: true });
+        const {
+            localEntries,
+            lookupCard,
+            popover,
+        } = harness;
+        const { installLazyLoad, installLoaders } = harness.trackLoaders();
+        const parsePopoverJapanese = harness.trackParsing();
         const jpdbVocabularyInfo = deferred<null>();
         const jitenVocabularyInfo = deferred<null>();
         const ankiLookup = deferred<AnkiLookupResult>();
-        const all = deferred<CardRenderData>();
-        const parsePopoverJapanese = vi.fn(async () => undefined);
-        const installLoaders = vi.fn();
-        const installLazyLoad = vi.fn();
         const frameCallbacks: FrameRequestCallback[] = [];
-        const internals = app as unknown as {
-            activePopover: HTMLElement;
-            settings: typeof DEFAULT_SETTINGS;
-            parsePopoverJapanese: typeof parsePopoverJapanese;
-            studySources: { installLoaders: typeof installLoaders };
-            immersionPopover: { installLazyLoad: typeof installLazyLoad };
-            renderDeferredCardLocalEntries(
-                popover: HTMLElement,
-                card: JPDBCard,
-                sentence: string | undefined,
-                trigger: 'modal' | 'hover',
-                renderData: {
-                    localEntries: Promise<YomitanTermEntry[]>;
-                    jpdbVocabularyInfo?: Promise<null>;
-                    jitenVocabularyInfo?: Promise<null>;
-                    ankiLookup?: Promise<AnkiLookupResult>;
-                    all: Promise<CardRenderData>;
-                },
-                fallbackAnkiLookup: AnkiLookupResult,
-                mounted: { instantLocalEntries: null; requestId: number },
-                renderState: { fullRenderCompleted: boolean },
-                isCurrentHoverCard: () => boolean,
-            ): void;
-        };
-        internals.activePopover = popover;
-        internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, studyGrammarEnabled: true, studyTranslationEnabled: true };
-        internals.parsePopoverJapanese = parsePopoverJapanese;
-        internals.studySources.installLoaders = installLoaders;
-        internals.immersionPopover.installLazyLoad = installLazyLoad;
         vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
             frameCallbacks.push(callback);
             return frameCallbacks.length;
         });
 
         try {
-            internals.renderDeferredCardLocalEntries(
-                popover,
-                lookupCard,
-                '青空です。',
-                trigger,
-                {
-                    localEntries: localEntries.promise,
-                    jpdbVocabularyInfo: jpdbVocabularyInfo.promise,
-                    jitenVocabularyInfo: jitenVocabularyInfo.promise,
-                    ankiLookup: ankiLookup.promise,
-                    all: all.promise,
-                },
-                { state: 'not-in-deck', notes: [], primary: null },
-                { instantLocalEntries: null, requestId: 1 },
-                { fullRenderCompleted: false },
-                () => true,
-            );
+            harness.render(trigger, {
+                localEntries: localEntries.promise,
+                jpdbVocabularyInfo: jpdbVocabularyInfo.promise,
+                jitenVocabularyInfo: jitenVocabularyInfo.promise,
+                ankiLookup: ankiLookup.promise,
+                all: harness.all.promise,
+            });
 
             localEntries.resolve([]);
             jpdbVocabularyInfo.resolve(null);
             jitenVocabularyInfo.resolve(null);
             ankiLookup.resolve({ state: 'not-in-deck', notes: [], primary: null });
-            await Promise.resolve();
-            await Promise.resolve();
+            await harness.settle();
 
             expect(frameCallbacks).toHaveLength(1);
             expect(parsePopoverJapanese).not.toHaveBeenCalled();
@@ -450,41 +412,15 @@ describe('reader helpers', () => {
             expect(installLazyLoad).toHaveBeenCalledWith(popover, lookupCard, {});
         } finally {
             vi.restoreAllMocks();
-            popover.remove();
-            app.destroy();
+            harness.destroy();
         }
     });
 
     it('defers study and Immersion loaders until after the initial hover card shell paints', () => {
-        const app = new ReaderApp();
-        const lookupCard = testAozoraCard();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        document.body.append(popover);
-        const installLoaders = vi.fn();
-        const installLazyLoad = vi.fn();
+        const harness = deferredPopoverHarness({ studyGrammarEnabled: true, studyTranslationEnabled: true });
+        const { internals, lookupCard, popover } = harness;
+        const { installLazyLoad, installLoaders } = harness.trackLoaders();
         const frameCallbacks: FrameRequestCallback[] = [];
-        const internals = app as unknown as {
-            activePopover: HTMLElement;
-            settings: typeof DEFAULT_SETTINGS;
-            studySources: { installLoaders: typeof installLoaders };
-            immersionPopover: { installLazyLoad: typeof installLazyLoad };
-            installInitialCardBehaviors(
-                popover: HTMLElement,
-                card: JPDBCard,
-                sentence: string | undefined,
-                context: {
-                    trigger: 'modal' | 'hover';
-                    options: Record<string, unknown>;
-                    isCurrentHoverCard: () => boolean;
-                },
-                instantLocalEntries: null,
-            ): void;
-        };
-        internals.activePopover = popover;
-        internals.settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, studyGrammarEnabled: true, studyTranslationEnabled: true };
-        internals.studySources.installLoaders = installLoaders;
-        internals.immersionPopover.installLazyLoad = installLazyLoad;
         vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
             frameCallbacks.push(callback);
             return frameCallbacks.length;
@@ -509,8 +445,7 @@ describe('reader helpers', () => {
             expect(installLazyLoad).toHaveBeenCalledWith(popover, lookupCard, {});
         } finally {
             vi.restoreAllMocks();
-            popover.remove();
-            app.destroy();
+            harness.destroy();
         }
     });
 

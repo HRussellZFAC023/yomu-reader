@@ -114,12 +114,14 @@ export function targetCanHandwriteCharacter(value: string): boolean {
 }
 
 function singleGrapheme(value: string): string {
-    const text = value.trim();
-    if (!text) return '';
-    if (typeof Intl.Segmenter === 'function') {
-        const segments = Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(text));
-        return segments.length === 1 ? segments[0]?.segment ?? '' : '';
-    }
-    const codePoints = Array.from(text);
-    return codePoints.length === 1 ? codePoints[0] ?? '' : '';
+    const units = segmentGraphemes(value.trim());
+    return units.length === 1 ? units[0] ?? '' : '';
+}
+
+function segmentGraphemes(value: string): string[] {
+    if (typeof Intl.Segmenter !== 'function') return Array.from(value);
+    return Array.from(
+        new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value),
+        segment => segment.segment,
+    );
 }

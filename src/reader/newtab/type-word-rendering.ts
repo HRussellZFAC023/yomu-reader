@@ -13,22 +13,44 @@ type TypeWordText = (key: UiCopyKey | NewTabCopyKey) => string;
 
 export interface TypeWordSelfCheckState {
     answer?: string;
+    /** Latest learner assessment; retries may change this without laundering the first outcome. */
     feedback?: NewTabRecallOutcome;
+    /** Generic handwriting is learner-checked; never an invented stroke score. */
     selfCheckRevealed?: boolean;
 }
 
 export type TypeWordSelfCheckAction = 'reveal' | 'match' | 'retry';
 
+export type TypeWordSelfCheckTransition =
+    | { kind: 'idle' }
+    | { kind: 'navigate' }
+    | {
+        kind: 'update';
+        state: TypeWordSelfCheckState;
+        outcome?: 'correct' | 'incorrect';
+    };
+
 export function applyTypeWordSelfCheckAction(
-    state: TypeWordSelfCheckState | undefined,
+    state: TypeWordSelfCheckState = {},
     action: TypeWordSelfCheckAction,
-): { state?: TypeWordSelfCheckState; outcome?: 'correct' | 'incorrect'; navigate?: boolean } {
-    if (action === 'reveal') return { state: { ...state, selfCheckRevealed: true } };
-    if (action === 'match' && state?.feedback === 'correct') return { navigate: true };
-    if (!state?.selfCheckRevealed) return {};
-    return action === 'match'
-        ? { state: { ...state, feedback: 'correct', selfCheckRevealed: true }, outcome: 'correct' }
-        : { state: { ...state, feedback: 'incorrect', selfCheckRevealed: false }, outcome: 'incorrect' };
+): TypeWordSelfCheckTransition {
+    if (action === 'reveal') return { kind: 'update', state: { ...state, selfCheckRevealed: true } };
+    if (action === 'retry') return selfCheckAssessment(state, 'incorrect', false);
+    if (state.feedback === 'correct') return { kind: 'navigate' };
+    return selfCheckAssessment(state, 'correct', true);
+}
+
+function selfCheckAssessment(
+    state: Readonly<TypeWordSelfCheckState>,
+    outcome: 'correct' | 'incorrect',
+    selfCheckRevealed: boolean,
+): TypeWordSelfCheckTransition {
+    if (!state.selfCheckRevealed) return { kind: 'idle' };
+    return {
+        kind: 'update',
+        state: { ...state, feedback: outcome, selfCheckRevealed },
+        outcome,
+    };
 }
 
 export function nextTypeWordHandwritingIndex(chars: string[], start: number): number {
@@ -211,11 +233,19 @@ export function renderStrokeFeedbackHandwriting(options: {
         el('div', { class: 'jpdb-reader-newtab-type-handwriting-track', 'aria-label': options.text('typeWordProgress') },
             options.chars.map((character, index) => {
                 const fixed = options.isFixed(character);
-                const done = !fixed && index < options.progress;
+                let content = '＿';
+                let done = false;
+                let active = false;
+                if (fixed) content = character;
+                else if (index < options.progress) {
+                    content = character;
+                    done = true;
+                }
+                else if (index === options.progress) active = true;
                 return el('span', {
                     class: 'jpdb-reader-newtab-type-handwriting-cell', lang: 'ja',
-                    dataset: { fixed: String(fixed), done: String(done), active: String(!fixed && index === options.progress) },
-                }, fixed || done ? character : '＿');
+                    dataset: { fixed: String(fixed), done: String(done), active: String(active) },
+                }, content);
             })),
         options.progress >= options.chars.length
             ? el('div', { class: 'jpdb-reader-newtab-recall-result jpdb-reader-newtab-type-result', dataset: { newtabTypeResult: 'correct' } }, options.text('typeWordAllDone'))

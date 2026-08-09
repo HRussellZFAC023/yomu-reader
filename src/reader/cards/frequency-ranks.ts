@@ -45,19 +45,19 @@ export function hasFrequencyRankEvidence(
 }
 
 /** Count non-overlapping occurrences of the exact lookup surface in its sentence. */
-export function contextOccurrenceCount(card: JPDBCard, context: string | undefined): number {
-    if (!context) return 0;
-    const target = learningTargetModuleFor(card.language ?? 'ja');
-    const normalize = target?.normalizeText ?? normalizeIdentityText;
-    const surface = normalize(card.spelling);
+export function contextOccurrenceCount(
+    { spelling, language = 'ja' }: JPDBCard,
+    context = '',
+): number {
+    let normalize = normalizeIdentityText;
+    const target = learningTargetModuleFor(language);
+    if (target) normalize = value => target.normalizeText(value);
+    const surface = normalize(spelling);
     const text = normalize(context);
-    if (!surface || !text) return 0;
-
+    if (!surface) return 0;
     let count = 0;
-    let offset = text.indexOf(surface);
-    while (offset >= 0) {
+    for (let offset = text.indexOf(surface); offset >= 0; offset = text.indexOf(surface, offset + surface.length)) {
         count++;
-        offset = text.indexOf(surface, offset + surface.length);
     }
     return count;
 }
