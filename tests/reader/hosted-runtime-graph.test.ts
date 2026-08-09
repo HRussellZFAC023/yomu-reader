@@ -146,13 +146,59 @@ describe('hosted runtime graph generator', () => {
         expect(stampHostedRuntimeGraph(once!, FINAL_GRAPH.pagePaths)).toBe(once);
     });
 
-    it('rejects unsafe and duplicate paths and fails closed on ambiguous markers', () => {
+    it('rejects empty, unsafe, and duplicate path graphs', () => {
+        expect(() => stampHostedRuntimeGraph(template, []))
+            .toThrow(/at least one companion path/u);
+        expect(() => stampHostedRuntimeGraph(template, null as unknown as string[]))
+            .toThrow(/at least one companion path/u);
         expect(() => stampHostedRuntimeGraph(template, ['greasyfork/yomu-runtime.user.js']))
+            .toThrow(/Unsafe hosted runtime companion path/u);
+        expect(() => stampHostedRuntimeGraph(template, [undefined as unknown as string]))
+            .toThrow(/Unsafe hosted runtime companion path: undefined/u);
+        expect(() => stampHostedRuntimeGraph(template, new Array<string>(1)))
+            .toThrow(/Unsafe hosted runtime companion path: undefined/u);
+        expect(() => stampHostedRuntimeGraph(template, ['../greasyfork/yomu-runtime.000000000000.user.js']))
             .toThrow(/Unsafe hosted runtime companion path/u);
         expect(() => stampHostedRuntimeGraph(template, [FINAL_GRAPH.pagePaths[0], FINAL_GRAPH.pagePaths[0]]))
             .toThrow(/must be unique/u);
+    });
+
+    it('fails closed unless both markers are unique, ordered, whole lines', () => {
         expect(stampHostedRuntimeGraph('const graph = [];', FINAL_GRAPH.pagePaths)).toBeUndefined();
         expect(stampHostedRuntimeGraph(`${template}\n${START_MARKER}`, FINAL_GRAPH.pagePaths)).toBeUndefined();
+        expect(stampHostedRuntimeGraph(`${template}\n${END_MARKER}`, FINAL_GRAPH.pagePaths)).toBeUndefined();
+        expect(stampHostedRuntimeGraph(
+            `${END_MARKER}\nconst graph = [];\n${START_MARKER}`,
+            FINAL_GRAPH.pagePaths,
+        )).toBeUndefined();
+        expect(stampHostedRuntimeGraph(
+            `const graph = []; ${START_MARKER}\n${END_MARKER}`,
+            FINAL_GRAPH.pagePaths,
+        )).toBeUndefined();
+        expect(stampHostedRuntimeGraph(
+            `${START_MARKER}\n${END_MARKER} executeAfterMarker();`,
+            FINAL_GRAPH.pagePaths,
+        )).toBeUndefined();
+        expect(stampHostedRuntimeGraph(
+            `${template}\nconst duplicate = '${END_MARKER}';`,
+            FINAL_GRAPH.pagePaths,
+        )).toBeUndefined();
+    });
+
+    it('preserves CRLF newlines and tab indentation', () => {
+        const crlfTemplate = [
+            'const RUNTIME_GRAPH = [',
+            `\t${START_MARKER}`,
+            "\t'greasyfork/yomu-runtime.000000000000.user.js',",
+            `\t${END_MARKER}`,
+            '];',
+        ].join('\r\n');
+        const stamped = stampHostedRuntimeGraph(crlfTemplate, FINAL_GRAPH.pagePaths);
+        expect(stamped).toBeDefined();
+        expect(stamped).toContain(
+            `\t${START_MARKER}\r\n\t'${FINAL_GRAPH.pagePaths[0]}',\r\n`,
+        );
+        expect(stamped).not.toMatch(/(?<!\r)\n/u);
     });
 
     it('changes the service-worker cache revision when final core bytes change', () => {

@@ -54,8 +54,8 @@ function hostedRuntimeGraph(userscript) {
  * @returns {string | undefined}
  */
 function stampHostedRuntimeGraph(source, paths) {
-  validateHostedRuntimePaths(paths);
-  return stampMarkedLines(source, START_MARKER, END_MARKER, paths.map(path => `'${path}',`));
+  const runtimePaths = requireHostedRuntimePaths(paths);
+  return stampMarkedLines(source, START_MARKER, END_MARKER, runtimePaths.map(path => `'${path}',`));
 }
 
 /**
@@ -85,44 +85,50 @@ function stampHostedRuntimeServiceWorker(source, graph, cacheNamePrefix) {
 }
 
 function stampMarkedLines(source, startMarker, endMarker, lines) {
-  const starts = markerOffsets(source, startMarker);
-  const ends = markerOffsets(source, endMarker);
-  if (starts.length !== 1 || ends.length !== 1 || ends[0] < starts[0]) return undefined;
-
-  const start = starts[0];
-  const end = ends[0];
-  const lineStart = source.lastIndexOf('\n', start - 1) + 1;
-  const indent = source.slice(lineStart, start);
-  if (!/^[\t ]*$/u.test(indent)) return undefined;
+  const region = locateMarkedBlock(source, startMarker, endMarker);
+  if (!region) return undefined;
 
   const newline = source.includes('\r\n') ? '\r\n' : '\n';
-  const entries = lines.map(line => `${indent}${line}`).join(newline);
-  const block = `${startMarker}${newline}${entries}${newline}${indent}${endMarker}`;
-  return `${source.slice(0, start)}${block}${source.slice(end + endMarker.length)}`;
+  const entries = lines.map(line => `${region.indent}${line}`).join(newline);
+  const block = `${startMarker}${newline}${entries}${newline}${region.indent}${endMarker}`;
+  return `${source.slice(0, region.start)}${block}${source.slice(region.end + endMarker.length)}`;
 }
 
-function markerOffsets(source, marker) {
-  const offsets = [];
-  let offset = source.indexOf(marker);
-  while (offset !== -1) {
-    offsets.push(offset);
-    offset = source.indexOf(marker, offset + marker.length);
-  }
-  return offsets;
+function locateMarkedBlock(source, startMarker, endMarker) {
+  const start = uniqueMarkerLine(source, startMarker);
+  const end = uniqueMarkerLine(source, endMarker);
+  if (!start || !end || end.offset < start.offset) return undefined;
+  return { start: start.offset, end: end.offset, indent: start.indent };
 }
 
-function validateHostedRuntimePaths(paths) {
+function uniqueMarkerLine(source, marker) {
+  const totalOccurrences = source.split(marker).length - 1;
+  const lines = [...source.matchAll(markerLinePattern(marker))];
+  if (totalOccurrences !== 1 || lines.length !== 1) return undefined;
+  const [line] = lines;
+  return { offset: line.index + line[1].length, indent: line[1] };
+}
+
+function markerLinePattern(marker) {
+  const escaped = marker.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+  return new RegExp(`^([\\t ]*)${escaped}[\\t ]*\\r?$`, 'gmu');
+}
+
+function requireHostedRuntimePaths(paths) {
   if (!Array.isArray(paths) || paths.length === 0) {
     throw new Error('Hosted runtime graph must contain at least one companion path');
   }
   if (new Set(paths).size !== paths.length) {
     throw new Error('Hosted runtime graph companion paths must be unique');
   }
-  for (const path of paths) {
-    if (typeof path !== 'string' || !HOSTED_RUNTIME_PATH.test(path)) {
-      throw new Error(`Unsafe hosted runtime companion path: ${String(path)}`);
-    }
+  return Array.from(paths, assertHostedRuntimePath);
+}
+
+function assertHostedRuntimePath(path) {
+  if (typeof path !== 'string' || !HOSTED_RUNTIME_PATH.test(path)) {
+    throw new Error(`Unsafe hosted runtime companion path: ${String(path)}`);
   }
+  return path;
 }
 
 module.exports = {
