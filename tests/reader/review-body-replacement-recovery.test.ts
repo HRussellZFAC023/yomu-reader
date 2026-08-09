@@ -4,7 +4,6 @@ import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { currentLocalDictionaryTargets } from '../../src/reader/jpdb/jpdb-page-targets';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import { waitForExpect } from './test-utils';
 
 interface ReaderAppInternals {
     settings: ReaderSettings;
@@ -68,6 +67,14 @@ function stubJitenStudyLocation(): void {
     });
 }
 
+async function deliverMutationObserverRecords(): Promise<void> {
+    // MutationObserver delivery happens at a microtask checkpoint. Give the
+    // document-root recovery callback and the observer it installs one turn
+    // each, without racing a polling timer against Vitest's test deadline.
+    await Promise.resolve();
+    await Promise.resolve();
+}
+
 describe('review page body replacement recovery', () => {
     afterEach(() => {
         vi.unstubAllGlobals();
@@ -120,21 +127,29 @@ describe('review page body replacement recovery', () => {
             // review-card child.
             document.documentElement.replaceChild(jpdbAnswerBody(), document.body);
 
-            await waitForExpect(() => {
-                expect(observeBody).toHaveBeenCalled();
-                expect(installFab).toHaveBeenCalledTimes(1);
-                expect(disposeDetachedBodyBridge).toHaveBeenCalledTimes(1);
-                expect(scheduleEnhancements).toHaveBeenCalledWith(0, { preserveEarlier: true });
-            });
+            await deliverMutationObserverRecords();
+            expect(observeBody).toHaveBeenCalled();
+            expect(installFab).toHaveBeenCalledTimes(1);
+            expect(disposeDetachedBodyBridge).toHaveBeenCalledTimes(1);
+            expect(scheduleEnhancements).toHaveBeenCalledWith(0, { preserveEarlier: true });
             expect(internals.disposeJpdbReviewBridge).not.toBe(disposeDetachedBodyBridge);
             expect(currentLocalDictionaryTargets()).toHaveLength(1);
             expect(document.querySelector('[data-yomu-jpdb-addon]')).toBeNull();
 
-            const publishesAfterRebind = publishReplacementBodyStatus.mock.calls.length;
-            document.querySelector('.answer-box')!.append(document.createElement('span'));
-            await waitForExpect(() => {
+            vi.useFakeTimers();
+            try {
+                const publishesAfterRebind = publishReplacementBodyStatus.mock.calls.length;
+                document.querySelector('.answer-box')!.append(document.createElement('span'));
+                await deliverMutationObserverRecords();
+                // The replacement bridge intentionally coalesces DOM churn for
+                // 160 ms. Advance its production debounce deterministically; no
+                // host-load-dependent wall-clock polling is involved.
+                expect(publishReplacementBodyStatus).toHaveBeenCalledTimes(publishesAfterRebind);
+                await vi.advanceTimersByTimeAsync(160);
                 expect(publishReplacementBodyStatus.mock.calls.length).toBeGreaterThan(publishesAfterRebind);
-            });
+            } finally {
+                vi.useRealTimers();
+            }
         } finally {
             app.destroy();
         }
