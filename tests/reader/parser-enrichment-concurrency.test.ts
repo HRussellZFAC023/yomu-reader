@@ -28,10 +28,22 @@ describe('keyless local-dictionary enrichment concurrency', () => {
     it('caps concurrent IndexedDB enrichment lookups across many parallel cue parses', async () => {
         let active = 0;
         let maxActive = 0;
+        // Release one synchronous launch wave per microtask. This is independent
+        // of inherited fake clocks, while an unbounded fan-out still reaches 60.
+        let releaseScheduled = false;
+        const pending: Array<() => void> = [];
         const lookupTermMeta = vi.fn(async () => {
             active++;
             maxActive = Math.max(maxActive, active);
-            await new Promise<void>(resolve => setTimeout(resolve, 3));
+            await new Promise<void>(resolve => {
+                pending.push(resolve);
+                if (releaseScheduled) return;
+                releaseScheduled = true;
+                queueMicrotask(() => {
+                    releaseScheduled = false;
+                    pending.splice(0).forEach(release => release());
+                });
+            });
             active--;
             return [] as never[];
         });
