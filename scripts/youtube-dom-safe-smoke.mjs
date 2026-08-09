@@ -1,24 +1,19 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import {
-    addGmStorageBridgeInitScript,
     assert,
     assertBuiltArtifacts,
     createSmokePaths,
+    gmStorageBridgeInitProgram,
     launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { addUserscriptGraphInitScripts } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath, cssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
-const companionPaths = [
-    'yomu-anki.user.js',
-    'yomu-kanji-study.user.js',
-    'yomu-settings-surface.user.js',
-    'yomu-video.user.js',
-].map(name => join(root, 'dist', 'greasyfork', name)).filter(existsSync);
-assertBuiltArtifacts([scriptPath, cssPath, ...companionPaths], root);
+assertBuiltArtifacts([scriptPath, cssPath], root);
 
 const outputDir = join(artifacts, 'youtube-dom-safe', process.env.YOMU_YOUTUBE_DOM_SAFE_LABEL ?? 'latest');
 mkdirSync(outputDir, { recursive: true });
@@ -51,14 +46,16 @@ context.setDefaultNavigationTimeout(15_000);
 
 try {
     console.error('[youtube-dom-safe] installing routes');
-    await addGmStorageBridgeInitScript(context, {
+    const prefixContent = gmStorageBridgeInitProgram({
         key: YOMU_SETTINGS_KEY,
         value: settings,
         css: readFileSync(cssPath, 'utf8'),
     });
-    await context.addInitScript({
-        content: [...companionPaths, scriptPath].map(path => readFileSync(path, 'utf8')).join('\n;\n'),
-    });
+    // A userscript manager installs the CSS/GM bridge first, then executes each
+    // immutable @require in metadata order before core. Keep this fixture on
+    // that exact graph: a hand-written companion list silently stopped loading
+    // the aggregate runtime when the split changed.
+    await addUserscriptGraphInitScripts(context, scriptPath, { prefixContent });
     await context.route('https://www.youtube.com/oembed**', route => route.fulfill({
         status: 404,
         contentType: 'application/json',

@@ -140,6 +140,18 @@ describe('full-reader smoke companion graph', () => {
         expect(literalCompanionNames(source)).toEqual([]);
     });
 
+    it('boots the YouTube DOM-safety smoke with its GM/CSS prelude and the ordered built graph', () => {
+        const file = 'scripts/youtube-dom-safe-smoke.mjs';
+        const source = readFileSync(file, 'utf8');
+
+        expect(source).toMatch(/from '\.\/lib\/smoke-test-helpers\.mjs'/);
+        expect(source).toContain('gmStorageBridgeInitProgram({');
+        expect(source).toMatch(
+            /addUserscriptGraphInitScripts\(\s*context,\s*scriptPath,\s*\{\s*prefixContent\s*\}\s*\)/,
+        );
+        expect(literalCompanionNames(source)).toEqual([]);
+    });
+
     it('resolves every @require line in the built userscript to a file on disk', () => {
         if (!existsSync(BUILT_USERSCRIPT)) return;
         const header = readFileSync(BUILT_USERSCRIPT, 'utf8');
