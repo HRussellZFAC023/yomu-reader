@@ -79,6 +79,21 @@ describe('Slice 1 multilingual onboarding and settings', () => {
         expect(settings.interfaceLanguage).toBe('en');
         expect(settings.youtubeImmersionEnabled).toBe(true);
         expect(settings.youtubeImmersionEnabledChosen).toBe(false);
+        expect(settings.dictionaryLookupLinks.map(link => link.id)).toEqual([
+            'yomu-search',
+            'rae',
+            'spanishdict',
+            'wiktionary-en',
+            'wiktionary-native',
+            'glosbe',
+            'tatoeba',
+            'forvo',
+            'youglish',
+            'reverso',
+            'wordreference',
+            'linguee',
+            'copy',
+        ]);
     });
 
     it('uses the pending target for live onboarding copy before that target is saved', async () => {

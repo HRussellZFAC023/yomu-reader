@@ -14,6 +14,8 @@ export const TARGET_AWARE_UI_COPY = Object.freeze({
         contextOccurrences: 'In context ×{count}',
         loadTargetSubtitles: 'Load {language} subtitles',
         loadOutputSubtitles: 'Load {language} subtitles',
+        readingAnnotations: 'Reading annotations',
+        hideReadingsFor: 'Hide readings for',
     }),
     ja: Object.freeze({
         puckStudyTarget: '{language}を学習',
@@ -24,5 +26,7 @@ export const TARGET_AWARE_UI_COPY = Object.freeze({
         contextOccurrences: '文脈内 ×{count}',
         loadTargetSubtitles: '{language}字幕を読み込む',
         loadOutputSubtitles: '{language}字幕を読み込む',
+        readingAnnotations: '読みの注釈',
+        hideReadingsFor: '読みを隠す対象',
     }),
 });

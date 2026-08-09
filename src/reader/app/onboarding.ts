@@ -564,7 +564,10 @@ export class OnboardingController {
                 hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
                 scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage,
             },
-            dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
+            dictionaryLookupLinks: defaultDictionaryLookupLinks(
+                openSettings === true ? 'jpdb' : 'local',
+                targetLanguage,
+            ),
             interfaceLanguage,
             ...languageProfileSelection,
             accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor),

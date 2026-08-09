@@ -1,6 +1,5 @@
 import {
     HIDE_STATE_GROUP_CONTROL_LABELS,
-    renderFuriganaHiddenStateGroupControls,
     renderWordColorHiddenStateGroupControls,
 } from './hide-state-groups';
 import { ANKI_CONNECT_ADDON_URL, BUNPRO_DEFINITION_SOURCE_ID, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL, WANIKANI_DEFINITION_SOURCE_ID } from '../app/constants';
@@ -9,7 +8,7 @@ import { audioSourceLabel, formatUiText, resolveUiLanguage, uiText } from '../ap
 import { CURRENT_YOMU_VERSION } from '../app/version';
 import { detectYomuUpdateFlow, updateFlowNoteKey } from '../app/userscript-update';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, effectiveFuriganaMode, formatShortcutEvent, furiganaModeNeedsDifficultyExplanation, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
+import { AUDIO_GUIDE_URL, formatShortcutEvent, hasStatusColorSource, isPopupLookupEnabled, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
@@ -66,6 +65,7 @@ import { googleTranslationLanguageCapability } from '../translation/google';
 import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/study-target-picker';
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
+import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
 
 export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -834,23 +834,10 @@ const APPEARANCE_PRESET_OPTIONS = [
     ['no-colors', 'appearancePresetNoColors'],
 ] as const satisfies SettingsOptionTable;
 
-const FURIGANA_MODE_OPTIONS = [
-    ['known-status', 'furiganaHideKnown'],
-    ['difficult-kanji', 'furiganaDifficultKanji'],
-    ['hover', 'furiganaHoverOnly'],
-    ['all', 'furiganaAllParsed'],
-    ['off', 'off'],
-] as const satisfies readonly (readonly [ReaderSettings['furiganaMode'], SettingsTextKey])[];
-
 const WORD_COLOR_STATE_OPTIONS = [
     ['all', 'wordColorStatesAll'],
     ['new-only', 'wordColorStatesNewOnly'],
 ] as const satisfies readonly (readonly [ReaderSettings['wordColorStates'], SettingsTextKey])[];
-
-const CLAMPED_ROW_READINGS_OPTIONS = [
-    ['show', 'clampedRowReadingsShow'],
-    ['hover', 'clampedRowReadingsHover'],
-] as const satisfies readonly (readonly [ReaderSettings['clampedRowReadings'], SettingsTextKey])[];
 
 const AUDIO_AUTO_PLAY_MODE_OPTIONS = [
     ['all', 'audioAutoPlayAll'],
@@ -922,13 +909,6 @@ const OCR_MAX_IMAGE_PIXELS_OPTIONS = [
     ['1200000', 'balanced'],
     ['2000000', 'sharper'],
 ] as const satisfies SettingsOptionTable;
-
-// A11: "Hard kanji only" drops readings by a fixed easy-kanji list, so it needs
-// to say what a bare kanji means before anyone picks it.
-function renderFuriganaDifficultyNote(settings: ReaderSettings): string {
-    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? '' : ' hidden';
-    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, 'furiganaDifficultKanjiHelp')}</div>`;
-}
 
 // UT-47: a live sample sentence that mirrors the furigana/colour options.
 // data-settings-preview-lookup keeps localizeSettingsForm's
@@ -1112,6 +1092,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
     const language = settings.interfaceLanguage;
     const text = settingsText(language);
     const pageScanMode = pageScanModeFromSettings(settings);
+    const targetLanguage = activeTargetLanguageId(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>${escapedUiText(language, 'reader')}</legend>
@@ -1136,12 +1117,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                         <div data-manual-page-scan-shortcut-label>${shortcutInput('shortcuts.scanPage', text('manualPageScanShortcut'), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select('appearancePreset', text('appearancePreset'), '', localizedOptions(text, APPEARANCE_PRESET_OPTIONS))}
-                    <div data-language-family="reading-annotation">
-                        ${select('furiganaMode', text('furiganaMode'), effectiveFuriganaMode(settings), localizedOptions(text, FURIGANA_MODE_OPTIONS))}
-                        ${renderFuriganaDifficultyNote(settings)}
-                        ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS))}
-                        ${renderFuriganaHiddenStateGroupControls(settings)}
-                    </div>
+                    ${renderReadingAnnotationControls(settings, targetLanguage)}
                     ${select('wordColorStates', text('wordColorStates'), settings.wordColorStates, localizedOptions(text, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
                     <div data-language-family="pronunciation">
@@ -1678,7 +1654,6 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-academy-pairing-code-label]', 'academyPairingCode'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const HIDE_GROUP_LEGEND_TEXT_KEYS = [
-    ['[data-furigana-hide-groups]', 'hideFuriganaFor'],
     ['[data-word-color-hide-groups]', 'hideColorFor'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const SETTINGS_ACTION_TEXT_KEYS = [
@@ -1901,8 +1876,7 @@ function localizeColorAndReaderSelects(form: HTMLFormElement, text: SettingsText
     localizeColorSourceSelects(form, text);
     setSelectOptionLabels(form, 'appearancePreset', localizedOptions(text, APPEARANCE_PRESET_OPTIONS));
     setSelectOptionLabels(form, 'wordColorStates', localizedOptions(text, WORD_COLOR_STATE_OPTIONS));
-    setSelectOptionLabels(form, 'clampedRowReadings', localizedOptions(text, CLAMPED_ROW_READINGS_OPTIONS));
-    setSelectOptionLabels(form, 'furiganaMode', localizedOptions(text, FURIGANA_MODE_OPTIONS));
+    syncReadingAnnotationControls(form, text);
 }
 
 function localizeColorSourceSelects(form: HTMLFormElement, text: SettingsText): void {
@@ -2405,7 +2379,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'localDictionariesEnabled', 'parserProvider', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'lookupOnClick',
-    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'appearancePreset', 'furiganaMode', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'pageScanMode', 'appearancePreset', 'clampedRowReadings', 'wordColorStates', 'showPitchAccent', 'showLookupPillFrequency', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',

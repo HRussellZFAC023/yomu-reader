@@ -5,7 +5,7 @@ import { studyTargetOptions } from '../../../src/reader/app/study-target-picker'
 import { targetLanguageDisplayName } from '../../../src/reader/app/target-language-name';
 import { activeContentLanguageAxes } from '../../../src/reader/cards/content-language-axes';
 import { LEARNING_TARGET_ROSTER } from '../../../src/reader/languages';
-import { activeTargetLanguageId, readFormSettings } from '../../../src/reader/settings/form';
+import { activeTargetLanguageId, localizeSettingsForm, readFormSettings } from '../../../src/reader/settings/form';
 import { syncLanguageFamilyDom } from '../../../src/reader/settings/language-gating';
 import { changedSettingsKeys, coupledSettingsIntentKeys } from '../../../src/reader/settings/index';
 import { syncYoutubeImmersionTarget } from '../../../src/reader/settings/youtube-panel';
@@ -132,7 +132,7 @@ describe('target-language settings', () => {
         }
     });
 
-    it('keeps pronunciation and reading controls universal, and restores Japanese-only nodes', () => {
+    it('keeps pronunciation and target-appropriate reading controls universal, and restores Japanese-only nodes', () => {
         const form = renderSettingsTestForm(DEFAULT_SETTINGS);
         // Japanese-only means the data/adapter behind it is Japanese. The YouTube
         // immersion filter follows the active target, while site redirects and
@@ -149,18 +149,23 @@ describe('target-language settings', () => {
             'input[name="youtubeShowFilterNotice"]',
         ] as const;
         const japaneseNodes = japaneseOnlySelectors.map(selector => form.querySelector(selector));
-        const reading = form.querySelector('[data-language-family="reading-annotation"]');
-        const furiganaMode = form.querySelector('select[name="furiganaMode"]');
-        const pronunciation = form.querySelector('[data-language-family="pronunciation"]');
-        const pronunciationToggle = form.querySelector('input[name="showPitchAccent"]');
+        const controls = {
+            reading: form.querySelector('[data-language-family="reading-annotation"]')!,
+            mode: form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!,
+            pronunciation: form.querySelector('[data-language-family="pronunciation"]')!,
+            pronunciationToggle: form.querySelector('input[name="showPitchAccent"]')!,
+        };
+        const targetSelect = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
 
         syncLanguageFamilyDom(form, 'ja');
         expect(form.dataset.language).toBe('ja');
         expect(japaneseNodes.every(Boolean)).toBe(true);
-        expect(reading).not.toBeNull();
-        expect(pronunciation).not.toBeNull();
+        expectTargetReadingControls(form, controls, 'Furigana');
+        expect(Array.from(controls.mode.options, option => option.value)).toContain('difficult-kanji');
 
+        targetSelect.value = 'ko';
         syncLanguageFamilyDom(form, 'ko');
+        localizeSettingsForm(form, 'en');
         expect(form.dataset.language).toBe('ko');
         expect(japaneseOnlySelectors.map(selector => form.querySelector(selector))).toEqual(
             japaneseOnlySelectors.map(() => null),
@@ -170,21 +175,68 @@ describe('target-language settings', () => {
         // filter that works for them.
         expect(everyTargetSelectors.map(selector => Boolean(form.querySelector(selector))))
             .toEqual(everyTargetSelectors.map(() => true));
-        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
-        expect(form.querySelector('select[name="furiganaMode"]')).toBe(furiganaMode);
-        expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
-        expect(form.querySelector('input[name="showPitchAccent"]')).toBe(pronunciationToggle);
+        expectTargetReadingControls(form, controls, 'Reading annotations');
+        expect(Array.from(controls.mode.options, option => option.value)).toEqual([
+            'known-status',
+            'hover',
+            'all',
+            'off',
+        ]);
+        expect(form.querySelector('[data-furigana-difficulty-note]')?.hasAttribute('hidden')).toBe(true);
+        expect(form.querySelector('[data-furigana-hide-groups] > legend')?.textContent).toBe('Hide readings for');
 
+        targetSelect.value = 'es';
         syncLanguageFamilyDom(form, 'es');
-        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
-        expect(form.querySelector('select[name="furiganaMode"]')).toBe(furiganaMode);
-        expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(pronunciation);
-        expect(form.querySelector('input[name="showPitchAccent"]')).toBe(pronunciationToggle);
+        localizeSettingsForm(form, 'ja');
+        expectTargetReadingControls(form, controls, '読みの注釈');
+        expect(form.querySelector('[data-furigana-hide-groups] > legend')?.textContent).toBe('読みを隠す対象');
+        expect(form.querySelector('[data-furigana-difficulty-note]')?.textContent).toBe('');
 
+        targetSelect.value = 'ja';
         syncLanguageFamilyDom(form, 'ja');
+        localizeSettingsForm(form, 'en');
         expect(form.dataset.language).toBe('ja');
         expect(japaneseOnlySelectors.map(selector => form.querySelector(selector))).toEqual(japaneseNodes);
-        expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(reading);
+        expectTargetReadingControls(form, controls, 'Furigana');
+        expect(Array.from(controls.mode.options, option => option.value)).toContain('difficult-kanji');
+    });
+
+    it('never offers the Japanese difficulty mode to any of the other 32 targets', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const targetSelect = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+
+        for (const target of LEARNING_TARGET_ROSTER) {
+            targetSelect.value = target.id;
+            syncLanguageFamilyDom(form, target.id);
+            localizeSettingsForm(form, 'en');
+
+            const reading = form.querySelector<HTMLElement>('[data-reading-annotation-controls]');
+            const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+            const expected = readingControlExpectation(target.id);
+            expect(reading?.dataset.readingAnnotationTarget).toBe(target.id);
+            expect(mode.options.length).toBe(expected.optionCount);
+            expect(mode.querySelector('option[value="difficult-kanji"]') !== null).toBe(expected.hasDifficultyMode);
+            expect(mode.closest('label')?.textContent).toContain(expected.label);
+            expect(form.querySelector('[data-furigana-difficulty-note]')?.textContent === '').toBe(expected.emptyDifficultyNote);
+        }
+    });
+
+    it('falls back from a stale Japanese difficulty choice to generic readings on a non-Japanese target', () => {
+        const spanishSettings = {
+            ...DEFAULT_SETTINGS,
+            furiganaMode: 'difficult-kanji' as const,
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile =>
+                profile.id === DEFAULT_SETTINGS.activeLanguageProfileId
+                    ? { ...profile, targetLanguage: 'es' }
+                    : profile),
+        };
+
+        const form = renderSettingsTestForm(spanishSettings);
+        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+
+        expect(mode.value).toBe('all');
+        expect(mode.querySelector('option[value="difficult-kanji"]')).toBeNull();
+        expect(readFormSettings(new FormData(form), spanishSettings).furiganaMode).toBe('all');
     });
 
     it('uses the shared Japanese, Chinese, Cantonese, and Korean family vocabulary', () => {
@@ -333,6 +385,37 @@ describe('target-language settings', () => {
         });
     });
 });
+
+interface ReadingControlReferences {
+    reading: Element;
+    mode: HTMLSelectElement;
+    pronunciation: Element;
+    pronunciationToggle: Element;
+}
+
+function expectTargetReadingControls(
+    form: HTMLFormElement,
+    controls: ReadingControlReferences,
+    label: string,
+): void {
+    expect(form.querySelector('[data-language-family="reading-annotation"]')).toBe(controls.reading);
+    expect(form.querySelector('select[name="furiganaMode"]')).toBe(controls.mode);
+    expect(form.querySelector('[data-language-family="pronunciation"]')).toBe(controls.pronunciation);
+    expect(form.querySelector('input[name="showPitchAccent"]')).toBe(controls.pronunciationToggle);
+    expect(controls.mode.closest('label')?.textContent).toContain(label);
+}
+
+function readingControlExpectation(targetLanguage: string): {
+    optionCount: number;
+    hasDifficultyMode: boolean;
+    label: string;
+    emptyDifficultyNote: boolean;
+} {
+    if (targetLanguage === 'ja') {
+        return { optionCount: 5, hasDifficultyMode: true, label: 'Furigana', emptyDifficultyNote: false };
+    }
+    return { optionCount: 4, hasDifficultyMode: false, label: 'Reading annotations', emptyDifficultyNote: true };
+}
 
 function labelText(form: HTMLFormElement, controlName: string): string {
     const control = form.elements.namedItem(controlName);

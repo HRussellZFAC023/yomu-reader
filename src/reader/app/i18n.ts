@@ -2018,7 +2018,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示
