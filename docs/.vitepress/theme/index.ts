@@ -14,6 +14,11 @@ import {
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
 import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
 import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
+import {
+    loadHostedReaderRuntime,
+    type HostedRuntimeLoadResult,
+    type HostedRuntimeScript,
+} from '../../../src/reader/app/hosted-runtime-graph';
 import { cleanupHostedDocsAnnotations } from './chrome-annotation-cleanup';
 import { syncHostedAcademyAccountControls } from './academy-account';
 import { hostedOverflowLinks } from '../shared/nav';
@@ -48,13 +53,7 @@ const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
 const VITEPRESS_APPEARANCE_KEY = 'vitepress-theme-appearance';
 const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
 const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
-const YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-runtime';
-const YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID = 'yomu-hosted-settings-companion';
-const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
-const YOMU_HOSTED_OCR_MANGA_COMPANION_SCRIPT_ID = 'yomu-hosted-ocr-manga-companion';
-const YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID = 'yomu-hosted-ui-copy-companion';
-const YOMU_HOSTED_KANJI_STUDY_COMPANION_SCRIPT_ID = 'yomu-hosted-kanji-study-companion';
-const YOMU_HOSTED_ANKI_COMPANION_SCRIPT_ID = 'yomu-hosted-anki-companion';
+const YOMU_HOSTED_RUNTIME_SCRIPT_ID_PREFIX = 'yomu-hosted-runtime';
 const HOSTED_RUNTIME_VERSION = pkg.version;
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const YOMU_SUPPORT_STATUS_URL = 'https://support.yomureader.com/status';
@@ -135,8 +134,11 @@ let hostedRuntimeIntentController: AbortController | undefined;
 let hostedRuntimeIntentTargets: HTMLElement[] | undefined;
 let hostedRuntimeHoverHandoff: { x: number; y: number } | undefined;
 let hostedRuntimeHoverHandoffController: AbortController | undefined;
+let hostedRuntimeLoadPromise: Promise<HostedRuntimeLoadResult> | undefined;
 let routeSyncBound = false;
 let localRuntimeCacheCleanupStarted = false;
+
+type HostedRuntimeLifecyclePhase = 'booting' | 'disabled' | 'dormant' | 'ready';
 
 // Built from docs/.vitepress/shared/nav.ts — the same list the docs nav uses.
 // This was a second hand-maintained copy that had already drifted from it: it
@@ -277,22 +279,19 @@ function bindHostedSettingsWarmup(button: HTMLElement): void {
     button.addEventListener('focusin', warm, { once: true });
 }
 
-function warmHostedSettingsRuntime(): HTMLScriptElement[] {
-    const forceLocalRuntime = isLocalHostedRuntime();
-    const settings = appendHostedSettingsCompanionScript(forceLocalRuntime);
-    const core = loadHostedYomuRuntime();
-    return [settings, core].filter(isHostedRuntimeScriptElement);
+function warmHostedSettingsRuntime(): Promise<HostedRuntimeLoadResult> | undefined {
+    return loadHostedYomuRuntime();
 }
 
 function openHostedSettings(): void {
-    const scripts = warmHostedSettingsRuntime();
+    const runtime = warmHostedSettingsRuntime();
     const dispatch = () => {
         if (document.querySelector('.jpdb-reader-settings')) return true;
         window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'basics' } }));
         return Boolean(document.querySelector('.jpdb-reader-settings'));
     };
     if (dispatch()) return;
-    onHostedScriptsReady(scripts, () => window.requestAnimationFrame(dispatch));
+    void runtime?.then(() => window.requestAnimationFrame(dispatch)).catch(() => undefined);
     [50, 120, 240, 480, 900, 1500].forEach(delay => window.setTimeout(dispatch, delay));
 }
 function readStoredSettings(): Record<string, any> {
@@ -1109,20 +1108,17 @@ function armHostedRevealElements(): void {
 
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
-    if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) {
-        clearHostedYomuRuntimeIntent();
-        clearHostedRuntimeHoverHandoff();
+    const phase = hostedRuntimeLifecyclePhase(forceLocalRuntime);
+    if (phase !== 'dormant') {
+        settleHostedRuntimeLifecycle(phase);
         return;
     }
-    if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
-    if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) {
-        // Only a live reader makes the tracker moot; a mid-boot re-entry must
-        // leave it running so the pending replay can still fire.
-        if (hostedYomuRuntimeWindow().__yomuReaderAppInitialized) clearHostedRuntimeHoverHandoff();
-        return;
-    }
-    // The settings companion loads on the settings warm path; normal docs pages
-    // should not download every companion before the reader is needed.
+    armHostedRuntimeDemand();
+}
+
+function armHostedRuntimeDemand(): void {
+    // Keep ordinary prose routes cold until a Japanese reading surface needs
+    // the generated dependency graph and core.
     const targets = findHostedYomuRuntimeTargets();
     if (!targets.length) {
         clearHostedYomuRuntimeIntent();
@@ -1140,6 +1136,30 @@ function prepareHostedYomuRuntime(): void {
     window.requestAnimationFrame(() => {
         if (hostedRuntimeIntentTargets === targets && targets.some(isElementNearViewport)) loadHostedYomuRuntime();
     });
+}
+
+function hostedRuntimeLifecyclePhase(forceLocalRuntime: boolean): HostedRuntimeLifecyclePhase {
+    const policy = hostedRuntimeInstallationPolicy(forceLocalRuntime);
+    if (policy !== 'dormant') return policy;
+    if (hostedRuntimeLoadPromise) return 'booting';
+    if (hostedRuntimeScript()) return 'booting';
+    return 'dormant';
+}
+
+function hostedRuntimeInstallationPolicy(forceLocalRuntime: boolean): HostedRuntimeLifecyclePhase {
+    if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) return 'disabled';
+    if (forceLocalRuntime) return 'dormant';
+    if (hostedYomuRuntimeWindow().__yomuReaderAppInitialized) return 'ready';
+    return 'dormant';
+}
+
+function settleHostedRuntimeLifecycle(phase: Exclude<HostedRuntimeLifecyclePhase, 'dormant'>): void {
+    // A mid-boot re-entry must leave the pointer tracker and intent armed so
+    // the pending replay can still fire. Disabled surfaces release both; a
+    // live reader only makes the hover handoff moot.
+    if (phase === 'booting') return;
+    if (phase === 'disabled') clearHostedYomuRuntimeIntent();
+    clearHostedRuntimeHoverHandoff();
 }
 
 function scheduleIdleHostedYomuRuntimeLoad(): void {
@@ -1220,9 +1240,9 @@ function isElementNearViewport(element: HTMLElement): boolean {
     return rect.top <= height + HOSTED_RUNTIME_SCROLL_MARGIN_PX && rect.bottom >= -HOSTED_RUNTIME_SCROLL_MARGIN_PX;
 }
 
-function loadHostedYomuRuntime(): HTMLScriptElement | undefined {
+function loadHostedYomuRuntime(): Promise<HostedRuntimeLoadResult> | undefined {
     clearHostedYomuRuntimeIntent();
-    return installHostedYomuRuntime() ?? hostedRuntimeScript() ?? undefined;
+    return installHostedYomuRuntime() ?? hostedRuntimeLoadPromise;
 }
 
 function clearHostedYomuRuntimeIntent(): void {
@@ -1231,27 +1251,37 @@ function clearHostedYomuRuntimeIntent(): void {
     hostedRuntimeIntentTargets = undefined;
 }
 
-function isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime = false): boolean {
-    if (!shouldInstallHostedReaderRuntime(forceLocalRuntime)) return true;
-    if (hostedRuntimeScript()) return true;
-    if (forceLocalRuntime) return false;
-    return Boolean(hostedYomuRuntimeWindow().__yomuReaderAppInitialized);
-}
-
-function installHostedYomuRuntime(): HTMLScriptElement | undefined {
+function installHostedYomuRuntime(): Promise<HostedRuntimeLoadResult> | undefined {
     const runtime = hostedYomuRuntimeWindow();
     const forceLocalRuntime = isLocalHostedRuntime();
     const currentScript = hostedRuntimeScript();
-    const companionFirst = shouldLoadHostedRuntimeCompanionsBeforeCore();
     prepareLocalHostedRuntime(forceLocalRuntime);
     if (shouldSkipHostedRuntimeInstall(runtime, forceLocalRuntime, currentScript)) return undefined;
+    if (hostedRuntimeLoadPromise) return hostedRuntimeLoadPromise;
     prepareHostedDemoVideoSettings();
     enableLocalHostedRuntime(runtime, forceLocalRuntime);
-    if (companionFirst) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
-    const script = appendHostedRuntimeScript(YOMU_HOSTED_RUNTIME_SCRIPT_ID, hostedRuntimeScriptSrc(forceLocalRuntime));
-    if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);
+    let load: Promise<HostedRuntimeLoadResult>;
+    try {
+        load = loadHostedReaderRuntime({
+            resolveCandidates: script => [hostedRuntimeScriptSrc(script, forceLocalRuntime)],
+            scriptIdPrefix: YOMU_HOSTED_RUNTIME_SCRIPT_ID_PREFIX,
+        });
+    } catch (error) {
+        recordHostedRuntimeGraphFailure(error);
+        return undefined;
+    }
+    hostedRuntimeLoadPromise = load;
+    void load.catch(error => {
+        if (hostedRuntimeLoadPromise === load) hostedRuntimeLoadPromise = undefined;
+        recordHostedRuntimeGraphFailure(error);
+    });
     armHostedRuntimeHoverHandoff();
-    return script;
+    return load;
+}
+
+function recordHostedRuntimeGraphFailure(error: unknown): void {
+    document.documentElement.dataset.yomuHostedRuntimeGraphError = 'true';
+    console.error('Hosted Yomu runtime graph failed closed.', error);
 }
 
 // Once the reader boots, replay whatever demo word the pointer is resting on so
@@ -1321,7 +1351,7 @@ function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {
 }
 
 function hostedRuntimeScript(): HTMLScriptElement | null {
-    const element = document.getElementById(YOMU_HOSTED_RUNTIME_SCRIPT_ID);
+    const element = document.querySelector('script[data-yomu-hosted-runtime-role="core"]');
     return element instanceof HTMLScriptElement ? element : null;
 }
 
@@ -1355,119 +1385,8 @@ function enableLocalHostedRuntime(runtime: HostedYomuRuntimeWindow, forceLocalRu
     if (forceLocalRuntime) runtime.__yomuDevRuntime = true;
 }
 
-function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean {
-    return location.pathname.includes('/video-player/') || Boolean(document.querySelector('[data-yomu-video-frame]'));
-}
-
-// Companion registration is read lazily by the reader, so appending the full
-// companion set after the core script keeps docs first paint lean while still
-// giving the demo popup its settings dialog, Immersion Kit examples, mining
-// drawer, and Anki sections.
-function appendHostedSettingsCompanionAfterCoreLoad(script: HTMLScriptElement, forceLocalRuntime: boolean): void {
-    const append = () => appendHostedRuntimeCompanionScripts(forceLocalRuntime);
-    if (isHostedScriptReady(script)) {
-        append();
-        return;
-    }
-    script.addEventListener('load', append, { once: true });
-}
-
-function appendHostedRuntimeCompanionScripts(forceLocalRuntime: boolean): HTMLScriptElement[] {
-    return hostedRuntimeCompanionScripts(forceLocalRuntime).map(appendHostedRuntimeCompanionScript);
-}
-
-function appendHostedSettingsCompanionScript(forceLocalRuntime: boolean): HTMLScriptElement {
-    return appendHostedRuntimeCompanionScript(hostedSettingsCompanionScript(forceLocalRuntime));
-}
-
-function appendHostedRuntimeCompanionScript(script: { id: string; src: string }): HTMLScriptElement {
-    return appendHostedRuntimeScript(script.id, script.src);
-}
-
-function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: string; src: string }> {
-    return [
-        hostedSettingsCompanionScript(forceLocalRuntime),
-        {
-            id: YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/greasyfork/yomu-video.user.js', forceLocalRuntime),
-        },
-        {
-            id: YOMU_HOSTED_OCR_MANGA_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/greasyfork/yomu-ocr-manga.user.js', forceLocalRuntime),
-        },
-        {
-            id: YOMU_HOSTED_UI_COPY_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/greasyfork/yomu-ui-copy.user.js', forceLocalRuntime),
-        },
-        // The kanji-study companion carries the Immersion Kit example client,
-        // its popup controller, and the mining drawer helpers; the anki
-        // companion carries the popup Anki sections. Without them the hosted
-        // demo popup shows "Loading examples..." forever and a mining drawer
-        // handle that can never open (the video-player and PDF pages already
-        // load both — this list is the homepage/docs demo).
-        {
-            id: YOMU_HOSTED_KANJI_STUDY_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/greasyfork/yomu-kanji-study.user.js', forceLocalRuntime),
-        },
-        {
-            id: YOMU_HOSTED_ANKI_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/greasyfork/yomu-anki.user.js', forceLocalRuntime),
-        },
-    ];
-}
-
-function hostedSettingsCompanionScript(forceLocalRuntime: boolean): { id: string; src: string } {
-    return {
-        id: YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID,
-        src: hostedRuntimeAssetSrc('/greasyfork/yomu-settings-surface.user.js', forceLocalRuntime),
-    };
-}
-
-function appendHostedRuntimeScript(id: string, src: string): HTMLScriptElement {
-    const existing = document.getElementById(id);
-    if (existing instanceof HTMLScriptElement) return existing;
-    const script = document.createElement('script');
-    script.id = id;
-    script.src = src;
-    script.async = false;
-    script.dataset.yomuHostedRuntimeState = 'loading';
-    script.addEventListener('load', () => { script.dataset.yomuHostedRuntimeState = 'loaded'; }, { once: true });
-    script.addEventListener('error', () => { script.dataset.yomuHostedRuntimeState = 'error'; }, { once: true });
-    document.head.append(script);
-    return script;
-}
-
-function isHostedRuntimeScriptElement(value: HTMLScriptElement | undefined): value is HTMLScriptElement {
-    return value instanceof HTMLScriptElement;
-}
-
-function isHostedScriptReady(script: HTMLScriptElement): boolean {
-    return script.dataset.yomuHostedRuntimeState === 'loaded' || script.dataset.yomuHostedRuntimeState === 'error';
-}
-
-function onHostedScriptsReady(scripts: HTMLScriptElement[], callback: () => void): void {
-    const pending = scripts.filter(script => !isHostedScriptReady(script));
-    if (!pending.length) {
-        callback();
-        return;
-    }
-    let remaining = pending.length;
-    let done = false;
-    const markReady = () => {
-        if (done) return;
-        remaining -= 1;
-        if (remaining > 0) return;
-        done = true;
-        callback();
-    };
-    pending.forEach(script => {
-        script.addEventListener('load', markReady, { once: true });
-        script.addEventListener('error', markReady, { once: true });
-    });
-}
-
-function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {
-    return hostedRuntimeAssetSrc('/yomu.user.js', forceLocalRuntime);
+function hostedRuntimeScriptSrc(script: HostedRuntimeScript, forceLocalRuntime: boolean): string {
+    return hostedRuntimeAssetSrc(`/${script.path}`, forceLocalRuntime);
 }
 
 function hostedRuntimeAssetSrc(src: string, forceLocalRuntime: boolean): string {

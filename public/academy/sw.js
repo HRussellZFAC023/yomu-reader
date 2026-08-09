@@ -1,4 +1,7 @@
+importScripts('/hosted-runtime-graph.js?v=__ACADEMY_REVISION__');
+
 const VERSION = 'yomu-academy-shell-__ACADEMY_REVISION__';
+const ACADEMY_REVISION = '__ACADEMY_REVISION__';
 const AUDIO_CACHE = 'yomu-academy-audio-v2-demand';
 const STORY_VOICE_CATALOG = '/academy/audio/story-voice-playback.json';
 const STORY_VOICE_ASSET = /^\/academy\/audio\/story-(?:pilot|lines)\/[a-z0-9][a-z0-9._-]*\.opus$/;
@@ -32,6 +35,15 @@ const AUDIO_PRECACHE = [
     '/academy/media/audio/v1/shinday/sonar-beeps-1.wav',
     '/academy/media/audio/v1/shinday/camera.wav',
 ];
+const READER_RUNTIME = hostedReaderRuntime(self.__yomuHostedRuntimeGraph);
+const READER_RUNTIME_PATHS = READER_RUNTIME.precachePaths;
+const READER_RUNTIME_PATH_SET = new Set(READER_RUNTIME_PATHS);
+const MUTABLE_READER_RUNTIME_REVISIONS = new Map([
+    ['/hosted-runtime-graph.js', ACADEMY_REVISION],
+    [READER_RUNTIME.corePath, ACADEMY_REVISION],
+    ['/yomu.css', ACADEMY_REVISION],
+]);
+const READER_RUNTIME_PRECACHE_REQUESTS = READER_RUNTIME_PATHS.map(readerRuntimeCacheKey);
 const RUNTIME_ART_PRECACHE = [
     '/academy/art/ACADEMY-ASSET-REGISTRY.json',
     '/academy/art/ASSET-USAGE.json',
@@ -441,13 +453,7 @@ const RUNTIME_ART_PRECACHE = [
 ];
 
 const CORE = [
-    '/yomu.user.js',
-    '/yomu.css',
-    '/greasyfork/yomu-ui-copy.user.js',
-    '/greasyfork/yomu-settings-surface.user.js',
-    '/greasyfork/yomu-kanji-study.user.js',
-    '/greasyfork/yomu-anki.user.js',
-    '/greasyfork/yomu-bunpro.user.js',
+    ...READER_RUNTIME_PRECACHE_REQUESTS,
     '/yomu-icon.svg',
     '/academy/',
     '/academy/index.html',
@@ -878,13 +884,7 @@ self.addEventListener('fetch', event => {
         return;
     }
     if (request.method !== 'GET') return;
-    const isReaderRuntime = url.pathname === '/yomu.user.js'
-        || url.pathname === '/yomu.css'
-        || url.pathname === '/greasyfork/yomu-ui-copy.user.js'
-        || url.pathname === '/greasyfork/yomu-settings-surface.user.js'
-        || url.pathname === '/greasyfork/yomu-kanji-study.user.js'
-        || url.pathname === '/greasyfork/yomu-anki.user.js'
-        || url.pathname === '/greasyfork/yomu-bunpro.user.js';
+    const isReaderRuntime = READER_RUNTIME_PATH_SET.has(url.pathname);
     if (url.origin !== self.location.origin || (!url.pathname.startsWith('/academy/') && !isReaderRuntime)) return;
     if (url.pathname.startsWith('/academy/media/')) {
         if (!AUDIO_PRECACHE.includes(url.pathname)) return;
@@ -914,10 +914,69 @@ self.addEventListener('fetch', event => {
             ?? new Response('よむ Academy is not available offline yet.', { status: 503 })));
         return;
     }
-    event.respondWith(caches.match(request).then(cached => cached ?? fetch(request).then(response => {
+    const expectedRuntimeRevision = MUTABLE_READER_RUNTIME_REVISIONS.get(url.pathname);
+    if (expectedRuntimeRevision && url.searchParams.get('v') !== expectedRuntimeRevision) {
+        // A newly deployed page can still be controlled by the previous
+        // Academy worker. Never answer its new revision with this worker's old
+        // mutable graph/core/CSS bytes; the network lets the upgrade proceed,
+        // while an offline partial deployment fails closed.
+        event.respondWith(fetch(request));
+        return;
+    }
+    const runtimeCacheKey = isReaderRuntime ? readerRuntimeCacheKey(url.pathname) : undefined;
+    const cachedResponse = isReaderRuntime
+        ? caches.open(VERSION).then(cache => cache.match(runtimeCacheKey))
+        : caches.match(request);
+    event.respondWith(cachedResponse.then(cached => cached ?? fetch(request).then(response => {
         if (!response.ok) return response;
         const copy = response.clone();
-        event.waitUntil(caches.open(VERSION).then(cache => cache.put(request, copy)));
+        event.waitUntil(caches.open(VERSION).then(cache => cache.put(isReaderRuntime ? runtimeCacheKey : request, copy)));
         return response;
     })));
 });
+
+function readerRuntimeCacheKey(pathname) {
+    const revision = MUTABLE_READER_RUNTIME_REVISIONS.get(pathname);
+    return revision ? `${pathname}?v=${encodeURIComponent(revision)}` : pathname;
+}
+
+function hostedReaderRuntime(value) {
+    const dependencyPath = /^greasyfork\/[a-z\d][a-z\d.-]*\.([a-f\d]{12})\.user\.js$/;
+    const integrity = /^sha256-([A-Za-z\d+/]{43}=)$/;
+    if (!value || value.schemaVersion !== 1 || !Array.isArray(value.dependencies) || value.dependencies.length === 0) {
+        throw new Error('Academy hosted runtime graph is missing or unsupported.');
+    }
+    const paths = value.dependencies.map((entry, index) => {
+        const pathHash = entry?.path?.match(dependencyPath)?.[1];
+        const integrityHash = integrityPrefix(entry?.integrity, integrity);
+        if (!pathHash || pathHash !== integrityHash) {
+            throw new Error(`Academy hosted runtime dependency ${index} is invalid.`);
+        }
+        return `/${entry.path}`;
+    });
+    const coreHash = integrityPrefix(value.core?.integrity, integrity);
+    if (value.core?.path !== 'yomu.user.js' || value.revision !== coreHash) {
+        throw new Error('Academy hosted runtime core is invalid.');
+    }
+    const corePath = `/${value.core.path}`;
+    const runtimePaths = ['/hosted-runtime-graph.js', ...paths, corePath, '/yomu.css'];
+    if (new Set(runtimePaths).size !== runtimePaths.length) {
+        throw new Error('Academy hosted runtime graph paths must be unique.');
+    }
+    return Object.freeze({
+        corePath,
+        precachePaths: Object.freeze(runtimePaths),
+    });
+}
+
+function integrityPrefix(value, pattern) {
+    const encoded = typeof value === 'string' ? value.match(pattern)?.[1] : undefined;
+    if (!encoded) return '';
+    try {
+        return Array.from(atob(encoded), character => character.charCodeAt(0).toString(16).padStart(2, '0'))
+            .join('')
+            .slice(0, 12);
+    } catch {
+        return '';
+    }
+}

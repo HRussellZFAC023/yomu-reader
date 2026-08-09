@@ -31,6 +31,7 @@ export const GENERATED_ARTIFACT_PATHS = [
     'docs/public/yomu.user.js',
     'docs/public/yomu.css',
     'docs/public/yomu.*.css',
+    'docs/public/hosted-runtime-graph.js',
     // The Reader sync stamps the immutable runtime graph into these hosted
     // shells. hosted-reader-worker.js is authored source, not generated output.
     'docs/public/pdf-reader/index.html',

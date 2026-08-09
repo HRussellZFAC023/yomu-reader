@@ -23,6 +23,8 @@ on:
       - scripts/docs-localization-browser-smoke.mjs
       - scripts/openapi/**
       - scripts/lib/greasyfork-libraries.cjs
+      - scripts/lib/academy-revision.cjs
+      - scripts/lib/hosted-runtime-graph.cjs
       - scripts/sync-docs-userscript.cjs
       - scripts/sync-academy.cjs
       - scripts/lib/userscript-build-utils.cjs

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { defineConfig, type DefaultTheme, type HeadConfig } from 'vitepress';
 import {
@@ -37,6 +38,10 @@ const { hostedAppearanceBootSnippet } = createRequire(import.meta.url)('../../sc
 const { hostedInstallRouteSnippet } = createRequire(import.meta.url)('../../scripts/lib/hosted-install-route.cjs') as {
     hostedInstallRouteSnippet(): string;
 };
+const hostedRuntimeGraphSource = readFileSync(
+    new URL('../public/hosted-runtime-graph.js', import.meta.url),
+    'utf8',
+).trim();
 
 const repositoryName = 'yomu-reader';
 const base = '/';
@@ -539,6 +544,9 @@ export default defineConfig({
     head: [
         ['link', { rel: 'preload', href: `${base}yomu-icon.svg`, as: 'image', type: 'image/svg+xml', fetchpriority: 'high' }],
         ['link', { rel: 'preload', href: `${base}yomu.user.js?v=${encodeURIComponent(pkg.version)}`, as: 'script' }],
+        // Inline the generated final-userscript graph: the theme sees it before
+        // hydration without imposing a cold network round-trip on every page.
+        ['script', { 'data-yomu-hosted-runtime-graph': 'inline' }, hostedRuntimeGraphSource],
         ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}yomu-icon.svg` }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: `${base}favicon-32x32.png` }],
         ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: `${base}favicon-16x16.png` }],

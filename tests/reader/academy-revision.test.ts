@@ -65,9 +65,9 @@ describe('academy revision source set', () => {
         }
     });
 
-    it('hashes the userscript and companions the shell loads', () => {
-        // A student on a cached shell against a new userscript is the bug this
-        // half of the source set exists to prevent.
+    it('hashes the canonical hosted runtime graph the shell loads', () => {
+        // A student on a cached shell against a new runtime graph is the bug
+        // this half of the source set exists to prevent.
         const sources = academyRevisionSourcePaths(readJson);
 
         for (const dependency of HOSTED_DEPENDENCIES) expect(sources).toContain(dependency);

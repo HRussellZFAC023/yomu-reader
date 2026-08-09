@@ -9,7 +9,7 @@ const END_MARKER = '// yomu:runtime-companions:end';
 const CACHE_START_MARKER = '// yomu:runtime-cache:start';
 const CACHE_END_MARKER = '// yomu:runtime-cache:end';
 const HOSTED_RUNTIME_PATH = /^\/?greasyfork\/[a-z\d][a-z\d.-]*\.[a-f\d]{12}\.user\.js$/u;
-const HOSTED_REQUIRE = /^\/\/ @require\s+https:\/\/yomureader\.com\/(greasyfork\/[a-z\d][a-z\d.-]*\.[a-f\d]{12}\.user\.js)#sha256=[A-Za-z\d+/]+={0,2}$/u;
+const HOSTED_REQUIRE = /^\/\/ @require\s+https:\/\/yomureader\.com\/(greasyfork\/[a-z\d][a-z\d.-]*\.[a-f\d]{12}\.user\.js)#sha256=([A-Za-z\d+/]+={0,2})$/u;
 
 /**
  * Reads the dependency order a userscript manager will execute from the final,
@@ -18,18 +18,19 @@ const HOSTED_REQUIRE = /^\/\/ @require\s+https:\/\/yomureader\.com\/(greasyfork\
  * stale mutable companion from an offline cache.
  *
  * @param {string} userscript
- * @returns {{ pagePaths: string[], serviceWorkerPaths: string[], cacheRevision: string }}
+ * @returns {{ pagePaths: string[], pageScripts: Array<{ path: string, integrity: string }>, serviceWorkerPaths: string[], cacheRevision: string }}
  */
 function hostedRuntimeGraph(userscript) {
   const requireLines = userscript.split(/\r?\n/u).filter(line => line.startsWith('// @require'));
   if (requireLines.length === 0) {
     throw new Error('Final userscript must contain at least one @require dependency');
   }
-  const pagePaths = requireLines.map(line => {
+  const pageScripts = requireLines.map(line => {
     const match = line.match(HOSTED_REQUIRE);
     if (!match) throw new Error(`Unsupported or mutable userscript @require: ${line}`);
-    return match[1];
+    return { path: match[1], integrity: `sha256-${match[2]}` };
   });
+  const pagePaths = pageScripts.map(script => script.path);
   const registryPaths = userscriptRequireLibraries()
     .map(library => greasyForkLibraryPath(library.fileName));
   const canonicalPaths = pagePaths
@@ -39,9 +40,31 @@ function hostedRuntimeGraph(userscript) {
   }
   return {
     pagePaths,
+    pageScripts,
     serviceWorkerPaths: pagePaths.map(path => `/${path}`),
     cacheRevision: createHash('sha256').update(userscript).digest('hex').slice(0, 12),
   };
+}
+
+/**
+ * Publishes the validated final graph for browser loaders. The dependency
+ * entries come from @require metadata in exact execution order; core carries
+ * its own SRI so a partial deployment cannot pair those entries with other
+ * bytes under the mutable install URL.
+ *
+ * @param {string} userscript
+ * @param {ReturnType<typeof hostedRuntimeGraph>} graph
+ * @returns {string}
+ */
+function hostedRuntimeBrowserGraph(userscript, graph = hostedRuntimeGraph(userscript)) {
+  const integrity = createHash('sha256').update(userscript).digest('base64');
+  const payload = {
+    schemaVersion: 1,
+    revision: graph.cacheRevision,
+    dependencies: graph.pageScripts,
+    core: { path: 'yomu.user.js', integrity: `sha256-${integrity}` },
+  };
+  return `globalThis.__yomuHostedRuntimeGraph = ${JSON.stringify(payload, null, 2)};\n`;
 }
 
 /**
@@ -132,6 +155,7 @@ function assertHostedRuntimePath(path) {
 }
 
 module.exports = {
+  hostedRuntimeBrowserGraph,
   hostedRuntimeGraph,
   stampHostedRuntimeGraph,
   stampHostedRuntimeServiceWorker,

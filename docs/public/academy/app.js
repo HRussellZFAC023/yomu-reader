@@ -550,7 +550,7 @@
       const body = await this.json("/academy/api/account/devices");
       if (!Array.isArray(body.devices)) throw new Error("Reader device list was malformed.");
       return body.devices.map((value) => {
-        if (!isRecord$g(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
+        if (!isRecord$h(value) || typeof value.deviceId !== "string" || !Number.isSafeInteger(value.createdAt) || !Number.isSafeInteger(value.lastSeenAt) || value.revokedAt !== null && !Number.isSafeInteger(value.revokedAt)) {
           throw new Error("Reader device list was malformed.");
         }
         return value;
@@ -641,7 +641,7 @@
           });
           if (!response.ok) throw await responseError$1(response);
           const body = await response.json();
-          if (!isRecord$g(body)) throw new Error("Academy export response was malformed.");
+          if (!isRecord$h(body)) throw new Error("Academy export response was malformed.");
           const page = parseAcademyExportBundle(body);
           if (!wroteHeader) {
             const {
@@ -1178,7 +1178,7 @@
   function parseAcademyExportBundle(value) {
     const eventPage = parseAcademySyncPage(value.eventPage);
     const readerSrsEventPage = value.readerSrsEventPage === void 0 ? { events: [], nextCursor: 0, hasMore: false } : parseAcademySyncPage(value.readerSrsEventPage);
-    const eventRecord = isRecord$g(value.eventPage) ? value.eventPage : {};
+    const eventRecord = isRecord$h(value.eventPage) ? value.eventPage : {};
     const exportCursor = eventRecord.exportCursor;
     const hasMore = eventPage.hasMore || readerSrsEventPage.hasMore;
     if (hasMore) {
@@ -1207,7 +1207,7 @@
       const parsed = JSON.parse(value);
       const profile2 = parseAcademyProfileView(parsed.profile);
       const account = parsed.account === void 0 ? void 0 : parseStoredAccountView(parsed.account);
-      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$g(parsed.envelopes) || !isRecord$g(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
+      if (typeof parsed.key !== "string" || decodedLength(parsed.key) !== 32 || !Number.isSafeInteger(parsed.cursor) || (parsed.cursor ?? -1) < 0 || !isRecord$h(parsed.envelopes) || !isRecord$h(parsed.eventSyncIds) || parsed.lastSyncAt !== null && parsed.lastSyncAt !== void 0 && (!Number.isSafeInteger(parsed.lastSyncAt) || parsed.lastSyncAt < 0)) return null;
       const envelopes = parsed.envelopes;
       if (Object.entries(envelopes).some(([id2, envelope]) => !storedEnvelopeIsValid(id2, envelope, profile2.keyVersion))) return null;
       if (Object.entries(parsed.eventSyncIds).some(([eventId, id2]) => !eventId || typeof id2 !== "string" || !UUID_V4.test(id2))) return null;
@@ -1225,7 +1225,7 @@
     }
   }
   function parseStoredAccountView(value) {
-    if (!isRecord$g(value) || !isRecord$g(value.identity)) throw new TypeError("Stored Academy account is malformed.");
+    if (!isRecord$h(value) || !isRecord$h(value.identity)) throw new TypeError("Stored Academy account is malformed.");
     const parsed = parseAcademyAccountView({
       accountId: value.accountId,
       displayName: value.identity.displayName,
@@ -1244,7 +1244,7 @@
   }
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
   function storedEnvelopeIsValid(id2, value, keyVersion) {
-    if (!isRecord$g(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
+    if (!isRecord$h(value) || value.id !== id2 || !UUID_V4.test(id2) || !Number.isSafeInteger(value.occurredAt) || value.occurredAt < 0 || value.keyVersion !== keyVersion || typeof value.nonce !== "string" || decodedLength(value.nonce) !== 12 || typeof value.ciphertext !== "string") return false;
     const ciphertextLength = decodedLength(value.ciphertext);
     return ciphertextLength >= 17 && ciphertextLength <= 16 * 1024;
   }
@@ -1256,7 +1256,7 @@
       return -1;
     }
   }
-  function isRecord$g(value) {
+  function isRecord$h(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   async function encryptEvent(key2, keyVersion, id2, event) {
@@ -1447,7 +1447,7 @@
     return normalized2;
   }
   function normalizeSession(value, source2) {
-    if (!isRecord$f(value)) throw new AccessError("malformed", "Invitation response is malformed.");
+    if (!isRecord$g(value)) throw new AccessError("malformed", "Invitation response is malformed.");
     const sessionId = typeof value.sessionId === "string" ? value.sessionId.trim() : "";
     const expiresAt = readTimestamp(value.expiresAt);
     const offlineResumeUntil = readTimestamp(value.offlineResumeUntil);
@@ -1465,7 +1465,7 @@
     }
     return 0;
   }
-  function isRecord$f(value) {
+  function isRecord$g(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   class BrowserMediaBus {
@@ -1700,7 +1700,7 @@
     if (!storage) return cloneDefaults();
     try {
       const value = JSON.parse(storage.getItem(ACADEMY_AUDIO_SETTINGS_KEY) ?? "null");
-      if (!isRecord$e(value) || !isRecord$e(value.volumes)) return cloneDefaults();
+      if (!isRecord$f(value) || !isRecord$f(value.volumes)) return cloneDefaults();
       return {
         muted: typeof value.muted === "boolean" ? value.muted : false,
         volumes: {
@@ -1732,7 +1732,7 @@
   function cloneDefaults() {
     return { muted: DEFAULT_AUDIO_SETTINGS.muted, volumes: { ...DEFAULT_AUDIO_SETTINGS.volumes } };
   }
-  function isRecord$e(value) {
+  function isRecord$f(value) {
     return typeof value === "object" && value !== null;
   }
   class AudioDirector {
@@ -2638,7 +2638,7 @@
     "camera.capture"
   ]);
   function parseAudioManifest(value) {
-    if (!isRecord$d(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
+    if (!isRecord$e(value) || value.version !== 1) throw new TypeError("Audio manifest must declare version 1.");
     if (!Array.isArray(value.themes) || !Array.isArray(value.sfx)) {
       throw new TypeError("Audio manifest needs themes and sfx arrays.");
     }
@@ -2705,7 +2705,7 @@
     return sources;
   }
   function parseThemeEntry(value) {
-    if (!isRecord$d(value)) throw new TypeError("Theme entry must be an object.");
+    if (!isRecord$e(value)) throw new TypeError("Theme entry must be an object.");
     const { slot, bus, trackId, title: title2, mediaKey, loop, gain } = value;
     if (typeof slot !== "string" || !THEME_SLOTS.has(slot) || typeof trackId !== "string" || !trackId.trim() || typeof title2 !== "string" || !title2.trim()) {
       throw new TypeError("Theme entry needs slot, trackId, and title.");
@@ -2723,7 +2723,7 @@
     };
   }
   function parseSfxEntry(value) {
-    if (!isRecord$d(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
+    if (!isRecord$e(value) || typeof value.cue !== "string" || !SFX_CUES.has(value.cue)) {
       throw new TypeError("SFX entry needs a cue name.");
     }
     return {
@@ -2756,12 +2756,12 @@
     return value;
   }
   function parseRights(value, owner) {
-    if (!isRecord$d(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
+    if (!isRecord$e(value) || typeof value.owner !== "string" || !value.owner.trim() || typeof value.licence !== "string" || !value.licence.trim() || typeof value.source !== "string" || !value.source.trim() || value.reviewed !== true || value.scope !== "private-prototype" && value.scope !== "release") {
       throw new TypeError(`Entry ${owner} is missing a complete reviewed rights block.`);
     }
     return { owner: value.owner, licence: value.licence, source: value.source, reviewed: true, scope: value.scope };
   }
-  function isRecord$d(value) {
+  function isRecord$e(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function assertUnique$2(values, label) {
@@ -3086,7 +3086,7 @@
     return parseLearningVoiceCatalog(await response.json(), { invalidEntry: "skip" });
   }
   function parseLearningVoiceCatalog(value, options = {}) {
-    if (!isRecord$c(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$c(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$c(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
+    if (!isRecord$d(value) || value.schema !== LEARNING_VOICE_SCHEMA || typeof value.batchId !== "string" || !LINE_ID$1.test(value.batchId) || !isLearningVoiceQualityApproval(value.qualityApproval) || !isLearningVoiceAcceptancePolicy(value.acceptancePolicy) || !isRecord$d(value.engine) || value.engine.name !== "AivisSpeech Engine" || typeof value.engine.version !== "string" || typeof value.engine.versionResponseSha256 !== "string" || !SHA256$3.test(value.engine.versionResponseSha256) || !isRecord$d(value.encoder) || value.encoder.name !== "ffmpeg/libopus" || typeof value.encoder.version !== "string" || value.encoder.bitrateKbps !== 64 || value.encoder.application !== "voip" || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid learning voice playback catalog.");
     }
     const assetLineIds = /* @__PURE__ */ new Set();
@@ -3360,19 +3360,19 @@
     });
   }
   function isLearningVoiceEntry(value) {
-    if (!isRecord$c(value) || !isRecord$c(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
+    if (!isRecord$d(value) || !isRecord$d(value.queryOverrides) || !Array.isArray(value.bindings) || !Array.isArray(value.moraOverrides)) return false;
     const queryOverrides = Object.entries(value.queryOverrides);
     const moraOverrides = value.moraOverrides;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && value.bindings.length > 0 && value.bindings.every(isLearningVoiceBinding) && typeof value.speakerId === "string" && LINE_ID$1.test(value.speakerId) && (value.role === "learning-ui" || value.role === "textbook-character" || value.role === "academy-character") && typeof value.intent === "string" && value.intent.trim() === value.intent && value.intent.length > 0 && value.locale === "ja-JP" && value.band === "native" && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && typeof value.japanese === "string" && value.japanese.trim() === value.japanese && value.japanese.length > 0 && typeof value.sourceSha256 === "string" && SHA256$3.test(value.sourceSha256) && value.sourceRevision === value.sourceSha256 && typeof value.cacheKey === "string" && SHA256$3.test(value.cacheKey) && typeof value.audioQuerySha256 === "string" && SHA256$3.test(value.audioQuerySha256) && typeof value.assetSha256 === "string" && SHA256$3.test(value.assetSha256) && Number.isInteger(value.bytes) && Number(value.bytes) > 0 && typeof value.durationSeconds === "number" && value.durationSeconds > 0 && typeof value.url === "string" && isConfinedLearningUrl(value.url) && typeof value.modelUuid === "string" && MODEL_UUID.test(value.modelUuid) && typeof value.modelName === "string" && value.modelName.length > 0 && typeof value.modelVersion === "string" && value.modelVersion.length > 0 && typeof value.modelSourceUrl === "string" && value.modelSourceUrl === `https://hub.aivis-project.com/aivm-models/${value.modelUuid}` && (value.modelLicense === "ACML-1.0" || value.modelLicense === "CC-BY-SA-4.0") && typeof value.modelPayloadSha256 === "string" && SHA256$3.test(value.modelPayloadSha256) && Number.isInteger(value.styleId) && typeof value.styleName === "string" && value.styleName.length > 0 && queryOverrides.length === QUERY_FIELDS.size && queryOverrides.every(([field2, amount]) => QUERY_FIELDS.has(field2) && typeof amount === "number" && Number.isFinite(amount)) && moraOverrides.every(isLearningVoiceMoraOverride) && value.reviewStatus === "accepted" && value.qualityApprovalStatus === "codex-accepted" && isLearningVoiceReview(value.review) && isLearningVoiceDisclosure(value.disclosure) && value.provenance === "Yomu-authored";
   }
   function isLearningVoiceDisclosure(value) {
-    return isRecord$c(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
+    return isRecord$d(value) && Object.keys(value).sort().join(",") === "livingPersonSource,officialCharacterVoice,synthetic" && value.synthetic === true && value.officialCharacterVoice === false && typeof value.livingPersonSource === "boolean";
   }
   function isLearningVoiceQualityApproval(value) {
-    return isRecord$c(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
+    return isRecord$d(value) && Object.keys(value).sort().join(",") === "codexQualityAccepted,humanReviewed,ownerLineByLineReviewed,scope" && value.codexQualityAccepted === true && typeof value.scope === "string" && value.scope.trim() === value.scope && value.scope.length > 0 && value.ownerLineByLineReviewed === false && value.humanReviewed === false;
   }
   function isLearningVoiceAcceptancePolicy(value) {
-    return isRecord$c(value) && Object.keys(value).sort().join(",") === [
+    return isRecord$d(value) && Object.keys(value).sort().join(",") === [
       "acceptedBy",
       "blanketCharacterErrorRateAllowed",
       "criticalMorphemeNumeralParticleMismatch",
@@ -3382,18 +3382,18 @@
     ].sort().join(",") && value.acceptedBy === "Codex" && value.humanReviewed === false && value.ownerLineByLineReviewed === false && value.independentAudioReviewRequired === true && value.blanketCharacterErrorRateAllowed === false && value.criticalMorphemeNumeralParticleMismatch === "hard-fail";
   }
   function isLearningVoiceBinding(value) {
-    if (!isRecord$c(value) || !isRecord$c(value.accessibleReplayLabel)) return false;
+    if (!isRecord$d(value) || !isRecord$d(value.accessibleReplayLabel)) return false;
     const labels = value.accessibleReplayLabel;
     return typeof value.lineId === "string" && LINE_ID$1.test(value.lineId) && typeof value.surface === "string" && SURFACE_ID.test(value.surface) && Object.keys(labels).length === 2 && isAccessibleLabel(labels.en) && isAccessibleLabel(labels.ja);
   }
   function isLearningVoiceReview(value) {
-    if (!isRecord$c(value) || !isRecord$c(value.naturalness) || !isRecord$c(value.accent) || !isRecord$c(value.pause) || !isRecord$c(value.listening)) return false;
+    if (!isRecord$d(value) || !isRecord$d(value.naturalness) || !isRecord$d(value.accent) || !isRecord$d(value.pause) || !isRecord$d(value.listening)) return false;
     const common = value.naturalness.status === "reviewed-text" && value.accent.status === "validated-query-plan" && value.pause.status === "validated-query-plan";
     if (!common) return false;
     return value.listening.status === "codex-accepted-objective-and-independent-audio-review" && value.listening.codexAccepted === true && value.listening.ownerLineByLineReviewed === false && typeof value.listening.audioModelReviewed === "boolean" && value.listening.humanReviewed === false && Number.isInteger(value.listening.independentAudioModelReviews) && Number(value.listening.independentAudioModelReviews) >= 0 && (value.listening.audioModelReviewed === true && Number(value.listening.independentAudioModelReviews) >= 1 || value.listening.audioModelReviewed === false && Number(value.listening.independentAudioModelReviews) === 0);
   }
   function isLearningVoiceMoraOverride(value) {
-    if (!isRecord$c(value)) return false;
+    if (!isRecord$d(value)) return false;
     const keys = Object.keys(value);
     return keys.length >= 3 && keys.every((key2) => MORA_OVERRIDE_FIELDS.has(key2)) && Number.isInteger(value.accentPhrase) && Number(value.accentPhrase) >= 0 && Number.isInteger(value.mora) && Number(value.mora) >= 0 && ["pitch", "vowel_length", "consonant_length"].some((field2) => typeof value[field2] === "number" && Number.isFinite(value[field2])) && Object.entries(value).every(([field2, amount]) => field2 === "accentPhrase" || field2 === "mora" ? Number.isInteger(amount) : typeof amount === "number" && Number.isFinite(amount));
   }
@@ -3403,7 +3403,7 @@
   function isConfinedLearningUrl(value) {
     return typeof value === "string" && LEARNING_URL.test(value) && value.split("/").every((segment2) => segment2 !== "." && segment2 !== "..");
   }
-  function isRecord$c(value) {
+  function isRecord$d(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function deepFreeze(value) {
@@ -3411,7 +3411,7 @@
       value.forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
-    if (isRecord$c(value)) {
+    if (isRecord$d(value)) {
       Object.values(value).forEach((item2) => deepFreeze(item2));
       return Object.freeze(value);
     }
@@ -7898,7 +7898,7 @@
   const SHA256$2 = /^[a-f0-9]{64}$/;
   const SAFE_WORKER_ASSET_ID = /^[a-z0-9][a-z0-9-]{0,127}$/;
   function parseListeningCrosswalk(value) {
-    if (!isRecord$b(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$c(value) || value.schema !== "yomu-academy.listening-crosswalk.v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening crosswalk must declare the v1 schema and an entries array.");
     }
     const entries2 = value.entries.map(parseEntry$2);
@@ -7929,7 +7929,7 @@
     return { status: "ready", entry: resolved.entry, url: resolved.entry.delivery.url };
   }
   function parseEntry$2(value) {
-    if (!isRecord$b(value)) throw new TypeError("Listening crosswalk entry must be an object.");
+    if (!isRecord$c(value)) throw new TypeError("Listening crosswalk entry must be an object.");
     const locator = requiredText$4(value.locator, "locator");
     const authoredAssetId = requiredText$4(value.authoredAssetId, `${locator}.authoredAssetId`);
     const provenance2 = stringArray$7(value.provenance, `${locator}.provenance`);
@@ -7950,7 +7950,7 @@
         provenance: provenance2
       };
     }
-    if (value.availability !== "source-verified" || !isRecord$b(value.source) || !isRecord$b(value.worker)) {
+    if (value.availability !== "source-verified" || !isRecord$c(value.source) || !isRecord$c(value.worker)) {
       throw new TypeError(`Listening entry ${locator} has invalid availability or missing source delivery data.`);
     }
     const workerAssetId = requiredText$4(value.worker.assetId, `${locator}.worker.assetId`);
@@ -7981,7 +7981,7 @@
     };
   }
   function parsePackagedDelivery(value, owner) {
-    if (!isRecord$b(value) || value.mode !== "packaged-static") {
+    if (!isRecord$c(value) || value.mode !== "packaged-static") {
       throw new TypeError(`Listening entry ${owner} has an invalid packaged delivery.`);
     }
     const url = requiredText$4(value.url, `${owner}.delivery.url`);
@@ -8017,7 +8017,7 @@
     if (!Number.isInteger(result2)) throw new TypeError(`${label} must be an integer.`);
     return result2;
   }
-  function isRecord$b(value) {
+  function isRecord$c(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const SHA256$1 = /^[a-f0-9]{64}$/;
@@ -8031,7 +8031,7 @@
     return delivery.url;
   }
   function parseListeningTaskBindings(value) {
-    if (!isRecord$a(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
+    if (!isRecord$b(value) || value.schema !== "yomu-academy.listening-task-bindings/v1" || !Array.isArray(value.entries)) {
       throw new TypeError("Listening task bindings must declare the v1 schema and entries array.");
     }
     const entries2 = value.entries.map((entry2, index) => parseEntry$1(entry2, `entries[${index}]`));
@@ -8040,7 +8040,7 @@
     return { schema: "yomu-academy.listening-task-bindings/v1", entries: entries2 };
   }
   function parseEntry$1(value, owner) {
-    if (!isRecord$a(value) || !isRecord$a(value.source) || !isRecord$a(value.verification) || !isRecord$a(value.learnerContract) || !isRecord$a(value.delivery)) {
+    if (!isRecord$b(value) || !isRecord$b(value.source) || !isRecord$b(value.verification) || !isRecord$b(value.learnerContract) || !isRecord$b(value.delivery)) {
       throw new TypeError(`Listening task binding ${owner} is invalid.`);
     }
     const packageId = text$o(value.packageId, `${owner}.packageId`);
@@ -8114,7 +8114,7 @@
     if (typeof value !== "string" || !value.trim()) throw new TypeError(`${label} must be non-empty text.`);
     return value;
   }
-  function isRecord$a(value) {
+  function isRecord$b(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const ROMAJI_RUN_RE = /[a-z]+(?:'[a-z]+)*/giu;
@@ -32334,14 +32334,14 @@ ${spelling}`);
   function sameStrings$1(left, right) {
     return JSON.stringify([...new Set(left)].sort()) === JSON.stringify([...new Set(right)].sort());
   }
-  function isRecord$9(value) {
+  function isRecord$a(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function isNonNullObject(value) {
     return typeof value === "object" && value !== null;
   }
   function normalizeStoredYomuSrsDeck(value) {
-    if (!isRecord$9(value) || value.version !== 1 || !isRecord$9(value.cards)) return { version: 1, cards: {} };
+    if (!isRecord$a(value) || value.version !== 1 || !isRecord$a(value.cards)) return { version: 1, cards: {} };
     const cards = {};
     for (const candidate2 of Object.values(value.cards)) {
       const normalized2 = normalizeStoredCard(candidate2);
@@ -32349,7 +32349,7 @@ ${spelling}`);
       cards[normalized2.id] = cards[normalized2.id] ? mergeStoredYomuSrsCards(cards[normalized2.id], normalized2) : normalized2;
     }
     const tombstones = {};
-    if (isRecord$9(value.tombstones)) {
+    if (isRecord$a(value.tombstones)) {
       for (const [id2, timestamp] of Object.entries(value.tombstones)) {
         if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
         const card = cards[id2];
@@ -32491,7 +32491,7 @@ ${spelling}`);
     return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
   }
   function normalizeStoredCard(value) {
-    if (!isRecord$9(value) || typeof value.expression !== "string") return null;
+    if (!isRecord$a(value) || typeof value.expression !== "string") return null;
     let identity2;
     try {
       identity2 = canonicalStudyCardIdentity(
@@ -32561,10 +32561,10 @@ ${spelling}`);
     };
   }
   function normalizeProvenanceRecord(value, fallbackAt) {
-    if (!isRecord$9(value)) return {};
+    if (!isRecord$a(value)) return {};
     const result2 = {};
     for (const candidate2 of Object.values(value)) {
-      if (!isRecord$9(candidate2)) continue;
+      if (!isRecord$a(candidate2)) continue;
       try {
         const normalized2 = normalizeProvenance({
           id: String(candidate2.id ?? ""),
@@ -37147,7 +37147,7 @@ ${spelling}`);
     };
   }
   function resolveLanguageProfile(value) {
-    if (isRecord$8(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+    if (isRecord$9(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
       const normalized22 = normalizeLanguageProfiles([value], value.id, {
         outputLanguage: readOutputLanguageField(value),
         uiLocale: value.uiLocale,
@@ -37155,7 +37155,7 @@ ${spelling}`);
       });
       return normalized22.profiles[0];
     }
-    const source2 = isRecord$8(value) ? value : {};
+    const source2 = isRecord$9(value) ? value : {};
     const normalized2 = normalizeLanguageProfiles(
       source2.languageProfiles,
       source2.activeLanguageProfileId,
@@ -37168,7 +37168,7 @@ ${spelling}`);
     return activeLanguageProfile(normalized2.profiles, normalized2.activeProfileId) ?? createDefaultLanguageProfile();
   }
   function normalizeLanguageProfile(value, index, defaults) {
-    if (!isRecord$8(value)) return null;
+    if (!isRecord$9(value)) return null;
     if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
     return {
       schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
@@ -37205,7 +37205,7 @@ ${spelling}`);
     return PARSER_PROVIDERS.has(value) ? value : fallback;
   }
   function normalizeProfileDictionaries(value) {
-    if (!isRecord$8(value)) return emptyProfileDictionaries();
+    if (!isRecord$9(value)) return emptyProfileDictionaries();
     const enabled = normalizeStringIds(value.enabled);
     const order2 = normalizeStringIds(value.order);
     const installed = normalizeStringIds([
@@ -37246,7 +37246,7 @@ ${spelling}`);
     }
     return result2;
   }
-  function isRecord$8(value) {
+  function isRecord$9(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function targetLanguageOf(value) {
@@ -53654,23 +53654,23 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function placementMockProgressShapeIsValid(value) {
-    if (!isRecord$7(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
+    if (!isRecord$8(value) || value.schemaVersion !== 1 || !Number.isSafeInteger(value.step) || Number(value.step) < 0 || Number(value.step) > 8 || typeof value.submitted !== "boolean") return false;
     const draft = value.draft;
-    if (!isRecord$7(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
-    if (!isRecord$7(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
-    if (!isRecord$7(draft.production)) return false;
+    if (!isRecord$8(draft) || !isJlptBand$1(draft.targetBand) || !stringRecord(draft.responses)) return false;
+    if (!isRecord$8(draft.listeningModes) || Object.entries(draft.listeningModes).some(([key2, mode]) => !key2.trim() || mode !== "audio" && mode !== "transcript-alternative")) return false;
+    if (!isRecord$8(draft.production)) return false;
     return productionAttemptIsValid(draft.production.speaking, ["aloud", "typed-alternative"]) && productionAttemptIsValid(draft.production.writing, ["typed", "paper-alternative"]);
   }
   function productionAttemptIsValid(value, modes) {
-    return isRecord$7(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
+    return isRecord$8(value) && typeof value.mode === "string" && modes.includes(value.mode) && typeof value.completed === "boolean" && typeof value.response === "string" && value.response.length <= 2e3 && typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 && typeof value.rated === "boolean";
   }
   function stringRecord(value) {
-    return isRecord$7(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
+    return isRecord$8(value) && Object.entries(value).every(([key2, entry2]) => key2.trim() && typeof entry2 === "string");
   }
   function isJlptBand$1(value) {
     return value === "n5" || value === "n4" || value === "n3" || value === "n2" || value === "n1";
   }
-  function isRecord$7(value) {
+  function isRecord$8(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   const ACADEMY_ROUTE_DEFINITIONS = {
@@ -94077,7 +94077,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return parseStoryVoicePlaybackCatalog(await response.json());
   }
   function parseStoryVoicePlaybackCatalog(value) {
-    if (!isRecord$6(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
+    if (!isRecord$7(value) || value.schema !== STORY_VOICE_PLAYBACK_SCHEMA || !Array.isArray(value.entries)) {
       throw new TypeError("Invalid story voice playback catalog.");
     }
     const seen = /* @__PURE__ */ new Set();
@@ -94243,10 +94243,10 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function isPlaybackEntry(value) {
-    if (!isRecord$6(value)) return false;
+    if (!isRecord$7(value)) return false;
     return typeof value.lineId === "string" && value.lineId.startsWith("line:") && typeof value.speakerId === "string" && value.speakerId !== "learner" && value.speakerId !== "narrator" && typeof value.japanese === "string" && value.japanese.length > 0 && typeof value.band === "string" && SHA256.test(String(value.sourceSha256)) && SHA256.test(String(value.assetSha256)) && typeof value.bytes === "number" && Number.isSafeInteger(value.bytes) && value.bytes > 0 && typeof value.url === "string" && LOCKED_STORY_URL.test(value.url) && value.reviewStatus === "locked";
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null;
   }
   const SUPPORT_DONATION_URL = "https://support.yomureader.com/donate";
@@ -129344,7 +129344,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     };
   }
   function parseKanjiWritingResponse(value) {
-    if (!isRecord$5(value)) throw new TypeError("A Kanji writing response is required.");
+    if (!isRecord$6(value)) throw new TypeError("A Kanji writing response is required.");
     if (value.phase === "writing") {
       if (value.inputMode !== "doodle") {
         throw new TypeError("Handwriting evidence must come from the Yomu Doodle canvas.");
@@ -129362,7 +129362,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     throw new TypeError("Kanji response phase must be writing or reading.");
   }
   function parseStrokeAssessment(value) {
-    if (!isRecord$5(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
+    if (!isRecord$6(value) || typeof value.passed !== "boolean" || !finiteNumber(value.score) || !finiteNumber(value.expectedStrokes) || !finiteNumber(value.actualStrokes) || typeof value.message !== "string") {
       throw new TypeError("A valid Yomu Doodle stroke assessment is required.");
     }
     if (value.score < 0 || value.score > 100 || value.expectedStrokes < 1 || !Number.isInteger(value.expectedStrokes) || value.actualStrokes < 0 || !Number.isInteger(value.actualStrokes) || value.shapeScore !== void 0 && !finiteNumber(value.shapeScore)) {
@@ -129377,7 +129377,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       message: value.message
     };
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function finiteNumber(value) {
@@ -286835,48 +286835,211 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const values = new Set((value ?? "").split(",").map((item2) => item2.trim()).filter(Boolean));
     return READER_RUNTIME_SERVICES.filter((service) => values.has(service));
   }
+  const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+  function installedReaderRuntimeKind(root = document) {
+    const marker = root.querySelector(`#${INSTALLED_READER_RUNTIME_MARKER_ID}`);
+    const kind = marker?.dataset.yomuInstalledRuntimeKind;
+    return kind === "userscript" || kind === "extension" ? kind : null;
+  }
+  function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
+    return forceLocalRuntime || installedReaderRuntimeKind(root) === null;
+  }
+  const HOSTED_RUNTIME_GRAPH_SLOT = "__yomuHostedRuntimeGraph";
+  const HOSTED_DEPENDENCY_PATH = /^greasyfork\/[a-z\d][a-z\d.-]*\.([a-f\d]{12})\.user\.js$/u;
+  const HOSTED_CORE_PATH = "yomu.user.js";
+  const SHA256_INTEGRITY = /^sha256-([A-Za-z\d+/]{43}=)$/u;
+  const HOSTED_RUNTIME_SCRIPT_STATES = /* @__PURE__ */ new Set(["error", "loaded", "loading"]);
+  const runtimeLoads = /* @__PURE__ */ new WeakMap();
+  function hostedRuntimeGraph(realm = globalThis) {
+    const value = realm[HOSTED_RUNTIME_GRAPH_SLOT];
+    const graph = requiredRecord(value, "Hosted runtime graph is missing or unsupported.");
+    if (graph.schemaVersion !== 1) throw new Error("Hosted runtime graph is missing or unsupported.");
+    const dependencies = hostedDependencies(graph.dependencies);
+    const core = hostedCore(graph.core, graph.revision);
+    const paths = [...dependencies.map((entry2) => entry2.path), core.path];
+    if (new Set(paths).size !== paths.length) throw new Error("Hosted runtime graph paths must be unique.");
+    return Object.freeze({
+      revision: core.pathHash,
+      scripts: Object.freeze([
+        ...dependencies.map(({ pathHash: _pathHash, ...entry2 }) => Object.freeze(entry2)),
+        Object.freeze({ integrity: core.integrity, path: core.path, role: "core" })
+      ])
+    });
+  }
+  function loadHostedReaderRuntime(options) {
+    const ownerDocument = options.document ?? document;
+    const current = runtimeLoads.get(ownerDocument);
+    if (current) return current;
+    const graph = hostedRuntimeGraph(options.realm);
+    const load2 = loadHostedRuntimeGraph(graph, ownerDocument, options);
+    runtimeLoads.set(ownerDocument, load2);
+    void load2.catch(() => {
+      if (runtimeLoads.get(ownerDocument) === load2) runtimeLoads.delete(ownerDocument);
+    });
+    return load2;
+  }
+  async function loadHostedRuntimeGraph(graph, ownerDocument, options) {
+    const loaded = [];
+    for (const [index, entry2] of graph.scripts.entries()) {
+      const id2 = `${options.scriptIdPrefix}-${entry2.role}-${index}`;
+      const candidates = options.resolveCandidates(entry2);
+      loaded.push(await loadHostedRuntimeScript(ownerDocument, id2, entry2, candidates));
+    }
+    const core = loaded.at(-1);
+    if (!(core instanceof HTMLScriptElement) || core.dataset.yomuHostedRuntimeRole !== "core") {
+      throw new Error("Hosted runtime graph did not finish with core.");
+    }
+    return Object.freeze({ core, scripts: Object.freeze(loaded) });
+  }
+  async function loadHostedRuntimeScript(ownerDocument, id2, entry2, candidates) {
+    for (const candidate2 of hostedRuntimeCandidates(candidates, entry2.role)) {
+      try {
+        return await appendHostedRuntimeScript(ownerDocument, id2, candidate2, entry2);
+      } catch {
+        removeFailedHostedRuntimeScript(ownerDocument, id2, candidate2, entry2);
+      }
+    }
+    throw new Error(`Hosted runtime ${entry2.role} failed integrity or network loading.`);
+  }
+  function appendHostedRuntimeScript(ownerDocument, id2, src, entry2) {
+    const adopted = adoptHostedRuntimeScript(ownerDocument, id2, src, entry2);
+    if (adopted) return adopted;
+    const script = ownerDocument.createElement("script");
+    script.id = id2;
+    script.async = false;
+    script.crossOrigin = "anonymous";
+    script.integrity = entry2.integrity;
+    script.src = src;
+    script.dataset.yomuHostedRuntimeRole = entry2.role;
+    script.dataset.yomuHostedRuntimeState = "loading";
+    (ownerDocument.head ?? ownerDocument.documentElement).append(script);
+    return waitForHostedRuntimeScript(script);
+  }
+  function adoptHostedRuntimeScript(ownerDocument, id2, src, entry2) {
+    const existing = ownerDocument.getElementById(id2);
+    if (!existing) return void 0;
+    if (!(existing instanceof HTMLScriptElement)) {
+      throw new Error(`Hosted runtime script id ${id2} is already owned by another element.`);
+    }
+    if (!ownsHostedRuntimeScript(ownerDocument, existing, src, entry2)) {
+      throw new Error(`Hosted runtime script id ${id2} does not match the requested asset.`);
+    }
+    return waitForHostedRuntimeScript(existing);
+  }
+  function waitForHostedRuntimeScript(script) {
+    if (script.dataset.yomuHostedRuntimeState === "loaded") return Promise.resolve(script);
+    if (script.dataset.yomuHostedRuntimeState === "error") return Promise.reject(new Error("Hosted runtime script failed."));
+    return new Promise((resolve, reject) => {
+      script.addEventListener("load", () => {
+        script.dataset.yomuHostedRuntimeState = "loaded";
+        resolve(script);
+      }, { once: true });
+      script.addEventListener("error", () => {
+        script.dataset.yomuHostedRuntimeState = "error";
+        reject(new Error("Hosted runtime script failed."));
+      }, { once: true });
+    });
+  }
+  function hostedDependencies(value) {
+    if (!Array.isArray(value) || value.length === 0) {
+      throw new Error("Hosted runtime graph has no dependencies.");
+    }
+    return value.map((entry2, index) => hostedDependency(entry2, index));
+  }
+  function hostedDependency(value, index) {
+    const record2 = requiredRecord(value, `Hosted runtime dependency ${index} is invalid.`);
+    const path = requiredString(record2.path, `Hosted runtime dependency ${index} path is invalid.`);
+    const pathMatch = HOSTED_DEPENDENCY_PATH.exec(path);
+    if (!pathMatch) throw new Error(`Hosted runtime dependency ${index} path is unsafe.`);
+    const pathHash = pathMatch[1];
+    const integrity = hostedIntegrity(record2.integrity, `Hosted runtime dependency ${index} integrity is invalid.`);
+    if (integrityHashPrefix(integrity) !== pathHash) {
+      throw new Error(`Hosted runtime dependency ${index} filename and integrity disagree.`);
+    }
+    return { integrity, path, pathHash, role: "dependency" };
+  }
+  function hostedCore(value, revision2) {
+    const record2 = requiredRecord(value, "Hosted runtime core is invalid.");
+    const path = requiredString(record2.path, "Hosted runtime core path is invalid.");
+    if (path !== HOSTED_CORE_PATH) throw new Error("Hosted runtime core path is invalid.");
+    const integrity = hostedIntegrity(record2.integrity, "Hosted runtime core integrity is invalid.");
+    const pathHash = requiredString(revision2, "Hosted runtime revision is invalid.");
+    if (!/^[a-f\d]{12}$/u.test(pathHash)) throw new Error("Hosted runtime revision is invalid.");
+    if (integrityHashPrefix(integrity) !== pathHash) {
+      throw new Error("Hosted runtime core revision and integrity disagree.");
+    }
+    return { integrity, path: HOSTED_CORE_PATH, pathHash, role: "core" };
+  }
+  function hostedRuntimeCandidates(candidates, role2) {
+    const message = `Hosted runtime ${role2} has no usable asset candidates.`;
+    if (!Array.isArray(candidates)) throw new Error(message);
+    if (candidates.length === 0) throw new Error(message);
+    if (candidates.some((candidate2) => !candidate2?.trim())) throw new Error(message);
+    return [...new Set(candidates)];
+  }
+  function removeFailedHostedRuntimeScript(ownerDocument, id2, src, entry2) {
+    const script = ownerDocument.getElementById(id2);
+    if (!(script instanceof HTMLScriptElement)) return;
+    if (!ownsHostedRuntimeScript(ownerDocument, script, src, entry2)) return;
+    if (script.dataset.yomuHostedRuntimeState === "error") script.remove();
+  }
+  function ownsHostedRuntimeScript(ownerDocument, script, src, entry2) {
+    if (!HOSTED_RUNTIME_SCRIPT_STATES.has(script.dataset.yomuHostedRuntimeState ?? "")) return false;
+    const requested = ownerDocument.createElement("script");
+    requested.src = src;
+    requested.integrity = entry2.integrity;
+    requested.crossOrigin = "anonymous";
+    requested.dataset.yomuHostedRuntimeRole = entry2.role;
+    return hostedRuntimeScriptIdentity(script) === hostedRuntimeScriptIdentity(requested);
+  }
+  function hostedRuntimeScriptIdentity(script) {
+    return [
+      script.dataset.yomuHostedRuntimeRole,
+      script.integrity,
+      script.src,
+      script.crossOrigin
+    ].join("\0");
+  }
+  function hostedIntegrity(value, message) {
+    const integrity = requiredString(value, message);
+    if (!SHA256_INTEGRITY.test(integrity)) throw new Error(message);
+    return integrity;
+  }
+  function integrityHashPrefix(integrity) {
+    const encoded = integrity.match(SHA256_INTEGRITY)?.[1];
+    if (!encoded) return "";
+    try {
+      return Array.from(atob(encoded), (character) => character.charCodeAt(0).toString(16).padStart(2, "0")).join("").slice(0, 12);
+    } catch {
+      return "";
+    }
+  }
+  function requiredString(value, message) {
+    if (typeof value !== "string" || !value.trim()) throw new Error(message);
+    return value;
+  }
+  function requiredRecord(value, message) {
+    if (!isRecord$5(value)) throw new Error(message);
+    return value;
+  }
+  function isRecord$5(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  }
   const ACADEMY_AUTHORED_VOCABULARY = [
     ...AAKASH_DIRECTIONS_READER_ANNOTATIONS
   ];
   function academyAuthoredVocabularyForText(text2) {
     return ACADEMY_AUTHORED_VOCABULARY.filter((annotation) => text2.includes(annotation.surface));
   }
-  const ACADEMY_READER_COMPANIONS = [
-    {
-      fileName: "greasyfork/yomu-annotations.user.js",
-      services: ["annotation-layout", "pitch"]
-    },
-    {
-      fileName: "greasyfork/yomu-ui-copy.user.js",
-      services: ["localization"]
-    },
-    {
-      fileName: "greasyfork/yomu-settings-surface.user.js",
-      services: ["local-dictionary"]
-    },
-    {
-      fileName: "greasyfork/yomu-kanji-study.user.js",
-      services: ["translation", "grammar", "mining"]
-    },
-    {
-      fileName: "greasyfork/yomu-anki.user.js",
-      services: ["anki"]
-    },
-    {
-      fileName: "greasyfork/yomu-bunpro.user.js",
-      services: ["bunpro"]
-    }
-  ];
   const RUNTIME_MARKER_ID = READER_RUNTIME_MARKER_ID;
-  const CORE_SCRIPT_ID = "yomu-hosted-academy-runtime";
+  const RUNTIME_SCRIPT_ID_PREFIX = "yomu-hosted-academy-runtime";
   const CSS_ATTRIBUTE = "data-yomu-hosted-academy-css";
-  const SCRIPT_ATTRIBUTE = "data-yomu-hosted-academy-script";
-  const COMPANION_ATTRIBUTE = "data-yomu-hosted-academy-settings";
   const JAPANESE_SURFACE_SELECTOR = '[lang="ja"], [lang^="ja-"], [data-yomu-runtime-surface], .academy-japanese';
+  const OWNED_READING_SURFACE_SELECTOR = "[data-yomu-runtime-surface]";
   const SETTINGS_KEY = "jpdb-popup-reader-settings";
   const RUNTIME_READY_TIMEOUT_MS = 6e3;
-  const SURFACE_WAIT_TIMEOUT_MS = 15e3;
   const ACADEMY_ROOT_ID = "yomu-academy";
+  const ACADEMY_REVISION = /^s1-[a-f\d]{12}$/u;
   let bootPromise = null;
   let annotationLifecycle = null;
   function initYomuReaderRuntime() {
@@ -286924,50 +287087,73 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const lifecycle = observeAcademyAnnotationSurfaces(root);
     annotationLifecycle = { root, dispose: lifecycle.dispose };
   }
-  function academyRuntimeAssetCandidates(fileName, href = window.location.href) {
+  function academyRuntimeAssetCandidates(fileName, href = window.location.href, revision2) {
     const current = new URL(href);
+    const versionedFileName = revision2 ? `${fileName}${fileName.includes("?") ? "&" : "?"}v=${encodeURIComponent(revision2)}` : fileName;
     const urls = [
-      new URL(`../${fileName}`, current),
-      new URL(`./${fileName}`, current),
-      new URL(`/${fileName}`, current.origin),
-      new URL(`/yomu-reader/${fileName}`, current.origin)
+      new URL(`../${versionedFileName}`, current),
+      new URL(`./${versionedFileName}`, current),
+      new URL(`/${versionedFileName}`, current.origin),
+      new URL(`/yomu-reader/${versionedFileName}`, current.origin)
     ];
     return [...new Set(urls.map((url) => url.href))];
   }
   async function bootWhenJapaneseAppears() {
-    if (hasConformingYomuRuntime()) return true;
-    await waitForJapaneseSurface();
-    if (hasConformingYomuRuntime()) return true;
-    if (hasYomuRuntime()) return waitForRuntimeReady();
+    const demand = await academyRuntimeDemand();
+    if (demand === "satisfied") return true;
+    if (demand === "unavailable") return false;
     seedAcademyReaderDefaults();
-    await loadStylesheet();
-    if (!await loadReaderCompanions()) return false;
-    const loaded = await loadCoreRuntime();
-    return loaded && waitForRuntimeReady();
+    const revision2 = academyHostedRuntimeRevision();
+    if (!revision2) return false;
+    return installAcademyReaderRuntime(revision2);
   }
-  function hasYomuRuntime() {
-    const runtimeWindow = window;
-    return Boolean(runtimeWindow.__yomuReaderAppInitialized || document.getElementById(RUNTIME_MARKER_ID));
+  async function academyRuntimeDemand() {
+    if (academyRuntimePresence() !== "conforming") {
+      const surfaceReady = await waitForJapaneseSurface();
+      if (!surfaceReady) return "unavailable";
+    }
+    if (academyRuntimePresence() === "absent") return "install";
+    return waitForRuntimeReadiness();
   }
-  function hasConformingYomuRuntime() {
-    return readerRuntimeConforms(readReaderRuntimeHealth());
+  async function installAcademyReaderRuntime(revision2) {
+    const stylesheetReady = await loadStylesheet(revision2);
+    if (!stylesheetReady) return false;
+    try {
+      await loadHostedReaderRuntime({
+        resolveCandidates: (script) => academyRuntimeAssetCandidates(
+          script.path,
+          window.location.href,
+          script.role === "core" ? revision2 : void 0
+        ),
+        scriptIdPrefix: RUNTIME_SCRIPT_ID_PREFIX
+      });
+      return await waitForRuntimeReadiness() === "satisfied";
+    } catch {
+      document.documentElement.dataset.yomuHostedRuntimeGraphError = "true";
+      return false;
+    }
+  }
+  function academyRuntimePresence() {
+    if (readerRuntimeConforms(readReaderRuntimeHealth())) return "conforming";
+    if (!shouldInstallHostedReaderRuntime()) return "starting";
+    if (document.getElementById(RUNTIME_MARKER_ID)) return "starting";
+    return "absent";
   }
   function waitForJapaneseSurface() {
-    if (document.querySelector(JAPANESE_SURFACE_SELECTOR)) return Promise.resolve();
+    if (document.querySelector(OWNED_READING_SURFACE_SELECTOR)) return Promise.resolve(true);
+    if (typeof MutationObserver === "undefined") return Promise.resolve(false);
     return new Promise((resolve) => {
-      let settled = false;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        observer?.disconnect();
-        window.clearTimeout(timer);
-        resolve();
-      };
-      const observer = typeof MutationObserver === "undefined" ? void 0 : new MutationObserver(() => {
-        if (document.querySelector(JAPANESE_SURFACE_SELECTOR)) finish();
+      const observer = new MutationObserver(() => {
+        if (!document.querySelector(OWNED_READING_SURFACE_SELECTOR)) return;
+        observer.disconnect();
+        resolve(true);
       });
-      observer?.observe(document.documentElement, { childList: true, subtree: true });
-      const timer = window.setTimeout(finish, SURFACE_WAIT_TIMEOUT_MS);
+      observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-yomu-runtime-surface"],
+        childList: true,
+        subtree: true
+      });
     });
   }
   function seedAcademyReaderDefaults() {
@@ -286981,62 +287167,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
     } catch {
     }
   }
-  function loadStylesheet() {
+  function academyHostedRuntimeRevision() {
+    const script = document.querySelector('script[src*="/hosted-runtime-graph.js"]');
+    const revision2 = script ? new URL(script.src, window.location.href).searchParams.get("v") : null;
+    if (revision2 && ACADEMY_REVISION.test(revision2)) return revision2;
+    document.documentElement.dataset.yomuHostedRuntimeGraphError = "true";
+    return void 0;
+  }
+  function loadStylesheet(revision2) {
     if (document.querySelector(`link[${CSS_ATTRIBUTE}], link[href$="/yomu.css"], link[href*="/yomu.css?"]`)) {
       return Promise.resolve(true);
     }
-    return loadLinkChain(academyRuntimeAssetCandidates("yomu.css"));
-  }
-  function loadCoreRuntime() {
-    if (hasYomuRuntime()) return Promise.resolve(true);
-    if (document.getElementById(CORE_SCRIPT_ID) || document.querySelector(`script[${SCRIPT_ATTRIBUTE}]`)) {
-      return waitForRuntimeReady();
-    }
-    return loadScriptChain(academyRuntimeAssetCandidates("yomu.user.js"));
-  }
-  async function loadReaderCompanions() {
-    for (const companion of ACADEMY_READER_COMPANIONS) {
-      if (!await loadCompanion(companion.fileName)) return false;
-    }
-    return true;
-  }
-  function loadCompanion(fileName) {
-    const loaded = Array.from(document.querySelectorAll(`script[${COMPANION_ATTRIBUTE}]`)).some((script) => script.getAttribute(COMPANION_ATTRIBUTE) === fileName);
-    return loaded ? Promise.resolve(true) : loadPlainScriptChain(academyRuntimeAssetCandidates(fileName), fileName);
-  }
-  function loadPlainScriptChain(candidates, fileName, index = 0) {
-    if (index >= candidates.length) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.async = false;
-      script.src = candidates[index];
-      script.setAttribute(COMPANION_ATTRIBUTE, fileName);
-      script.addEventListener("load", () => resolve(true), { once: true });
-      script.addEventListener("error", () => {
-        script.remove();
-        void loadPlainScriptChain(candidates, fileName, index + 1).then(resolve);
-      }, { once: true });
-      (document.head ?? document.documentElement).append(script);
-    });
-  }
-  function loadScriptChain(candidates, index = 0) {
-    if (index >= candidates.length) return Promise.resolve(false);
-    return new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.id = CORE_SCRIPT_ID;
-      script.async = false;
-      script.src = candidates[index];
-      script.setAttribute(SCRIPT_ATTRIBUTE, "true");
-      const tryNext = () => {
-        script.remove();
-        void loadScriptChain(candidates, index + 1).then(resolve);
-      };
-      script.addEventListener("load", () => {
-        void waitForRuntimeReady().then((ready2) => ready2 ? resolve(true) : tryNext());
-      }, { once: true });
-      script.addEventListener("error", tryNext, { once: true });
-      (document.head ?? document.documentElement).append(script);
-    });
+    return loadLinkChain(academyRuntimeAssetCandidates("yomu.css", window.location.href, revision2));
   }
   function loadLinkChain(candidates, index = 0) {
     if (index >= candidates.length) return Promise.resolve(false);
@@ -287053,13 +287195,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
       (document.head ?? document.documentElement).append(link);
     });
   }
-  function waitForRuntimeReady(timeoutMs = RUNTIME_READY_TIMEOUT_MS) {
-    if (hasConformingYomuRuntime()) return Promise.resolve(true);
+  function waitForRuntimeReadiness(timeoutMs = RUNTIME_READY_TIMEOUT_MS) {
+    if (academyRuntimePresence() === "conforming") return Promise.resolve("satisfied");
     return new Promise((resolve) => {
       const startedAt = performance.now();
       const check2 = () => {
-        if (hasConformingYomuRuntime()) return resolve(true);
-        if (performance.now() - startedAt >= timeoutMs) return resolve(false);
+        if (academyRuntimePresence() === "conforming") return resolve("satisfied");
+        if (performance.now() - startedAt >= timeoutMs) return resolve("unavailable");
         window.setTimeout(check2, 60);
       };
       check2();
@@ -294136,7 +294278,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$9(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$a(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -294230,7 +294372,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml$1(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context2);
-    if (!isRecord$9(value)) return "";
+    if (!isRecord$a(value)) return "";
     return renderGlossaryRecord(value, context2);
   }
   function isStructuredPrimitive(value) {
@@ -307609,7 +307751,7 @@ ${component.reading}`;
     return !requiresSurfaceMatch(query) || sentenceContainsQuery(example.sentence, query);
   }
   function normalizeExample(value, provider = "immersion-kit") {
-    return isRecord$9(value) ? normalizeExampleRecord(value, provider) : null;
+    return isRecord$a(value) ? normalizeExampleRecord(value, provider) : null;
   }
   function normalizeExampleRecord(record2, provider = "immersion-kit") {
     const id2 = text$1(record2.id);
@@ -307650,18 +307792,18 @@ ${component.reading}`;
   }
   function nadeshikoResponseRecord(data) {
     if (Array.isArray(data)) return { segments: data };
-    return isRecord$9(data) ? data : null;
+    return isRecord$a(data) ? data : null;
   }
   function nadeshikoSegments(response) {
     return firstArrayField(response, ["segments", "examples", "results", "data"]);
   }
   function nadeshikoMediaMap(response) {
     const includes = response.includes;
-    const media = isRecord$9(includes) ? includes.media : void 0;
-    return isRecord$9(media) ? media : {};
+    const media = isRecord$a(includes) ? includes.media : void 0;
+    return isRecord$a(media) ? media : {};
   }
   function normalizeNadeshikoExample(value, mediaById) {
-    if (!isRecord$9(value)) return null;
+    if (!isRecord$a(value)) return null;
     const sentence = nadeshikoSentence(value);
     if (!sentence) return null;
     const ids2 = nadeshikoExampleIds(value);
@@ -307698,7 +307840,7 @@ ${component.reading}`;
     return recordField(mediaById[mediaPublicId]);
   }
   function recordField(value) {
-    return isRecord$9(value) ? value : {};
+    return isRecord$a(value) ? value : {};
   }
   function nadeshikoSourceTitle(record2, media) {
     return firstText(media, ["nameRomaji", "name_romaji", "titleRomaji", "title_romaji", "name", "title", "nameJa"]) || firstText(record2, ["mediaName", "sourceTitle", "source", "title"]) || "Nadeshiko";
@@ -307717,7 +307859,7 @@ ${component.reading}`;
   }
   function nestedText(record2, key2, fields) {
     const value = record2[key2];
-    return isRecord$9(value) ? firstText(value, fields) : "";
+    return isRecord$a(value) ? firstText(value, fields) : "";
   }
   function directMediaUrl(example, kind) {
     return kind === "image" ? example.imageUrl : example.soundUrl;
@@ -315507,13 +315649,13 @@ ${entry2.url}`),
   }
   function jpdbReviewCards(value) {
     if (Array.isArray(value)) return value;
-    if (!isRecord$9(value)) return [];
+    if (!isRecord$a(value)) return [];
     const cards = Object.entries(value).filter(([key2, item2]) => key2.startsWith("cards_") && Array.isArray(item2)).flatMap(([, item2]) => item2);
     if (cards.length) return cards;
     return Array.isArray(value.cards) ? value.cards : [];
   }
   function normalizeJpdbReviewEntries(card) {
-    if (!isRecord$9(card) || !Array.isArray(card.reviews)) return [];
+    if (!isRecord$a(card) || !Array.isArray(card.reviews)) return [];
     return card.reviews.map(normalizeJpdbReview).filter((review2) => review2 !== null).sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }
   function normalizeJpdbReview(value) {
@@ -315526,7 +315668,7 @@ ${entry2.url}`),
         minutes: numberValue$1(value[5]) / 6e4
       };
     }
-    if (!isRecord$9(value)) return null;
+    if (!isRecord$a(value)) return null;
     const timestamp = reviewTimestamp(value.timestamp ?? value.time ?? value.date);
     if (!timestamp) return null;
     return {
@@ -319263,14 +319405,14 @@ ${entry2.url}`),
   }
   function structuredExampleTexts(value) {
     if (Array.isArray(value)) return value.flatMap(structuredExampleTexts);
-    if (!isRecord$9(value)) return [];
+    if (!isRecord$a(value)) return [];
     if (isExampleRecord(value)) return structuredLeafTexts(value.text ?? value.content);
     return Object.values(value).flatMap(structuredExampleTexts);
   }
   function structuredLeafTexts(value) {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return value.flatMap(structuredLeafTexts);
-    if (!isRecord$9(value)) return [];
+    if (!isRecord$a(value)) return [];
     if (typeof value.text === "string") return [value.text];
     return "content" in value ? structuredLeafTexts(value.content) : [];
   }

@@ -15,6 +15,8 @@
 - Switching subtitle tracks cancels stale caption, translation, and enrichment work before it can block or overwrite the new selection. Rate-limited and empty YouTube caption responses use bounded, source-aware retries instead of repeatedly walking every format and translation fallback.
 - Target-specific reading settings survive temporary target changes and live settings updates. A Japanese difficult-kanji preference is restored on return to Japanese, unsupported modes cannot leak into another target, and unrelated cross-tab changes no longer overwrite unsaved language or provider edits.
 - Website locale changes load the reviewed server-rendered document atomically, so the previous language cannot paint at the new locale URL. Document language, direction, accessible navigation labels, canonical URL, Open Graph metadata, hreflang links, and structured breadcrumbs stay aligned; routes without reviewed Japanese copy fall back to the Japanese homepage instead of linking to a translated 404.
+- The public homepage demo and Academy load the final userscript's SRI-pinned dependency graph before the Reader core. Both surfaces annotate normally again after the aggregate-runtime split, and a missing or partially deployed dependency now stops the core instead of producing a broken Reader.
+- Yomu Gaming settings actions stay compact in desktop windows. Add-source, copy-address, account, help, and Academy buttons wrap naturally without stretching into giant full-width or full-height controls; narrow windows retain touch-friendly full-width actions.
 
 ### Changed
 

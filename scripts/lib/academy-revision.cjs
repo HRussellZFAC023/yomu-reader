@@ -70,15 +70,13 @@ const RUNTIME_SOURCES_TAIL = [
     ['dist/academy/style.css', 'style.css'],
 ];
 
-// Hashed but not copied: the shell has to bust its cache when the userscript or
-// its companions change, because it loads them.
+// Hashed but not copied: the generated graph already binds the final core and
+// every ordered dependency by SRI. The shell therefore has one runtime input
+// instead of another hand-maintained list that can drift from userscript
+// @require metadata.
 const HOSTED_DEPENDENCIES = [
-    'docs/public/yomu.user.js',
+    'docs/public/hosted-runtime-graph.js',
     'docs/public/yomu.css',
-    'docs/public/greasyfork/yomu-ui-copy.user.js',
-    'docs/public/greasyfork/yomu-settings-surface.user.js',
-    'docs/public/greasyfork/yomu-kanji-study.user.js',
-    'docs/public/greasyfork/yomu-anki.user.js',
 ];
 
 // The build outputs that are not in git, and the committed file each one is

@@ -1,6 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { runInNewContext } from 'node:vm';
+import { vi } from 'vitest';
 import { ACADEMY_CAST_SPRITE_COVERAGE, ACADEMY_RUNTIME_ASSET_REGISTRY } from '../../src/academy/assets';
+import { hostedRuntimeGraphFixture, type HostedRuntimeGraphFixture } from '../helpers/hosted-runtime-graph';
 
 describe('Academy offline shell', () => {
     it('keeps deployable Academy text inputs free of private workstation paths', () => {
@@ -17,7 +20,7 @@ describe('Academy offline shell', () => {
     it('uses a unique precache manifest whose hosted targets all exist', () => {
         for (const workerPath of ['public/academy/sw.js', 'docs/public/academy/sw.js']) {
             const source = fs.readFileSync(path.resolve(workerPath), 'utf8');
-            const urls = precacheUrls(source);
+            const urls = [...literalPrecacheUrls(source), ...hostedRuntimePrecacheUrls()];
             const missing = urls.filter(url => !fs.existsSync(hostedPathFor(url)));
 
             expect(urls, `${workerPath} contains duplicate precache requests`).toEqual([...new Set(urls)]);
@@ -30,10 +33,6 @@ describe('Academy offline shell', () => {
         const revision = source.match(/const VERSION = 'yomu-academy-shell-([^']+)'/)?.[1];
         expect(revision).toMatch(/^s1-[a-f0-9]{12}$/);
         for (const required of [
-            '/yomu.user.js',
-            '/yomu.css',
-            '/greasyfork/yomu-settings-surface.user.js',
-            '/greasyfork/yomu-bunpro.user.js',
             `/academy/app.js?v=${revision}`,
             '/academy/art/characters/rie/rie__neutral-glasses__front-near-front__halfbody__v001.webp',
             '/academy/art/characters/rie/rie__happy-glasses__front-near-front__halfbody__v001.webp',
@@ -84,9 +83,64 @@ describe('Academy offline shell', () => {
             '/academy/vendor/kanjivg/04e00.svg',
             '/academy/vendor/kanjivg/ATTRIBUTION.md',
         ]) expect(source).toContain(`'${required}'`);
-        expect(source).toContain("url.pathname === '/yomu.user.js'");
-        expect(source).toContain("url.pathname === '/greasyfork/yomu-bunpro.user.js'");
+        expect(source).toContain(`importScripts('/hosted-runtime-graph.js?v=${revision}');`);
+        expect(source).toContain('const READER_RUNTIME = hostedReaderRuntime(self.__yomuHostedRuntimeGraph);');
+        expect(source).toContain('const READER_RUNTIME_PATHS = READER_RUNTIME.precachePaths;');
+        expect(source).toContain('const READER_RUNTIME_PRECACHE_REQUESTS = READER_RUNTIME_PATHS.map(readerRuntimeCacheKey);');
+        expect(source).toContain('    ...READER_RUNTIME_PRECACHE_REQUESTS,');
+        expect(source).toContain('const isReaderRuntime = READER_RUNTIME_PATH_SET.has(url.pathname);');
+        expect(source).not.toMatch(/greasyfork\/yomu-(?:ui-copy|settings-surface|kanji-study|anki|bunpro)\.user\.js/u);
         expect(source).toContain("url.pathname.startsWith('/academy/media/')");
+    });
+
+    it('serves a revisioned hosted graph request from the offline precache', async () => {
+        const harness = academyWorkerHarness();
+        const { response } = await dispatchAcademyWorkerFetch(
+            harness,
+            `https://yomureader.com/hosted-runtime-graph.js?v=${harness.revision}`,
+        );
+
+        expect(response).toBe(harness.cachedGraph);
+        expect(harness.openCache).toHaveBeenCalledWith(`yomu-academy-shell-${harness.revision}`);
+        expect(harness.versionCacheMatch).toHaveBeenCalledWith(
+            `/hosted-runtime-graph.js?v=${harness.revision}`,
+        );
+        expect(harness.globalCacheMatch).not.toHaveBeenCalled();
+        expect(harness.networkFetch).not.toHaveBeenCalled();
+    });
+
+    it('never answers a newer mutable runtime revision from the old Academy cache', async () => {
+        const harness = academyWorkerHarness();
+        const { request, response } = await dispatchAcademyWorkerFetch(
+            harness,
+            'https://yomureader.com/yomu.user.js?v=s1-feedface0000',
+        );
+
+        expect(response).toBe(harness.networkResponse);
+        expect(harness.networkFetch).toHaveBeenCalledWith(request);
+        expect(harness.openCache).not.toHaveBeenCalled();
+        expect(harness.globalCacheMatch).not.toHaveBeenCalled();
+    });
+
+    it('installs mutable Reader assets under the exact Academy revision cache keys', async () => {
+        const harness = academyWorkerHarness();
+        const waitUntil = vi.fn();
+        harness.listeners.get('install')?.({ waitUntil });
+        expect(waitUntil).toHaveBeenCalledOnce();
+        await waitUntil.mock.calls[0][0];
+
+        const coreRequests = harness.cacheAddAll.mock.calls[0]?.[0] ?? [];
+        expect(coreRequests).toContain(`/hosted-runtime-graph.js?v=${harness.revision}`);
+        expect(coreRequests).toContain(`/yomu.user.js?v=${harness.revision}`);
+        expect(coreRequests).toContain(`/yomu.css?v=${harness.revision}`);
+        expect(coreRequests).toContain(harness.dependencyPath);
+        for (const bareMutablePath of [
+            '/hosted-runtime-graph.js',
+            '/yomu.user.js',
+            '/yomu.css',
+        ]) expect(coreRequests).not.toContain(bareMutablePath);
+        expect(harness.cacheAddAll.mock.calls[1]?.[0]).toEqual([harness.storyVoicePath]);
+        expect(harness.worker.skipWaiting).toHaveBeenCalledOnce();
     });
 
     it('pre-caches every locked story voice through the playback catalog', () => {
@@ -156,13 +210,83 @@ describe('Academy offline shell', () => {
     });
 });
 
+function academyWorkerHarness() {
+    const revision = 's1-cafebabe0000';
+    const source = fs.readFileSync(path.resolve('public/academy/sw.js'), 'utf8')
+        .replaceAll('__ACADEMY_REVISION__', revision);
+    const listeners = new Map<string, (event: any) => void>();
+    const cachedGraph = new Response('offline hosted graph');
+    const networkResponse = new Response('network graph');
+    const storyVoicePath = '/academy/audio/story-pilot/installed-cache-proof.opus';
+    const storyCatalog = new Response(JSON.stringify({
+        schema: 'yomu-academy.story-voice-playback.v1',
+        entries: [{ url: storyVoicePath }],
+    }), { headers: { 'content-type': 'application/json' } });
+    const versionCacheMatch = vi.fn(async request => (
+        request === '/academy/audio/story-voice-playback.json' ? storyCatalog : cachedGraph
+    ));
+    const globalCacheMatch = vi.fn(async () => new Response('stale graph from another cache'));
+    const cacheAddAll = vi.fn(async (_requests: readonly string[]) => undefined);
+    const cachePut = vi.fn(async () => undefined);
+    const openCache = vi.fn(async () => ({ addAll: cacheAddAll, match: versionCacheMatch, put: cachePut }));
+    const networkFetch = vi.fn(async () => networkResponse);
+    const runtimeGraph = hostedRuntimeGraphFixture('Academy offline dependency', 'Academy offline core');
+    const worker = {
+        __yomuHostedRuntimeGraph: runtimeGraph,
+        addEventListener: vi.fn((name: string, listener: (event: any) => void) => listeners.set(name, listener)),
+        clients: { claim: vi.fn() },
+        location: { origin: 'https://yomureader.com' },
+        skipWaiting: vi.fn(),
+    };
+    runInNewContext(source, {
+        Headers,
+        Response,
+        URL,
+        atob,
+        caches: {
+            delete: vi.fn(),
+            keys: vi.fn(async () => []),
+            match: globalCacheMatch,
+            open: openCache,
+        },
+        fetch: networkFetch,
+        importScripts: vi.fn(),
+        self: worker,
+    });
+    return {
+        cacheAddAll,
+        cachedGraph,
+        dependencyPath: `/${runtimeGraph.dependencies[0].path}`,
+        globalCacheMatch,
+        listeners,
+        networkFetch,
+        networkResponse,
+        openCache,
+        revision,
+        storyVoicePath,
+        versionCacheMatch,
+        worker,
+    };
+}
+
+async function dispatchAcademyWorkerFetch(
+    harness: ReturnType<typeof academyWorkerHarness>,
+    url: string,
+): Promise<{ readonly request: { readonly method: 'GET'; readonly mode: 'cors'; readonly url: string }; readonly response: Response }> {
+    const request = { method: 'GET' as const, mode: 'cors' as const, url };
+    const respondWith = vi.fn();
+    harness.listeners.get('fetch')?.({ request, respondWith });
+    expect(respondWith).toHaveBeenCalledOnce();
+    return { request, response: await respondWith.mock.calls[0][0] };
+}
+
 function registryAssetPaths(): string[] {
     return Object.values(ACADEMY_RUNTIME_ASSET_REGISTRY)
         .flatMap(asset => Object.values(asset.files))
         .sort();
 }
 
-function precacheUrls(source: string): string[] {
+function literalPrecacheUrls(source: string): string[] {
     const readArray = (name: string): string[] => {
         const body = source.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\n\\];`, 'u'))?.[1];
         if (!body) throw new Error(`Missing ${name} service-worker manifest`);
@@ -170,6 +294,20 @@ function precacheUrls(source: string): string[] {
     };
 
     return [...readArray('RUNTIME_ART_PRECACHE'), ...readArray('CORE')];
+}
+
+function hostedRuntimePrecacheUrls(): string[] {
+    const realm = {} as { __yomuHostedRuntimeGraph?: HostedRuntimeGraphFixture };
+    const source = fs.readFileSync(path.resolve('docs/public/hosted-runtime-graph.js'), 'utf8');
+    runInNewContext(source, { globalThis: realm });
+    const graph = realm.__yomuHostedRuntimeGraph;
+    if (!graph) throw new Error('Committed hosted runtime graph is missing');
+    return [
+        '/hosted-runtime-graph.js',
+        ...graph.dependencies.map(entry => `/${entry.path}`),
+        `/${graph.core.path}`,
+        '/yomu.css',
+    ];
 }
 
 function hostedPathFor(rawUrl: string): string {

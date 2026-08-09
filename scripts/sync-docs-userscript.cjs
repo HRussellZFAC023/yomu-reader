@@ -19,6 +19,7 @@ const {
 } = require('./lib/greasyfork-libraries.cjs');
 const { stampAppearanceBoot } = require('./lib/hosted-appearance-boot.cjs');
 const {
+  hostedRuntimeBrowserGraph,
   hostedRuntimeGraph,
   stampHostedRuntimeGraph,
   stampHostedRuntimeServiceWorker,
@@ -75,11 +76,13 @@ prepareStudyBuild();
 syncCanonicalStudyRoute();
 syncNewTabCompatibilityAlias();
 syncUserscript();
-stampStandaloneHostedSurfaces();
+const finalUserscript = readFileSync(DIST_USERSCRIPT_PATH, 'utf8');
+const finalRuntimeGraph = hostedRuntimeGraph(finalUserscript);
+syncHostedRuntimeBrowserGraph(finalUserscript, finalRuntimeGraph);
+stampStandaloneHostedSurfaces(finalRuntimeGraph);
 pruneContentAddressedAssets();
 
-function stampStandaloneHostedSurfaces() {
-  const runtimeGraph = hostedRuntimeGraph(readFileSync(DIST_USERSCRIPT_PATH, 'utf8'));
+function stampStandaloneHostedSurfaces(runtimeGraph) {
   assertHostedRuntimeAssets(runtimeGraph.pagePaths);
   for (const surface of STANDALONE_HOSTED_SURFACES) {
     stampStandaloneHostedPage(surface.page, runtimeGraph.pagePaths);
@@ -87,6 +90,13 @@ function stampStandaloneHostedSurfaces() {
     const { page, serviceWorker } = surface;
     console.log(`Stamped appearance, navigation, and runtime graph into ${page} and ${serviceWorker}`);
   }
+}
+
+function syncHostedRuntimeBrowserGraph(userscript, runtimeGraph) {
+  assertHostedRuntimeAssets(runtimeGraph.pagePaths);
+  const target = join(root, 'docs', 'public', 'hosted-runtime-graph.js');
+  writeFileSync(target, hostedRuntimeBrowserGraph(userscript, runtimeGraph));
+  console.log(`Synced ${target}`);
 }
 
 function assertHostedRuntimeAssets(runtimePaths) {

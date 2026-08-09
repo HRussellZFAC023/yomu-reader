@@ -5,12 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const {
+    hostedRuntimeBrowserGraph,
     hostedRuntimeGraph,
     stampHostedRuntimeGraph,
     stampHostedRuntimeServiceWorker,
 } = require('../../scripts/lib/hosted-runtime-graph.cjs') as {
+    hostedRuntimeBrowserGraph: (userscript: string) => string;
     hostedRuntimeGraph: (userscript: string) => {
         pagePaths: string[];
+        pageScripts: Array<{ path: string; integrity: string }>;
         serviceWorkerPaths: string[];
         cacheRevision: string;
     };
@@ -127,7 +130,24 @@ describe('hosted runtime graph generator', () => {
             FINAL_GRAPH.serviceWorkerPaths.map(path => path.replace(/^\//u, '')),
         );
         expect(FINAL_GRAPH.pagePaths.every(path => /\.[a-f\d]{12}\.user\.js$/u.test(path))).toBe(true);
+        expect(FINAL_GRAPH.pageScripts.map(script => script.path)).toEqual(FINAL_GRAPH.pagePaths);
+        expect(FINAL_GRAPH.pageScripts.every(script => /^sha256-[A-Za-z\d+/]{43}=$/u.test(script.integrity))).toBe(true);
         expect(FINAL_GRAPH.cacheRevision).toMatch(/^[a-f\d]{12}$/u);
+    });
+
+    it('emits one browser graph with dependency SRI and final-core SRI', () => {
+        const browserRealm = {} as { __yomuHostedRuntimeGraph?: Record<string, any> };
+        runInNewContext(hostedRuntimeBrowserGraph(FINAL_USERSCRIPT), { globalThis: browserRealm });
+
+        expect(browserRealm.__yomuHostedRuntimeGraph).toEqual({
+            schemaVersion: 1,
+            revision: FINAL_GRAPH.cacheRevision,
+            dependencies: FINAL_GRAPH.pageScripts,
+            core: {
+                path: 'yomu.user.js',
+                integrity: expect.stringMatching(/^sha256-[A-Za-z\d+/]{43}=$/u),
+            },
+        });
     });
 
     it('rejects mutable or registry-divergent final @require graphs', () => {
@@ -360,5 +380,16 @@ describe('committed standalone hosted runtime consumers', () => {
         const end = source.indexOf('async function assertHostedEmptyState', start);
         const openHostedVideoPlayer = source.slice(start, end);
         expect(openHostedVideoPlayer).toContain('        null,\n        { timeout: 6000 },');
+    });
+});
+
+describe('committed shared hosted runtime graph', () => {
+    it('matches the final userscript graph exactly', () => {
+        const source = readFileSync('docs/public/hosted-runtime-graph.js', 'utf8');
+        const browserRealm = {} as { __yomuHostedRuntimeGraph?: Record<string, any> };
+        runInNewContext(source, { globalThis: browserRealm });
+
+        expect(browserRealm.__yomuHostedRuntimeGraph?.dependencies).toEqual(FINAL_GRAPH.pageScripts);
+        expect(browserRealm.__yomuHostedRuntimeGraph?.revision).toBe(FINAL_GRAPH.cacheRevision);
     });
 });

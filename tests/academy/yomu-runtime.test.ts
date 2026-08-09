@@ -6,10 +6,13 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { renderStartScreen } from '../../src/academy/ui/start-screen';
 import {
     academyRuntimeAssetCandidates,
+    initYomuReaderRuntime,
     observeAcademyAnnotationSurfaces,
     refreshAcademyAnnotationSurfaces,
 } from '../../src/academy/integration/yomu-runtime';
 import { setAcademyReadingSurface } from '../../src/academy/integration/reader-markup';
+import { markInstalledReaderRuntime } from '../../src/reader/app/runtime-presence';
+import { READER_RUNTIME_MARKER_ID } from '../../src/reader/app/runtime-health';
 
 describe('Academy hosted Yomu runtime', () => {
     it('prefers the Reader bundle next to the hosted Academy before fallbacks', () => {
@@ -17,6 +20,15 @@ describe('Academy hosted Yomu runtime', () => {
             'https://example.test/yomu.user.js',
             'https://example.test/academy/yomu.user.js',
             'https://example.test/yomu-reader/yomu.user.js',
+        ]);
+        expect(academyRuntimeAssetCandidates(
+            'yomu.user.js',
+            'https://example.test/academy/',
+            's1-cafebabe0000',
+        )).toEqual([
+            'https://example.test/yomu.user.js?v=s1-cafebabe0000',
+            'https://example.test/academy/yomu.user.js?v=s1-cafebabe0000',
+            'https://example.test/yomu-reader/yomu.user.js?v=s1-cafebabe0000',
         ]);
     });
 
@@ -37,6 +49,24 @@ describe('Academy hosted Yomu runtime', () => {
                 'いちばん近いものを選んでください。あとで変えられます。',
             ]),
         );
+    });
+
+    it('does not boot the Reader for ignored Japanese chrome without readable prose', () => {
+        const languageToggle = document.createElement('button');
+        languageToggle.lang = 'ja';
+        languageToggle.textContent = '日本語';
+        languageToggle.dataset.jpdbReaderSurfaceIgnore = '';
+        document.body.replaceChildren(languageToggle);
+
+        refreshAcademyAnnotationSurfaces(document.body);
+        expect(document.querySelector('[data-yomu-runtime-surface]')).toBeNull();
+
+        const prose = document.createElement('p');
+        prose.lang = 'ja';
+        prose.textContent = '日本語を読みます。';
+        document.body.append(prose);
+        refreshAcademyAnnotationSurfaces(document.body);
+        expect(prose.dataset.yomuRuntimeSurface).toBe('academy-copy');
     });
 
     it('discovers Japanese prose and route choices through the real page scanner', () => {
@@ -208,6 +238,51 @@ describe('Academy hosted Yomu runtime', () => {
         expect(css).toContain('.academy-root :is([lang="ja"], [lang^="ja-"], .academy-japanese)[data-yomu-runtime-surface]');
         expect(css).toContain('--jpdb-reader-text: var(--academy-paper-ink);');
         expect(css).toContain('--jpdb-reader-accent-readable: var(--academy-paper-ink);');
+    });
+
+    it('does not race hosted injection against a runtime announced at document-start', async () => {
+        const root = document.createElement('main');
+        root.id = 'yomu-academy';
+        const prose = document.createElement('p');
+        prose.lang = 'ja';
+        prose.textContent = '日本語を読みます。';
+        root.append(prose);
+        document.body.replaceChildren(root);
+        const graph = document.createElement('script');
+        graph.src = 'https://yomureader.com/hosted-runtime-graph.js?v=s1-cafebabe0000';
+        document.head.append(graph);
+        markInstalledReaderRuntime('userscript');
+
+        const boot = initYomuReaderRuntime();
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(document.querySelector('link[data-yomu-hosted-academy-css]')).toBeNull();
+        expect(document.querySelector('script[id^="yomu-hosted-academy-runtime"]')).toBeNull();
+
+        const owner = document.createElement('meta');
+        owner.id = READER_RUNTIME_MARKER_ID;
+        owner.dataset.yomuRuntimeHealth = 'ready';
+        owner.dataset.yomuRuntimeHealthVersion = '1';
+        owner.dataset.yomuRuntimeServices = [
+            'localization',
+            'local-dictionary',
+            'jiten',
+            'yomu-srs',
+            'jpdb',
+            'bunpro',
+            'translation',
+            'grammar',
+            'mining',
+            'anki',
+            'annotation-layout',
+            'pitch',
+            'audio',
+            'nested-lookup',
+        ].join(',');
+        owner.dataset.yomuRuntimeMissingServices = '';
+        document.head.append(owner);
+
+        expect(await boot).toBe(true);
     });
 });
 
