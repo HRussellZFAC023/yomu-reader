@@ -5,19 +5,16 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { createYomuPaths } from './lib/paths.mjs';
 import { assert, closeServer, createFixtureServer, launchSmokeBrowser, serveFile } from './lib/smoke-harness.mjs';
-import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import {
+    addScriptTagWithCspFallback,
+    installUserscriptCssResource,
+    userscriptCompanionPaths,
+} from './lib/smoke-test-helpers.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const SCRIPT_PATH = path.join(ROOT, 'dist', 'yomu.user.js');
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
-const COMPANION_SCRIPT_PATHS = [
-    'yomu-anki.user.js',
-    'yomu-kanji-study.user.js',
-    'yomu-settings-surface.user.js',
-    'yomu-video.user.js',
-    'yomu-ocr-manga.user.js',
-    'yomu-ui-copy.user.js',
-].map(name => path.join(ROOT, 'dist', 'greasyfork', name));
+const COMPANION_SCRIPT_PATHS = userscriptCompanionPaths(SCRIPT_PATH);
 const PUBLIC_DIR = path.join(ROOT, 'docs', 'public');
 const VIDEO_PLAYER_PATH = path.join(ROOT, 'docs', 'public', 'video-player', 'index.html');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
@@ -208,6 +205,9 @@ const FEEDBACK_TEXT_ROUTES = new Map([
 const FEEDBACK_FILE_ROUTES = new Map([
     ...routeEntries(['/yomu.user.js', '/video-player/yomu.user.js', '/yomu-reader/yomu.user.js'], { filePath: SCRIPT_PATH, contentType: 'application/javascript; charset=utf-8' }),
     ...routeEntries(['/yomu.css', '/video-player/yomu.css', '/yomu-reader/yomu.css'], { filePath: CSS_PATH, contentType: 'text/css; charset=utf-8' }),
+    ['/hosted-reader-worker.js', { filePath: path.join(PUBLIC_DIR, 'hosted-reader-worker.js'), contentType: 'application/javascript; charset=utf-8' }],
+    ['/video-player/sw.js', { filePath: path.join(PUBLIC_DIR, 'video-player', 'sw.js'), contentType: 'application/javascript; charset=utf-8' }],
+    ['/video-player/manifest.webmanifest', { filePath: path.join(PUBLIC_DIR, 'video-player', 'manifest.webmanifest'), contentType: 'application/manifest+json; charset=utf-8' }],
     ...COMPANION_SCRIPT_PATHS.flatMap(filePath => {
         const fileName = path.basename(filePath);
         return routeEntries([
@@ -262,8 +262,7 @@ async function newPage(browser, settings = baseSettings, viewport = { width: 136
 
 async function injectUserscript(page) {
     await installUserscriptCssResource(page, CSS_PATH);
-    for (const companionPath of COMPANION_SCRIPT_PATHS) await page.addScriptTag({ path: companionPath });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')), null, { timeout: 6000 });
 }
 
@@ -707,14 +706,16 @@ async function verifyHostedFullscreenPausedOcrTapabilityMobile(page, baseUrl) {
     }, null, { timeout: 3000 });
     const tapped = await readHostedFullscreenPausedOcrTapState(page);
     assert(hostedFullscreenPausedOcrTapped(tapped), 'Fullscreen paused-frame OCR word tap did not activate the OCR line', tapped);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-paused-ocr.png'), fullPage: false });
-    await page.locator('[data-fullscreen-toggle]').click();
-    await page.waitForFunction(() => document.querySelector('[data-yomu-video-frame]')?.getAttribute('data-yomu-inline-fullscreen') !== 'true', null, { timeout: 6000 });
+    await captureAndExitHostedInlineFullscreen(page, 'feedback-video-fullscreen-paused-ocr.png');
 }
 
 async function openHostedVideoPlayer(page, baseUrl) {
     await page.goto(`${baseUrl}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')), { timeout: 6000 });
+    await page.waitForFunction(
+        () => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')),
+        null,
+        { timeout: 6000 },
+    );
 }
 
 async function assertHostedEmptyState(page, variant) {
@@ -1372,7 +1373,11 @@ async function verifyHostedFullscreenInlineFallbackMobile(page, baseUrl) {
     await enterHostedInlineFullscreenFallback(page);
     const state = await readHostedFullscreenSubtitleState(page);
     assert(hostedInlineFullscreenSubtitleReady(state), 'Hosted mobile inline fullscreen fallback did not keep Yomu subtitles inside the video frame', state);
-    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-fullscreen-mobile.png'), fullPage: false });
+    await captureAndExitHostedInlineFullscreen(page, 'feedback-video-fullscreen-mobile.png');
+}
+
+async function captureAndExitHostedInlineFullscreen(page, artifactName) {
+    await page.screenshot({ path: path.join(ARTIFACTS, artifactName), fullPage: false });
     await page.locator('[data-fullscreen-toggle]').click();
     await page.waitForFunction(() => document.querySelector('[data-yomu-video-frame]')?.getAttribute('data-yomu-inline-fullscreen') !== 'true', null, { timeout: 6000 });
 }
@@ -1512,7 +1517,7 @@ function hostedFullscreenPausedOcrReady(state) {
         && state.overlayHosted === 'true'
         && state.ocrWords > 0
         && state.scannerIsolated === true
-        && state.visualGlyphText === '日本語'
+        && state.visualGlyphText.endsWith('日本語')
         && state.visualGlyphState.length > 0
         && state.visualGlyphState.every(glyph => glyph.text.length > 0
             && glyph.ariaHidden === 'true'
@@ -1814,6 +1819,8 @@ async function readHostedTracksPanelState(page) {
             jimakuAnimeHref: jimakuAnime.href,
             jimakuAnimeTarget: jimakuAnime.target,
             jimakuAnimeRel: jimakuAnime.rel,
+            primaryLoadText: text('.jpdb-subtitle-track-tools [data-action="load"]'),
+            secondaryLoadText: text('.jpdb-subtitle-track-tools [data-action="load-secondary"]'),
             autoHideText: text('[data-action="toggle-pause-panel"]'),
             autoHidePressed: attribute('[data-action="toggle-pause-panel"]', 'aria-pressed'),
             placementButtons: document.querySelectorAll('[data-action="transcript-placement"][data-placement]').length,
@@ -1822,7 +1829,8 @@ async function readHostedTracksPanelState(page) {
 }
 
 function tracksPanelHasLoadActions(tracksPanel) {
-    return tracksPanel.text.includes('Load Japanese subtitles') && tracksPanel.text.includes('Load native subtitles');
+    return tracksPanel.primaryLoadText === 'Load Japanese subtitles'
+        && tracksPanel.secondaryLoadText === 'Load English subtitles';
 }
 
 function tracksPanelControlsReady(tracksPanel) {

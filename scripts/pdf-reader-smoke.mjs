@@ -695,6 +695,40 @@ async function waitForScannedPageReady(page, pageNumber) {
     }, pageNumber, { timeout: 15000 });
 }
 
+async function verifyOfflineRuntimeGraph(browser, origin) {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
+    try {
+        await page.goto(`${origin}/pdf-reader/`, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(
+            () => Boolean(window.__yomuReaderAppInitialized && document.querySelector('script[data-yomu-hosted-pdf-companion]')),
+            null,
+            { timeout: 10_000 },
+        );
+        await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+        await page.waitForFunction(() => Boolean(navigator.serviceWorker.controller), null, { timeout: 10_000 });
+
+        await page.context().setOffline(true);
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+        await page.waitForFunction(
+            () => Boolean(window.__yomuReaderAppInitialized && document.querySelector('script[data-yomu-hosted-pdf-companion]')),
+            null,
+            { timeout: 10_000 },
+        );
+        const offlineRuntime = await page.evaluate(() => ({
+            controlled: Boolean(navigator.serviceWorker.controller),
+            runtimeLoaded: Boolean(window.__yomuReaderAppInitialized),
+            companion: document.querySelector('script[data-yomu-hosted-pdf-companion]')
+                ?.getAttribute('data-yomu-hosted-pdf-companion') ?? '',
+        }));
+        assert(offlineRuntime.controlled && offlineRuntime.runtimeLoaded, 'PDF reader should boot its cached runtime graph offline', offlineRuntime);
+        assert(/greasyfork\/yomu-runtime\.[a-f\d]{12}\.user\.js$/u.test(offlineRuntime.companion), 'PDF reader offline boot should use the immutable final-core companion path', offlineRuntime);
+        return offlineRuntime;
+    } finally {
+        await page.context().setOffline(false).catch(() => {});
+        await page.close();
+    }
+}
+
 async function run() {
     assertBuiltArtifacts([pdfReaderHtml, userscript, css], appRoot, 'Run npm run build && node scripts/sync-docs-userscript.cjs first.');
 
@@ -715,15 +749,21 @@ async function run() {
             await page.close();
         }
 
+        // A successful online install must cache one atomic HTML + core +
+        // immutable-companion graph. Reloading the controlled page offline
+        // proves the service worker can boot that exact graph without falling
+        // back to a stale mutable companion.
+        report.offlineRuntimeGraph = await verifyOfflineRuntimeGraph(browser, server.origin);
+
         const textPdf = textPdfBytes();
         const mixedPdf = mixedPdfBytes();
         const scannedPdf = imageOnlyPdfBytes();
         const scannedTwoPagePdf = multiPageImageOnlyPdfBytes();
         const imageBackedOcrPdf = imageBackedOcrPdfBytes();
 
-        // The hosted reader loads focused companions rather than the aggregate
-        // @require. Prove core adopts its setting through the same target
-        // singleton that the standalone settings companion exposes.
+        // The hosted reader loads the same aggregate @require graph as the
+        // distributed core. Prove the core adopts its setting through that
+        // graph's shared target singleton.
         {
             const settings = pdfSmokeSettingsForTarget(server.origin, 'ko');
             const { page } = await openInReader(browser, server.origin, textPdf, 'target-runtime.pdf', settings);

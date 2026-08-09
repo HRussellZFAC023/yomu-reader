@@ -835,12 +835,9 @@
     const runtimeReadyTimeoutMs = 2600;
     const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
     const runtimeCompanionFiles = [
-      'greasyfork/yomu-anki.user.js',
-      'greasyfork/yomu-kanji-study.user.js',
-      'greasyfork/yomu-settings-surface.user.js',
-      'greasyfork/yomu-video.user.js',
-      'greasyfork/yomu-ocr-manga.user.js',
-      'greasyfork/yomu-ui-copy.user.js',
+      // yomu:runtime-companions:start
+      'greasyfork/yomu-runtime.3d6ed77d3c68.user.js',
+      // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
     const fallbackIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#181b20"/><text x="32" y="38" text-anchor="middle" dominant-baseline="central" font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, system-ui, sans-serif" font-size="38" font-weight="800" fill="#f2f4f8">&#12424;</text></svg>';

@@ -18,15 +18,28 @@ const {
   userscriptRequireLibraries,
 } = require('./lib/greasyfork-libraries.cjs');
 const { stampAppearanceBoot } = require('./lib/hosted-appearance-boot.cjs');
+const {
+  hostedRuntimeGraph,
+  stampHostedRuntimeGraph,
+  stampHostedRuntimeServiceWorker,
+} = require('./lib/hosted-runtime-graph.cjs');
 const { stampSiteNav } = require('./lib/hosted-site-nav.cjs');
 
 // Standalone hosted pages that paint their own chrome, so they need both the
 // pre-paint accent bootstrap in their marked <head> block and the site
 // navigation in their marked overflow-menu block. Nothing in the VitePress
 // theme can reach them: they are served as plain files.
-const APPEARANCE_BOOT_PAGES = [
-  join(root, 'docs', 'public', 'pdf-reader', 'index.html'),
-  join(root, 'docs', 'public', 'video-player', 'index.html'),
+const STANDALONE_HOSTED_SURFACES = [
+  {
+    page: join(root, 'docs', 'public', 'pdf-reader', 'index.html'),
+    serviceWorker: join(root, 'docs', 'public', 'pdf-reader', 'sw.js'),
+    cacheNamePrefix: 'yomu-pdf-reader-',
+  },
+  {
+    page: join(root, 'docs', 'public', 'video-player', 'index.html'),
+    serviceWorker: join(root, 'docs', 'public', 'video-player', 'sw.js'),
+    cacheNamePrefix: 'yomu-video-player-',
+  },
 ];
 
 const STUDY_BUILD_DIRECTORY = join(root, 'dist', 'newtab');
@@ -62,20 +75,53 @@ prepareStudyBuild();
 syncCanonicalStudyRoute();
 syncNewTabCompatibilityAlias();
 syncUserscript();
-stampStandaloneAppearanceBoot();
+stampStandaloneHostedSurfaces();
 pruneContentAddressedAssets();
 
-function stampStandaloneAppearanceBoot() {
-  for (const page of APPEARANCE_BOOT_PAGES) {
-    if (!existsSync(page)) fail(`Missing hosted page: ${page}`);
-    const source = readFileSync(page, 'utf8');
-    const booted = stampAppearanceBoot(source, 'surface');
-    if (!booted) fail(`Missing appearance-boot markers in ${page}`);
-    const stamped = stampSiteNav(booted);
-    if (!stamped) fail(`Missing site-nav markers in ${page}`);
-    if (stamped !== source) writeFileSync(page, stamped);
-    console.log(`Stamped pre-paint appearance boot and site nav into ${page}`);
+function stampStandaloneHostedSurfaces() {
+  const runtimeGraph = hostedRuntimeGraph(readFileSync(DIST_USERSCRIPT_PATH, 'utf8'));
+  assertHostedRuntimeAssets(runtimeGraph.pagePaths);
+  for (const surface of STANDALONE_HOSTED_SURFACES) {
+    stampStandaloneHostedPage(surface.page, runtimeGraph.pagePaths);
+    stampStandaloneHostedServiceWorker(surface.serviceWorker, runtimeGraph, surface.cacheNamePrefix);
+    const { page, serviceWorker } = surface;
+    console.log(`Stamped appearance, navigation, and runtime graph into ${page} and ${serviceWorker}`);
   }
+}
+
+function assertHostedRuntimeAssets(runtimePaths) {
+  for (const runtimePath of runtimePaths) {
+    if (!existsSync(join(root, 'docs', 'public', runtimePath))) {
+      fail(`Missing hosted immutable runtime dependency: ${runtimePath}`);
+    }
+  }
+}
+
+function stampStandaloneHostedPage(page, runtimePaths) {
+  if (!existsSync(page)) fail(`Missing hosted page: ${page}`);
+  const source = readFileSync(page, 'utf8');
+  const booted = requireStampedSource(stampAppearanceBoot(source, 'surface'), `Missing appearance-boot markers in ${page}`);
+  const navigated = requireStampedSource(stampSiteNav(booted), `Missing site-nav markers in ${page}`);
+  const stamped = requireStampedSource(
+    stampHostedRuntimeGraph(navigated, runtimePaths),
+    `Missing or ambiguous hosted-runtime markers in ${page}`,
+  );
+  if (stamped !== source) writeFileSync(page, stamped);
+}
+
+function stampStandaloneHostedServiceWorker(serviceWorker, runtimeGraph, cacheNamePrefix) {
+  if (!existsSync(serviceWorker)) fail(`Missing hosted service worker: ${serviceWorker}`);
+  const source = readFileSync(serviceWorker, 'utf8');
+  const stamped = requireStampedSource(
+    stampHostedRuntimeServiceWorker(source, runtimeGraph, cacheNamePrefix),
+    `Missing or ambiguous hosted-runtime markers in ${serviceWorker}`,
+  );
+  if (stamped !== source) writeFileSync(serviceWorker, stamped);
+}
+
+function requireStampedSource(source, errorMessage) {
+  if (!source) fail(errorMessage);
+  return source;
 }
 
 function pruneContentAddressedAssets() {

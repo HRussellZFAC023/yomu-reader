@@ -13,10 +13,12 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { launchSmokeBrowser } from './lib/smoke-harness.mjs';
+import { addUserscriptGraphInitScripts } from './lib/smoke-test-helpers.mjs';
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, '..');
 const distDir = join(appRoot, 'dist');
+const SCRIPT_PATH = join(distDir, 'yomu.user.js');
 const readDist = rel => readFileSync(join(distDir, rel), 'utf8');
 
 const TITLE_A = '伝説の陸上アスリートまとめ';
@@ -59,7 +61,7 @@ await page.exposeFunction('__yomuFeedReq', request => {
     }
     return { status: 404, responseText: '', contentType: 'text/plain' };
 });
-await context.addInitScript(`(() => {
+const prefixContent = `(() => {
     const settings = ${JSON.stringify(JSON.stringify(SETTINGS))};
     const store = {};
     window.GM_getValue = (key, fallback) => key === 'jpdb-popup-reader-settings' ? settings : (key in store ? store[key] : fallback);
@@ -76,10 +78,8 @@ await context.addInitScript(`(() => {
         }).catch(error => details.onerror?.(error));
         return { abort() {} };
     };
-})();`);
-for (const rel of ['greasyfork/yomu-settings-surface.user.js', 'greasyfork/yomu-ui-copy.user.js', 'yomu.user.js']) {
-    await context.addInitScript(readDist(rel));
-}
+})();`;
+await addUserscriptGraphInitScripts(context, SCRIPT_PATH, { prefixContent });
 
 const titleState = () => page.evaluate(() => {
     const host = document.getElementById('video-title');

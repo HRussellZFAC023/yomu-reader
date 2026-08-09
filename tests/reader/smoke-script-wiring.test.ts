@@ -86,6 +86,8 @@ describe('full-reader smoke companion graph', () => {
 
     // Smokes that click a word and assert on the popover's dictionary content.
     const FULL_READER_SMOKES = [
+        'scripts/feedback-smoke.mjs',
+        'scripts/youtube-title-recycler-smoke.mjs',
         'scripts/definition-sources-playwright-smoke.mjs',
         'scripts/grading-provider-popover-smoke.mjs',
         'scripts/popover-headword-furigana-smoke.mjs',
@@ -98,7 +100,7 @@ describe('full-reader smoke companion graph', () => {
         expect(source, `${file} must resolve companions through smoke-test-helpers`)
             .toMatch(/from '(?:\.\.\/|\.\/)lib\/smoke-test-helpers\.mjs'/);
         expect(source, `${file} must load the whole @require graph for SCRIPT_PATH`)
-            .toMatch(/(?:addScriptTagWithCspFallback|addUserscriptGraphInitScripts|userscriptCompanionPaths)\(\s*(?:page,\s*)?SCRIPT_PATH\s*\)/);
+            .toMatch(/(?:addScriptTagWithCspFallback|addUserscriptGraphInitScripts|userscriptCompanionPaths)\(\s*(?:(?:page|context),\s*)?SCRIPT_PATH(?:\s*,\s*\{[\s\S]*\})?\s*\)/);
         // A literal companion bundle name is the hand-written list coming back.
         expect(literalCompanionNames(source), file).toEqual([]);
     });

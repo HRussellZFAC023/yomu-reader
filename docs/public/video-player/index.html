@@ -928,12 +928,9 @@
       const runtimeScriptAttribute = 'data-yomu-hosted-video-script';
       const runtimeCompanionAttribute = 'data-yomu-hosted-video-companion';
       const runtimeCompanionScripts = [
-        'greasyfork/yomu-anki.user.js',
-        'greasyfork/yomu-kanji-study.user.js',
-        'greasyfork/yomu-settings-surface.user.js',
-        'greasyfork/yomu-video.user.js',
-        'greasyfork/yomu-ocr-manga.user.js',
-        'greasyfork/yomu-ui-copy.user.js',
+        // yomu:runtime-companions:start
+        'greasyfork/yomu-runtime.3d6ed77d3c68.user.js',
+        // yomu:runtime-companions:end
       ];
       const runtimeReadyTimeoutMs = 2600;
       const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
@@ -1278,11 +1275,16 @@
         if (hasYomuRuntime()) return Promise.resolve(true);
         const existing = document.getElementById(runtimeScriptId) || document.querySelector('script[' + runtimeScriptAttribute + ']');
         if (existing) return waitForYomuRuntime();
-        return loadYomuCompanions().then(() => loadScriptCandidates(runtimeAssetCandidates('yomu.user.js')));
+        return loadYomuCompanions().then(loaded => (
+          loaded ? loadScriptCandidates(runtimeAssetCandidates('yomu.user.js')) : false
+        ));
       }
 
       async function loadYomuCompanions() {
-        for (const fileName of runtimeCompanionScripts) await loadYomuCompanion(fileName);
+        for (const fileName of runtimeCompanionScripts) {
+          if (!await loadYomuCompanion(fileName)) return false;
+        }
+        return true;
       }
 
       function loadYomuCompanion(fileName) {

@@ -100,6 +100,9 @@
     "src/reader/styles.css",
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
+    // Both standalone hosted reader workers load this classic-worker Module
+    // through importScripts(), which the static module graph cannot follow.
+    "docs/public/hosted-reader-worker.js",
     "scripts/fixtures/jiten-fixtures.mjs",
     "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",
