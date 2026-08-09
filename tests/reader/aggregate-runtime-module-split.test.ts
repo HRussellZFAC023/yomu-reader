@@ -14,6 +14,14 @@ const AGGREGATE_RUNTIME_MODULES_SLOT = Symbol.for('yomu.aggregate-runtime-module
 const originalRuntimeSlot = Object.getOwnPropertyDescriptor(globalThis, AGGREGATE_RUNTIME_MODULES_SLOT);
 const repoRoot = path.resolve(import.meta.dirname, '..', '..');
 
+// Production reaches these facades through string-valued Vite aliases. Keep the
+// contract test on that same opaque runtime seam: a literal import here would
+// manufacture a test-only static edge that the split browser build does not have.
+function importRuntimeFacade<T>(directory: string, moduleName: string): Promise<T> {
+    const specifier = ['..', '..', 'src', 'reader', directory, moduleName].join('/');
+    return import(specifier) as Promise<T>;
+}
+
 describe('aggregate runtime implementation sharing', () => {
     beforeEach(() => {
         registerAggregateRuntimeModules({ tokenTextRendering, localYomuDeck, handleDrag });
@@ -83,9 +91,18 @@ describe('aggregate runtime implementation sharing', () => {
     });
 
     it('keeps every facade bound to the runtime implementation, not a second copy', async () => {
-        const tokenFacade = await import('../../src/reader/dom/token-text-rendering-companion');
-        const deckFacade = await import('../../src/reader/srs/local-yomu-deck-companion');
-        const dragFacade = await import('../../src/reader/popup/handle-drag-companion');
+        const tokenFacade = await importRuntimeFacade<typeof tokenTextRendering>(
+            'dom',
+            'token-text-rendering-companion',
+        );
+        const deckFacade = await importRuntimeFacade<typeof localYomuDeck>(
+            'srs',
+            'local-yomu-deck-companion',
+        );
+        const dragFacade = await importRuntimeFacade<typeof handleDrag>(
+            'popup',
+            'handle-drag-companion',
+        );
 
         expect(tokenFacade.renderRuby).toBe(tokenTextRendering.renderRuby);
         expect(tokenFacade.inferredInflectedSurfaceRubies)
