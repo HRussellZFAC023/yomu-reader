@@ -153,18 +153,21 @@ try {
     const popover = page.locator('.jpdb-reader-popover').last();
     await popover.waitFor({ state: 'visible', timeout: 15_000 });
     await assertPopoverHeadwordMatchesLookup(page, lookupWord, { label: 'local-dictionary popover' });
-    await popover.locator('[data-source="local-dictionary"]').waitFor({ state: 'attached', timeout: 15_000 });
+    // Provider/grammar sections can precede this card, so a prefix of the
+    // whole popover is not evidence that the upgraded definition is absent.
+    const upgradedCard = popover.locator(`[data-source="local-dictionary"][data-dictionary="${JUNE_TITLE}"]`);
+    await upgradedCard.waitFor({ state: 'attached', timeout: 15_000 });
+    const upgradedDefinitions = upgradedCard.locator('[data-definition-translation-text]', { hasText: 'library (June)' });
+    await upgradedDefinitions.waitFor({ state: 'attached', timeout: 15_000 });
 
-    const dom = await popover.evaluate(node => {
-        const clean = value => (value ?? '').replace(/\s+/g, ' ').trim();
-        return {
-            dictionaries: [...node.querySelectorAll('[data-source="local-dictionary"]')].map(card => card.getAttribute('data-dictionary') ?? ''),
-            titles: [...node.querySelectorAll('[data-source="local-dictionary"] summary')].map(el => clean(el.textContent ?? '')),
-            text: clean(node.textContent ?? '').slice(0, 400),
-        };
-    });
-    assert(dom.dictionaries.length === 1 && dom.dictionaries[0] === JUNE_TITLE, 'Popover did not render exactly the upgraded dictionary source', dom);
-    assert(dom.text.includes('library (June)'), 'Popover did not render the upgraded revision definitions', dom);
+    const dom = {
+        dictionary: await upgradedCard.getAttribute('data-dictionary'),
+        title: (await upgradedCard.locator('summary').innerText()).replace(/\s+/g, ' ').trim(),
+        definitions: (await upgradedDefinitions.innerText()).replace(/\s+/g, ' ').trim(),
+    };
+    const dictionaryCards = await popover.locator('[data-source="local-dictionary"]').count();
+    assert(dictionaryCards === 1 && dom.dictionary === JUNE_TITLE, 'Popover did not render exactly the upgraded dictionary source', { dictionaryCards, ...dom });
+    assert(dom.definitions.includes('library (June)'), 'Popover did not render the upgraded revision definitions', dom);
 
     const screenshotPath = path.join(ARTIFACTS, `local-dictionary-upgrade-${BROWSER_NAME}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -238,4 +241,3 @@ try {
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
 }
-
