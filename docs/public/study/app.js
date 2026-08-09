@@ -9646,6 +9646,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KATAKANA_MIDDLE_DOT = "・";
   const JAPANESE_SENTENCE_PUNCTUATION = "、。！？・";
   const COMBINING_KANA_MARKS = "゙゚";
+  const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
+  const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
+  const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
   const KANJI_LIKE = `${KANJI}${ITERATION_MARKS}`;
   const KANJI_LIKE_WITH_COUNTERS = `${KANJI_LIKE}${KANA_COUNTERS}`;
   const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
@@ -9655,7 +9658,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const KANA_WITH_PROLONGED = `${KANA}${PROLONGED_SOUND_MARK}`;
   const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
   const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
+  const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
   const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+  const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
   const KANJI_RE$1 = new RegExp(KANJI_PATTERN, "u");
   const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
   const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
@@ -18970,7 +18975,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function isSafeTokenSpan(token, offset, text2) {
     if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-    return learningTargetForToken(token).isLookupableText(text2.slice(token.start, token.end));
+    return tokenSourceSpanIsRenderable(token, text2.slice(token.start, token.end));
+  }
+  function tokenSourceSpanIsRenderable(token, source) {
+    const target = learningTargetForToken(token);
+    return target.language === "ja" ? HAS_JAPANESE_LETTER.test(source) : target.isLookupableText(source);
   }
   function miningInsightTokenKeys(tokens) {
     const sentences = /* @__PURE__ */ new Map();
@@ -139146,16 +139155,16 @@ ${entry.url}`),
         dir: options.direction,
         hidden: !revealed
       }, options.targetText),
-      passed ? selfCheckButton("jpdb-reader-newtab-recall-check", "type-word-handwriting-match", `${options.text("continueStudying")} →`) : el(
+      passed ? selfCheckButton("jpdb-reader-newtab-recall-check", newTabAction("type-word-handwriting-match"), `${options.text("continueStudying")} →`) : el(
         "div",
         { class: "jpdb-reader-newtab-type-self-check-actions" },
-        selfCheckButton("jpdb-reader-newtab-recall-check", "type-word-handwriting-check", options.text("typeWordCompare"), { hidden: revealed, disabled: true }),
+        selfCheckButton("jpdb-reader-newtab-recall-check", newTabAction("type-word-handwriting-check"), options.text("typeWordCompare"), { hidden: revealed, disabled: true }),
         el(
           "div",
           { dataset: { typeWordSelfCheckChoices: true }, hidden: !revealed },
           el("p", {}, options.text("typeWordSelfCheckPrompt")),
-          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", "type-word-handwriting-match", options.text("typeWordMatched")),
-          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", "type-word-handwriting-retry", options.text("typeWordTryAgain"))
+          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", newTabAction("type-word-handwriting-match"), options.text("typeWordMatched")),
+          selfCheckButton("jpdb-reader-newtab-type-self-check-choice", newTabAction("type-word-handwriting-retry"), options.text("typeWordTryAgain"))
         )
       )
     );
@@ -139191,7 +139200,7 @@ ${entry.url}`),
     return el("button", {
       class: className,
       type: "button",
-      dataset: { newtabAction: newTabAction(action) },
+      dataset: { newtabAction: action },
       ...attrs
     }, label);
   }

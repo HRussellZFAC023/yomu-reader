@@ -2527,13 +2527,18 @@ const KANA_COUNTERS = "ヵヶ";
 const PROLONGED_SOUND_MARK = "ー";
 const KATAKANA_MIDDLE_DOT = "・";
 const COMBINING_KANA_MARKS = "゙゚";
+const HIRAGANA_LETTERS = "ぁ-ゖゝ-ゟ";
+const KATAKANA_LETTERS = "ァ-ヺヽ-ヿ";
+const HALFWIDTH_KATAKANA_LETTERS = "ｦ-ｯｱ-ﾝ";
 const KANJI_LIKE_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}])`;
 const KANJI_LIKE_WITH_COUNTERS_PATTERN = `(?:${KANJI_PATTERN}|[${ITERATION_MARKS}${KANA_COUNTERS}])`;
 const HIRAGANA_WITH_PROLONGED = `${HIRAGANA}${PROLONGED_SOUND_MARK}`;
 const KATAKANA_WITH_PROLONGED = `${KATAKANA}${PROLONGED_SOUND_MARK}`;
 const READING_KANA = `${KANA}${PROLONGED_SOUND_MARK}${KATAKANA_MIDDLE_DOT}`;
 const JAPANESE_SCRIPT = `${KANA}${KANJI}${ITERATION_MARKS}${HALFWIDTH_KATAKANA}`;
+const JAPANESE_LETTERS = `${HIRAGANA_LETTERS}${KATAKANA_LETTERS}${KANJI}${HALFWIDTH_KATAKANA_LETTERS}`;
 const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
+const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
 const KANJI_RE = new RegExp(KANJI_PATTERN, "u");
 const KANJI_LIKE_RE = new RegExp(KANJI_LIKE_PATTERN, "u");
 const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
@@ -11721,7 +11726,11 @@ function nonOverlappingTokens(tokens, text) {
 }
 function isSafeTokenSpan(token, offset, text) {
   if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text.length) return false;
-  return learningTargetForToken(token).isLookupableText(text.slice(token.start, token.end));
+  return tokenSourceSpanIsRenderable(token, text.slice(token.start, token.end));
+}
+function tokenSourceSpanIsRenderable(token, source) {
+  const target = learningTargetForToken(token);
+  return target.language === "ja" ? HAS_JAPANESE_LETTER.test(source) : target.isLookupableText(source);
 }
 function miningInsightTokenKeys(tokens) {
   const sentences = /* @__PURE__ */ new Map();
