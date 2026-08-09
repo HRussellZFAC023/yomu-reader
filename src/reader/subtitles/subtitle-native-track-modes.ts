@@ -1,4 +1,3 @@
-import { ensureTextTrackReadable } from './subtitle-track-loader';
 import { isYouTubePage } from './subtitle-youtube';
 
 const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = 'jpdb-subtitle-native-captions-suppressed';
@@ -30,7 +29,13 @@ export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeO
 ): boolean {
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
-    const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || (state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent)));
+    // The controller supplies an explicit ownership decision for the active
+    // cue. `false` means its async parse has not produced a visual commit yet,
+    // so page/native captions must remain readable. Direct utility callers
+    // that omit the field retain the historical inferred behaviour.
+    const yomuCaptionsActive = state.suppressNativeCaptions === undefined
+        ? Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent))
+        : state.suppressNativeCaptions;
     if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
     setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
@@ -44,7 +49,7 @@ function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
         if (!option.track) continue;
         if (isSelectedSubtitleTrack(option, state)) {
             if (yomuCaptionsActive) option.track.mode = 'hidden';
-            else ensureTextTrackReadable(option.track);
+            else option.track.mode = 'showing';
             continue;
         }
         if (yomuCaptionsActive) option.track.mode = 'disabled';

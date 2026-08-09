@@ -448,7 +448,7 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
         }
     });
 
-    it('restores the host text track for native fullscreen when Yomu has no cue stream, and re-suppresses on exit', () => {
+    it('leaves the host text track visible when Yomu has no cue visual commit', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         vi.stubGlobal('ResizeObserver', class {
             observe(): void {}
@@ -482,16 +482,16 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
             Object.defineProperty(video, 'webkitDisplayingFullscreen', { configurable: true, value: false });
             video.dispatchEvent(new Event('webkitendfullscreen'));
 
-            // Back out of the system player the DOM overlay renders again, so
-            // the host track returns to Yomu's suppressed mode.
-            expect(hostTrack.mode).toBe('hidden');
+            // Back out of the system player with no cue to paint: ownership
+            // stays with the host instead of suppressing the only captions.
+            expect(hostTrack.mode).toBe('showing');
         } finally {
             vi.unstubAllGlobals();
             controller.destroy();
         }
     });
 
-    it('re-suppresses restored host tracks when the controller is destroyed mid-native-fullscreen', () => {
+    it('does not hide restored host tracks when the controller is destroyed without a cue commit', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         vi.stubGlobal('ResizeObserver', class {
             observe(): void {}
@@ -519,11 +519,11 @@ describe('SubtitlePlayerController — tracks, native fullscreen & rail controls
             video.dispatchEvent(new Event('webkitbeginfullscreen'));
             expect(hostTrack.mode).toBe('showing');
 
-            // A destroy (reinit) while still in native fullscreen must not
-            // strand the host captions visible under the next controller.
+            // Teardown removes Yomu's overlay; the host remains the only
+            // caption owner and must not be hidden.
             controller.destroy();
 
-            expect(hostTrack.mode).toBe('hidden');
+            expect(hostTrack.mode).toBe('showing');
         } finally {
             vi.unstubAllGlobals();
             controller.destroy();

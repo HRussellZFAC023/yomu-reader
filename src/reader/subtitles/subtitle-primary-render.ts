@@ -1,4 +1,3 @@
-import { parsedSubtitleHtmlHasReaderWords } from './subtitle-parse-policy';
 import { renderSubtitlePrimary } from './subtitle-rendering';
 import type { SubtitleCue } from './subtitle-cues';
 import type { ReaderSettings } from '../app/types';
@@ -14,28 +13,12 @@ export interface SubtitlePrimaryRenderOptions {
     lastRenderedHtml: string;
     hasFreshEmptyParsedHtml: boolean;
     hasParser: boolean;
-    holdLastAnnotatedWhilePending?: boolean;
     time: number;
 }
 
 export function renderControllerPrimarySubtitle(options: SubtitlePrimaryRenderOptions): ReturnType<typeof renderSubtitlePrimary> {
-    if (shouldHoldLastAnnotatedPrimary(options)) {
-        return {
-            ...renderSubtitlePrimary({
-                cue: undefined,
-                text: options.lastRenderedText,
-                parsedHtml: options.lastRenderedHtml,
-                hasParser: options.hasParser,
-                lastRenderedText: options.lastRenderedText,
-                lastRenderedHtml: options.lastRenderedHtml,
-                karaokeMode: false,
-                time: options.time,
-            }),
-            shouldRequestParse: true,
-        };
-    }
     const hasReusablePrimary = rendersTheSameCue(options)
-        && (parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
+        && (Boolean(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
     return renderSubtitlePrimary({
         cue: options.cue,
         text: options.text,
@@ -46,13 +29,6 @@ export function renderControllerPrimarySubtitle(options: SubtitlePrimaryRenderOp
         karaokeMode: options.settings.subtitleKaraokeMode,
         time: options.time,
     });
-}
-
-function shouldHoldLastAnnotatedPrimary(options: SubtitlePrimaryRenderOptions): boolean {
-    return Boolean(options.holdLastAnnotatedWhilePending
-        && options.cue
-        && options.lastRenderedText !== options.text
-        && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
 }
 
 // The parse key includes both cue text and every render-affecting setting. It

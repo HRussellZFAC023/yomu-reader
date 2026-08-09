@@ -22,6 +22,9 @@ export interface SubtitlePrimaryRenderInput {
 }
 
 export interface SubtitlePrimaryRenderResult {
+    // An empty string is an intentional no-commit state. Keeping the primary
+    // container stable avoids DOM/layout churn, but no cue words are painted
+    // until async ruby/pitch enrichment settles.
     html: string;
     karaokeActive: boolean;
     shouldRequestParse: boolean;
@@ -29,19 +32,35 @@ export interface SubtitlePrimaryRenderResult {
 }
 
 export function renderSubtitlePrimary(input: SubtitlePrimaryRenderInput): SubtitlePrimaryRenderResult {
-    const activeCue = input.cue;
-    const parsedHasReaderWords = input.parsedHtml?.includes('jpdb-reader-word') ?? false;
-    const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue);
-    const mode = subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords);
+    const parsedHasReaderWords = subtitlePrimaryHasReaderWords(input.parsedHtml);
+    const karaokeEligible = subtitleKaraokeEligible(input);
+    const mode = subtitlePrimaryRenderMode(input, karaokeEligible, parsedHasReaderWords);
     return {
         html: renderSubtitlePrimaryHtml(input, mode),
-        karaokeActive,
-        shouldRequestParse: input.hasParser && !input.parsedHtml,
-        nextRenderedPrimary: nextRenderedPrimaryCache(input, karaokeActive),
+        karaokeActive: subtitleKaraokeIsActive(karaokeEligible, mode),
+        shouldRequestParse: subtitlePrimaryNeedsParse(input),
+        nextRenderedPrimary: nextRenderedPrimaryCache(input, mode),
     };
 }
 
-type SubtitlePrimaryRenderMode = 'karaoke' | 'parsed' | 'cached-parser' | 'loading-parser' | 'plain';
+type SubtitlePrimaryRenderMode = 'karaoke' | 'parsed' | 'cached-parser' | 'pending-parser' | 'plain';
+
+function subtitlePrimaryHasReaderWords(html: string | undefined): boolean {
+    return html?.includes('jpdb-reader-word') === true;
+}
+
+function subtitleKaraokeEligible(input: SubtitlePrimaryRenderInput): boolean {
+    if (!input.karaokeMode) return false;
+    return cueHasExactWordTimings(input.cue);
+}
+
+function subtitleKaraokeIsActive(eligible: boolean, mode: SubtitlePrimaryRenderMode): boolean {
+    return eligible && mode !== 'pending-parser';
+}
+
+function subtitlePrimaryNeedsParse(input: SubtitlePrimaryRenderInput): boolean {
+    return input.hasParser && input.parsedHtml === undefined;
+}
 
 function subtitlePrimaryRenderMode(
     input: SubtitlePrimaryRenderInput,
@@ -49,18 +68,15 @@ function subtitlePrimaryRenderMode(
     parsedHasReaderWords: boolean,
 ): SubtitlePrimaryRenderMode {
     if (parsedHasReaderWords) return 'parsed';
-    if (hasPlainKaraokeRender(input, karaokeActive)) return 'karaoke';
-    if (input.parsedHtml) return 'parsed';
+    if (input.parsedHtml !== undefined) return 'parsed';
     if (hasReusablePrimaryParserCache(input)) return 'cached-parser';
-    return parserFallbackRenderMode(input.hasParser);
+    if (input.hasParser) return 'pending-parser';
+    if (hasPlainKaraokeRender(input, karaokeActive)) return 'karaoke';
+    return 'plain';
 }
 
 function hasPlainKaraokeRender(input: SubtitlePrimaryRenderInput, karaokeActive: boolean): boolean {
     return Boolean(karaokeActive && input.cue);
-}
-
-function parserFallbackRenderMode(hasParser: boolean): SubtitlePrimaryRenderMode {
-    return hasParser ? 'loading-parser' : 'plain';
 }
 
 function hasReusablePrimaryParserCache(input: SubtitlePrimaryRenderInput): boolean {
@@ -75,13 +91,13 @@ const SUBTITLE_PRIMARY_RENDERERS: Record<SubtitlePrimaryRenderMode, (input: Subt
     parsed: input => input.parsedHtml ?? '',
     karaoke: input => renderSubtitleKaraokeCue(input.cue, input.time),
     'cached-parser': input => input.lastRenderedHtml,
-    'loading-parser': input => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input.text)}</span>`,
+    'pending-parser': () => '',
     plain: input => escapeWithBreaks(input.text),
 };
 
-function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, karaokeActive: boolean): SubtitlePrimaryRenderResult['nextRenderedPrimary'] {
-    if (input.parsedHtml) return { text: input.text, html: input.parsedHtml };
-    return karaokeActive ? { text: input.text, html: '' } : undefined;
+function nextRenderedPrimaryCache(input: SubtitlePrimaryRenderInput, mode: SubtitlePrimaryRenderMode): SubtitlePrimaryRenderResult['nextRenderedPrimary'] {
+    if (input.parsedHtml !== undefined) return { text: input.text, html: input.parsedHtml };
+    return mode === 'karaoke' ? { text: input.text, html: '' } : undefined;
 }
 
 export const SUBTITLE_SECONDARY_CLASS = 'jpdb-subtitle-secondary';
@@ -230,7 +246,7 @@ function syncSubtitleSecondaryText(button: HTMLElement, text: string): void {
     setInnerHtml(button, escapeWithBreaks(text));
 }
 
-export function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {
+function renderSubtitleKaraokeCue(cue: SubtitleCue | undefined, time: number): string {
     if (!cue?.text.trim()) return '';
     if (!cueHasExactWordTimings(cue)) return escapeWithBreaks(cue.text);
     const words = cue.words;

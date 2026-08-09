@@ -170,4 +170,24 @@ describe('subtitle native track modes', () => {
         expect(track.mode).toBe('hidden');
         expect(toggleCaptions).not.toHaveBeenCalled();
     });
+
+    it('keeps the selected native caption readable when Yomu explicitly has no visual commit', () => {
+        const selected = { mode: 'hidden' } as TextTrack;
+
+        applySubtitleNativeTrackModes({
+            tracks: [{ id: 'native-ja', label: 'Japanese', kind: 'native', track: selected }],
+            selectedTrackId: 'native-ja',
+            secondaryTrackId: '',
+            overlayVisible: true,
+            suppressNativeCaptions: false,
+            video: document.createElement('video'),
+            hasPrimaryCues: true,
+            currentCueText: '読む',
+            youtubeDomCaptionFallbackTrackId: '',
+            lastYomuCaptionsActive: true,
+        });
+
+        expect(selected.mode).toBe('showing');
+        expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+    });
 });

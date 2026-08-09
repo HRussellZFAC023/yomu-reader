@@ -326,7 +326,7 @@ describe('reader helpers', () => {
     });
 
     it('renders subtitle primary states behind a small interface', () => {
-        const loading = renderSubtitlePrimary({
+        const pending = renderSubtitlePrimary({
             text: '今日は読む',
             hasParser: true,
             lastRenderedText: '',
@@ -334,9 +334,8 @@ describe('reader helpers', () => {
             karaokeMode: false,
             time: 0,
         });
-        expect(loading.html).toContain('jpdb-subtitle-primary-loading');
-        expect(loading.html).toContain('今日は読む');
-        expect(loading.shouldRequestParse).toBe(true);
+        expect(pending.html).toBe('');
+        expect(pending.shouldRequestParse).toBe(true);
 
         const parsed = renderSubtitlePrimary({
             text: '今日は読む',
@@ -430,8 +429,7 @@ describe('reader helpers', () => {
             hasParser: true,
             time: 0,
         });
-        expect(changedSettings.html).toContain('jpdb-subtitle-primary-loading');
-        expect(changedSettings.html).not.toBe(annotated);
+        expect(changedSettings.html).toBe('');
 
         // A different cue must never inherit the previous cue's annotated html,
         // even when the stale key happens to match.
@@ -448,8 +446,7 @@ describe('reader helpers', () => {
             hasParser: true,
             time: 0,
         });
-        expect(otherCue.html).toContain('jpdb-subtitle-primary-loading');
-        expect(otherCue.html).toContain('違う行');
+        expect(otherCue.html).toBe('');
 
         const pendingOtherCue = renderControllerPrimarySubtitle({
             cue: { start: 2, end: 4, text: '違う行' },
@@ -462,11 +459,9 @@ describe('reader helpers', () => {
             lastRenderedHtml: annotated,
             hasFreshEmptyParsedHtml: false,
             hasParser: true,
-            holdLastAnnotatedWhilePending: true,
             time: 2,
         });
-        expect(pendingOtherCue.html).toBe(annotated);
-        expect(pendingOtherCue.html).not.toContain('jpdb-subtitle-primary-loading');
+        expect(pendingOtherCue.html).toBe('');
         expect(pendingOtherCue.shouldRequestParse).toBe(true);
     });
 

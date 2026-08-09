@@ -191,6 +191,20 @@ export class SubtitleParsedHtmlCache {
         }
     }
 
+    // Parser/enrichment rejection is different from an ordinary empty parse:
+    // any provisional HTML for this key is incomplete by definition and must
+    // not win canonicalization over the stable plain fallback. Keep a settled
+    // authoritative result if one already won the race; otherwise discard all
+    // uncommitted tiers and cache the plain frame for the normal retry TTL.
+    rememberPlainCueFallback(key: string, html: string): string {
+        const authoritative = this.parsedHtmlCache.get(key);
+        if (authoritative !== undefined) return authoritative;
+        this.deleteParsedSubtitleKey(key);
+        this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+        this.pruneParsedSubtitleCaches();
+        return html;
+    }
+
     canonicalParsedHtmlResults(results: ParsedSubtitleHtmlResult[]): ParsedSubtitleHtmlResult[] {
         return results.map(result => {
             const authoritative = this.parsedHtmlCache.get(result.key);
@@ -272,6 +286,9 @@ export class SubtitleParsedHtmlCache {
         if (!key) return;
         this.parsedHtmlCache.delete(key);
         this.provisionalParsedHtmlCache.delete(key);
+        this.enrichedProvisionalParsedHtmlKeys.delete(key);
+        this.incompleteEnrichmentAttempts.delete(key);
+        this.sessionParseCacheChecked.delete(key);
         this.emptyParsedHtmlCache.delete(key);
         this.pendingParsedHtml.delete(key);
         this.pendingProvisionalParsedHtml.delete(key);

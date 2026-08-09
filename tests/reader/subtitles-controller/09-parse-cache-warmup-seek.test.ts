@@ -25,6 +25,33 @@ import type {
     SubtitleParsedHtmlCache,
 } from './fixtures';
 
+type AlignedSubtitleCue = {
+    start: number;
+    end: number;
+    text: string;
+    transcriptEligible: boolean;
+};
+
+function setupBilingualCueAlignment(cues: AlignedSubtitleCue[], secondaryCues: AlignedSubtitleCue[]) {
+    const settings = makeSubtitleSettings({ subtitleSecondaryVisible: true, annotationsPaused: true });
+    const { controller } = createSubtitleController(settings);
+    installController(controller);
+    const video = attachVideo(controller, { currentTime: 0.5 });
+    const internals = controllerInternals<{
+        cues: AlignedSubtitleCue[];
+        secondaryCues: AlignedSubtitleCue[];
+        currentCue: AlignedSubtitleCue | undefined;
+        selectedTrackId: string;
+        secondaryTrackId: string;
+        updateFromLoadedCues: () => void;
+    }>(controller);
+    internals.selectedTrackId = 'yt-ja';
+    internals.secondaryTrackId = 'yt-en';
+    internals.cues = cues;
+    internals.secondaryCues = secondaryCues;
+    return { controller, internals, video };
+}
+
 describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
     registerSubtitleControllerCleanup();
 
@@ -354,7 +381,10 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             expect(internals.currentCue?.text).toBe('先生');
             video.currentTime = 5;
             internals.updateFromLoadedCues();
-            expect(primary?.textContent).toContain('先生');
+            // The successor is not visually committed until its enrichment
+            // settles; neither stale prior words nor plain successor words are
+            // shown in the meantime.
+            expect(primary?.textContent).toBe('');
             expect(primary?.textContent).not.toContain('悪口');
             expect(primary?.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
             releaseSuccessorEnrichment();
@@ -1032,10 +1062,6 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         // normalized independently, so the Japanese cue ends a beat before its
         // English translation. The Japanese line used to vanish while the
         // English one kept showing alone (user-reported).
-        const settings = makeSubtitleSettings({ subtitleSecondaryVisible: true });
-        const { controller } = createSubtitleController(settings);
-        installController(controller);
-        const video = attachVideo(controller, { currentTime: 0.5 });
         const cues = [
             { start: 0, end: 1, text: 'おはよう', transcriptEligible: true },
             { start: 3, end: 4, text: 'こんにちは', transcriptEligible: true },
@@ -1044,18 +1070,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             { start: 0, end: 2.5, text: 'Good morning', transcriptEligible: true },
             { start: 3, end: 4, text: 'Hello', transcriptEligible: true },
         ];
-        const internals = controllerInternals<{
-            cues: typeof cues;
-            secondaryCues: typeof secondaryCues;
-            currentCue: typeof cues[number] | undefined;
-            selectedTrackId: string;
-            secondaryTrackId: string;
-            updateFromLoadedCues: () => void;
-        }>(controller);
-        internals.selectedTrackId = 'yt-ja';
-        internals.secondaryTrackId = 'yt-en';
-        internals.cues = cues;
-        internals.secondaryCues = secondaryCues;
+        const { controller, internals, video } = setupBilingualCueAlignment(cues, secondaryCues);
 
         // Both lines active.
         internals.updateFromLoadedCues();
@@ -1094,10 +1109,6 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         // Japanese cue's own start is still ahead. The English line used to
         // appear alone until the Japanese cue began (user-reported); surface the
         // aligned Japanese cue so the pair shows together from the first frame.
-        const settings = makeSubtitleSettings({ subtitleSecondaryVisible: true });
-        const { controller } = createSubtitleController(settings);
-        installController(controller);
-        const video = attachVideo(controller, { currentTime: 0.5 });
         const cues = [
             { start: 0, end: 1, text: 'おはよう', transcriptEligible: true },
             { start: 3.3, end: 4.2, text: 'こんにちは', transcriptEligible: true },
@@ -1106,18 +1117,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             { start: 0, end: 1, text: 'Good morning', transcriptEligible: true },
             { start: 3.0, end: 4.2, text: 'Hello', transcriptEligible: true },
         ];
-        const internals = controllerInternals<{
-            cues: typeof cues;
-            secondaryCues: typeof secondaryCues;
-            currentCue: typeof cues[number] | undefined;
-            selectedTrackId: string;
-            secondaryTrackId: string;
-            updateFromLoadedCues: () => void;
-        }>(controller);
-        internals.selectedTrackId = 'yt-ja';
-        internals.secondaryTrackId = 'yt-en';
-        internals.cues = cues;
-        internals.secondaryCues = secondaryCues;
+        const { controller, internals, video } = setupBilingualCueAlignment(cues, secondaryCues);
 
         // English cue [3.0,4.2] is active; the Japanese cue starts later (3.3)
         // and is in a gap relative to the playhead, yet the pair must show.
@@ -1181,9 +1181,20 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
             expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary-loading')).toBeNull();
             expect(internals.subtitleEl.textContent).toContain('12345');
 
-            // After the TTL lapses the cue re-parses (periodic retry).
+            // After the TTL lapses, an already-painted cue remains one visual
+            // commit: no late retry may mutate it under the learner.
             await vi.advanceTimersByTimeAsync(2600);
             internals.updateFromLoadedCues();
+            internals.render();
+            await vi.advanceTimersByTimeAsync(10);
+            expect(totalParseCalls()).toBe(initialParseCalls);
+
+            // Ending and revisiting the cue starts a new visual lifetime, so a
+            // stale empty parse may be retried then.
+            const typedInternals = internals as typeof internals & { currentCue?: typeof cues[number] };
+            typedInternals.currentCue = undefined;
+            internals.render();
+            typedInternals.currentCue = cues[0];
             internals.render();
             await vi.advanceTimersByTimeAsync(10);
             expect(totalParseCalls()).toBeGreaterThan(initialParseCalls);
@@ -1262,7 +1273,7 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         expect(internals.currentCue!.end).toBeGreaterThan(initialEnd);
     });
 
-    it('re-bakes cache and transcript without mutating an active cue after first paint', async () => {
+    it('re-bakes an uncommitted cache before publishing the cue and updates the transcript', async () => {
         vi.stubGlobal('location', new URL('https://www.youtube.com/watch?v=rebake') as unknown as Location);
         // The parse returns a token with no pitch yet (local dictionaries did
         // not know it) — pitch arrives later via public enrichment.
@@ -1291,9 +1302,10 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         await internals.parseCueHtmlBatch(['読む']);
         expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
         expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-pitch-heiban');
-        // The cue is on screen with the pre-enrichment html.
+        // A cheap provisional parse is not paintable yet: its token objects
+        // can still receive pitch/furigana enrichment.
         internals.render();
-        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
 
         // A transcript row already hydrated with the pre-enrichment html.
         const rowText = document.createElement('strong');
@@ -1312,11 +1324,12 @@ describe('SubtitlePlayerController — parse cache, warmup & seek', () => {
         tokens[0].card.pitchAccent = ['LHL'];
         controller.refreshParsedCueTexts(['読む']);
 
-        // Cache and transcript can improve in the background, but the cue
-        // already on screen is frozen so furigana/pitch never pop in late.
+        // Cache and transcript improve before the first visible cue frame.
         expect(internals.htmlCache.provisionalParsedHtmlCache.get(key)).toContain('jpdb-pitch-heiban');
-        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-pitch-heiban')).toBeNull();
         expect(rowText.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
+
+        internals.render();
+        expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-pitch-heiban')).not.toBeNull();
 
         // A later visit starts a new visual lifetime and uses the enriched
         // cache from its first frame.

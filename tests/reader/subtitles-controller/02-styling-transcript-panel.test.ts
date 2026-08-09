@@ -26,11 +26,12 @@ interface ExactSubtitleSizeHarness {
     controller: SubtitlePlayerController;
     root: HTMLElement;
     lines: HTMLElement;
+    settings: ReturnType<typeof makeSubtitleSettings>;
     syncSelectedSize: () => void;
 }
 
 function withExactSubtitleSizeHarness(run: (harness: ExactSubtitleSizeHarness) => void): void {
-    const { controller } = createInstalledSubtitleController({
+    const { controller, settings } = createInstalledSubtitleController({
         subtitleOverlayVisible: true,
         subtitleFontSize: 60,
     });
@@ -40,7 +41,7 @@ function withExactSubtitleSizeHarness(run: (harness: ExactSubtitleSizeHarness) =
         const syncSelectedSize = () => {
             controllerInternals<{ syncSubtitleTextSize: () => void }>(controller).syncSubtitleTextSize();
         };
-        run({ controller, root, lines, syncSelectedSize });
+        run({ controller, root, lines, settings, syncSelectedSize });
     } finally {
         controller.destroy();
     }
@@ -314,11 +315,11 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
     });
 
     it('reasserts the selected size through cue and deferred parsed-html replacements', () => {
-        withExactSubtitleSizeHarness(({ controller, root }) => {
+        withExactSubtitleSizeHarness(({ controller, root, settings }) => {
             const internals = controllerInternals<{
                 render: () => void;
-                replacePrimaryHtml: (html: string, serial: number) => HTMLElement | null;
-                renderSerial: number;
+                parseCacheKey: (text: string, valueSettings: ReturnType<typeof makeSubtitleSettings>) => string;
+                htmlCache: { parsedHtmlCache: Map<string, string> };
                 cues: Array<{ start: number; end: number; text: string; transcriptEligible: boolean }>;
                 currentCue: { start: number; end: number; text: string; transcriptEligible: boolean };
             }>(controller);
@@ -329,7 +330,12 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
             expectExactSubtitleSize(root);
 
             root.style.setProperty('--subtitle-font-size', '14px');
-            expect(internals.replacePrimaryHtml('<span class="jpdb-reader-word">最初</span>の字幕です。', internals.renderSerial)).not.toBeNull();
+            internals.htmlCache.parsedHtmlCache.set(
+                internals.parseCacheKey(first.text, settings),
+                '<span class="jpdb-reader-word">最初</span>の字幕です。',
+            );
+            internals.render();
+            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
             expectExactSubtitleSize(root);
 
             const second = { start: 2, end: 4, text: '次の長い字幕も同じ大きさです。', transcriptEligible: true };
@@ -461,7 +467,12 @@ describe('SubtitlePlayerController — styling & transcript panel', () => {
     });
 
     it('renders the primary cue in its own row so the native secondary keeps a reserved bottom slot', () => {
-        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleSecondaryVisible: true });
+        const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleSecondaryVisible: true,
+            // This test is about row ownership/order, not asynchronous parsing.
+            annotationsPaused: true,
+        });
         try {
             const internals = controllerInternals<{
                 render: () => void;

@@ -110,7 +110,6 @@ import {
     TOGGLE_NATIVE_BLUR_ACTION,
     reconcileSubtitlePrimaryRow,
     reconcileSubtitleSecondaryLine,
-    renderSubtitleKaraokeCue,
     renderSubtitlePrimary,
     syncSubtitleSecondaryBlurState,
 } from './subtitle-rendering';
@@ -549,10 +548,6 @@ const TRACK_LOAD_OPTIONS: Omit<SubtitleTrackLoadOptions<SubtitleTrackOption>, 't
     }),
 };
 
-function normalizedSubtitleText(value: string | null | undefined): string {
-    return (value ?? '').replace(/\s+/g, ' ').trim();
-}
-
 interface SubtitleDragSession {
     handle: HTMLElement;
     dragFrame: HTMLElement;
@@ -895,6 +890,7 @@ export class SubtitlePlayerController {
     private transcriptPanelSize = loadTranscriptPanelSize();
     private videoInset: SubtitleVideoInsetAdapter = createSubtitleVideoInsetAdapter();
     private lastYomuCaptionsActive = false;
+    private nativeCaptionOwnership?: boolean;
     private youtubeDomCaptionFallbackTrackId = '';
     private fullscreen = false;
     private pinnedPlayer = new SubtitlePinnedPlayerTracker();
@@ -2706,8 +2702,9 @@ export class SubtitlePlayerController {
         const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
         this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
         if (selected?.loadingState === 'waiting') selected.loadingState = 'ready';
-        // Publish ownership with the first cue; the next tick would paint both caption layers.
-        this.setNativeTrackModes();
+        // Paint the already-settled first frame before taking caption
+        // ownership. Both operations happen in one JS turn, so the host and
+        // Yomu layers never share a painted frame.
         this.render();
         this.renderOpenSubtitlePanel();
         this.syncControls();
@@ -2721,9 +2718,16 @@ export class SubtitlePlayerController {
         const text = this.currentCue?.text.trim() ?? '';
         if (!text) {
             this.renderEmptySubtitle(settings);
-            return;
+        } else {
+            this.renderActiveSubtitle(text, settings);
         }
-        this.renderActiveSubtitle(text, settings);
+        this.syncNativeCaptionOwnership(settings);
+    }
+
+    private syncNativeCaptionOwnership(settings: ReaderSettings): void {
+        const next = this.shouldSuppressNativeCaptions(settings);
+        if (this.nativeCaptionOwnership === next) return;
+        this.setNativeTrackModes();
     }
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
@@ -2746,7 +2750,7 @@ export class SubtitlePlayerController {
         // Re-applying state colors only matters when the DOM was rebuilt;
         // re-notifying on identical renders made pitch/state highlights
         // flicker out under time-driven render ticks (user-reported).
-        if (changed) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
+        if (changed && primary.html) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
     }
 
     private applyPrimaryRow(html: string | null): boolean {
@@ -2806,24 +2810,17 @@ export class SubtitlePlayerController {
         const activeCue = this.currentCue;
         const parseKey = this.parseCacheKey(text, settings);
         const parsedHtml = this.primaryParsedHtmlForRender(text, settings, parseKey);
-        const pending = Boolean(this.pendingParsedCueHtml(parseKey, 'provisional')
-            ?? this.pendingParsedCueHtml(parseKey, 'authoritative'));
-        const provisionalStillEnriching = this.htmlCache.provisionalParsedHtmlCache.has(parseKey)
-            && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(parseKey);
-        const canHoldPreviousAnnotation = this.lastRenderedPrimaryText !== text
-            && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
         return renderControllerPrimarySubtitle({
             cue: activeCue,
             text,
             settings,
             parseKey,
-            parsedHtml: pending && provisionalStillEnriching && canHoldPreviousAnnotation ? undefined : parsedHtml,
+            parsedHtml,
             lastRenderedKey: this.lastRenderedPrimaryKey,
             lastRenderedText: this.lastRenderedPrimaryText,
             lastRenderedHtml: this.lastRenderedPrimaryHtml,
             hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
             hasParser: this.shouldParseSubtitles(settings),
-            holdLastAnnotatedWhilePending: pending,
             time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0,
         });
     }
@@ -2844,8 +2841,7 @@ export class SubtitlePlayerController {
 
     private committedPrimaryParsedHtml(key: string): string | undefined {
         if (this.lastRenderedPrimaryKey !== key) return undefined;
-        if (!parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) return undefined;
-        return this.lastRenderedPrimaryHtml;
+        return this.lastRenderedPrimaryHtml || undefined;
     }
 
     private provisionalPrimaryParsedHtmlForRender(
@@ -2879,7 +2875,11 @@ export class SubtitlePlayerController {
             return false;
         }
         this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
-        return this.htmlCache.parsedTokenCache.has(key);
+        // A cheap tokenization result is not a visual commit. Its mutable token
+        // objects may still receive furigana, pitch and state during
+        // beforeRenderTokens; expose the cue only after that enrichment pass
+        // marks the provisional entry settled.
+        return false;
     }
 
     private applyRenderedPrimarySubtitle(
@@ -2919,8 +2919,7 @@ export class SubtitlePlayerController {
         const serial = ++this.renderSerial;
         const cached = this.htmlCache.parsedHtmlCache.get(key);
         if (cached) {
-            const root = this.replacePrimaryHtml(cached, serial);
-            if (root) this.notifyParsedTokensForKey(key, true, [root]);
+            this.applyParsedPrimaryHtml(key, text, cached, serial);
             return;
         }
 
@@ -2928,47 +2927,14 @@ export class SubtitlePlayerController {
             const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
             this.applyParsedPrimaryHtml(key, text, html, serial);
         } catch {
-            // Keep plain selectable subtitles if JPDB is unavailable.
+            // Parsing/enrichment failure is a settled plain fallback, not a
+            // perpetual blank or retry loop. Commit it once for this cue's
+            // visual lifetime; a later visit may retry after the empty-cache
+            // TTL without mutating words already on screen.
+            const fallback = escapeWithBreaks(text);
+            const settled = this.htmlCache.rememberPlainCueFallback(key, fallback);
+            this.applyParsedPrimaryHtml(key, text, settled, serial);
         }
-    }
-
-    private replacePrimaryHtml(html: string, serial: number): HTMLElement | null {
-        if (serial !== this.renderSerial) return null;
-        const primary = this.subtitleEl?.querySelector('.jpdb-subtitle-primary');
-        if (primary) {
-            const currentCue = this.currentCue ?? null;
-            const shouldSyncKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
-            const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
-            const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
-            setInnerHtml(primary, replacement);
-            // Keep the applied-html cache aligned with the live DOM so the
-            // next composed render() is a no-op and the freshly applied state
-            // colors survive instead of being rebuilt away.
-            this.lastAppliedPrimaryRowHtml = replacement;
-            this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
-            this.syncSubtitleTextSize();
-            this.syncNativePlayerControlHitProtection();
-            return primary as HTMLElement;
-        }
-        return null;
-    }
-
-    private shouldRenderKaraokePrimary(primary: Element, currentCue: SubtitleCue | null): boolean {
-        return Boolean(this.options.getSettings().subtitleKaraokeMode
-            && currentCue
-            && cueHasExactWordTimings(currentCue)
-            && normalizedSubtitleText(primary.textContent) === normalizedSubtitleText(currentCue.text));
-    }
-
-    private primaryReplacementHtml(html: string, currentCue: SubtitleCue | null, shouldKaraoke: boolean): string {
-        return shouldKaraoke && currentCue && !html.includes('jpdb-reader-word')
-            ? renderSubtitleKaraokeCue(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start)
-            : html;
-    }
-
-    private syncKaraokePrimary(currentCue: SubtitleCue | null, shouldKaraoke: boolean): void {
-        if (!shouldKaraoke || !currentCue) return;
-        this.applyKaraokeStateToPrimary(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start);
     }
 
     private shouldParseSubtitles(settings = this.options.getSettings()): boolean {
@@ -3165,11 +3131,20 @@ export class SubtitlePlayerController {
 
     private applyParsedPrimaryHtml(key: string, text: string, html: string, serial: number): void {
         if (!this.shouldParseSubtitles()) return;
-        const root = this.replacePrimaryHtml(html, serial);
+        if (serial !== this.renderSerial) return;
+        if (!this.currentCueMatchesParseKey(key, text)) return;
         this.lastRenderedPrimaryKey = key;
         this.lastRenderedPrimaryText = text;
         this.lastRenderedPrimaryHtml = html;
-        if (root) this.notifyParsedTokensForKey(key, true, [root]);
+        // Re-enter the normal render transaction so a pending state with no
+        // primary row can create its first DOM node, and so karaoke/state
+        // reconciliation follows the same path as cache hits.
+        this.render();
+    }
+
+    private currentCueMatchesParseKey(key: string, text: string): boolean {
+        return this.currentCue?.text.trim() === text
+            && this.parseCacheKey(text) === key;
     }
 
     private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<ParsedSubtitleHtmlResult[]> {
@@ -5227,33 +5202,50 @@ export class SubtitlePlayerController {
         // reSuppressHostTracksAfterNativeFullscreen clears the flag first.
         if (this.nativeFullscreenHostTracksRestored) return;
         const settings = this.options.getSettings();
-        const selected = this.tracks.find(track => track.id === this.selectedTrackId);
+        const suppressNativeCaptions = this.shouldSuppressNativeCaptions(settings);
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
             tracks: this.tracks,
             selectedTrackId: this.selectedTrackId,
             secondaryTrackId: this.secondaryTrackId,
             overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
-            // DOM-caption fallback is a hand-off: the page caption stays
-            // visible until a parse-settled Yomu cue is ready. Loaded cue lists
-            // are ready immediately; fallback text becomes ready at currentCue.
-            suppressNativeCaptions: this.shouldSuppressNativeCaptions(settings),
-            suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
+            // Caption ownership is a visual hand-off: the page/native caption
+            // stays visible until the exact current Yomu cue has a settled
+            // parse (or a final plain fallback) ready to paint.
+            suppressNativeCaptions,
             video: this.video,
             hasPrimaryCues: Boolean(this.cues.length),
             currentCueText: this.currentCue?.text,
             youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
             lastYomuCaptionsActive: this.lastYomuCaptionsActive,
+            // Cue ownership is reversible: a committed Yomu frame can be
+            // followed immediately by an async cache miss that hands captions
+            // back to the host. TextTrack modes plus the owned suppression CSS
+            // provide that hand-off without toggling page controls or leaving
+            // Plyr/Vidstack caption state switched off.
+            suppressCaptionPlayerUi: false,
         });
+        this.nativeCaptionOwnership = suppressNativeCaptions;
     }
 
     private shouldSuppressNativeCaptions(settings: ReaderSettings): boolean {
         return Boolean(settings.subtitlePlayerEnabled
             && this.video
-            && this.hasRenderablePrimaryCue());
+            && this.hasVisualCommitForCurrentCue(settings));
     }
 
-    private hasRenderablePrimaryCue(): boolean {
-        return Boolean(this.cues.length || this.currentCue?.text);
+    private hasVisualCommitForCurrentCue(settings: ReaderSettings): boolean {
+        const text = this.currentCue?.text.trim() ?? '';
+        if (!text) return false;
+        // With annotations paused (or no parser source), the plain synchronous
+        // frame is final and can own captions immediately.
+        if (!this.shouldParseSubtitles(settings)) return true;
+        return this.primaryVisualCommitMatches(text, settings);
+    }
+
+    private primaryVisualCommitMatches(text: string, settings: ReaderSettings): boolean {
+        return this.lastRenderedPrimaryKey === this.parseCacheKey(text, settings)
+            && this.lastRenderedPrimaryText === text
+            && Boolean(this.lastRenderedPrimaryHtml);
     }
 
     private async discoverYouTubeTracksThrottled(force = false): Promise<void> {

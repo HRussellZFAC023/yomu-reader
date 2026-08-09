@@ -34,6 +34,10 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
     afterEach(() => {
         vi.useRealTimers();
         document.body.innerHTML = '';
+        document.documentElement.classList.remove(
+            'jpdb-subtitle-native-captions-suppressed',
+            'jpdb-subtitle-yomu-captions-active',
+        );
     });
 
     it('hydrates transcript rows with parsed subtitle words when the lines panel renders', async () => {
@@ -525,8 +529,9 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             };
             const setup = setupTranscriptCueController<typeof cue, {
                 subtitleEl: HTMLElement;
-                renderSerial: number;
-                replacePrimaryHtml(html: string, serial: number): void;
+                parseCacheKey(text: string, settings: ReaderSettings): string;
+                htmlCache: SubtitleParsedHtmlCache;
+                render(): void;
             }>([cue], {
                 currentTime: 1.5,
                 selectedTrackId: 'youtube-0',
@@ -536,14 +541,12 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
                 },
             });
             controller = setup.controller;
-            const { internals } = setup;
-            internals.renderSerial = 7;
-            internals.subtitleEl.innerHTML = '<div class="jpdb-subtitle-primary">今日読む</div>';
-
-            internals.replacePrimaryHtml(
+            const { internals, settings } = setup;
+            internals.htmlCache.parsedHtmlCache.set(
+                internals.parseCacheKey(cue.text, settings),
                 '<span class="jpdb-reader-word jpdb-pitch-heiban">今日</span><span class="jpdb-reader-word jpdb-pitch-odaka">読む</span>',
-                7,
             );
+            internals.render();
 
             const words = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word'));
             expect(words[0]?.textContent).toContain('今日');
@@ -628,7 +631,10 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             internals.currentCue = cue;
             controller.refresh();
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(document.querySelector('.jpdb-subtitle-primary-loading')?.textContent).toBe('読む');
+            // The parser owns the final shape of this cue, so a cache miss has
+            // no paintable primary frame yet. In particular, the final words
+            // are not exposed plain and then decorated later.
+            expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
 
             settings.annotationsPaused = true;
             controller.refresh();
@@ -659,6 +665,261 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expect(document.querySelector('.jpdb-subtitle-list')?.classList.contains('jpdb-subtitle-annotations-paused')).toBe(false);
         } finally {
             controller.destroy();
+        }
+    });
+
+    const nativeVisualCommitTrack = { mode: 'hidden' } as TextTrack;
+    it.each([
+        {
+            surface: 'imported file',
+            id: 'file-primary',
+            kind: 'file' as const,
+            pageUrl: 'https://example.test/video',
+            track: undefined,
+            expectPendingOwner: (): void => undefined,
+            expectCommittedOwner: (): void => undefined,
+        },
+        {
+            surface: 'native text track',
+            id: 'native-primary',
+            kind: 'native' as const,
+            pageUrl: 'https://example.test/video',
+            track: nativeVisualCommitTrack,
+            expectPendingOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('showing'); },
+            expectCommittedOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('hidden'); },
+        },
+        {
+            surface: 'YouTube cue stream',
+            id: 'youtube-primary',
+            kind: 'youtube' as const,
+            pageUrl: 'https://www.youtube.com/watch?v=visual-commit',
+            track: undefined,
+            expectPendingOwner: (): void => {
+                expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+            },
+            expectCommittedOwner: (): void => {
+                expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
+            },
+        },
+    ])('publishes the first $surface frame only after async annotation enrichment settles', async surface => {
+        const { id, kind, pageUrl, track, expectPendingOwner, expectCommittedOwner } = surface;
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL(pageUrl) as unknown as Location,
+        });
+        const parsed = deferred<JPDBToken[]>();
+        const enrichment = deferred<void>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const beforeRenderTokens = vi.fn(() => enrichment.promise);
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const { controller, internals } = setupTranscriptCueController<typeof cue, {
+            render: () => void;
+            setNativeTrackModes: () => void;
+            subtitleEl: HTMLElement;
+            tracks: Array<{
+                id: string;
+                label: string;
+                kind: 'file' | 'native' | 'youtube';
+                language: string;
+                track?: TextTrack;
+            }>;
+        }>([cue], {
+            hooks: { parseJapanese, beforeRenderTokens },
+            selectedTrackId: id,
+            settings: {
+                apiKey: '',
+                jitenApiKey: '',
+                furiganaMode: 'all',
+                showPitchAccent: true,
+                subtitleKaraokeMode: false,
+            },
+        });
+        internals.tracks = [{
+            id,
+            label: 'Japanese',
+            kind,
+            language: 'ja',
+            track,
+        }];
+        const paintedFrames: string[] = [];
+        const observer = new MutationObserver(() => {
+            const primary = internals.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+            paintedFrames.push(primary?.innerHTML ?? '');
+        });
+        observer.observe(internals.subtitleEl, { childList: true, subtree: true });
+
+        try {
+            controller.refresh();
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            expectPendingOwner();
+
+            parsed.resolve([makeSubtitleToken('読む', {
+                reading: 'よむ',
+                pitchClass: 'heiban',
+                rubies: [{ start: 0, end: 1, length: 1, text: 'よ' }],
+            })]);
+            await vi.waitFor(() => expect(beforeRenderTokens).toHaveBeenCalledTimes(1));
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+
+            enrichment.resolve();
+            await vi.waitFor(() => {
+                expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).not.toBeNull();
+            });
+            await Promise.resolve();
+
+            const primary = internals.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary')!;
+            expect(primary.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
+            expect(primary.querySelector('.jpdb-reader-word')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            const visibleFrames = paintedFrames.filter(frame => frame.trim());
+            expect(visibleFrames.length).toBeGreaterThan(0);
+            expect(visibleFrames.every(frame => frame.includes('jpdb-reader-word') && frame.includes('jpdb-reader-furi'))).toBe(true);
+            expectCommittedOwner();
+        } finally {
+            observer.disconnect();
+            controller.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('hands generic native captions back across a cache miss without switching off the host player', async () => {
+        const secondParse = deferred<JPDBToken[]>();
+        const parseJapanese = vi.fn(() => secondParse.promise);
+        const firstCue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const secondCue = { start: 2, end: 4, text: '見る', transcriptEligible: true };
+        const nativeTrack = { mode: 'showing' } as TextTrack;
+        const { controller, internals, settings, video } = setupTranscriptCueController<typeof firstCue, {
+            render: () => void;
+            subtitleEl: HTMLElement;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            htmlCache: SubtitleParsedHtmlCache;
+            tracks: Array<{
+                id: string;
+                label: string;
+                kind: 'native';
+                language: string;
+                track: TextTrack;
+            }>;
+        }>([firstCue, secondCue], {
+            hooks: { parseJapanese },
+            selectedTrackId: 'native-primary',
+            settings: { subtitleKaraokeMode: false },
+        });
+        internals.tracks = [{
+            id: 'native-primary',
+            label: 'Japanese',
+            kind: 'native',
+            language: 'ja',
+            track: nativeTrack,
+        }];
+        internals.htmlCache.parsedHtmlCache.set(
+            internals.parseCacheKey(firstCue.text, settings),
+            '<span class="jpdb-reader-word jpdb-pitch-heiban">読む</span>',
+        );
+        const player = document.createElement('div');
+        player.className = 'plyr';
+        const captionButton = document.createElement('button');
+        captionButton.dataset.plyr = 'captions';
+        captionButton.setAttribute('aria-pressed', 'true');
+        video.before(player);
+        player.append(video, captionButton);
+        const toggleCaptions = vi.fn();
+        vi.stubGlobal('player', {
+            media: video,
+            captions: { active: true, toggled: true },
+            currentTrack: 0,
+            toggleCaptions,
+        });
+        const expectYomuOwnsNativeCaption = (): void => {
+            expect(nativeTrack.mode).toBe('hidden');
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(true);
+            expect(toggleCaptions).not.toHaveBeenCalled();
+            expect(captionButton.getAttribute('aria-pressed')).toBe('true');
+        };
+
+        try {
+            controller.refresh();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')?.textContent).toBe('読む');
+            expectYomuOwnsNativeCaption();
+
+            internals.currentCue = secondCue;
+            controller.refresh();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            expect(nativeTrack.mode).toBe('showing');
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+            expect(toggleCaptions).not.toHaveBeenCalled();
+            expect(captionButton.getAttribute('aria-pressed')).toBe('true');
+
+            secondParse.resolve([makeSubtitleToken(secondCue.text, {
+                reading: 'みる',
+                pitchClass: 'heiban',
+                rubies: [{ start: 0, end: 1, length: 1, text: 'み' }],
+            })]);
+            await vi.waitFor(() => {
+                expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-furi')?.textContent).toBe('み');
+            });
+            expectYomuOwnsNativeCaption();
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('discards an incomplete provisional cue and settles a rejected enrichment to one stable plain frame', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=rejected-enrichment') as unknown as Location,
+        });
+        const parsed = deferred<JPDBToken[]>();
+        const parseJapanese = vi.fn(() => parsed.promise);
+        const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
+        const { controller, internals, settings } = setupTranscriptCueController<typeof cue, {
+            render: () => void;
+            subtitleEl: HTMLElement;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            htmlCache: SubtitleParsedHtmlCache;
+        }>([cue], { hooks: { parseJapanese }, selectedTrackId: 'youtube-primary' });
+        const key = internals.parseCacheKey(cue.text, settings);
+        internals.htmlCache.rememberParsedCueHtml(
+            key,
+            '<span class="jpdb-reader-word">読む</span>',
+            [makeSubtitleToken('読む')],
+            { provisional: true, enriched: false },
+        );
+        const paintedFrames: string[] = [];
+        const observer = new MutationObserver(() => {
+            const primary = internals.subtitleEl.querySelector<HTMLElement>('.jpdb-subtitle-primary');
+            if (primary?.innerHTML.trim()) paintedFrames.push(primary.innerHTML);
+        });
+        observer.observe(internals.subtitleEl, { childList: true, subtree: true });
+
+        try {
+            controller.refresh();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('');
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+            parsed.reject(new Error('enrichment unavailable'));
+            await vi.waitFor(() => expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')?.textContent).toBe('読む'));
+            const committed = internals.subtitleEl.querySelector('.jpdb-subtitle-primary');
+            expect(committed?.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(paintedFrames).toEqual(['読む']);
+            expect(internals.htmlCache.provisionalParsedHtmlCache.has(key)).toBe(false);
+            expect(internals.htmlCache.freshEmptyParsedHtml(key)).toBe('読む');
+
+            internals.render();
+            expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary')).toBe(committed);
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
+        } finally {
+            observer.disconnect();
+            controller.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
         }
     });
 
@@ -697,7 +958,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
 
     it('does not rebuild the subtitle DOM when a render tick produces identical html', () => {
         const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
-        const { internals } = setupTranscriptCueController<typeof cue, {
+        const { internals, settings } = setupTranscriptCueController<typeof cue, {
             parseCacheKey: (text: string, settings: ReaderSettings) => string;
             htmlCache: SubtitleParsedHtmlCache;
             render: () => void;
@@ -705,6 +966,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             selectedTrackId: 'youtube-0',
             settings: { apiKey: 'test-key', subtitleKaraokeMode: false },
         });
+        const key = internals.parseCacheKey(cue.text, settings);
+        internals.htmlCache.parsedHtmlCache.set(key, '<span class="jpdb-reader-word">読む</span>');
 
         internals.render();
         const firstPrimary = document.querySelector<HTMLElement>('.jpdb-subtitle-primary');

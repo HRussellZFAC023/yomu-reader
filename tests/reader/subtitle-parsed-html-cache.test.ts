@@ -91,4 +91,24 @@ describe('subtitle parsed-html cache', () => {
         expect(cache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
         expect(cache.parsedTokenCache.get(key)).toBe(authoritativeTokens);
     });
+
+    it('discards incomplete provisional state when a parser failure settles plain', () => {
+        const cache = createParsedHtmlCache();
+        const key = cache.parseCacheKey('悪口');
+        const token = makeSubtitleToken('悪口');
+        cache.rememberParsedCueHtml(key, PARTIALLY_ANNOTATED_HTML, [token], {
+            provisional: true,
+            enriched: false,
+        });
+        cache.incompleteEnrichmentAttempts.set(key, 2);
+        cache.sessionParseCacheChecked.add(key);
+
+        expect(cache.rememberPlainCueFallback(key, '悪口')).toBe('悪口');
+        expect(cache.freshEmptyParsedHtml(key)).toBe('悪口');
+        expect(cache.provisionalParsedHtmlCache.has(key)).toBe(false);
+        expect(cache.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
+        expect(cache.incompleteEnrichmentAttempts.has(key)).toBe(false);
+        expect(cache.sessionParseCacheChecked.has(key)).toBe(false);
+        expect(cache.parsedTokenCache.has(key)).toBe(false);
+    });
 });
