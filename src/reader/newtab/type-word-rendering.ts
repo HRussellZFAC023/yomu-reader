@@ -275,13 +275,13 @@ export function renderSelfCheckHandwriting(options: {
             lang: options.language, dir: options.direction, hidden: !revealed,
         }, options.targetText),
         passed
-            ? selfCheckButton('jpdb-reader-newtab-recall-check', 'type-word-handwriting-match', `${options.text('continueStudying')} →`)
+            ? selfCheckButton('jpdb-reader-newtab-recall-check', newTabAction('type-word-handwriting-match'), `${options.text('continueStudying')} →`)
             : el('div', { class: 'jpdb-reader-newtab-type-self-check-actions' },
-                selfCheckButton('jpdb-reader-newtab-recall-check', 'type-word-handwriting-check', options.text('typeWordCompare'), { hidden: revealed, disabled: true }),
+                selfCheckButton('jpdb-reader-newtab-recall-check', newTabAction('type-word-handwriting-check'), options.text('typeWordCompare'), { hidden: revealed, disabled: true }),
                 el('div', { dataset: { typeWordSelfCheckChoices: true }, hidden: !revealed },
                     el('p', {}, options.text('typeWordSelfCheckPrompt')),
-                    selfCheckButton('jpdb-reader-newtab-type-self-check-choice', 'type-word-handwriting-match', options.text('typeWordMatched')),
-                    selfCheckButton('jpdb-reader-newtab-type-self-check-choice', 'type-word-handwriting-retry', options.text('typeWordTryAgain')),
+                    selfCheckButton('jpdb-reader-newtab-type-self-check-choice', newTabAction('type-word-handwriting-match'), options.text('typeWordMatched')),
+                    selfCheckButton('jpdb-reader-newtab-type-self-check-choice', newTabAction('type-word-handwriting-retry'), options.text('typeWordTryAgain')),
                 ),
             ),
     );
@@ -313,6 +313,6 @@ function selfCheckButton(
     attrs: { hidden?: boolean; disabled?: boolean } = {},
 ): HTMLButtonElement {
     return el('button', {
-        class: className, type: 'button', dataset: { newtabAction: newTabAction(action) }, ...attrs,
+        class: className, type: 'button', dataset: { newtabAction: action }, ...attrs,
     }, label);
 }

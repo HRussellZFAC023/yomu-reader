@@ -6,6 +6,7 @@ import {
     setActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
+import { newTabCardTarget } from '../../src/reader/newtab/study-queue';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { rebuildReaderDeckEventStream } from '../../src/reader/srs/account-sync';
 import { createYomuLocalSrsAdapter, LocalYomuSrsRepository } from '../../src/reader/srs/local-yomu';
@@ -301,10 +302,13 @@ describe('multilingual Academy Reader Study loop', () => {
             expect.soft(prompt?.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
             expect.soft(study?.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
             expect.soft(study?.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
-            const unavailable = study?.querySelector<HTMLElement>('[data-study-unavailable-modes]');
-            expect.soft(unavailable?.dataset.studyUnavailableModes).toBe('listen-pitch speaking');
-            expect.soft(unavailable?.dataset.studyUnavailableReason).toBe('target-audio');
-            expect.soft(unavailable?.textContent).toBe('Spanish reviews add Listen + Speak when word audio is available.');
+            // Listen/Speak are pitch drills and this card has no pitch contour;
+            // that is not an audio capability gap because Spanish owns TTS.
+            const spanishTarget = newTabCardTarget(spanish);
+            expect.soft(spanishTarget.capabilities.audio).toBe(true);
+            expect.soft(spanishTarget.experiences.audio).toBe('speech-synthesis');
+            expect.soft(spanishTarget.audio.recordedWordAudio).toBe(false);
+            expect.soft(study?.querySelector('[data-study-unavailable-modes]')).toBeNull();
 
             await internals.submitGrade(spanish, 'pass');
 
