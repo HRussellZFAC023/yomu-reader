@@ -5,7 +5,7 @@ import {
     firstNonzeroStatus,
 } from '../../scripts/lib/ci-test-batches.mjs';
 
-describe('reader CI reusable-process batching', () => {
+describe('reader CI bounded isolated batching', () => {
     it('covers every file once while hard-bounding and balancing batch counts', () => {
         const files = Array.from({ length: 17 }, (_, index) => `file-${String(index).padStart(2, '0')}`);
         const sizes = new Map(files.map((file, index) => [file, index < 3 ? 1_000 - index : 1]));

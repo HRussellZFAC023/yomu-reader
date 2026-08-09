@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Inject the ruby-room sweep as a scanner dependency instead of mocking
-// dom/index: under fork reuse an earlier reader test can pre-evaluate the scanner
-// against the real import, which a per-file vi.mock cannot rebind. DI is order-safe.
+// dom/index. Historical fork-reuse runs showed that an earlier import can
+// pre-evaluate the scanner against the real dependency, which a later vi.mock
+// cannot rebind. DI is order-safe.
 const rubyRoomSpy = vi.fn();
 
 import { testEnSettings } from './helpers/settings-fixture';

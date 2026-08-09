@@ -36,10 +36,10 @@ jobs:
       release_tag: ${{ steps.browser-store-gate.outputs.release_tag }}
       publish_browser_stores: ${{ steps.browser-store-gate.outputs.publish_browser_stores }}
     # Unlike PR CI, this job runs the whole check on one small 4-core runner.
-    # The all-in-one reused-fork path can exhaust that runner before Vitest can
-    # report a summary. Use the same eight isolated shards and 2.3 GB fork heap
-    # proven by CI, with only one regular jsdom fork at a time. Pin both the
-    # runner request and the shared config's overridable worker default.
+    # The former all-in-one reused-fork path could exhaust that runner before
+    # Vitest reported a summary. Use the proven isolated regular/JPDB shards
+    # with the 2.3 GB fork cap and only one regular jsdom fork at a time. Pin
+    # both the runner request and the shared config's overridable worker default.
     env:
       TZ: UTC
       YOMU_CI_SHARDED: 1

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readdirSync, statSync } from 'node:fs';
 import { availableParallelism, loadavg } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,47 +14,45 @@ const READER_TESTS_DIR = join(ROOT, 'tests/reader');
 // is the jpdb lane; everything else is "regular".
 const JPDB_TESTS_DIR = join(ROOT, 'tests/reader/jpdb');
 
-// These tests cannot safely share a fork yet. The leading group still uses
-// vi.mock against shared reader modules; the remainder depend on indexedDB absence,
-// ReaderApp internals, or large fixtures whose state leaked in the fork-reuse
-// hunt. settings-form.test.ts was later split into eight real files, so keep all
-// eight in the equivalent isolated pass until repeated isolate:false runs prove
-// a narrower boundary.
-const ISOLATED_PASS_FILES = [
+// Keep these tests in a dedicated release-scheduling pass. The main batches now
+// use per-file isolation too; this list remains useful for separating the two
+// largest catalogue allocations, mock-heavy graphs, and historically expensive
+// lifecycle suites from the balanced main batches. Retune the list only from
+// measured release-gate evidence, not by moving whichever file reports a red.
+const DEDICATED_PASS_FILES = [
     // MEASURED 2026-08-02: these two expand the 2.6 MB published dictionary
     // catalogue into JS objects and peak at 1,676 MB and 1,032 MB resident ON
     // THEIR OWN, against a 2,304 MB --max-old-space-size cap. They are here to
-    // keep the two largest allocations out of a fork that other files also share.
+    // keep the two largest allocations out of the balanced main schedule.
     //
-    // This REDUCES the pressure; it does not remove it. The reusable pass runs
-    // isolate:false, so a fork accumulates heap across every file it handles. On
+    // The former isolate:false runner accumulated heap across files. On
     // 2026-08-03 the 485-file/4-worker pass reported 484 files green while one
-    // worker died at the V8 heap limit. Earlier runs lost different files at the
-    // same boundary, proving that quarantining whichever file happened to be last
-    // only chases the victim. runAllTests now bounds each reusable Vitest process
-    // and restarts its forks between batches instead of raising the heap cap.
+    // worker died at the V8 heap limit, and different runs lost different files.
+    // Per-file isolation now removes that accumulation; the dedicated placement
+    // still keeps these measured outliers away from ordinary batch timing.
     //
     // If a bounded batch still dies, scripts/run-ci-suite.mjs remains the
     // backstop that reports the runtime death instead of calling it a test red.
     join(ROOT, 'tests/reader/dictionary-catalog-browse.test.ts'),
     join(ROOT, 'tests/reader/catalog-browse-search-and-locale.test.ts'),
-    // Selects the active learning target through mocked modules, so it must not
-    // share a host with the reader pass that reads the real registry.
+    // Selects the active learning target through mocked modules; retain its
+    // measured graph in the dedicated release schedule.
     join(ROOT, 'tests/reader/languages/learning-target-selection.test.ts'),
     // Builds a live overlay and asserts a reading reaches it. Passes alone; inherits
-    // overlay/document state from earlier files in the fork-reuse pass.
+    // overlay/document state in the historical fork-reuse pass. Retained here as
+    // a known lifecycle-heavy scheduling outlier.
     join(ROOT, 'tests/reader/late-enrichment-projection.test.ts'),
     // These overlay lifecycle suites pass alone but inherit enough document and
-    // observer state in the reusable pass to exhaust their fake-timer callbacks.
+    // observer state in the historical reusable pass to exhaust fake timers.
     join(ROOT, 'tests/reader/detached-reading-overlay.test.ts'),
     join(ROOT, 'tests/reader/page-activity-parking.test.ts'),
     join(ROOT, 'tests/reader/reader-boot.test.ts'),
     join(ROOT, 'tests/reader/academy-account-settings.test.ts'),
     // The late bridge test owns storage-bridge globals and is deterministic
-    // alone, but can inherit stale state in the fork-reuse pass.
+    // alone, but inherited stale state in the historical fork-reuse pass.
     join(ROOT, 'tests/reader/newtab-runtime-onboarding.test.ts'),
     // Dynamic storage mocks retain dependent module graphs after doUnmock;
-    // a reused fork can otherwise hand the next file a stale epoch closure.
+    // the former reused fork could hand the next file a stale epoch closure.
     join(ROOT, 'tests/reader/managed-indexeddb-atomicity.test.ts'),
     join(ROOT, 'tests/reader/reader-boot-storage-barrier.test.ts'),
     join(ROOT, 'tests/reader/scan-reveal-continuation.test.ts'),
@@ -83,35 +81,30 @@ const ISOLATED_PASS_FILES = [
     // pass on this commit and its parent — the signature this list exists for.
     // The file imports the gaming renderer ONCE in beforeAll and shares one app
     // instance, one #app element and one localStorage across eleven tests, so it
-    // inherits whatever a neighbour leaves in the document. Isolating it costs
-    // one fork; an intermittently red release costs a release nobody can
-    // schedule, and a minor tag is what reaches the frozen stores.
+    // inherited whatever a neighbour left in the document. Per-file isolation
+    // now closes that boundary; its measured lifecycle remains dedicated.
     join(ROOT, 'tests/reader/gaming-first-run.test.ts'),
     // Exercises ReaderApp reconciliation under fake timers and the shared
-    // reader fixture. It deterministically leaves the next reused-fork file
-    // unable to advance real timers, so isolate the producer rather than
-    // whichever unrelated async consumer happens to follow it.
+    // reader fixture. It historically left a reused fork's next file unable to
+    // advance timers; retain the measured producer in the dedicated schedule.
     join(ROOT, 'tests/reader/late-card-reconciliation.test.ts'),
     // MEASURED 2026-08-03: all 99 hover cases pass, but their cumulative
-    // ReaderApp/mock lifecycle leaves a reused fork's next RAF-owning suite in
+    // ReaderApp/mock lifecycle left a reused fork's next RAF-owning suite in
     // a stale state. `hover-lookup -> projection-sibling-realign` reproduces
     // deterministically: projection case 1 passes, then cases 2-6 time out.
-    // Either half of the hover file followed by projection passes, so isolate
-    // this measured producer instead of quarantining the projection consumer.
+    // Either half of the hover file followed by projection passed. Keep this
+    // measured lifecycle outlier in the dedicated schedule.
     join(ROOT, 'tests/reader/hover-lookup.test.ts'),
-    // Imports fake IndexedDB and Yomitan at module scope. In an isolate:false
-    // host, the cached Yomitan module can resolve nextTask's timer against an
-    // earlier jsdom realm after that realm is torn down, so the final import
-    // yield never settles. The same three cases pass alone and in a fresh realm.
-    // Production keeps one page/background realm, so isolate this harness
-    // boundary instead of changing the runtime yield or its timeout.
+    // Imports fake IndexedDB and Yomitan at module scope. The former
+    // isolate:false host retained that runtime graph across torn-down jsdom
+    // environments; a later zero-delay timer user then stalled. Production and
+    // the current per-file-isolated runner keep one live realm.
     join(ROOT, 'tests/reader/yomitan-exact-candidate-lookup.test.ts'),
-    // This suite is the sole reusable-pass owner that starts the subtitle
+    // This suite was the sole reusable-pass owner that started the subtitle
     // housekeeping tick, including a destroy + same-instance re-init case. A
     // release-gate run reported its tick after jsdom teardown; lifecycle tracing
     // and three reruns confirmed the normal final destroy without reproducing
-    // the escape. Keep this realm-sensitive producer out of reused forks rather
-    // than isolating whichever later file receives the orphaned callback.
+    // the escape. Retain this lifecycle-heavy suite in the dedicated schedule.
     join(ROOT, 'tests/reader/subtitles-controller/09-parse-cache-warmup-seek.test.ts'),
 ];
 
@@ -133,10 +126,10 @@ if (shard > total) throw new Error(`shard ${shard} cannot be greater than total 
 // Tests are now plain files sharded by Vitest scheduling; there is nothing to
 // pre-generate, so --prepare (kept for the legacy run-ci-suite sharded path) is a
 // no-op. --reuse is likewise ignored.
-if (args['validate-isolated-pass']) {
+if (args['validate-dedicated-pass'] || args['validate-isolated-pass']) {
     const files = allReaderTestFiles();
-    validateIsolatedPass(files);
-    console.log(`[ci-tests] Reader isolated-pass conformance passed (${files.length} files, ${ISOLATED_PASS_FILES.length} isolated).`);
+    validateDedicatedPass(files);
+    console.log(`[ci-tests] Reader dedicated-pass conformance passed (${files.length} files, ${DEDICATED_PASS_FILES.length} dedicated).`);
 }
 else if (kind === 'regular' && args.prepare) { /* no-op: real files need no generation */ }
 else if (kind === 'regular') runRegularShard(shard, total);
@@ -145,68 +138,70 @@ else if (kind === 'jpdb') runJpdbShard(shard, total);
 else if (kind === 'all') runAllTests();
 else throw new Error(`Unknown CI test kind: ${kind}`);
 
-// Run the reusable majority through bounded isolate:false hosts, then the small
-// incompatible set through a per-file-isolated host. Restarting after each
-// reusable batch caps cumulative jsdom/module heap while every reusable file
-// still shares a fork with peers. Reader tests are real files; scheduling the
-// files inside each batch is left to Vitest.
+// Run the main suite in bounded, per-file-isolated batches, then the dedicated
+// scheduling group in another per-file-isolated host. In the old isolate:false
+// boundary cached graphs crossed replaced jsdom environments, after which later
+// timer users stalled. Reader tests are real files; scheduling inside each batch
+// is left to Vitest.
 function runAllTests() {
     const allFiles = allReaderTestFiles();
-    validateIsolatedPass(allFiles);
-    const isolated = new Set(ISOLATED_PASS_FILES);
-    const reusableFiles = allFiles.filter(file => !isolated.has(file));
+    validateDedicatedPass(allFiles);
+    const dedicated = new Set(DEDICATED_PASS_FILES);
+    const mainFiles = allFiles.filter(file => !dedicated.has(file));
     const maxWorkers = readPositiveInt(
-        process.env.YOMU_CI_MAX_WORKERS ?? String(Math.max(2, spareParallelism() - 2)),
+        process.env.YOMU_CI_MAX_WORKERS
+            ?? String(Math.min(10, Math.max(2, spareParallelism() - 2))),
         'YOMU_CI_MAX_WORKERS',
     );
-    // 60 is a memory budget, and here is the measurement behind it. Sampling fork
-    // RSS every 2s across full passes of the same 486 files, before batching existed:
+    // Keep the measured batch size while changing its correctness boundary. In
+    // the old isolate:false runner, 60 files per worker was a heap budget: 81
+    // retained files reached ~2,086 MB and 162 exceeded the 2,304 MB cap. The
+    // current runner recycles the worker and jsdom for every file, so this limit
+    // now bounds each Vitest invocation's scheduling, transform cache, progress,
+    // and failure scope instead of permitting cross-file runtime reuse.
     //
     //   3 forks  ~162 files each  peak 2,626 MB  = 114% of the 2,304 MB cap  -> aborted
     //   6 forks   ~81 files each  peak 2,086 MB  =  91% of the cap           -> clean
     //
-    // Those fit a ~1,540 MB fixed baseline per fork — module graph, jsdom, the reader
-    // bundle, none of it reclaimable — plus ~6.7 MB retained per file, because a
-    // reused isolate:false fork never gives it back. So 60 files lands near 1,940 MB,
-    // about 84% of the cap, and the restart between batches is what stops it
-    // compounding. Raising this walks back toward the abort: 80 files is ~91%, and
-    // 162 is where it died. Do not answer a future abort by raising
-    // YOMU_VITEST_FORK_HEAP_MB either — that hides the next casualty, not the cause.
-    const reusableFilesPerWorker = readPositiveInt(
+    // This is now a legacy/misnamed compatibility knob: it bounds isolated main
+    // scheduling, not runtime reuse. Keep it so existing CI configuration does
+    // not silently change batch sizes; do not add another public override merely
+    // to rename it during a release repair.
+    const mainFilesPerWorker = readPositiveInt(
         process.env.YOMU_CI_REUSABLE_FILES_PER_WORKER ?? '60',
         'YOMU_CI_REUSABLE_FILES_PER_WORKER',
     );
-    const reusableBatches = boundedSizeBalancedBatches(
-        reusableFiles,
-        maxWorkers * reusableFilesPerWorker,
+    const mainBatches = boundedSizeBalancedBatches(
+        mainFiles,
+        maxWorkers * mainFilesPerWorker,
         fileSize,
     );
     const statuses = [];
-    for (const [index, files] of reusableBatches.entries()) {
+    for (const [index, files] of mainBatches.entries()) {
         const batchWorkers = Math.min(maxWorkers, files.length);
         const context = {
-            label: `reader fork-reuse batch ${index + 1}/${reusableBatches.length} (${files.length} files, ${batchWorkers} workers)`,
+            label: `reader bounded isolated main batch ${index + 1}/${mainBatches.length} (${files.length} files, ${batchWorkers} workers)`,
             files,
             apiPort: apiPortAtOffset(index),
         };
         const result = spawnVitest(
             ['run', ...files.map(file => relative(ROOT, file)), '--minWorkers=1', `--maxWorkers=${batchWorkers}`],
-            { VITEST_ISOLATE: '0' },
+            { VITEST_ISOLATE: '1' },
             context,
         );
         statuses.push(vitestResultStatus(result, context));
     }
-    const isolatedContext = {
-        label: `reader isolated pass (${ISOLATED_PASS_FILES.length} files)`,
-        files: ISOLATED_PASS_FILES,
-        apiPort: apiPortAtOffset(reusableBatches.length),
+    const dedicatedContext = {
+        label: `reader dedicated isolated pass (${DEDICATED_PASS_FILES.length} files)`,
+        files: DEDICATED_PASS_FILES,
+        apiPort: apiPortAtOffset(mainBatches.length),
     };
-    const isolatedResult = spawnVitest(
-        ['run', ...ISOLATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=2'],
+    const dedicatedResult = spawnVitest(
+        ['run', ...DEDICATED_PASS_FILES.map(file => relative(ROOT, file)), '--minWorkers=1', '--maxWorkers=2'],
         { VITEST_ISOLATE: '1' },
-        isolatedContext,
+        dedicatedContext,
     );
-    statuses.push(vitestResultStatus(isolatedResult, isolatedContext));
+    statuses.push(vitestResultStatus(dedicatedResult, dedicatedContext));
     process.exit(firstNonzeroStatus(statuses));
 }
 
@@ -301,22 +296,14 @@ function allReaderTestFiles() {
     return collectTestFiles(READER_TESTS_DIR).filter(file => !isGeneratedShardPath(file));
 }
 
-// vi.mock registrations leak across files in a reused fork. Keep the explicit
-// quarantine honest: a newly-added reader vi.mock must either be removed in
-// favour of dependency injection or added to ISOLATED_PASS_FILES.
-function validateIsolatedPass(allFiles) {
+// Keep the explicit, measured dedicated schedule honest. Per-file isolation
+// means a new vi.mock does not need quarantine; add files here only when release
+// timing or memory evidence warrants dedicated scheduling.
+function validateDedicatedPass(allFiles) {
     const all = new Set(allFiles);
-    const missing = ISOLATED_PASS_FILES.filter(file => !all.has(file));
+    const missing = DEDICATED_PASS_FILES.filter(file => !all.has(file));
     if (missing.length) {
-        throw new Error(`Reader isolated-pass files do not exist:\n${formatFileList(missing)}`);
-    }
-    const isolated = new Set(ISOLATED_PASS_FILES);
-    const unisolatedMocks = allFiles.filter(file => {
-        if (isolated.has(file)) return false;
-        return /(^|\n)\s*vi\.(?:do)?mock\s*\(/m.test(readFileSync(file, 'utf8'));
-    });
-    if (unisolatedMocks.length) {
-        throw new Error(`Reader tests using vi.mock/vi.doMock must run in the isolated pass:\n${formatFileList(unisolatedMocks)}`);
+        throw new Error(`Reader dedicated-pass files do not exist:\n${formatFileList(missing)}`);
     }
 }
 

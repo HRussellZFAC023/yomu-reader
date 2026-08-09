@@ -158,8 +158,8 @@ describe('document body replacement recovery', () => {
 
             document.documentElement.replaceChild(replacement, previous);
             // MutationObserver delivery is a microtask checkpoint. A wall-clock
-            // timer here races Vitest's hard deadline when reused forks run on
-            // a busy host, even though no production timer is involved.
+            // timer here races Vitest's hard deadline on a busy host, even
+            // though no production timer is involved.
             await deliverMutationObserverRecords();
             expect(app.handleDocumentBodyReplacement).not.toHaveBeenCalled();
 

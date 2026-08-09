@@ -45,7 +45,7 @@ if (targetedVitestArgs.length) {
 if (process.env.YOMU_CI_SHARDED === '1') {
     // Legacy multi-process sharding: several Vitest hosts each re-transform the
     // shared module graph. Kept for CI runners that matrix shards across
-    // machines; single-machine runs are faster through the one-process path.
+    // machines; single-machine runs use the bounded local path below.
     runShard('regular', 1, REGULAR_SHARD_TOTAL, ['--prepare']);
     await runParallelShards('regular', REGULAR_SHARD_TOTAL, REGULAR_CONCURRENCY, shard => [
         '--reuse',
@@ -57,10 +57,10 @@ if (process.env.YOMU_CI_SHARDED === '1') {
         ...ciTestVitestApiArgs(VITEST_API_BASE_PORT + REGULAR_SHARD_TOTAL + shard),
     ]);
 } else {
-    await runAllInOneProcess();
+    await runBoundedLocalPass();
 }
 
-async function runAllInOneProcess() {
+async function runBoundedLocalPass() {
     const { status, deathReason } = await runTeedChild([
         join(ROOT, 'scripts/run-ci-tests.mjs'),
         '--kind', 'all',
@@ -269,8 +269,9 @@ function reportRuntimeDeath(context) {
     console.error('[ci-suite] This is NOT a test failure — some files never ran, so the pass count');
     console.error('[ci-suite] above is smaller than the suite and proves nothing about them.');
     console.error('[ci-suite] Compare "Test Files N passed (M)": any M > N are the files that died.');
-    console.error('[ci-suite] Re-run those files alone. If they pass, the fix belongs in');
-    console.error('[ci-suite] ISOLATED_PASS_FILES (scripts/run-ci-tests.mjs), not in the tests.');
+    console.error('[ci-suite] Re-run those files alone on a quiet machine. The reader gate already');
+    console.error('[ci-suite] isolates every file, so do not quarantine or change a test until the');
+    console.error('[ci-suite] runtime death is classified as a file leak, host load, or runner fault.');
     console.error('');
 }
 

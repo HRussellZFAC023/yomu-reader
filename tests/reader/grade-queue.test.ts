@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Drive the queue's storage through an injected in-memory adapter rather than
-// mocking the shared storage module: under Vitest fork reuse the newtab
-// controller pre-imports grade-queue bound to the real module, which a vi.mock
-// can no longer rebind. Dependency injection is order-independent.
+// mocking the shared storage module. Historical fork-reuse runs showed that a
+// pre-imported newtab controller keeps grade-queue bound to the real module,
+// which a later vi.mock cannot rebind. Dependency injection is order-independent.
 const store = new Map<string, unknown>();
 const memoryStorage = {
     get: async <T>(key: string, fallback: T): Promise<T> => (store.has(key) ? store.get(key) as T : fallback),

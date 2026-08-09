@@ -217,9 +217,9 @@ describe('the pointer path consults projected readings', () => {
 
 /**
  * Replace ONLY the resolution seam, and put the real companion back afterwards.
- * The CI suite reuses one fork for most files (isolate:false) and the companion
- * registry lives on globalThis, so a stub left behind here would silently
- * un-register projected readings for every later test file in that fork.
+ * The companion registry lives on globalThis, so a stub left behind here would
+ * silently un-register projected readings for later cases in this file. The
+ * release runner also enforces per-file isolation as a second boundary.
  */
 function stubProjectedReadingResolution(stub: () => HTMLElement | null): () => void {
     const annotations = yomuAnnotationsCompanion();

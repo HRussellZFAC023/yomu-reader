@@ -20,12 +20,11 @@ import {
     STORAGE_LEASE_KEY_PREFIX,
 } from '../../src/reader/app/gm-storage-lease';
 
-// Under fork reuse (isolate:false), module/global state can outlive a file even
-// as Vitest prepares the next jsdom realm. Tests that replace window.location
-// without restoring it can therefore surface later as "reading 'hostname' of
-// undefined" in suites that never touched location. Snapshot the pristine
-// descriptor and restore it before each test. (vi.unstubAllGlobals only covers
-// vi.stubGlobal.)
+// Historical isolate:false runs allowed module/global state to cross file and
+// jsdom boundaries. They exposed location overrides that later surfaced as
+// "reading 'hostname' of undefined". Snapshot the pristine descriptor and keep
+// each case self-contained even though the release runner now isolates files.
+// (vi.unstubAllGlobals only covers vi.stubGlobal.)
 const pristineLocationDescriptor = typeof window !== 'undefined'
     ? Object.getOwnPropertyDescriptor(window, 'location')
     : undefined;
@@ -51,11 +50,9 @@ if (typeof document !== 'undefined' && !document.elementFromPoint) {
 // (e.g. review-controls advertises keyboard hints when matchMedia is missing),
 // so a global always-false stub silently flips those keyboard-first paths.
 
-// A BroadcastChannel leaked past its test file can receive the next file's
-// postMessage from a different jsdom realm inside the same reused fork; Node's
-// dispatch then rejects the cross-realm MessageEvent (ERR_INVALID_ARG_TYPE) as
-// an unhandled error attributed to whichever file happens to be running.
-// Track every channel a file opens and force-close the leftovers at file end.
+// Historical non-isolated runs proved that a leaked BroadcastChannel can reject
+// a later cross-realm MessageEvent (ERR_INVALID_ARG_TYPE). Track every channel a
+// file opens and force-close leftovers; this remains correct case ownership.
 const NativeBroadcastChannel = globalThis.BroadcastChannel;
 if (typeof NativeBroadcastChannel === 'function') {
     const openChannels = new Set<BroadcastChannel>();
@@ -152,11 +149,9 @@ function setDefaultNavigatorLanguage(): void {
     const navigatorObject = globalThis.navigator;
     if (!navigatorObject) return;
     // Define the getters on the navigator OBJECT only, never on Navigator.prototype.
-    // Under fork reuse (isolate:false) vitest recreates the jsdom environment per
-    // file; a getter-only `languages` left on the shared prototype makes the next
-    // environment's `new Navigator` throw "Cannot set property languages" during
-    // setup (127 unhandled errors → non-zero exit even with all tests passing).
-    // A fresh navigator object per environment does not inherit the stale getter.
+    // Historical non-isolated runs showed that a getter-only `languages` on the
+    // shared prototype can make a replacement environment's `new Navigator`
+    // throw during setup. Defining it on the current object is self-contained.
     defineNavigatorLanguage(navigatorObject);
 }
 
@@ -214,19 +209,16 @@ function hermeticFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Re
 }
 
 beforeEach(() => {
-    // Clear any global stubbed by a prior test (location, navigator, fetch, …)
-    // before re-establishing our own. Under fork reuse (isolate:false) a leaked
-    // vi.stubGlobal('location', …) otherwise bleeds across files and surfaces as
-    // "Cannot read properties of undefined (reading 'hostname')" in unrelated
-    // suites. This is the fork-reuse equivalent of Vitest's unstubGlobals.
+    // Clear any global stubbed by a prior case (location, navigator, fetch, …)
+    // before re-establishing our own. This also preserves the cleanup learned
+    // from historical non-isolated runs.
     vi.unstubAllGlobals();
     resetPersistedManagedEpochForTests();
     resetManagedStateEpochSessionsForTests();
     resetManagedWebStorageForTests();
     restorePristineLocation();
     // Re-read pristine window methods and clear the sticky media-activation flag
-    // from the current jsdom realm before any test runs, so a prior file's leaked
-    // capture/flag under fork reuse (isolate:false) can't bleed into this test.
+    // before each case so no earlier capture or flag can bleed into this test.
     recaptureInitialWindowMethodsForTests();
     resetMediaActivationForTests();
     resetLocaleState();

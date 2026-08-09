@@ -24,16 +24,14 @@ export function readerTestConfig(
         maxWorkers: readMaxWorkers(env, parallelism),
         poolOptions: {
             forks: {
-                // Direct and targeted Vitest commands stay isolated by default.
-                // run-ci-tests.mjs opts its reusable majority into isolate:false,
-                // then runs the remaining incompatible files in a small isolated
-                // pass. This keeps npm test/check:quick safe when their selection
-                // happens to include one of the quarantined files.
+                // Direct, targeted, sharded, and release-gate commands are
+                // per-file isolated. VITEST_ISOLATE=0 remains available only for
+                // deliberate diagnostics; it is not a supported CI boundary
+                // because cached runtime graphs can outlive their jsdom realm.
                 isolate: env.VITEST_ISOLATE !== '0',
-                // Long-lived reused forks accumulate jsdom heap; cap it so a leak
-                // fails one fork loudly instead of OOM-killing the machine
-                // (historical tinypool exit-137 deaths). Small CI runners can
-                // tighten the cap via YOMU_VITEST_FORK_HEAP_MB.
+                // Cap any single file's fork so a leak fails loudly instead of
+                // OOM-killing the machine (historical tinypool exit-137 deaths).
+                // Small CI runners can tighten this limit explicitly.
                 execArgv: [`--max-old-space-size=${forkHeapMb(env)}`],
             },
         },
