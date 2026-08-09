@@ -9,9 +9,10 @@ import {
     realpathSync,
     renameSync,
     rmSync,
+    symlinkSync,
     writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
@@ -24,6 +25,110 @@ afterEach(() => {
 });
 
 describe('live profile run support', () => {
+    it('creates a distinct fresh directory for each default run', () => {
+        const workspace = temporaryDirectory();
+        const qaRoot = join(workspace, 'qa-artifacts');
+        const profileRoot = join(qaRoot, 'youtube-live-watch-performance');
+        const support = createLiveProfileRunSupport();
+
+        const first = support.prepareOutputDirectory({ qaArtifactsRoot: qaRoot });
+        const second = support.prepareOutputDirectory({ qaArtifactsRoot: qaRoot });
+
+        expect(dirname(first)).toBe(realpathSync(profileRoot));
+        expect(dirname(second)).toBe(realpathSync(profileRoot));
+        expect(first).not.toBe(second);
+        expect(basename(first)).toMatch(/^run-\d{4}-\d{2}-\d{2}T.+Z-[0-9a-f-]{36}$/u);
+        expect(readdirSync(profileRoot)).toHaveLength(2);
+    });
+
+    it('creates a fresh default-shaped run below the dedicated live-watch artifact root', () => {
+        const workspace = temporaryDirectory();
+        const qaRoot = join(workspace, 'qa-artifacts');
+        const output = join(qaRoot, 'youtube-live-watch-performance', 'latest');
+        const support = createLiveProfileRunSupport();
+
+        expect(support.prepareOutputDirectory({
+            requestedPath: output,
+            qaArtifactsRoot: qaRoot,
+        })).toBe(realpathSync(output));
+        expect(readdirSync(dirname(output))).toEqual(['latest']);
+    });
+
+    it('rejects root, home, workspace, repository, QA root, profile root, and out-of-tree outputs', () => {
+        const workspace = temporaryDirectory();
+        const repository = join(workspace, 'repo');
+        const qaRoot = join(workspace, 'qa-artifacts');
+        const profileRoot = join(qaRoot, 'youtube-live-watch-performance');
+        const outside = join(workspace, 'outside-run');
+        mkdirSync(repository);
+        mkdirSync(qaRoot);
+        const support = createLiveProfileRunSupport();
+
+        for (const requestedPath of ['', '/', homedir(), workspace, repository, qaRoot, profileRoot, outside]) {
+            expect(() => support.prepareOutputDirectory({
+                requestedPath,
+                qaArtifactsRoot: qaRoot,
+            })).toThrow(/Live profiler/u);
+        }
+        expect(existsSync(profileRoot)).toBe(false);
+        expect(existsSync(outside)).toBe(false);
+    });
+
+    it('refuses an existing run without removing or changing its contents', () => {
+        const workspace = temporaryDirectory();
+        const qaRoot = join(workspace, 'qa-artifacts');
+        const output = join(qaRoot, 'youtube-live-watch-performance', 'existing-run');
+        const sentinel = join(output, 'keep.txt');
+        mkdirSync(output, { recursive: true });
+        writeFileSync(sentinel, 'do not remove');
+
+        expect(() => createLiveProfileRunSupport().prepareOutputDirectory({
+            requestedPath: output,
+            qaArtifactsRoot: qaRoot,
+        })).toThrow(/already exists/u);
+        expect(readFileSync(sentinel, 'utf8')).toBe('do not remove');
+    });
+
+    it('rejects escaping symlinks and in-tree ancestor aliases before creating a run', () => {
+        const workspace = temporaryDirectory();
+        const qaRoot = join(workspace, 'qa-artifacts');
+        const profileRoot = join(qaRoot, 'youtube-live-watch-performance');
+        const outside = join(workspace, 'outside');
+        const realParent = join(profileRoot, 'real-parent');
+        mkdirSync(profileRoot, { recursive: true });
+        mkdirSync(outside);
+        mkdirSync(realParent);
+        symlinkSync(outside, join(profileRoot, 'escape'));
+        symlinkSync(realParent, join(profileRoot, 'alias'));
+        const support = createLiveProfileRunSupport();
+
+        expect(() => support.prepareOutputDirectory({
+            requestedPath: join(profileRoot, 'escape', 'run'),
+            qaArtifactsRoot: qaRoot,
+        })).toThrow(/escapes|symbolic-link/u);
+        expect(() => support.prepareOutputDirectory({
+            requestedPath: join(profileRoot, 'alias', 'run'),
+            qaArtifactsRoot: qaRoot,
+        })).toThrow(/symbolic-link/u);
+        expect(existsSync(join(outside, 'run'))).toBe(false);
+        expect(existsSync(join(realParent, 'run'))).toBe(false);
+    });
+
+    it('rejects a symbolic-link QA root before creating its profile directory', () => {
+        const workspace = temporaryDirectory();
+        const physicalQaRoot = join(workspace, 'physical-qa-artifacts');
+        const qaRootAlias = join(workspace, 'qa-artifacts');
+        mkdirSync(physicalQaRoot);
+        symlinkSync(physicalQaRoot, qaRootAlias);
+        const output = join(qaRootAlias, 'youtube-live-watch-performance', 'run');
+
+        expect(() => createLiveProfileRunSupport().prepareOutputDirectory({
+            requestedPath: output,
+            qaArtifactsRoot: qaRootAlias,
+        })).toThrow(/symbolic-link/u);
+        expect(existsSync(join(physicalQaRoot, 'youtube-live-watch-performance'))).toBe(false);
+    });
+
     it('binds a bundled launch to the registry and exact executable identity', () => {
         const executable = executableFixture('bundled-browser');
         const support = createLiveProfileRunSupport({ environment: {}, headed: false });

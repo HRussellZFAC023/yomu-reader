@@ -1,7 +1,8 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
     closeSync,
     existsSync,
+    lstatSync,
     mkdirSync,
     openSync,
     readFileSync,
@@ -12,7 +13,7 @@ import {
     statSync,
     writeFileSync,
 } from 'node:fs';
-import { basename, dirname, extname, join, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const CUSTOM_CHANNEL_KEY = 'YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL';
 const CUSTOM_EXECUTABLE_KEY = 'YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE';
@@ -57,6 +58,7 @@ export function createLiveProfileRunSupport({
         browserDiagnostics: () => createBrowserDiagnostics(),
         ambientWindow: (samples, boundary) => ambientWindowEvidence(samples, boundary),
         captureWorkloadEnd: collectors => captureWorkloadEnd(collectors),
+        prepareOutputDirectory: options => prepareLiveProfileOutputDirectory(options),
         verifyLaunchIdentity: descriptor => verifyLaunchIdentity(descriptor),
         writeTerminalSuccess: (outputRoot, report) => writeTerminalSuccessArtifact(
             outputRoot,
@@ -70,6 +72,124 @@ export function createLiveProfileRunSupport({
             terminalFileSystem,
         ),
     });
+}
+
+/**
+ * Creates one fresh, owned run directory. Validation is deliberately complete
+ * before mkdir touches the filesystem: callers may only name a strict child of
+ * the live-watch artifact root, and existing symlink aliases below the QA root
+ * are rejected instead of being followed.
+ */
+function prepareLiveProfileOutputDirectory({
+    requestedPath,
+    qaArtifactsRoot,
+} = {}) {
+    const qaRoot = resolve(requiredText(qaArtifactsRoot, 'Live profiler QA artifact root is missing.'));
+    const profileRoot = join(qaRoot, 'youtube-live-watch-performance');
+    const outputRoot = requestedPath === undefined
+        ? join(profileRoot, freshRunDirectoryName())
+        : resolve(requiredText(requestedPath, 'Live profiler output directory is missing.'));
+    assertPathIsNotSymlink(qaRoot);
+    assertFreshProfileOutput(outputRoot, qaRoot, profileRoot);
+
+    const outputParent = dirname(outputRoot);
+    mkdirSync(outputParent, { recursive: true });
+    assertPhysicalProfileContainment(outputParent, qaRoot, profileRoot);
+    assertNoSymlinkComponents(qaRoot, outputParent);
+    assertPathMissing(outputRoot);
+    mkdirSync(outputRoot, { recursive: false });
+    assertPhysicalProfileContainment(outputRoot, qaRoot, profileRoot);
+    return realpathSync(outputRoot);
+}
+
+function freshRunDirectoryName() {
+    const timestamp = new Date().toISOString().replace(/[:.]/gu, '-');
+    return `run-${timestamp}-${randomUUID()}`;
+}
+
+function assertFreshProfileOutput(outputRoot, qaRoot, profileRoot) {
+    assertStrictProfileChild(outputRoot, profileRoot);
+    assertPhysicalProfileContainment(outputRoot, qaRoot, profileRoot);
+    assertNoSymlinkComponents(qaRoot, dirname(outputRoot));
+    assertPathMissing(outputRoot);
+}
+
+function assertStrictProfileChild(outputRoot, profileRoot) {
+    if (!isStrictDescendant(profileRoot, outputRoot)) {
+        throw new Error(`Live profiler output must be a fresh directory below ${profileRoot}: ${outputRoot}.`);
+    }
+}
+
+function assertPhysicalProfileContainment(path, qaRoot, profileRoot) {
+    const canonicalQaRoot = prospectiveRealPath(qaRoot);
+    const canonicalProfileRoot = prospectiveRealPath(profileRoot);
+    const canonicalPath = prospectiveRealPath(path);
+    if (!isStrictDescendant(canonicalQaRoot, canonicalProfileRoot)) {
+        throw new Error(`Live profiler artifact root escapes the QA artifact root: ${profileRoot}.`);
+    }
+    if (canonicalPath !== canonicalProfileRoot && !isStrictDescendant(canonicalProfileRoot, canonicalPath)) {
+        throw new Error(`Live profiler output escapes its artifact root: ${path}.`);
+    }
+}
+
+function assertNoSymlinkComponents(qaRoot, path) {
+    const symlink = descendantPaths(qaRoot, path).find(candidate => pathEntryStat(candidate)?.isSymbolicLink());
+    if (symlink) {
+        throw new Error(`Live profiler output path contains a symbolic-link ancestor: ${symlink}.`);
+    }
+}
+
+function descendantPaths(parent, child) {
+    const relativePath = relative(parent, child);
+    if (relativePath === '') return [];
+    if (isOutsidePath(relativePath)) throw new Error(`Live profiler path is outside its trusted ancestor: ${child}.`);
+    const segments = relativePath.split(sep);
+    return segments.map((_segment, index) => join(parent, ...segments.slice(0, index + 1)));
+}
+
+function prospectiveRealPath(path) {
+    let existing = resolve(path);
+    const missingSegments = [];
+    let stat = pathEntryStat(existing);
+    while (stat === null) {
+        const parent = dirname(existing);
+        if (parent === existing) throw new Error(`Live profiler cannot resolve output path: ${path}.`);
+        missingSegments.unshift(basename(existing));
+        existing = parent;
+        stat = pathEntryStat(existing);
+    }
+    return resolve(realpathSync(existing), ...missingSegments);
+}
+
+function pathEntryStat(path) {
+    try {
+        return lstatSync(path);
+    } catch (error) {
+        if (error?.code === 'ENOENT') return null;
+        throw error;
+    }
+}
+
+function assertPathMissing(path) {
+    if (pathEntryStat(path) !== null) {
+        throw new Error(`Live profiler output directory already exists: ${path}.`);
+    }
+}
+
+function assertPathIsNotSymlink(path) {
+    const stat = pathEntryStat(path);
+    if (stat?.isSymbolicLink()) {
+        throw new Error(`Live profiler output path contains a symbolic-link ancestor: ${path}.`);
+    }
+}
+
+function isStrictDescendant(parent, child) {
+    const candidate = relative(parent, child);
+    return candidate !== '' && !isOutsidePath(candidate);
+}
+
+function isOutsidePath(path) {
+    return path === '..' || path.startsWith(`..${sep}`) || isAbsolute(path);
 }
 
 function browserLaunchPlan(

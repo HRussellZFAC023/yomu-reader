@@ -9,7 +9,7 @@
  * third-party services Yomu calls. Chromium replays use CDP CPU sampling /
  * precise coverage; WebKit retains behavior evidence without claiming CDP data.
  */
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium, webkit } from 'playwright';
 import {
@@ -32,12 +32,18 @@ import { createYomuPaths } from '../lib/paths.mjs';
 const { appRoot, qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
 const userscriptPath = resolve(process.env.YOMU_LIVE_YOUTUBE_USERSCRIPT ?? join(appRoot, 'dist/yomu.user.js'));
 const cssPath = resolve(process.env.YOMU_LIVE_YOUTUBE_CSS ?? join(appRoot, 'dist/yomu.css'));
-const outputRoot = resolve(process.env.YOMU_LIVE_YOUTUBE_OUTPUT_DIR
-    ?? join(qaArtifactsRoot, 'youtube-live-watch-performance', process.env.YOMU_LIVE_YOUTUBE_LABEL ?? 'latest'));
+const requestedOutputRoot = process.env.YOMU_LIVE_YOUTUBE_OUTPUT_DIR
+    ?? (process.env.YOMU_LIVE_YOUTUBE_LABEL === undefined
+        ? undefined
+        : join(qaArtifactsRoot, 'youtube-live-watch-performance', process.env.YOMU_LIVE_YOUTUBE_LABEL));
 const watchUrl = process.env.YOMU_LIVE_YOUTUBE_URL
     ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s&hl=ja&gl=JP';
 const headed = process.env.YOMU_LIVE_YOUTUBE_HEADED === '1';
 const runSupport = createLiveProfileRunSupport({ environment: process.env, headed });
+const outputRoot = runSupport.prepareOutputDirectory({
+    requestedPath: requestedOutputRoot,
+    qaArtifactsRoot,
+});
 const requestBridgeName = '__yomuLiveYoutubeProfileRequest';
 const evidenceContract = createLiveProfileEvidenceContract({
     requestedRuns: process.env.YOMU_LIVE_YOUTUBE_RUNS
@@ -71,8 +77,6 @@ const vocabulary = [
 await runLiveProfile();
 
 async function runLiveProfile() {
-    rmSync(outputRoot, { recursive: true, force: true });
-    mkdirSync(outputRoot, { recursive: true });
     const report = initialProfileReport();
     try {
         await collectLiveProfile(report);
