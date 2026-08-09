@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.b7a654f0736f.user.js#sha256=t6ZU8HNvGvyTtfONjcjf2idKDMAu9fWp+16LyczUH4I=
+// @require https://yomureader.com/greasyfork/yomu-runtime.70848221ad7d.user.js#sha256=cISCIa19ZLxFPeKQCkqn+MNilcIMPdvY0PpDBC767sI=
 // @resource yomuCss  https://yomureader.com/yomu.06756a99805b.css#sha256=BnVqmYBbGJ8fYRBJrbpdxbbZzBXpEVrwHyyGClXluR4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -37916,6 +37916,7 @@ navigation: "push-current"
 mineBatchMiningCandidates: (candidates) => this.cardActions.addBatchMiningCards(candidates),
 gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
 toast: (message) => this.toast(message),
+onTranscriptPanelClosed: () => this.scheduleVisiblePageRescan(),
 onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void saveSettings(this.settings, {
 explicitUserChoiceKeys,
 clearExplicitUserChoiceKeys
@@ -38057,9 +38058,7 @@ initEmbeddedReaderPage() {
 this.subtitles.init();
 this.ocr.init();
 this.setupAutoScan();
-if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
-this.scheduleAutoScan(0, { force: true });
-}
+if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) this.scheduleVisiblePageRescan();
 }
 async initTopLevelReaderPage(shouldShowWelcome, shadowDiscoveryUncertain) {
 this.installFab();
@@ -39076,9 +39075,7 @@ this.autoScanForced = false;
 this.autoScanDebounced = false;
 this.pageScanner.cancelVisiblePageScan();
 this.clearAllAnnotations();
-} else if (!this.settings.manualScanEnabled) {
-this.scheduleAutoScan(0, { force: true });
-}
+} else this.scheduleVisiblePageRescan();
 this.subtitles.refresh();
 this.ocr.refreshForModeChange();
 }
@@ -39124,9 +39121,10 @@ await saveSettings(this.settings, {
 explicitUserChoiceKeys: ["showFurigana", "furiganaMode", "puckFuriganaModeBeforeHide"]
 });
 this.clearAllAnnotations();
-if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
-this.scheduleAutoScan(0, { force: true });
+this.scheduleVisiblePageRescan();
 }
+scheduleVisiblePageRescan() {
+if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) this.scheduleAutoScan(0, { force: true });
 }
 async cycleOcrMode() {
 const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));

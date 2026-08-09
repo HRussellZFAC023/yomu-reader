@@ -116264,6 +116264,7 @@ ${reading}`);
   const SUBTITLE_FURIGANA_KANJI_RE = /[㐀-鿿]/u;
   const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
   const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
+  const SUBTITLE_PARSE_CONTEXT_CHANGED = "Subtitle parse context changed";
   class SubtitleParsedHtmlCache {
     constructor(deps) {
       this.deps = deps;
@@ -116279,7 +116280,7 @@ ${reading}`);
     parsedTokenCache = /* @__PURE__ */ new Map();
     parsedTokenNotifiedAt = /* @__PURE__ */ new Map();
     parseCacheKey(text2, settings = this.deps.getSettings()) {
-      return [
+      return `${this.currentParseKeyPrefix()}${[
         subtitleParseSourceSignature(settings),
         settings.showFurigana,
         settings.furiganaMode,
@@ -116293,9 +116294,32 @@ ${reading}`);
         settings.subtitleUnderlineColorSource,
         settings.subtitleTextColorSource,
         text2
-      ].join(":");
+      ].join(":")}`;
+    }
+    isCurrentParseKey(key) {
+      return key.startsWith(this.currentParseKeyPrefix());
+    }
+    // TARGET generation is part of every cache key, and a context adoption
+    // drops all reachable state in one transaction. Promises already running
+    // may still settle for their original callers, but the write guards below
+    // prevent them from repopulating any tier after A -> B (or A -> B -> A).
+    invalidateParseContext() {
+      this.parsedHtmlCache.clear();
+      this.provisionalParsedHtmlCache.clear();
+      this.enrichedProvisionalParsedHtmlKeys.clear();
+      this.incompleteEnrichmentAttempts.clear();
+      this.sessionParseCacheChecked.clear();
+      this.emptyParsedHtmlCache.clear();
+      this.pendingParsedHtml.clear();
+      this.pendingProvisionalParsedHtml.clear();
+      this.parsedTokenCache.clear();
+      this.parsedTokenNotifiedAt.clear();
+    }
+    currentParseKeyPrefix() {
+      return `context:${encodeURIComponent(this.deps.parseContextKey())}:`;
     }
     usableProvisionalParsedHtml(key, options) {
+      if (!this.isCurrentParseKey(key)) return void 0;
       const html = this.provisionalParsedHtmlCache.get(key);
       if (!html) return void 0;
       if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return void 0;
@@ -116325,6 +116349,7 @@ ${reading}`);
     // which it settles to bare to avoid re-requesting an unresolvable word on
     // every hydration tick.
     shouldMarkCueEnriched(key, tokens, enrichRequested) {
+      if (!this.isCurrentParseKey(key)) return false;
       if (!enrichRequested) return false;
       if (this.tokensFullyEnriched(tokens)) {
         this.incompleteEnrichmentAttempts.delete(key);
@@ -116343,6 +116368,7 @@ ${reading}`);
     }
     rememberParsedCueHtml(key, html, tokens = [], options = {}) {
       const provisional = options.provisional === true;
+      if (!this.isCurrentParseKey(key)) throw new Error(SUBTITLE_PARSE_CONTEXT_CHANGED);
       if (!this.deps.shouldParseSubtitles()) return { html, provisional };
       const existingAuthoritative = this.parsedHtmlCache.get(key);
       const existingProvisional = this.provisionalParsedHtmlCache.get(key);
@@ -116382,6 +116408,7 @@ ${reading}`);
     // authoritative result if one already won the race; otherwise discard all
     // uncommitted tiers and cache the plain frame for the normal retry TTL.
     rememberPlainCueFallback(key, html) {
+      if (!this.isCurrentParseKey(key)) return html;
       const authoritative = this.parsedHtmlCache.get(key);
       if (authoritative !== void 0) return authoritative;
       this.deleteParsedSubtitleKey(key);
@@ -116470,6 +116497,7 @@ ${reading}`);
       return Boolean(this.freshEmptyParsedHtml(key));
     }
     freshEmptyParsedHtml(key) {
+      if (!this.isCurrentParseKey(key)) return void 0;
       const cached = this.emptyParsedHtmlCache.get(key);
       if (!cached) return void 0;
       if (cached.expiresAt > Date.now()) return cached.html;
@@ -117258,6 +117286,7 @@ ${reading}`);
     // collaborator; the controller keeps the parse/render orchestration.
     htmlCache = new SubtitleParsedHtmlCache({
       getSettings: () => this.options.getSettings(),
+      parseContextKey: () => subtitleLanguageContextKey(this.subtitleLanguageContext),
       shouldParseSubtitles: () => this.shouldParseSubtitles(),
       hasAuthoritativeParseTier: (settings) => this.hasAuthoritativeParseTier(settings),
       transcriptRowCount: () => this.cues.filter((cue) => cue.transcriptEligible !== false).length
@@ -117695,6 +117724,7 @@ ${reading}`);
       );
       if (!plan) return;
       this.subtitleLanguageContext = next;
+      this.htmlCache.invalidateParseContext();
       this.removeSubtitleTrackIds(plan.removedTrackIds);
       disableSubtitleTextTrack(this.nativeFullscreenCueTrack);
       this.nativeFullscreenCueTrack = void 0;
@@ -118946,7 +118976,7 @@ ${reading}`);
         lastRenderedKey: this.lastRenderedPrimaryKey,
         lastRenderedText: this.lastRenderedPrimaryText,
         lastRenderedHtml: this.lastRenderedPrimaryHtml,
-        hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
+        hasFreshEmptyParsedHtml: this.htmlCache.hasFreshEmptyParsedHtml(parseKey),
         hasParser: this.shouldParseSubtitles(settings),
         time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0
       });
@@ -119018,6 +119048,7 @@ ${reading}`);
         const html = await this.parseCueHtml(text2, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
         this.applyParsedPrimaryHtml(key, text2, html, serial);
       } catch {
+        if (!this.htmlCache.isCurrentParseKey(key)) return;
         const fallback = escapeWithBreaks(text2);
         const settled = this.htmlCache.rememberPlainCueFallback(key, fallback);
         this.applyParsedPrimaryHtml(key, text2, settled, serial);
@@ -119078,7 +119109,7 @@ ${reading}`);
       }
     }
     async parseProvisionalCueHtml(text2, settings, key, options = {}) {
-      const restored = this.restoreSessionParsedCueHtml(key);
+      const restored = this.htmlCache.restoreSessionParsedCueHtml(key);
       if (restored) return restored;
       const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
       const cached = this.htmlCache.provisionalParsedHtmlCache.get(key);
@@ -119397,9 +119428,6 @@ ${reading}`);
     shouldBypassProvisionalForAuthoritative(settings, options) {
       return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
-    restoreSessionParsedCueHtml(key) {
-      return this.htmlCache.restoreSessionParsedCueHtml(key);
-    }
     notifyParsedTokensForKey(key, force = false, roots) {
       if (!this.shouldParseSubtitles() || !this.options.afterParseTokens) return;
       const tokens = this.htmlCache.parsedTokenCache.get(key);
@@ -119412,9 +119440,6 @@ ${reading}`);
     }
     shouldUseProvisionalSubtitleParse(_settings) {
       return isYouTubePage();
-    }
-    hasFreshEmptyParsedHtml(key) {
-      return this.htmlCache.hasFreshEmptyParsedHtml(key);
     }
     freshEmptyParsedHtml(key) {
       return this.htmlCache.freshEmptyParsedHtml(key);
@@ -119510,7 +119535,7 @@ ${reading}`);
     // and the cue counts as warm; keyed the provisional tier stays listed so
     // a failed authoritative upgrade is retried by the next warmup turn.
     isWarmParsedCueKey(key, settings = this.options.getSettings()) {
-      if (this.cachedParsedCueHtml(key, settings) !== void 0 || this.hasFreshEmptyParsedHtml(key)) return true;
+      if (this.cachedParsedCueHtml(key, settings) !== void 0 || this.htmlCache.hasFreshEmptyParsedHtml(key)) return true;
       return !this.hasAuthoritativeParseTier(settings) && this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key);
     }
     cachedParsedCueHtml(key, settings) {
@@ -121198,12 +121223,14 @@ ${reading}`);
     }
     finishTranscriptPanelHide(panel) {
       if (this.transcriptPanel !== panel) return;
+      const revealedPageContent = !panel.hidden;
       this.clearTranscriptPanelAnimation();
       panel.hidden = true;
       this.syncTranscriptPanelFullscreenDisplayOverride();
       panel.classList.remove("jpdb-subtitle-panel-entering", "jpdb-subtitle-panel-opened", "jpdb-subtitle-panel-closing");
       this.transcriptPanelClosing = false;
       this.syncControls();
+      if (revealedPageContent) this.options.onTranscriptPanelClosed?.();
     }
     clearTranscriptPanelAnimation() {
       this.transcriptPanelHideTimer = clearWindowTimeout(this.transcriptPanelHideTimer);
