@@ -10,9 +10,10 @@ const FULLY_ANNOTATED_HTML = [
 
 const PARTIALLY_ANNOTATED_HTML = '<span class="jpdb-reader-word">悪口</span>';
 
-function createParsedHtmlCache(): SubtitleParsedHtmlCache {
+function createParsedHtmlCache(parseContextKey: () => string = () => '0:ja:en'): SubtitleParsedHtmlCache {
     return new SubtitleParsedHtmlCache({
         getSettings: () => DEFAULT_SETTINGS,
+        parseContextKey,
         shouldParseSubtitles: () => true,
         hasAuthoritativeParseTier: () => false,
         transcriptRowCount: () => 0,
@@ -20,6 +21,23 @@ function createParsedHtmlCache(): SubtitleParsedHtmlCache {
 }
 
 describe('subtitle parsed-html cache', () => {
+    it('rejects late writes after the target-generation context changes', () => {
+        let context = '0:ja:en';
+        const cache = createParsedHtmlCache(() => context);
+        const japaneseKey = cache.parseCacheKey('no');
+        cache.rememberParsedCueHtml(japaneseKey, FULLY_ANNOTATED_HTML);
+
+        context = '1:es:en';
+        cache.invalidateParseContext();
+        const spanishKey = cache.parseCacheKey('no');
+        expect(spanishKey).not.toBe(japaneseKey);
+        expect(() => cache.rememberParsedCueHtml(japaneseKey, PARTIALLY_ANNOTATED_HTML))
+            .toThrow('Subtitle parse context changed');
+        expect(cache.parsedHtmlCache.has(japaneseKey)).toBe(false);
+        expect(cache.parsedHtmlCache.has(spanishKey)).toBe(false);
+        expect(cache.cachedParsedCueHtml(japaneseKey, DEFAULT_SETTINGS)).toBeUndefined();
+    });
+
     it('does not let a late cheap provisional parse overwrite an enriched cue', () => {
         const cache = createParsedHtmlCache();
         const key = cache.parseCacheKey('私も彼らの悪口を言いたくない');

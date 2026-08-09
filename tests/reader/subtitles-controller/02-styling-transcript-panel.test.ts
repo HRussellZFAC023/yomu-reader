@@ -53,6 +53,34 @@ function expectExactSubtitleSize(root: HTMLElement, { secondary = false } = {}):
     if (secondary) expect(root.style.getPropertyValue('--subtitle-secondary-font-size')).toBe('22px');
 }
 
+const TRANSCRIPT_DRAWER_CUE = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
+
+function primeTranscriptDrawer(controller: SubtitlePlayerController): {
+    internals: {
+        transcriptPanelSessionOpen: boolean;
+        openLinesPanel: () => void;
+    };
+    panel: HTMLElement;
+    root: HTMLElement;
+} {
+    const internals = controllerInternals<{
+        video: HTMLVideoElement;
+        cues: Array<typeof TRANSCRIPT_DRAWER_CUE>;
+        currentCue: typeof TRANSCRIPT_DRAWER_CUE;
+        transcriptPanelSessionOpen: boolean;
+        openLinesPanel: () => void;
+    }>(controller);
+    internals.video = document.createElement('video');
+    internals.cues = [TRANSCRIPT_DRAWER_CUE];
+    internals.currentCue = TRANSCRIPT_DRAWER_CUE;
+    controller.refresh();
+    return {
+        internals,
+        panel: document.querySelector<HTMLElement>('.jpdb-subtitle-list')!,
+        root: document.querySelector<HTMLElement>('.jpdb-subtitle-player')!,
+    };
+}
+
 describe('SubtitlePlayerController — styling & transcript panel', () => {
     registerSubtitleControllerCleanup();
 
@@ -1039,24 +1067,14 @@ Watch the cat
     it('opens and closes the transcript drawer from the rail panel toggle', async () => {
         vi.useFakeTimers();
         const onSettingsChange = vi.fn();
-        const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
+        const onTranscriptPanelClosed = vi.fn();
+        const { settings, controller } = createInstalledSubtitleController(
+            { subtitleTranscriptVisible: false },
+            { onSettingsChange, onTranscriptPanelClosed },
+        );
 
         try {
-            const video = document.createElement('video');
-            const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
-            const internals = controller as unknown as {
-                video: HTMLVideoElement;
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
-                transcriptPanelSessionOpen: boolean;
-            };
-            internals.video = video;
-            internals.cues = [cue];
-            internals.currentCue = cue;
-            controller.refresh();
-
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            const { internals, panel, root } = primeTranscriptDrawer(controller);
             const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
 
             expect(button.disabled).toBe(false);
@@ -1082,11 +1100,13 @@ Watch the cat
             expect(settings.subtitleTranscriptVisible).toBe(false);
             // Opening/closing the drawer must not write persisted settings.
             expect(onSettingsChange).not.toHaveBeenCalled();
+            expect(onTranscriptPanelClosed).not.toHaveBeenCalled();
 
             await vi.advanceTimersByTimeAsync(181);
 
             expect(panel.hidden).toBe(true);
             expect(panel.classList.contains('jpdb-subtitle-panel-closing')).toBe(false);
+            expect(onTranscriptPanelClosed).toHaveBeenCalledTimes(1);
         } finally {
             controller.destroy();
         }
@@ -1098,22 +1118,9 @@ Watch the cat
         const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
 
         try {
-            const video = document.createElement('video');
-            const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
-            const internals = controller as unknown as {
-                video: HTMLVideoElement;
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
-                openLinesPanel: () => void;
-            };
-            internals.video = video;
-            internals.cues = [cue];
-            internals.currentCue = cue;
-            controller.refresh();
+            const { internals, panel, root } = primeTranscriptDrawer(controller);
             internals.openLinesPanel();
 
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
             expect(panel.hidden).toBe(false);
 
             // The X is a one-click head button, not buried in the options popover.
@@ -1140,18 +1147,7 @@ Watch the cat
         const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
 
         try {
-            const video = document.createElement('video');
-            const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
-            const internals = controller as unknown as {
-                video: HTMLVideoElement;
-                cues: Array<typeof cue>;
-                currentCue: typeof cue;
-                openLinesPanel: () => void;
-            };
-            internals.video = video;
-            internals.cues = [cue];
-            internals.currentCue = cue;
-            controller.refresh();
+            const { internals } = primeTranscriptDrawer(controller);
 
             // Open the drawer at runtime (as on a video site)...
             internals.openLinesPanel();
@@ -1167,12 +1163,12 @@ Watch the cat
             try {
                 const otherInternals = secondTab.controller as unknown as {
                     video: HTMLVideoElement;
-                    cues: Array<typeof cue>;
-                    currentCue: typeof cue;
+                    cues: Array<typeof TRANSCRIPT_DRAWER_CUE>;
+                    currentCue: typeof TRANSCRIPT_DRAWER_CUE;
                 };
                 otherInternals.video = document.createElement('video');
-                otherInternals.cues = [cue];
-                otherInternals.currentCue = cue;
+                otherInternals.cues = [TRANSCRIPT_DRAWER_CUE];
+                otherInternals.currentCue = TRANSCRIPT_DRAWER_CUE;
                 secondTab.controller.refresh();
                 const panels = document.querySelectorAll<HTMLElement>('.jpdb-subtitle-list');
                 expect([...panels].every(panel => panel.hidden)).toBe(true);

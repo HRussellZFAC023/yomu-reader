@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../../src/reader/languages/active';
 import type { SubtitleParseOptions } from '../../../src/reader/subtitles/subtitle-parse-policy';
 import {
     DEFAULT_SETTINGS,
@@ -32,12 +33,101 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
     registerSubtitleControllerCleanup();
 
     afterEach(() => {
+        resetActiveLearningTargetLanguage();
         vi.useRealTimers();
         document.body.innerHTML = '';
         document.documentElement.classList.remove(
             'jpdb-subtitle-native-captions-suppressed',
             'jpdb-subtitle-yomu-captions-active',
         );
+    });
+
+    it('does not reuse cached cue HTML after the learning-target generation changes', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const parseJapanese = vi.fn(async () => [makeSubtitleToken('no')]);
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese,
+            onSettingsChange: () => undefined,
+        });
+        const internals = controllerInternals<{
+            htmlCache: SubtitleParsedHtmlCache;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            parseCueHtml: (text: string, settings: ReaderSettings) => Promise<string>;
+            reconcileSubtitleLanguageContext: (settings: ReaderSettings) => void;
+        }>(controller);
+        const japaneseKey = internals.parseCacheKey('no', settings);
+        internals.htmlCache.parsedHtmlCache.set(japaneseKey, '<span class="jpdb-reader-word">cached Japanese target</span>');
+
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        internals.reconcileSubtitleLanguageContext(settings);
+        const spanishKey = internals.parseCacheKey('no', settings);
+        const html = await internals.parseCueHtml('no', settings);
+
+        expect(spanishKey).not.toBe(japaneseKey);
+        expect(internals.htmlCache.parsedHtmlCache.has(japaneseKey)).toBe(false);
+        expect(html).not.toContain('cached Japanese target');
+        expect(internals.htmlCache.parsedHtmlCache.get(spanishKey)).toBe(html);
+        expect(parseJapanese).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects an in-flight A parse after A to B to A changes the target generation', async () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
+            localDictionariesEnabled: false,
+        };
+        const oldParse = deferred<JPDBToken[]>();
+        const parseJapanese = vi.fn()
+            .mockImplementationOnce(() => oldParse.promise)
+            .mockResolvedValueOnce([makeSubtitleToken('本', { cardState: ['known'] })]);
+        const controller = new SubtitlePlayerController({
+            getSettings: () => settings,
+            parseJapanese,
+            onSettingsChange: () => undefined,
+        });
+        const internals = controllerInternals<{
+            currentCue?: { start: number; end: number; text: string; transcriptEligible: boolean };
+            htmlCache: SubtitleParsedHtmlCache;
+            lastRenderedPrimaryHtml: string;
+            lastRenderedPrimaryKey: string;
+            parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            parseCueHtml: (text: string, settings: ReaderSettings) => Promise<string>;
+            reconcileSubtitleLanguageContext: (settings: ReaderSettings) => void;
+            renderParsedPrimary: (text: string) => Promise<void>;
+        }>(controller);
+        const cue = { start: 0, end: 2, text: '本', transcriptEligible: true };
+        internals.currentCue = cue;
+        const firstKey = internals.parseCacheKey('本', settings);
+        const stale = internals.renderParsedPrimary('本');
+        await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+
+        expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+        internals.reconcileSubtitleLanguageContext(settings);
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        internals.reconcileSubtitleLanguageContext(settings);
+        const currentKey = internals.parseCacheKey('本', settings);
+        internals.currentCue = cue;
+        internals.lastRenderedPrimaryKey = currentKey;
+        internals.lastRenderedPrimaryHtml = 'current generation frame';
+
+        oldParse.resolve([makeSubtitleToken('本', { cardState: ['not-in-deck'] })]);
+        await stale;
+
+        expect(currentKey).not.toBe(firstKey);
+        expect(internals.htmlCache.parsedHtmlCache.has(firstKey)).toBe(false);
+        expect(internals.htmlCache.parsedHtmlCache.has(currentKey)).toBe(false);
+        expect(internals.lastRenderedPrimaryKey).toBe(currentKey);
+        expect(internals.lastRenderedPrimaryHtml).toBe('current generation frame');
+
+        const current = await internals.parseCueHtml('本', settings);
+        expect(parseJapanese).toHaveBeenCalledTimes(2);
+        expect(internals.htmlCache.parsedHtmlCache.get(currentKey)).toBe(current);
+        expect(internals.htmlCache.parsedHtmlCache.has(firstKey)).toBe(false);
     });
 
     it('hydrates transcript rows with parsed subtitle words when the lines panel renders', async () => {

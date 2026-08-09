@@ -34,6 +34,7 @@ const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
 // After this many hydration passes an unresolved fallback cue settles to bare
 // instead of re-requesting an unresolvable word on every tick.
 const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
+const SUBTITLE_PARSE_CONTEXT_CHANGED = 'Subtitle parse context changed';
 
 // Everything the parsed-html cache reads back off the controller, made
 // explicit: current settings, whether parsing is enabled at all, whether an
@@ -41,6 +42,7 @@ const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
 // current transcript row count used to size the bounded caches.
 export interface SubtitleParsedHtmlCacheDeps {
     getSettings(): ReaderSettings;
+    parseContextKey(): string;
     shouldParseSubtitles(): boolean;
     hasAuthoritativeParseTier(settings?: ReaderSettings): boolean;
     transcriptRowCount(): number;
@@ -73,7 +75,7 @@ export class SubtitleParsedHtmlCache {
     constructor(private readonly deps: SubtitleParsedHtmlCacheDeps) {}
 
     parseCacheKey(text: string, settings = this.deps.getSettings()): string {
-        return [
+        return `${this.currentParseKeyPrefix()}${[
             subtitleParseSourceSignature(settings),
             settings.showFurigana,
             settings.furiganaMode,
@@ -87,10 +89,39 @@ export class SubtitleParsedHtmlCache {
             settings.subtitleUnderlineColorSource,
             settings.subtitleTextColorSource,
             text,
-        ].join(':');
+        ].join(':')}`;
+    }
+
+    isCurrentParseKey(key: string): boolean {
+        return key.startsWith(this.currentParseKeyPrefix());
+    }
+
+    // TARGET generation is part of every cache key, and a context adoption
+    // drops all reachable state in one transaction. Promises already running
+    // may still settle for their original callers, but the write guards below
+    // prevent them from repopulating any tier after A -> B (or A -> B -> A).
+    invalidateParseContext(): void {
+        this.parsedHtmlCache.clear();
+        this.provisionalParsedHtmlCache.clear();
+        this.enrichedProvisionalParsedHtmlKeys.clear();
+        this.incompleteEnrichmentAttempts.clear();
+        this.sessionParseCacheChecked.clear();
+        this.emptyParsedHtmlCache.clear();
+        this.pendingParsedHtml.clear();
+        this.pendingProvisionalParsedHtml.clear();
+        this.parsedTokenCache.clear();
+        this.parsedTokenNotifiedAt.clear();
+    }
+
+    private currentParseKeyPrefix(): string {
+        // This key is also embedded in transcript data attributes. Keep the
+        // boundary HTML-safe: browsers replace NUL/control delimiters while
+        // parsing attributes, which would make the DOM key differ from Maps.
+        return `context:${encodeURIComponent(this.deps.parseContextKey())}:`;
     }
 
     usableProvisionalParsedHtml(key: string, options: { refreshProvisional?: boolean; requireEnrichedProvisional?: boolean }): string | undefined {
+        if (!this.isCurrentParseKey(key)) return undefined;
         const html = this.provisionalParsedHtmlCache.get(key);
         if (!html) return undefined;
         if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return undefined;
@@ -122,6 +153,7 @@ export class SubtitleParsedHtmlCache {
     // which it settles to bare to avoid re-requesting an unresolvable word on
     // every hydration tick.
     shouldMarkCueEnriched(key: string, tokens: JPDBToken[], enrichRequested: boolean): boolean {
+        if (!this.isCurrentParseKey(key)) return false;
         if (!enrichRequested) return false;
         if (this.tokensFullyEnriched(tokens)) {
             this.incompleteEnrichmentAttempts.delete(key);
@@ -141,6 +173,7 @@ export class SubtitleParsedHtmlCache {
 
     rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): SubtitleParsedCueHtmlWriteResult {
         const provisional = options.provisional === true;
+        if (!this.isCurrentParseKey(key)) throw new Error(SUBTITLE_PARSE_CONTEXT_CHANGED);
         if (!this.deps.shouldParseSubtitles()) return { html, provisional };
         const existingAuthoritative = this.parsedHtmlCache.get(key);
         const existingProvisional = this.provisionalParsedHtmlCache.get(key);
@@ -197,6 +230,7 @@ export class SubtitleParsedHtmlCache {
     // authoritative result if one already won the race; otherwise discard all
     // uncommitted tiers and cache the plain frame for the normal retry TTL.
     rememberPlainCueFallback(key: string, html: string): string {
+        if (!this.isCurrentParseKey(key)) return html;
         const authoritative = this.parsedHtmlCache.get(key);
         if (authoritative !== undefined) return authoritative;
         this.deleteParsedSubtitleKey(key);
@@ -301,6 +335,7 @@ export class SubtitleParsedHtmlCache {
     }
 
     freshEmptyParsedHtml(key: string): string | undefined {
+        if (!this.isCurrentParseKey(key)) return undefined;
         const cached = this.emptyParsedHtmlCache.get(key);
         if (!cached) return undefined;
         if (cached.expiresAt > Date.now()) return cached.html;

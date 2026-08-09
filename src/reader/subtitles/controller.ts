@@ -297,6 +297,7 @@ interface SubtitlePlayerOptions {
     mineBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[]) => Promise<number>;
     gradeBatchMiningCandidates?: (candidates: SubtitleBatchMiningCandidate[], grade: JPDBGrade) => Promise<number>;
     toast?: (message: string) => void;
+    onTranscriptPanelClosed?: () => void;
     onSettingsChange: (
         explicitUserChoiceKeys: readonly (keyof ReaderSettings)[],
         clearExplicitUserChoiceKeys?: readonly (keyof ReaderSettings)[],
@@ -780,6 +781,7 @@ export class SubtitlePlayerController {
     // collaborator; the controller keeps the parse/render orchestration.
     private readonly htmlCache = new SubtitleParsedHtmlCache({
         getSettings: () => this.options.getSettings(),
+        parseContextKey: () => subtitleLanguageContextKey(this.subtitleLanguageContext),
         shouldParseSubtitles: () => this.shouldParseSubtitles(),
         hasAuthoritativeParseTier: (settings?: ReaderSettings) => this.hasAuthoritativeParseTier(settings),
         transcriptRowCount: () => this.cues.filter(cue => cue.transcriptEligible !== false).length,
@@ -1248,6 +1250,7 @@ export class SubtitlePlayerController {
         );
         if (!plan) return;
         this.subtitleLanguageContext = next;
+        this.htmlCache.invalidateParseContext();
         this.removeSubtitleTrackIds(plan.removedTrackIds);
         disableSubtitleTextTrack(this.nativeFullscreenCueTrack);
         this.nativeFullscreenCueTrack = undefined;
@@ -2826,7 +2829,7 @@ export class SubtitlePlayerController {
             lastRenderedKey: this.lastRenderedPrimaryKey,
             lastRenderedText: this.lastRenderedPrimaryText,
             lastRenderedHtml: this.lastRenderedPrimaryHtml,
-            hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
+            hasFreshEmptyParsedHtml: this.htmlCache.hasFreshEmptyParsedHtml(parseKey),
             hasParser: this.shouldParseSubtitles(settings),
             time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0,
         });
@@ -2934,6 +2937,7 @@ export class SubtitlePlayerController {
             const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
             this.applyParsedPrimaryHtml(key, text, html, serial);
         } catch {
+            if (!this.htmlCache.isCurrentParseKey(key)) return;
             // Parsing/enrichment failure is a settled plain fallback, not a
             // perpetual blank or retry loop. Commit it once for this cue's
             // visual lifetime; a later visit may retry after the empty-cache
@@ -3003,7 +3007,7 @@ export class SubtitlePlayerController {
     }
 
     private async parseProvisionalCueHtml(text: string, settings: ReaderSettings, key: string, options: ParseCueHtmlOptions = {}): Promise<string> {
-        const restored = this.restoreSessionParsedCueHtml(key);
+        const restored = this.htmlCache.restoreSessionParsedCueHtml(key);
         if (restored) return restored;
         const shouldUpgradeAuthoritative = options.authoritativeUpgrade !== false;
         const cached = this.htmlCache.provisionalParsedHtmlCache.get(key);
@@ -3406,10 +3410,6 @@ export class SubtitlePlayerController {
         return options.requireEnrichedProvisional === true && this.hasAuthoritativeParseTier(settings);
     }
 
-    private restoreSessionParsedCueHtml(key: string): string | undefined {
-        return this.htmlCache.restoreSessionParsedCueHtml(key);
-    }
-
     private notifyParsedTokensForKey(key: string, force = false, roots?: ParentNode[]): void {
         if (!this.shouldParseSubtitles() || !this.options.afterParseTokens) return;
         const tokens = this.htmlCache.parsedTokenCache.get(key);
@@ -3426,10 +3426,6 @@ export class SubtitlePlayerController {
         // keyless parse, so overlay cues render colorised immediately even
         // without an API key instead of waiting on the slow JPDB-timeout path.
         return isYouTubePage();
-    }
-
-    private hasFreshEmptyParsedHtml(key: string): boolean {
-        return this.htmlCache.hasFreshEmptyParsedHtml(key);
     }
 
     private freshEmptyParsedHtml(key: string): string | undefined {
@@ -3553,7 +3549,7 @@ export class SubtitlePlayerController {
     // and the cue counts as warm; keyed the provisional tier stays listed so
     // a failed authoritative upgrade is retried by the next warmup turn.
     private isWarmParsedCueKey(key: string, settings = this.options.getSettings()): boolean {
-        if (this.cachedParsedCueHtml(key, settings) !== undefined || this.hasFreshEmptyParsedHtml(key)) return true;
+        if (this.cachedParsedCueHtml(key, settings) !== undefined || this.htmlCache.hasFreshEmptyParsedHtml(key)) return true;
         return !this.hasAuthoritativeParseTier(settings) && this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(key);
     }
 
@@ -5666,12 +5662,14 @@ export class SubtitlePlayerController {
 
     private finishTranscriptPanelHide(panel: HTMLElement): void {
         if (this.transcriptPanel !== panel) return;
+        const revealedPageContent = !panel.hidden;
         this.clearTranscriptPanelAnimation();
         panel.hidden = true;
         this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-opened', 'jpdb-subtitle-panel-closing');
         this.transcriptPanelClosing = false;
         this.syncControls();
+        if (revealedPageContent) this.options.onTranscriptPanelClosed?.();
     }
 
     private clearTranscriptPanelAnimation(): void {

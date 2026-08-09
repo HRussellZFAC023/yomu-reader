@@ -138,6 +138,7 @@ export function createSubtitleController<TSettings extends ReaderSettings>(
         ...(hooks.parseJapaneseBatch ? { parseJapaneseBatch: hooks.parseJapaneseBatch } : {}),
         ...(hooks.beforeRenderTokens ? { beforeRenderTokens: hooks.beforeRenderTokens } : {}),
         ...(hooks.afterParseTokens ? { afterParseTokens: hooks.afterParseTokens } : {}),
+        ...(hooks.onTranscriptPanelClosed ? { onTranscriptPanelClosed: hooks.onTranscriptPanelClosed } : {}),
         onSettingsChange: hooks.onSettingsChange ?? (() => undefined),
     });
     return { settings, controller };

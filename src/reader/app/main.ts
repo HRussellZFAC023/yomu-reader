@@ -1052,6 +1052,7 @@ export class ReaderApp {
             mineBatchMiningCandidates: candidates => this.cardActions.addBatchMiningCards(candidates),
             gradeBatchMiningCandidates: (candidates, grade) => this.cardActions.reviewBatchMiningCards(candidates, grade),
             toast: message => this.toast(message),
+            onTranscriptPanelClosed: () => this.scheduleVisiblePageRescan(),
             onSettingsChange: (explicitUserChoiceKeys, clearExplicitUserChoiceKeys) => void saveSettings(this.settings, {
                 explicitUserChoiceKeys,
                 clearExplicitUserChoiceKeys,
@@ -1231,9 +1232,7 @@ export class ReaderApp {
         // the existing YouTube chat surface). Without the observer, a
         // Latin -> Japanese characterData mutation was invisible forever.
         this.setupAutoScan();
-        if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) {
-            this.scheduleAutoScan(0, { force: true });
-        }
+        if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) this.scheduleVisiblePageRescan();
     }
 
     private async initTopLevelReaderPage(shouldShowWelcome: boolean, shadowDiscoveryUncertain: boolean): Promise<void> {
@@ -2524,9 +2523,7 @@ export class ReaderApp {
             this.autoScanDebounced = false;
             this.pageScanner.cancelVisiblePageScan();
             this.clearAllAnnotations();
-        } else if (!this.settings.manualScanEnabled) {
-            this.scheduleAutoScan(0, { force: true });
-        }
+        } else this.scheduleVisiblePageRescan();
         // Captions are a reader surface too: repaint them immediately so OFF
         // cannot leave parsed ruby/colour DOM visible until a later settings
         // refresh, and so the subtitle controller stops scheduling parse work.
@@ -2592,9 +2589,11 @@ export class ReaderApp {
             explicitUserChoiceKeys: ['showFurigana', 'furiganaMode', 'puckFuriganaModeBeforeHide'],
         });
         this.clearAllAnnotations();
-        if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) {
-            this.scheduleAutoScan(0, { force: true });
-        }
+        this.scheduleVisiblePageRescan();
+    }
+
+    private scheduleVisiblePageRescan(): void {
+        if (!this.settings.annotationsPaused && !this.settings.manualScanEnabled) this.scheduleAutoScan(0, { force: true });
     }
 
     private async cycleOcrMode(): Promise<void> {
