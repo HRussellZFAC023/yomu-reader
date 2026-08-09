@@ -10,6 +10,7 @@ const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'),
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
 const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
+const readerSyncScript = readFileSync(join(process.cwd(), 'scripts/sync-docs-userscript.cjs'), 'utf8');
 const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
     scripts: Record<string, string>;
 };
@@ -52,6 +53,26 @@ describe('release workflow safety', () => {
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/api');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/greasyfork');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/yomu.user.js');
+    });
+
+    it('tracks every standalone hosted wrapper stamped by the Reader sync', () => {
+        const surfaceRegistry = readerSyncScript.match(/const STANDALONE_HOSTED_SURFACES = \[([\s\S]*?)\n\];/u)?.[1] ?? '';
+        const syncStampedWrappers = Array.from(
+            surfaceRegistry.matchAll(/(?:page|serviceWorker): join\(root, 'docs', 'public', '([^']+)', '([^']+)'\)/gu),
+            (match) => `docs/public/${match[1]}/${match[2]}`,
+        );
+        const expectedWrappers = [
+            'docs/public/pdf-reader/index.html',
+            'docs/public/pdf-reader/sw.js',
+            'docs/public/video-player/index.html',
+            'docs/public/video-player/sw.js',
+        ];
+
+        // The exact set assertion keeps this non-vacuous if the sync registry
+        // or its extraction changes; the manifest assertion guards staging and
+        // generated-artifact drift detection for every file the sync mutates.
+        expect(syncStampedWrappers).toEqual(expectedWrappers);
+        expect(syncStampedWrappers.filter((path) => !GENERATED_ARTIFACT_PATHS.includes(path))).toEqual([]);
     });
 
     it('covers every hosted file the userscript header pins by URL', () => {
