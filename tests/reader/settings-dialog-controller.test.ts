@@ -570,6 +570,10 @@ describe('settings dialog keyboard dismissal', () => {
             ...current.languageProfiles[0]!,
             id: 'durable-spanish',
             targetLanguage: 'es',
+            outputLanguage: 'ko',
+            learnerLanguage: 'ko',
+            parserProvider: 'jpdb' as const,
+            definitionTranslationProviderIds: ['__jiten__'],
         };
         const onSettingsPersisted = vi.fn();
         const observedEvents: Event[] = [];
@@ -580,32 +584,49 @@ describe('settings dialog keyboard dismissal', () => {
             setSettings: (settings: ReaderSettings) => { current = settings; },
             onSettingsPersisted,
         });
+        const parser = form.querySelector<HTMLSelectElement>('select[name="parserProvider"]')!;
 
         try {
+            // Production applies remote settings to ReaderApp before it publishes
+            // the event. The dialog must compare against its open-time baseline,
+            // not read this already-updated backing object as "previous" state.
+            current = {
+                ...current,
+                parserProvider: profile.parserProvider,
+                languageProfiles: [profile],
+                activeLanguageProfileId: profile.id,
+            };
             window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-                detail: {
-                    settings: {
-                        languageProfiles: [profile],
-                        activeLanguageProfileId: profile.id,
-                    },
-                },
+                detail: { settings: current },
             }));
 
             const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+            const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
             const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+            const youtubeImmersion = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
             expect(observedEvents).toHaveLength(1);
             expect(current.activeLanguageProfileId).toBe(profile.id);
             expect(target.value).toBe('es');
+            expect(output.value).toBe('ko');
+            expect(parser.value).toBe('jpdb');
+            expect(definitionTranslationInput(form, '__jiten__').checked).toBe(true);
             expect(form.dataset.language).toBe('es');
             expect(mode.value).toBe('all');
             expect(mode.closest('label')?.textContent).toContain('Reading annotations');
             expect(mode.querySelector('option[value="difficult-kanji"]')).toBeNull();
+            expect(youtubeImmersion.checked).toBe(false);
             expectSpanishLookupPills(form);
 
             await submitSettingsAndWait(form, dismiss, onSettingsPersisted);
 
             const savedProfile = activeLanguageProfile(current);
-            expect(savedProfile?.targetLanguage).toBe('es');
+            expect(savedProfile).toMatchObject({
+                targetLanguage: 'es',
+                outputLanguage: 'ko',
+                learnerLanguage: 'ko',
+                parserProvider: 'jpdb',
+                definitionTranslationProviderIds: ['__jiten__'],
+            });
             expect(current.dictionaryLookupLinks.map(link => link.id)).toEqual(expect.arrayContaining(['rae', 'spanishdict']));
             // One incoming durable event and one event from the explicit Save;
             // synchronizing the adopted profile never publishes another event.

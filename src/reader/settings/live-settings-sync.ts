@@ -23,21 +23,44 @@ export function bindLiveSettingsSync(
     form: HTMLFormElement,
     dependencies: LiveSettingsSyncDependencies,
 ): void {
+    let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
     window.addEventListener(SETTINGS_CHANGE_EVENT, event => {
         if (!dependencies.isActive()) return;
         const detail = (event as CustomEvent<{ settings?: Partial<ReaderSettings>; preview?: boolean }>).detail;
         if (detail?.settings && detail.preview !== true) {
-            const previousSettings = dependencies.getSettings();
+            const previousSettings = adoptedSettings;
             const settings = { ...previousSettings, ...detail.settings };
             dependencies.adoptSettings(settings);
             syncFormFromSettings(form, previousSettings, settings);
             dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
             syncSubtitlePreview(form);
             syncFontFamilyControls(form);
+            adoptedSettings = snapshotLiveSettings(settings);
         }
         const theme = themeFromSettingsChangeEvent(event);
         if (theme) dependencies.applyTheme(theme);
     });
+}
+
+/**
+ * The dialog baseline must not share the nested language records that a host
+ * may replace or mutate before publishing its durable event. Other live-form
+ * facets are scalar, so the top-level copy is their complete snapshot.
+ */
+function snapshotLiveSettings(settings: ReaderSettings): ReaderSettings {
+    return {
+        ...settings,
+        languageProfiles: settings.languageProfiles.map(profile => ({
+            ...profile,
+            dictionaries: {
+                installed: [...profile.dictionaries.installed],
+                enabled: [...profile.dictionaries.enabled],
+                order: [...profile.dictionaries.order],
+            },
+            definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds],
+        })),
+        dictionaryLookupLinks: settings.dictionaryLookupLinks.map(link => ({ ...link })),
+    };
 }
 
 function syncFormFromSettings(
