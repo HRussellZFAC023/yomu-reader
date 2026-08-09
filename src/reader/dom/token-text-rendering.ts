@@ -1,5 +1,6 @@
 import { primaryCardState } from '../cards/state';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
+import { HAS_JAPANESE_LETTER } from './constants';
 import { escapeHtml } from './html';
 import {
     KANJI_RE,
@@ -148,7 +149,20 @@ function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolea
         || token.start < 0
         || token.end <= token.start
         || token.end > text.length) return false;
-    return learningTargetForToken(token).isLookupableText(text.slice(token.start, token.end));
+    return tokenSourceSpanIsRenderable(token, text.slice(token.start, token.end));
+}
+
+function tokenSourceSpanIsRenderable(token: JPDBToken, source: string): boolean {
+    const target = learningTargetForToken(token);
+    // Japanese's scan detector deliberately includes orthographic marks so a
+    // wider kana run remains discoverable. Those marks cannot own page text by
+    // themselves: rendering a parser token over `・` or `ー` would create a
+    // floating word/reading with no lexical base. Other target detectors are
+    // script-letter based, so their lookup predicate is already the narrower
+    // render-boundary predicate.
+    return target.language === 'ja'
+        ? HAS_JAPANESE_LETTER.test(source)
+        : target.isLookupableText(source);
 }
 
 export function miningInsightTokenKeys(tokens: JPDBToken[]): ReadonlySet<string> {
