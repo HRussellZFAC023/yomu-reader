@@ -32,6 +32,13 @@ import type {
 
 registerReaderHelpersCleanup();
 
+function expectTokyoAnnotation(selector: string): void {
+    const word = document.querySelector<HTMLElement>(selector)!;
+    expect(readerWordSurfaceText(word)).toBe('東京');
+    expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
+    expectRenderedPitchWord(word, 'heiban');
+}
+
 describe('reader helpers', () => {
     it('keeps YouTube owner subscriber chrome out of non-destructive mirrors across rescans', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 1000, height: 240 });
@@ -374,10 +381,7 @@ describe('reader helpers', () => {
                 sentence: '服代が月1万から20万円！？東京の春コーデ',
             }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-            const word = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
-            expect(readerWordSurfaceText(word)).toBe('東京');
-            expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
-            expectRenderedPitchWord(word, 'heiban');
+            expectTokyoAnnotation('a#video-title-link .jpdb-reader-word');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -525,10 +529,7 @@ describe('reader helpers', () => {
                 sentence: '東京で見る関連動画ニュース',
             }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-            const word = document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word')!;
-            expect(readerWordSurfaceText(word)).toBe('東京');
-            expect(word.querySelector('rt, .jpdb-reader-detached-furi')?.textContent).toBe('とうきょう');
-            expectRenderedPitchWord(word, 'heiban');
+            expectTokyoAnnotation('ytd-compact-video-renderer .jpdb-reader-word');
         } finally {
             vi.unstubAllGlobals();
         }
