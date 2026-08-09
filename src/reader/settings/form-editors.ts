@@ -439,7 +439,7 @@ function renderDictionaryLookupLinkRows(rows: DictionaryLookupLink[], targetLang
     `;
 }
 
-function lookupPillEditorRows(
+export function lookupPillEditorRows(
     links: DictionaryLookupLink[],
     localFrequencyPreferences: DictionaryPreference[],
     target: string,

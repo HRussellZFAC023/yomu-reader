@@ -6,6 +6,7 @@ import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { recommendedDictionariesForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
 import { listDictionaryArchives, persistDictionaryArchive } from '../../src/reader/dictionaries/archive-cache';
 import {
+    defaultDictionaryLookupLinks,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     normalizeReaderSettings,
 } from '../../src/reader/settings';
@@ -349,12 +350,24 @@ function lookupPillIds(form: HTMLFormElement): string[] {
     );
 }
 
-function lookupPillLabelInput(form: HTMLFormElement, id: string): HTMLInputElement {
+function lookupPillRow(form: HTMLFormElement, id: string): HTMLElement {
     const idInput = Array.from(
         form.querySelectorAll<HTMLInputElement>('.jpdb-reader-lookup-links input[name$=".id"]'),
     ).find(input => input.value === id)!;
-    return idInput.closest<HTMLElement>('[data-lookup-link-row]')!
+    return idInput.closest<HTMLElement>('[data-lookup-link-row]')!;
+}
+
+function lookupPillLabelInput(form: HTMLFormElement, id: string): HTMLInputElement {
+    return lookupPillRow(form, id)
         .querySelector<HTMLInputElement>('input[name$=".label"]')!;
+}
+
+function lookupPillUrlInput(form: HTMLFormElement, id: string): HTMLInputElement {
+    return lookupPillRow(form, id).querySelector<HTMLInputElement>('input[name$=".urlTemplate"]')!;
+}
+
+function lookupPillEnabledInput(form: HTMLFormElement, id: string): HTMLInputElement {
+    return lookupPillRow(form, id).querySelector<HTMLInputElement>('[data-lookup-link-enable-toggle]')!;
 }
 
 function definitionTranslationInput(form: HTMLFormElement, id: string): HTMLInputElement {
@@ -636,9 +649,105 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
-    it('adopts a durable lookup reorder and preserves unsaved language facets across equivalent events', async () => {
+    it('resets a durable English-to-Cantonese target-only change to Cantonese provider order', () => {
         settingsDialogTestState.useRealLocalization = true;
-        let current: ReaderSettings = { ...DEFAULT_SETTINGS };
+        const englishLinks = defaultDictionaryLookupLinks('local', 'en').map((link, index, links) => ({
+            ...link,
+            enabled: link.id === 'forvo' ? false : link.enabled,
+            priority: links.length - index + 4,
+        }));
+        const custom = {
+            id: 'custom-carry',
+            label: 'My dictionary',
+            urlTemplate: 'https://example.com/lookup/{query}',
+            enabled: true,
+            priority: 2,
+        };
+        const localFrequency = {
+            id: 'frequency-local:Corpus',
+            label: 'Corpus',
+            urlTemplate: '',
+            enabled: false,
+            action: 'frequency-local' as const,
+            priority: 4,
+        };
+        let current = normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
+                ...profile,
+                targetLanguage: 'en',
+            })),
+            dictionaryLookupLinks: [...englishLinks, custom, localFrequency],
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+        });
+
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: {
+                settings: {
+                    languageProfiles: current.languageProfiles.map(profile => ({
+                        ...profile,
+                        targetLanguage: 'yue-Hant',
+                    })),
+                },
+            },
+        }));
+
+        const portableIds = new Set([custom.id, localFrequency.id]);
+        const providerIds = lookupPillIds(form).filter(id => !portableIds.has(id));
+        expect(providerIds).toEqual(defaultDictionaryLookupLinks('local', 'yue').map(link => link.id));
+        expect(form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('yue');
+        expect(lookupPillUrlInput(form, 'words-hk').value).toBe('https://words.hk/zidin/{query}');
+        expect(lookupPillUrlInput(form, 'wiktionary-en').value)
+            .toBe('https://en.wiktionary.org/wiki/{query}#Chinese');
+        expect(lookupPillUrlInput(form, custom.id).value).toBe(custom.urlTemplate);
+        expect(lookupPillEnabledInput(form, localFrequency.id).checked).toBe(false);
+        expect(lookupPillEnabledInput(form, 'forvo').checked).toBe(false);
+    });
+
+    it('adopts a priority-only reorder of Spanish built-in lookup pills', () => {
+        settingsDialogTestState.useRealLocalization = true;
+        let current = normalizeReaderSettings({
+            ...DEFAULT_SETTINGS,
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
+                ...profile,
+                targetLanguage: 'es',
+            })),
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local', 'es'),
+        });
+        const { form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+        });
+        const raePriority = current.dictionaryLookupLinks.find(link => link.id === 'rae')!.priority;
+        const spanishDictPriority = current.dictionaryLookupLinks.find(link => link.id === 'spanishdict')!.priority;
+        const reordered = current.dictionaryLookupLinks.map(link => {
+            if (link.id === 'rae') return { ...link, priority: spanishDictPriority };
+            if (link.id === 'spanishdict') return { ...link, priority: raePriority };
+            return link;
+        });
+        expect(reordered.map(link => link.id)).toEqual(current.dictionaryLookupLinks.map(link => link.id));
+
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: { settings: { dictionaryLookupLinks: reordered } },
+        }));
+
+        expect(lookupPillIds(form).indexOf('spanishdict')).toBeLessThan(lookupPillIds(form).indexOf('rae'));
+        expect(lookupPillUrlInput(form, 'rae').value).toBe('https://dle.rae.es/{query}');
+        expect(lookupPillUrlInput(form, 'spanishdict').value)
+            .toBe('https://www.spanishdict.com/translate/{query}');
+    });
+
+    it('preserves an unsaved lookup reorder across normalized and array-only durable events', async () => {
+        settingsDialogTestState.useRealLocalization = true;
+        const legacyLookupLinks = DEFAULT_SETTINGS.dictionaryLookupLinks
+            .filter(link => link.id !== 'nadeshiko')
+            .map(link => link.id === 'jisho'
+                ? { ...link, urlTemplate: 'https://legacy.example/search/{query}' }
+                : link);
+        let current: ReaderSettings = { ...DEFAULT_SETTINGS, dictionaryLookupLinks: legacyLookupLinks };
         const onSettingsPersisted = vi.fn();
         const { dismiss, form } = createSettingsDialog({
             getSettings: () => current,
@@ -648,16 +757,31 @@ describe('settings dialog keyboard dismissal', () => {
         const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
         const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
 
-        const jiten = current.dictionaryLookupLinks.find(link => link.id === 'jiten')!;
-        const durableLookupLinks = [
-            jiten,
-            ...current.dictionaryLookupLinks.filter(link => link.id !== jiten.id),
-        ].map((link, priority) => ({ ...link, priority }));
+        const beforeReorder = lookupPillIds(form);
+        lookupPillRow(form, 'jisho')
+            .querySelector<HTMLButtonElement>('[data-action="lookup-link-up"]')!
+            .click();
+        const liveReorder = lookupPillIds(form);
+        expect(liveReorder).not.toEqual(beforeReorder);
+
+        const normalized = normalizeReaderSettings(current);
+        expect(normalized.dictionaryLookupLinks.map(link => link.id)).toContain('nadeshiko');
+        expect(normalized.dictionaryLookupLinks.find(link => link.id === 'jisho')?.urlTemplate)
+            .toBe('https://jisho.org/search/{query}');
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
-            detail: { settings: { dictionaryLookupLinks: durableLookupLinks } },
+            detail: { settings: normalized },
         }));
-        expect(lookupPillIds(form).indexOf('jiten'))
-            .toBeLessThan(lookupPillIds(form).indexOf('yomu-search'));
+        expect(lookupPillIds(form)).toEqual(liveReorder);
+
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: {
+                settings: {
+                    ...normalized,
+                    dictionaryLookupLinks: [...normalized.dictionaryLookupLinks].reverse(),
+                },
+            },
+        }));
+        expect(lookupPillIds(form)).toEqual(liveReorder);
 
         target.value = 'es';
         target.dispatchEvent(new Event('change', { bubbles: true }));

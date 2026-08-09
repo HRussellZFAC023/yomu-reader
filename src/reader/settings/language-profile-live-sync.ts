@@ -8,13 +8,11 @@ import {
     activeLearnerLanguageId,
     activeTargetLanguageId,
     localizeSettingsForm,
+    lookupPillEditorRows,
     lookupLinkRows,
     renderDictionaryLookupLinkEditor,
 } from './form';
-import {
-    dictionaryLookupLinksForTarget,
-    normalizeDictionaryLookupLinks,
-} from './dictionary';
+import { dictionaryLookupLinksForTarget } from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
 import { syncYoutubeImmersionTarget } from './youtube-panel';
 
@@ -61,7 +59,11 @@ function syncPickedTarget(
 ): void {
     syncLanguageFamilyDom(form, targetLanguage);
     syncYoutubeImmersionTarget(form, settings, targetLanguage);
-    syncLookupPills(form, settings, 'live-form', targetLanguage);
+    syncLookupPills(
+        form,
+        dictionaryLookupLinksForTarget(lookupLinkRows(new FormData(form)), targetLanguage),
+        targetLanguage,
+    );
     localizeSettingsForm(form, settings.interfaceLanguage);
     dependencies.refreshTargetControls(targetLanguage);
 }
@@ -86,7 +88,24 @@ function syncAdoptedLanguageFacets(
 ): void {
     if (changes.profileControls) syncAdoptedProfileControls(form, settings);
     if (changes.targetLanguage) syncLanguageFamilyDom(form, targetLanguage);
-    if (changes.lookupLinks) syncLookupPills(form, settings, 'durable-settings', targetLanguage);
+    if (changes.lookupLinks) {
+        // A target change owns a fresh canonical provider row. Carry only the
+        // portable/custom rows and shared enabled state out of the old target;
+        // a same-target event, by contrast, may deliberately reorder built-ins.
+        syncLookupPills(
+            form,
+            adoptedLookupLinks(settings.dictionaryLookupLinks, targetLanguage, changes.targetLanguage),
+            targetLanguage,
+        );
+    }
+}
+
+function adoptedLookupLinks(
+    links: DictionaryLookupLink[],
+    targetLanguage: LearningTargetRosterId,
+    targetChanged: boolean,
+): DictionaryLookupLink[] {
+    return targetChanged ? dictionaryLookupLinksForTarget(links, targetLanguage) : links;
 }
 
 function syncAdoptedPresentationFacets(
@@ -141,9 +160,9 @@ function lookupSurfaceKey(settings: ReaderSettings): string {
     // value. Compare the surface we would actually render, not the raw stored
     // array, so adding missing built-ins during that normalization does not
     // masquerade as a lookup-pill edit and erase an unsaved live reorder.
-    const renderedLinks = normalizeDictionaryLookupLinks(
+    const renderedLinks = lookupPillEditorRows(
         settings.dictionaryLookupLinks,
-        false,
+        [],
         targetLanguage,
     );
     return JSON.stringify([
@@ -217,17 +236,13 @@ function syncTranslationProviders(form: HTMLFormElement, enabledProviderIds: rea
 
 function syncLookupPills(
     form: HTMLFormElement,
-    settings: ReaderSettings,
-    source: 'durable-settings' | 'live-form',
+    links: DictionaryLookupLink[],
     targetLanguage: LearningTargetRosterId,
 ): void {
     const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
     if (!container) return;
-    const sourceLinks = source === 'durable-settings'
-        ? settings.dictionaryLookupLinks
-        : dictionaryLookupLinksForTarget(lookupLinkRows(new FormData(form)), targetLanguage);
     setInnerHtml(container, renderDictionaryLookupLinkEditor(
-        sourceLinks,
+        links,
         [],
         targetLanguage,
     ));

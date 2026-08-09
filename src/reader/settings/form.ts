@@ -69,7 +69,7 @@ import { renderReadingAnnotationControls, syncReadingAnnotationControls } from '
 
 export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
-export { mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
+export { lookupPillEditorRows, mergeAudioSubSources, renderAudioSourceEditor, renderAudioSubSourceList, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml, wanikaniStatusLineForSettings } from './status-lines';
