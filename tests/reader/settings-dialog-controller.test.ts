@@ -636,7 +636,7 @@ describe('settings dialog keyboard dismissal', () => {
         }
     });
 
-    it('preserves unsaved language facets across unrelated partial and semantically equal full events', async () => {
+    it('adopts a durable lookup reorder and preserves unsaved language facets across equivalent events', async () => {
         settingsDialogTestState.useRealLocalization = true;
         let current: ReaderSettings = { ...DEFAULT_SETTINGS };
         const onSettingsPersisted = vi.fn();
@@ -647,6 +647,17 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
         const output = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
+
+        const jiten = current.dictionaryLookupLinks.find(link => link.id === 'jiten')!;
+        const durableLookupLinks = [
+            jiten,
+            ...current.dictionaryLookupLinks.filter(link => link.id !== jiten.id),
+        ].map((link, priority) => ({ ...link, priority }));
+        window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+            detail: { settings: { dictionaryLookupLinks: durableLookupLinks } },
+        }));
+        expect(lookupPillIds(form).indexOf('jiten'))
+            .toBeLessThan(lookupPillIds(form).indexOf('yomu-search'));
 
         target.value = 'es';
         target.dispatchEvent(new Event('change', { bubbles: true }));

@@ -11,7 +11,10 @@ import {
     lookupLinkRows,
     renderDictionaryLookupLinkEditor,
 } from './form';
-import { dictionaryLookupLinksForTarget } from './dictionary';
+import {
+    dictionaryLookupLinksForTarget,
+    normalizeDictionaryLookupLinks,
+} from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
 import { syncYoutubeImmersionTarget } from './youtube-panel';
 
@@ -133,9 +136,19 @@ function profileControlsKey(settings: ReaderSettings): string {
 }
 
 function lookupSurfaceKey(settings: ReaderSettings): string {
+    const targetLanguage = activeTargetLanguageId(settings);
+    // Persisting an unrelated machine update emits a full normalized settings
+    // value. Compare the surface we would actually render, not the raw stored
+    // array, so adding missing built-ins during that normalization does not
+    // masquerade as a lookup-pill edit and erase an unsaved live reorder.
+    const renderedLinks = normalizeDictionaryLookupLinks(
+        settings.dictionaryLookupLinks,
+        false,
+        targetLanguage,
+    );
     return JSON.stringify([
-        activeTargetLanguageId(settings),
-        settings.dictionaryLookupLinks.map(dictionaryLookupLinkKey),
+        targetLanguage,
+        renderedLinks.map(dictionaryLookupLinkKey),
     ]);
 }
 
@@ -212,9 +225,9 @@ function syncLookupPills(
     if (!container) return;
     const sourceLinks = source === 'durable-settings'
         ? settings.dictionaryLookupLinks
-        : lookupLinkRows(new FormData(form));
+        : dictionaryLookupLinksForTarget(lookupLinkRows(new FormData(form)), targetLanguage);
     setInnerHtml(container, renderDictionaryLookupLinkEditor(
-        dictionaryLookupLinksForTarget(sourceLinks, targetLanguage),
+        sourceLinks,
         [],
         targetLanguage,
     ));
