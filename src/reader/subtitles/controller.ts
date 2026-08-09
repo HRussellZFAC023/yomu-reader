@@ -89,7 +89,8 @@ import {
     syncSubtitleTrackStatus,
     syncTranscriptPlacementButtons,
 } from './subtitle-panel-actions';
-import { applySubtitleNativeTrackModes } from './subtitle-native-track-modes';
+import { applySubtitleNativeTrackModes, releaseSubtitleNativeTrackModes, snapshotSubtitleNativeTrackModes,
+    type SubtitleNativeTrackModeSnapshot } from './subtitle-native-track-modes';
 import { mirrorNativeFullscreenCues } from './subtitle-native-fullscreen';
 import {
     applySubtitleStyleControl,
@@ -134,6 +135,7 @@ import {
     type HostedSubtitleFileLoadRequest,
     type YouTubeTrackDiscoverySelection,
 } from './subtitle-track-selection';
+import { SubtitleSelectionLifecycle } from './subtitle-selection-lifecycle';
 import { planTranscriptHydrationIndexes } from './subtitle-transcript-hydration';
 import { readPageCaptionText } from './subtitle-dom-captions';
 import { copyText, isEditableTarget } from '../ui/browser';
@@ -199,6 +201,7 @@ import {
 import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
+import { isAbortError } from '../core/errors';
 import { accentToRgba, DEFAULT_SETTINGS, matchesShortcut, NO_EXPLICIT_USER_CHOICE } from '../settings/index';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { primaryCardState } from '../cards/state';
@@ -891,6 +894,7 @@ export class SubtitlePlayerController {
     private videoInset: SubtitleVideoInsetAdapter = createSubtitleVideoInsetAdapter();
     private lastYomuCaptionsActive = false;
     private nativeCaptionOwnership?: boolean;
+    private readonly nativeTrackModeSnapshot: SubtitleNativeTrackModeSnapshot = new Map();
     private youtubeDomCaptionFallbackTrackId = '';
     private fullscreen = false;
     private pinnedPlayer = new SubtitlePinnedPlayerTracker();
@@ -910,8 +914,7 @@ export class SubtitlePlayerController {
     private transcriptPanelClosing = false;
     private transcriptLayoutReferenceRect?: DOMRect;
     private transcriptLayoutReferenceViewport = '';
-    private primarySelectionRequest = 0;
-    private secondarySelectionRequest = 0;
+    private readonly trackSelections = new SubtitleSelectionLifecycle();
     private subtitleLanguageContext: SubtitleLanguageContext;
     private subtitleSourceContextKey = '';
     private pausePanelOpen = false;
@@ -1159,8 +1162,10 @@ export class SubtitlePlayerController {
         this.hideNativeFullscreenCueTrack();
         this.resetShadowPracticeState();
         this.clearPlaybackPauseReassert();
+        this.trackSelections.abortAll();
         this.abortController?.abort();
         this.abortController = undefined;
+        this.releaseNativeCaptionOwnership();
         this.observer?.disconnect();
         this.observer = undefined;
         this.observerMode = 'off';
@@ -1800,6 +1805,8 @@ export class SubtitlePlayerController {
     private addNativeTrack(track: TextTrack): void {
         if (this.shouldIgnoreNativeTrack(track)) return;
         const option = this.createNativeTrackOption(track);
+        // Capture before auto-selection makes a disabled page-owned track readable.
+        snapshotSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, [option]);
         this.tracks.push(option);
         this.markNativeCueListsDirty();
 
@@ -1928,7 +1935,7 @@ export class SubtitlePlayerController {
     }
 
     private autoSelectNativeTrack(option: SubtitleTrackOption, track: TextTrack, role: 'primary' | 'secondary'): void {
-        const requestId = this.beginTrackSelection(role);
+        const requestId = this.trackSelections.begin(role);
         this.setSelectedNativeTrackId(role, option.id);
         ensureTextTrackReadable(track);
         void this.loadNativeTrackCues(option, role, requestId);
@@ -5018,7 +5025,7 @@ export class SubtitlePlayerController {
     }
 
     private preparePrimaryTrackSelection(id: string): number {
-        const requestId = this.beginTrackSelection('primary');
+        const requestId = this.trackSelections.begin('primary');
         this.selectedTrackId = id;
         this.lastAutoCopiedCueSignature = '';
         if (this.secondaryTrackId === id) this.clearSecondaryTrackSelection();
@@ -5033,7 +5040,7 @@ export class SubtitlePlayerController {
     }
 
     private clearSecondaryTrackSelection(): void {
-        this.invalidateTrackSelection('secondary');
+        this.trackSelections.invalidate('secondary');
         this.secondaryTrackId = '';
         this.secondaryCues = [];
         this.secondaryCue = undefined;
@@ -5075,15 +5082,23 @@ export class SubtitlePlayerController {
     private async loadTrackSelection(request: SubtitleTrackSelectionLoadRequest): Promise<LoadedSubtitleTrackSelection | null> {
         const selected = this.tracks.find(option => option.id === request.id);
         if (!selected) return this.currentTrackSelection(request.role, request.requestId, request.id, undefined, []);
+        const signal = this.trackSelections.signal(request.role, request.requestId);
+        if (!signal) return null;
         this.markTrackLoading(selected);
         this.setNativeTrackModes();
-        const loaded = await loadSubtitleTrackCues(selected, {
-            ...TRACK_LOAD_OPTIONS,
-            tracks: this.tracks,
-            transcriptEligible: request.transcriptEligible,
-            translationFallback: this.translationFallbackModeForSelection(request, selected),
-        });
-        return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+        try {
+            const loaded = await loadSubtitleTrackCues(selected, {
+                ...TRACK_LOAD_OPTIONS,
+                tracks: this.tracks,
+                transcriptEligible: request.transcriptEligible,
+                translationFallback: this.translationFallbackModeForSelection(request, selected),
+                signal,
+            });
+            return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+        } catch (error) {
+            if (signal.aborted || isAbortError(error)) return null;
+            throw error;
+        }
     }
 
     private translationFallbackModeForSelection(
@@ -5152,7 +5167,7 @@ export class SubtitlePlayerController {
     private prepareSecondaryTrackSelection(id: string): number {
         if (this.selectedTrackId === id) {
             this.suppressYouTubeAutoSelectForCurrentVideo();
-            this.invalidateTrackSelection('primary');
+            this.trackSelections.invalidate('primary');
             this.selectedTrackId = '';
             this.cues = [];
             this.currentCue = undefined;
@@ -5163,7 +5178,7 @@ export class SubtitlePlayerController {
             this.lastShadowSignature = '';
             this.resetShadowPracticeState();
         }
-        const requestId = this.beginTrackSelection('secondary');
+        const requestId = this.trackSelections.begin('secondary');
         this.secondaryTrackId = id;
         this.secondaryCues = [];
         this.secondaryCue = undefined;
@@ -5201,6 +5216,7 @@ export class SubtitlePlayerController {
         // fullscreen with no Yomu cue stream), nothing may re-suppress them;
         // reSuppressHostTracksAfterNativeFullscreen clears the flag first.
         if (this.nativeFullscreenHostTracksRestored) return;
+        snapshotSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
         const settings = this.options.getSettings();
         const suppressNativeCaptions = this.shouldSuppressNativeCaptions(settings);
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
@@ -5225,6 +5241,11 @@ export class SubtitlePlayerController {
             suppressCaptionPlayerUi: false,
         });
         this.nativeCaptionOwnership = suppressNativeCaptions;
+    }
+
+    private releaseNativeCaptionOwnership(): void {
+        releaseSubtitleNativeTrackModes(this.nativeTrackModeSnapshot);
+        this.nativeCaptionOwnership = undefined; this.lastYomuCaptionsActive = false;
     }
 
     private shouldSuppressNativeCaptions(settings: ReaderSettings): boolean {
@@ -7707,27 +7728,13 @@ export class SubtitlePlayerController {
         };
     }
 
-    private beginTrackSelection(role: 'primary' | 'secondary'): number {
-        if (role === 'primary') {
-            this.primarySelectionRequest += 1;
-            return this.primarySelectionRequest;
-        }
-        this.secondarySelectionRequest += 1;
-        return this.secondarySelectionRequest;
-    }
-
-    private invalidateTrackSelection(role: 'primary' | 'secondary'): void {
-        this.beginTrackSelection(role);
-    }
-
     private isTrackSelectionCurrent(role: 'primary' | 'secondary', requestId: number, trackId: string): boolean {
-        return !this.destroyed && (role === 'primary'
-            ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId
-            : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId);
+        return !this.destroyed && this.trackSelections.isCurrent(role, requestId)
+            && (role === 'primary' ? this.selectedTrackId : this.secondaryTrackId) === trackId;
     }
 
     private resetPrimarySubtitleState(): void {
-        this.invalidateTrackSelection('primary');
+        this.trackSelections.invalidate('primary');
         this.selectedTrackId = '';
         this.cues = [];
         this.currentCue = undefined;
@@ -7743,7 +7750,7 @@ export class SubtitlePlayerController {
     }
 
     private resetSecondarySubtitleState(): void {
-        this.invalidateTrackSelection('secondary');
+        this.trackSelections.invalidate('secondary');
         this.secondaryTrackId = '';
         this.secondaryCues = [];
         this.secondaryCue = undefined;

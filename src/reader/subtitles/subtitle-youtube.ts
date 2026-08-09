@@ -3,6 +3,8 @@ import { normalizeSubtitleCues, parseSubtitleText, type SubtitleCue } from './su
 import { uniqueNonEmptyStrings as uniqueStrings } from '../core/string-utils';
 import { readYouTubeConfigStringFromScripts } from './youtube-config';
 import { isYouTubeAppHostname } from '../app/youtube-host';
+import { isAbortError } from '../core/errors';
+import { abortSignalReason, SharedAbortableOperation } from './shared-abortable-operation';
 
 const YOUTUBE_VIDEO_PLAYER_SELECTOR = '#movie_player, .html5-video-player';
 const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
@@ -10,11 +12,11 @@ const YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS = 15_000;
 const YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES = 96;
 const YOUTUBE_CAPTION_SEMANTIC_MISS = Symbol('youtube-caption-semantic-miss');
 
-type YouTubeCaptionRequestText = (url: string) => Promise<string>;
+type YouTubeCaptionRequestText = (url: string, signal?: AbortSignal) => Promise<string>;
 
 interface YouTubeCaptionLoadState {
     semanticMisses: Map<string, number>;
-    loads: Map<string, Promise<SubtitleCue[]>>;
+    loads: Map<string, SharedAbortableOperation<SubtitleCue[]>>;
 }
 
 const youtubeCaptionLoadStates = new WeakMap<YouTubeCaptionRequestText, YouTubeCaptionLoadState>();
@@ -56,8 +58,9 @@ interface AndroidYouTubeCaptionRequest {
 }
 
 export interface YouTubeTrackLoadOptions<T extends YouTubeSubtitleTrack> {
-    requestText: (url: string) => Promise<string>;
+    requestText: (url: string, signal?: AbortSignal) => Promise<string>;
     onRequestError?: (track: T, url: string, error: unknown) => void;
+    signal?: AbortSignal;
 }
 
 export interface YouTubeCaptionDiscoveryOptions {
@@ -104,20 +107,24 @@ export function loadYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
     options: YouTubeTrackLoadOptions<T>,
 ): Promise<SubtitleCue[]> {
     if (!track.url) return Promise.resolve([]);
+    if (options.signal?.aborted) return Promise.reject(youtubeCaptionAbortReason(options.signal));
     applyPreferredYouTubeCaptionCandidate(track);
     const sourceUrl = track.url;
     const state = youtubeCaptionLoadState(options.requestText);
     const loadKey = youtubeCaptionLoadKey(track);
     if (freshYouTubeCaptionSemanticMiss(state, loadKey)) return Promise.resolve([]);
     const existing = state.loads.get(loadKey);
-    if (existing) return existing;
+    if (existing) return existing.subscribe(options.signal);
 
-    const request = loadYouTubeTrackCuesUncached(track, options, state, loadKey, sourceUrl);
-    const tracked = request.finally(() => {
-        if (state.loads.get(loadKey) === tracked) state.loads.delete(loadKey);
-    });
-    state.loads.set(loadKey, tracked);
-    return tracked;
+    let operation: SharedAbortableOperation<SubtitleCue[]>;
+    operation = new SharedAbortableOperation<SubtitleCue[]>(
+        signal => loadYouTubeTrackCuesUncached(track, { ...options, signal }, state, loadKey, sourceUrl),
+        () => {
+            if (state.loads.get(loadKey) === operation) state.loads.delete(loadKey);
+        },
+    );
+    state.loads.set(loadKey, operation);
+    return operation.subscribe(options.signal);
 }
 
 async function loadYouTubeTrackCuesUncached<T extends YouTubeSubtitleTrack>(
@@ -127,6 +134,7 @@ async function loadYouTubeTrackCuesUncached<T extends YouTubeSubtitleTrack>(
     loadKey: string,
     sourceUrl: string,
 ): Promise<SubtitleCue[]> {
+    throwIfYouTubeCaptionLoadAborted(options.signal);
     const tried = new Set<string>();
     const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(sourceUrl), options, tried);
     if (primary === YOUTUBE_CAPTION_SEMANTIC_MISS) {
@@ -143,7 +151,8 @@ async function loadFallbackYouTubeTrackCues<T extends YouTubeSubtitleTrack>(
     state: YouTubeCaptionLoadState,
     tried: Set<string>,
 ): Promise<SubtitleCue[]> {
-    for (const candidate of await fallbackYouTubeCaptionCandidates(track)) {
+    for (const candidate of await fallbackYouTubeCaptionCandidates(track, options.signal)) {
+        throwIfYouTubeCaptionLoadAborted(options.signal);
         const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
         if (cues === YOUTUBE_CAPTION_SEMANTIC_MISS) {
             track.url = candidate.url;
@@ -166,6 +175,7 @@ async function loadYouTubeCueUrls<T extends YouTubeSubtitleTrack>(
     tried: Set<string>,
 ): Promise<SubtitleCue[] | typeof YOUTUBE_CAPTION_SEMANTIC_MISS> {
     for (const url of urls) {
+        throwIfYouTubeCaptionLoadAborted(options.signal);
         if (tried.has(url)) continue;
         tried.add(url);
         const cues = await loadYouTubeCueUrl(track, url, options);
@@ -186,7 +196,7 @@ async function loadYouTubeCueUrl<T extends YouTubeSubtitleTrack>(
     options: YouTubeTrackLoadOptions<T>,
 ): Promise<SubtitleCue[] | typeof YOUTUBE_CAPTION_SEMANTIC_MISS> {
     try {
-        const text = await options.requestText(url);
+        const text = await options.requestText(url, options.signal);
         // A successful but empty timedtext response describes this caption
         // source, not a broken serialization format. Probing srv3/json3/vtt
         // and the base URL only repeats the same semantic miss.
@@ -196,6 +206,7 @@ async function loadYouTubeCueUrl<T extends YouTubeSubtitleTrack>(
             youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track),
         }));
     } catch (error) {
+        if (options.signal?.aborted || isAbortError(error)) throw error;
         options.onRequestError?.(track, url, error);
         return [];
     }
@@ -212,9 +223,17 @@ export function hasFreshYouTubeCaptionSemanticMiss(
 function youtubeCaptionLoadState(requestText: YouTubeCaptionRequestText): YouTubeCaptionLoadState {
     const existing = youtubeCaptionLoadStates.get(requestText);
     if (existing) return existing;
-    const created = { semanticMisses: new Map<string, number>(), loads: new Map<string, Promise<SubtitleCue[]>>() };
+    const created = { semanticMisses: new Map<string, number>(), loads: new Map<string, SharedAbortableOperation<SubtitleCue[]>>() };
     youtubeCaptionLoadStates.set(requestText, created);
     return created;
+}
+
+function throwIfYouTubeCaptionLoadAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+}
+
+function youtubeCaptionAbortReason(signal?: AbortSignal): unknown {
+    return abortSignalReason(signal);
 }
 
 function youtubeCaptionLoadKey(track: YouTubeSubtitleTrack): string {
@@ -269,6 +288,7 @@ export async function loadFirstUsableYouTubeSibling<T extends YouTubeSubtitleTra
 ): Promise<{ track: T; cues: SubtitleCue[] } | null> {
     const siblings = tracks.filter(candidate => isUsableYouTubeSibling(candidate, track));
     for (const sibling of siblings) {
+        throwIfYouTubeCaptionLoadAborted(options.signal);
         const cues = await usableYouTubeSiblingCues(sibling, options);
         if (!cues.length) continue;
         sibling.cues = cues;
@@ -313,9 +333,12 @@ export function youtubeVideoHasNativeCaptions(): boolean {
     return button.getAttribute('aria-disabled') !== 'true' && button.style.display !== 'none';
 }
 
-async function fallbackYouTubeCaptionCandidates(track: YouTubeSubtitleTrack): Promise<YouTubeCaptionTrackCandidate[]> {
+async function fallbackYouTubeCaptionCandidates(
+    track: YouTubeSubtitleTrack,
+    signal?: AbortSignal,
+): Promise<YouTubeCaptionTrackCandidate[]> {
     if (track.kind !== 'youtube') return [];
-    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? '', track.language ?? '']);
+    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? '', track.language ?? ''], signal);
     return candidates
         .filter(candidate => youtubeCaptionCandidateMatchesTrack(candidate, track))
         .sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
@@ -734,12 +757,17 @@ function applyYouTubeCaptionClientName(url: URL, clientName: string): void {
     if (clientName && !url.searchParams.has('c')) url.searchParams.set('c', clientName);
 }
 
-async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages: readonly string[] = []): Promise<YouTubeCaptionTrackCandidate[]> {
+async function getAndroidYouTubeCaptionTracks(
+    preferredTranslationLanguages: readonly string[] = [],
+    signal?: AbortSignal,
+): Promise<YouTubeCaptionTrackCandidate[]> {
+    throwIfYouTubeCaptionLoadAborted(signal);
     const request = androidYouTubeCaptionRequest();
     if (!request) return [];
     try {
-        return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages);
-    } catch {
+        return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal);
+    } catch (error) {
+        if (signal?.aborted || isAbortError(error)) throw error;
         return [];
     }
 }
@@ -763,8 +791,9 @@ function androidYouTubeCaptionRequest(): AndroidYouTubeCaptionRequest | null {
 async function fetchAndroidYouTubeCaptionTracks(
     request: AndroidYouTubeCaptionRequest,
     preferredTranslationLanguages: readonly string[],
+    signal?: AbortSignal,
 ): Promise<YouTubeCaptionTrackCandidate[]> {
-    const response = await fetch(request.url, request.init);
+    const response = await fetch(request.url, { ...request.init, signal });
     if (!response.ok) return [];
     const payload = await response.json() as YouTubePlayerResponse;
     return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);

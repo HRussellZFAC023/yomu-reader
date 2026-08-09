@@ -668,7 +668,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         }
     });
 
-    const nativeVisualCommitTrack = { mode: 'hidden' } as TextTrack;
+    const nativeVisualCommitTrack = { mode: 'disabled' } as TextTrack;
     it.each([
         {
             surface: 'imported file',
@@ -678,6 +678,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             track: undefined,
             expectPendingOwner: (): void => undefined,
             expectCommittedOwner: (): void => undefined,
+            expectReleasedOwner: (): void => undefined,
         },
         {
             surface: 'native text track',
@@ -687,6 +688,7 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             track: nativeVisualCommitTrack,
             expectPendingOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('showing'); },
             expectCommittedOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('hidden'); },
+            expectReleasedOwner: (): void => { expect(nativeVisualCommitTrack.mode).toBe('disabled'); },
         },
         {
             surface: 'YouTube cue stream',
@@ -700,9 +702,12 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expectCommittedOwner: (): void => {
                 expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(true);
             },
+            expectReleasedOwner: (): void => {
+                expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+            },
         },
     ])('publishes the first $surface frame only after async annotation enrichment settles', async surface => {
-        const { id, kind, pageUrl, track, expectPendingOwner, expectCommittedOwner } = surface;
+        const { id, kind, pageUrl, track, expectPendingOwner, expectCommittedOwner, expectReleasedOwner } = surface;
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -776,6 +781,11 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             expect(visibleFrames.length).toBeGreaterThan(0);
             expect(visibleFrames.every(frame => frame.includes('jpdb-reader-word') && frame.includes('jpdb-reader-furi'))).toBe(true);
             expectCommittedOwner();
+
+            controller.destroy();
+            expectReleasedOwner();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
         } finally {
             observer.disconnect();
             controller.destroy();
@@ -800,10 +810,18 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
             tracks: Array<{
                 id: string;
                 label: string;
-                kind: 'native';
-                language: string;
-                track: TextTrack;
+                kind: 'native' | 'remote';
+                language?: string;
+                track?: TextTrack;
+                url?: string;
             }>;
+            trackSelections: { begin: (role: 'primary') => number };
+            loadTrackSelection: (request: {
+                id: string;
+                requestId: number;
+                role: 'primary';
+                transcriptEligible: true;
+            }) => Promise<unknown>;
         }>([firstCue, secondCue], {
             hooks: { parseJapanese },
             selectedTrackId: 'native-primary',
@@ -825,6 +843,8 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
         const captionButton = document.createElement('button');
         captionButton.dataset.plyr = 'captions';
         captionButton.setAttribute('aria-pressed', 'true');
+        const captionButtonClick = vi.fn();
+        captionButton.addEventListener('click', captionButtonClick);
         video.before(player);
         player.append(video, captionButton);
         const toggleCaptions = vi.fn();
@@ -863,6 +883,43 @@ describe('SubtitlePlayerController — transcript hydration, karaoke & authorita
                 expect(internals.subtitleEl.querySelector('.jpdb-subtitle-primary .jpdb-reader-furi')?.textContent).toBe('み');
             });
             expectYomuOwnsNativeCaption();
+
+            const replacementAborted = vi.fn();
+            const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+                const signal = init?.signal;
+                signal?.addEventListener('abort', () => {
+                    replacementAborted();
+                    reject(signal.reason ?? new DOMException('Aborted', 'AbortError'));
+                }, { once: true });
+            }));
+            vi.stubGlobal('fetch', fetchMock);
+            internals.tracks.push({
+                id: 'remote-replacement',
+                label: 'Delayed replacement',
+                kind: 'remote',
+                language: 'ja',
+                url: new URL('/destroy-caption-replacement-p1.vtt', window.location.href).href,
+            });
+            const requestId = internals.trackSelections.begin('primary');
+            const replacement = internals.loadTrackSelection({
+                id: 'remote-replacement',
+                requestId,
+                role: 'primary',
+                transcriptEligible: true,
+            });
+            await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+            document.documentElement.classList.add('jpdb-subtitle-yomu-captions-active');
+
+            controller.destroy();
+            await expect(replacement).resolves.toBeNull();
+
+            expect(replacementAborted).toHaveBeenCalledTimes(1);
+            expect(nativeTrack.mode).toBe('showing');
+            expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yomu-captions-active')).toBe(false);
+            expect(toggleCaptions).not.toHaveBeenCalled();
+            expect(captionButtonClick).not.toHaveBeenCalled();
+            expect(captionButton.getAttribute('aria-pressed')).toBe('true');
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();

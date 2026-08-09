@@ -1,6 +1,9 @@
 import { isYouTubePage } from './subtitle-youtube';
 
 const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = 'jpdb-subtitle-native-captions-suppressed';
+const YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS = 'jpdb-subtitle-yomu-captions-active';
+
+export type SubtitleNativeTrackModeSnapshot = Map<TextTrack, TextTrackMode>;
 
 export interface SubtitleNativeTrackModeOption {
     id: string;
@@ -22,6 +25,28 @@ export interface SubtitleNativeTrackModeState<T extends SubtitleNativeTrackModeO
     currentCueText?: string;
     youtubeDomCaptionFallbackTrackId: string;
     lastYomuCaptionsActive: boolean;
+}
+
+export function snapshotSubtitleNativeTrackModes(
+    snapshot: SubtitleNativeTrackModeSnapshot,
+    tracks: SubtitleNativeTrackModeOption[],
+): void {
+    for (const option of tracks) {
+        if (option.track && !snapshot.has(option.track)) snapshot.set(option.track, option.track.mode);
+    }
+}
+
+export function releaseSubtitleNativeTrackModes(snapshot: SubtitleNativeTrackModeSnapshot): void {
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+    setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+    for (const [track, mode] of snapshot) {
+        try {
+            track.mode = mode;
+        } catch {
+            // Detached/page-owned tracks may reject writes during teardown.
+        }
+    }
+    snapshot.clear();
 }
 
 export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
@@ -56,7 +81,7 @@ function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
     }
     if (yomuCaptionsActive && (state.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state.video);
     setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
-    setDocumentClassState('jpdb-subtitle-yomu-captions-active', false);
+    setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return false;
 }
 
@@ -66,7 +91,7 @@ function applyYouTubeNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
 ): boolean {
     applyYouTubeTextTrackModes(state);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
-    setDocumentClassState('jpdb-subtitle-yomu-captions-active', hideYouTubeNativeCaptions);
+    setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
 }
 

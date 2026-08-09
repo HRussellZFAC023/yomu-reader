@@ -77,6 +77,44 @@ describe('subtitle request retry policy', () => {
         expect(englishOperation).toHaveBeenCalledTimes(1);
     });
 
+    it('drops an aborted queued variant before transport without blocking the next track', async () => {
+        const policy = requestPolicy(() => 0);
+        let releaseActive = (): void => undefined;
+        const activeOperation = vi.fn(() => new Promise<string>(resolve => {
+            releaseActive = () => resolve('ACTIVE');
+        }));
+        const staleOperation = vi.fn(async () => 'STALE');
+        const nextOperation = vi.fn(async () => 'NEXT');
+        const staleController = new AbortController();
+
+        const active = policy.run(
+            'https://subs.example/captions?lang=ja&fmt=srv3',
+            activeOperation,
+        );
+        const stale = policy.run(
+            'https://subs.example/captions?lang=en&fmt=srv3',
+            staleOperation,
+            staleController.signal,
+        );
+        const next = policy.run(
+            'https://subs.example/captions?lang=fr&fmt=srv3',
+            nextOperation,
+        );
+
+        await Promise.resolve();
+        expect(activeOperation).toHaveBeenCalledTimes(1);
+        expect(staleOperation).not.toHaveBeenCalled();
+        expect(nextOperation).not.toHaveBeenCalled();
+
+        staleController.abort();
+        await expect(stale).rejects.toMatchObject({ name: 'AbortError' });
+        releaseActive();
+
+        await expect(Promise.all([active, next])).resolves.toEqual(['ACTIVE', 'NEXT']);
+        expect(staleOperation).not.toHaveBeenCalled();
+        expect(nextOperation).toHaveBeenCalledTimes(1);
+    });
+
     it('allows one parallel dual-track rate-limit probe per endpoint cooldown boundary', async () => {
         let now = 0;
         const policy = requestPolicy(() => now);

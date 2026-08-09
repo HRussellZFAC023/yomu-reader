@@ -1,3 +1,5 @@
+import { abortSignalReason, SharedAbortableOperation } from './shared-abortable-operation';
+
 const SUBTITLE_REQUEST_BACKOFF_INITIAL_MS = 5_000;
 const SUBTITLE_REQUEST_BACKOFF_MAX_MS = 60_000;
 const SUBTITLE_REQUEST_BACKOFF_RETENTION_MS = SUBTITLE_REQUEST_BACKOFF_MAX_MS * 2;
@@ -34,7 +36,7 @@ const EMPTY_SUBTITLE_REQUEST_BACKOFF: SubtitleRequestBackoffState = {
  * existing transport-choice rules.
  */
 export class SubtitleRequestPolicy {
-    private readonly inFlight = new Map<string, Promise<unknown>>();
+    private readonly inFlight = new Map<string, SharedAbortableOperation<unknown>>();
     private readonly endpointTails = new Map<string, Promise<void>>();
     private readonly backoff = new Map<string, SubtitleRequestBackoffState>();
     private readonly now: () => number;
@@ -43,28 +45,39 @@ export class SubtitleRequestPolicy {
         this.now = options.now ?? (() => Date.now());
     }
 
-    run<T>(url: string, operation: () => Promise<T>): Promise<T> {
+    run<T>(url: string, operation: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
+        if (signal?.aborted) return Promise.reject(abortSignalReason(signal));
         const resourceKey = subtitleRequestResourceKey(url);
         const endpointKey = subtitleRequestEndpointKey(url);
         const existing = this.inFlight.get(resourceKey);
-        if (existing) return existing as Promise<T>;
+        if (existing) return (existing as SharedAbortableOperation<T>).subscribe(signal);
 
         const now = this.now();
         this.pruneBackoff(now);
         const cooling = this.activeBackoff(endpointKey, now);
         if (cooling) return Promise.reject(new SubtitleRequestCooldownError(cooling.retryAt - now, cooling.status));
 
-        const request = this.enqueueEndpointOperation(endpointKey, operation);
-        const tracked = request.finally(() => {
-            if (this.inFlight.get(resourceKey) === tracked) this.inFlight.delete(resourceKey);
-        });
-        this.inFlight.set(resourceKey, tracked);
-        return tracked;
+        let entry: SharedAbortableOperation<T>;
+        entry = new SharedAbortableOperation<T>(
+            requestSignal => this.enqueueEndpointOperation(endpointKey, requestSignal, operation),
+            () => {
+                if (this.inFlight.get(resourceKey) === entry) this.inFlight.delete(resourceKey);
+            },
+        );
+        this.inFlight.set(resourceKey, entry);
+        return entry.subscribe(signal);
     }
 
-    private enqueueEndpointOperation<T>(endpointKey: string, operation: () => Promise<T>): Promise<T> {
+    private enqueueEndpointOperation<T>(
+        endpointKey: string,
+        signal: AbortSignal,
+        operation: (signal: AbortSignal) => Promise<T>,
+    ): Promise<T> {
         const predecessor = this.endpointTails.get(endpointKey) ?? Promise.resolve();
-        const request = predecessor.then(() => this.runEndpointOperation(endpointKey, operation));
+        const request = predecessor.then(() => {
+            throwIfSubtitleRequestAborted(signal);
+            return this.runEndpointOperation(endpointKey, signal, operation);
+        });
         const tail = request.then(() => undefined, () => undefined);
         this.endpointTails.set(endpointKey, tail);
         void tail.then(() => {
@@ -73,7 +86,12 @@ export class SubtitleRequestPolicy {
         return request;
     }
 
-    private async runEndpointOperation<T>(endpointKey: string, operation: () => Promise<T>): Promise<T> {
+    private async runEndpointOperation<T>(
+        endpointKey: string,
+        signal: AbortSignal,
+        operation: (signal: AbortSignal) => Promise<T>,
+    ): Promise<T> {
+        throwIfSubtitleRequestAborted(signal);
         const now = this.now();
         this.pruneBackoff(now);
         const cooling = this.activeBackoff(endpointKey, now);
@@ -81,7 +99,7 @@ export class SubtitleRequestPolicy {
 
         const backoffVersion = (this.backoff.get(endpointKey) || EMPTY_SUBTITLE_REQUEST_BACKOFF).version;
         try {
-            const result = await operation();
+            const result = await raceSubtitleRequestAbort(operation(signal), signal);
             this.clearBackoff(endpointKey, backoffVersion);
             return result;
         } catch (error) {
@@ -124,6 +142,29 @@ export class SubtitleRequestPolicy {
             if (state.retryAt + SUBTITLE_REQUEST_BACKOFF_RETENTION_MS <= now) this.backoff.delete(key);
         }
     }
+}
+
+function raceSubtitleRequestAbort<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+    if (signal.aborted) return Promise.reject(abortSignalReason(signal));
+    return new Promise<T>((resolve, reject) => {
+        let settled = false;
+        const finish = (settle: () => void): void => {
+            if (settled) return;
+            settled = true;
+            signal.removeEventListener('abort', onAbort);
+            settle();
+        };
+        const onAbort = (): void => finish(() => reject(abortSignalReason(signal)));
+        signal.addEventListener('abort', onAbort, { once: true });
+        operation.then(
+            value => finish(() => resolve(value)),
+            error => finish(() => reject(error)),
+        );
+    });
+}
+
+function throwIfSubtitleRequestAborted(signal: AbortSignal): void {
+    if (signal.aborted) throw abortSignalReason(signal);
 }
 
 class SubtitleRequestCooldownError extends Error {
