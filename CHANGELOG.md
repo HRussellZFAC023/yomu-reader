@@ -10,6 +10,9 @@
 - Subtitle discovery is offered only when the page contains a video the subtitle controller can actually use. YouTube feed previews no longer expose an action that cannot activate.
 - Japanese-site navigation is available only for the Japanese target and never follows production language links on loopback development origins, including IPv6, trailing-dot localhost, and IPv4-mapped loopback addresses.
 - English and other non-Japanese targets no longer inherit Japanese-only lookup pills, the Japanese site-language action, kana/kanji wording, or a Japanese OCR glyph. Built-in providers are regenerated for the current target while custom links and their enabled state are preserved.
+- Subtitle text is published only when that exact cue's annotation frame is settled, so words no longer gain furigana, pitch, or study colouring after appearing. Native captions retain ownership while a cue is pending or fails, and are restored if よむ is replaced or shut down.
+- Switching subtitle tracks cancels stale caption, translation, and enrichment work before it can block or overwrite the new selection. Rate-limited and empty YouTube caption responses use bounded, source-aware retries instead of repeatedly walking every format and translation fallback.
+- Target-specific reading settings survive temporary target changes and live settings updates. A Japanese difficult-kanji preference is restored on return to Japanese, unsupported modes cannot leak into another target, and unrelated cross-tab changes no longer overwrite unsaved language or provider edits.
 - Website locale changes keep the document language, direction, accessible navigation labels, canonical URL, Open Graph metadata, hreflang links, and structured breadcrumbs in sync during client-side navigation. Routes without reviewed Japanese copy fall back to the Japanese homepage instead of linking to a translated 404.
 
 ### Changed
