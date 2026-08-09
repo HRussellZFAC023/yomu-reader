@@ -89,7 +89,7 @@ export function isNewTabAction(value: string | null | undefined): value is NewTa
  * Identity at runtime; at compile time it pins a render site's action name to
  * the union. Use it wherever the name is written into the DOM.
  */
-export function newTabAction(action: NewTabAction): NewTabAction {
+export function newTabAction<const Action extends NewTabAction>(action: Action): Action {
     return action;
 }
 
