@@ -144,13 +144,68 @@ describe('live profile evidence contract', () => {
             : result))).toThrow(/evidence is incomplete/u);
     });
 
+    it('requires real timedtext and complete hover/control evidence on every interaction replay', () => {
+        const fixture = artifactFixture();
+        const evidence = preflightEvidence(fixture, 'interaction');
+        const complete = requestedRuns.split(',')
+            .map(key => successfulReplay(key, evidence.artifacts.descriptor, 'interaction'));
+
+        expect(evidence.complete(complete)).toMatchObject({
+            requestedRunsComplete: true,
+            chromiumSubtitleHover: true,
+            chromiumSubtitleHoverClosed: true,
+            chromiumOcrHover: true,
+            chromiumOcrHoverClosed: true,
+        });
+        for (const target of complete) {
+            const incomplete = structuredClone(complete);
+            const replay = incomplete.find(result => result.engine === target.engine && result.mode === target.mode);
+            if (!replay) throw new Error(`Missing replay fixture for ${target.engine}:${target.mode}.`);
+            replay.yomuBridgeRequests.timedText = [];
+            expect(() => evidence.complete(incomplete)).toThrow(/evidence is incomplete/u);
+        }
+    });
+
+    it.each([
+        ['timedtext 429', (result: Record<string, any>) => { result.yomuBridgeRequests.timedText[0].response.status = 429; }],
+        ['timedtext empty', (result: Record<string, any>) => { result.yomuBridgeRequests.timedText[0].response.bytes = 0; }],
+        ['timedtext endpoint', (result: Record<string, any>) => { result.yomuBridgeRequests.timedText[0].endpoint = 'https://example.com/api/timedtext'; }],
+        ['timedtext transport', (result: Record<string, any>) => { result.yomuBridgeRequests.timedText[0].transport = 'emulated-gm-bridge'; }],
+        ['timedtext format', (result: Record<string, any>) => { result.yomuBridgeRequests.timedText[0].response.format = 'empty'; }],
+        ['subtitle root', (result: Record<string, any>) => { result.interaction.subtitles.rootPresent = false; }],
+        ['subtitle open', (result: Record<string, any>) => { result.interaction.subtitles.hover.opened = false; }],
+        ['subtitle close', (result: Record<string, any>) => { result.interaction.subtitles.hover.closed = false; }],
+        ['subtitle text', (result: Record<string, any>) => { result.interaction.subtitles.hover.text = ''; }],
+        ['OCR line', (result: Record<string, any>) => { result.interaction.ocr.linePresent = false; }],
+        ['OCR open', (result: Record<string, any>) => { result.interaction.ocr.hover.opened = false; }],
+        ['OCR close', (result: Record<string, any>) => { result.interaction.ocr.hover.closed = false; }],
+        ['native awake', (result: Record<string, any>) => { result.interaction.nativeControls.awake.chromeOpacity = 0; }],
+        ['native idle', (result: Record<string, any>) => { result.interaction.nativeControls.idle.playerAutohide = false; result.interaction.nativeControls.idle.chromeOpacity = 1; }],
+        ['focus release', (result: Record<string, any>) => { result.interaction.nativeControls.idle.yomuFocused = 1; }],
+        ['hover release', (result: Record<string, any>) => { result.interaction.nativeControls.idle.yomuHovered = 1; }],
+    ])('rejects incomplete interaction %s evidence', (_name, mutate) => {
+        const fixture = artifactFixture();
+        const evidence = preflightEvidence(fixture, 'interaction');
+        const results = requestedRuns.split(',')
+            .map(key => successfulReplay(key, evidence.artifacts.descriptor, 'interaction'));
+        mutate(results.at(-1) as Record<string, any>);
+
+        expect(() => evidence.complete(results)).toThrow(/evidence is incomplete/u);
+    });
+
     it.each([
         ['product CPU sample', (result: Record<string, any>) => { result.functionEvidence.sampled.sampleCount = 0; }, 'cpu'],
         ['called product function', (result: Record<string, any>) => { result.functionEvidence.calls.functionsCalled = 0; }, 'coverage'],
         ['source URL', (result: Record<string, any>) => { result.functionEvidence.summaryScope.sourceUrl = 'yomu-profile://wrong'; }, 'cpu'],
         ['graph SHA', (result: Record<string, any>) => { result.functionEvidence.summaryScope.sha256 = 'wrong'; }, 'coverage'],
         ['CDP metrics', (result: Record<string, any>) => { result.workload.cdpDelta = null; }, 'none'],
+        ['empty CDP metrics', (result: Record<string, any>) => { result.workload.cdpDelta = {}; }, 'none'],
+        ['finite CDP metrics', (result: Record<string, any>) => { result.workload.cdpDelta.TaskDuration = Number.NaN; }, 'none'],
+        ['meaningful CDP metrics', (result: Record<string, any>) => { result.workload.cdpDelta.ScriptDuration = 0; }, 'none'],
         ['page metrics', (result: Record<string, any>) => { result.workload.page = null; }, 'none'],
+        ['empty page metrics', (result: Record<string, any>) => { result.workload.page = {}; }, 'none'],
+        ['page elapsed time', (result: Record<string, any>) => { result.workload.page.elapsedMs = 0; }, 'none'],
+        ['page frame counters', (result: Record<string, any>) => { result.workload.page.animationFrames = 0; }, 'none'],
         ['browser executable identity', (result: Record<string, any>) => { result.browser.executable.sha256 = ''; }, 'none'],
         ['browser registry version', (result: Record<string, any>) => { result.browser.version = '2'; }, 'none'],
         ['browser registry revision', (result: Record<string, any>) => { result.browser.registry.revision = 'wrong'; }, 'none'],
@@ -159,6 +214,10 @@ describe('live profile evidence contract', () => {
         ['non-comparability', (result: Record<string, any>) => { result.workload.comparable = true; }, 'cpu'],
         ['ambient end progression', (result: Record<string, any>) => { result.interaction.ambientWindow.progressed = false; }, 'cpu'],
         ['ambient end delta', (result: Record<string, any>) => { result.interaction.ambientWindow.deltaSeconds = 0; }, 'cpu'],
+        ['ambient wall duration', (result: Record<string, any>) => { result.interaction.ambientWindow.elapsedWallMs = 100; }, 'cpu'],
+        ['ambient progress ratio', (result: Record<string, any>) => { result.interaction.ambientWindow.deltaSeconds = 0.1; result.interaction.ambientWindow.progressRatio = 0.003; }, 'cpu'],
+        ['ambient sample cadence', (result: Record<string, any>) => { result.interaction.ambientWindow.maxSampleGapMs = 30_000; }, 'cpu'],
+        ['ambient stalled interval', (result: Record<string, any>) => { result.interaction.ambientWindow.stalledIntervalCount = 1; }, 'cpu'],
         ['ambient unpaused state', (result: Record<string, any>) => { result.interaction.ambientWindow.unpaused = false; }, 'cpu'],
         ['ambient non-stalled state', (result: Record<string, any>) => { result.interaction.ambientWindow.nonStalled = false; }, 'cpu'],
     ])('rejects missing %s evidence', (_name, mutate, mode) => {
@@ -189,16 +248,16 @@ describe('live profile evidence contract', () => {
     });
 });
 
-function profileContract() {
+function profileContract(workloadKind = 'ambient') {
     return createLiveProfileEvidenceContract({
         requestedRuns,
-        workloadKind: 'ambient',
+        workloadKind,
         ambientDurationMs: 30_000,
     });
 }
 
-function preflightEvidence(fixture: ReturnType<typeof artifactFixture>): Record<string, any> {
-    return profileContract().preflight({
+function preflightEvidence(fixture: ReturnType<typeof artifactFixture>, workloadKind = 'ambient'): Record<string, any> {
+    return profileContract(workloadKind).preflight({
         repositoryRoot: fixture.root,
         userscriptPath: fixture.corePath,
         cssPath: fixture.cssPath,
@@ -283,56 +342,124 @@ function fixtureOption(options: Record<string, string>, key: string, fallback: s
     return options[key] ?? fallback;
 }
 
-function successfulReplay(key: string, artifacts: Record<string, any>): Record<string, any> {
+function successfulReplay(key: string, artifacts: Record<string, any>, workloadKind = 'ambient'): Record<string, any> {
     const [engine, mode] = key.split(':');
     return {
         engine,
         mode,
-        browser: {
-            channel: 'playwright-bundled',
-            custom: false,
-            headed: false,
-            headless: true,
-            executable: {
-                path: '/browser',
-                sha256: 'a'.repeat(64),
-                stat: { bytes: 100, mode: 33_261, mtimeMs: 1, device: 1, inode: 1 },
-            },
-            registry: {
-                manifestSha256: 'b'.repeat(64),
-                name: engine,
-                revision: engine === 'chromium' ? '1194' : '2215',
-                browserVersion: '1',
-            },
-            version: '1',
-        },
+        browser: successfulBrowser(engine),
         interaction: {
             playback: { progressed: true },
             ambientWindow: {
+                requestedDurationMs: 30_000,
+                elapsedWallMs: 30_000,
+                sampleCount: 31,
+                maxSampleGapMs: 1_000,
+                sampleCadenceHealthy: true,
                 deltaSeconds: 30,
+                expectedDeltaSeconds: 30,
+                progressRatio: 1,
+                stalledIntervalCount: 0,
+                fullWindow: true,
                 progressed: true,
                 unpaused: true,
                 nonStalled: true,
+                ended: { found: true, paused: false, readyState: 4 },
             },
-            nativeControls: { autoHideObserved: true, yomuDidNotRetainFocus: true },
-            subtitles: { hover: { opened: true } },
-            ocr: { hover: { opened: true } },
+            nativeControls: {
+                found: true,
+                autoHideObserved: true,
+                yomuDidNotRetainFocus: true,
+                awake: { playerAutohide: false, chromeOpacity: 1 },
+                idle: {
+                    playerAutohide: true,
+                    chromeOpacity: 0,
+                    activeInsideYomu: false,
+                    yomuFocused: 0,
+                    yomuHovered: 0,
+                },
+            },
+            subtitles: {
+                rootPresent: true,
+                wordPresent: true,
+                hover: { opened: true, closed: true, text: '日本語', openMs: 10, closeMs: 10 },
+            },
+            ocr: {
+                videoState: { found: true, paused: true },
+                framePresent: true,
+                linePresent: true,
+                wordPresent: true,
+                hover: { opened: true, closed: true, text: '字幕', openMs: 10, closeMs: 10 },
+            },
         },
         workload: {
-            kind: 'ambient',
+            kind: workloadKind,
             scope: 'whole live YouTube watch page',
             comparable: false,
-            instrumented: mode === 'cpu' || mode === 'coverage',
-            cdpDelta: {},
-            page: {},
+            instrumented: new Set(['cpu', 'coverage']).has(mode),
+            cdpDelta: {
+                TaskDuration: 2,
+                ScriptDuration: 1,
+                LayoutDuration: 0.2,
+                RecalcStyleDuration: 0.2,
+                LayoutCount: 1,
+                RecalcStyleCount: 1,
+                JSHeapUsedSize: 1_024,
+                Nodes: 5,
+            },
+            page: {
+                startedAt: 1,
+                elapsedMs: 30_000,
+                longTasks: 1,
+                longTaskMs: 60,
+                maxLongTaskMs: 60,
+                animationFrames: 1_800,
+                over50MsFrameGaps: 1,
+                maxFrameGapMs: 60,
+            },
         },
         functionEvidence: replayFunctionEvidence(engine, mode, artifacts),
         fatalBridgeRequests: [],
         network: { actualYoutubeRequests: 10 },
+        yomuBridgeRequests: {
+            timedText: [{
+                endpoint: 'https://www.youtube.com/api/timedtext',
+                transport: 'browser-session-fetch',
+                response: { status: 200, bytes: 128, format: 'json', contentType: 'application/json' },
+            }],
+        },
         final: {
             youtube: { app: true, player: true },
             yomu: { runtimeHealth: 'ready' },
         },
+    };
+}
+
+function successfulBrowser(engine: string): Record<string, any> {
+    const webkit = engine === 'webkit';
+    return {
+        channel: 'playwright-bundled',
+        custom: false,
+        headed: false,
+        headless: true,
+        payloadResolution: webkit ? 'playwright-webkit-wrapper' : 'direct',
+        launcher: webkit ? {
+            path: '/webkit-2215/pw_run.sh',
+            sha256: 'c'.repeat(64),
+            stat: { bytes: 100, mode: 33_261, mtimeMs: 1, device: 1, inode: 2 },
+        } : null,
+        executable: {
+            path: '/browser',
+            sha256: 'a'.repeat(64),
+            stat: { bytes: 100, mode: 33_261, mtimeMs: 1, device: 1, inode: 1 },
+        },
+        registry: {
+            manifestSha256: 'b'.repeat(64),
+            name: engine,
+            revision: webkit ? '2215' : '1194',
+            browserVersion: '1',
+        },
+        version: '1',
     };
 }
 

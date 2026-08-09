@@ -59,12 +59,46 @@ const REPLAY_CHECKS = Object.freeze([
     youtubeEvidenceFailures,
     runtimeEvidenceFailures,
     playbackEvidenceFailures,
+    interactionEvidenceFailures,
     browserEvidenceFailures,
     workloadScopeFailures,
     instrumentationFailures,
     chromiumNoneMetricsFailures,
     fatalBridgeLedgerFailures,
     ambientWindowFailures,
+]);
+const REQUIRED_CDP_DELTA_FIELDS = Object.freeze([
+    'TaskDuration',
+    'ScriptDuration',
+    'LayoutDuration',
+    'RecalcStyleDuration',
+    'LayoutCount',
+    'RecalcStyleCount',
+    'JSHeapUsedSize',
+    'Nodes',
+]);
+const REQUIRED_PAGE_COUNTER_FIELDS = Object.freeze([
+    'longTasks',
+    'longTaskMs',
+    'maxLongTaskMs',
+    'animationFrames',
+    'over50MsFrameGaps',
+    'maxFrameGapMs',
+]);
+const MIN_AMBIENT_PROGRESS_RATIO = 0.8;
+const MIN_AMBIENT_WINDOW_RATIO = 0.95;
+const MAX_AMBIENT_SAMPLE_GAP_MS = 2_000;
+const BROWSER_PAYLOAD_CHECKS = new Map([
+    ['direct', (_run, result) => nestedValue(result, 'browser.launcher') === null],
+    ['playwright-webkit-wrapper', webKitWrapperPayloadComplete],
+]);
+const LONG_TASK_CONSISTENCY = new Map([
+    [true, metrics => [metrics.longTaskMs === 0, metrics.maxLongTaskMs === 0].every(Boolean)],
+    [false, metrics => [
+        metrics.longTaskMs > 0,
+        metrics.maxLongTaskMs > 0,
+        metrics.maxLongTaskMs <= metrics.longTaskMs,
+    ].every(Boolean)],
 ]);
 const CHROMIUM_EVIDENCE_CHECKS = new Map([
     ['none', () => []],
@@ -391,13 +425,17 @@ function completeLiveProfile(config, workload, artifacts, browserRegistry, resul
         chromiumNativeControlsAutoHide: nestedValue(chromiumNone, 'interaction.nativeControls.autoHideObserved'),
         chromiumYomuReleasedFocus: nestedValue(chromiumNone, 'interaction.nativeControls.yomuDidNotRetainFocus'),
         chromiumSubtitleHover: nestedValue(chromiumNone, 'interaction.subtitles.hover.opened'),
+        chromiumSubtitleHoverClosed: nestedValue(chromiumNone, 'interaction.subtitles.hover.closed'),
         chromiumOcrHover: nestedValue(chromiumNone, 'interaction.ocr.hover.opened'),
+        chromiumOcrHoverClosed: nestedValue(chromiumNone, 'interaction.ocr.hover.closed'),
         chromiumCpuSamples: nestedValue(chromiumCpu, 'functionEvidence.sampled.sampleCount'),
         chromiumCoverageFunctionsCalled: nestedValue(chromiumCoverage, 'functionEvidence.calls.functionsCalled'),
         webkitRuntimeHealthy: nestedValue(webkitRun, 'final.yomu.runtimeHealth') === 'ready',
         webkitNativeControlsAutoHide: nestedValue(webkitRun, 'interaction.nativeControls.autoHideObserved'),
         webkitSubtitleHover: nestedValue(webkitRun, 'interaction.subtitles.hover.opened'),
+        webkitSubtitleHoverClosed: nestedValue(webkitRun, 'interaction.subtitles.hover.closed'),
         webkitOcrHover: nestedValue(webkitRun, 'interaction.ocr.hover.opened'),
+        webkitOcrHoverClosed: nestedValue(webkitRun, 'interaction.ocr.hover.closed'),
     };
 }
 
@@ -480,6 +518,93 @@ function playbackEvidenceFailures(_context, run, result) {
     return failureUnless(nestedValue(result, 'interaction.playback.progressed') === true, run, 'playback did not progress');
 }
 
+function interactionEvidenceFailures(context, run, result) {
+    if (context.workload.kind !== 'interaction') return [];
+    const timedText = nestedValue(result, 'yomuBridgeRequests.timedText');
+    const subtitle = nestedValue(result, 'interaction.subtitles');
+    const ocr = nestedValue(result, 'interaction.ocr');
+    const controls = nestedValue(result, 'interaction.nativeControls');
+    return [
+        ...failureUnless(hasSuccessfulTimedText(timedText), run, 'real non-empty timedtext response was not observed'),
+        ...failureUnless(hoverEvidenceComplete(subtitle), run, 'subtitle hover open/close evidence is incomplete'),
+        ...failureUnless(ocrEvidenceComplete(ocr), run, 'OCR hover open/close evidence is incomplete'),
+        ...failureUnless(nativeControlsEvidenceComplete(controls), run, 'native controls auto-hide or focus-release evidence is incomplete'),
+    ];
+}
+
+function hasSuccessfulTimedText(entries) {
+    if (!Array.isArray(entries)) return false;
+    return entries.some(timedTextObservationComplete);
+}
+
+function timedTextObservationComplete(entry) {
+    const response = nestedValue(entry, 'response');
+    const status = Number(nestedValue(response, 'status'));
+    const bytes = Number(nestedValue(response, 'bytes'));
+    return [
+        nestedValue(entry, 'endpoint') === 'https://www.youtube.com/api/timedtext',
+        nestedValue(entry, 'transport') === 'browser-session-fetch',
+        Number.isInteger(status),
+        status >= 200,
+        status < 300,
+        Number.isInteger(bytes),
+        bytes > 0,
+        new Set(['json', 'xml', 'text']).has(nestedValue(response, 'format')),
+        Boolean(nestedValue(response, 'contentType')),
+    ].every(Boolean);
+}
+
+function hoverEvidenceComplete(surface) {
+    const hover = nestedValue(surface, 'hover');
+    return [
+        nestedValue(surface, 'rootPresent') === true,
+        nestedValue(surface, 'wordPresent') === true,
+        nestedValue(hover, 'opened') === true,
+        nestedValue(hover, 'closed') === true,
+        Boolean(nestedValue(hover, 'text')),
+        finiteNonNegative(nestedValue(hover, 'openMs')),
+        finiteNonNegative(nestedValue(hover, 'closeMs')),
+    ].every(Boolean);
+}
+
+function ocrEvidenceComplete(surface) {
+    const hoverComplete = hoverEvidenceComplete({
+            rootPresent: nestedValue(surface, 'framePresent'),
+            wordPresent: nestedValue(surface, 'wordPresent'),
+            hover: nestedValue(surface, 'hover'),
+        });
+    return [
+        nestedValue(surface, 'videoState.found') === true,
+        nestedValue(surface, 'videoState.paused') === true,
+        nestedValue(surface, 'framePresent') === true,
+        nestedValue(surface, 'linePresent') === true,
+        hoverComplete,
+    ].every(Boolean);
+}
+
+function nativeControlsEvidenceComplete(controls) {
+    const awake = nestedValue(controls, 'awake');
+    const idle = nestedValue(controls, 'idle');
+    const awakeVisible = [
+        nestedValue(awake, 'playerAutohide') === false,
+        Number(nestedValue(awake, 'chromeOpacity')) > 0.1,
+    ].every(Boolean);
+    const idleHidden = [
+        nestedValue(idle, 'playerAutohide') === true,
+        Number(nestedValue(idle, 'chromeOpacity')) <= 0.1,
+    ].some(Boolean);
+    return [
+        nestedValue(controls, 'found') === true,
+        awakeVisible,
+        idleHidden,
+        nestedValue(controls, 'autoHideObserved') === true,
+        nestedValue(controls, 'yomuDidNotRetainFocus') === true,
+        nestedValue(idle, 'activeInsideYomu') === false,
+        Number(nestedValue(idle, 'yomuFocused')) === 0,
+        Number(nestedValue(idle, 'yomuHovered')) === 0,
+    ].every(Boolean);
+}
+
 function browserEvidenceFailures(context, run, result) {
     return [
         ...browserIdentityFieldFailures(run, result),
@@ -489,17 +614,34 @@ function browserEvidenceFailures(context, run, result) {
 }
 
 function browserIdentityFieldFailures(run, result) {
-    const textFields = ['browser.channel', 'browser.version', 'browser.executable.path'];
+    const textFields = ['browser.channel', 'browser.version', 'browser.payloadResolution'];
     const textComplete = textFields.every(path => Boolean(nestedValue(result, path)));
-    const sha256 = String(nestedValue(result, 'browser.executable.sha256'));
-    const hashComplete = /^[a-f0-9]{64}$/u.test(sha256);
-    return failureUnless(textComplete && hashComplete && browserStatComplete(result), run, 'actual browser provenance is incomplete');
+    const executableComplete = browserExecutableIdentityComplete(result, 'browser.executable');
+    const payloadComplete = browserPayloadResolutionComplete(run, result);
+    return failureUnless(textComplete && executableComplete && payloadComplete, run, 'actual browser provenance is incomplete');
 }
 
-function browserStatComplete(result) {
+function browserExecutableIdentityComplete(result, prefix) {
+    const path = nestedValue(result, `${prefix}.path`);
+    const sha256 = String(nestedValue(result, `${prefix}.sha256`));
     const numberFields = ['mode', 'mtimeMs', 'device', 'inode'];
-    const numbersComplete = numberFields.every(field => typeof nestedValue(result, `browser.executable.stat.${field}`) === 'number');
-    return numbersComplete && Number(nestedValue(result, 'browser.executable.stat.bytes')) > 0;
+    const numbersComplete = numberFields.every(field => Number.isFinite(nestedValue(result, `${prefix}.stat.${field}`)));
+    return Boolean(path)
+        && /^[a-f0-9]{64}$/u.test(sha256)
+        && numbersComplete
+        && Number(nestedValue(result, `${prefix}.stat.bytes`)) > 0;
+}
+
+function browserPayloadResolutionComplete(run, result) {
+    const resolution = nestedValue(result, 'browser.payloadResolution');
+    const check = BROWSER_PAYLOAD_CHECKS.get(resolution);
+    return check ? check(run, result) : false;
+}
+
+function webKitWrapperPayloadComplete(run, result) {
+    const launcherComplete = browserExecutableIdentityComplete(result, 'browser.launcher');
+    const distinctPaths = nestedValue(result, 'browser.launcher.path') !== nestedValue(result, 'browser.executable.path');
+    return [run.engine === 'webkit', launcherComplete, distinctPaths].every(Boolean);
 }
 
 function browserHeadModeFailures(run, result) {
@@ -542,11 +684,64 @@ function instrumentationFailures(_context, run, result) {
     return failureUnless(nestedValue(result, 'workload.instrumented') === instrumented, run, 'instrumentation scope is incorrect');
 }
 
-function chromiumNoneMetricsFailures(_context, run, result) {
+function chromiumNoneMetricsFailures(context, run, result) {
     if (run.key !== 'chromium:none') return [];
-    const hasCdp = isRecord(nestedValue(result, 'workload.cdpDelta'));
-    const hasPage = isRecord(nestedValue(result, 'workload.page'));
+    const hasCdp = completeCdpMetrics(nestedValue(result, 'workload.cdpDelta'));
+    const hasPage = completePageMetrics(nestedValue(result, 'workload.page'), context.workload);
     return failureUnless(hasCdp && hasPage, run, 'chromium:none whole-page CDP or page metrics are missing');
+}
+
+function completeCdpMetrics(metrics) {
+    if (!isRecord(metrics)) return false;
+    const complete = REQUIRED_CDP_DELTA_FIELDS.every(field => Number.isFinite(metrics[field]));
+    const durations = ['TaskDuration', 'ScriptDuration', 'LayoutDuration', 'RecalcStyleDuration'];
+    const counts = ['LayoutCount', 'RecalcStyleCount'];
+    return [
+        complete,
+        durations.every(field => metrics[field] >= 0),
+        counts.every(field => nonNegativeInteger(metrics[field])),
+        metrics.TaskDuration > 0,
+        metrics.ScriptDuration > 0,
+        counts.some(field => metrics[field] > 0),
+    ].every(Boolean);
+}
+
+function completePageMetrics(metrics, workload) {
+    if (!isRecord(metrics)) return false;
+    const counters = REQUIRED_PAGE_COUNTER_FIELDS.every(field => finiteNonNegative(metrics[field]));
+    const integerCounters = ['longTasks', 'animationFrames', 'over50MsFrameGaps']
+        .every(field => Number.isInteger(metrics[field]));
+    const frameCountersConsistent = [
+        metrics.animationFrames > 0,
+        metrics.maxFrameGapMs > 0,
+        metrics.over50MsFrameGaps <= metrics.animationFrames,
+    ].every(Boolean);
+    return [
+        counters,
+        integerCounters,
+        finiteNonNegative(metrics.startedAt),
+        metrics.elapsedMs > 0,
+        longTaskMetricsConsistent(metrics),
+        frameCountersConsistent,
+        workloadElapsedComplete(metrics, workload),
+    ].every(Boolean);
+}
+
+function longTaskMetricsConsistent(metrics) {
+    return LONG_TASK_CONSISTENCY.get(metrics.longTasks === 0)(metrics);
+}
+
+function workloadElapsedComplete(metrics, workload) {
+    if (workload.kind !== 'ambient') return true;
+    return metrics.elapsedMs >= workload.durationMs * MIN_AMBIENT_WINDOW_RATIO;
+}
+
+function nonNegativeInteger(value) {
+    return Number.isInteger(value) && value >= 0;
+}
+
+function finiteNonNegative(value) {
+    return Number.isFinite(value) && value >= 0;
 }
 
 function fatalBridgeLedgerFailures(_context, run, result) {
@@ -558,11 +753,27 @@ function fatalBridgeLedgerFailures(_context, run, result) {
 function ambientWindowFailures(context, run, result) {
     if (context.workload.kind !== 'ambient') return [];
     const window = nestedValue(result, 'interaction.ambientWindow');
+    const requestedDurationMs = Number(nestedValue(window, 'requestedDurationMs'));
+    const elapsedWallMs = Number(nestedValue(window, 'elapsedWallMs'));
+    const expectedDeltaSeconds = Number(nestedValue(window, 'expectedDeltaSeconds'));
+    const deltaSeconds = Number(nestedValue(window, 'deltaSeconds'));
+    const progressRatio = Number(nestedValue(window, 'progressRatio'));
+    const maxSampleGapMs = Number(nestedValue(window, 'maxSampleGapMs'));
     return [
+        ...failureUnless(requestedDurationMs === context.workload.durationMs, run, 'ambient requested duration does not match the workload'),
+        ...failureUnless(elapsedWallMs >= context.workload.durationMs * MIN_AMBIENT_WINDOW_RATIO, run, 'ambient wall observation window was too short'),
+        ...failureUnless(expectedDeltaSeconds > 0 && deltaSeconds >= expectedDeltaSeconds * MIN_AMBIENT_PROGRESS_RATIO, run, 'ambient media delta was not meaningful for elapsed wall time'),
+        ...failureUnless(progressRatio >= MIN_AMBIENT_PROGRESS_RATIO, run, 'ambient playback progress ratio was too low'),
+        ...failureUnless(Number(nestedValue(window, 'sampleCount')) >= 2, run, 'ambient playback samples are missing'),
+        ...failureUnless(maxSampleGapMs > 0 && maxSampleGapMs <= MAX_AMBIENT_SAMPLE_GAP_MS, run, 'ambient playback sample cadence was too sparse'),
+        ...failureUnless(Number(nestedValue(window, 'stalledIntervalCount')) === 0, run, 'ambient playback contained a stalled interval'),
+        ...failureUnless(nestedValue(window, 'fullWindow') === true, run, 'ambient playback did not cover the full window'),
+        ...failureUnless(nestedValue(window, 'sampleCadenceHealthy') === true, run, 'ambient playback sampling was unhealthy'),
         ...failureUnless(nestedValue(window, 'progressed') === true, run, 'ambient media did not progress through the observation window'),
-        ...failureUnless(Number(nestedValue(window, 'deltaSeconds')) > 0.05, run, 'ambient media delta is missing'),
         ...failureUnless(nestedValue(window, 'unpaused') === true, run, 'ambient media ended paused'),
         ...failureUnless(nestedValue(window, 'nonStalled') === true, run, 'ambient media ended stalled'),
+        ...failureUnless(nestedValue(window, 'ended.paused') === false, run, 'ambient media ended paused'),
+        ...failureUnless(Number(nestedValue(window, 'ended.readyState')) >= 3, run, 'ambient media ended without future data'),
     ];
 }
 

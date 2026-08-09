@@ -1,16 +1,46 @@
 import { createHash } from 'node:crypto';
-import { closeSync, mkdirSync, openSync, readSync, realpathSync, statSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import {
+    closeSync,
+    existsSync,
+    mkdirSync,
+    openSync,
+    readFileSync,
+    readSync,
+    realpathSync,
+    renameSync,
+    rmSync,
+    statSync,
+    writeFileSync,
+} from 'node:fs';
+import { basename, dirname, extname, join, resolve } from 'node:path';
 
 const CUSTOM_CHANNEL_KEY = 'YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL';
 const CUSTOM_EXECUTABLE_KEY = 'YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE';
+const AMBIENT_PROGRESS_RATIO = 0.8;
+const AMBIENT_WINDOW_RATIO = 0.95;
+const MAX_AMBIENT_SAMPLE_GAP_MS = 2_000;
+const TERMINAL_FILE_SYSTEM = Object.freeze({ mkdirSync, renameSync, rmSync, writeFileSync });
+const KNOWN_WEBKIT_WRAPPER_SHA256 = Object.freeze([
+    'a85baad3d8c07173ac387a59b41500c382b21ed692afe0964d29aac247ccc63b',
+]);
+const LINUX_WEBKIT_VARIANTS = new Map([
+    [true, Object.freeze({ build: 'GTK', minibrowser: 'minibrowser-gtk' })],
+    [false, Object.freeze({ build: 'WPE', minibrowser: 'minibrowser-wpe' })],
+]);
+let atomicWriteSequence = 0;
 
 /**
  * Owns the machine-facing seams of a live profile run. The live driver supplies
  * Playwright objects and observations; this Module binds them to durable
  * evidence without exposing filesystem or environment branching to the driver.
  */
-export function createLiveProfileRunSupport({ environment = process.env, headed = false } = {}) {
+export function createLiveProfileRunSupport({
+    environment = process.env,
+    headed = false,
+    platform = process.platform,
+    terminalFileSystem = TERMINAL_FILE_SYSTEM,
+    webkitWrapperSha256Allowlist = KNOWN_WEBKIT_WRAPPER_SHA256,
+} = {}) {
     const executableIdentities = new Map();
     return Object.freeze({
         launchPlan: (run, browserType, browserRegistry) => browserLaunchPlan(
@@ -19,23 +49,52 @@ export function createLiveProfileRunSupport({ environment = process.env, headed 
             browserRegistry,
             environment,
             headed,
+            platform,
+            webkitWrapperSha256Allowlist,
             executableIdentities,
         ),
         fatalRequestLedger: classify => createFatalRequestLedger(classify),
-        ambientWindow: (started, ended) => ambientWindowEvidence(started, ended),
+        ambientWindow: (samples, boundary) => ambientWindowEvidence(samples, boundary),
+        captureWorkloadEnd: collectors => captureWorkloadEnd(collectors),
+        verifyLaunchIdentity: descriptor => verifyLaunchIdentity(descriptor),
+        writeTerminalSuccess: (outputRoot, report) => writeTerminalSuccessArtifact(
+            outputRoot,
+            report,
+            terminalFileSystem,
+        ),
         writeTerminalFailure: (outputRoot, report, terminal) => writeTerminalFailureArtifacts(
             outputRoot,
             report,
             terminal,
+            terminalFileSystem,
         ),
     });
 }
 
-function browserLaunchPlan(run, browserType, browserRegistry, environment, headed, executableIdentities) {
+function browserLaunchPlan(
+    run,
+    browserType,
+    browserRegistry,
+    environment,
+    headed,
+    platform,
+    webkitWrapperSha256Allowlist,
+    executableIdentities,
+) {
     if (run.engine === 'chromium') {
         return chromiumLaunchPlan(browserType, browserRegistry, environment, headed, executableIdentities);
     }
-    return bundledLaunchPlan('webkit', browserType, browserRegistry, headed, [], executableIdentities);
+    return bundledLaunchPlan(
+        'webkit',
+        browserType,
+        browserRegistry,
+        environment,
+        headed,
+        platform,
+        [],
+        webkitWrapperSha256Allowlist,
+        executableIdentities,
+    );
 }
 
 function chromiumLaunchPlan(browserType, browserRegistry, environment, headed, executableIdentities) {
@@ -44,35 +103,173 @@ function chromiumLaunchPlan(browserType, browserRegistry, environment, headed, e
     assertCustomBrowserPair(channel, executable);
     const args = ['--autoplay-policy=no-user-gesture-required'];
     if (channel) return customLaunchPlan(channel, executable, headed, args, executableIdentities);
-    return bundledLaunchPlan('chromium', browserType, browserRegistry, headed, args, executableIdentities);
+    return bundledLaunchPlan('chromium', browserType, browserRegistry, environment, headed, process.platform, args, [], executableIdentities);
 }
 
-function bundledLaunchPlan(engine, browserType, browserRegistry, headed, args, executableIdentities) {
+function bundledLaunchPlan(
+    engine,
+    browserType,
+    browserRegistry,
+    environment,
+    headed,
+    platform,
+    args,
+    webkitWrapperSha256Allowlist,
+    executableIdentities,
+) {
     const registry = registryBrowserIdentity(browserRegistry, engine);
-    return launchPlan('playwright-bundled', browserType.executablePath(), headed, args, registry, false, executableIdentities);
+    const launcherPath = realpathSync(resolve(requiredText(browserType.executablePath(), 'Browser executable path is missing.')));
+    assertBundledLauncherRevision(engine, launcherPath, registry.revision);
+    const payload = bundledPayload(
+        engine,
+        launcherPath,
+        environment,
+        headed,
+        platform,
+        webkitWrapperSha256Allowlist,
+    );
+    return launchPlan('playwright-bundled', launcherPath, payload, headed, args, registry, false, executableIdentities);
+}
+
+function assertBundledLauncherRevision(engine, launcherPath, revision) {
+    const segments = resolve(launcherPath).split(/[\\/]/u);
+    const exact = new RegExp(`^${engine}-${escapeRegExp(revision)}$`, 'u');
+    if (!segments.some(segment => exact.test(segment))) {
+        throw new Error(`Playwright ${engine} launcher path does not match registry revision ${revision}: ${launcherPath}.`);
+    }
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 function customLaunchPlan(channel, executablePath, headed, args, executableIdentities) {
-    return launchPlan(channel, executablePath, headed, args, null, true, executableIdentities);
+    return launchPlan(channel, executablePath, { path: executablePath, resolution: 'direct' }, headed, args, null, true, executableIdentities);
 }
 
-function launchPlan(channel, executablePath, headed, args, registry, custom, executableIdentities) {
-    const executable = cachedExecutableIdentity(executablePath, executableIdentities);
+function launchPlan(channel, launcherPath, payload, headed, args, registry, custom, executableIdentities) {
+    const launcher = cachedExecutableIdentity(launcherPath, executableIdentities);
+    const executable = cachedExecutableIdentity(payload.path, executableIdentities);
     return Object.freeze({
         descriptor: Object.freeze({
             channel,
             custom,
             headed,
             headless: !headed,
+            payloadResolution: payload.resolution,
+            launcher: launcher.path === executable.path ? null : launcher,
             executable,
             registry,
         }),
         options: Object.freeze({
             headless: !headed,
-            executablePath: executable.path,
+            executablePath: launcher.path,
             args: Object.freeze([...args]),
+            ...(payload.launchEnvironment ? { env: Object.freeze({ ...payload.launchEnvironment }) } : {}),
         }),
     });
+}
+
+function bundledPayload(engine, launcherPath, environment, headed, platform, webkitWrapperSha256Allowlist) {
+    if (engine !== 'webkit') return { path: launcherPath, resolution: 'direct' };
+    return resolveWebKitPayload(
+        launcherPath,
+        environment,
+        headed,
+        platform,
+        webkitWrapperSha256Allowlist,
+    );
+}
+
+function resolveWebKitPayload(rawLauncherPath, environment, headed, platform, webkitWrapperSha256Allowlist) {
+    const launcherPath = realpathSync(resolve(requiredText(rawLauncherPath, 'Browser executable path is missing.')));
+    if (extname(launcherPath) !== '.sh') {
+        throw new Error(`Playwright WebKit executable is not a supported wrapper: ${launcherPath}.`);
+    }
+    if (basename(launcherPath) !== 'pw_run.sh') throw new Error(`Unsupported Playwright WebKit wrapper: ${launcherPath}.`);
+    assertKnownWebKitWrapper(launcherPath, platform, webkitWrapperSha256Allowlist);
+    const launchEnvironment = bundledWebKitEnvironment(launcherPath, environment);
+    const payloadPath = platform === 'darwin'
+        ? darwinWebKitPayload(launcherPath)
+        : linuxWebKitPayload(launcherPath, headed, platform);
+    return {
+        path: payloadPath,
+        resolution: 'playwright-webkit-wrapper',
+        launchEnvironment,
+    };
+}
+
+function assertKnownWebKitWrapper(launcherPath, platform, sha256Allowlist) {
+    const source = readFileSync(launcherPath, 'utf8');
+    const marker = platform === 'darwin' ? 'Playwright.app/Contents/MacOS/Playwright' : 'MINIBROWSER';
+    const allowed = new Set(requiredArray(sha256Allowlist, 'WebKit wrapper hash allowlist is missing.'));
+    const accepted = [
+        allowed.has(sha256File(launcherPath)),
+        source.includes('SCRIPT_PATH='),
+        source.includes(marker),
+    ].every(Boolean);
+    if (!accepted) {
+        throw new Error(`Playwright WebKit wrapper format is unsupported: ${launcherPath}.`);
+    }
+}
+
+function bundledWebKitEnvironment(launcherPath, environment) {
+    const disabledCheckout = join(dirname(launcherPath), '.yomu-disabled-webkit-checkout');
+    if (existsSync(disabledCheckout)) {
+        throw new Error(`Reserved WebKit checkout guard path exists: ${disabledCheckout}.`);
+    }
+    return { ...environment, WK_CHECKOUT_PATH: disabledCheckout };
+}
+
+function darwinWebKitPayload(launcherPath) {
+    const root = dirname(launcherPath);
+    const bundledApp = join(root, 'Playwright.app');
+    if (isDirectory(bundledApp)) return requiredPayload(join(bundledApp, 'Contents/MacOS/Playwright'), launcherPath);
+    const nestedApp = join(root, 'WebKitBuild/Release/Playwright.app');
+    if (isDirectory(nestedApp)) return requiredPayload(join(nestedApp, 'Contents/MacOS/Playwright'), launcherPath);
+    throw new Error(`Playwright WebKit wrapper payload is missing for ${launcherPath}.`);
+}
+
+function linuxWebKitPayload(launcherPath, headed, platform) {
+    assertLinuxWebKitPlatform(platform);
+    const root = dirname(launcherPath);
+    const variant = LINUX_WEBKIT_VARIANTS.get(Boolean(headed));
+    const branch = [
+        directoryPayload(join(root, variant.minibrowser), 'MiniBrowser'),
+        filePayload(join(root, 'MiniBrowser')),
+        directoryPayload(join(root, `WebKitBuild/${variant.build}`), 'Release/bin/MiniBrowser'),
+    ].find(candidate => candidate.selected());
+    return selectedPayload(branch, launcherPath);
+}
+
+function assertLinuxWebKitPlatform(platform) {
+    if (platform !== 'linux') throw new Error(`Playwright WebKit wrapper is unsupported on ${platform}.`);
+}
+
+function selectedPayload(branch, launcherPath) {
+    if (!branch) throw new Error(`Playwright WebKit wrapper payload is missing for ${launcherPath}.`);
+    return requiredPayload(branch.path, launcherPath);
+}
+
+function directoryPayload(directory, child) {
+    return { selected: () => isDirectory(directory), path: join(directory, child) };
+}
+
+function filePayload(path) {
+    return { selected: () => isFile(path), path };
+}
+
+function requiredPayload(path, launcherPath) {
+    if (!isFile(path)) throw new Error(`Playwright WebKit wrapper payload is missing for ${launcherPath}.`);
+    return realpathSync(path);
+}
+
+function isFile(path) {
+    return existsSync(path) && statSync(path).isFile();
+}
+
+function isDirectory(path) {
+    return existsSync(path) && statSync(path).isDirectory();
 }
 
 function cachedExecutableIdentity(executablePath, identities) {
@@ -98,6 +295,7 @@ function executableIdentity(rawPath) {
     const path = realpathSync(resolve(requiredText(rawPath, 'Browser executable path is missing.')));
     const stat = statSync(path);
     if (!stat.isFile()) throw new Error(`Browser executable is not a file: ${path}.`);
+    if ((stat.mode & 0o111) === 0) throw new Error(`Browser executable is not executable: ${path}.`);
     return Object.freeze({
         path,
         sha256: sha256File(path),
@@ -109,6 +307,20 @@ function executableIdentity(rawPath) {
             inode: stat.ino,
         }),
     });
+}
+
+function verifyLaunchIdentity(descriptor) {
+    const expected = requiredRecord(descriptor, 'Browser launch descriptor is missing.');
+    assertIdentityUnchanged(expected.executable, 'browser payload');
+    if (expected.launcher) assertIdentityUnchanged(expected.launcher, 'browser launcher');
+    return true;
+}
+
+function assertIdentityUnchanged(expected, label) {
+    const current = executableIdentity(expected?.path);
+    const fields = ['sha256', 'path', 'stat.bytes', 'stat.mode', 'stat.mtimeMs', 'stat.device', 'stat.inode'];
+    const matches = fields.every(field => nestedValue(current, field) === nestedValue(expected, field));
+    if (!matches) throw new Error(`Live profiler ${label} changed between resolution and launch.`);
 }
 
 function sha256File(path) {
@@ -171,25 +383,80 @@ function fatalRequestEntry(rawUrl, error) {
     });
 }
 
-function ambientWindowEvidence(started, ended) {
+function ambientWindowEvidence(samples, boundary) {
+    const observations = requiredArray(samples, 'Ambient playback samples are missing.');
+    const started = observations.at(0);
+    const ended = observations.at(-1);
     const startTime = playbackTime(started);
     const endTime = playbackTime(ended);
+    const elapsedWallMs = roundedPositiveDelta(boundary?.startedAtMs, boundary?.endedAtMs);
+    const requestedDurationMs = positiveNumber(boundary?.requestedDurationMs);
     const deltaSeconds = playbackDelta(startTime, endTime);
-    const progressed = playbackProgressed(deltaSeconds);
+    const expectedDeltaSeconds = expectedPlaybackDelta(elapsedWallMs, started);
+    const progressRatio = ratio(deltaSeconds, expectedDeltaSeconds);
+    const intervals = ambientIntervals(observations);
+    const maxSampleGapMs = maxIntervalValue(intervals, 'wallMs');
+    const stalledIntervalCount = intervals.filter(interval => interval.stalled).length;
+    const sampleCadenceHealthy = [
+        maxSampleGapMs !== null,
+        maxSampleGapMs <= MAX_AMBIENT_SAMPLE_GAP_MS,
+    ].every(Boolean);
+    const fullWindow = [
+        requestedDurationMs !== null,
+        elapsedWallMs !== null,
+        elapsedWallMs >= requestedDurationMs * AMBIENT_WINDOW_RATIO,
+    ].every(Boolean);
+    const progressed = [
+        fullWindow,
+        progressRatio !== null,
+        progressRatio >= AMBIENT_PROGRESS_RATIO,
+    ].every(Boolean);
     const unpaused = playbackUnpaused(ended);
     const hasFutureData = playbackHasFutureData(ended);
     return Object.freeze({
         started,
         ended,
+        requestedDurationMs,
+        elapsedWallMs,
+        sampleCount: observations.length,
+        maxSampleGapMs,
+        sampleCadenceHealthy,
         deltaSeconds,
+        expectedDeltaSeconds,
+        progressRatio,
+        stalledIntervalCount,
+        fullWindow,
         progressed,
         unpaused,
-        nonStalled: [progressed, unpaused, hasFutureData].every(Boolean),
+        nonStalled: [progressed, unpaused, hasFutureData, sampleCadenceHealthy, stalledIntervalCount === 0].every(Boolean),
     });
 }
 
-function playbackProgressed(deltaSeconds) {
-    return deltaSeconds !== null && deltaSeconds > 0.05;
+function ambientIntervals(observations) {
+    return observations.slice(1).map((ended, index) => ambientInterval(observations[index], ended));
+}
+
+function ambientInterval(started, ended) {
+    const wallMs = roundedPositiveDelta(started?.observedAtMs, ended?.observedAtMs);
+    const mediaSeconds = playbackDelta(playbackTime(started), playbackTime(ended));
+    const expectedSeconds = expectedPlaybackDelta(wallMs, started);
+    const intervalRatio = ratio(mediaSeconds, expectedSeconds);
+    const healthyState = [
+        playbackUnpaused(started),
+        playbackUnpaused(ended),
+        playbackHasFutureData(ended),
+    ].every(Boolean);
+    const stalled = [
+        !healthyState,
+        intervalRatio === null,
+        intervalRatio < AMBIENT_PROGRESS_RATIO,
+    ].some(Boolean);
+    return Object.freeze({
+        wallMs,
+        mediaSeconds,
+        progressRatio: intervalRatio,
+        stalled,
+    });
 }
 
 function playbackUnpaused(state) {
@@ -206,28 +473,86 @@ function playbackTime(state) {
     return typeof state?.currentTime === 'number' ? state.currentTime : null;
 }
 
+function playbackRate(state) {
+    const value = Number(state?.playbackRate);
+    return Number.isFinite(value) && value > 0 ? value : null;
+}
+
 function playbackDelta(startTime, endTime) {
     if (startTime === null) return null;
     if (endTime === null) return null;
     return Math.round((endTime - startTime) * 1000) / 1000;
 }
 
-function writeTerminalFailureArtifacts(outputRoot, report, terminal) {
-    mkdirSync(outputRoot, { recursive: true });
+function expectedPlaybackDelta(elapsedWallMs, state) {
+    const rate = playbackRate(state);
+    if (elapsedWallMs === null || rate === null) return null;
+    return Math.round(elapsedWallMs * rate) / 1000;
+}
+
+function roundedPositiveDelta(startedAtMs, endedAtMs) {
+    const start = Number(startedAtMs);
+    const end = Number(endedAtMs);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+    return Math.round((end - start) * 10) / 10;
+}
+
+function ratio(value, expected) {
+    if (!Number.isFinite(value) || !Number.isFinite(expected) || expected <= 0) return null;
+    return Math.round((value / expected) * 1000) / 1000;
+}
+
+function maxIntervalValue(intervals, field) {
+    const values = intervals.map(interval => interval[field]).filter(Number.isFinite);
+    return values.length > 0 ? Math.max(...values) : null;
+}
+
+function positiveNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+async function captureWorkloadEnd(collectors) {
+    const cdp = collectAtBoundary(collectors, 'cdp');
+    const page = collectAtBoundary(collectors, 'page');
+    const [cdpMetrics, pageMetrics] = await Promise.all([cdp, page]);
+    return Object.freeze({ cdpMetrics, pageMetrics });
+}
+
+function collectAtBoundary(collectors, name) {
+    const collector = collectors?.[name];
+    return typeof collector === 'function' ? collector() : Promise.resolve(null);
+}
+
+function writeTerminalFailureArtifacts(outputRoot, report, terminal, fileSystem) {
+    fileSystem.mkdirSync(outputRoot, { recursive: true });
     const failedReport = {
         ...report,
         status: 'failed',
         completedAt: terminal.generatedAt,
         failure: terminal.failure,
     };
-    writeJson(join(outputRoot, 'report.json'), failedReport);
-    writeJson(join(outputRoot, 'failure.json'), terminal);
-    writeJson(join(outputRoot, 'report.partial.json'), failedReport);
+    writeJsonAtomically(join(outputRoot, 'failure.json'), terminal, fileSystem);
+    writeJsonAtomically(join(outputRoot, 'report.partial.json'), failedReport, fileSystem);
+    writeJsonAtomically(join(outputRoot, 'report.json'), failedReport, fileSystem);
     return failedReport;
 }
 
-function writeJson(path, value) {
-    writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
+function writeTerminalSuccessArtifact(outputRoot, report, fileSystem) {
+    fileSystem.mkdirSync(outputRoot, { recursive: true });
+    fileSystem.rmSync(join(outputRoot, 'report.partial.json'), { force: true });
+    writeJsonAtomically(join(outputRoot, 'report.json'), report, fileSystem);
+    return report;
+}
+
+function writeJsonAtomically(path, value, fileSystem) {
+    const temporaryPath = `${path}.${process.pid}.${atomicWriteSequence += 1}.tmp`;
+    try {
+        fileSystem.writeFileSync(temporaryPath, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' });
+        fileSystem.renameSync(temporaryPath, path);
+    } finally {
+        fileSystem.rmSync(temporaryPath, { force: true });
+    }
 }
 
 function requiredRecord(value, message) {
@@ -251,6 +576,15 @@ function requiredSha256(value, message) {
     const sha256 = requiredText(value, message);
     if (!/^[a-f0-9]{64}$/u.test(sha256)) throw new Error(message);
     return sha256;
+}
+
+function nestedValue(root, path) {
+    let current = root;
+    for (const key of path.split('.')) {
+        if (current == null) return null;
+        current = current[key];
+    }
+    return current;
 }
 
 function errorValue(error, key, fallback) {

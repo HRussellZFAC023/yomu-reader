@@ -138,8 +138,7 @@ function completeLiveProfileReport(report) {
     report.acceptance = profileEvidence.complete(report.runs);
     report.status = 'passed';
     report.completedAt = new Date().toISOString();
-    writeFileSync(join(outputRoot, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
-    rmSync(join(outputRoot, 'report.partial.json'), { force: true });
+    runSupport.writeTerminalSuccess(outputRoot, report);
     console.log(JSON.stringify(report, null, 2));
 }
 
@@ -207,6 +206,7 @@ async function runReplay(run) {
     try {
         launchPlan = runSupport.launchPlan(run, browserType, profileEvidence.browserRegistry);
         browser = await browserType.launch(launchPlan.options);
+        runSupport.verifyLaunchIdentity(launchPlan.descriptor);
         context = await browser.newContext({
             bypassCSP: true,
             locale: 'ja-JP',
@@ -262,11 +262,17 @@ async function runReplay(run) {
 
         const interaction = workloadKind === 'ambient'
             ? await exerciseAmbientPlayback(page)
-            : await exerciseLiveWatchPage(page, runDir);
+            : await exerciseLiveWatchPage(page);
+        const workloadEnd = await runSupport.captureWorkloadEnd({
+            cdp: () => client ? cdpMetrics(client) : Promise.resolve(null),
+            page: () => page.evaluate(() => window.__yomuLiveWatchPerf?.snapshot() ?? null),
+        });
         const functionEvidence = client ? await stopAndSummarizeProfiler(client, run.mode, runDir) : null;
         profilerStarted = false;
-        const afterMetrics = client ? await cdpMetrics(client) : null;
         const final = await readLiveState(page, client);
+        if (workloadKind === 'interaction') {
+            await page.screenshot({ path: join(runDir, 'interaction-final.png'), fullPage: false }).catch(() => undefined);
+        }
         await page.screenshot({ path: join(runDir, 'live-watch.png'), fullPage: false });
         fatalBridgeLedger.assertEmpty();
         const result = {
@@ -284,8 +290,10 @@ async function runReplay(run) {
                 comparable: profileEvidence.workload.comparable,
                 instrumented: run.mode === 'cpu' || run.mode === 'coverage',
                 instrumentation: run.mode,
-                cdpDelta: beforeMetrics && afterMetrics ? metricDelta(beforeMetrics, afterMetrics) : null,
-                page: await page.evaluate(() => window.__yomuLiveWatchPerf?.snapshot() ?? null),
+                cdpDelta: beforeMetrics && workloadEnd.cdpMetrics
+                    ? metricDelta(beforeMetrics, workloadEnd.cdpMetrics)
+                    : null,
+                page: workloadEnd.pageMetrics,
             },
             functionEvidence,
             network: networkSummary(network),
@@ -385,28 +393,37 @@ function liveProfileSettings() {
     };
 }
 
-async function exerciseLiveWatchPage(page, runDir) {
+async function exerciseLiveWatchPage(page) {
     const playback = await startPlayback(page);
-    const nativeControls = await exerciseNativeControls(page);
     const subtitles = await exerciseSubtitleHover(page);
     const ocr = await exercisePausedFrameOcrHover(page);
-    await page.screenshot({ path: join(runDir, 'interaction-final.png'), fullPage: false }).catch(() => undefined);
-    return { playback, nativeControls, subtitles, ocr };
+    const resumedPlayback = await startPlayback(page);
+    const nativeControls = await exerciseNativeControls(page);
+    return { playback, resumedPlayback, nativeControls, subtitles, ocr };
 }
 
 async function exerciseAmbientPlayback(page) {
     const playback = await startPlayback(page);
-    const windowStarted = await page.evaluate(readLivePlaybackState);
+    const boundary = { startedAtMs: performance.now(), requestedDurationMs: ambientDurationMs };
+    const samples = [await observedPlaybackState(page)];
     await page.mouse.move(4, 4);
-    await page.waitForTimeout(ambientDurationMs);
-    const windowEnded = await page.evaluate(readLivePlaybackState);
+    while (performance.now() - boundary.startedAtMs < ambientDurationMs) {
+        const remainingMs = ambientDurationMs - (performance.now() - boundary.startedAtMs);
+        await page.waitForTimeout(Math.min(1_000, Math.max(1, remainingMs)));
+        samples.push(await observedPlaybackState(page));
+    }
+    boundary.endedAtMs = performance.now();
     return {
         kind: 'ambient',
         durationMs: ambientDurationMs,
         playback,
-        ambientWindow: runSupport.ambientWindow(windowStarted, windowEnded),
-        finalNativeControls: await page.evaluate(readNativeControlState),
+        ambientWindow: runSupport.ambientWindow(samples, boundary),
     };
+}
+
+async function observedPlaybackState(page) {
+    const state = await page.evaluate(readLivePlaybackState);
+    return { ...state, observedAtMs: performance.now() };
 }
 
 async function startPlayback(page) {
@@ -432,7 +449,8 @@ function readLivePlaybackState() {
     return {
         found: true,
         paused: video.paused,
-        currentTime: Number.isFinite(video.currentTime) ? Math.round(video.currentTime * 10) / 10 : null,
+        currentTime: Number.isFinite(video.currentTime) ? video.currentTime : null,
+        playbackRate: Number.isFinite(video.playbackRate) ? video.playbackRate : null,
         readyState: video.readyState,
     };
 }
@@ -820,7 +838,12 @@ function networkSummary(network) {
 function summarizeBridgeRequests(requests) {
     const timedText = requests
         .filter(request => request.caption)
-        .map(request => ({ ...request.caption, response: request.response ?? null }));
+        .map(request => ({
+            endpoint: request.url,
+            transport: request.transport,
+            ...request.caption,
+            response: request.response ?? null,
+        }));
     return {
         count: requests.length,
         byEndpoint: Object.fromEntries(requests.reduce((counts, request) => {

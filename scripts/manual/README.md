@@ -72,7 +72,9 @@ still execute in one ordered init program, but each has a distinct profiler URL
 so harness work cannot enter the product summary. Every requested replay must
 reach real YouTube, boot the runtime, progress media playback, and collect its
 requested evidence or the command exits unsuccessfully with `report.json`,
-`report.partial.json`, and `failure.json`.
+`report.partial.json`, and `failure.json`. Failure companions are atomically
+committed before `report.json`; that last rename is the terminal marker rather
+than a possibly truncated early report.
 
 This clean-context driver emulates the callback GM interface; it is not evidence
 of Tampermonkey, Greasemonkey, or extension scheduling. YouTube timedtext is
@@ -80,15 +82,23 @@ fetched with cookies, headers, and cancellation inside the watch-page browser
 session, while JPDB/OCR are deterministic mocks. Set
 `YOMU_LIVE_YOUTUBE_WORKLOAD=ambient` for a time-boxed playback observation; it is
 explicitly non-comparable because real-page operations, media, ads, and network
-state are not fixed. Ambient evidence is accepted only when media also advances
-through the full observation window and ends unpaused with future data. An
+state are not fixed. Every interaction replay must journal a successful,
+non-empty timedtext response and prove subtitle and OCR hover open/close plus
+post-hover native-control auto-hide and focus release. Ambient evidence samples
+playback throughout the requested wall-clock window; a short endpoint movement,
+sparse sample cadence, any stalled interval, or an ended pause fails. CDP and
+page counters are captured together at the workload boundary before final-state
+inspection or screenshots. An
 unrecognized GM endpoint is terminal even if the reader absorbs its `onerror`.
 Playwright cannot report physical iPad temperature or power draw.
 
 Bundled Playwright browsers are used by default. Each replay records headed or
 headless mode, the Playwright registry manifest/revision/version, and the
-resolved executable path, hash, and file stat. Custom Chromium records the same
-executable content identity. To select another Chromium build, set both
+resolved executable path, hash, and file stat. WebKit records both the pinned
+`pw_run.sh` launcher and the actual Playwright/MiniBrowser child it selects; an
+unknown wrapper, revision path, or missing/non-executable child fails closed.
+Custom Chromium records the same executable content identity. To select another
+Chromium build, set both
 `YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL` (the evidence label) and
 `YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE` (the absolute launched path).
 
