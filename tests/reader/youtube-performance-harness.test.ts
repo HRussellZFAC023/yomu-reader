@@ -173,6 +173,19 @@ describe('YouTube performance harness', () => {
         });
     });
 
+    it('keeps the live watch profiler explicit about real YouTube, CDP, WebKit, and thermal limits', () => {
+        const source = readFileSync(resolve(import.meta.dirname, '../../scripts/manual/youtube-live-watch-performance-profile.mjs'), 'utf8');
+
+        expect(source).toContain("'https://www.youtube.com/watch?v=TAorfFcb8_g");
+        expect(source).toContain("YOMU_LIVE_YOUTUBE_RUNS ?? 'chromium:cpu,chromium:coverage,webkit:none'");
+        expect(source).toContain("Emulation.setCPUThrottlingRate");
+        expect(source).toContain('Playwright/CDP exposes renderer work');
+        expect(source).toContain('addUserscriptGraphInitScripts');
+        expect(source).toContain('return liveTextResponse(request)');
+        expect(source).toContain("page.locator('.jpdb-ocr-layer .jpdb-ocr-line')");
+        expect(source).not.toContain("page.route('**/*'");
+    });
+
     it('walks nested imports once and changes identity when a transitive helper changes', () => {
         const root = temporaryDirectory();
         writeFileSync(join(root, 'entry.mjs'), "import './a.mjs';\nimport './b.mjs';\n");

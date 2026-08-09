@@ -257,6 +257,7 @@
     "smoke:youtube-dom-safe": "node scripts/youtube-dom-safe-smoke.mjs",
     "manual:youtube-fullscreen": "node scripts/manual/youtube-fullscreen-smoke.mjs",
     "manual:youtube-homepage-performance": "node scripts/manual/youtube-homepage-performance-profile.mjs",
+    "manual:youtube-live-watch-performance": "node scripts/manual/youtube-live-watch-performance-profile.mjs",
     "manual:youtube-real-dom-instability": "node scripts/manual/youtube-real-dom-instability-smoke.mjs",
     "test": "vitest run",
     "academy:workflow": "node scripts/academy-production-workflow.mjs",
