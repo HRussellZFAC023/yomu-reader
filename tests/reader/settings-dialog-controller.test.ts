@@ -19,6 +19,8 @@ import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reade
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
 
+const settingsDialogTestState = vi.hoisted(() => ({ useRealLocalization: false }));
+
 vi.mock('../../src/reader/anki/transport', async importOriginal => {
     const actual = await importOriginal<typeof import('../../src/reader/anki/transport')>();
     return {
@@ -43,6 +45,10 @@ vi.mock('../../src/reader/settings/form', async importOriginal => {
         // Controller tests exercise settings dialog behavior; full localization and
         // parsed-settings ruby coverage lives in settings-form/nested-text tests.
         localizeSettingsForm: vi.fn((form: HTMLFormElement, language: ReaderSettings['interfaceLanguage']) => {
+            if (settingsDialogTestState.useRealLocalization) {
+                actual.localizeSettingsForm(form, language);
+                return;
+            }
             form.lang = language === 'ja' ? 'ja' : 'en';
         }),
     };
@@ -348,6 +354,7 @@ function importSummary(dictionary: string): ImportSummary {
 
 describe('settings dialog keyboard dismissal', () => {
     afterEach(() => {
+        settingsDialogTestState.useRealLocalization = false;
         document.body.replaceChildren();
         localStorage.clear();
         resetAudioSubSourceDiscoveryForTests();
@@ -471,6 +478,42 @@ describe('settings dialog keyboard dismissal', () => {
         expect(form.querySelector('[data-language-family="pitch-legend"]')).not.toBeNull();
         expect(form.querySelector('[data-language-family="provider-pills"]')).not.toBeNull();
         expect(publishedDictionaryLanguages).toHaveBeenCalledOnce();
+    });
+
+    it('round-trips and saves the Japanese difficulty mode through a temporary Spanish target', async () => {
+        settingsDialogTestState.useRealLocalization = true;
+        let current: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'difficult-kanji' as const,
+        };
+        const onSettingsPersisted = vi.fn();
+        const { dismiss, form } = createSettingsDialog({
+            getSettings: () => current,
+            setSettings: (settings: ReaderSettings) => { current = settings; },
+            onSettingsPersisted,
+        });
+        const picker = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+
+        expect(mode.value).toBe('difficult-kanji');
+        picker.value = 'es';
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(mode.value).toBe('all');
+        expect(mode.querySelector('option[value="difficult-kanji"]')).toBeNull();
+
+        picker.value = 'ja';
+        picker.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(mode.value).toBe('difficult-kanji');
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => onSettingsPersisted.mock.calls.length === 1);
+
+        expect(dismiss).toHaveBeenCalledOnce();
+        expect(current.furiganaMode).toBe('difficult-kanji');
+        expect(onSettingsPersisted).toHaveBeenCalledWith(expect.objectContaining({
+            furiganaMode: 'difficult-kanji',
+        }));
     });
 
     it('scrolls focused settings controls above the mobile keyboard and footer', () => {

@@ -239,6 +239,42 @@ describe('target-language settings', () => {
         expect(readFormSettings(new FormData(form), spanishSettings).furiganaMode).toBe('all');
     });
 
+    it('restores the Japanese mode after a temporary target switch unless the learner changes it', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFurigana: true,
+            furiganaMode: 'difficult-kanji' as const,
+        };
+        const form = renderSettingsTestForm(settings);
+        const target = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        const mode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!;
+        localizeSettingsForm(form, 'en');
+
+        switchTarget(form, target, 'es');
+        expect(mode.value).toBe('all');
+        switchTarget(form, target, 'ja');
+        expect(mode.value).toBe('difficult-kanji');
+
+        switchTarget(form, target, 'es');
+        mode.value = 'hover';
+        mode.dispatchEvent(new Event('change', { bubbles: true }));
+        switchTarget(form, target, 'ja');
+        expect(mode.value).toBe('hover');
+    });
+
+    it('rejects the Japanese difficulty mode at the final form-read boundary for another target', () => {
+        const data = new FormData();
+        data.set('targetLanguage', 'es');
+        data.set('furiganaMode', 'difficult-kanji');
+
+        const saved = readFormSettings(data, DEFAULT_SETTINGS);
+
+        expect(activeTargetLanguageId(saved)).toBe('es');
+        expect(saved.furiganaMode).toBe('all');
+        expect(saved.showFurigana).toBe(true);
+        expect(saved.hideKnownFurigana).toBe(false);
+    });
+
     it('uses the shared Japanese, Chinese, Cantonese, and Korean family vocabulary', () => {
         const root = document.createElement('section');
         root.innerHTML = `
@@ -415,6 +451,16 @@ function readingControlExpectation(targetLanguage: string): {
         return { optionCount: 5, hasDifficultyMode: true, label: 'Furigana', emptyDifficultyNote: false };
     }
     return { optionCount: 4, hasDifficultyMode: false, label: 'Reading annotations', emptyDifficultyNote: true };
+}
+
+function switchTarget(
+    form: HTMLFormElement,
+    target: HTMLSelectElement,
+    targetLanguage: string,
+): void {
+    target.value = targetLanguage;
+    syncLanguageFamilyDom(form, targetLanguage);
+    localizeSettingsForm(form, 'en');
 }
 
 function labelText(form: HTMLFormElement, controlName: string): string {

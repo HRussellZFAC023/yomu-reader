@@ -7,10 +7,11 @@ import {
 import { SETTINGS_LABEL_TEXT_CLASS, select } from './form-controls';
 import { renderReadingHiddenStateGroupControls } from './hide-state-groups';
 import { effectiveFuriganaMode, furiganaModeNeedsDifficultyExplanation } from './index';
+import { readingAnnotationModeForTarget } from './reading-annotation-mode';
 import { settingsText, type SettingsText } from './settings-text';
 
 type SettingsTextKey = Parameters<SettingsText>[0];
-type FuriganaMode = ReaderSettings['furiganaMode'];
+type ReadingMode = Exclude<ReaderSettings['furiganaMode'], 'auto'>;
 
 const READING_MODE_OPTIONS = [
     ['known-status', 'furiganaHideKnown'],
@@ -18,7 +19,7 @@ const READING_MODE_OPTIONS = [
     ['hover', 'furiganaHoverOnly'],
     ['all', 'furiganaAllParsed'],
     ['off', 'off'],
-] as const satisfies readonly (readonly [FuriganaMode, SettingsTextKey])[];
+] as const satisfies readonly (readonly [ReadingMode, SettingsTextKey])[];
 
 const CLAMPED_ROW_OPTIONS = [
     ['show', 'clampedRowReadingsShow'],
@@ -37,8 +38,9 @@ export function renderReadingAnnotationControls(
     targetLanguage: LearningTargetRosterId,
 ): string {
     const text = settingsText(settings.interfaceLanguage);
-    const mode = modeForTarget(effectiveFuriganaMode(settings), targetLanguage);
-    return `<div data-language-family="reading-annotation" data-reading-annotation-controls data-reading-annotation-target="${escapeHtml(targetLanguage)}">
+    const japaneseMode = effectiveFuriganaMode(settings);
+    const mode = readingAnnotationModeForTarget(japaneseMode, targetLanguage);
+    return `<div data-language-family="reading-annotation" data-reading-annotation-controls data-reading-annotation-target="${escapeHtml(targetLanguage)}" data-reading-annotation-last-mode="${escapeHtml(mode)}" data-reading-annotation-japanese-mode="${escapeHtml(japaneseMode)}">
         ${select('furiganaMode', text(modeLabelKey(targetLanguage)), mode, modeOptions(text, targetLanguage))}
         ${difficultyNoteHtml(settings, text, targetLanguage)}
         ${select('clampedRowReadings', text('clampedRowReadings'), settings.clampedRowReadings, localizedOptions(text, CLAMPED_ROW_OPTIONS))}
@@ -53,11 +55,13 @@ export function syncReadingAnnotationControls(form: HTMLFormElement, text: Setti
     if (!modeSelect) return;
 
     const currentMode = selectedReadingMode(modeSelect);
-    const selectedMode = modeForTarget(currentMode, targetLanguage);
+    const state = targetSwitchState(modeSelect, currentMode, targetLanguage);
+    trackExplicitModeChanges(modeSelect);
+    const selectedMode = state.selectedMode;
     replaceOptions(modeSelect, modeOptions(text, targetLanguage), selectedMode);
     setSelectLabel(modeSelect, text(modeLabelKey(targetLanguage)));
     syncClampedRowControl(form, text);
-    syncControlTarget(modeSelect, targetLanguage);
+    syncControlState(modeSelect, targetLanguage, selectedMode, state.japaneseMode);
     syncHiddenStateLegend(form, text, targetLanguage);
     syncDifficultyNote(form, text, targetLanguage, selectedMode);
 }
@@ -74,8 +78,8 @@ function difficultyNoteHtml(
     return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapeHtml(text('furiganaDifficultKanjiHelp'))}</div>`;
 }
 
-function selectedReadingMode(selectElement: HTMLSelectElement): FuriganaMode {
-    return READING_MODE_OPTIONS.find(([mode]) => mode === selectElement.value)?.[0] ?? 'all';
+function selectedReadingMode(selectElement: HTMLSelectElement): ReadingMode {
+    return readingModeValue(selectElement.value) ?? 'all';
 }
 
 function syncClampedRowControl(form: HTMLFormElement, text: SettingsText): void {
@@ -85,9 +89,18 @@ function syncClampedRowControl(form: HTMLFormElement, text: SettingsText): void 
     setSelectLabel(selectElement, text('clampedRowReadings'));
 }
 
-function syncControlTarget(selectElement: HTMLSelectElement, targetLanguage: LearningTargetRosterId): void {
+function syncControlState(
+    selectElement: HTMLSelectElement,
+    targetLanguage: LearningTargetRosterId,
+    selectedMode: ReadingMode,
+    japaneseMode: ReadingMode,
+): void {
     const controls = selectElement.closest<HTMLElement>('[data-reading-annotation-controls]');
-    if (controls) controls.dataset.readingAnnotationTarget = targetLanguage;
+    if (!controls) return;
+    controls.dataset.readingAnnotationTarget = targetLanguage;
+    controls.dataset.readingAnnotationLastMode = selectedMode;
+    controls.dataset.readingAnnotationJapaneseMode = japaneseMode;
+    delete controls.dataset.readingAnnotationModeChanged;
 }
 
 function syncHiddenStateLegend(
@@ -99,14 +112,10 @@ function syncHiddenStateLegend(
     form.querySelector<HTMLElement>('[data-furigana-hide-groups] > legend')?.replaceChildren(text(key));
 }
 
-function modeOptions(text: SettingsText, targetLanguage: LearningTargetRosterId): [FuriganaMode, string][] {
+function modeOptions(text: SettingsText, targetLanguage: LearningTargetRosterId): [ReadingMode, string][] {
     return READING_MODE_OPTIONS
         .filter(([mode]) => targetLanguage === 'ja' || mode !== 'difficult-kanji')
         .map(([mode, key]) => [mode, text(key)]);
-}
-
-function modeForTarget(mode: FuriganaMode, targetLanguage: LearningTargetRosterId): FuriganaMode {
-    return targetLanguage !== 'ja' && mode === 'difficult-kanji' ? 'all' : mode;
 }
 
 function modeLabelKey(targetLanguage: LearningTargetRosterId): SettingsTextKey {
@@ -155,7 +164,7 @@ function syncDifficultyNote(
     form: HTMLFormElement,
     text: SettingsText,
     targetLanguage: LearningTargetRosterId,
-    selectedMode: FuriganaMode,
+    selectedMode: ReadingMode,
 ): void {
     const note = form.querySelector<HTMLElement>('[data-furigana-difficulty-note]');
     if (!note) return;
@@ -167,4 +176,97 @@ function syncDifficultyNote(
         note.replaceChildren();
     }
     note.hidden = targetLanguage !== 'ja' || selectedMode !== 'difficult-kanji';
+}
+
+interface TargetSwitchState {
+    selectedMode: ReadingMode;
+    japaneseMode: ReadingMode;
+}
+
+function targetSwitchState(
+    selectElement: HTMLSelectElement,
+    currentMode: ReadingMode,
+    targetLanguage: LearningTargetRosterId,
+): TargetSwitchState {
+    const controls = selectElement.closest<HTMLElement>('[data-reading-annotation-controls]');
+    const previousTarget = previousReadingTarget(controls, targetLanguage);
+    const lastMode = readingModeValue(controls?.dataset.readingAnnotationLastMode);
+    const learnerChangedMode = learnerChangedReadingMode(controls, lastMode, currentMode);
+    const storedJapaneseMode = storedJapaneseReadingMode(controls, currentMode);
+    const japaneseMode = updatedJapaneseMode(previousTarget, currentMode, storedJapaneseMode, learnerChangedMode);
+    return {
+        selectedMode: selectedModeAfterTargetSwitch(
+            targetLanguage,
+            previousTarget,
+            currentMode,
+            japaneseMode,
+            learnerChangedMode,
+        ),
+        japaneseMode,
+    };
+}
+
+function previousReadingTarget(
+    controls: HTMLElement | null,
+    fallback: LearningTargetRosterId,
+): LearningTargetRosterId {
+    return learningTargetRosterIdForTag(controls?.dataset.readingAnnotationTarget) ?? fallback;
+}
+
+function learnerChangedReadingMode(
+    controls: HTMLElement | null,
+    lastMode: ReadingMode | null,
+    currentMode: ReadingMode,
+): boolean {
+    if (controls?.dataset.readingAnnotationModeChanged === 'true') return true;
+    return lastMode !== null && lastMode !== currentMode;
+}
+
+function storedJapaneseReadingMode(
+    controls: HTMLElement | null,
+    fallback: ReadingMode,
+): ReadingMode {
+    return readingModeValue(controls?.dataset.readingAnnotationJapaneseMode) ?? fallback;
+}
+
+function updatedJapaneseMode(
+    previousTarget: LearningTargetRosterId,
+    currentMode: ReadingMode,
+    storedMode: ReadingMode,
+    learnerChangedMode: boolean,
+): ReadingMode {
+    if (previousTarget === 'ja') return currentMode;
+    return learnerChangedMode ? currentMode : storedMode;
+}
+
+function shouldRestoreJapaneseMode(
+    targetLanguage: LearningTargetRosterId,
+    previousTarget: LearningTargetRosterId,
+    learnerChangedMode: boolean,
+): boolean {
+    return targetLanguage === 'ja' && previousTarget !== 'ja' && !learnerChangedMode;
+}
+
+function selectedModeAfterTargetSwitch(
+    targetLanguage: LearningTargetRosterId,
+    previousTarget: LearningTargetRosterId,
+    currentMode: ReadingMode,
+    japaneseMode: ReadingMode,
+    learnerChangedMode: boolean,
+): ReadingMode {
+    if (shouldRestoreJapaneseMode(targetLanguage, previousTarget, learnerChangedMode)) return japaneseMode;
+    return readingAnnotationModeForTarget(currentMode, targetLanguage);
+}
+
+function readingModeValue(value: string | undefined): ReadingMode | null {
+    return READING_MODE_OPTIONS.find(([mode]) => mode === value)?.[0] ?? null;
+}
+
+function trackExplicitModeChanges(selectElement: HTMLSelectElement): void {
+    if (selectElement.dataset.readingAnnotationTracking === 'true') return;
+    selectElement.dataset.readingAnnotationTracking = 'true';
+    selectElement.addEventListener('change', () => {
+        const controls = selectElement.closest<HTMLElement>('[data-reading-annotation-controls]');
+        if (controls) controls.dataset.readingAnnotationModeChanged = 'true';
+    });
 }

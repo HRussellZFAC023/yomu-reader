@@ -21,6 +21,7 @@ import {
     type LearningTargetRosterId,
 } from '../languages';
 import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
+import { readingAnnotationModeForTarget } from './reading-annotation-mode';
 
 
 /**
@@ -204,6 +205,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         shortcuts: readShortcutFormSettings(reader, current),
     };
     preserveDetachedJapaneseSettings(settings, current, data);
+    enforceTargetReadingAnnotationMode(settings);
     return normalizeReaderSettings(settings);
 }
 
@@ -328,6 +330,16 @@ function preserveDetachedJapaneseSettings(
             if (current[name] === 'pitch') settings[name] = current[name];
         }
     }
+}
+
+function enforceTargetReadingAnnotationMode(settings: ReaderSettings): void {
+    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    const targetLanguage = learningTargetRosterIdForTag(active?.targetLanguage) ?? 'ja';
+    const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage);
+    if (mode === settings.furiganaMode) return;
+    settings.furiganaMode = mode;
+    settings.showFurigana = mode !== 'off';
+    settings.hideKnownFurigana = mode === 'known-status';
 }
 
 function normalizedStringIds(values: FormDataEntryValue[]): string[] {
