@@ -491,20 +491,52 @@ async function exerciseNativeControls(page) {
     const player = page.locator('#movie_player, .html5-video-player').first();
     const box = await player.boundingBox();
     if (!box) return { found: false };
-    await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.82);
-    await page.waitForTimeout(350);
-    const awake = await page.evaluate(readNativeControlState);
+    const wakePoint = {
+        x: Math.round(box.x + box.width * 0.5),
+        y: Math.round(box.y + box.height * 0.25),
+    };
     await page.mouse.move(4, 4);
-    await page.waitForTimeout(idleWaitMs);
-    const idle = await page.evaluate(readNativeControlState);
+    await page.mouse.move(wakePoint.x, wakePoint.y, { steps: 8 });
+    const awakeObservation = await observeNativeControlState(page, nativeControlsVisible, 2_000);
+    await page.mouse.move(4, 4, { steps: 8 });
+    const idleObservation = await observeNativeControlState(page, nativeControlsHidden, idleWaitMs);
+    const awake = awakeObservation.state;
+    const idle = idleObservation.state;
     return {
         found: true,
+        wakePoint,
+        awakeSettled: awakeObservation.settled,
+        awakeWaitMs: awakeObservation.elapsedMs,
         idleWaitMs,
+        idleSettled: idleObservation.settled,
+        idleElapsedMs: idleObservation.elapsedMs,
         awake,
         idle,
-        autoHideObserved: Boolean(idle.playerAutohide || idle.chromeOpacity <= 0.1),
+        autoHideObserved: awakeObservation.settled && idleObservation.settled,
         yomuDidNotRetainFocus: !idle.activeInsideYomu && idle.yomuFocused === 0,
     };
+}
+
+async function observeNativeControlState(page, predicate, timeoutMs) {
+    const startedAt = Date.now();
+    let state = await page.evaluate(readNativeControlState);
+    while (!predicate(state) && Date.now() - startedAt < timeoutMs) {
+        await page.waitForTimeout(50);
+        state = await page.evaluate(readNativeControlState);
+    }
+    return {
+        state,
+        settled: predicate(state),
+        elapsedMs: Date.now() - startedAt,
+    };
+}
+
+function nativeControlsVisible(state) {
+    return state.playerAutohide === false && state.chromeOpacity > 0.1;
+}
+
+function nativeControlsHidden(state) {
+    return state.playerAutohide === true && state.chromeOpacity <= 0.1;
 }
 
 // Serialized third-party DOM snapshot: missing/variant YouTube controls must be
