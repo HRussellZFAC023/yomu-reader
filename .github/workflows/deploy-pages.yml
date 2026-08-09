@@ -20,6 +20,7 @@ on:
       - scripts/annotate-greasyfork-requires.cjs
       - scripts/build-greasyfork-libraries.mjs
       - scripts/build-openapi.mjs
+      - scripts/docs-localization-browser-smoke.mjs
       - scripts/openapi/**
       - scripts/lib/greasyfork-libraries.cjs
       - scripts/sync-docs-userscript.cjs
@@ -90,6 +91,43 @@ jobs:
           YOMU_PATREON_ENABLED: ${{ vars.YOMU_PATREON_ENABLED }}
           YOMU_PATREON_URL: ${{ vars.YOMU_PATREON_URL }}
           YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}
+      - name: Install docs locale smoke browser
+        timeout-minutes: 15
+        run: npx playwright install --with-deps chromium
+      - name: Verify rendered docs localization in browser
+        timeout-minutes: 3
+        env:
+          YOMU_DOCS_PREVIEW_URL: http://127.0.0.1:4199
+        run: |
+          preview_log="${RUNNER_TEMP}/yomu-docs-preview.log"
+          npx --no-install vitepress preview docs --host 127.0.0.1 --port 4199 >"$preview_log" 2>&1 &
+          preview_pid=$!
+          cleanup_preview() {
+            kill "$preview_pid" 2>/dev/null || true
+            wait "$preview_pid" 2>/dev/null || true
+          }
+          trap cleanup_preview EXIT
+
+          preview_ready=0
+          for attempt in {1..30}; do
+            if curl --fail --silent "${YOMU_DOCS_PREVIEW_URL}/ja/" >/dev/null; then
+              preview_ready=1
+              break
+            fi
+            if ! kill -0 "$preview_pid" 2>/dev/null; then
+              cat "$preview_log"
+              echo "Docs preview exited before it became ready." >&2
+              exit 1
+            fi
+            sleep 1
+          done
+          if [ "$preview_ready" -ne 1 ]; then
+            cat "$preview_log"
+            echo "Docs preview did not become ready within 30 seconds." >&2
+            exit 1
+          fi
+
+          npm run docs:locales:browser
       - name: Verify published artifacts
         run: npm run verify
       - name: Upload Pages artifact

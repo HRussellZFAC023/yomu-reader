@@ -9,6 +9,10 @@ const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workfl
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
+const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
+const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
+    scripts: Record<string, string>;
+};
 const amoSourceBuildTemplate = readFileSync(join(process.cwd(), 'scripts/amo/SOURCE_BUILD.template.md'), 'utf8');
 const nodeVersion = readFileSync(join(process.cwd(), '.nvmrc'), 'utf8').trim();
 
@@ -85,12 +89,10 @@ describe('release workflow safety', () => {
         // workflow_dispatch trigger is the recovery path the release flow
         // relies on (gh workflow run "Deploy Docs"); its absence bit 1.6.115
         // when the deploy silently never ran.
-        const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
         expect(deployPagesWorkflow).toMatch(/^on:\n(?:.*\n)*?\s*workflow_dispatch:/m);
     });
 
     it('retries transient Pages metadata failures before a required final attempt', () => {
-        const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
         const step = (name: string) => {
             const marker = `      - name: ${name}\n`;
             const start = deployPagesWorkflow.indexOf(marker);
@@ -116,7 +118,6 @@ describe('release workflow safety', () => {
     });
 
     it('rebuilds Academy after hosted Reader assets in every generated-asset workflow', () => {
-        const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
         for (const workflow of [buildUserscriptWorkflow, deployPagesWorkflow]) {
             const readerSync = workflow.indexOf('node scripts/sync-docs-userscript.cjs');
             const academyBuild = workflow.indexOf('npm run build:academy');
@@ -128,6 +129,28 @@ describe('release workflow safety', () => {
         }
         expect(deployPagesWorkflow).toContain('- academy/**');
         expect(deployPagesWorkflow).toContain('- public/academy/**');
+    });
+
+    it('browser-checks the rendered locale routes before Pages can upload them', () => {
+        const docsBuild = deployPagesWorkflow.indexOf('npm run docs:build');
+        const browserInstall = deployPagesWorkflow.indexOf('name: Install docs locale smoke browser');
+        const browserSmoke = deployPagesWorkflow.indexOf('name: Verify rendered docs localization in browser');
+        const artifactVerification = deployPagesWorkflow.indexOf('name: Verify published artifacts');
+        const artifactUpload = deployPagesWorkflow.indexOf('name: Upload Pages artifact');
+        const smokeStep = deployPagesWorkflow.slice(browserSmoke, artifactVerification);
+
+        expect(packageJson.scripts['docs:locales:browser'])
+            .toBe('node scripts/docs-localization-browser-smoke.mjs');
+        expect(deployPagesWorkflow).toContain('- scripts/docs-localization-browser-smoke.mjs');
+        expect(browserInstall).toBeGreaterThan(docsBuild);
+        expect(browserSmoke).toBeGreaterThan(browserInstall);
+        expect(artifactVerification).toBeGreaterThan(browserSmoke);
+        expect(artifactUpload).toBeGreaterThan(artifactVerification);
+        expect(smokeStep).toContain('timeout-minutes: 3');
+        expect(smokeStep).toContain('npx --no-install vitepress preview docs');
+        expect(smokeStep).toContain('curl --fail --silent "${YOMU_DOCS_PREVIEW_URL}/ja/"');
+        expect(smokeStep).toContain('npm run docs:locales:browser');
+        expect(smokeStep).not.toContain('continue-on-error:');
     });
 
     it('runs the cross-browser layout release boundary before PRs can merge', () => {
