@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.3d6ed77d3c68.user.js#sha256=PW7XfTxo5NHcNTZqkx1NzAflsLHeZguvQHQ0899BrJI=
+// @require https://yomureader.com/greasyfork/yomu-runtime.21508c7efd6b.user.js#sha256=IVCMfv1r3m611Gy0tZoRH5EQtgJTnDBeQ4SJnCJScLM=
 // @resource yomuCss  https://yomureader.com/yomu.06756a99805b.css#sha256=BnVqmYBbGJ8fYRBJrbpdxbbZzBXpEVrwHyyGClXluR4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -15890,8 +15890,8 @@ return trimmed;
 function normalizeAnkiTemplateMode(value) {
 return normalizeOption(value, ANKI_TEMPLATE_MODES, DEFAULT_SETTINGS.ankiTemplateMode);
 }
-function normalizeInterfaceLanguage(value) {
-return normalizeOption(value, INTERFACE_LANGUAGES, DEFAULT_SETTINGS.interfaceLanguage);
+function normalizeInterfaceLanguage(value, fallback = DEFAULT_SETTINGS.interfaceLanguage) {
+return normalizeOption(value, INTERFACE_LANGUAGES, fallback);
 }
 function normalizeTheme(value) {
 return normalizeOption(value, THEMES, DEFAULT_SETTINGS.theme);

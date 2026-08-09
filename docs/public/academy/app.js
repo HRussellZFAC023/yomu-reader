@@ -44103,8 +44103,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function normalizeAnkiTemplateMode(value) {
     return normalizeOption(value, ANKI_TEMPLATE_MODES, DEFAULT_SETTINGS.ankiTemplateMode);
   }
-  function normalizeInterfaceLanguage(value) {
-    return normalizeOption(value, INTERFACE_LANGUAGES, DEFAULT_SETTINGS.interfaceLanguage);
+  function normalizeInterfaceLanguage(value, fallback = DEFAULT_SETTINGS.interfaceLanguage) {
+    return normalizeOption(value, INTERFACE_LANGUAGES, fallback);
   }
   function normalizeTheme(value) {
     return normalizeOption(value, THEMES, DEFAULT_SETTINGS.theme);
@@ -44749,8 +44749,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return safe;
   }
   function isSafeTokenSpan(token, offset, text2) {
-    if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-    return tokenSourceSpanIsRenderable(token, text2.slice(token.start, token.end));
+    const { start, end } = token;
+    return Number.isInteger(start) && Number.isInteger(end) && spanFitsText(start, end, offset, text2) && tokenSourceSpanIsRenderable(token, text2.slice(start, end));
+  }
+  function spanFitsText(start, end, offset, text2) {
+    return start >= Math.max(0, offset) && end > start && end <= text2.length;
   }
   function tokenSourceSpanIsRenderable(token, source2) {
     const target2 = learningTargetForToken(token);
@@ -44808,16 +44811,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function furiganaModeAllowsRuby(mode, surface, token, settings) {
     if (mode === "off") return false;
-    if (mode === "hover") return true;
     if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    if (mode !== "difficult-kanji") return true;
-    return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
+    return mode !== "difficult-kanji" || targetAllowsFurigana(surface, token);
   }
-  function hasDifficultKanji(surface) {
+  function targetAllowsFurigana(surface, token) {
+    if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana") return true;
     for (const char of surface) {
-      if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (isDifficultKanji(char)) return true;
     }
     return false;
+  }
+  function isDifficultKanji(char) {
+    return KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char);
   }
   function readerWordClassName(state, token, settings) {
     const classes2 = ["jpdb-reader-word"];

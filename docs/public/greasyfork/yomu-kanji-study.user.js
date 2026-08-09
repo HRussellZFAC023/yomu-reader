@@ -12461,8 +12461,11 @@ function nonOverlappingTokens(tokens, text2) {
   return safe;
 }
 function isSafeTokenSpan(token, offset, text2) {
-  if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-  return tokenSourceSpanIsRenderable(token, text2.slice(token.start, token.end));
+  const { start, end } = token;
+  return Number.isInteger(start) && Number.isInteger(end) && spanFitsText(start, end, offset, text2) && tokenSourceSpanIsRenderable(token, text2.slice(start, end));
+}
+function spanFitsText(start, end, offset, text2) {
+  return start >= Math.max(0, offset) && end > start && end <= text2.length;
 }
 function tokenSourceSpanIsRenderable(token, source) {
   const target = learningTargetForToken(token);
@@ -12520,16 +12523,18 @@ function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTo
 }
 function furiganaModeAllowsRuby(mode, surface, token, settings) {
   if (mode === "off") return false;
-  if (mode === "hover") return true;
   if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-  if (mode !== "difficult-kanji") return true;
-  return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
+  return mode !== "difficult-kanji" || targetAllowsFurigana(surface, token);
 }
-function hasDifficultKanji(surface) {
+function targetAllowsFurigana(surface, token) {
+  if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana") return true;
   for (const char of surface) {
-  if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+  if (isDifficultKanji(char)) return true;
   }
   return false;
+}
+function isDifficultKanji(char) {
+  return KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char);
 }
 function readerWordClassName(state, token, settings) {
   const classes = ["jpdb-reader-word"];

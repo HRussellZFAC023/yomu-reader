@@ -7127,8 +7127,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   function targetCollationLocale() {
     return activeLearningTarget().collationLocale;
   }
-  function targetSubtitleLanguageTag() {
-    return activeLearningTarget().subtitles.languageTag;
+  function targetSubtitleLanguageTag(track) {
+    if (!track) return activeLearningTarget().subtitles.languageTag;
+    return track.targetLanguage || track.language || activeLearningTarget().subtitles.languageTag;
   }
   function isTargetSubtitleLanguage(value) {
     if (!value) return false;
@@ -12405,8 +12406,11 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return safe;
   }
   function isSafeTokenSpan(token, offset, text) {
-    if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text.length) return false;
-    return tokenSourceSpanIsRenderable(token, text.slice(token.start, token.end));
+    const { start, end } = token;
+    return Number.isInteger(start) && Number.isInteger(end) && spanFitsText(start, end, offset, text) && tokenSourceSpanIsRenderable(token, text.slice(start, end));
+  }
+  function spanFitsText(start, end, offset, text) {
+    return start >= Math.max(0, offset) && end > start && end <= text.length;
   }
   function tokenSourceSpanIsRenderable(token, source) {
     const target = learningTargetForToken(token);
@@ -12464,16 +12468,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   function furiganaModeAllowsRuby(mode, surface, token, settings) {
     if (mode === "off") return false;
-    if (mode === "hover") return true;
     if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    if (mode !== "difficult-kanji") return true;
-    return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
+    return mode !== "difficult-kanji" || targetAllowsFurigana(surface, token);
   }
-  function hasDifficultKanji(surface) {
+  function targetAllowsFurigana(surface, token) {
+    if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana") return true;
     for (const char of surface) {
-      if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (isDifficultKanji(char)) return true;
     }
     return false;
+  }
+  function isDifficultKanji(char) {
+    return KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char);
   }
   function readerWordClassName(state, token, settings) {
     const classes = ["jpdb-reader-word"];
@@ -17152,13 +17158,16 @@ recommendedJiten	Jiten由来の頻度バッジです。
     throwIfSubtitleTrackLoadAborted(options.signal);
     const translatedCues = await translateSubtitleCues(
       sourceCues,
-      track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || "en",
-      track.targetLanguage || track.language || targetSubtitleLanguageTag(),
+      translatedSourceTag(track, sourceTrack),
+      targetSubtitleLanguageTag(track),
       { signal: options.signal }
     );
     throwIfSubtitleTrackLoadAborted(options.signal);
     track.cues = translatedCues;
     return { track, cues: translatedCues };
+  }
+  function translatedSourceTag(track, sourceTrack) {
+    return track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || "en";
   }
   function isRemoteSubtitleTrack(track) {
     return track.kind === "remote" && Boolean(track.url);
@@ -22294,8 +22303,7 @@ class SubtitlePlayerController {
   tick() {
   if (this.destroyed) return;
   const settings = this.options.getSettings();
-  if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
-  if (!this.subtitleRuntimeShouldTick(settings)) {
+  if (!this.tickPlayerAndShouldContinue(settings)) {
     this.tickTimer = void 0;
     return;
   }
@@ -22306,16 +22314,15 @@ class SubtitlePlayerController {
   }, this.tickDelayMs(settings));
   this.tickTimer = tickTimer;
   }
-  subtitleRuntimeShouldTick(settings) {
+  tickPlayerAndShouldContinue(settings) {
+  if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
   return settings.subtitlePlayerEnabled || Boolean(this.video);
   }
   wakeTick() {
   if (this.destroyed || this.tickTimer !== void 0) return;
-  if (!this.subtitleRuntimeShouldTick(this.options.getSettings())) return;
   this.tick();
   }
-  // The active cadence is only needed while a video is actually playing;
-  // hidden tabs and videoless pages ticking that fast just drains battery.
+  // Idle cadence saves battery.
   tickDelayMs(settings) {
   if (document.hidden || !settings.subtitlePlayerEnabled || !this.video) return SUBTITLE_TICK_IDLE_MS;
   if (this.video.paused) return SUBTITLE_TICK_PAUSED_MS;

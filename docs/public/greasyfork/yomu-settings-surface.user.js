@@ -15328,8 +15328,8 @@ function normalizeAnkiName(value, fallback, oldDefault) {
 function normalizeAnkiTemplateMode(value) {
   return normalizeOption(value, ANKI_TEMPLATE_MODES, DEFAULT_SETTINGS.ankiTemplateMode);
 }
-function normalizeInterfaceLanguage(value) {
-  return normalizeOption(value, INTERFACE_LANGUAGES, DEFAULT_SETTINGS.interfaceLanguage);
+function normalizeInterfaceLanguage(value, fallback = DEFAULT_SETTINGS.interfaceLanguage) {
+  return normalizeOption(value, INTERFACE_LANGUAGES, fallback);
 }
 function normalizeTheme(value) {
   return normalizeOption(value, THEMES, DEFAULT_SETTINGS.theme);
@@ -68005,8 +68005,8 @@ ${glossaryKey}`;
     ["featureStudy", "featureStudyBody"],
     ["featureGame", "featureGameBody"]
   ];
-  function selectedOnboardingLanguage(value, fallback) {
-    return value === "en" || value === "ja" || value === "auto" ? value : fallback;
+  function selectedOnboardingLanguage(select2, fallback) {
+    return normalizeInterfaceLanguage(select2?.value, fallback);
   }
   class OnboardingController {
     constructor(options) {
@@ -68271,14 +68271,14 @@ ${glossaryKey}`;
       dictionaries2.addEventListener("click", () => void this.complete("dictionaries"));
       actions.append(dictionaries2, setup);
       this.languageSelect.addEventListener("change", () => {
-        const language22 = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
+        const language22 = selectedOnboardingLanguage(this.languageSelect, this.options.getSettings().interfaceLanguage);
         log$2.info("Onboarding language changed", { language: language22 });
         this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language22 });
         this.localize(language22);
       });
       this.learnerLanguageSelect.addEventListener("change", () => {
         const learnerLanguage22 = selectedLearnerLanguage(
-          this.learnerLanguageSelect?.value,
+          this.learnerLanguageSelect,
           onboardingLearnerLanguage(this.options.getSettings())
         );
         const selected = learnerLanguageById(learnerLanguage22);
@@ -68391,8 +68391,8 @@ ${glossaryKey}`;
         populateStudyTargetSelect(
           this.targetLanguageSelect,
           language2,
-          selectedOnboardingTargetLanguage(
-            this.targetLanguageSelect.value,
+          selectedTargetId(
+            this.targetLanguageSelect,
             onboardingTargetLanguage(this.options.getSettings())
           )
         );
@@ -68442,13 +68442,13 @@ ${glossaryKey}`;
       const current = this.options.getSettings();
       const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
       const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
-      const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage);
+      const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect, current.interfaceLanguage);
       const learnerLanguage2 = selectedLearnerLanguage(
-        this.learnerLanguageSelect?.value,
+        this.learnerLanguageSelect,
         onboardingLearnerLanguage(current)
       );
-      const targetLanguage2 = selectedOnboardingTargetLanguage(
-        this.targetLanguageSelect?.value,
+      const targetLanguage2 = selectedTargetId(
+        this.targetLanguageSelect,
         onboardingTargetLanguage(current)
       );
       const languageProfileSelection = updateActiveOnboardingLanguageProfile(
@@ -68462,20 +68462,27 @@ ${glossaryKey}`;
         onboardingSeen: true,
         jpdbDefinitionsEnabled: true,
         localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
-        youtubeImmersionEnabled: this.youtubeImmersionChoiceTouched ? this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled : current.youtubeImmersionEnabled,
+        youtubeImmersionEnabled: checkboxValue(
+          this.youtubeImmersionInput,
+          current.youtubeImmersionEnabled,
+          this.youtubeImmersionChoiceTouched
+        ),
         youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || this.youtubeImmersionChoiceTouched,
-        preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
+        preferJapaneseSiteLanguage: checkboxValue(
+          this.preferJapaneseSiteLanguageInput,
+          current.preferJapaneseSiteLanguage
+        ),
         annotationsPaused: pageScanMode === "off",
         manualScanEnabled: pageScanMode === "manual",
         ocrEnabled: ocrMode !== "off",
         ocrAutoScanImages: ocrMode === "auto",
         shortcuts: {
           ...current.shortcuts,
-          hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
-          scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage
+          hoverLookup: shortcutValue(this.hoverLookupShortcutInput, current.shortcuts.hoverLookup),
+          scanPage: shortcutValue(this.manualPageScanShortcutInput, current.shortcuts.scanPage)
         },
         dictionaryLookupLinks: defaultDictionaryLookupLinks(
-          openSettings === true ? "jpdb" : "local",
+          defaultLookupLinkMode(openSettings === true),
           targetLanguage2
         ),
         interfaceLanguage,
@@ -68603,8 +68610,11 @@ ${glossaryKey}`;
   function selectedMode(inputs, fallback) {
     return inputs.find((input2) => input2.checked)?.value ?? fallback;
   }
-  function normalizeLanguage(value, fallback) {
-    return value === "en" || value === "ja" || value === "auto" ? value : fallback;
+  function shortcutValue(input2, fallback) {
+    return input2?.value.trim() ?? fallback;
+  }
+  function checkboxValue(input2, fallback, useInput = true) {
+    return useInput ? input2?.checked ?? fallback : fallback;
   }
   function onboardingLanguageProfileCopy(language2) {
     return {
@@ -68626,15 +68636,16 @@ ${glossaryKey}`;
     }
     return saved ?? "en";
   }
-  function selectedLearnerLanguage(value, fallback) {
+  function selectedLearnerLanguage(select2, fallback) {
+    const value = select2?.value;
     return value && isLearnerLanguageId(value) ? value : fallback;
   }
   function onboardingTargetLanguage(settings) {
     const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
     return learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja";
   }
-  function selectedOnboardingTargetLanguage(value, fallback) {
-    const selected = learningTargetRosterIdForTag(value);
+  function selectedTargetId(select2, fallback) {
+    const selected = learningTargetRosterIdForTag(select2?.value);
     return selected && isSelectableStudyTarget(selected) ? selected : fallback;
   }
   function updateActiveOnboardingLanguageProfile(settings, learnerLanguage2, targetLanguage2, interfaceLanguage) {
