@@ -25,6 +25,7 @@ export interface SubtitleNativeTrackModeState<T extends SubtitleNativeTrackModeO
     currentCueText?: string;
     youtubeDomCaptionFallbackTrackId: string;
     lastYomuCaptionsActive: boolean;
+    nativeTrackModeSnapshot?: ReadonlyMap<TextTrack, TextTrackMode>;
 }
 
 export function snapshotSubtitleNativeTrackModes(
@@ -39,14 +40,28 @@ export function snapshotSubtitleNativeTrackModes(
 export function releaseSubtitleNativeTrackModes(snapshot: SubtitleNativeTrackModeSnapshot): void {
     setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
-    for (const [track, mode] of snapshot) {
-        try {
-            track.mode = mode;
-        } catch {
-            // Detached/page-owned tracks may reject writes during teardown.
-        }
-    }
+    for (const [track, mode] of snapshot) restoreSubtitleNativeTrackMode(track, mode);
     snapshot.clear();
+}
+
+export function releaseDepartedSubtitleNativeTrackModes(
+    snapshot: SubtitleNativeTrackModeSnapshot,
+    tracks: SubtitleNativeTrackModeOption[],
+): void {
+    const retained = new Set(tracks.flatMap(option => option.track ? [option.track] : []));
+    for (const [track, mode] of snapshot) {
+        if (retained.has(track)) continue;
+        restoreSubtitleNativeTrackMode(track, mode);
+        snapshot.delete(track);
+    }
+}
+
+export function reconcileSubtitleNativeTrackModes(
+    snapshot: SubtitleNativeTrackModeSnapshot,
+    tracks: SubtitleNativeTrackModeOption[],
+): void {
+    releaseDepartedSubtitleNativeTrackModes(snapshot, tracks);
+    snapshotSubtitleNativeTrackModes(snapshot, tracks);
 }
 
 export function applySubtitleNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
@@ -70,19 +85,53 @@ function applyGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
     state: SubtitleNativeTrackModeState<T>,
     yomuCaptionsActive: boolean,
 ): boolean {
+    if (!yomuCaptionsActive) {
+        restoreInactiveGenericNativeTrackModes(state);
+        setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+        setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+        return false;
+    }
     for (const option of state.tracks) {
         if (!option.track) continue;
         if (isSelectedSubtitleTrack(option, state)) {
-            if (yomuCaptionsActive) option.track.mode = 'hidden';
-            else option.track.mode = 'showing';
+            option.track.mode = 'hidden';
             continue;
         }
-        if (yomuCaptionsActive) option.track.mode = 'disabled';
+        option.track.mode = 'disabled';
     }
-    if (yomuCaptionsActive && (state.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state.video);
-    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
+    if (state.suppressCaptionPlayerUi ?? true) suppressGenericCaptionPlayerUi(state.video);
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, true);
     setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return false;
+}
+
+function restoreInactiveGenericNativeTrackModes<T extends SubtitleNativeTrackModeOption>(
+    state: SubtitleNativeTrackModeState<T>,
+): void {
+    for (const option of state.tracks) {
+        if (option.track) restoreInactiveGenericNativeTrackMode(option.track, option, state);
+    }
+}
+
+function restoreInactiveGenericNativeTrackMode(
+    track: TextTrack,
+    option: SubtitleNativeTrackModeOption,
+    state: SubtitleNativeTrackModeState<SubtitleNativeTrackModeOption>,
+): void {
+    if (isSelectedSubtitleTrack(option, state)) {
+        track.mode = 'showing';
+        return;
+    }
+    const originalMode = state.nativeTrackModeSnapshot?.get(track);
+    if (originalMode !== undefined) restoreSubtitleNativeTrackMode(track, originalMode);
+}
+
+function restoreSubtitleNativeTrackMode(track: TextTrack, mode: TextTrackMode): void {
+    try {
+        track.mode = mode;
+    } catch {
+        // Detached/page-owned tracks may reject writes during teardown.
+    }
 }
 
 function applyYouTubeNativeTrackModes<T extends SubtitleNativeTrackModeOption>(

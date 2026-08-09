@@ -190,4 +190,29 @@ describe('subtitle native track modes', () => {
         expect(selected.mode).toBe('showing');
         expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
     });
+
+    it('restores snapshotted host modes when an inactive selected track has no TextTrack', () => {
+        const hostTrack = { mode: 'disabled' } as TextTrack;
+        const snapshot = new Map<TextTrack, TextTrackMode>([[hostTrack, 'showing']]);
+
+        applySubtitleNativeTrackModes({
+            tracks: [
+                { id: 'native-host', label: 'Host captions', kind: 'native', track: hostTrack },
+                { id: 'file-loading', label: 'Loading file', kind: 'file' },
+            ],
+            selectedTrackId: 'file-loading',
+            secondaryTrackId: '',
+            overlayVisible: true,
+            suppressNativeCaptions: false,
+            video: document.createElement('video'),
+            hasPrimaryCues: false,
+            currentCueText: undefined,
+            youtubeDomCaptionFallbackTrackId: '',
+            lastYomuCaptionsActive: true,
+            nativeTrackModeSnapshot: snapshot,
+        });
+
+        expect(hostTrack.mode).toBe('showing');
+        expect(document.documentElement.classList.contains('jpdb-subtitle-native-captions-suppressed')).toBe(false);
+    });
 });

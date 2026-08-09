@@ -16,10 +16,11 @@ import {
     openSingleCueTranscript,
     pointerEvent,
     requestSubtitleText,
+    makeSubtitleToken,
     withViewport,
     SubtitlePlayerController,
 } from './fixtures';
-import type { ReaderSettings } from './fixtures';
+import type { JPDBToken, ReaderSettings } from './fixtures';
 
 interface YouTubeTrackDiscoveryInternals {
     tracks: Array<{
@@ -83,6 +84,58 @@ function stubEnglishOnlyYouTubeDiscovery(controller: SubtitlePlayerController): 
         internals.secondaryTrackId = id;
     };
     return internals;
+}
+
+type TranslationSelectionCue = { start: number; end: number; text: string; transcriptEligible: boolean };
+
+interface TranslationSelectionTrack {
+    id: string;
+    label: string;
+    kind: 'file' | 'remote';
+    language?: string;
+    sourceLanguage?: string;
+    targetLanguage?: string;
+    translatedFromTrackId?: string;
+    cues?: TranslationSelectionCue[];
+    loadingState?: string;
+}
+
+function setupTranslatedTrackController(fetchMock: unknown, sourceText: string) {
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('GM_xmlhttpRequest', undefined);
+    const { controller } = createInstalledSubtitleController({ annotationsPaused: true, subtitleOverlayVisible: true });
+    attachVideo(controller, { currentTime: 0.5 });
+    const sourceCues: TranslationSelectionCue[] = [
+        { start: 0, end: 2, text: sourceText, transcriptEligible: true },
+    ];
+    return { controller, sourceCues };
+}
+
+interface NativeTrackLifecycleInternals {
+    tracks: Array<{ id: string; translatedFromTrackId?: string }>;
+    addNativeTrack: (track: TextTrack) => void;
+    nativeTrackModeSnapshot: Map<TextTrack, TextTrackMode>;
+    removeStaleNativeTracks: (video: HTMLVideoElement) => void;
+    selectedTrackId: string;
+    selectTrack: (id: string) => Promise<void>;
+}
+
+function setupNativeTrackLifecycleController() {
+    const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
+    const internals = controllerInternals<NativeTrackLifecycleInternals>(controller);
+    internals.selectTrack = async id => { internals.selectedTrackId = id; };
+    return { controller, internals };
+}
+
+function nativeTextTrack(label: string, language: string, mode: TextTrackMode = 'disabled'): TextTrack {
+    return {
+        label,
+        language,
+        kind: 'subtitles',
+        mode,
+        cues: [],
+        addEventListener: vi.fn(),
+    } as unknown as TextTrack;
 }
 
 describe('SubtitlePlayerController — subtitle transport & track pairing', () => {
@@ -403,23 +456,9 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
                 reject(translationSignal?.reason);
             }, { once: true });
         }));
-        vi.stubGlobal('fetch', fetchMock);
-        vi.stubGlobal('GM_xmlhttpRequest', undefined);
-        const { controller } = createInstalledSubtitleController({ annotationsPaused: true, subtitleOverlayVisible: true });
-        attachVideo(controller, { currentTime: 0.5 });
-        const sourceCues = [{ start: 0, end: 2, text: '中止対象九百一', transcriptEligible: true }];
+        const { controller, sourceCues } = setupTranslatedTrackController(fetchMock, '中止対象九百一');
         const currentCues = [{ start: 0, end: 2, text: 'Current track wins.', transcriptEligible: true }];
-        type SelectionTrack = {
-            id: string;
-            label: string;
-            kind: 'file' | 'remote';
-            language?: string;
-            sourceLanguage?: string;
-            targetLanguage?: string;
-            translatedFromTrackId?: string;
-            cues?: typeof sourceCues;
-        };
-        const translatedTrack: SelectionTrack = {
+        const translatedTrack: TranslationSelectionTrack = {
             id: 'translated-a',
             label: 'Translated stale track',
             kind: 'remote',
@@ -429,7 +468,7 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
             translatedFromTrackId: 'source-a',
         };
         const internals = controllerInternals<{
-            tracks: SelectionTrack[];
+            tracks: TranslationSelectionTrack[];
             selectedTrackId: string;
             cues: Array<{ text: string }>;
             selectTrack: (id: string) => Promise<void>;
@@ -453,6 +492,141 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
             expect(internals.selectedTrackId).toBe('file-b');
             expect(internals.cues.map(cue => cue.text)).toEqual(['Current track wins.']);
             expect(fetchMock).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('settles a translated track with source cues after timeout and retries instead of caching the miss', async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi.fn()
+            .mockImplementationOnce((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+                init?.signal?.addEventListener('abort', () => {
+                    reject(new DOMException('Browser fetch aborted', 'AbortError'));
+                }, { once: true });
+            }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                sentences: [{ trans: 'Translated after retry.' }],
+            }), {
+                status: 200,
+                headers: { 'content-type': 'application/json' },
+            }));
+        const { controller, sourceCues } = setupTranslatedTrackController(fetchMock, '翻訳期限九百二');
+        const sourceTrack: TranslationSelectionTrack = {
+            id: 'timeout-source',
+            label: 'Source',
+            kind: 'file',
+            language: 'ja',
+            cues: sourceCues,
+        };
+        const translatedTrack: TranslationSelectionTrack = {
+            id: 'timeout-translation',
+            label: 'Translated',
+            kind: 'remote',
+            language: 'en',
+            sourceLanguage: 'ja',
+            targetLanguage: 'en',
+            translatedFromTrackId: sourceTrack.id,
+        };
+        const internals = controllerInternals<{
+            tracks: TranslationSelectionTrack[];
+            cues: Array<{ text: string }>;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [sourceTrack, translatedTrack];
+
+        try {
+            const timedOutSelection = internals.selectTrack(translatedTrack.id);
+            for (let turn = 0; turn < 30 && fetchMock.mock.calls.length === 0; turn += 1) await Promise.resolve();
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(8_000);
+            await timedOutSelection;
+
+            expect(translatedTrack.loadingState).toBe('ready');
+            expect(translatedTrack.cues?.map(cue => cue.text)).toEqual(['翻訳期限九百二']);
+            expect(internals.cues.map(cue => cue.text)).toEqual(['翻訳期限九百二']);
+
+            translatedTrack.cues = undefined;
+            await internals.selectTrack(sourceTrack.id);
+            await internals.selectTrack(translatedTrack.id);
+
+            expect(fetchMock).toHaveBeenCalledTimes(2);
+            expect(internals.cues.map(cue => cue.text)).toEqual(['Translated after retry.']);
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hands generic native captions back until a non-native selection has a visual commit', async () => {
+        const enrichment = deferred<void>();
+        const parseJapanese = vi.fn(async (text: string) => [makeSubtitleToken(text)]);
+        const beforeRenderTokens = vi.fn(async (tokens: JPDBToken[]) => {
+            if (tokens[0]?.sentence === '新しい字幕') await enrichment.promise;
+        });
+        const { controller } = createInstalledSubtitleController({
+            apiKey: 'test-key',
+            jitenApiKey: '',
+            furiganaMode: 'all',
+            localDictionariesEnabled: false,
+            subtitleOverlayVisible: true,
+        }, { parseJapanese, beforeRenderTokens });
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        const toggleCaptions = vi.fn();
+        vi.stubGlobal('player', {
+            media: video,
+            captions: { active: true, toggled: true },
+            currentTrack: 0,
+            toggleCaptions,
+        });
+        const hostTrack = {
+            mode: 'showing',
+            label: 'Host Japanese',
+            language: 'ja',
+            cues: [],
+            addEventListener: vi.fn(),
+        } as unknown as TextTrack;
+        const nativeCues = [{ start: 0, end: 2, text: '元の字幕', transcriptEligible: true }];
+        const fileCues = [{ start: 0, end: 2, text: '新しい字幕', transcriptEligible: true }];
+        type CaptionTrack = {
+            id: string;
+            label: string;
+            kind: 'native' | 'file';
+            track?: TextTrack;
+            cues: typeof nativeCues;
+            loadingState?: string;
+        };
+        const internals = controllerInternals<{
+            tracks: CaptionTrack[];
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [
+            { id: 'native-host-a', label: 'Host Japanese', kind: 'native', track: hostTrack, cues: nativeCues },
+            { id: 'file-deferred-b', label: 'Deferred file', kind: 'file', cues: fileCues },
+        ];
+
+        try {
+            await internals.selectTrack('native-host-a');
+            await vi.waitFor(() => expect(hostTrack.mode).toBe('hidden'));
+            expect(toggleCaptions).not.toHaveBeenCalled();
+
+            const deferredSelection = internals.selectTrack('file-deferred-b');
+            expect(hostTrack.mode).toBe('showing');
+            await vi.waitFor(() => expect(beforeRenderTokens).toHaveBeenCalledWith(
+                expect.arrayContaining([expect.objectContaining({ sentence: '新しい字幕' })]),
+            ));
+            expect(hostTrack.mode).toBe('showing');
+
+            enrichment.resolve();
+            await deferredSelection;
+            await vi.waitFor(() => expect(hostTrack.mode).toBe('disabled'));
+            expect(toggleCaptions).not.toHaveBeenCalled();
+
+            controller.destroy();
+            expect(hostTrack.mode).toBe('showing');
+            expect(toggleCaptions).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -1173,6 +1347,42 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
         }
     });
 
+    it('restores departed native tracks immediately and bounds ownership snapshots across swaps', () => {
+        const { controller, internals } = setupNativeTrackLifecycleController();
+        const removeAllNativeTracks = (): void => {
+            const video = document.createElement('video');
+            Object.defineProperty(video, 'textTracks', { configurable: true, value: [] });
+            internals.removeStaleNativeTracks(video);
+        };
+
+        try {
+            const first = nativeTextTrack('First SPA track', 'ja', 'showing');
+            internals.addNativeTrack(first);
+            first.mode = 'disabled';
+            removeAllNativeTracks();
+            expect(first.mode).toBe('showing');
+            expect(internals.nativeTrackModeSnapshot.size).toBe(0);
+
+            const intermediate = nativeTextTrack('Intermediate SPA track', 'ja');
+            internals.addNativeTrack(intermediate);
+            intermediate.mode = 'showing';
+            removeAllNativeTracks();
+            expect(intermediate.mode).toBe('disabled');
+            expect(internals.nativeTrackModeSnapshot.size).toBe(0);
+
+            const finalTrack = nativeTextTrack('Final SPA track', 'ja', 'hidden');
+            internals.addNativeTrack(finalTrack);
+            finalTrack.mode = 'disabled';
+            expect(internals.nativeTrackModeSnapshot.size).toBe(1);
+
+            controller.destroy();
+            expect(finalTrack.mode).toBe('hidden');
+            expect(internals.nativeTrackModeSnapshot.size).toBe(0);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('surfaces a translated Japanese option for English-only native tracks and keeps it across rescans', () => {
         const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
         const internals = controllerInternals<{
@@ -1218,29 +1428,12 @@ describe('SubtitlePlayerController — subtitle transport & track pairing', () =
     });
 
     it('lets a real Japanese native track take primary over an auto-selected synthetic translation', () => {
-        const { controller } = createInstalledSubtitleController({ interfaceLanguage: 'en' as const });
-        const internals = controllerInternals<{
-            tracks: Array<{ id: string; translatedFromTrackId?: string }>;
-            selectedTrackId: string;
-            addNativeTrack: (track: TextTrack) => void;
-            selectTrack: (id: string) => Promise<void>;
-        }>(controller);
-        internals.selectTrack = async id => {
-            internals.selectedTrackId = id;
-        };
-        const makeTrack = (label: string, language: string) => ({
-            label,
-            language,
-            kind: 'subtitles',
-            mode: 'disabled',
-            cues: [],
-            addEventListener: () => undefined,
-        }) as unknown as TextTrack;
+        const { internals } = setupNativeTrackLifecycleController();
 
-        internals.addNativeTrack(makeTrack('English', 'en'));
+        internals.addNativeTrack(nativeTextTrack('English', 'en'));
         expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.translatedFromTrackId).toBeTruthy();
 
-        internals.addNativeTrack(makeTrack('日本語', 'ja'));
+        internals.addNativeTrack(nativeTextTrack('日本語', 'ja'));
         expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.translatedFromTrackId).toBeUndefined();
         expect(internals.selectedTrackId).not.toBe('');
     });

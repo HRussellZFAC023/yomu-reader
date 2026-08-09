@@ -135,6 +135,44 @@ describe('generic Google translation transport', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('rejects the exact final-subscriber abort and never caches a transport result that arrives later', async () => {
+        let resolveLateFetch!: (response: Response) => void;
+        const fetchMock = vi.fn()
+            .mockImplementationOnce(() => new Promise<Response>(resolve => {
+                resolveLateFetch = resolve;
+            }))
+            .mockResolvedValueOnce(new Response(JSON.stringify({
+                sentences: [{ trans: 'Fresh translation' }],
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+            }));
+        vi.stubGlobal('fetch', fetchMock);
+        const controller = new AbortController();
+        const reason = new DOMException('Selection replaced', 'AbortError');
+
+        const stale = translateText('遅い翻訳', {
+            sourceLanguage: 'ja',
+            outputLanguage: 'en',
+            signal: controller.signal,
+        });
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+        controller.abort(reason);
+
+        await expect(stale).rejects.toBe(reason);
+        resolveLateFetch(new Response(JSON.stringify({
+            sentences: [{ trans: 'Late stale translation' }],
+        }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        }));
+        await new Promise(resolve => globalThis.setTimeout(resolve, 0));
+
+        await expect(translateText('遅い翻訳', { sourceLanguage: 'ja', outputLanguage: 'en' }))
+            .resolves.toBe('Fresh translation');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
     it('does not send empty or same-language text', async () => {
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);

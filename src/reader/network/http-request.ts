@@ -132,6 +132,7 @@ async function requestViaFetch(
         redirect: options.redirect ?? 'follow',
         referrerPolicy: options.referrerPolicy ?? 'no-referrer',
         timeoutMs: options.timeoutMs,
+        timeoutLabel: options.timeoutLabel,
         allowConfiguredProxy: options.allowConfiguredProxy,
         allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
         allowPublicProxies: options.allowPublicProxies,

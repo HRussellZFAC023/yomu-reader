@@ -126,9 +126,10 @@ describe('YouTube subtitle semantic-miss policy', () => {
         expect(timeoutSpy.mock.calls.some(([, delay]) => delay === 0)).toBe(true);
         expect(fetchMock).toHaveBeenCalledTimes(1);
 
-        controller.abort();
+        const reason = new DOMException('Selection replaced', 'AbortError');
+        controller.abort(reason);
 
-        await expect(translated).rejects.toMatchObject({ name: 'AbortError' });
+        await expect(translated).rejects.toBe(reason);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 

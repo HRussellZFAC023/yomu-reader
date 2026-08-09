@@ -89,8 +89,8 @@ import {
     syncSubtitleTrackStatus,
     syncTranscriptPlacementButtons,
 } from './subtitle-panel-actions';
-import { applySubtitleNativeTrackModes, releaseSubtitleNativeTrackModes, snapshotSubtitleNativeTrackModes,
-    type SubtitleNativeTrackModeSnapshot } from './subtitle-native-track-modes';
+import { applySubtitleNativeTrackModes, reconcileSubtitleNativeTrackModes, releaseDepartedSubtitleNativeTrackModes,
+    releaseSubtitleNativeTrackModes, snapshotSubtitleNativeTrackModes, type SubtitleNativeTrackModeSnapshot } from './subtitle-native-track-modes';
 import { mirrorNativeFullscreenCues } from './subtitle-native-fullscreen';
 import {
     applySubtitleStyleControl,
@@ -1677,6 +1677,7 @@ export class SubtitlePlayerController {
         if (!removed.length) return 0;
 
         this.removeSubtitleTrackIds(new Set(removed.map(track => track.id)));
+        releaseDepartedSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
         this.lastTranscriptSignature = '';
         this.render();
         this.renderOpenSubtitlePanel();
@@ -5210,11 +5211,11 @@ export class SubtitlePlayerController {
     }
 
     private setNativeTrackModes(): void {
+        reconcileSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
         // While the system player is showing the host's own captions (native
         // fullscreen with no Yomu cue stream), nothing may re-suppress them;
         // reSuppressHostTracksAfterNativeFullscreen clears the flag first.
         if (this.nativeFullscreenHostTracksRestored) return;
-        snapshotSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
         const settings = this.options.getSettings();
         const suppressNativeCaptions = this.shouldSuppressNativeCaptions(settings);
         this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
@@ -5231,6 +5232,7 @@ export class SubtitlePlayerController {
             currentCueText: this.currentCue?.text,
             youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
             lastYomuCaptionsActive: this.lastYomuCaptionsActive,
+            nativeTrackModeSnapshot: this.nativeTrackModeSnapshot,
             // Cue ownership is reversible: a committed Yomu frame can be
             // followed immediately by an async cache miss that hands captions
             // back to the host. TextTrack modes plus the owned suppression CSS

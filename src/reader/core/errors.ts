@@ -4,3 +4,10 @@
 export function isAbortError(error: unknown): boolean {
     return (error instanceof Error || error instanceof DOMException) && error.name === 'AbortError';
 }
+
+export class RetryableTimeoutError extends Error {
+    constructor(message = 'Request timed out.') {
+        super(message);
+        this.name = 'RetryableTimeoutError';
+    }
+}

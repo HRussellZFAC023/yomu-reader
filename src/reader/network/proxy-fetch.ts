@@ -1,3 +1,4 @@
+import { RetryableTimeoutError } from '../core/errors';
 import {
     builtInProxyUrls,
     configuredProxyFetchUrl,
@@ -14,6 +15,7 @@ export {
 
 export interface ProxyFetchOptions extends RequestInit {
     timeoutMs?: number;
+    timeoutLabel?: string;
     allowPublicProxies?: boolean;
     allowConfiguredProxy?: boolean;
     allowSensitiveConfiguredProxy?: boolean;
@@ -76,6 +78,7 @@ export async function fetchWithCorsFallbacks(
             }
             return response;
         } catch (error) {
+            if (options.signal?.aborted) throw abortReasonFor(options.signal);
             lastError = error;
         }
     }
@@ -206,9 +209,10 @@ function isHttpUrl(url: string): boolean {
     return /^https?:\/\//i.test(url);
 }
 
-function fetchWithTimeout(url: string, options: ProxyFetchOptions): Promise<Response> {
+async function fetchWithTimeout(url: string, options: ProxyFetchOptions): Promise<Response> {
     const {
         timeoutMs,
+        timeoutLabel,
         allowPublicProxies: _allowPublicProxies,
         allowConfiguredProxy: _allowConfiguredProxy,
         allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -217,12 +221,51 @@ function fetchWithTimeout(url: string, options: ProxyFetchOptions): Promise<Resp
         ...init
     } = options;
     if (!timeoutMs) return fetch(url, { ...init, signal });
+    const scope = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+    try {
+        return await fetchWithinAbortScope(url, init, scope.signal);
+    } finally {
+        scope.dispose();
+    }
+}
+
+interface FetchTimeoutScope {
+    signal: AbortSignal;
+    dispose: () => void;
+}
+
+function fetchTimeoutScope(
+    signal: AbortSignal | null | undefined,
+    timeoutMs: number,
+    timeoutLabel: string | undefined,
+): FetchTimeoutScope {
     const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-    const abort = () => controller.abort();
-    signal?.addEventListener('abort', abort, { once: true });
-    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-        globalThis.clearTimeout(timeout);
-        signal?.removeEventListener('abort', abort);
-    });
+    const timeout = globalThis.setTimeout(() => {
+        controller.abort(new RetryableTimeoutError(timeoutLabel));
+    }, timeoutMs);
+    const abort = (): void => controller.abort(signal ? abortReasonFor(signal) : undefined);
+    if (signal?.aborted) abort();
+    else signal?.addEventListener('abort', abort, { once: true });
+    return {
+        signal: controller.signal,
+        dispose: () => {
+            globalThis.clearTimeout(timeout);
+            signal?.removeEventListener('abort', abort);
+        },
+    };
+}
+
+async function fetchWithinAbortScope(url: string, init: RequestInit, signal: AbortSignal): Promise<Response> {
+    try {
+        const response = await fetch(url, { ...init, signal });
+        throwIfFetchAborted(signal);
+        return response;
+    } catch (error) {
+        throwIfFetchAborted(signal, error);
+        throw error;
+    }
+}
+
+function throwIfFetchAborted(signal: AbortSignal, fallback?: unknown): void {
+    if (signal.aborted) throw signal.reason ?? fallback;
 }
