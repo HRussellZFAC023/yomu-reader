@@ -67,10 +67,12 @@ The default fresh-context order is `chromium:none`, `chromium:cpu`,
 `chromium:coverage`, then `webkit:none`. Whole-page CDP, long-task, and frame-gap
 rows are YouTube diagnostics and do not attribute that work to Yomu. Only the
 CPU/coverage summaries scoped to the injected graph URL and SHA are Yomu
-function evidence. Every requested replay must reach real YouTube, boot the
-runtime, progress media playback, and collect its requested evidence or the
-command exits unsuccessfully with `report.json`, `report.partial.json`, and
-`failure.json`.
+function evidence. The GM bootstrap, harness instrumentation, and product graph
+still execute in one ordered init program, but each has a distinct profiler URL
+so harness work cannot enter the product summary. Every requested replay must
+reach real YouTube, boot the runtime, progress media playback, and collect its
+requested evidence or the command exits unsuccessfully with `report.json`,
+`report.partial.json`, and `failure.json`.
 
 This clean-context driver emulates the callback GM interface; it is not evidence
 of Tampermonkey, Greasemonkey, or extension scheduling. YouTube timedtext is
@@ -78,11 +80,15 @@ fetched with cookies, headers, and cancellation inside the watch-page browser
 session, while JPDB/OCR are deterministic mocks. Set
 `YOMU_LIVE_YOUTUBE_WORKLOAD=ambient` for a time-boxed playback observation; it is
 explicitly non-comparable because real-page operations, media, ads, and network
-state are not fixed. Playwright cannot report physical iPad temperature or power
-draw.
+state are not fixed. Ambient evidence is accepted only when media also advances
+through the full observation window and ends unpaused with future data. An
+unrecognized GM endpoint is terminal even if the reader absorbs its `onerror`.
+Playwright cannot report physical iPad temperature or power draw.
 
-Bundled Playwright browsers are used by default so the executable is recorded.
-To select another Chromium build, set both
+Bundled Playwright browsers are used by default. Each replay records headed or
+headless mode, the Playwright registry manifest/revision/version, and the
+resolved executable path, hash, and file stat. Custom Chromium records the same
+executable content identity. To select another Chromium build, set both
 `YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL` (the evidence label) and
 `YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE` (the absolute launched path).
 

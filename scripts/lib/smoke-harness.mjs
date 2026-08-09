@@ -709,6 +709,10 @@ function initGmBridge({
         blob: blobResultResponse,
         arraybuffer: arrayBufferResultResponse,
     };
+    const browserFetchBodyBuilders = {
+        arraybuffer: data => new Uint8Array(data.bytes),
+        formdata: data => browserFetchFormData(data.entries),
+    };
     const bodySerializers = [
         { matches: data => data instanceof ArrayBuffer, serialize: arrayBufferRequestBody },
         { matches: data => ArrayBuffer.isView(data), serialize: typedArrayRequestBody },
@@ -813,8 +817,8 @@ function initGmBridge({
     function installXmlHttpRequestBridge() {
         window.GM_xmlhttpRequest = options => {
             const request = createBridgeRequest(options);
-            const settle = oneShotRequestSettler(options);
             const controller = new AbortController();
+            const settle = oneShotRequestSettler(options, () => controller.abort(timeoutAbortReason()));
             Promise.resolve(request.data)
                 .then(data => dispatchBridgeRequest({ ...request, data }, controller.signal))
                 .then(result => settle.finish(options.onload, bridgeLoadResponse(result, options.responseType)))
@@ -848,6 +852,7 @@ function initGmBridge({
         const response = await fetch(request.url, {
             method: request.method,
             headers: request.headers,
+            body: browserFetchBody(request),
             credentials: 'include',
             redirect: 'follow',
             signal,
@@ -868,6 +873,41 @@ function initGmBridge({
         };
     }
 
+    function browserFetchBody(request) {
+        if (browserFetchMethodIsBodyless(request.method)) return undefined;
+        return browserFetchBodyValue(request.data);
+    }
+
+    function browserFetchMethodIsBodyless(method) {
+        return /^(GET|HEAD)$/iu.test(method);
+    }
+
+    function browserFetchBodyValue(data) {
+        const builder = browserFetchBodyBuilders[browserFetchBodyKind(data)];
+        return builder ? builder(data) : data;
+    }
+
+    function browserFetchBodyKind(data) {
+        if (data === null) return '';
+        if (typeof data !== 'object') return '';
+        return data.kind;
+    }
+
+    function browserFetchFormData(entries) {
+        const formData = new FormData();
+        for (const entry of entries) appendBrowserFetchFormDataEntry(formData, entry);
+        return formData;
+    }
+
+    function appendBrowserFetchFormDataEntry(formData, entry) {
+        if (!entry.blob) {
+            formData.append(entry.name, entry.value);
+            return;
+        }
+        const blob = new Blob([new Uint8Array(entry.blob.bytes)], { type: entry.blob.type });
+        formData.append(entry.name, blob, entry.blob.filename);
+    }
+
     function responseBodyFormat(value) {
         const body = value.trimStart();
         if (!body) return 'empty';
@@ -886,12 +926,13 @@ function initGmBridge({
         };
     }
 
-    function oneShotRequestSettler(options) {
+    function oneShotRequestSettler(options, abortTransport) {
         let settled = false;
         const timeoutMs = Number(options.timeout) || 0;
         const timer = timeoutMs > 0 ? window.setTimeout(() => {
             if (settled) return;
             settled = true;
+            abortTransport();
             options.ontimeout?.({ status: 0, response: null, responseText: '' });
         }, timeoutMs) : 0;
         const clear = () => {
@@ -911,6 +952,10 @@ function initGmBridge({
                 options.onabort?.({ status: 0, response: null, responseText: '' });
             },
         };
+    }
+
+    function timeoutAbortReason() {
+        return new DOMException('GM request timed out', 'TimeoutError');
     }
 
     function bridgeLoadResponse(result, responseType) {

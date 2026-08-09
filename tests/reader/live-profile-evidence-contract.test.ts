@@ -3,9 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { afterEach, describe, expect, it } from 'vitest';
 // @ts-expect-error plain .mjs script module without type declarations
 import { createLiveProfileEvidenceContract } from '../../scripts/lib/live-profile-evidence-contract.mjs';
+import { summarizeCpuProfile, summarizePreciseCoverage } from '../../scripts/lib/youtube-performance-evidence.mjs';
 
 const temporaryDirectories: string[] = [];
 const requestedRuns = 'chromium:none,chromium:cpu,chromium:coverage,webkit:none';
@@ -46,6 +48,7 @@ describe('live profile evidence contract', () => {
         ['Node', { runtime: { node: 'v22.22.3' } }, /does not match \.nvmrc/u],
         ['ICU', { runtime: { icu: '78.2' } }, /ICU runtime/u],
         ['tool lock', { tools: { playwright: { lockedVersion: '0.0.0' } } }, /does not match package-lock/u],
+        ['browser registry', { browserRegistry: null }, /browser registry provenance is missing/u],
         ['driver dirt', { dirtyPaths: [' M scripts/manual/profile.mjs'] }, /inputs are dirty/u],
     ])('fails closed for mismatched %s provenance', (_name, patch, expected) => {
         const fixture = artifactFixture();
@@ -76,6 +79,7 @@ describe('live profile evidence contract', () => {
         ['companion SRI', { companionSri: 'invalid' }, /companion SRI mismatch/u],
         ['stylesheet filename', { cssFileHash: '000000000000' }, /stylesheet filename hash mismatch/u],
         ['stylesheet SRI', { cssSri: 'invalid' }, /stylesheet SRI mismatch/u],
+        ['stylesheet form', { cssDeclaration: '// @resource yomuCss https://example.com/yomu.css' }, /must be content-addressed/u],
     ])('rejects an invalid %s declaration even when the repository is clean', (_name, options, expected) => {
         const fixture = artifactFixture(options);
 
@@ -87,28 +91,93 @@ describe('live profile evidence contract', () => {
         })).toThrow(expected);
     });
 
-    it('requires every requested replay, progressing playback, and mode-specific evidence', () => {
-        const contract = profileContract();
-        const complete = requestedRuns.split(',').map(successfulReplay);
+    it('counts all raw yomuCss declarations before validating their form', () => {
+        const fixture = artifactFixture({ extraCssDeclaration: '// @resource yomuCss https://example.com/untrusted.css' });
 
-        expect(contract.complete(complete)).toMatchObject({
+        expect(() => profileContract().preflight({
+            repositoryRoot: fixture.root,
+            userscriptPath: fixture.corePath,
+            cssPath: fixture.cssPath,
+            profilerDriver: validProfilerDriver(),
+        })).toThrow(/exactly one yomuCss resource/u);
+    });
+
+    it('attributes one ordered bootstrap to distinct harness and product sources', () => {
+        const fixture = artifactFixture();
+        const evidence = preflightEvidence(fixture);
+        const bootstrap = evidence.bootstrap({
+            gmProgram: 'globalThis.__bootstrapOrder = ["gm"]; function gmHarnessFunction() { return new Error().stack; } globalThis.gmHarnessFunction = gmHarnessFunction;',
+            instrumentationProgram: 'globalThis.__bootstrapOrder.push("instrumentation");',
+        });
+        const sandbox = {} as Record<string, any>;
+
+        runInNewContext(bootstrap.content, sandbox);
+
+        expect(sandbox.__bootstrapOrder).toEqual(['gm', 'instrumentation', 'product']);
+        expect(sandbox.gmHarnessFunction()).toContain(bootstrap.sources.gm);
+        expect(sandbox.productGraphFunction()).toContain(bootstrap.sources.product);
+        const cpu = summarizeCpuProfile(cpuProfileForSources(bootstrap.sources), evidence.artifacts.descriptor);
+        const coverage = summarizePreciseCoverage(coverageForSources(bootstrap.sources), evidence.artifacts.descriptor, []);
+        expect(cpu).toMatchObject({ totalSampleCount: 2, sampleCount: 1 });
+        expect(cpu.selfTime.map((frame: Record<string, any>) => frame.functionName)).toEqual(['productGraphFunction']);
+        expect(coverage.callCounts.map((frame: Record<string, any>) => frame.functionName)).toEqual(['productGraphFunction']);
+    });
+
+    it('requires every requested replay and exact product, workload, browser, and ambient evidence', () => {
+        const fixture = artifactFixture();
+        const evidence = preflightEvidence(fixture);
+        const complete = requestedRuns.split(',').map(key => successfulReplay(key, evidence.artifacts.descriptor));
+
+        expect(evidence.complete(complete)).toMatchObject({
             requestedRunsComplete: true,
             actualYoutubeDom: true,
             runtimeHealthy: true,
             playbackProgressed: true,
+            ambientWindowProgressed: true,
         });
-        expect(() => contract.complete(complete.slice(1))).toThrow(/evidence is incomplete/u);
-        expect(() => contract.complete(complete.map(result => result.mode === 'cpu'
+        expect(() => evidence.complete(complete.slice(1))).toThrow(/evidence is incomplete/u);
+        expect(() => evidence.complete(complete.map(result => result.mode === 'cpu'
             ? { ...result, functionEvidence: { mode: 'cpu' } }
             : result))).toThrow(/evidence is incomplete/u);
-        expect(() => contract.complete(complete.map(result => result.mode === 'none' && result.engine === 'chromium'
+        expect(() => evidence.complete(complete.map(result => result.mode === 'none' && result.engine === 'chromium'
             ? { ...result, interaction: { ...result.interaction, playback: { progressed: false } } }
             : result))).toThrow(/evidence is incomplete/u);
+    });
+
+    it.each([
+        ['product CPU sample', (result: Record<string, any>) => { result.functionEvidence.sampled.sampleCount = 0; }, 'cpu'],
+        ['called product function', (result: Record<string, any>) => { result.functionEvidence.calls.functionsCalled = 0; }, 'coverage'],
+        ['source URL', (result: Record<string, any>) => { result.functionEvidence.summaryScope.sourceUrl = 'yomu-profile://wrong'; }, 'cpu'],
+        ['graph SHA', (result: Record<string, any>) => { result.functionEvidence.summaryScope.sha256 = 'wrong'; }, 'coverage'],
+        ['CDP metrics', (result: Record<string, any>) => { result.workload.cdpDelta = null; }, 'none'],
+        ['page metrics', (result: Record<string, any>) => { result.workload.page = null; }, 'none'],
+        ['browser executable identity', (result: Record<string, any>) => { result.browser.executable.sha256 = ''; }, 'none'],
+        ['browser registry version', (result: Record<string, any>) => { result.browser.version = '2'; }, 'none'],
+        ['browser registry revision', (result: Record<string, any>) => { result.browser.registry.revision = 'wrong'; }, 'none'],
+        ['browser headed mode', (result: Record<string, any>) => { result.browser.headless = false; }, 'none'],
+        ['workload kind', (result: Record<string, any>) => { result.workload.kind = 'interaction'; }, 'cpu'],
+        ['non-comparability', (result: Record<string, any>) => { result.workload.comparable = true; }, 'cpu'],
+        ['ambient end progression', (result: Record<string, any>) => { result.interaction.ambientWindow.progressed = false; }, 'cpu'],
+        ['ambient end delta', (result: Record<string, any>) => { result.interaction.ambientWindow.deltaSeconds = 0; }, 'cpu'],
+        ['ambient unpaused state', (result: Record<string, any>) => { result.interaction.ambientWindow.unpaused = false; }, 'cpu'],
+        ['ambient non-stalled state', (result: Record<string, any>) => { result.interaction.ambientWindow.nonStalled = false; }, 'cpu'],
+    ])('rejects missing %s evidence', (_name, mutate, mode) => {
+        const fixture = artifactFixture();
+        const evidence = preflightEvidence(fixture);
+        const results = requestedRuns.split(',').map(key => successfulReplay(key, evidence.artifacts.descriptor));
+        const target = results.find(result => result.engine === 'chromium' && result.mode === mode);
+        mutate(target as Record<string, any>);
+
+        expect(() => evidence.complete(results)).toThrow(/evidence is incomplete/u);
     });
 
     it('fails unknown GM endpoints and serializes terminal failure evidence', () => {
         const contract = profileContract();
         expect(contract.classifyBridgeRequest('https://www.youtube.com/api/timedtext?lang=ja')).toBe('youtube-timedtext');
+        expect(contract.classifyBridgeRequest('https://jpdb.io/api/v1/parse?token=one')).toBe('jpdb-parse');
+        expect(contract.classifyBridgeRequest('https://jpdb.io/search?q=読む')).toBe('jpdb-search');
+        expect(() => contract.classifyBridgeRequest('https://jpdb.io/api/v1/parse/extra')).toThrow(/unrecognized GM request/u);
+        expect(() => contract.classifyBridgeRequest('http://jpdb.io/api/v1/parse')).toThrow(/unrecognized GM request/u);
         expect(() => contract.classifyBridgeRequest('https://example.com/new-service')).toThrow(/unrecognized GM request/u);
 
         const failure = contract.failure(new Error('browser launch failed'), { requestedRuns: ['chromium:none'] });
@@ -128,12 +197,21 @@ function profileContract() {
     });
 }
 
+function preflightEvidence(fixture: ReturnType<typeof artifactFixture>): Record<string, any> {
+    return profileContract().preflight({
+        repositoryRoot: fixture.root,
+        userscriptPath: fixture.corePath,
+        cssPath: fixture.cssPath,
+        profilerDriver: validProfilerDriver(),
+    });
+}
+
 function validProfilerDriver(): Record<string, any> {
     const tool = {
         version: '1.2.3',
         lockedVersion: '1.2.3',
         integrity: 'sha512-test',
-        manifestSha256: 'manifest',
+        manifestSha256: 'c'.repeat(64),
     };
     return {
         dirtyPaths: [],
@@ -146,6 +224,13 @@ function validProfilerDriver(): Record<string, any> {
             playwright: { ...tool },
             'playwright-core': { ...tool },
             typescript: { ...tool },
+        },
+        browserRegistry: {
+            sha256: 'b'.repeat(64),
+            browsers: [
+                { name: 'chromium', revision: '1194', browserVersion: '1' },
+                { name: 'webkit', revision: '2215', browserVersion: '1' },
+            ],
         },
     };
 }
@@ -184,9 +269,10 @@ function artifactFixture(options: Record<string, string> = {}) {
     writeFileSync(corePath, [
         '// @version 9.9.9',
         `// @require https://yomureader.com/greasyfork/${companionName}#sha256=${fixtureOption(options, 'companionSri', digestBase64(companion))}`,
-        `// @resource yomuCss https://yomureader.com/yomu.${fixtureOption(options, 'cssFileHash', cssSha256.slice(0, 12))}.css#sha256=${fixtureOption(options, 'cssSri', digestBase64(css))}`,
-        'globalThis.__profileOrder.push("core");',
-    ].join('\n'));
+        fixtureOption(options, 'cssDeclaration', `// @resource yomuCss https://yomureader.com/yomu.${fixtureOption(options, 'cssFileHash', cssSha256.slice(0, 12))}.css#sha256=${fixtureOption(options, 'cssSri', digestBase64(css))}`),
+        fixtureOption(options, 'extraCssDeclaration', ''),
+        'globalThis.__profileOrder.push("core"); globalThis.__bootstrapOrder?.push("product"); function productGraphFunction() { return new Error().stack; } globalThis.productGraphFunction = productGraphFunction;',
+    ].filter(Boolean).join('\n'));
     git(root, ['init', '--quiet']);
     git(root, ['add', '.']);
     git(root, ['-c', 'user.name=Yomu Test', '-c', 'user.email=yomu@example.test', 'commit', '--quiet', '-m', 'fixture']);
@@ -197,23 +283,51 @@ function fixtureOption(options: Record<string, string>, key: string, fallback: s
     return options[key] ?? fallback;
 }
 
-function successfulReplay(key: string): Record<string, any> {
+function successfulReplay(key: string, artifacts: Record<string, any>): Record<string, any> {
     const [engine, mode] = key.split(':');
     return {
         engine,
         mode,
-        browser: { channel: 'playwright-bundled', executablePath: '/browser', version: '1' },
+        browser: {
+            channel: 'playwright-bundled',
+            custom: false,
+            headed: false,
+            headless: true,
+            executable: {
+                path: '/browser',
+                sha256: 'a'.repeat(64),
+                stat: { bytes: 100, mode: 33_261, mtimeMs: 1, device: 1, inode: 1 },
+            },
+            registry: {
+                manifestSha256: 'b'.repeat(64),
+                name: engine,
+                revision: engine === 'chromium' ? '1194' : '2215',
+                browserVersion: '1',
+            },
+            version: '1',
+        },
         interaction: {
             playback: { progressed: true },
+            ambientWindow: {
+                deltaSeconds: 30,
+                progressed: true,
+                unpaused: true,
+                nonStalled: true,
+            },
             nativeControls: { autoHideObserved: true, yomuDidNotRetainFocus: true },
             subtitles: { hover: { opened: true } },
             ocr: { hover: { opened: true } },
         },
         workload: {
+            kind: 'ambient',
             scope: 'whole live YouTube watch page',
+            comparable: false,
             instrumented: mode === 'cpu' || mode === 'coverage',
+            cdpDelta: {},
+            page: {},
         },
-        functionEvidence: replayFunctionEvidence(engine, mode),
+        functionEvidence: replayFunctionEvidence(engine, mode, artifacts),
+        fatalBridgeRequests: [],
         network: { actualYoutubeRequests: 10 },
         final: {
             youtube: { app: true, player: true },
@@ -222,23 +336,53 @@ function successfulReplay(key: string): Record<string, any> {
     };
 }
 
-function replayFunctionEvidence(engine: string, mode: string): Record<string, any> | null {
+function replayFunctionEvidence(engine: string, mode: string, artifacts: Record<string, any>): Record<string, any> | null {
     if (engine === 'webkit') return null;
+    const summaryScope = {
+        kind: 'yomu-artifact-graph',
+        sourceUrl: artifacts.sourceUrl,
+        sha256: artifacts.sha256,
+    };
     const evidence = {
         none: () => ({ mode }),
         cpu: () => ({
             mode,
-            summaryScope: { kind: 'yomu-artifact-graph' },
+            summaryScope,
             sampled: { totalSampleCount: 5, sampleCount: 2 },
         }),
         coverage: () => ({
             mode,
-            summaryScope: { kind: 'yomu-artifact-graph' },
+            summaryScope,
             calls: { functionsPresent: 3, functionsCalled: 2 },
         }),
     }[mode];
     if (!evidence) throw new Error(`Unsupported test replay mode: ${mode}`);
     return evidence();
+}
+
+function cpuProfileForSources(sources: Record<string, string>): Record<string, any> {
+    return {
+        samples: [1, 2],
+        timeDeltas: [1000, 1000],
+        nodes: [
+            { id: 1, callFrame: { functionName: 'gmHarnessFunction', url: sources.gm, lineNumber: 0, columnNumber: 0 } },
+            { id: 2, callFrame: { functionName: 'productGraphFunction', url: sources.product, lineNumber: 0, columnNumber: 0 } },
+        ],
+    };
+}
+
+function coverageForSources(sources: Record<string, string>): Record<string, any>[] {
+    return [
+        coverageScript(sources.gm, 'gmHarnessFunction', 10),
+        coverageScript(sources.product, 'productGraphFunction', 1),
+    ];
+}
+
+function coverageScript(url: string, functionName: string, count: number): Record<string, any> {
+    return {
+        url,
+        functions: [{ functionName, ranges: [{ startOffset: 0, endOffset: 10, count }] }],
+    };
 }
 
 function git(root: string, args: string[]): void {

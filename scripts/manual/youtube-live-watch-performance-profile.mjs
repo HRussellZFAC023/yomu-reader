@@ -21,12 +21,12 @@ import {
     textResponse,
     YOMU_SETTINGS_KEY,
 } from '../lib/smoke-harness.mjs';
-import { addUserscriptGraphInitScripts } from '../lib/smoke-test-helpers.mjs';
 import { cdpMetrics, metricDelta } from '../lib/cdp-performance-metrics.mjs';
 import { configureFunctionProfiler, startFunctionProfiler, stopFunctionProfiler } from '../lib/youtube-performance-cdp.mjs';
 import { summarizeCpuProfile, summarizePreciseCoverage } from '../lib/youtube-performance-evidence.mjs';
 import { profileDriverProvenance } from '../lib/youtube-performance-provenance.mjs';
 import { createLiveProfileEvidenceContract } from '../lib/live-profile-evidence-contract.mjs';
+import { createLiveProfileRunSupport } from '../lib/live-profile-run-support.mjs';
 import { createYomuPaths } from '../lib/paths.mjs';
 
 const { appRoot, qaArtifactsRoot } = createYomuPaths(import.meta.dirname);
@@ -37,6 +37,7 @@ const outputRoot = resolve(process.env.YOMU_LIVE_YOUTUBE_OUTPUT_DIR
 const watchUrl = process.env.YOMU_LIVE_YOUTUBE_URL
     ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s&hl=ja&gl=JP';
 const headed = process.env.YOMU_LIVE_YOUTUBE_HEADED === '1';
+const runSupport = createLiveProfileRunSupport({ environment: process.env, headed });
 const requestBridgeName = '__yomuLiveYoutubeProfileRequest';
 const evidenceContract = createLiveProfileEvidenceContract({
     requestedRuns: process.env.YOMU_LIVE_YOUTUBE_RUNS
@@ -134,7 +135,7 @@ function populateLiveProfileReport(report, profilerDriver) {
 }
 
 function completeLiveProfileReport(report) {
-    report.acceptance = evidenceContract.complete(report.runs);
+    report.acceptance = profileEvidence.complete(report.runs);
     report.status = 'passed';
     report.completedAt = new Date().toISOString();
     writeFileSync(join(outputRoot, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
@@ -149,12 +150,7 @@ function failLiveProfileReport(report, error) {
         requestedRuns: reportValue(report, 'requestedRuns', []),
         runs: report.runs,
     });
-    report.status = 'failed';
-    report.completedAt = terminal.generatedAt;
-    report.failure = terminal.failure;
-    writeFileSync(join(outputRoot, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
-    writeFileSync(join(outputRoot, 'failure.json'), `${JSON.stringify(terminal, null, 2)}\n`);
-    checkpointReport(report);
+    Object.assign(report, runSupport.writeTerminalFailure(outputRoot, report, terminal));
 }
 
 function profileDeviceDescriptor() {
@@ -201,6 +197,7 @@ async function runReplay(run) {
     const browserType = run.engine === 'webkit' ? webkit : chromium;
     const network = { requests: 0, failed: [], byHost: {}, byType: {} };
     const bridgeRequests = [];
+    const fatalBridgeLedger = runSupport.fatalRequestLedger(evidenceContract.classifyBridgeRequest);
     let launchPlan;
     let browser;
     let context;
@@ -208,7 +205,7 @@ async function runReplay(run) {
     let client;
     let profilerStarted = false;
     try {
-        launchPlan = browserLaunchPlan(run, browserType);
+        launchPlan = runSupport.launchPlan(run, browserType, profileEvidence.browserRegistry);
         browser = await browserType.launch(launchPlan.options);
         context = await browser.newContext({
             bypassCSP: true,
@@ -222,7 +219,7 @@ async function runReplay(run) {
         context.setDefaultTimeout(15_000);
         context.setDefaultNavigationTimeout(70_000);
         await installConsentCookies(context);
-        await context.exposeFunction(requestBridgeName, request => bridgeResponse(request, bridgeRequests));
+        await context.exposeFunction(requestBridgeName, request => bridgeResponse(request, bridgeRequests, fatalBridgeLedger));
         const gmBootstrap = gmStorageBridgeInitProgram({
             key: YOMU_SETTINGS_KEY,
             value: liveProfileSettings(),
@@ -231,11 +228,11 @@ async function runReplay(run) {
             browserFetchRoutes: evidenceContract.browserFetchRoutes,
         });
         const instrumentation = `(${initializeLiveWatchInstrumentation.toString()})();`;
-        await addUserscriptGraphInitScripts(context, userscriptPath, {
-            sourceUrl: profileEvidence.artifacts.descriptor.sourceUrl,
-            content: profileEvidence.artifacts.content,
-            prefixContent: `${gmBootstrap}\n;\n${instrumentation}`,
+        const bootstrap = profileEvidence.bootstrap({
+            gmProgram: gmBootstrap,
+            instrumentationProgram: instrumentation,
         });
+        await context.addInitScript({ content: bootstrap.content });
 
         page = await context.newPage();
         installNetworkJournal(page, network);
@@ -271,6 +268,7 @@ async function runReplay(run) {
         const afterMetrics = client ? await cdpMetrics(client) : null;
         const final = await readLiveState(page, client);
         await page.screenshot({ path: join(runDir, 'live-watch.png'), fullPage: false });
+        fatalBridgeLedger.assertEmpty();
         const result = {
             engine: run.engine,
             mode: run.mode,
@@ -292,6 +290,8 @@ async function runReplay(run) {
             functionEvidence,
             network: networkSummary(network),
             yomuBridgeRequests: summarizeBridgeRequests(bridgeRequests),
+            fatalBridgeRequests: fatalBridgeLedger.snapshot(),
+            bootstrapSources: bootstrap.sources,
             artifacts: { directory: runDir, screenshot: join(runDir, 'live-watch.png') },
             final,
         };
@@ -305,7 +305,14 @@ async function runReplay(run) {
             mode: run.mode,
             browserVersion: browser?.version() ?? '',
             browser: {
-                ...(launchPlan?.descriptor ?? { channel: '', executablePath: '' }),
+                ...(launchPlan?.descriptor ?? {
+                    channel: '',
+                    custom: null,
+                    headed,
+                    headless: !headed,
+                    executable: null,
+                    registry: null,
+                }),
                 version: browser?.version() ?? '',
             },
             error: { name: error?.name ?? 'Error', message: String(error?.message ?? error), stack: String(error?.stack ?? '') },
@@ -313,6 +320,7 @@ async function runReplay(run) {
             state: page ? await readLiveState(page, client).catch(() => null) : null,
             network: networkSummary(network),
             yomuBridgeRequests: summarizeBridgeRequests(bridgeRequests),
+            fatalBridgeRequests: fatalBridgeLedger.snapshot(),
             artifacts: {
                 directory: runDir,
                 screenshot: existsSync(join(runDir, 'failure.png')) ? join(runDir, 'failure.png') : null,
@@ -323,40 +331,6 @@ async function runReplay(run) {
     } finally {
         await context?.close().catch(() => undefined);
         await browser?.close().catch(() => undefined);
-    }
-}
-
-function browserLaunchPlan(run, browserType) {
-    if (run.engine === 'chromium') return chromiumLaunchPlan(browserType);
-    return bundledWebkitLaunchPlan(browserType);
-}
-
-function chromiumLaunchPlan(browserType) {
-    const channel = environmentValue('YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL', '').trim();
-    const executable = environmentValue('YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE', '').trim();
-    assertCustomBrowserPair(channel, executable);
-    const executablePath = resolve(executable || browserType.executablePath());
-    return launchPlan(channel || 'playwright-bundled', executablePath, ['--autoplay-policy=no-user-gesture-required']);
-}
-
-function bundledWebkitLaunchPlan(browserType) {
-    return launchPlan('playwright-bundled', resolve(browserType.executablePath()), []);
-}
-
-function launchPlan(channel, executablePath, args) {
-    return {
-        descriptor: { channel, executablePath },
-        options: {
-            headless: !headed,
-            executablePath,
-            args,
-        },
-    };
-}
-
-function assertCustomBrowserPair(channel, executable) {
-    if (Boolean(channel) !== Boolean(executable)) {
-        throw new Error('YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL and YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE must be supplied together so browser provenance stays exact.');
     }
 }
 
@@ -422,12 +396,15 @@ async function exerciseLiveWatchPage(page, runDir) {
 
 async function exerciseAmbientPlayback(page) {
     const playback = await startPlayback(page);
+    const windowStarted = await page.evaluate(readLivePlaybackState);
     await page.mouse.move(4, 4);
     await page.waitForTimeout(ambientDurationMs);
+    const windowEnded = await page.evaluate(readLivePlaybackState);
     return {
         kind: 'ambient',
         durationMs: ambientDurationMs,
         playback,
+        ambientWindow: runSupport.ambientWindow(windowStarted, windowEnded),
         finalNativeControls: await page.evaluate(readNativeControlState),
     };
 }
@@ -773,10 +750,10 @@ function initializeLiveWatchInstrumentation() {
 // Only Yomu-owned outbound services are mocked. These branches are deliberately
 // explicit so a future endpoint cannot silently turn into real test traffic.
 // fallow-ignore-next-line complexity
-async function bridgeResponse(request, journal) {
+async function bridgeResponse(request, journal, fatalBridgeLedger) {
+    const requestKind = fatalBridgeLedger.classify(request.url);
     const body = gmRequestFetchBody(request);
     const url = new URL(request.url);
-    const requestKind = evidenceContract.classifyBridgeRequest(request.url);
     const journalEntry = {
         url: `${url.origin}${url.pathname}`,
         method: request.method ?? 'GET',

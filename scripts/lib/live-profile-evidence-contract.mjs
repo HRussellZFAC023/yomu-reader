@@ -8,6 +8,7 @@ const EXPECTED_ICU_BY_NODE = new Map([
     ['24.16.0', '78.3'],
 ]);
 const REQUIRED_TOOL_NAMES = Object.freeze(['playwright', 'playwright-core', 'typescript']);
+const REQUIRED_BROWSER_NAMES = Object.freeze(['chromium', 'webkit']);
 const ALLOWED_RUNS = new Map([
     ['chromium:none', Object.freeze({ key: 'chromium:none', engine: 'chromium', mode: 'none' })],
     ['chromium:cpu', Object.freeze({ key: 'chromium:cpu', engine: 'chromium', mode: 'cpu' })],
@@ -32,10 +33,10 @@ const BROWSER_FETCH_ROUTES = Object.freeze([
     Object.freeze({ origin: 'https://www.youtube.com', pathname: '/api/timedtext' }),
 ]);
 const BRIDGE_ROUTES = Object.freeze([
-    Object.freeze({ kind: 'youtube-timedtext', matches: url => url.hostname === 'www.youtube.com' && url.pathname === '/api/timedtext' }),
-    Object.freeze({ kind: 'jpdb-parse', matches: url => url.href.startsWith('https://jpdb.io/api/v1/parse') }),
-    Object.freeze({ kind: 'ocr', matches: url => url.hostname === '127.0.0.1' && url.port === '7331' && url.pathname === '/ocr' }),
-    Object.freeze({ kind: 'jpdb-search', matches: url => url.hostname === 'jpdb.io' && url.pathname === '/search' }),
+    Object.freeze({ kind: 'youtube-timedtext', origin: 'https://www.youtube.com', pathname: '/api/timedtext' }),
+    Object.freeze({ kind: 'jpdb-parse', origin: 'https://jpdb.io', pathname: '/api/v1/parse' }),
+    Object.freeze({ kind: 'ocr', origin: 'http://127.0.0.1:7331', pathname: '/ocr' }),
+    Object.freeze({ kind: 'jpdb-search', origin: 'https://jpdb.io', pathname: '/search' }),
 ]);
 const WORKLOAD_BUILDERS = new Map([
     ['interaction', () => Object.freeze({
@@ -61,6 +62,9 @@ const REPLAY_CHECKS = Object.freeze([
     browserEvidenceFailures,
     workloadScopeFailures,
     instrumentationFailures,
+    chromiumNoneMetricsFailures,
+    fatalBridgeLedgerFailures,
+    ambientWindowFailures,
 ]);
 const CHROMIUM_EVIDENCE_CHECKS = new Map([
     ['none', () => []],
@@ -78,7 +82,6 @@ export function createLiveProfileEvidenceContract(config) {
         transport: TRANSPORT_SCOPE,
         preflight: input => liveProfilePreflight(config, input),
         classifyBridgeRequest,
-        complete: results => completeLiveProfile(config, results),
         failure: (error, details = {}) => liveProfileFailure(error, details),
     });
 }
@@ -88,12 +91,20 @@ function liveProfilePreflight(config, input) {
     const workload = workloadDescriptor(config.workloadKind, config.ambientDurationMs);
     assertProfilerDriverProvenance(input.profilerDriver);
     const artifacts = validatedArtifactGraph(input.repositoryRoot, input.userscriptPath, input.cssPath);
+    const browserRegistry = snapshotBrowserRegistry(input.profilerDriver.browserRegistry);
+    const artifactIdentity = Object.freeze({
+        sourceUrl: artifacts.descriptor.sourceUrl,
+        sha256: artifacts.descriptor.sha256,
+    });
     return {
         requestedRuns,
         workload,
         transport: TRANSPORT_SCOPE,
         artifacts,
         profilerDriver: input.profilerDriver,
+        browserRegistry,
+        bootstrap: programs => createProfileBootstrap(artifactIdentity, artifacts.content, programs),
+        complete: results => completeLiveProfile(config, workload, artifactIdentity, browserRegistry, results),
     };
 }
 
@@ -101,7 +112,33 @@ function assertProfilerDriverProvenance(provenance) {
     const descriptor = requiredRecord(provenance, 'Profiler driver provenance is missing.');
     assertRuntimeProvenance(descriptor.runtime);
     assertToolLockParity(descriptor.tools);
+    assertBrowserRegistry(descriptor.browserRegistry);
     assertCleanPaths(descriptor.dirtyPaths, 'Profiler driver or tool inputs are dirty.');
+}
+
+function assertBrowserRegistry(browserRegistry) {
+    const registry = requiredRecord(browserRegistry, 'Playwright browser registry provenance is missing.');
+    requiredSha256(registry.sha256, 'Playwright browser registry hash is missing or invalid.');
+    if (!Array.isArray(registry.browsers)) fail('Playwright browser registry entries are missing.');
+    for (const name of REQUIRED_BROWSER_NAMES) assertBrowserRegistryEntry(registry.browsers, name);
+}
+
+function assertBrowserRegistryEntry(browsers, name) {
+    const browser = browsers.find(candidate => candidate.name === name);
+    const descriptor = requiredRecord(browser, `Playwright browser registry entry is missing: ${name}.`);
+    requiredText(descriptor.revision, `Playwright browser registry revision is missing: ${name}.`);
+    requiredText(descriptor.browserVersion, `Playwright browser registry version is missing: ${name}.`);
+}
+
+function snapshotBrowserRegistry(browserRegistry) {
+    const browsers = browserRegistry.browsers
+        .filter(browser => REQUIRED_BROWSER_NAMES.includes(browser.name))
+        .map(browser => Object.freeze({
+            name: browser.name,
+            revision: browser.revision,
+            browserVersion: browser.browserVersion,
+        }));
+    return Object.freeze({ sha256: browserRegistry.sha256, browsers: Object.freeze(browsers) });
 }
 
 function assertRuntimeProvenance(runtime) {
@@ -133,7 +170,7 @@ function assertToolDescriptor(name, tool) {
     const locked = requiredText(descriptor.lockedVersion, `Locked profiler tool version is missing: ${name}.`);
     assertEqual(installed, locked, `Profiler tool does not match package-lock.json: ${name}.`, { installed, locked });
     requiredText(descriptor.integrity, `Profiler tool lock integrity is missing: ${name}.`);
-    requiredText(descriptor.manifestSha256, `Profiler tool manifest hash is missing: ${name}.`);
+    requiredSha256(descriptor.manifestSha256, `Profiler tool manifest hash is missing or invalid: ${name}.`);
 }
 
 function expectedIcuForNode(nodeVersion) {
@@ -212,13 +249,12 @@ function assertValidatedCompanions(requirements, companionPaths) {
 }
 
 function validatedCssResource(coreText, cssPath, root) {
-    const declarations = coreText.split(/\r?\n/u).flatMap(line => {
-        const match = line.match(/^\/\/ @resource\s+yomuCss\s+https:\/\/yomureader\.com\/([^#\s]+)#sha256=([^\s]+)$/u);
-        return match ? [{ fileName: match[1], sri: match[2] }] : [];
-    });
-    if (declarations.length !== 1) fail('Userscript must declare exactly one content-addressed yomuCss resource.');
+    const declarations = coreText.split(/\r?\n/u).filter(line => /^\/\/ @resource\s+yomuCss(?:\s|$)/u.test(line));
+    if (declarations.length !== 1) fail('Userscript must declare exactly one yomuCss resource.', { declarations });
+    const match = declarations[0].match(/^\/\/ @resource\s+yomuCss\s+https:\/\/yomureader\.com\/([^#\s]+)#sha256=([^\s]+)$/u);
+    if (!match) fail('Userscript yomuCss resource must be content-addressed on yomureader.com.');
     const contents = readFileSync(cssPath);
-    assertContentAddress(declarations[0].fileName, declarations[0].sri, contents, 'stylesheet');
+    assertContentAddress(match[1], match[2], contents, 'stylesheet');
     return artifactFile(cssPath, root, contents);
 }
 
@@ -291,9 +327,13 @@ function positiveDuration(value) {
 
 function classifyBridgeRequest(rawUrl) {
     const url = parseBridgeUrl(rawUrl);
-    const route = BRIDGE_ROUTES.find(candidate => candidate.matches(url));
+    const route = BRIDGE_ROUTES.find(candidate => routeMatches(candidate, url));
     if (route) return route.kind;
     fail('Live profiler received an unrecognized GM request.', { url: `${url.origin}${url.pathname}` });
+}
+
+function routeMatches(route, url) {
+    return route.origin === url.origin && route.pathname === url.pathname;
 }
 
 function parseBridgeUrl(rawUrl) {
@@ -304,9 +344,36 @@ function parseBridgeUrl(rawUrl) {
     }
 }
 
-function completeLiveProfile(config, results) {
+function createProfileBootstrap(artifacts, productProgram, programs) {
+    const inputs = requiredRecord(programs, 'Live profiler bootstrap programs are missing.');
+    const sources = profileBootstrapSources(artifacts.sha256, artifacts.sourceUrl);
+    const content = [
+        evaluatedProgram(requiredText(inputs.gmProgram, 'Live profiler GM bootstrap is missing.'), sources.gm),
+        evaluatedProgram(requiredText(inputs.instrumentationProgram, 'Live profiler instrumentation is missing.'), sources.instrumentation),
+        evaluatedProgram(requiredText(productProgram, 'Live profiler product graph is missing.'), sources.product),
+        `//# sourceURL=${sources.bootstrap}`,
+    ].join('\n;\n');
+    return Object.freeze({ content, sources });
+}
+
+function profileBootstrapSources(graphSha256, product) {
+    const root = `yomu-profile://harness/${graphSha256}`;
+    return Object.freeze({
+        bootstrap: `${root}/bootstrap.js`,
+        gm: `${root}/gm.js`,
+        instrumentation: `${root}/instrumentation.js`,
+        product,
+    });
+}
+
+function evaluatedProgram(program, sourceUrl) {
+    return `(0, eval)(${JSON.stringify(`${program}\n//# sourceURL=${sourceUrl}`)});`;
+}
+
+function completeLiveProfile(config, workload, artifacts, browserRegistry, results) {
     const requestedRuns = parseRequestedRuns(config.requestedRuns);
-    const failures = requestedRunFailures(requestedRuns, results);
+    const context = { workload, artifacts, browserRegistry };
+    const failures = requestedRunFailures(requestedRuns, results, context);
     if (failures.length > 0) fail('Live YouTube evidence is incomplete.', { failures });
     const byKey = new Map(results.map(result => [runKey(result), result]));
     const chromiumNone = byKey.get('chromium:none');
@@ -318,6 +385,9 @@ function completeLiveProfile(config, results) {
         actualYoutubeDom: results.every(hasActualYoutubeEvidence),
         runtimeHealthy: results.every(hasHealthyRuntime),
         playbackProgressed: results.every(result => nestedValue(result, 'interaction.playback.progressed') === true),
+        ambientWindowProgressed: workload.kind === 'ambient'
+            ? results.every(result => nestedValue(result, 'interaction.ambientWindow.progressed') === true)
+            : null,
         chromiumNativeControlsAutoHide: nestedValue(chromiumNone, 'interaction.nativeControls.autoHideObserved'),
         chromiumYomuReleasedFocus: nestedValue(chromiumNone, 'interaction.nativeControls.yomuDidNotRetainFocus'),
         chromiumSubtitleHover: nestedValue(chromiumNone, 'interaction.subtitles.hover.opened'),
@@ -331,7 +401,7 @@ function completeLiveProfile(config, results) {
     };
 }
 
-function requestedRunFailures(requestedRuns, results) {
+function requestedRunFailures(requestedRuns, results, context) {
     if (!Array.isArray(results)) return [{ reason: 'results are missing' }];
     const expectedKeys = requestedRuns.map(run => run.key);
     const actualKeys = results.map(runKey);
@@ -339,7 +409,7 @@ function requestedRunFailures(requestedRuns, results) {
     return [
         ...resultCardinalityFailures(requestedRuns.length, results.length, expectedKeys, actualKeys),
         ...duplicateResultFailures(actualKeys),
-        ...requestedReplayFailures(requestedRuns, byKey),
+        ...requestedReplayFailures(requestedRuns, byKey, context),
         ...unexpectedReplayFailures(expectedKeys, actualKeys),
     ];
 }
@@ -352,8 +422,8 @@ function duplicateResultFailures(actualKeys) {
     return new Set(actualKeys).size === actualKeys.length ? [] : [{ reason: 'duplicate replay results', actualKeys }];
 }
 
-function requestedReplayFailures(requestedRuns, byKey) {
-    return requestedRuns.flatMap(run => replayFailures(run, byKey.get(run.key)));
+function requestedReplayFailures(requestedRuns, byKey, context) {
+    return requestedRuns.flatMap(run => replayFailures(run, byKey.get(run.key), context));
 }
 
 function unexpectedReplayFailures(expectedKeys, actualKeys) {
@@ -362,20 +432,20 @@ function unexpectedReplayFailures(expectedKeys, actualKeys) {
         .map(run => ({ run, reason: 'unexpected replay result' }));
 }
 
-function replayFailures(run, result) {
+function replayFailures(run, result, context) {
     if (!result) return [{ run: run.key, reason: 'missing replay result' }];
     return [
-        ...REPLAY_CHECKS.flatMap(check => check(run, result)),
-        ...functionEvidenceFailures(run, result.functionEvidence),
+        ...REPLAY_CHECKS.flatMap(check => check(context, run, result)),
+        ...functionEvidenceFailures(context, run, result.functionEvidence),
     ];
 }
 
-function functionEvidenceFailures(run, evidence) {
+function functionEvidenceFailures(context, run, evidence) {
     if (run.engine === 'webkit') return failureUnless(evidence === null, run, 'WebKit carried CDP function evidence');
     if (nestedValue(evidence, 'mode') !== run.mode) return [{ run: run.key, reason: `missing ${run.mode} function evidence` }];
     const check = CHROMIUM_EVIDENCE_CHECKS.get(run.mode);
     if (!check) return [{ run: run.key, reason: `unsupported ${run.mode} function evidence` }];
-    return check(run, evidence);
+    return check(context, run, evidence);
 }
 
 function liveProfileFailure(error, details) {
@@ -393,53 +463,134 @@ function liveProfileFailure(error, details) {
     };
 }
 
-function replayErrorFailures(run, result) {
+function replayErrorFailures(_context, run, result) {
     if (!result.error) return [];
     return [{ run: run.key, reason: 'replay failed', error: errorProperty(result.error, 'message', String(result.error)) }];
 }
 
-function youtubeEvidenceFailures(run, result) {
+function youtubeEvidenceFailures(_context, run, result) {
     return failureUnless(hasActualYoutubeEvidence(result), run, 'real YouTube evidence missing');
 }
 
-function runtimeEvidenceFailures(run, result) {
+function runtimeEvidenceFailures(_context, run, result) {
     return failureUnless(hasHealthyRuntime(result), run, 'Yomu runtime was not healthy');
 }
 
-function playbackEvidenceFailures(run, result) {
+function playbackEvidenceFailures(_context, run, result) {
     return failureUnless(nestedValue(result, 'interaction.playback.progressed') === true, run, 'playback did not progress');
 }
 
-function browserEvidenceFailures(run, result) {
-    const fields = ['browser.executablePath', 'browser.channel', 'browser.version'];
-    return failureUnless(fields.every(path => Boolean(nestedValue(result, path))), run, 'actual browser provenance is incomplete');
+function browserEvidenceFailures(context, run, result) {
+    return [
+        ...browserIdentityFieldFailures(run, result),
+        ...browserHeadModeFailures(run, result),
+        ...browserSourceFailures(context, run, result),
+    ];
 }
 
-function workloadScopeFailures(run, result) {
-    const actual = nestedValue(result, 'workload.scope');
-    return failureUnless(actual === 'whole live YouTube watch page', run, 'whole-page workload scope is missing');
+function browserIdentityFieldFailures(run, result) {
+    const textFields = ['browser.channel', 'browser.version', 'browser.executable.path'];
+    const textComplete = textFields.every(path => Boolean(nestedValue(result, path)));
+    const sha256 = String(nestedValue(result, 'browser.executable.sha256'));
+    const hashComplete = /^[a-f0-9]{64}$/u.test(sha256);
+    return failureUnless(textComplete && hashComplete && browserStatComplete(result), run, 'actual browser provenance is incomplete');
 }
 
-function instrumentationFailures(run, result) {
+function browserStatComplete(result) {
+    const numberFields = ['mode', 'mtimeMs', 'device', 'inode'];
+    const numbersComplete = numberFields.every(field => typeof nestedValue(result, `browser.executable.stat.${field}`) === 'number');
+    return numbersComplete && Number(nestedValue(result, 'browser.executable.stat.bytes')) > 0;
+}
+
+function browserHeadModeFailures(run, result) {
+    const headed = nestedValue(result, 'browser.headed');
+    const headless = nestedValue(result, 'browser.headless');
+    const valid = typeof headed === 'boolean' && headless === !headed;
+    return failureUnless(valid, run, 'browser headed/headless provenance is inconsistent');
+}
+
+function browserSourceFailures(context, run, result) {
+    const bundled = nestedValue(result, 'browser.channel') === 'playwright-bundled';
+    if (bundled) return bundledBrowserFailures(context, run, result);
+    const validCustom = nestedValue(result, 'browser.custom') === true && nestedValue(result, 'browser.registry') === null;
+    return failureUnless(validCustom, run, 'custom browser provenance is incomplete');
+}
+
+function bundledBrowserFailures(context, run, result) {
+    const expected = context.browserRegistry.browsers.find(browser => browser.name === run.engine);
+    const registryFields = ['revision', 'browserVersion'];
+    const registryComplete = registryFields.every(field => Boolean(nestedValue(result, `browser.registry.${field}`)));
+    const manifestMatches = nestedValue(result, 'browser.registry.manifestSha256') === context.browserRegistry.sha256;
+    const expectedName = nestedValue(result, 'browser.registry.name') === run.engine;
+    const revisionMatches = nestedValue(result, 'browser.registry.revision') === expected.revision;
+    const registryVersionMatches = nestedValue(result, 'browser.registry.browserVersion') === expected.browserVersion;
+    const versionMatches = nestedValue(result, 'browser.registry.browserVersion') === nestedValue(result, 'browser.version');
+    const matches = [registryComplete, manifestMatches, expectedName, revisionMatches, registryVersionMatches, versionMatches].every(Boolean);
+    return failureUnless(matches, run, 'bundled browser registry identity does not match the launched browser');
+}
+
+function workloadScopeFailures(context, run, result) {
+    return [
+        ...failureUnless(nestedValue(result, 'workload.scope') === 'whole live YouTube watch page', run, 'whole-page workload scope is missing'),
+        ...failureUnless(nestedValue(result, 'workload.kind') === context.workload.kind, run, 'workload kind does not match the requested workload'),
+        ...failureUnless(nestedValue(result, 'workload.comparable') === false, run, 'live workload must be marked non-comparable'),
+    ];
+}
+
+function instrumentationFailures(_context, run, result) {
     const instrumented = new Set(['cpu', 'coverage']).has(run.mode);
     return failureUnless(nestedValue(result, 'workload.instrumented') === instrumented, run, 'instrumentation scope is incorrect');
 }
 
-function cpuEvidenceFailures(run, evidence) {
-    const failures = artifactSummaryScopeFailures(run, evidence);
-    const hasSamples = Number(nestedValue(evidence, 'sampled.totalSampleCount')) > 0;
-    return [...failures, ...failureUnless(hasSamples, run, 'CPU profile contains no samples')];
+function chromiumNoneMetricsFailures(_context, run, result) {
+    if (run.key !== 'chromium:none') return [];
+    const hasCdp = isRecord(nestedValue(result, 'workload.cdpDelta'));
+    const hasPage = isRecord(nestedValue(result, 'workload.page'));
+    return failureUnless(hasCdp && hasPage, run, 'chromium:none whole-page CDP or page metrics are missing');
 }
 
-function coverageEvidenceFailures(run, evidence) {
-    const failures = artifactSummaryScopeFailures(run, evidence);
-    const hasFunctions = Number(nestedValue(evidence, 'calls.functionsPresent')) > 0;
-    return [...failures, ...failureUnless(hasFunctions, run, 'coverage matched no artifact-graph functions')];
+function fatalBridgeLedgerFailures(_context, run, result) {
+    const ledger = nestedValue(result, 'fatalBridgeRequests');
+    const empty = Array.isArray(ledger) && ledger.length === 0;
+    return failureUnless(empty, run, 'run contains fatal unrecognized GM requests');
 }
 
-function artifactSummaryScopeFailures(run, evidence) {
-    const kind = nestedValue(evidence, 'summaryScope.kind');
-    return failureUnless(kind === 'yomu-artifact-graph', run, 'function summary is not artifact-graph scoped');
+function ambientWindowFailures(context, run, result) {
+    if (context.workload.kind !== 'ambient') return [];
+    const window = nestedValue(result, 'interaction.ambientWindow');
+    return [
+        ...failureUnless(nestedValue(window, 'progressed') === true, run, 'ambient media did not progress through the observation window'),
+        ...failureUnless(Number(nestedValue(window, 'deltaSeconds')) > 0.05, run, 'ambient media delta is missing'),
+        ...failureUnless(nestedValue(window, 'unpaused') === true, run, 'ambient media ended paused'),
+        ...failureUnless(nestedValue(window, 'nonStalled') === true, run, 'ambient media ended stalled'),
+    ];
+}
+
+function cpuEvidenceFailures(context, run, evidence) {
+    const failures = artifactSummaryScopeFailures(context, run, evidence);
+    const hasProductSamples = Number(nestedValue(evidence, 'sampled.sampleCount')) > 0;
+    return [...failures, ...failureUnless(hasProductSamples, run, 'CPU profile contains no product-scoped samples')];
+}
+
+function coverageEvidenceFailures(context, run, evidence) {
+    const failures = artifactSummaryScopeFailures(context, run, evidence);
+    const hasCalledFunctions = Number(nestedValue(evidence, 'calls.functionsCalled')) > 0;
+    return [...failures, ...failureUnless(hasCalledFunctions, run, 'coverage contains no called product functions')];
+}
+
+function artifactSummaryScopeFailures(context, run, evidence) {
+    const expected = context.artifacts;
+    return [
+        ...failureUnless(nestedValue(evidence, 'summaryScope.kind') === 'yomu-artifact-graph', run, 'function summary is not artifact-graph scoped'),
+        ...failureUnless(nestedValue(evidence, 'summaryScope.sourceUrl') === expected.sourceUrl, run, 'function summary source URL does not match the product graph'),
+        ...failureUnless(nestedValue(evidence, 'summaryScope.sha256') === expected.sha256, run, 'function summary hash does not match the product graph'),
+    ];
+}
+
+function isRecord(value) {
+    if (value === null) return false;
+    if (Array.isArray(value)) return false;
+    return typeof value === 'object';
 }
 
 function failureUnless(condition, run, reason) {
@@ -503,6 +654,12 @@ function requiredText(value, message) {
     if (typeof value !== 'string') fail(message);
     if (!value) fail(message);
     return value;
+}
+
+function requiredSha256(value, message) {
+    const sha256 = requiredText(value, message);
+    if (!/^[a-f0-9]{64}$/u.test(sha256)) fail(message);
+    return sha256;
 }
 
 function assertEqual(actual, expected, message, details = {}) {
