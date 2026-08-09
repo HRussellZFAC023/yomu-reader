@@ -1,7 +1,7 @@
 {
     "src/reader/newtab/controller.ts": 10730,
     "src/reader/app/main.ts": 10406,
-    "src/reader/subtitles/controller.ts": 8458,
+    "src/reader/subtitles/controller.ts": 8460,
     "src/reader/dom/index.ts": 7914,
     "src/reader/ocr/controller.ts": 4899,
     "src/reader/settings/form.ts": 3257,
