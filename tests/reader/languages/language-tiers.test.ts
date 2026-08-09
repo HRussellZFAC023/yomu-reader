@@ -225,22 +225,43 @@ describe('language profile migration onto the three tiers', () => {
 });
 
 /**
- * A37.3's rule stated as the capability it is really about: reading controls
- * exist exactly for targets that declare `reading-annotation`. Pinning the CSS
- * family to the registry means a new
- * target that gains readings fails here instead of silently rendering nothing.
+ * Reading annotations are a core-delivered capability: every target can render
+ * an exact dictionary reading when its installed bank supplies one. The legacy
+ * language-family classes have the narrower job of gating script-specific UI;
+ * they are not capability flags and must not hide the generic controls.
  */
-describe('reading-annotation DOM gating follows the capability, not a language list', () => {
-    it('gates the Japanese, Chinese, Cantonese, and Korean family on the registered reading-annotation capability', () => {
+describe('reading-annotation availability stays separate from script-family DOM gating', () => {
+    it('declares generic dictionary-reading annotations for every registered target', () => {
         const modules = registeredLearningTargetModules();
         expect(modules.length).toBeGreaterThan(1);
 
         for (const module of modules) {
-            expect(
-                languageFamilyIncludes('jpzhyueko-only', module.language),
-                `jpzhyueko-only membership disagrees with reading-annotation for ${module.language}`,
-            ).toBe(module.capabilities['reading-annotation']);
+            expect(module.capabilities['reading-annotation'], module.language).toBe(true);
+            expect(module.experiences.readingAnnotation, module.language).toBe('dictionary-reading');
         }
+    });
+
+    it('keeps a non-CJK target out of script-specific families without hiding its generic readings', () => {
+        const albanian = registeredLearningTargetModules().find(module => module.language === 'sq');
+        expect(albanian).toBeDefined();
+        expect(albanian?.capabilities['reading-annotation']).toBe(true);
+        expect(languageFamilyIncludes('jp-only', albanian!.language)).toBe(false);
+        expect(languageFamilyIncludes('jpzhyue-only', albanian!.language)).toBe(false);
+        expect(languageFamilyIncludes('jpzhyueko-only', albanian!.language)).toBe(false);
+        expect(languageFamilyIncludes('not-jpzhyueko', albanian!.language)).toBe(true);
+    });
+
+    it('keeps Japanese, Han-reading, and Korean script families distinct', () => {
+        expect(languageFamilyIncludes('jp-only', 'ja')).toBe(true);
+
+        for (const language of ['zh-Hans', 'yue-Hant']) {
+            expect(languageFamilyIncludes('jp-only', language), language).toBe(false);
+            expect(languageFamilyIncludes('jpzhyue-only', language), language).toBe(true);
+            expect(languageFamilyIncludes('jpzhyueko-only', language), language).toBe(true);
+        }
+
+        expect(languageFamilyIncludes('jpzhyue-only', 'ko')).toBe(false);
+        expect(languageFamilyIncludes('jpzhyueko-only', 'ko')).toBe(true);
     });
 
     it('declares a pronunciation surface for every registered target', () => {
