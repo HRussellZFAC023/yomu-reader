@@ -178,6 +178,8 @@ describe('YouTube performance harness', () => {
 
         expect(source).toContain("'https://www.youtube.com/watch?v=TAorfFcb8_g");
         expect(source).toContain("YOMU_LIVE_YOUTUBE_RUNS ?? 'chromium:cpu,chromium:coverage,webkit:none'");
+        expect(source).toContain("YOMU_LIVE_YOUTUBE_WORKLOAD ?? 'interaction'");
+        expect(source).toContain("YOMU_LIVE_YOUTUBE_AMBIENT_MS ?? '30000'");
         expect(source).toContain("Emulation.setCPUThrottlingRate");
         expect(source).toContain('Playwright/CDP exposes renderer work');
         expect(source).toContain('addUserscriptGraphInitScripts');

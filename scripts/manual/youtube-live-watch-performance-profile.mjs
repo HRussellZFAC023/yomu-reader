@@ -39,6 +39,8 @@ const watchUrl = process.env.YOMU_LIVE_YOUTUBE_URL
     ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g&t=5050s&hl=ja&gl=JP';
 const cpuThrottleRate = positiveNumber(process.env.YOMU_LIVE_YOUTUBE_CPU_THROTTLE ?? '4', 'CPU throttle');
 const idleWaitMs = positiveNumber(process.env.YOMU_LIVE_YOUTUBE_IDLE_WAIT_MS ?? '4500', 'native-controls idle wait');
+const ambientDurationMs = positiveNumber(process.env.YOMU_LIVE_YOUTUBE_AMBIENT_MS ?? '30000', 'ambient duration');
+const workloadKind = requestedWorkload();
 const headed = process.env.YOMU_LIVE_YOUTUBE_HEADED === '1';
 const requestBridgeName = '__yomuLiveYoutubeProfileRequest';
 const allowedRuns = new Map([
@@ -77,6 +79,7 @@ const report = {
     harnessRevision,
     productRevision,
     watchUrl,
+    workloadKind,
     device: {
         name: 'iPad-like landscape Chrome/WebKit',
         viewport: { width: 1194, height: 834 },
@@ -176,7 +179,9 @@ async function runReplay(run) {
             profilerStarted = run.mode === 'cpu' || run.mode === 'coverage';
         }
 
-        const interaction = await exerciseLiveWatchPage(page, runDir);
+        const interaction = workloadKind === 'ambient'
+            ? await exerciseAmbientPlayback(page)
+            : await exerciseLiveWatchPage(page, runDir);
         const functionEvidence = client ? await stopAndSummarizeProfiler(client, run.mode, runDir) : null;
         profilerStarted = false;
         const afterMetrics = client ? await cdpMetrics(client) : null;
@@ -227,6 +232,12 @@ async function runReplay(run) {
 function requestedRuns() {
     const raw = process.env.YOMU_LIVE_YOUTUBE_RUNS ?? 'chromium:cpu,chromium:coverage,webkit:none';
     return raw.split(',').map(parseRequestedRun);
+}
+
+function requestedWorkload() {
+    const value = process.env.YOMU_LIVE_YOUTUBE_WORKLOAD ?? 'interaction';
+    if (value !== 'interaction' && value !== 'ambient') throw new Error(`Unsupported live YouTube workload: ${value}.`);
+    return value;
 }
 
 function parseRequestedRun(value) {
@@ -294,6 +305,18 @@ async function exerciseLiveWatchPage(page, runDir) {
     const ocr = await exercisePausedFrameOcrHover(page);
     await page.screenshot({ path: join(runDir, 'interaction-final.png'), fullPage: false }).catch(() => undefined);
     return { playback, nativeControls, subtitles, ocr };
+}
+
+async function exerciseAmbientPlayback(page) {
+    const playback = await startPlayback(page);
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(ambientDurationMs);
+    return {
+        kind: 'ambient',
+        durationMs: ambientDurationMs,
+        playback,
+        finalNativeControls: await page.evaluate(readNativeControlState),
+    };
 }
 
 async function startPlayback(page) {
