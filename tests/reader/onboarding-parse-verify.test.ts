@@ -41,7 +41,13 @@ describe('OnboardingController furigana parse wiring', () => {
     it('opens lookup for parsed welcome words without stealing action button clicks', async () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'ja' };
         const lookupText = vi.fn();
-        const showSettings = vi.fn();
+        let resolveSettingsOpened!: () => void;
+        const settingsOpened = new Promise<void>(resolve => {
+            resolveSettingsOpened = resolve;
+        });
+        const showSettings = vi.fn((_panel?: string) => {
+            resolveSettingsOpened();
+        });
         const controller = new OnboardingController({
             getSettings: () => settings,
             setSettings: next => { settings = next; },
@@ -70,14 +76,10 @@ describe('OnboardingController furigana parse wiring', () => {
         const withoutApi = document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!;
         withoutApi.append(buttonWord);
         buttonWord.click();
-        await settleAsyncHandlers();
+        await settingsOpened;
 
         expect(lookupText).toHaveBeenCalledTimes(1);
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
         expect(settings.onboardingSeen).toBe(true);
     });
 });
-
-function settleAsyncHandlers(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 0));
-}
