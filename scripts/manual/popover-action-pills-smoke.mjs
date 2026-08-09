@@ -7,13 +7,17 @@ import {
     assert,
     assertBuiltArtifacts,
     closeSmokeBrowserAndServer,
+    createReaderSmokeSettings,
     createSmokePaths,
+    japaneseSmokeLookupLinks,
     jsonHttpResponse,
     mockJpdbParseFromVocabulary,
     readJsonBody,
-    startLoopbackServer,
+    startHtmlFixtureServer,
+    YOMU_STUDY_SEARCH_URL,
     YOMU_SETTINGS_KEY,
 } from '../lib/smoke-harness.mjs';
+import { addScriptTagWithCspFallback, installUserscriptCssResource } from '../lib/smoke-test-helpers.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
 const PAGE_PATH = '/popover-action-pills.html';
@@ -23,52 +27,30 @@ const VOCABULARY = [
     ['日本語', '日本語', 'にほんご', 'Japanese language', ['noun'], 800, ['known'], ['heiban']],
 ];
 
-const settings = {
-    onboardingSeen: true,
-    interfaceLanguage: 'en',
+const settings = createReaderSmokeSettings({
     apiKey: 'mock-jpdb-key',
-    jitenApiKey: '',
-    jpdbDefinitionsEnabled: false,
     showPitchAccent: false,
-    localDictionariesEnabled: false,
-    ankiEnabled: false,
     ankiSectionEnabled: false,
     newTabAnkiEnabled: false,
-    audioEnabled: false,
-    autoPlayAudio: false,
     lookupOnHover: true,
-    lookupOnClick: true,
     hoverOpenDelayMs: 0,
     hoverCloseDelayMs: 300,
     popupActivationMode: 'hover',
     immersionKitEnabled: false,
     studyTranslationEnabled: false,
     studyGrammarEnabled: false,
-    showFloatingButton: false,
-    enableLogging: false,
-    dictionaryLookupLinks: [
-        { id: 'yomu-search', label: 'Yomu', urlTemplate: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}', enabled: true },
-        { id: 'jiten', label: 'Jiten', urlTemplate: 'https://jiten.moe/parse?text={query}', enabled: true },
-        { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: true },
-        { id: 'bunpro', label: 'Bunpro', urlTemplate: 'https://bunpro.jp/search?query={query}', enabled: true },
-        { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
-        { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' },
-    ],
-};
+    dictionaryLookupLinks: japaneseSmokeLookupLinks({ includeBunpro: true }),
+});
 
 mkdirSync(ARTIFACTS, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
 
-const server = await startLoopbackServer((request, response) => {
-    if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== PAGE_PATH) {
-        response.writeHead(404, { 'content-type': 'text/plain' });
-        response.end('Not found');
-        return;
-    }
-    response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-    response.end(`<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>popover action pills</title></head>
-<body><main><p data-smoke-sentence>日本語の先生がゆっくり話します。</p></main></body></html>`);
-}, 'Could not bind popover action pill smoke server');
+const server = await startHtmlFixtureServer(
+    PAGE_PATH,
+    `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>popover action pills</title></head>
+<body><main><p data-smoke-sentence>日本語の先生がゆっくり話します。</p></main></body></html>`,
+    'Could not bind popover action pill smoke server',
+);
 
 const requests = [];
 const browser = await chromium.launch({ headless: true });
@@ -95,8 +77,8 @@ try {
         window.GM = { ...(window.GM ?? {}), openInTab: window.GM_openInTab };
     });
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-    await page.addStyleTag({ path: CSS_PATH });
-    await page.addScriptTag({ path: SCRIPT_PATH });
+    await installUserscriptCssResource(page, CSS_PATH);
+    await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 15_000 });
 
     const word = page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: LOOKUP_WORD }).first();
@@ -150,7 +132,7 @@ function expectedPillTargets(query) {
         ['JPDB', 'https://jpdb.io/vocabulary/'],
         ['Bunpro', `https://bunpro.jp/search?query=${encoded}`],
         ['Jisho', `https://jisho.org/search/${encoded}`],
-        ['Yomu', `https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=${encoded}`],
+        ['Yomu', `${YOMU_STUDY_SEARCH_URL}${encoded}`],
     ];
 }
 

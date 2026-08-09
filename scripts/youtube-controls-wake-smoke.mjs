@@ -9,13 +9,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium, webkit } from 'playwright';
 import { assert, launchSmokeBrowser } from './lib/smoke-harness.mjs';
+import { addUserscriptGraphInitScripts } from './lib/smoke-test-helpers.mjs';
 import { youtubePlayerResponse, youtubeTimedText, youtubeWatchHtml } from './fixtures/youtube-fixtures.mjs';
 
 const USERSCRIPT_PATH = resolve('dist/yomu.user.js');
 const CSS_PATH = resolve('dist/yomu.css');
-const COMPANION_DIR = resolve('docs/public/greasyfork');
-const COMPANION_PATHS = ['yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
-    .map(name => resolve(COMPANION_DIR, name));
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 const WATCH_URL = 'https://www.youtube.com/watch?v=wake123';
 const HEADED = process.env.HEADED === '1';
@@ -51,35 +49,8 @@ const youtubeTimedTextFixture = youtubeTimedText([
     { start: 8000, duration: 1500, text: '五番目の字幕行です。' },
 ]);
 
-async function runMode(browser, { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport, focusRail }) {
-    const ctx = await browser.newContext({
-        viewport: viewport ?? { width: 1180, height: 820 },
-        hasTouch: true,
-        isMobile: (viewport?.width ?? 1180) < 900,
-        bypassCSP: true,
-    });
-    await ctx.route('https://www.youtube.com/watch*', route => route.fulfill({
-        contentType: 'text/html',
-        body: youtubeWatchHtml({
-            fixture: 'controls-wake',
-            mobile: false,
-            playerResponse: youtubePlayerResponse('wake123'),
-        }),
-    }));
-    await ctx.route('https://m.youtube.com/watch*', route => route.fulfill({
-        contentType: 'text/html',
-        body: youtubeWatchHtml({
-            fixture: 'controls-wake',
-            mobile: true,
-            playerResponse: youtubePlayerResponse('wake123'),
-        }),
-    }));
-    await ctx.route(/https:\/\/m\.youtube\.com\/api\/timedtext.*/, route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedTextFixture }));
-    await ctx.route('https://www.youtube.com/api/timedtext*', route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedTextFixture }));
-    await ctx.route(/https:\/\/m\.youtube\.com\/(?!watch|api\/timedtext).*/, route => route.fulfill({ status: 204, body: '' }));
-    await ctx.route(/https:\/\/(www\.)?(youtube\.com|google\.com|gstatic\.com|ytimg\.com)\/(?!watch|api\/timedtext).*/, route => route.fulfill({ status: 204, body: '' }));
-
-    await ctx.addInitScript({ content: `
+function controlsWakePrelude(settings, inlineFullscreen) {
+    const programs = [`
 (() => {
   const store = new Map(Object.entries(${JSON.stringify({ [SETTINGS_KEY]: settings })}));
   const listeners = new Map();
@@ -106,24 +77,163 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
     return { abort(){} };
   };
 })();
-` });
-    if (inlineFullscreen) {
-        // Simulate iPad in-browser YouTube refusing the element Fullscreen API:
-        // requestFullscreen rejects, so Yomu's fullscreen-redirect falls back to
-        // its inline CSS-fullscreen (enterInlineFullscreen) — the exact state the
-        // user is in. This init script runs before the userscript, so the redirect
-        // captures this rejecting native and its inline fallback fires.
-        await ctx.addInitScript({ content: `
+`];
+    if (inlineFullscreen) programs.push(`
 (() => {
   const reject = function requestFullscreen() { return Promise.reject(new Error('smoke: element fullscreen unavailable')); };
   try { HTMLElement.prototype.requestFullscreen = reject; } catch {}
   try { delete HTMLVideoElement.prototype.webkitEnterFullscreen; } catch {}
 })();
-` });
-    }
-    for (const companionPath of COMPANION_PATHS) await ctx.addInitScript({ path: companionPath });
-    await ctx.addInitScript({ path: USERSCRIPT_PATH });
+`);
+    return programs.join('\n;\n');
+}
 
+async function enterInlineFullscreen(page, enabled) {
+    if (!enabled) return;
+    // Drive Yomu's own inline CSS-fullscreen fallback: this is the iPad path
+    // where element fullscreen is unavailable, not a fixture-only DOM state.
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        try {
+            void Promise.resolve(video?.requestFullscreen?.()).catch(() => {});
+        } catch { /* headless rejects, so Yomu takes the inline fallback */ }
+    });
+    await page.waitForTimeout(500);
+    // Keep the steady-state assertion in fullscreen if this browser happened
+    // to accept the native request despite the rejecting prelude.
+    await page.evaluate(() => {
+        if (document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')) return;
+        const player = document.querySelector('#movie_player');
+        player?.classList.add('ytp-fullscreen', 'fullscreen');
+        player?.setAttribute('data-yomu-inline-fullscreen', 'true');
+        document.documentElement.classList.add('jpdb-subtitle-inline-fullscreen');
+        document.dispatchEvent(new Event('fullscreenchange'));
+        document.dispatchEvent(new Event('webkitfullscreenchange'));
+    });
+    await page.waitForTimeout(800);
+}
+
+async function nudgeVisualViewport(page, enabled) {
+    if (!enabled) return;
+    // Model iPad URL-bar/orientation viewport churn. Trusted viewport changes
+    // may refit the player, but Yomu must not rebroadcast synthetic resizes.
+    const base = page.viewportSize() ?? { width: 1180, height: 820 };
+    for (const width of [base.width - 60, base.width - 20, base.width]) {
+        await page.setViewportSize({ width: Math.max(480, width), height: base.height });
+        await page.waitForTimeout(500);
+    }
+}
+
+async function focusSubtitleRail(page, enabled) {
+    if (!enabled) return false;
+    const railControl = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
+    // Automated WebKit does not retain the focus seen on iPad Safari, so the
+    // click hook models only that post-click sticky-focus tail.
+    await railControl.evaluate(control => {
+        control.addEventListener('click', () => {
+            window.setTimeout(() => control.focus(), 0);
+        }, { once: true });
+    });
+    await railControl.tap({ force: true });
+    await page.waitForTimeout(50);
+    const focused = await railControl.evaluate(control => document.activeElement === control);
+    const dragging = await railControl.evaluate(control => (
+        control.closest('.jpdb-subtitle-rail')?.classList.contains('jpdb-subtitle-rail-dragging') ?? false
+    ));
+    assert(!dragging, 'ipad-focused-rail: pointer gesture left rail drag active');
+    return focused;
+}
+
+async function capturePageCopyBoundary(page) {
+    await page.locator('#selection-proof').click({ force: true });
+    const selectionUiReady = await page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const status = document.createElement('div');
+        status.className = 'jpdb-subtitle-status';
+        status.dataset.selectionProof = 'status';
+        status.append(document.createTextNode('No subtitle tracks detected yet.'));
+        root?.append(status);
+        document.querySelector('[data-action="style"]')?.click();
+        const transcript = document.querySelector('.jpdb-subtitle-list');
+        if (transcript) {
+            transcript.hidden = false;
+            transcript.textContent = 'Transcript panel UI must not enter page copy.';
+        }
+        document.getSelection()?.removeAllRanges();
+        return {
+            styleOpen: !document.querySelector('[data-subtitle-style-popover]')?.hasAttribute('hidden'),
+            hasStatus: status.textContent?.includes('No subtitle tracks detected yet.') ?? false,
+            hasReset: document.body.textContent?.includes('Reset defaults') ?? false,
+        };
+    });
+
+    const shortcut = process.platform === 'darwin' ? 'Meta' : 'Control';
+    const previousClipboard = ENGINE_NAME === 'chromium'
+        ? await page.evaluate(() => navigator.clipboard.readText()).catch(() => '')
+        : null;
+    await page.keyboard.press(`${shortcut}+A`);
+    let copiedText = await page.evaluate(() => document.getSelection()?.toString() ?? '');
+    if (ENGINE_NAME === 'chromium') {
+        try {
+            await page.keyboard.press(`${shortcut}+C`);
+            copiedText = await page.evaluate(() => navigator.clipboard.readText());
+        } finally {
+            await page.evaluate(text => navigator.clipboard.writeText(text), previousClipboard).catch(() => {});
+        }
+    }
+    return {
+        ...selectionUiReady,
+        ordinaryPageTextSelected: copiedText.includes('Ordinary YouTube page text remains selectable.'),
+        subtitleStatusSelected: copiedText.includes('No subtitle tracks detected yet.'),
+        subtitleSettingsSelected: copiedText.includes('Reset defaults'),
+        transcriptUiSelected: copiedText.includes('Transcript panel UI must not enter page copy.'),
+    };
+}
+
+async function createControlsWakeContext(browser, { viewport, settings, inlineFullscreen }) {
+    const resolvedViewport = viewport ?? { width: 1180, height: 820 };
+    const ctx = await browser.newContext({
+        viewport: resolvedViewport,
+        hasTouch: true,
+        isMobile: resolvedViewport.width < 900,
+        bypassCSP: true,
+        ...(ENGINE_NAME === 'chromium' ? { permissions: ['clipboard-read', 'clipboard-write'] } : {}),
+    });
+    await ctx.route('https://www.youtube.com/watch*', route => route.fulfill({
+        contentType: 'text/html',
+        body: youtubeWatchHtml({
+            fixture: 'controls-wake',
+            mobile: false,
+            playerResponse: youtubePlayerResponse('wake123'),
+        }),
+    }));
+    await ctx.route('https://m.youtube.com/watch*', route => route.fulfill({
+        contentType: 'text/html',
+        body: youtubeWatchHtml({
+            fixture: 'controls-wake',
+            mobile: true,
+            playerResponse: youtubePlayerResponse('wake123'),
+        }),
+    }));
+    await ctx.route(/https:\/\/m\.youtube\.com\/api\/timedtext.*/, route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedTextFixture }));
+    await ctx.route('https://www.youtube.com/api/timedtext*', route => route.fulfill({ contentType: 'text/xml', body: youtubeTimedTextFixture }));
+    await ctx.route(/https:\/\/(?:api\.jiten\.moe|jpdb\.io)\/.*/, route => route.fulfill({
+        status: 204,
+        headers: { 'access-control-allow-origin': '*' },
+        body: '',
+    }));
+    await ctx.route(/https:\/\/m\.youtube\.com\/(?!watch|api\/timedtext).*/, route => route.fulfill({ status: 204, body: '' }));
+    await ctx.route(/https:\/\/(www\.)?(youtube\.com|google\.com|gstatic\.com|ytimg\.com)\/(?!watch|api\/timedtext).*/, route => route.fulfill({ status: 204, body: '' }));
+
+    await addUserscriptGraphInitScripts(ctx, USERSCRIPT_PATH, {
+        prefixContent: controlsWakePrelude(settings, inlineFullscreen),
+    });
+    return ctx;
+}
+
+async function runMode(browser, scenario) {
+    const { name, settings, prepare, viewport, screenshot, mobile, inlineFullscreen, nudgeViewport, focusRail } = scenario;
+    const ctx = await createControlsWakeContext(browser, { viewport, settings, inlineFullscreen });
     const page = await ctx.newPage();
     const pageErrors = [];
     page.on('pageerror', e => pageErrors.push(String(e).slice(0, 200)));
@@ -143,69 +253,9 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         Object.assign(window.__wake, { resizes: 0, syntheticResizes: 0, setSizes: 0, plays: 0, pauses: 0, seeks: 0, wakes: [], visibleSamples: 0, samples: 0, focusBlocks: 0 });
     });
 
-    if (inlineFullscreen) {
-        // Drive Yomu's OWN inline CSS-fullscreen path the way iPad does: request
-        // fullscreen on the video. The fullscreen-redirect patch reroutes it to the
-        // #movie_player container; when the element Fullscreen API is unavailable or
-        // refused (iPad in-browser YouTube, and headless Chromium without a user
-        // gesture) it falls back to enterInlineFullscreen, which adds
-        // html.jpdb-subtitle-inline-fullscreen and fires Yomu's fullscreen-like
-        // events. This exercises the real code that (pre-fix) emitted a synthetic
-        // global resize on every inline-fullscreen enter/exit and woke the controls.
-        await page.evaluate(() => {
-            const video = document.querySelector('video');
-            try {
-                void Promise.resolve(video?.requestFullscreen?.()).catch(() => {});
-            } catch { /* headless rejects → inline fallback */ }
-        });
-        await page.waitForTimeout(500);
-        // Guarantee the inline-fullscreen state even if the environment took the
-        // native path, so the steady-state assertion always runs in fullscreen.
-        await page.evaluate(() => {
-            if (document.documentElement.classList.contains('jpdb-subtitle-inline-fullscreen')) return;
-            const player = document.querySelector('#movie_player');
-            player?.classList.add('ytp-fullscreen', 'fullscreen');
-            player?.setAttribute('data-yomu-inline-fullscreen', 'true');
-            document.documentElement.classList.add('jpdb-subtitle-inline-fullscreen');
-            document.dispatchEvent(new Event('fullscreenchange'));
-            document.dispatchEvent(new Event('webkitfullscreenchange'));
-        });
-        await page.waitForTimeout(800);
-    }
-
-    if (nudgeViewport) {
-        // iPad CSS-fullscreen + touch jitters the visual viewport (URL bar hide,
-        // orientation micro-shifts). Each trusted resize re-runs Yomu's layout;
-        // pre-fix this (plus the fullscreen-enter path) re-emitted a SYNTHETIC
-        // global resize — waking YouTube's controls in an endless loop. These
-        // trusted nudges must NOT provoke any synthetic resize from Yomu.
-        const base = page.viewportSize() ?? { width: 1180, height: 820 };
-        for (const width of [base.width - 60, base.width - 20, base.width]) {
-            await page.setViewportSize({ width: Math.max(480, width), height: base.height });
-            await page.waitForTimeout(500);
-        }
-    }
-
-    let focusedRailBeforeIdle = false;
-    if (focusRail) {
-        const railControl = page.locator('.jpdb-subtitle-rail [data-action="rail-expand"]');
-        // Drive a trusted touch gesture. Automated WebKit does not retain
-        // button focus as reported iPad Safari did, so a target click hook
-        // models only the post-click sticky focus tail, after Yomu's normal
-        // click blur; every pointer/drag/click event remains browser-generated.
-        await railControl.evaluate(control => {
-            control.addEventListener('click', () => {
-                window.setTimeout(() => control.focus(), 0);
-            }, { once: true });
-        });
-        await railControl.tap({ force: true });
-        await page.waitForTimeout(50);
-        focusedRailBeforeIdle = await railControl.evaluate(control => document.activeElement === control);
-        const railDragging = await railControl.evaluate(control => (
-            control.closest('.jpdb-subtitle-rail')?.classList.contains('jpdb-subtitle-rail-dragging') ?? false
-        ));
-        assert(!railDragging, 'ipad-focused-rail: pointer gesture left rail drag active');
-    }
+    await enterInlineFullscreen(page, inlineFullscreen);
+    await nudgeVisualViewport(page, nudgeViewport);
+    const focusedRailBeforeIdle = await focusSubtitleRail(page, focusRail);
 
     await page.waitForTimeout(8000);
 
@@ -232,39 +282,7 @@ async function runMode(browser, { name, settings, prepare, viewport, screenshot,
         const rail = document.querySelector('.jpdb-subtitle-player .jpdb-subtitle-rail');
         return Boolean(player && rail && player.contains(rail));
     });
-    // Reproduce the report's Cmd+A / copy boundary with real browser
-    // selection. Keep both reported strings visibly present in Yomu-owned UI
-    // while ordinary page text is selected normally.
-    await page.locator('#selection-proof').click({ force: true });
-    const selectionUiReady = await page.evaluate(() => {
-        const root = document.querySelector('.jpdb-subtitle-player');
-        const status = document.createElement('div');
-        status.className = 'jpdb-subtitle-status';
-        status.dataset.selectionProof = 'status';
-        status.append(document.createTextNode('No subtitle tracks detected yet.'));
-        root?.append(status);
-        document.querySelector('[data-action="style"]')?.click();
-        const transcript = document.querySelector('.jpdb-subtitle-list');
-        if (transcript) {
-            transcript.hidden = false;
-            transcript.textContent = 'Transcript panel UI must not enter page copy.';
-        }
-        document.getSelection()?.removeAllRanges();
-        return {
-            styleOpen: !document.querySelector('[data-subtitle-style-popover]')?.hasAttribute('hidden'),
-            hasStatus: status.textContent?.includes('No subtitle tracks detected yet.') ?? false,
-            hasReset: document.body.textContent?.includes('Reset defaults') ?? false,
-        };
-    });
-    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
-    const selectedText = await page.evaluate(() => document.getSelection()?.toString() ?? '');
-    const selectionProof = {
-        ...selectionUiReady,
-        ordinaryPageTextSelected: selectedText.includes('Ordinary YouTube page text remains selectable.'),
-        subtitleStatusSelected: selectedText.includes('No subtitle tracks detected yet.'),
-        subtitleSettingsSelected: selectedText.includes('Reset defaults'),
-        transcriptUiSelected: selectedText.includes('Transcript panel UI must not enter page copy.'),
-    };
+    const selectionProof = await capturePageCopyBoundary(page);
     await ctx.close();
     return {
         name,
@@ -350,7 +368,6 @@ results.push(await runMode(browser, {
         await page.waitForTimeout(800);
     },
 }));
-
 results.push(await runMode(browser, {
     name: 'mobile-lines',
     settings: baseSettings,
@@ -381,7 +398,6 @@ results.push(await runMode(browser, {
     inlineFullscreen: true,
     focusRail: true,
 }));
-
 await browser.close();
 
 let failed = false;

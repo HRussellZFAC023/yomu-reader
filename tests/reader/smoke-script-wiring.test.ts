@@ -90,12 +90,13 @@ describe('full-reader smoke companion graph', () => {
         'scripts/grading-provider-popover-smoke.mjs',
         'scripts/popover-headword-furigana-smoke.mjs',
         'scripts/furigana-tapband-smoke.mjs',
+        'scripts/manual/popover-action-pills-smoke.mjs',
     ];
 
     it.each(FULL_READER_SMOKES)('%s derives its companions from the built @require header', file => {
         const source = readFileSync(file, 'utf8');
         expect(source, `${file} must resolve companions through smoke-test-helpers`)
-            .toMatch(/from '\.\/lib\/smoke-test-helpers\.mjs'/);
+            .toMatch(/from '(?:\.\.\/|\.\/)lib\/smoke-test-helpers\.mjs'/);
         expect(source, `${file} must load the whole @require graph for SCRIPT_PATH`)
             .toMatch(/(?:addScriptTagWithCspFallback|addUserscriptGraphInitScripts|userscriptCompanionPaths)\(\s*(?:page,\s*)?SCRIPT_PATH\s*\)/);
         // A literal companion bundle name is the hand-written list coming back.
@@ -123,6 +124,20 @@ describe('full-reader smoke companion graph', () => {
         expect(literalCompanionNames(source)).toEqual([]);
         expect(source).toContain("readerWordsInSurface('ytd-rich-grid-renderer')");
         expect(source).toContain("readerWordsInSurface('ytm-rich-grid-renderer')");
+    });
+
+    it('boots the YouTube controls wake smoke with its GM prelude and the ordered built graph', () => {
+        const file = 'scripts/youtube-controls-wake-smoke.mjs';
+        const source = readFileSync(file, 'utf8');
+
+        expect(source).toMatch(/from '\.\/lib\/smoke-test-helpers\.mjs'/);
+        expect(source).toMatch(
+            /addUserscriptGraphInitScripts\(\s*ctx,\s*USERSCRIPT_PATH,\s*\{\s*prefixContent:/,
+        );
+        expect(source).toContain("navigator.clipboard.readText()");
+        expect(source).toContain("process.platform === 'darwin' ? 'Meta' : 'Control'");
+        expect(source).toContain('page.keyboard.press(`${shortcut}+C`)');
+        expect(literalCompanionNames(source)).toEqual([]);
     });
 
     it('resolves every @require line in the built userscript to a file on disk', () => {

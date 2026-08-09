@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { chromium } from 'playwright';
-import { assert } from '../lib/smoke-harness.mjs';
+import { assert, japaneseSmokeLookupLinks, YOMU_STUDY_SEARCH_URL } from '../lib/smoke-harness.mjs';
 import { addUserscriptGraphInitScripts } from '../lib/smoke-test-helpers.mjs';
 import { waitForYoutubeTranscriptRows } from '../lib/smoke-wait-helpers.mjs';
 import { dragTranscriptResizeHandle } from '../lib/subtitle-layout-test-utils.mjs';
@@ -52,13 +52,7 @@ const baseSettings = {
     ocrMinImageArea: 1,
     ocrMaxImagesPerPage: 5,
     ocrPrefetchMargin: 0,
-    dictionaryLookupLinks: [
-        { id: 'yomu-search', label: 'Yomu', urlTemplate: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}', enabled: true },
-        { id: 'jiten', label: 'Jiten', urlTemplate: 'https://jiten.moe/parse?text={query}', enabled: true },
-        { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: true },
-        { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
-        { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' },
-    ],
+    dictionaryLookupLinks: japaneseSmokeLookupLinks(),
 };
 
 const youtubeTimedTextFixture = youtubeTimedText([
@@ -1638,7 +1632,7 @@ async function verifyDictionaryActionPills(page, query) {
         ['Jiten', `https://jiten.moe/parse?text=${encodeURIComponent(query)}`],
         ['JPDB', 'https://jpdb.io/search'],
         ['Jisho', `https://jisho.org/search/${encodeURIComponent(query)}`],
-        ['Yomu', `https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=${encodeURIComponent(query)}`],
+        ['Yomu', `${YOMU_STUDY_SEARCH_URL}${encodeURIComponent(query)}`],
     ];
     for (const [label, urlPrefix] of expected) {
         await clickDictionaryActionPillAndAssertOpen(page, query, label, urlPrefix);

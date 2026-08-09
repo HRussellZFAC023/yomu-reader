@@ -7,6 +7,16 @@ import { createYomuPaths } from './paths.mjs';
 
 export const DEFAULT_ANKI_CONNECT_URL = 'http://127.0.0.1:8765';
 export const YOMU_SETTINGS_KEY = 'jpdb-popup-reader-settings';
+export const YOMU_STUDY_SEARCH_URL = 'https://yomureader.com/study/index.html?q=';
+
+const JAPANESE_SMOKE_LOOKUP_LINKS = Object.freeze([
+    { id: 'yomu-search', label: 'Yomu', urlTemplate: `${YOMU_STUDY_SEARCH_URL}{query}`, enabled: true },
+    { id: 'jiten', label: 'Jiten', urlTemplate: 'https://jiten.moe/parse?text={query}', enabled: true },
+    { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: true },
+    { id: 'bunpro', label: 'Bunpro', urlTemplate: 'https://bunpro.jp/search?query={query}', enabled: true },
+    { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
+    { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' },
+]);
 
 const DEFAULT_ANKI_STATUS_STORAGE = {
     storageKey: 'yomu:anki-status-index:v1',
@@ -94,6 +104,12 @@ export function createReaderSmokeSettings(overrides = {}) {
     return { ...DEFAULT_READER_SMOKE_SETTINGS, ...overrides };
 }
 
+export function japaneseSmokeLookupLinks({ includeBunpro = false } = {}) {
+    return JAPANESE_SMOKE_LOOKUP_LINKS
+        .filter(link => includeBunpro || link.id !== 'bunpro')
+        .map(link => ({ ...link }));
+}
+
 export function assertBuiltArtifacts(filePaths, root, hint = 'Run npm run build first.') {
     for (const filePath of filePaths) {
         assert(existsSync(filePath), `Missing built artifact: ${path.relative(root, filePath)}. ${hint}`);
@@ -118,6 +134,18 @@ export async function startLoopbackServer(handler, bindErrorMessage = 'Could not
 
 export function createFixtureServer(handler, bindErrorMessage = 'Could not bind fixture server') {
     return startLoopbackServer(handler, bindErrorMessage);
+}
+
+export function startHtmlFixtureServer(pagePath, html, bindErrorMessage = 'Could not bind HTML fixture server') {
+    return startLoopbackServer((request, response) => {
+        if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== pagePath) {
+            response.writeHead(404, { 'content-type': 'text/plain' });
+            response.end('Not found');
+            return;
+        }
+        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+        response.end(html);
+    }, bindErrorMessage);
 }
 
 async function listenOnLoopback(server, bindErrorMessage = 'Could not bind fixture server') {
