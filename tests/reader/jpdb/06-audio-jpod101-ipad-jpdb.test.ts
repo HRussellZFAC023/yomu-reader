@@ -1396,7 +1396,9 @@ describe('reader helpers', () => {
         expect(normalizeDictionaryLookupLinks([
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
         ])).toMatchObject([
-            { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
+            // Built-ins keep learner state, but their checked catalogue payload
+            // replaces stale or edited provider metadata from storage.
+            { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={query}', enabled: true },
             { id: 'yomu-search' },
             { id: 'jiten' },
             { id: 'jiten-frequency' },

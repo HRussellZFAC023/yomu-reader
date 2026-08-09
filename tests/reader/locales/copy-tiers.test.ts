@@ -31,7 +31,13 @@ describe('D43 copy tiers are a property of the string', () => {
         for (const id of setupMessageIds()) {
             expect(copyTierOf(id).tier, id).toBe('human-critical');
         }
-        for (const key of ['interfaceLocalesReady', 'interfaceLocaleRtlPending', 'onboardingLanguage']) {
+        for (const key of [
+            'interfaceLocalesReady',
+            'interfaceLocaleRtlPending',
+            'onboardingLanguage',
+            'onboardingOutputLanguage',
+            'onboardingTargetLanguage',
+        ]) {
             expect(copyTierOf(legacyChromeMessageId(key)).tier, key).toBe('human-critical');
         }
     });
@@ -144,10 +150,14 @@ describe('D43 copy tiers are a property of the string', () => {
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        expect(messages).toHaveLength(1258);
-        expect(humanCritical).toHaveLength(395);
+        // Target-aware controls added 12 messages and retired three fixed-language
+        // predecessors. The two new onboarding language-axis labels belong to
+        // the human-reviewed first-run tier; the other seven net additions are
+        // supplementary copy.
+        expect(messages).toHaveLength(1267);
+        expect(humanCritical).toHaveLength(397);
 
-        // Split by WHAT classified each one. 389 are human-critical from their ID
+        // Split by WHAT classified each one. 391 are human-critical from their ID
         // alone, so deleting the rule table collapses that number while the
         // source-text check above stays green. The other 6 reach the tier only
         // through text escalation, which is exactly the case that rule exists for
@@ -155,7 +165,7 @@ describe('D43 copy tiers are a property of the string', () => {
         // it discusses credentials). Both counts are pinned because a change in
         // either direction is a policy change.
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
-        expect(byIdAlone).toHaveLength(389);
+        expect(byIdAlone).toHaveLength(391);
         expect(humanCritical.length - byIdAlone.length).toBe(6);
     });
 

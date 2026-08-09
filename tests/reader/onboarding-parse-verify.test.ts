@@ -35,7 +35,7 @@ describe('OnboardingController furigana parse wiring', () => {
         const collected = nestedTextParsePlan(panel!, 120)?.targets.map(target => target.text) ?? [];
         expect(collected.some(text => text.includes('日本語がある場所'))).toBe(true);
         expect(collected.some(text => text.includes('タップ可能にします'))).toBe(true);
-        expect(collected.some(text => text.includes('学習ページで単語と漢字'))).toBe(true);
+        expect(collected.some(text => text.includes('学習ページで単語と文字'))).toBe(true);
     });
 
     it('opens lookup for parsed welcome words without stealing action button clicks', async () => {
