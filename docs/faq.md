@@ -62,7 +62,7 @@ Any page with Japanese text on it. On top of that, YouTube gets its own subtitle
 
 ### How does it read manga and pictures?
 
-Press a picture — or use the Scan images command — and Yomu recognises the Japanese in it, so every word in the picture becomes a word you can press. Recognition uses Google Lens by default, with no key or account; you can switch to your own Google Cloud Vision key, or to a fully local service, in Settings.
+Press a picture — or use the Scan images command — and Yomu recognises text in your selected learning target, so every recognised word becomes a word you can press. Recognition uses Google Lens by default, with no key or account; you can switch to your own Google Cloud Vision key, or to a fully local service, in Settings.
 
 ### Can it read my PC games?
 

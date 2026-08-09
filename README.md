@@ -94,7 +94,7 @@ Both browser stores are live and current: the Chrome Web Store serves 1.8.71 and
 | Workflow | よむ helps with |
 | --- | --- |
 | Web reading | Popup dictionary lookup, furigana, sourced whole-word or component pitch/accent color, audio, examples with public Immersion Kit/Nadeshiko search links, configurable lookup pills, and kanji drilldown with source-labelled keyword comparisons |
-| Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
+| Manga and images | OCR overlays that make recognized text in the selected learning target lookup-ready without covering the page |
 | Games | First-party Yomu Gaming desktop capture, local OCR handoff, and in-place lookup |
 | Video | ASB-style subtitle overlay, transcript lookup, shadowing practice, batch mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
