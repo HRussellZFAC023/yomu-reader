@@ -1,16 +1,15 @@
 import { SETTINGS_CHANGE_EVENT } from '../app/constants';
 import type { ReaderSettings } from '../app/types';
 import {
-    activeTargetLanguageId,
     syncFontFamilyControls,
     syncSubtitlePreview,
 } from './form';
-import { syncYoutubeImmersionTarget } from './youtube-panel';
 
 interface LiveSettingsSyncDependencies {
     isActive: () => boolean;
     getSettings: () => ReaderSettings;
     adoptSettings: (settings: ReaderSettings) => void;
+    syncAdoptedLanguageProfile: (settings: ReaderSettings) => void;
     applyTheme: (theme: ReaderSettings['theme']) => void;
 }
 
@@ -31,7 +30,7 @@ export function bindLiveSettingsSync(
             const settings = { ...dependencies.getSettings(), ...detail.settings };
             dependencies.adoptSettings(settings);
             syncFormFromSettings(form, settings);
-            syncYoutubeImmersionTarget(form, settings, activeTargetLanguageId(settings), true);
+            dependencies.syncAdoptedLanguageProfile(settings);
             syncSubtitlePreview(form);
             syncFontFamilyControls(form);
         }

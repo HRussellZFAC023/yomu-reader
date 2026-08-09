@@ -46,8 +46,6 @@ import {
     renderAnkiTemplatePreview,
     renderNewTabAnkiDeckSelector,
     renderDeckControls,
-    renderDictionaryLookupLinkEditor,
-    lookupLinkRows,
     appearancePreviewContentHtml,
     renderSettingsForm,
     bunproStatusLineForSettings,
@@ -80,10 +78,12 @@ import {
     isLearningTargetRosterId,
     learningTargetRosterEntry,
 } from '../languages';
-import { dictionaryLookupLinksForTarget } from './dictionary';
 import { syncLanguageFamilyDom } from './language-gating';
 import { bindLiveSettingsSync } from './live-settings-sync';
-import { syncYoutubeImmersionTarget } from './youtube-panel';
+import {
+    syncLanguageProfileForm as syncLiveLanguageProfileForm,
+    type LanguageProfileFormSyncRequest,
+} from './language-profile-live-sync';
 import { publishedDictionaryHeadwordLanguages } from '../dictionaries/catalog/published-coverage';
 import { YomitanDictionaryStore, parseYomitanSettingsExport, type ImportSummary } from '../dictionaries/yomitan';
 import { markDictionaryReplicaFresh, requestDictionaryReplicaPurge } from '../dictionaries/replica-purge';
@@ -775,6 +775,11 @@ export class SettingsDialogController {
             isActive: () => this.currentForm === form && form.isConnected,
             getSettings: () => this.settings,
             adoptSettings: settings => { this.settings = settings; },
+            syncAdoptedLanguageProfile: settings => this.syncLanguageProfileForm(
+                form,
+                settings,
+                { source: 'durable-settings' },
+            ),
             applyTheme: theme => {
                 const input = form.querySelector<HTMLInputElement>('[data-theme-value]');
                 if (input && input.value !== theme) {
@@ -803,12 +808,10 @@ export class SettingsDialogController {
         form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.addEventListener('change', event => {
             const value = (event.currentTarget as HTMLSelectElement).value;
             if (!isLearningTargetRosterId(value)) return;
-            syncLanguageFamilyDom(form, value);
-            syncYoutubeImmersionTarget(form, this.settings, value);
-            this.renderLookupPillsForTarget(form, value);
-            localizeSettingsForm(form, this.settings.interfaceLanguage);
-            void this.refreshTargetDictionaryAvailability(form, value);
-            void this.refreshDictionaryStatus(form);
+            this.syncLanguageProfileForm(form, this.settings, {
+                source: 'target-picker',
+                targetLanguage: value,
+            });
         });
         this.bindAppearancePresets(form, applyThemePreview);
         form.querySelector<HTMLSelectElement>('select[name="popupMode"]')?.addEventListener('change', () => syncStickyBottomSheetAvailability(form));
@@ -868,24 +871,17 @@ export class SettingsDialogController {
         syncPageScanModeControls(form);
     }
 
-    /**
-     * Swap the pill editor to the newly picked target's verified hotlinks.
-     *
-     * The dialog is the one place a target changes, and the row it shows has to
-     * change with it or the learner saves Japanese pills against a Spanish
-     * target. The rows are read back out of the live form first so anything the
-     * learner typed in this session — a custom site, a relabelled pill, an
-     * enabled toggle a shared site carries over — survives the swap.
-     */
-    private renderLookupPillsForTarget(form: HTMLFormElement, targetLanguage: string): void {
-        const container = form.querySelector<HTMLElement>('.jpdb-reader-lookup-links');
-        if (!container) return;
-        const submitted = lookupLinkRows(new FormData(form));
-        setInnerHtml(container, renderDictionaryLookupLinkEditor(
-            dictionaryLookupLinksForTarget(submitted, targetLanguage),
-            [],
-            targetLanguage,
-        ));
+    private syncLanguageProfileForm(
+        form: HTMLFormElement,
+        settings: ReaderSettings,
+        request: LanguageProfileFormSyncRequest,
+    ): void {
+        syncLiveLanguageProfileForm(form, settings, request, {
+            refreshTargetControls: targetLanguage => {
+                void this.refreshTargetDictionaryAvailability(form, targetLanguage);
+                void this.refreshDictionaryStatus(form);
+            },
+        });
     }
 
     private async refreshTargetDictionaryAvailability(
