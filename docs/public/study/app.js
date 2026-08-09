@@ -118382,10 +118382,12 @@ ${reading}`);
         this.tickTimer = void 0;
         return;
       }
-      this.tickTimer = window.setTimeout(() => {
+      const tickTimer = window.setTimeout(() => {
+        if (this.tickTimer !== tickTimer) return;
         this.tickTimer = void 0;
         this.tick();
       }, this.tickDelayMs(settings));
+      this.tickTimer = tickTimer;
     }
     subtitleRuntimeShouldTick(settings) {
       return settings.subtitlePlayerEnabled || Boolean(this.video);
