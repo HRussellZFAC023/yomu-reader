@@ -177,14 +177,16 @@ describe('YouTube performance harness', () => {
         const source = readFileSync(resolve(import.meta.dirname, '../../scripts/manual/youtube-live-watch-performance-profile.mjs'), 'utf8');
 
         expect(source).toContain("'https://www.youtube.com/watch?v=TAorfFcb8_g");
-        expect(source).toContain("YOMU_LIVE_YOUTUBE_RUNS ?? 'chromium:cpu,chromium:coverage,webkit:none'");
+        expect(source).toContain("'chromium:none,chromium:cpu,chromium:coverage,webkit:none'");
         expect(source).toContain("YOMU_LIVE_YOUTUBE_WORKLOAD ?? 'interaction'");
         expect(source).toContain("YOMU_LIVE_YOUTUBE_AMBIENT_MS ?? '30000'");
         expect(source).toContain("Emulation.setCPUThrottlingRate");
         expect(source).toContain('Playwright/CDP exposes renderer work');
         expect(source).toContain('addUserscriptGraphInitScripts');
-        expect(source).toContain('return liveTextResponse(request, journalEntry)');
-        expect(source).toContain('format: timedTextBodyFormat(responseText)');
+        expect(source).toContain('gmStorageBridgeInitProgram');
+        expect(source).toContain('browserFetchRoutes: evidenceContract.browserFetchRoutes');
+        expect(source).toContain("transport: request.browserFetchObservation ? 'browser-session-fetch'");
+        expect(source).not.toContain('liveTextResponse');
         expect(source).toContain("page.locator('.jpdb-ocr-layer .jpdb-ocr-line')");
         expect(source).not.toContain("page.route('**/*'");
     });

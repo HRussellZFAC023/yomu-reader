@@ -48,12 +48,43 @@ the area it covers.
 | `manual:youtube-auto-translation`       | YouTube auto-translation fixture harness, currently red; kept for manual triage.                                                                                                                                                       |
 | `manual:youtube-fullscreen`             | Needs real Chrome + real fullscreen top-layer promotion (persistent profile).                                                                                                                                                          |
 | `manual:youtube-homepage-performance`   | Machine-dependent performance profiler (persistent profile).                                                                                                                                                                           |
-| `manual:youtube-live-watch-performance` | Real public YouTube watch-page profile with an iPad-like viewport/touch context. Chromium records graph-scoped CDP CPU/coverage plus native-control, subtitle-hover, paused-frame OCR-hover, long-task, frame-gap, and live-network evidence; WebKit records the browser behavior subset. |
+| `manual:youtube-live-watch-performance` | Real public YouTube watch-page diagnostic with an iPad-like viewport/touch context. A clean uninstrumented Chromium replay owns whole-page metrics; separate Chromium CPU/coverage replays own graph-scoped function evidence; WebKit records the behavior subset. |
 | `manual:youtube-performance`            | Deterministic YouTube profiler with strict lookup evidence. `YOMU_PROFILE_CPU=1` runs fresh metrics, CPU-only, and coverage-only replays; by default it profiles the built split userscript and its exact SRI-checked companion graph. |
 | `manual:youtube-performance-compare`    | Short two-artifact A/B proof using fixed churn and lookup ledgers; set `YOMU_PROFILE_BASELINE_DIR` and `YOMU_PROFILE_CANDIDATE_DIR` to clean split-userscript worktrees.                                                               |
 | `manual:youtube-real-dom-instability`   | Persistent-profile harness reproducing real YouTube DOM churn.                                                                                                                                                                         |
 | `manual:youtube-sidebar-layout`         | Currently red vs the 1.6.149 rail rework; layout matrix guard kept for manual triage.                                                                                                                                                  |
 | `manual:youtube-sidebar-resize-profile` | Machine-dependent resize performance profiler (persistent profile).                                                                                                                                                                    |
+
+## Live YouTube watch diagnostic
+
+Run `nvm use` first, then `npm run manual:youtube-live-watch-performance`. The
+driver fails closed unless Node/ICU match `.nvmrc`, installed profiler tools
+match `package-lock.json`, the transitive driver and product artifacts are
+clean, and the split userscript companion plus CSS resource pass their declared
+filename hashes and SRI.
+
+The default fresh-context order is `chromium:none`, `chromium:cpu`,
+`chromium:coverage`, then `webkit:none`. Whole-page CDP, long-task, and frame-gap
+rows are YouTube diagnostics and do not attribute that work to Yomu. Only the
+CPU/coverage summaries scoped to the injected graph URL and SHA are Yomu
+function evidence. Every requested replay must reach real YouTube, boot the
+runtime, progress media playback, and collect its requested evidence or the
+command exits unsuccessfully with `report.json`, `report.partial.json`, and
+`failure.json`.
+
+This clean-context driver emulates the callback GM interface; it is not evidence
+of Tampermonkey, Greasemonkey, or extension scheduling. YouTube timedtext is
+fetched with cookies, headers, and cancellation inside the watch-page browser
+session, while JPDB/OCR are deterministic mocks. Set
+`YOMU_LIVE_YOUTUBE_WORKLOAD=ambient` for a time-boxed playback observation; it is
+explicitly non-comparable because real-page operations, media, ads, and network
+state are not fixed. Playwright cannot report physical iPad temperature or power
+draw.
+
+Bundled Playwright browsers are used by default so the executable is recorded.
+To select another Chromium build, set both
+`YOMU_LIVE_YOUTUBE_CHROMIUM_CHANNEL` (the evidence label) and
+`YOMU_LIVE_YOUTUBE_CHROMIUM_EXECUTABLE` (the absolute launched path).
 
 ## Reproducible YouTube CPU comparison
 

@@ -665,6 +665,10 @@ export async function addGmStorageBridgeInitScript(page, options) {
     await page.addInitScript(initGmBridge, { ...options, storageEnabled: true });
 }
 
+export function gmStorageBridgeInitProgram(options) {
+    return `(${initGmBridge.toString()})(${JSON.stringify({ ...options, storageEnabled: true })});`;
+}
+
 export async function installGmStorageBridgeOnCurrentPage(page, options) {
     await page.evaluate(initGmBridge, { ...options, storageEnabled: true });
 }
@@ -697,6 +701,7 @@ function initGmBridge({
     storagePrefix = '',
     initialize = 'always',
     storageEnabled = true,
+    browserFetchRoutes = [],
 }) {
     const memoryStore = new Map();
     const responseBuilders = {
@@ -809,11 +814,66 @@ function initGmBridge({
         window.GM_xmlhttpRequest = options => {
             const request = createBridgeRequest(options);
             const settle = oneShotRequestSettler(options);
+            const controller = new AbortController();
             Promise.resolve(request.data)
-                .then(data => window[requestBridgeName]({ ...request, data }))
-                .then(result => settle(options.onload)(bridgeLoadResponse(result, options.responseType)))
-                .catch(error => settle(options.onerror)(error));
+                .then(data => dispatchBridgeRequest({ ...request, data }, controller.signal))
+                .then(result => settle.finish(options.onload, bridgeLoadResponse(result, options.responseType)))
+                .catch(error => settle.finish(options.onerror, error));
+            return {
+                abort: () => {
+                    controller.abort();
+                    settle.abort();
+                },
+            };
         };
+    }
+
+    function dispatchBridgeRequest(request, signal) {
+        return browserFetchRouteMatches(request.url)
+            ? browserFetchRequest(request, signal)
+            : window[requestBridgeName](request);
+    }
+
+    function browserFetchRouteMatches(rawUrl) {
+        let url;
+        try {
+            url = new URL(rawUrl, location.href);
+        } catch {
+            return false;
+        }
+        return browserFetchRoutes.some(route => route.origin === url.origin && route.pathname === url.pathname);
+    }
+
+    async function browserFetchRequest(request, signal) {
+        const response = await fetch(request.url, {
+            method: request.method,
+            headers: request.headers,
+            credentials: 'include',
+            redirect: 'follow',
+            signal,
+        });
+        const responseText = await response.text();
+        const observation = {
+            status: response.status,
+            bytes: new TextEncoder().encode(responseText).byteLength,
+            format: responseBodyFormat(responseText),
+            contentType: response.headers.get('content-type') ?? 'text/plain',
+        };
+        await window[requestBridgeName]({ ...request, browserFetchObservation: observation });
+        if (signal.aborted) throw signal.reason ?? new DOMException('Aborted', 'AbortError');
+        return {
+            status: observation.status,
+            responseText,
+            contentType: observation.contentType,
+        };
+    }
+
+    function responseBodyFormat(value) {
+        const body = value.trimStart();
+        if (!body) return 'empty';
+        if (body.startsWith('{')) return 'json';
+        if (body.startsWith('<')) return 'xml';
+        return 'text';
     }
 
     function createBridgeRequest(options) {
@@ -834,11 +894,22 @@ function initGmBridge({
             settled = true;
             options.ontimeout?.({ status: 0, response: null, responseText: '' });
         }, timeoutMs) : 0;
-        return callback => response => {
-            if (settled) return;
-            settled = true;
+        const clear = () => {
             if (timer) window.clearTimeout(timer);
-            callback?.(response);
+        };
+        return {
+            finish(callback, response) {
+                if (settled) return;
+                settled = true;
+                clear();
+                callback?.(response);
+            },
+            abort() {
+                if (settled) return;
+                settled = true;
+                clear();
+                options.onabort?.({ status: 0, response: null, responseText: '' });
+            },
         };
     }
 
