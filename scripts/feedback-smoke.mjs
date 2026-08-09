@@ -1842,10 +1842,48 @@ async function loadPrimarySubtitleTrack(page) {
     await page.locator('.jpdb-subtitle-track-tools [data-action="load"]').click();
     const chooser = await chooserPromise;
     await chooser.setFiles(primaryVttPath);
-    await page.waitForSelector('.jpdb-subtitle-track-row.active', { timeout: 6000 });
+    // `active` means the selection request started; the row is rendered with
+    // a Loading status before first-paint parsing settles. Wait for that
+    // semantic state transition so the next control action cannot race the
+    // track-panel rerender on a slower CI browser.
+    await page.waitForFunction(() => {
+        const row = document.querySelector('.jpdb-subtitle-track-row.active');
+        const text = row?.textContent ?? '';
+        return Boolean(row && !/\b(?:loading|waiting)\b/iu.test(text));
+    }, null, { timeout: 6000 });
+    const state = await readHostedPrimaryTrackState(page);
+    assert(hostedPrimaryTrackReady(state), 'Hosted primary subtitle track did not settle with a usable transcript surface', state);
+}
+
+async function readHostedPrimaryTrackState(page) {
+    return page.evaluate(() => {
+        const row = document.querySelector('.jpdb-subtitle-track-row.active');
+        const lines = document.querySelector('[data-action="panel-lines"]');
+        return {
+            active: Boolean(row),
+            text: row?.textContent?.replace(/\s+/gu, ' ').trim() ?? '',
+            linesAvailable: lines instanceof HTMLButtonElement && !lines.disabled,
+        };
+    });
+}
+
+function hostedPrimaryTrackReady(state) {
+    return state.active
+        && state.linesAvailable
+        && !/\b(?:loading|waiting|failed)\b/iu.test(state.text);
 }
 
 async function enableHostedPausePanel(page) {
+    // The fixture's MP4 is intentionally not decodable. Browsers disagree on
+    // the resulting media-ended state, so establish the paused precondition
+    // that this feature is meant to exercise instead of inheriting it from the
+    // invalid media element.
+    await dispatchHostedVideoEvent(page, 'pause');
+    const playback = await page.evaluate(() => {
+        const video = document.querySelector('video');
+        return { present: Boolean(video), paused: video?.paused, ended: video?.ended };
+    });
+    assert(playback.present && playback.paused === true && playback.ended === false, 'Hosted pause-panel smoke did not establish a paused video', playback);
     // The auto toggle sits inside the collapsed panel-options popover.
     await page.locator('[data-action="toggle-pause-panel"]').evaluate(button => button.click());
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 6000 });
