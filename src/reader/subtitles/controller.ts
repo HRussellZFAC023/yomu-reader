@@ -2036,10 +2036,12 @@ export class SubtitlePlayerController {
             this.tickTimer = undefined;
             return;
         }
-        this.tickTimer = window.setTimeout(() => {
+        const tickTimer = window.setTimeout(() => {
+            if (this.tickTimer !== tickTimer) return;
             this.tickTimer = undefined;
             this.tick();
         }, this.tickDelayMs(settings));
+        this.tickTimer = tickTimer;
     }
 
     private subtitleRuntimeShouldTick(settings: ReaderSettings): boolean {

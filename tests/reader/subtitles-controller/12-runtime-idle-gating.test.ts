@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
     controllerInternals,
@@ -33,6 +33,7 @@ function initController(settings: ReaderSettings): { controller: SubtitlePlayerC
 
 afterEach(() => {
     while (controllers.length) controllers.pop()?.destroy();
+    vi.restoreAllMocks();
     document.body.innerHTML = '';
 });
 
@@ -68,5 +69,52 @@ describe('subtitle runtime idle gating', () => {
         expect(internals.observerMode).toBe('discovery');
         expect(internals.observer).toBeInstanceOf(MutationObserver);
         expect(internals.tickTimer).not.toBeUndefined();
+    });
+
+    it('ignores an already-queued tick from the previous same-instance lifecycle', () => {
+        const scheduled = new Map<number, () => void>();
+        let nextTimerId = 1;
+        vi.spyOn(window, 'setTimeout').mockImplementation(((handler: TimerHandler) => {
+            if (typeof handler !== 'function') throw new TypeError('Expected a timeout callback');
+            const id = nextTimerId++;
+            scheduled.set(id, handler as () => void);
+            return id;
+        }) as typeof window.setTimeout);
+        vi.spyOn(window, 'clearTimeout').mockImplementation(id => {
+            if (typeof id === 'number') scheduled.delete(id);
+        });
+
+        const { controller, internals } = initController(makeSubtitleSettings({ subtitlePlayerEnabled: true }));
+        const staleTimer = internals.tickTimer!;
+        const staleCallback = scheduled.get(staleTimer)!;
+
+        // Re-init clears the old timer and installs a new lifecycle timer. A
+        // callback already queued by the browser can still arrive after clear.
+        controller.init();
+        const currentTimer = internals.tickTimer!;
+        const currentCallback = scheduled.get(currentTimer)!;
+        expect(currentTimer).not.toBe(staleTimer);
+
+        staleCallback();
+
+        expect(internals.tickTimer).toBe(currentTimer);
+        expect(scheduled.has(currentTimer)).toBe(true);
+
+        const getSettings = vi.spyOn(
+            controllerInternals<{ options: { getSettings: () => ReaderSettings } }>(controller).options,
+            'getSettings',
+        );
+        controller.destroy();
+        const settingsReadsAfterDestroy = getSettings.mock.calls.length;
+
+        // Neither callback may revive a stopped lifecycle. In particular the
+        // old callback must not clear the current handle before it is rejected.
+        staleCallback();
+        currentCallback();
+
+        expect(internals.tickTimer).toBeUndefined();
+        expect(scheduled.size).toBe(0);
+        expect(nextTimerId).toBe(3);
+        expect(getSettings).toHaveBeenCalledTimes(settingsReadsAfterDestroy);
     });
 });
