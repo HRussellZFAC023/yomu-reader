@@ -2,7 +2,7 @@ import type { JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import { formatMetaFrequency } from '../dictionaries/groups-core';
 import type { YomitanMetaEntry } from '../dictionaries/yomitan';
-import { learningTargetModuleFor } from '../languages/registry';
+import { learningTargetModuleFor } from '../languages/target-runtime';
 
 export type FrequencyProvider = 'jiten' | 'jpdb' | 'bunpro';
 export type FrequencyRankSource = 'card' | 'live-search' | 'kanji';
