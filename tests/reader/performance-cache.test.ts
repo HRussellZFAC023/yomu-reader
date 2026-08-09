@@ -14,6 +14,7 @@ import type { JpdbPublicPitchClient } from '../../src/reader/jpdb/jpdb-public-pi
 import type { JpdbVocabularyClient } from '../../src/reader/jpdb/jpdb-vocabulary';
 import { renderPronunciation } from '../../src/reader/popup/pronunciation';
 import { resetActiveLearningTargetLanguage, setActiveLearningTargetLanguage } from '../../src/reader/languages/active';
+import { readerWordSurfaceText } from '../../src/reader/dom/reader-word';
 
 type CardRenderDataLoaderDependencies = ConstructorParameters<typeof CardRenderDataLoader>[0];
 type CardRenderDataLoaderFixture = {
@@ -724,13 +725,19 @@ describe('performance cache bounds', () => {
         try {
             await controller.loadExamples(popover, cardFor(1));
             await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
-            await vi.waitFor(() => expect(popover.querySelector('.jpdb-reader-word')?.textContent).toBe('単語1'));
+            await vi.waitFor(() => {
+                const word = popover.querySelector<HTMLElement>('.jpdb-reader-word');
+                expect(word && readerWordSurfaceText(word)).toBe('単語1');
+                expect(word?.querySelector('rt')?.textContent).toBe('たんご1');
+            });
 
             popover.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
 
             expect(parseJapanese).toHaveBeenCalledTimes(1);
             expect(parsePopoverJapanese).not.toHaveBeenCalled();
-            expect(popover.querySelector('.jpdb-reader-word')?.textContent).toBe('単語1');
+            const cachedWord = popover.querySelector<HTMLElement>('.jpdb-reader-word');
+            expect(cachedWord && readerWordSurfaceText(cachedWord)).toBe('単語1');
+            expect(cachedWord?.querySelector('rt')?.textContent).toBe('たんご1');
         } finally {
             popover.remove();
         }
