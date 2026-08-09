@@ -62,10 +62,10 @@ try {
     const frames = await page.evaluate(() => window.__yomuLocaleFrames?.length ?? 0);
     assert.ok(frames >= 1, 'first-frame probe did not observe the final route rendering');
 
-    await page.goto(`${ORIGIN}/academy/`, { waitUntil: 'networkidle' });
+    await navigateToAcademyShell(page);
     await assertAcademyReaderCold(page);
     await page.evaluate(() => localStorage.setItem('yomu:academy:language:v1', 'ja'));
-    await page.goto(`${ORIGIN}/academy/`, { waitUntil: 'networkidle' });
+    await navigateToAcademyShell(page);
     await assertHostedRuntimeOrder(page, {
         surface: 'Academy',
         annotationSelector: '.academy-root .academy-title[data-yomu-runtime-surface] .jpdb-reader-word',
@@ -248,6 +248,17 @@ async function assertHostedRuntimeOrder(page, { surface, annotationSelector, exe
     await annotatedWord.hover();
     await page.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 8_000 });
     await page.keyboard.press('Escape');
+}
+
+async function navigateToAcademyShell(page) {
+    // Academy registers its offline worker as soon as the shell loads. The
+    // first install intentionally precaches hundreds of lesson and voice
+    // assets, so transport-level network idleness is neither bounded nor a
+    // product-readiness signal. The assertions after navigation own readiness:
+    // English waits for its visible cold shell; Japanese waits for the hosted
+    // runtime health marker, dependency order, and an annotated word.
+    const response = await page.goto(`${ORIGIN}/academy/`, { waitUntil: 'domcontentloaded' });
+    assert.ok(response?.ok(), 'Academy route response failed');
 }
 
 async function assertAcademyRuntimeRevision(page) {
