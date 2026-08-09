@@ -1676,6 +1676,15 @@ if (typeof window !== "undefined") {
   window.__YOMU_LOGGER__ = Logger;
   window.YomuLogger = Logger;
 }
+function isAbortError(error) {
+  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+}
+class RetryableTimeoutError extends Error {
+  constructor(message = "Request timed out.") {
+  super(message);
+  this.name = "RetryableTimeoutError";
+  }
+}
 function isAppleTouchBrowser() {
   if (typeof navigator === "undefined") return false;
   const userAgent = navigator.userAgent ?? "";
@@ -1948,6 +1957,7 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
     }
     return response;
   } catch (error) {
+    if (options.signal?.aborted) throw abortReasonFor(options.signal);
     lastError = error;
   }
   }
@@ -2043,9 +2053,10 @@ function browserReadableUrl(url) {
 function isHttpUrl(url) {
   return /^https?:\/\//i.test(url);
 }
-function fetchWithTimeout(url, options) {
+async function fetchWithTimeout(url, options) {
   const {
   timeoutMs,
+  timeoutLabel,
   allowPublicProxies: _allowPublicProxies,
   allowConfiguredProxy: _allowConfiguredProxy,
   allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -2054,14 +2065,41 @@ function fetchWithTimeout(url, options) {
   ...init
   } = options;
   if (!timeoutMs) return fetch(url, { ...init, signal });
+  const scope = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+  try {
+  return await fetchWithinAbortScope(url, init, scope.signal);
+  } finally {
+  scope.dispose();
+  }
+}
+function fetchTimeoutScope(signal, timeoutMs, timeoutLabel) {
   const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-  const abort = () => controller.abort();
-  signal?.addEventListener("abort", abort, { once: true });
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-  globalThis.clearTimeout(timeout);
-  signal?.removeEventListener("abort", abort);
-  });
+  const timeout = globalThis.setTimeout(() => {
+  controller.abort(new RetryableTimeoutError(timeoutLabel));
+  }, timeoutMs);
+  const abort = () => controller.abort(signal ? abortReasonFor(signal) : void 0);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+  return {
+  signal: controller.signal,
+  dispose: () => {
+    globalThis.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
+  }
+  };
+}
+async function fetchWithinAbortScope(url, init, signal) {
+  try {
+  const response = await fetch(url, { ...init, signal });
+  throwIfFetchAborted(signal);
+  return response;
+  } catch (error) {
+  throwIfFetchAborted(signal, error);
+  throw error;
+  }
+}
+function throwIfFetchAborted(signal, fallback) {
+  if (signal.aborted) throw signal.reason ?? fallback;
 }
 function userscriptRequestCandidates() {
   const candidates = [];
@@ -2437,6 +2475,7 @@ async function requestViaFetch(url, options, userscriptRequest = getUserscriptHt
   redirect: options.redirect ?? "follow",
   referrerPolicy: options.referrerPolicy ?? "no-referrer",
   timeoutMs: options.timeoutMs,
+  timeoutLabel: options.timeoutLabel,
   allowConfiguredProxy: options.allowConfiguredProxy,
   allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
   allowPublicProxies: options.allowPublicProxies,
@@ -8422,7 +8461,9 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
   contextOccurrences: "In context ×{count}",
   loadTargetSubtitles: "Load {language} subtitles",
-  loadOutputSubtitles: "Load {language} subtitles"
+  loadOutputSubtitles: "Load {language} subtitles",
+  readingAnnotations: "Reading annotations",
+  hideReadingsFor: "Hide readings for"
   }),
   ja: Object.freeze({
   puckStudyTarget: "{language}を学習",
@@ -8432,7 +8473,9 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
   contextOccurrences: "文脈内 ×{count}",
   loadTargetSubtitles: "{language}字幕を読み込む",
-  loadOutputSubtitles: "{language}字幕を読み込む"
+  loadOutputSubtitles: "{language}字幕を読み込む",
+  readingAnnotations: "読みの注釈",
+  hideReadingsFor: "読みを隠す対象"
   })
 });
 const COPY = {
@@ -10436,7 +10479,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示
@@ -12506,13 +12549,17 @@ function tokenPitchClass(token) {
   return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
 }
 function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+  return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies);
+}
+function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
   let html = "";
   let localOffset = 0;
   for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
   const start = ruby.start - token.start;
   const end = ruby.end - token.start;
   html += renderKanjiNavigationText(surface.slice(localOffset, start));
-  html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end))}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+  const base = renderKanjiNavigationText(surface.slice(start, end));
+  html += `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
   localOffset = end;
   }
   html += renderKanjiNavigationText(surface.slice(localOffset));
@@ -15330,9 +15377,6 @@ function pruneOldestCacheEntries(cache, limit) {
   if (oldest.done) break;
   cache.delete(oldest.value);
   }
-}
-function isAbortError(error) {
-  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
 function revokeBlobObjectUrl(url) {
   if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
@@ -19493,6 +19537,58 @@ function targetLanguageName(target, interfaceLanguage) {
   return target;
   }
 }
+class SharedAbortableOperation {
+  constructor(start, onInactive) {
+  this.onInactive = onInactive;
+  this.promise = start(this.controller.signal).finally(() => {
+    this.settled = true;
+    this.onInactive();
+  });
+  }
+  controller = new AbortController();
+  promise;
+  subscribers = 0;
+  settled = false;
+  subscribe(signal) {
+  if (signal?.aborted) {
+    this.abandonIfUnobserved();
+    return Promise.reject(abortSignalReason(signal));
+  }
+  this.subscribers += 1;
+  return new Promise((resolve, reject) => {
+    let active = true;
+    const finish = (settle) => {
+      if (!active) return;
+      active = false;
+      signal?.removeEventListener("abort", onAbort);
+      this.unsubscribe();
+      settle();
+    };
+    const onAbort = () => finish(() => reject(abortSignalReason(signal)));
+    signal?.addEventListener("abort", onAbort, { once: true });
+    this.promise.then(
+      (value) => finish(() => resolve(value)),
+      (error) => finish(() => reject(error))
+    );
+  });
+  }
+  unsubscribe() {
+  this.subscribers -= 1;
+  this.abandonIfUnobserved();
+  }
+  abandonIfUnobserved() {
+  if (this.subscribers > 0 || this.settled) return;
+  this.onInactive();
+  this.controller.abort();
+  }
+}
+function abortSignalReason(signal) {
+  if (signal?.reason !== void 0) return signal.reason;
+  if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+  const error = new Error("Aborted");
+  error.name = "AbortError";
+  return error;
+}
 const DEFAULT_TIMEOUT_MS = 8e3;
 const TRANSLATION_CACHE_LIMIT = 320;
 const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
@@ -19599,26 +19695,36 @@ function googleTranslationUrl(text2, options) {
   return `${GOOGLE_TRANSLATE_ENDPOINT}?${params.toString()}`;
 }
 async function translateText(text2, options) {
+  throwIfTranslationAborted(options.signal);
   const original = text2.trim();
   if (!original) return "";
   const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
   const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
   if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
   const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-  const cached = translationCache.get(cacheKey);
-  if (cached !== void 0) return cached;
-  const active = translationInFlight.get(cacheKey);
-  if (active) return active;
-  const request = performTranslation(original, {
+  return resolveTranslationRequest(cacheKey, original, {
   ...options,
   sourceLanguage,
   outputLanguage
   });
-  translationInFlight.set(cacheKey, request);
-  void request.finally(() => {
+}
+function resolveTranslationRequest(cacheKey, original, options) {
+  const cached = translationCache.get(cacheKey);
+  if (cached !== void 0) return Promise.resolve(cached);
+  const active = translationInFlight.get(cacheKey);
+  if (active) return active.subscribe(options.signal);
+  return startTranslationRequest(cacheKey, original, options);
+}
+function startTranslationRequest(cacheKey, original, options) {
+  let request;
+  request = new SharedAbortableOperation((signal) => performTranslation(original, { ...options, signal }), () => {
   if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
-  }).catch(() => void 0);
-  return request;
+  });
+  translationInFlight.set(cacheKey, request);
+  return request.subscribe(options.signal);
+}
+function throwIfTranslationAborted(signal) {
+  if (signal?.aborted) throw abortSignalReason(signal);
 }
 function requiredGoogleTranslationLanguage(language) {
   const capability = googleTranslationLanguageCapability(language);
@@ -19642,10 +19748,12 @@ async function performTranslation(text2, options) {
     allowPublicProxies: false,
     preferFetch: true,
     failureLabel: "Translation request",
-    timeoutLabel: "Translation timed out."
+    timeoutLabel: "Translation timed out.",
+    signal: options.signal
   });
   const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
   if (!translated) throw new Error("No translation returned.");
+  throwIfTranslationAborted(options.signal);
   translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
   pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
   return translated;

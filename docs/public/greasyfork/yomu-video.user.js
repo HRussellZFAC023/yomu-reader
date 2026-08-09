@@ -7132,6 +7132,15 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     if (subtitles.languageAliases.includes(value.toLowerCase())) return true;
     return /[-_]/.test(value) && languageSubtag(value) === subtitles.languageTag;
   }
+  function isAbortError(error) {
+    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
+  class RetryableTimeoutError extends Error {
+    constructor(message = "Request timed out.") {
+      super(message);
+      this.name = "RetryableTimeoutError";
+    }
+  }
   const PRIVATE_IPV4_RANGES = [
     [0, 16777215],
     [167772160, 184549375],
@@ -7398,6 +7407,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
         }
         return response;
       } catch (error) {
+        if (options.signal?.aborted) throw abortReasonFor(options.signal);
         lastError = error;
       }
     }
@@ -7493,9 +7503,10 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
   function isHttpUrl(url) {
     return /^https?:\/\//i.test(url);
   }
-  function fetchWithTimeout(url, options) {
+  async function fetchWithTimeout(url, options) {
     const {
       timeoutMs,
+      timeoutLabel,
       allowPublicProxies: _allowPublicProxies,
       allowConfiguredProxy: _allowConfiguredProxy,
       allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -7504,14 +7515,41 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       ...init
     } = options;
     if (!timeoutMs) return fetch(url, { ...init, signal });
+    const scope = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+    try {
+      return await fetchWithinAbortScope(url, init, scope.signal);
+    } finally {
+      scope.dispose();
+    }
+  }
+  function fetchTimeoutScope(signal, timeoutMs, timeoutLabel) {
     const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-    const abort = () => controller.abort();
-    signal?.addEventListener("abort", abort, { once: true });
-    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-      globalThis.clearTimeout(timeout);
-      signal?.removeEventListener("abort", abort);
-    });
+    const timeout = globalThis.setTimeout(() => {
+      controller.abort(new RetryableTimeoutError(timeoutLabel));
+    }, timeoutMs);
+    const abort = () => controller.abort(signal ? abortReasonFor(signal) : void 0);
+    if (signal?.aborted) abort();
+    else signal?.addEventListener("abort", abort, { once: true });
+    return {
+      signal: controller.signal,
+      dispose: () => {
+        globalThis.clearTimeout(timeout);
+        signal?.removeEventListener("abort", abort);
+      }
+    };
+  }
+  async function fetchWithinAbortScope(url, init, signal) {
+    try {
+      const response = await fetch(url, { ...init, signal });
+      throwIfFetchAborted(signal);
+      return response;
+    } catch (error) {
+      throwIfFetchAborted(signal, error);
+      throw error;
+    }
+  }
+  function throwIfFetchAborted(signal, fallback) {
+    if (signal.aborted) throw signal.reason ?? fallback;
   }
   function userscriptRequestCandidates() {
     const candidates = [];
@@ -7887,6 +7925,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       redirect: options.redirect ?? "follow",
       referrerPolicy: options.referrerPolicy ?? "no-referrer",
       timeoutMs: options.timeoutMs,
+      timeoutLabel: options.timeoutLabel,
       allowConfiguredProxy: options.allowConfiguredProxy,
       allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
       allowPublicProxies: options.allowPublicProxies,
@@ -8102,7 +8141,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
       contextOccurrences: "In context ×{count}",
       loadTargetSubtitles: "Load {language} subtitles",
-      loadOutputSubtitles: "Load {language} subtitles"
+      loadOutputSubtitles: "Load {language} subtitles",
+      readingAnnotations: "Reading annotations",
+      hideReadingsFor: "Hide readings for"
     }),
     ja: Object.freeze({
       puckStudyTarget: "{language}を学習",
@@ -8112,7 +8153,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
       contextOccurrences: "文脈内 ×{count}",
       loadTargetSubtitles: "{language}字幕を読み込む",
-      loadOutputSubtitles: "{language}字幕を読み込む"
+      loadOutputSubtitles: "{language}字幕を読み込む",
+      readingAnnotations: "読みの注釈",
+      hideReadingsFor: "読みを隠す対象"
     })
   });
   const COPY = {
@@ -10116,7 +10159,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示
@@ -12450,13 +12493,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
   }
   function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies);
+  }
+  function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
     let html = "";
     let localOffset = 0;
     for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
       const start = ruby.start - token.start;
       const end = ruby.end - token.start;
       html += renderKanjiNavigationText(surface.slice(localOffset, start));
-      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end))}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+      const base = renderKanjiNavigationText(surface.slice(start, end));
+      html += `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
       localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset));
@@ -15618,8 +15665,64 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }
     return "";
   }
+  class SharedAbortableOperation {
+    constructor(start, onInactive) {
+      this.onInactive = onInactive;
+      this.promise = start(this.controller.signal).finally(() => {
+        this.settled = true;
+        this.onInactive();
+      });
+    }
+    controller = new AbortController();
+    promise;
+    subscribers = 0;
+    settled = false;
+    subscribe(signal) {
+      if (signal?.aborted) {
+        this.abandonIfUnobserved();
+        return Promise.reject(abortSignalReason(signal));
+      }
+      this.subscribers += 1;
+      return new Promise((resolve, reject) => {
+        let active = true;
+        const finish = (settle) => {
+          if (!active) return;
+          active = false;
+          signal?.removeEventListener("abort", onAbort);
+          this.unsubscribe();
+          settle();
+        };
+        const onAbort = () => finish(() => reject(abortSignalReason(signal)));
+        signal?.addEventListener("abort", onAbort, { once: true });
+        this.promise.then(
+          (value) => finish(() => resolve(value)),
+          (error) => finish(() => reject(error))
+        );
+      });
+    }
+    unsubscribe() {
+      this.subscribers -= 1;
+      this.abandonIfUnobserved();
+    }
+    abandonIfUnobserved() {
+      if (this.subscribers > 0 || this.settled) return;
+      this.onInactive();
+      this.controller.abort();
+    }
+  }
+  function abortSignalReason(signal) {
+    if (signal?.reason !== void 0) return signal.reason;
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
   const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
   const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
+  const YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS = 15e3;
+  const YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES = 96;
+  const YOUTUBE_CAPTION_SEMANTIC_MISS = Symbol("youtube-caption-semantic-miss");
+  const youtubeCaptionLoadStates = /* @__PURE__ */ new WeakMap();
   async function discoverCurrentYouTubeCaptionTracks(options) {
     if (!isYouTubePage()) return null;
     const videoId = getYouTubeVideoId();
@@ -15641,16 +15744,56 @@ recommendedJiten	Jiten由来の頻度バッジです。
     ]);
   }
   async function loadYouTubeTrackCues(track, options) {
-    if (!track.url) return [];
+    const initialUrl = track.url;
+    if (!initialUrl) return [];
+    throwIfYouTubeCaptionLoadAborted(options.signal);
     applyPreferredYouTubeCaptionCandidate(track);
-    const tried = /* @__PURE__ */ new Set();
-    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(track.url), options, tried);
-    if (primary.length) return primary;
-    return loadFallbackYouTubeTrackCues(track, options, tried);
+    return resolveYouTubeCaptionLoad(track, options, track.url ?? initialUrl);
   }
-  async function loadFallbackYouTubeTrackCues(track, options, tried) {
-    for (const candidate of await fallbackYouTubeCaptionCandidates(track)) {
+  function resolveYouTubeCaptionLoad(track, options, sourceUrl) {
+    const state = youtubeCaptionLoadState(options.requestText);
+    const loadKey = youtubeCaptionLoadKey(track);
+    if (freshYouTubeCaptionSemanticMiss(state, loadKey)) return Promise.resolve([]);
+    const existing = state.loads.get(loadKey);
+    if (existing) return existing.subscribe(options.signal);
+    return startYouTubeCaptionLoad(track, options, sourceUrl, state, loadKey);
+  }
+  function startYouTubeCaptionLoad(track, options, sourceUrl, state, loadKey) {
+    let operation;
+    operation = new SharedAbortableOperation(
+      (signal) => loadYouTubeTrackCuesUncached(track, { ...options, signal }, state, loadKey, sourceUrl),
+      () => {
+        if (state.loads.get(loadKey) === operation) state.loads.delete(loadKey);
+      }
+    );
+    state.loads.set(loadKey, operation);
+    return operation.subscribe(options.signal);
+  }
+  async function loadYouTubeTrackCuesUncached(track, options, state, loadKey, sourceUrl) {
+    throwIfYouTubeCaptionLoadAborted(options.signal);
+    const tried = /* @__PURE__ */ new Set();
+    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(sourceUrl), options, tried);
+    throwIfYouTubeCaptionLoadAborted(options.signal);
+    if (primary === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+      rememberYouTubeCaptionSemanticMiss(state, loadKey);
+      return [];
+    }
+    if (primary.length) return primary;
+    return loadFallbackYouTubeTrackCues(track, options, state, tried);
+  }
+  async function loadFallbackYouTubeTrackCues(track, options, state, tried) {
+    const candidates = await fallbackYouTubeCaptionCandidates(track, options.signal);
+    throwIfYouTubeCaptionLoadAborted(options.signal);
+    for (const candidate of candidates) {
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
+      throwIfYouTubeCaptionLoadAborted(options.signal);
+      if (cues === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+        track.url = candidate.url;
+        track.youtubeTrack = candidate.raw;
+        rememberYouTubeCaptionSemanticMiss(state, youtubeCaptionLoadKey(track));
+        return [];
+      }
       if (!cues.length) continue;
       track.url = candidate.url;
       track.youtubeTrack = candidate.raw;
@@ -15660,24 +15803,84 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function loadYouTubeCueUrls(track, urls, options, tried) {
     for (const url of urls) {
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       if (tried.has(url)) continue;
       tried.add(url);
       const cues = await loadYouTubeCueUrl(track, url, options);
-      if (cues.length) return cues;
+      if (youtubeCueLoadSettled(cues)) return cues;
     }
     return [];
   }
+  function youtubeCueLoadSettled(cues) {
+    return cues === YOUTUBE_CAPTION_SEMANTIC_MISS || cues.length > 0;
+  }
   async function loadYouTubeCueUrl(track, url, options) {
     try {
-      const text = await options.requestText(url);
-      if (!text.trim()) throw new Error("YouTube timedtext response was empty.");
-      return normalizeSubtitleCues(parseSubtitleText(text, {
-        smoothYouTubeFragments: true,
-        youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
-      }));
+      const text = await options.requestText(url, options.signal);
+      throwIfYouTubeCaptionLoadAborted(options.signal);
+      return parseYouTubeCaptionResponse(track, text);
     } catch (error) {
-      options.onRequestError?.(track, url, error);
-      return [];
+      return settleYouTubeCaptionRequestError(track, url, options, error);
+    }
+  }
+  function parseYouTubeCaptionResponse(track, text) {
+    if (!text.trim()) return YOUTUBE_CAPTION_SEMANTIC_MISS;
+    return normalizeSubtitleCues(parseSubtitleText(text, {
+      smoothYouTubeFragments: true,
+      youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
+    }));
+  }
+  function settleYouTubeCaptionRequestError(track, url, options, error) {
+    throwIfYouTubeCaptionRequestAborted(options.signal, error);
+    options.onRequestError?.(track, url, error);
+    return [];
+  }
+  function hasFreshYouTubeCaptionSemanticMiss(track, requestText) {
+    return Boolean(track.url) && freshYouTubeCaptionSemanticMiss(youtubeCaptionLoadState(requestText), youtubeCaptionLoadKey(track));
+  }
+  function youtubeCaptionLoadState(requestText) {
+    const existing = youtubeCaptionLoadStates.get(requestText);
+    if (existing) return existing;
+    const created = { semanticMisses: /* @__PURE__ */ new Map(), loads: /* @__PURE__ */ new Map() };
+    youtubeCaptionLoadStates.set(requestText, created);
+    return created;
+  }
+  function throwIfYouTubeCaptionLoadAborted(signal) {
+    if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+  }
+  function youtubeCaptionAbortReason(signal) {
+    return abortSignalReason(signal);
+  }
+  function youtubeCaptionLoadKey(track) {
+    return `${youtubeCaptionTrackIdentity(track)}|${youtubeCaptionSourceVersion(track.url)}`;
+  }
+  function youtubeCaptionSourceVersion(url) {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url, typeof location === "undefined" ? "https://www.youtube.com/" : location.href);
+      parsed.hash = "";
+      parsed.searchParams.delete("fmt");
+      parsed.searchParams.sort();
+      return parsed.href;
+    } catch {
+      return url;
+    }
+  }
+  function freshYouTubeCaptionSemanticMiss(state, key, now = Date.now()) {
+    pruneYouTubeCaptionSemanticMisses(state, now);
+    return (state.semanticMisses.get(key) ?? 0) > now;
+  }
+  function rememberYouTubeCaptionSemanticMiss(state, key, now = Date.now()) {
+    state.semanticMisses.delete(key);
+    state.semanticMisses.set(key, now + YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS);
+    pruneYouTubeCaptionSemanticMisses(state, now);
+    while (state.semanticMisses.size > YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES) {
+      state.semanticMisses.delete(state.semanticMisses.keys().next().value ?? "");
+    }
+  }
+  function pruneYouTubeCaptionSemanticMisses(state, now) {
+    for (const [key, expiresAt] of state.semanticMisses) {
+      if (expiresAt <= now) state.semanticMisses.delete(key);
     }
   }
   function applyPreferredYouTubeCaptionCandidate(track) {
@@ -15690,7 +15893,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function loadFirstUsableYouTubeSibling(track, tracks, options) {
     const siblings = tracks.filter((candidate) => isUsableYouTubeSibling(candidate, track));
     for (const sibling of siblings) {
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       const cues = await usableYouTubeSiblingCues(sibling, options);
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       if (!cues.length) continue;
       sibling.cues = cues;
       return { track: sibling, cues };
@@ -15723,9 +15928,9 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (!button) return false;
     return button.getAttribute("aria-disabled") !== "true" && button.style.display !== "none";
   }
-  async function fallbackYouTubeCaptionCandidates(track) {
+  async function fallbackYouTubeCaptionCandidates(track, signal) {
     if (track.kind !== "youtube") return [];
-    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""]);
+    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""], signal);
     return candidates.filter((candidate) => youtubeCaptionCandidateMatchesTrack(candidate, track)).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
   }
   function youtubeCaptionCandidateMatchesTrack(candidate, track) {
@@ -15996,14 +16201,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function applyYouTubeCaptionClientName(url, clientName) {
     if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
   }
-  async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = []) {
+  async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = [], signal) {
+    throwIfYouTubeCaptionLoadAborted(signal);
     const request = androidYouTubeCaptionRequest();
     if (!request) return [];
     try {
-      return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages);
-    } catch {
+      return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal);
+    } catch (error) {
+      throwIfYouTubeCaptionRequestAborted(signal, error);
       return [];
     }
+  }
+  function throwIfYouTubeCaptionRequestAborted(signal, error) {
+    if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+    if (isAbortError(error)) throw error;
   }
   function androidYouTubeCaptionRequest() {
     const videoId = getYouTubeVideoId();
@@ -16020,8 +16231,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
       videoId
     };
   }
-  async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages) {
-    const response = await fetch(request.url, request.init);
+  async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal) {
+    const response = await fetch(request.url, { ...request.init, signal });
     if (!response.ok) return [];
     const payload = await response.json();
     return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);
@@ -16746,26 +16957,36 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return `${GOOGLE_TRANSLATE_ENDPOINT}?${params.toString()}`;
   }
   async function translateText(text, options) {
+    throwIfTranslationAborted(options.signal);
     const original = text.trim();
     if (!original) return "";
     const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
     const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
     if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
     const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached !== void 0) return cached;
-    const active = translationInFlight.get(cacheKey);
-    if (active) return active;
-    const request = performTranslation(original, {
+    return resolveTranslationRequest(cacheKey, original, {
       ...options,
       sourceLanguage,
       outputLanguage
     });
-    translationInFlight.set(cacheKey, request);
-    void request.finally(() => {
+  }
+  function resolveTranslationRequest(cacheKey, original, options) {
+    const cached = translationCache.get(cacheKey);
+    if (cached !== void 0) return Promise.resolve(cached);
+    const active = translationInFlight.get(cacheKey);
+    if (active) return active.subscribe(options.signal);
+    return startTranslationRequest(cacheKey, original, options);
+  }
+  function startTranslationRequest(cacheKey, original, options) {
+    let request;
+    request = new SharedAbortableOperation((signal) => performTranslation(original, { ...options, signal }), () => {
       if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
-    }).catch(() => void 0);
-    return request;
+    });
+    translationInFlight.set(cacheKey, request);
+    return request.subscribe(options.signal);
+  }
+  function throwIfTranslationAborted(signal) {
+    if (signal?.aborted) throw abortSignalReason(signal);
   }
   function requiredGoogleTranslationLanguage(language) {
     const capability = googleTranslationLanguageCapability(language);
@@ -16789,10 +17010,12 @@ recommendedJiten	Jiten由来の頻度バッジです。
         allowPublicProxies: false,
         preferFetch: true,
         failureLabel: "Translation request",
-        timeoutLabel: "Translation timed out."
+        timeoutLabel: "Translation timed out.",
+        signal: options.signal
       });
       const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
       if (!translated) throw new Error("No translation returned.");
+      throwIfTranslationAborted(options.signal);
       translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text}`, translated);
       pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
       return translated;
@@ -16806,6 +17029,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   const TRANSLATION_SEPARATOR = "\n";
   const log$1 = Logger.scope("SubtitleTranslate");
   async function translateSubtitleCues(cues, sourceLanguage, outputLanguage, options = {}) {
+    throwIfSubtitleTranslationAborted(options.signal);
     if (!cues.length) return [];
     const texts = cues.map((cue) => cue.text.trim());
     const batches = batchTexts(
@@ -16813,17 +17037,21 @@ recommendedJiten	Jiten由来の頻度バッジです。
       options.batchSize ?? TRANSLATION_BATCH_SIZE,
       options.encodedCharBudget ?? TRANSLATION_BATCH_ENCODED_CHAR_BUDGET
     );
-    const translated = [];
-    for (let index = 0; index < batches.length; index += 1) {
-      if (index > 0) await waitForTranslationTurn();
-      const batch = batches[index] ?? [];
-      const results = await translateBatch(batch, sourceLanguage, outputLanguage);
-      translated.push(...results);
-    }
+    const translated = await translateSubtitleBatches(batches, sourceLanguage, outputLanguage, options.signal);
+    throwIfSubtitleTranslationAborted(options.signal);
     return cues.map((cue, index) => ({
       ...cue,
       text: translated[index] || cue.text
     }));
+  }
+  async function translateSubtitleBatches(batches, sourceLanguage, outputLanguage, signal) {
+    const translated = [];
+    for (const [index, batch] of batches.entries()) {
+      if (index > 0) await waitForTranslationTurn(signal);
+      const results = await translateBatch(batch, sourceLanguage, outputLanguage, signal);
+      translated.push(...results);
+    }
+    return translated;
   }
   function batchTexts(texts, size, encodedCharBudget) {
     const batches = [];
@@ -16843,27 +17071,48 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (current.length) batches.push(current);
     return batches;
   }
-  async function translateBatch(texts, sourceLanguage, outputLanguage) {
+  async function translateBatch(texts, sourceLanguage, outputLanguage, signal) {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const done = log$1.time("Translate subtitle batch", { count: texts.length });
     try {
       const result = await translateText(joined, {
         sourceLanguage,
         outputLanguage,
-        timeoutMs: TRANSLATION_TIMEOUT_MS
+        timeoutMs: TRANSLATION_TIMEOUT_MS,
+        signal
       });
+      throwIfSubtitleTranslationAborted(signal);
       const lines = result.split(TRANSLATION_SEPARATOR);
       log$1.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
       return padTranslationResults(lines, texts);
     } catch (error) {
+      throwIfSubtitleTranslationCancelled(signal, error);
       log$1.warn("Subtitle batch translation failed", { count: texts.length, error });
       return texts;
     } finally {
       done();
     }
   }
-  function waitForTranslationTurn() {
-    return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+  function waitForTranslationTurn(signal) {
+    throwIfSubtitleTranslationAborted(signal);
+    return new Promise((resolve, reject) => {
+      const timer = globalThis.setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, 0);
+      const onAbort = () => {
+        globalThis.clearTimeout(timer);
+        reject(abortSignalReason(signal));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+  function throwIfSubtitleTranslationCancelled(signal, error) {
+    if (signal?.aborted) throw abortSignalReason(signal);
+    if (isAbortError(error)) throw error;
+  }
+  function throwIfSubtitleTranslationAborted(signal) {
+    if (signal?.aborted) throw abortSignalReason(signal);
   }
   function padTranslationResults(translated, originals) {
     const result = translated.map((text) => text.trim());
@@ -16871,6 +17120,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return result;
   }
   async function loadSubtitleTrackCues(track, options) {
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (track.cues?.length) return { track, cues: track.cues };
     if (track.translatedFromTrackId) {
       return loadTranslatedTrackCues(track, options);
@@ -16878,6 +17128,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (track.track) return loadNativeTrackCues(track);
     if (isRemoteSubtitleTrack(track)) {
       const cues = await loadRemoteTrackCues(track, options);
+      throwIfSubtitleTrackLoadAborted(options.signal);
       track.cues = cues;
       return { track, cues };
     }
@@ -16889,11 +17140,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const sourceTrack = options.tracks.find((t) => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     const translatedCues = await translateSubtitleCues(
       sourceCues,
       track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || "en",
-      track.targetLanguage || track.language || targetSubtitleLanguageTag()
+      track.targetLanguage || track.language || targetSubtitleLanguageTag(),
+      { signal: options.signal }
     );
+    throwIfSubtitleTrackLoadAborted(options.signal);
     track.cues = translatedCues;
     return { track, cues: translatedCues };
   }
@@ -16913,33 +17167,63 @@ recommendedJiten	Jiten由来の頻度バッジです。
   async function loadYouTubeTrackWithFallback(track, options) {
     const youtubeOptions = {
       requestText: options.requestText,
-      onRequestError: options.onYouTubeRequestError
+      onRequestError: options.onYouTubeRequestError,
+      signal: options.signal
     };
     const cues = await loadYouTubeTrackCues(track, youtubeOptions);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (cues.length) {
       track.cues = cues;
       return { track, cues };
     }
     const translatedSource = await loadYouTubeTranslationSourceFallback(track, options);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (translatedSource.length) {
       track.cues = translatedSource;
       return { track, cues: translatedSource };
     }
+    if (hasFreshYouTubeCaptionSemanticMiss(track, options.requestText)) {
+      track.cues = [];
+      return { track, cues: [] };
+    }
+    return loadYouTubeSiblingOrEmpty(track, options, youtubeOptions);
+  }
+  async function loadYouTubeSiblingOrEmpty(track, options, youtubeOptions) {
     const fallback = await loadFirstUsableYouTubeSibling(track, options.tracks, youtubeOptions);
     if (fallback) return fallback;
     track.cues = [];
     return { track, cues: [] };
   }
   async function loadYouTubeTranslationSourceFallback(track, options) {
-    if (options.translationFallback === "skip") return [];
-    if (track.sourceType !== "translation") return [];
-    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
-    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
-    const targetLanguage = normalizedTrackLanguage(track.targetLanguage || track.language);
-    if (!sourceTrack || !sourceLanguage || !targetLanguage || sourceLanguage === targetLanguage) return [];
-    const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    const plan = youtubeTranslationSourcePlan(track, options);
+    if (!plan) return [];
+    const { cues: sourceCues } = await loadSubtitleTrackCues(plan.sourceTrack, options);
     if (!sourceCues.length) return [];
-    return translateSubtitleCues(sourceCues, sourceTrack.language || sourceTrack.sourceLanguage || sourceLanguage, targetLanguage);
+    return translateSubtitleCues(
+      sourceCues,
+      youtubeTranslationSourceLanguage(plan),
+      plan.targetLanguage,
+      { signal: options.signal }
+    );
+  }
+  function youtubeTranslationSourcePlan(track, options) {
+    if (options.translationFallback === "skip" || track.sourceType !== "translation") return null;
+    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
+    if (!sourceTrack) return null;
+    return youtubeTranslationLanguagePlan(track, sourceTrack);
+  }
+  function youtubeTranslationLanguagePlan(track, sourceTrack) {
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    const targetLanguage = normalizedYouTubeTranslationTargetLanguage(track);
+    if (!sourceLanguage || !targetLanguage) return null;
+    if (sourceLanguage === targetLanguage) return null;
+    return { sourceTrack, sourceLanguage, targetLanguage };
+  }
+  function youtubeTranslationSourceLanguage(plan) {
+    return plan.sourceTrack.language || plan.sourceTrack.sourceLanguage || plan.sourceLanguage;
+  }
+  function normalizedYouTubeTranslationTargetLanguage(track) {
+    return normalizedTrackLanguage(track.targetLanguage || track.language);
   }
   function findYouTubeTranslationSourceTrack(track, tracks) {
     const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
@@ -16976,15 +17260,32 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   async function loadRemoteTrackCues(track, options) {
     try {
-      const cues = normalizeSubtitleCues(parseSubtitleText(await options.requestText(track.url ?? "")), {
-        transcriptEligible: options.transcriptEligible
-      });
-      if (cues.length) return cues;
-      options.onRemoteEmpty?.(track);
+      return settleRemoteTrackCues(track, options, await requestRemoteTrackCues(track, options));
     } catch (error) {
-      options.onRemoteError?.(track, error);
+      return settleRemoteTrackError(track, options, error);
     }
+  }
+  async function requestRemoteTrackCues(track, options) {
+    const text = await options.requestText(track.url ?? "", options.signal);
+    return normalizeSubtitleCues(parseSubtitleText(text), { transcriptEligible: options.transcriptEligible });
+  }
+  function settleRemoteTrackCues(track, options, cues) {
+    if (cues.length) return cues;
+    options.onRemoteEmpty?.(track);
     return [];
+  }
+  function settleRemoteTrackError(track, options, error) {
+    throwIfRemoteTrackLoadAborted(options.signal, error);
+    options.onRemoteError?.(track, error);
+    return [];
+  }
+  function throwIfRemoteTrackLoadAborted(signal, error) {
+    throwIfSubtitleTrackLoadAborted(signal);
+    if (isAbortError(error)) throw error;
+  }
+  function throwIfSubtitleTrackLoadAborted(signal) {
+    if (!signal?.aborted) return;
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
   }
   function trackStatusText(track, language = "en") {
     if (track.loadingState === "loading") return ` · ${uiText(language, "trackStatusLoading")}`;
@@ -17378,29 +17679,39 @@ function preferredOutputTrack(tracks, language) {
   return [...tracks].filter((track) => isOutputLanguageSubtitleTrack(track, language)).sort((left, right) => Number(!isSubtitleTrackLanguage(left, language)) - Number(!isSubtitleTrackLanguage(right, language)) || compareSubtitleTrackOptions(left, right))[0];
 }
 function renderSubtitlePrimary(input) {
-  const activeCue = input.cue;
-  const parsedHasReaderWords = input.parsedHtml?.includes("jpdb-reader-word") ?? false;
-  const karaokeActive = input.karaokeMode && cueHasExactWordTimings(activeCue);
-  const mode = subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords);
+  const parsedHasReaderWords = subtitlePrimaryHasReaderWords(input.parsedHtml);
+  const karaokeEligible = subtitleKaraokeEligible(input);
+  const mode = subtitlePrimaryRenderMode(input, karaokeEligible, parsedHasReaderWords);
   return {
   html: renderSubtitlePrimaryHtml(input, mode),
-  karaokeActive,
-  shouldRequestParse: input.hasParser && !input.parsedHtml,
-  nextRenderedPrimary: nextRenderedPrimaryCache(input, karaokeActive)
+  karaokeActive: subtitleKaraokeIsActive(karaokeEligible, mode),
+  shouldRequestParse: subtitlePrimaryNeedsParse(input),
+  nextRenderedPrimary: nextRenderedPrimaryCache(input, mode)
   };
+}
+function subtitlePrimaryHasReaderWords(html) {
+  return html?.includes("jpdb-reader-word") === true;
+}
+function subtitleKaraokeEligible(input) {
+  if (!input.karaokeMode) return false;
+  return cueHasExactWordTimings(input.cue);
+}
+function subtitleKaraokeIsActive(eligible, mode) {
+  return eligible && mode !== "pending-parser";
+}
+function subtitlePrimaryNeedsParse(input) {
+  return input.hasParser && input.parsedHtml === void 0;
 }
 function subtitlePrimaryRenderMode(input, karaokeActive, parsedHasReaderWords) {
   if (parsedHasReaderWords) return "parsed";
-  if (hasPlainKaraokeRender(input, karaokeActive)) return "karaoke";
-  if (input.parsedHtml) return "parsed";
+  if (input.parsedHtml !== void 0) return "parsed";
   if (hasReusablePrimaryParserCache(input)) return "cached-parser";
-  return parserFallbackRenderMode(input.hasParser);
+  if (input.hasParser) return "pending-parser";
+  if (hasPlainKaraokeRender(input, karaokeActive)) return "karaoke";
+  return "plain";
 }
 function hasPlainKaraokeRender(input, karaokeActive) {
   return Boolean(karaokeActive && input.cue);
-}
-function parserFallbackRenderMode(hasParser) {
-  return hasParser ? "loading-parser" : "plain";
 }
 function hasReusablePrimaryParserCache(input) {
   return Boolean(input.hasParser && input.lastRenderedText === input.text && input.lastRenderedHtml);
@@ -17412,12 +17723,12 @@ const SUBTITLE_PRIMARY_RENDERERS = {
   parsed: (input) => input.parsedHtml ?? "",
   karaoke: (input) => renderSubtitleKaraokeCue(input.cue, input.time),
   "cached-parser": (input) => input.lastRenderedHtml,
-  "loading-parser": (input) => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input.text)}</span>`,
+  "pending-parser": () => "",
   plain: (input) => escapeWithBreaks(input.text)
 };
-function nextRenderedPrimaryCache(input, karaokeActive) {
-  if (input.parsedHtml) return { text: input.text, html: input.parsedHtml };
-  return karaokeActive ? { text: input.text, html: "" } : void 0;
+function nextRenderedPrimaryCache(input, mode) {
+  if (input.parsedHtml !== void 0) return { text: input.text, html: input.parsedHtml };
+  return mode === "karaoke" ? { text: input.text, html: "" } : void 0;
 }
 const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
 const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
@@ -17674,33 +17985,80 @@ function subtitleTrackStatusText(trackCount, language) {
   return `${trackCount} ${uiText(language, "subtitleTracksDetected")}`;
 }
 const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
+const YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-yomu-captions-active";
+function snapshotSubtitleNativeTrackModes(snapshot, tracks) {
+  for (const option of tracks) {
+  if (option.track && !snapshot.has(option.track)) snapshot.set(option.track, option.track.mode);
+  }
+}
+function releaseSubtitleNativeTrackModes(snapshot) {
+  setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+  setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+  for (const [track, mode] of snapshot) restoreSubtitleNativeTrackMode(track, mode);
+  snapshot.clear();
+}
+function releaseDepartedSubtitleNativeTrackModes(snapshot, tracks) {
+  const retained = new Set(tracks.flatMap((option) => option.track ? [option.track] : []));
+  for (const [track, mode] of snapshot) {
+  if (retained.has(track)) continue;
+  restoreSubtitleNativeTrackMode(track, mode);
+  snapshot.delete(track);
+  }
+}
+function reconcileSubtitleNativeTrackModes(snapshot, tracks) {
+  releaseDepartedSubtitleNativeTrackModes(snapshot, tracks);
+  snapshotSubtitleNativeTrackModes(snapshot, tracks);
+}
 function applySubtitleNativeTrackModes(state) {
   const youtubePage = isYouTubePage();
   const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
-  const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
+  const yomuCaptionsActive = state.suppressNativeCaptions === void 0 ? Boolean(state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent)) : state.suppressNativeCaptions;
   if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
   setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
   return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
 }
 function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
+  if (!yomuCaptionsActive) {
+  restoreInactiveGenericNativeTrackModes(state);
+  setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+  setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+  return false;
+  }
   for (const option of state.tracks) {
   if (!option.track) continue;
   if (isSelectedSubtitleTrack(option, state)) {
-    if (yomuCaptionsActive) option.track.mode = "hidden";
-    else ensureTextTrackReadable(option.track);
+    option.track.mode = "hidden";
     continue;
   }
-  if (yomuCaptionsActive) option.track.mode = "disabled";
+  option.track.mode = "disabled";
   }
-  if (yomuCaptionsActive && (state.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state.video);
-  setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
-  setDocumentClassState("jpdb-subtitle-yomu-captions-active", false);
+  setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, true);
+  setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
   return false;
+}
+function restoreInactiveGenericNativeTrackModes(state) {
+  for (const option of state.tracks) {
+  if (option.track) restoreInactiveGenericNativeTrackMode(option.track, option, state);
+  }
+}
+function restoreInactiveGenericNativeTrackMode(track, option, state) {
+  if (isSelectedSubtitleTrack(option, state)) {
+  track.mode = "showing";
+  return;
+  }
+  const originalMode = state.nativeTrackModeSnapshot?.get(track);
+  if (originalMode !== void 0) restoreSubtitleNativeTrackMode(track, originalMode);
+}
+function restoreSubtitleNativeTrackMode(track, mode) {
+  try {
+  track.mode = mode;
+  } catch {
+  }
 }
 function applyYouTubeNativeTrackModes(state, yomuCaptionsActive) {
   applyYouTubeTextTrackModes(state);
   const hideYouTubeNativeCaptions = yomuCaptionsActive;
-  setDocumentClassState("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
+  setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, hideYouTubeNativeCaptions);
   return hideYouTubeNativeCaptions;
 }
 function setDocumentClassState(className, enabled) {
@@ -17714,89 +18072,6 @@ function applyYouTubeTextTrackModes(state) {
 }
 function isSelectedSubtitleTrack(option, state) {
   return option.id === state.selectedTrackId || option.id === state.secondaryTrackId;
-}
-function suppressGenericCaptionPlayerUi(video) {
-  for (const player of genericCaptionPlayersForVideo(video)) {
-  try {
-    player.toggleCaptions?.(false);
-  } catch {
-  }
-  }
-  suppressVidstackCaptionPlayers(video);
-  suppressPressedCaptionButtons(video);
-}
-function genericCaptionPlayersForVideo(video) {
-  const players = [];
-  const seen = /* @__PURE__ */ new Set();
-  for (const candidate of genericCaptionPlayerCandidates()) {
-  if (!isGenericCaptionPlayer(candidate)) continue;
-  if (seen.has(candidate)) continue;
-  if (video && candidate.media instanceof HTMLMediaElement && candidate.media !== video) continue;
-  seen.add(candidate);
-  players.push(candidate);
-  }
-  return players;
-}
-function genericCaptionPlayerCandidates() {
-  const typedWindow = window;
-  return [
-  typedWindow.player,
-  typedWindow.plyr,
-  ...Array.isArray(typedWindow.players) ? typedWindow.players : []
-  ];
-}
-function isGenericCaptionPlayer(value) {
-  if (!value || typeof value !== "object") return false;
-  const player = value;
-  return typeof player.toggleCaptions === "function" && (player.media instanceof HTMLMediaElement || Boolean(player.captions) || typeof player.currentTrack === "number");
-}
-function suppressVidstackCaptionPlayers(video) {
-  for (const player of vidstackCaptionPlayersForVideo(video)) {
-  const tracks = player.textTracks;
-  if (!tracks) continue;
-  try {
-    if (tracks.selected) tracks.selected.mode = "disabled";
-    for (const track of Array.from(tracks)) {
-      if (track.mode && track.mode !== "disabled") track.mode = "disabled";
-    }
-  } catch {
-  }
-  }
-}
-function vidstackCaptionPlayersForVideo(video) {
-  const scope = genericCaptionButtonScope(video);
-  const scopedPlayer = scope instanceof Element && isVidstackMediaPlayer(scope) ? [scope] : [];
-  return [
-  ...scopedPlayer,
-  ...Array.from(scope.querySelectorAll("media-player, [data-media-player]")).filter(isVidstackMediaPlayer)
-  ].filter((player, index, players) => players.indexOf(player) === index);
-}
-function isVidstackMediaPlayer(value) {
-  return value instanceof HTMLElement && (value.localName === "media-player" || value.hasAttribute("data-media-player")) && Boolean(value.textTracks);
-}
-function suppressPressedCaptionButtons(video) {
-  const scope = genericCaptionButtonScope(video);
-  const buttons = Array.from(scope.querySelectorAll(
-  [
-    '[data-plyr="captions"][aria-pressed="true"]',
-    '[data-plyr="captions"].plyr__control--pressed',
-    'media-caption-button[aria-pressed="true"]',
-    "media-caption-button[data-pressed]",
-    '[data-media-tooltip="caption"][aria-pressed="true"]',
-    '[data-media-tooltip="caption"][data-pressed]',
-    '[aria-label*="caption" i][aria-pressed="true"]',
-    '[title*="caption" i][aria-pressed="true"]'
-  ].join(", ")
-  ));
-  for (const button of buttons) {
-  try {
-    button.click();
-  } catch {
-  }
-  }
-}
-function genericCaptionButtonScope(video) {
-  return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
 }
 function mirrorNativeFullscreenCues(options) {
   if (!canMirrorNativeFullscreenCues(options.video)) return previousNativeFullscreenCueMirror(options);
@@ -18254,6 +18529,41 @@ function isTranslationSubtitleFile(name, outputLanguage) {
 }
 function normalizeHostedSubtitleOpenPanel(value) {
   return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
+}
+class SubtitleSelectionLifecycle {
+  states = {
+  primary: { requestId: 0 },
+  secondary: { requestId: 0 }
+  };
+  begin(role) {
+  const state = this.states[role];
+  this.supersede(state);
+  state.controller = new AbortController();
+  return state.requestId;
+  }
+  invalidate(role) {
+  this.supersede(this.states[role]);
+  }
+  abortAll() {
+  for (const state of Object.values(this.states)) this.supersede(state);
+  }
+  signal(role, requestId) {
+  const state = this.states[role];
+  return state.requestId === requestId ? state.controller?.signal : void 0;
+  }
+  isCurrent(role, requestId) {
+  return this.states[role].requestId === requestId;
+  }
+  supersede(state) {
+  const controller = state.controller;
+  state.controller = void 0;
+  state.requestId += 1;
+  controller?.abort();
+  }
+}
+function settleSubtitleSelectionFailure(signal, error) {
+  if (signal.aborted || isAbortError(error)) return null;
+  throw error;
 }
 function planTranscriptHydrationIndexes(options) {
   const indexes = /* @__PURE__ */ new Set();
@@ -18917,22 +19227,7 @@ function scrollOffsetY(view) {
   return view.scrollY || view.pageYOffset || view.document?.documentElement?.scrollTop || 0;
 }
 function renderControllerPrimarySubtitle(options) {
-  if (shouldHoldLastAnnotatedPrimary(options)) {
-  return {
-    ...renderSubtitlePrimary({
-      cue: void 0,
-      text: options.lastRenderedText,
-      parsedHtml: options.lastRenderedHtml,
-      hasParser: options.hasParser,
-      lastRenderedText: options.lastRenderedText,
-      lastRenderedHtml: options.lastRenderedHtml,
-      karaokeMode: false,
-      time: options.time
-    }),
-    shouldRequestParse: true
-  };
-  }
-  const hasReusablePrimary = rendersTheSameCue(options) && (parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
+  const hasReusablePrimary = rendersTheSameCue(options) && (Boolean(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
   return renderSubtitlePrimary({
   cue: options.cue,
   text: options.text,
@@ -18943,9 +19238,6 @@ function renderControllerPrimarySubtitle(options) {
   karaokeMode: options.settings.subtitleKaraokeMode,
   time: options.time
   });
-}
-function shouldHoldLastAnnotatedPrimary(options) {
-  return Boolean(options.holdLastAnnotatedWhilePending && options.cue && options.lastRenderedText !== options.text && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
 }
 function rendersTheSameCue(options) {
   return options.lastRenderedKey === options.parseKey && options.lastRenderedText === options.text;
@@ -18990,8 +19282,164 @@ function planProvisionalSubtitleParseBatch(items, parsedHtml, provisionalParsedH
   }
   return { ready, batch };
 }
+const SUBTITLE_REQUEST_BACKOFF_INITIAL_MS = 5e3;
+const SUBTITLE_REQUEST_BACKOFF_MAX_MS = 6e4;
+const SUBTITLE_REQUEST_BACKOFF_RETENTION_MS = SUBTITLE_REQUEST_BACKOFF_MAX_MS * 2;
+const SUBTITLE_REQUEST_BACKOFF_MAX_FAILURES = 5;
+const EMPTY_SUBTITLE_REQUEST_BACKOFF = {
+  failures: 0,
+  version: 0
+};
+class SubtitleRequestPolicy {
+  constructor(options) {
+  this.options = options;
+  this.now = options.now ?? (() => Date.now());
+  }
+  inFlight = /* @__PURE__ */ new Map();
+  endpointTails = /* @__PURE__ */ new Map();
+  backoff = /* @__PURE__ */ new Map();
+  now;
+  async run(url, operation, signal) {
+  throwIfSubtitleRequestCallerAborted(signal);
+  const resourceKey = subtitleRequestResourceKey(url);
+  const endpointKey = subtitleRequestEndpointKey(url);
+  const existing = this.inFlight.get(resourceKey);
+  if (existing) return existing.subscribe(signal);
+  const now = this.now();
+  this.pruneBackoff(now);
+  const cooling = this.activeBackoff(endpointKey, now);
+  if (cooling) return Promise.reject(new SubtitleRequestCooldownError(cooling.retryAt - now, cooling.status));
+  return this.startResourceOperation(resourceKey, endpointKey, operation, signal);
+  }
+  startResourceOperation(resourceKey, endpointKey, operation, signal) {
+  let entry;
+  entry = new SharedAbortableOperation(
+    (requestSignal) => this.enqueueEndpointOperation(endpointKey, requestSignal, operation),
+    () => {
+      if (this.inFlight.get(resourceKey) === entry) this.inFlight.delete(resourceKey);
+    }
+  );
+  this.inFlight.set(resourceKey, entry);
+  return entry.subscribe(signal);
+  }
+  enqueueEndpointOperation(endpointKey, signal, operation) {
+  const predecessor = this.endpointTails.get(endpointKey) ?? Promise.resolve();
+  const request = predecessor.then(() => {
+    throwIfSubtitleRequestAborted(signal);
+    return this.runEndpointOperation(endpointKey, signal, operation);
+  });
+  const tail = request.then(() => void 0, () => void 0);
+  this.endpointTails.set(endpointKey, tail);
+  void tail.then(() => {
+    if (this.endpointTails.get(endpointKey) === tail) this.endpointTails.delete(endpointKey);
+  });
+  return request;
+  }
+  async runEndpointOperation(endpointKey, signal, operation) {
+  throwIfSubtitleRequestAborted(signal);
+  const now = this.now();
+  this.pruneBackoff(now);
+  const cooling = this.activeBackoff(endpointKey, now);
+  if (cooling) throw new SubtitleRequestCooldownError(cooling.retryAt - now, cooling.status);
+  const backoffVersion = (this.backoff.get(endpointKey) || EMPTY_SUBTITLE_REQUEST_BACKOFF).version;
+  try {
+    const result = await raceSubtitleRequestAbort(operation(signal), signal);
+    this.clearBackoff(endpointKey, backoffVersion);
+    return result;
+  } catch (error) {
+    this.recordFailure(endpointKey, error);
+    throw error;
+  }
+  }
+  activeBackoff(endpointKey, now) {
+  const state = this.backoff.get(endpointKey);
+  return state && state.retryAt > now ? state : void 0;
+  }
+  recordFailure(endpointKey, error) {
+  const failure = this.options.classifyFailure(error);
+  if (failure.status !== 429) return;
+  const previous = this.backoff.get(endpointKey) || EMPTY_SUBTITLE_REQUEST_BACKOFF;
+  const failures = Math.min(previous.failures + 1, SUBTITLE_REQUEST_BACKOFF_MAX_FAILURES);
+  this.backoff.set(endpointKey, {
+    failures,
+    retryAt: this.now() + subtitleRequestBackoffMs(failures),
+    status: failure.status,
+    version: previous.version + 1
+  });
+  }
+  clearBackoff(endpointKey, operationVersion) {
+  const current = this.backoff.get(endpointKey);
+  if (!current || current.version === operationVersion) this.backoff.delete(endpointKey);
+  }
+  pruneBackoff(now) {
+  for (const [key, state] of this.backoff) {
+    if (state.retryAt + SUBTITLE_REQUEST_BACKOFF_RETENTION_MS <= now) this.backoff.delete(key);
+  }
+  }
+}
+function raceSubtitleRequestAbort(operation, signal) {
+  if (signal.aborted) return Promise.reject(abortSignalReason(signal));
+  return new Promise((resolve, reject) => {
+  let settled = false;
+  const finish = (settle) => {
+    if (settled) return;
+    settled = true;
+    signal.removeEventListener("abort", onAbort);
+    settle();
+  };
+  const onAbort = () => finish(() => reject(abortSignalReason(signal)));
+  signal.addEventListener("abort", onAbort, { once: true });
+  operation.then(
+    (value) => finish(() => resolve(value)),
+    (error) => finish(() => reject(error))
+  );
+  });
+}
+function throwIfSubtitleRequestAborted(signal) {
+  if (signal.aborted) throw abortSignalReason(signal);
+}
+function throwIfSubtitleRequestCallerAborted(signal) {
+  if (signal?.aborted) throw abortSignalReason(signal);
+}
+class SubtitleRequestCooldownError extends Error {
+  constructor(retryAfterMs, status) {
+  super(`Subtitle request is cooling down for ${Math.max(1, Math.ceil(retryAfterMs))} ms.`);
+  this.retryAfterMs = retryAfterMs;
+  this.status = status;
+  this.name = "SubtitleRequestCooldownError";
+  }
+}
+function subtitleRequestBackoffMs(failures) {
+  return Math.min(
+  SUBTITLE_REQUEST_BACKOFF_INITIAL_MS * 2 ** Math.max(0, failures - 1),
+  SUBTITLE_REQUEST_BACKOFF_MAX_MS
+  );
+}
+function subtitleRequestResourceKey(url) {
+  return `resource:${normalizedSubtitleRequestUrl(url)}`;
+}
+function subtitleRequestEndpointKey(url) {
+  try {
+  const parsed = new URL(url, subtitleRequestBaseUrl());
+  return `endpoint:${parsed.origin}${parsed.pathname}`;
+  } catch {
+  return subtitleRequestResourceKey(url);
+  }
+}
+function normalizedSubtitleRequestUrl(url) {
+  try {
+  const parsed = new URL(url, subtitleRequestBaseUrl());
+  parsed.hash = "";
+  parsed.searchParams.sort();
+  return parsed.href;
+  } catch {
+  return url;
+  }
+}
+function subtitleRequestBaseUrl() {
+  return typeof location === "undefined" ? "https://invalid.local/" : location.href;
+}
 const SUBTITLE_REQUEST_TIMEOUT_MS = 8e3;
-const SUBTITLE_REQUEST_MAX_ATTEMPTS = 2;
 const SUBTITLE_REQUEST_RETRY_DELAY_MS = 250;
 class SubtitleRequestError extends Error {
   constructor(message, retryable, status) {
@@ -19001,30 +19449,32 @@ class SubtitleRequestError extends Error {
   this.name = "SubtitleRequestError";
   }
 }
-async function requestSubtitleText(url) {
+const subtitleRequestPolicy = new SubtitleRequestPolicy({
+  classifyFailure: (error) => ({ status: error instanceof SubtitleRequestError ? error.status : void 0 })
+});
+function requestSubtitleText(url, signal) {
   if (/^(blob|data):/i.test(url)) {
-  return fetchSubtitleText(url);
+  return fetchSubtitleText(url, "include", signal);
   }
-  let lastError;
-  for (let attempt2 = 0; attempt2 < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt2 += 1) {
-  try {
-    return await requestSubtitleTextOnce(url);
-  } catch (error) {
-    lastError = error;
-    if (!isRetryableSubtitleRequestError(error) || attempt2 + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
-    await delaySubtitleRetry();
-  }
-  }
-  throw lastError;
+  return subtitleRequestPolicy.run(url, (requestSignal) => requestSubtitleTextWithRetry(url, requestSignal), signal);
 }
-function requestSubtitleTextOnce(url) {
+async function requestSubtitleTextWithRetry(url, signal) {
+  try {
+  return await requestSubtitleTextOnce(url, signal);
+  } catch (error) {
+  if (!shouldRetrySubtitleRequest(error)) throw error;
+  await delaySubtitleRetry(signal);
+  return requestSubtitleTextOnce(url, signal);
+  }
+}
+function requestSubtitleTextOnce(url, signal) {
   if (isYouTubeTimedTextUrl(url)) {
-  return requestSubtitleTextWithUserscript(url).catch((error) => shouldTryAlternateSubtitleTransport(error) ? fetchSubtitleText(url) : Promise.reject(error));
+  return requestSubtitleTextWithUserscript(url, void 0, signal).catch((error) => shouldTryAlternateSubtitleTransport(error) ? fetchSubtitleText(url, "include", signal) : Promise.reject(error));
   }
   if (shouldFetchSubtitleInPageContext(url)) {
-  return fetchSubtitleText(url).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error) : Promise.reject(error));
+  return fetchSubtitleText(url, "include", signal).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error, signal) : Promise.reject(error));
   }
-  return fetchSubtitleText(url, "omit").catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error) : Promise.reject(error));
+  return fetchSubtitleText(url, "omit", signal).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error, signal) : Promise.reject(error));
 }
 function subtitleRequestFailureDetails(url) {
   try {
@@ -19039,7 +19489,7 @@ function subtitleRequestFailureDetails(url) {
   return { url: "invalid" };
   }
 }
-function requestSubtitleTextWithUserscript(url, pageFetchError) {
+function requestSubtitleTextWithUserscript(url, pageFetchError, signal) {
   const userscriptRequest = getUserscriptHttpRequest();
   if (userscriptRequest) {
   return requestViaUserscriptManager(userscriptRequest, {
@@ -19054,17 +19504,27 @@ function requestSubtitleTextWithUserscript(url, pageFetchError) {
       return String(response.responseText ?? response.response ?? "");
     },
     onError: () => new SubtitleRequestError("Subtitle request failed during transport.", true),
-    onTimeout: () => new SubtitleRequestError("Subtitle request timed out.", true)
+    onTimeout: () => new SubtitleRequestError("Subtitle request timed out.", true),
+    signal
   });
   }
   if (pageFetchError) return Promise.reject(pageFetchError);
-  return fetchSubtitleText(url);
+  return fetchSubtitleText(url, "include", signal);
 }
-function fetchSubtitleText(url, credentials = "include") {
-  return fetch(url, { credentials, signal: subtitleRequestSignal() }).then((response) => {
+async function fetchSubtitleText(url, credentials = "include", signal) {
+  const request = subtitleRequestAbortScope(signal);
+  try {
+  const response = await fetch(url, { credentials, signal: request.signal });
   assertCompleteSubtitleStatus(response.status);
-  return response.text();
-  });
+  return await response.text();
+  } catch (error) {
+  throw subtitleFetchFailure(request.signal, error);
+  } finally {
+  request.dispose();
+  }
+}
+function subtitleFetchFailure(signal, error) {
+  return signal.aborted ? signal.reason ?? error : error;
 }
 function assertCompleteSubtitleStatus(status) {
   if (status >= 200 && status < 300 && status !== 206) return;
@@ -19077,15 +19537,45 @@ function isTransientSubtitleStatus(status) {
 function isRetryableSubtitleRequestError(error) {
   return !(error instanceof SubtitleRequestError) || error.retryable;
 }
+function shouldRetrySubtitleRequest(error) {
+  return !isAbortError(error) && isRetryableSubtitleRequestError(error) && (!(error instanceof SubtitleRequestError) || error.status !== 429);
+}
 function shouldTryAlternateSubtitleTransport(error) {
+  if (isAbortError(error)) return false;
   if (!(error instanceof SubtitleRequestError)) return true;
   return error.status === void 0 || error.status === 0 || error.status === 401 || error.status === 403;
 }
-function delaySubtitleRetry() {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, SUBTITLE_REQUEST_RETRY_DELAY_MS));
+function delaySubtitleRetry(signal) {
+  if (signal.aborted) return Promise.reject(subtitleAbortReason(signal));
+  return new Promise((resolve, reject) => {
+  const timer = globalThis.setTimeout(() => finish(resolve), SUBTITLE_REQUEST_RETRY_DELAY_MS);
+  const onAbort = () => finish(() => reject(subtitleAbortReason(signal)));
+  const finish = (settle) => {
+    globalThis.clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
+    settle();
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+  });
 }
-function subtitleRequestSignal() {
-  return typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(SUBTITLE_REQUEST_TIMEOUT_MS) : void 0;
+function subtitleRequestAbortScope(signal) {
+  const controller = new AbortController();
+  const relayAbort = () => controller.abort(subtitleAbortReason(signal));
+  if (signal?.aborted) relayAbort();
+  else signal?.addEventListener("abort", relayAbort, { once: true });
+  const timeout = globalThis.setTimeout(() => {
+  controller.abort(new SubtitleRequestError("Subtitle request timed out.", true));
+  }, SUBTITLE_REQUEST_TIMEOUT_MS);
+  return {
+  signal: controller.signal,
+  dispose: () => {
+    globalThis.clearTimeout(timeout);
+    signal?.removeEventListener("abort", relayAbort);
+  }
+  };
+}
+function subtitleAbortReason(signal) {
+  return signal?.reason ?? new DOMException("Aborted", "AbortError");
 }
 function shouldFetchSubtitleInPageContext(url) {
   try {
@@ -19803,6 +20293,19 @@ class SubtitleParsedHtmlCache {
     return { html, provisional };
   }
   }
+  // Parser/enrichment rejection is different from an ordinary empty parse:
+  // any provisional HTML for this key is incomplete by definition and must
+  // not win canonicalization over the stable plain fallback. Keep a settled
+  // authoritative result if one already won the race; otherwise discard all
+  // uncommitted tiers and cache the plain frame for the normal retry TTL.
+  rememberPlainCueFallback(key, html) {
+  const authoritative = this.parsedHtmlCache.get(key);
+  if (authoritative !== void 0) return authoritative;
+  this.deleteParsedSubtitleKey(key);
+  this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+  this.pruneParsedSubtitleCaches();
+  return html;
+  }
   canonicalParsedHtmlResults(results) {
   return results.map((result) => {
     const authoritative = this.parsedHtmlCache.get(result.key);
@@ -19871,6 +20374,9 @@ class SubtitleParsedHtmlCache {
   if (!key) return;
   this.parsedHtmlCache.delete(key);
   this.provisionalParsedHtmlCache.delete(key);
+  this.enrichedProvisionalParsedHtmlKeys.delete(key);
+  this.incompleteEnrichmentAttempts.delete(key);
+  this.sessionParseCacheChecked.delete(key);
   this.emptyParsedHtmlCache.delete(key);
   this.pendingParsedHtml.delete(key);
   this.pendingProvisionalParsedHtml.delete(key);
@@ -20493,9 +20999,6 @@ const TRACK_LOAD_OPTIONS = {
   error
   })
 };
-function normalizedSubtitleText(value) {
-  return (value ?? "").replace(/\s+/g, " ").trim();
-}
 function transcriptWarmupIndexes(priority, focusIndex, rowCount) {
   return [
   ...priority,
@@ -20784,6 +21287,8 @@ class SubtitlePlayerController {
   transcriptPanelSize = loadTranscriptPanelSize();
   videoInset = createSubtitleVideoInsetAdapter();
   lastYomuCaptionsActive = false;
+  nativeCaptionOwnership;
+  nativeTrackModeSnapshot = /* @__PURE__ */ new Map();
   youtubeDomCaptionFallbackTrackId = "";
   fullscreen = false;
   pinnedPlayer = new SubtitlePinnedPlayerTracker();
@@ -20803,8 +21308,7 @@ class SubtitlePlayerController {
   transcriptPanelClosing = false;
   transcriptLayoutReferenceRect;
   transcriptLayoutReferenceViewport = "";
-  primarySelectionRequest = 0;
-  secondarySelectionRequest = 0;
+  trackSelections = new SubtitleSelectionLifecycle();
   subtitleLanguageContext;
   subtitleSourceContextKey = "";
   pausePanelOpen = false;
@@ -21030,8 +21534,10 @@ class SubtitlePlayerController {
   this.hideNativeFullscreenCueTrack();
   this.resetShadowPracticeState();
   this.clearPlaybackPauseReassert();
+  this.trackSelections.abortAll();
   this.abortController?.abort();
   this.abortController = void 0;
+  this.releaseNativeCaptionOwnership();
   this.observer?.disconnect();
   this.observer = void 0;
   this.observerMode = "off";
@@ -21454,6 +21960,7 @@ class SubtitlePlayerController {
   const removed = this.tracks.filter(predicate);
   if (!removed.length) return 0;
   this.removeSubtitleTrackIds(new Set(removed.map((track) => track.id)));
+  releaseDepartedSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
   this.lastTranscriptSignature = "";
   this.render();
   this.renderOpenSubtitlePanel();
@@ -21559,6 +22066,7 @@ class SubtitlePlayerController {
   addNativeTrack(track) {
   if (this.shouldIgnoreNativeTrack(track)) return;
   const option = this.createNativeTrackOption(track);
+  snapshotSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, [option]);
   this.tracks.push(option);
   this.markNativeCueListsDirty();
   this.observeNativeTrack(track);
@@ -21669,7 +22177,7 @@ class SubtitlePlayerController {
   if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
   }
   autoSelectNativeTrack(option, track, role) {
-  const requestId = this.beginTrackSelection(role);
+  const requestId = this.trackSelections.begin(role);
   this.setSelectedNativeTrackId(role, option.id);
   ensureTextTrackReadable(track);
   void this.loadNativeTrackCues(option, role, requestId);
@@ -22268,7 +22776,6 @@ class SubtitlePlayerController {
   const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
   this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text }])[0];
   if (selected?.loadingState === "waiting") selected.loadingState = "ready";
-  this.setNativeTrackModes();
   this.render();
   this.renderOpenSubtitlePanel();
   this.syncControls();
@@ -22281,9 +22788,15 @@ class SubtitlePlayerController {
   const text = this.currentCue?.text.trim() ?? "";
   if (!text) {
     this.renderEmptySubtitle(settings);
-    return;
+  } else {
+    this.renderActiveSubtitle(text, settings);
   }
-  this.renderActiveSubtitle(text, settings);
+  this.syncNativeCaptionOwnership(settings);
+  }
+  syncNativeCaptionOwnership(settings) {
+  const next = this.shouldSuppressNativeCaptions(settings);
+  if (this.nativeCaptionOwnership === next) return;
+  this.setNativeTrackModes();
   }
   renderEmptySubtitle(settings) {
   if (!this.subtitleEl) return;
@@ -22299,7 +22812,7 @@ class SubtitlePlayerController {
   const changed = this.applyPrimaryRow(primary.html);
   this.applySecondaryLine(settings);
   this.applyRenderedPrimarySubtitle(primary, text, settings);
-  if (changed) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
+  if (changed && primary.html) this.notifyParsedTokensForRenderedPrimary(text, settings, primary.html);
   }
   applyPrimaryRow(html) {
   const content = subtitleContentLanguage(
@@ -22341,21 +22854,17 @@ class SubtitlePlayerController {
   const activeCue = this.currentCue;
   const parseKey = this.parseCacheKey(text, settings);
   const parsedHtml = this.primaryParsedHtmlForRender(text, settings, parseKey);
-  const pending = Boolean(this.pendingParsedCueHtml(parseKey, "provisional") ?? this.pendingParsedCueHtml(parseKey, "authoritative"));
-  const provisionalStillEnriching = this.htmlCache.provisionalParsedHtmlCache.has(parseKey) && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(parseKey);
-  const canHoldPreviousAnnotation = this.lastRenderedPrimaryText !== text && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
   return renderControllerPrimarySubtitle({
     cue: activeCue,
     text,
     settings,
     parseKey,
-    parsedHtml: pending && provisionalStillEnriching && canHoldPreviousAnnotation ? void 0 : parsedHtml,
+    parsedHtml,
     lastRenderedKey: this.lastRenderedPrimaryKey,
     lastRenderedText: this.lastRenderedPrimaryText,
     lastRenderedHtml: this.lastRenderedPrimaryHtml,
     hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
     hasParser: this.shouldParseSubtitles(settings),
-    holdLastAnnotatedWhilePending: pending,
     time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0
   });
   }
@@ -22369,8 +22878,7 @@ class SubtitlePlayerController {
   }
   committedPrimaryParsedHtml(key) {
   if (this.lastRenderedPrimaryKey !== key) return void 0;
-  if (!parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) return void 0;
-  return this.lastRenderedPrimaryHtml;
+  return this.lastRenderedPrimaryHtml || void 0;
   }
   provisionalPrimaryParsedHtmlForRender(text, settings, key) {
   const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
@@ -22392,7 +22900,7 @@ class SubtitlePlayerController {
     return false;
   }
   this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
-  return this.htmlCache.parsedTokenCache.has(key);
+  return false;
   }
   applyRenderedPrimarySubtitle(primary, text, settings) {
   this.applyRenderedPrimaryKaraoke(primary);
@@ -22420,42 +22928,17 @@ class SubtitlePlayerController {
   const serial = ++this.renderSerial;
   const cached = this.htmlCache.parsedHtmlCache.get(key);
   if (cached) {
-    const root = this.replacePrimaryHtml(cached, serial);
-    if (root) this.notifyParsedTokensForKey(key, true, [root]);
+    this.applyParsedPrimaryHtml(key, text, cached, serial);
     return;
   }
   try {
     const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
     this.applyParsedPrimaryHtml(key, text, html, serial);
   } catch {
+    const fallback = escapeWithBreaks(text);
+    const settled = this.htmlCache.rememberPlainCueFallback(key, fallback);
+    this.applyParsedPrimaryHtml(key, text, settled, serial);
   }
-  }
-  replacePrimaryHtml(html, serial) {
-  if (serial !== this.renderSerial) return null;
-  const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
-  if (primary) {
-    const currentCue = this.currentCue ?? null;
-    const shouldSyncKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
-    const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
-    const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
-    setInnerHtml(primary, replacement);
-    this.lastAppliedPrimaryRowHtml = replacement;
-    this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
-    this.syncSubtitleTextSize();
-    this.syncNativePlayerControlHitProtection();
-    return primary;
-  }
-  return null;
-  }
-  shouldRenderKaraokePrimary(primary, currentCue) {
-  return Boolean(this.options.getSettings().subtitleKaraokeMode && currentCue && cueHasExactWordTimings(currentCue) && normalizedSubtitleText(primary.textContent) === normalizedSubtitleText(currentCue.text));
-  }
-  primaryReplacementHtml(html, currentCue, shouldKaraoke) {
-  return shouldKaraoke && currentCue && !html.includes("jpdb-reader-word") ? renderSubtitleKaraokeCue(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start) : html;
-  }
-  syncKaraokePrimary(currentCue, shouldKaraoke) {
-  if (!shouldKaraoke || !currentCue) return;
-  this.applyKaraokeStateToPrimary(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start);
   }
   shouldParseSubtitles(settings = this.options.getSettings()) {
   return canParseSubtitleTranscriptRows(settings);
@@ -22630,11 +23113,15 @@ class SubtitlePlayerController {
   }
   applyParsedPrimaryHtml(key, text, html, serial) {
   if (!this.shouldParseSubtitles()) return;
-  const root = this.replacePrimaryHtml(html, serial);
+  if (serial !== this.renderSerial) return;
+  if (!this.currentCueMatchesParseKey(key, text)) return;
   this.lastRenderedPrimaryKey = key;
   this.lastRenderedPrimaryText = text;
   this.lastRenderedPrimaryHtml = html;
-  if (root) this.notifyParsedTokensForKey(key, true, [root]);
+  this.render();
+  }
+  currentCueMatchesParseKey(key, text) {
+  return this.currentCue?.text.trim() === text && this.parseCacheKey(text) === key;
   }
   async parseCueHtmlBatch(texts, settings = this.options.getSettings(), options = {}) {
   const items = uniqueSubtitleParseTexts(texts).map((text) => ({ text, key: this.parseCacheKey(text, settings) }));
@@ -24083,7 +24570,7 @@ class SubtitlePlayerController {
   return true;
   }
   preparePrimaryTrackSelection(id) {
-  const requestId = this.beginTrackSelection("primary");
+  const requestId = this.trackSelections.begin("primary");
   this.selectedTrackId = id;
   this.lastAutoCopiedCueSignature = "";
   if (this.secondaryTrackId === id) this.clearSecondaryTrackSelection();
@@ -24097,7 +24584,7 @@ class SubtitlePlayerController {
   return requestId;
   }
   clearSecondaryTrackSelection() {
-  this.invalidateTrackSelection("secondary");
+  this.trackSelections.invalidate("secondary");
   this.secondaryTrackId = "";
   this.secondaryCues = [];
   this.secondaryCue = void 0;
@@ -24131,15 +24618,22 @@ class SubtitlePlayerController {
   async loadTrackSelection(request) {
   const selected = this.tracks.find((option) => option.id === request.id);
   if (!selected) return this.currentTrackSelection(request.role, request.requestId, request.id, void 0, []);
+  const signal = this.trackSelections.signal(request.role, request.requestId);
+  if (!signal) return null;
   this.markTrackLoading(selected);
   this.setNativeTrackModes();
-  const loaded = await loadSubtitleTrackCues(selected, {
-    ...TRACK_LOAD_OPTIONS,
-    tracks: this.tracks,
-    transcriptEligible: request.transcriptEligible,
-    translationFallback: this.translationFallbackModeForSelection(request, selected)
-  });
-  return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+  try {
+    const loaded = await loadSubtitleTrackCues(selected, {
+      ...TRACK_LOAD_OPTIONS,
+      tracks: this.tracks,
+      transcriptEligible: request.transcriptEligible,
+      translationFallback: this.translationFallbackModeForSelection(request, selected),
+      signal
+    });
+    return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+  } catch (error) {
+    return settleSubtitleSelectionFailure(signal, error);
+  }
   }
   translationFallbackModeForSelection(request, track) {
   if (request.role !== "secondary") return "full";
@@ -24187,7 +24681,7 @@ class SubtitlePlayerController {
   prepareSecondaryTrackSelection(id) {
   if (this.selectedTrackId === id) {
     this.suppressYouTubeAutoSelectForCurrentVideo();
-    this.invalidateTrackSelection("primary");
+    this.trackSelections.invalidate("primary");
     this.selectedTrackId = "";
     this.cues = [];
     this.currentCue = void 0;
@@ -24198,7 +24692,7 @@ class SubtitlePlayerController {
     this.lastShadowSignature = "";
     this.resetShadowPracticeState();
   }
-  const requestId = this.beginTrackSelection("secondary");
+  const requestId = this.trackSelections.begin("secondary");
   this.secondaryTrackId = id;
   this.secondaryCues = [];
   this.secondaryCue = void 0;
@@ -24227,31 +24721,44 @@ class SubtitlePlayerController {
   this.syncControls();
   }
   setNativeTrackModes() {
+  reconcileSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
   if (this.nativeFullscreenHostTracksRestored) return;
   const settings = this.options.getSettings();
-  const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
+  const suppressNativeCaptions = this.shouldSuppressNativeCaptions(settings);
   this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
     tracks: this.tracks,
     selectedTrackId: this.selectedTrackId,
     secondaryTrackId: this.secondaryTrackId,
     overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
-    // DOM-caption fallback is a hand-off: the page caption stays
-    // visible until a parse-settled Yomu cue is ready. Loaded cue lists
-    // are ready immediately; fallback text becomes ready at currentCue.
-    suppressNativeCaptions: this.shouldSuppressNativeCaptions(settings),
-    suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
+    // Caption ownership is a visual hand-off: the page/native caption
+    // stays visible until the exact current Yomu cue has a settled
+    // parse (or a final plain fallback) ready to paint.
+    suppressNativeCaptions,
     video: this.video,
     hasPrimaryCues: Boolean(this.cues.length),
     currentCueText: this.currentCue?.text,
     youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
-    lastYomuCaptionsActive: this.lastYomuCaptionsActive
+    lastYomuCaptionsActive: this.lastYomuCaptionsActive,
+    nativeTrackModeSnapshot: this.nativeTrackModeSnapshot
   });
+  this.nativeCaptionOwnership = suppressNativeCaptions;
+  }
+  releaseNativeCaptionOwnership() {
+  releaseSubtitleNativeTrackModes(this.nativeTrackModeSnapshot);
+  this.nativeCaptionOwnership = void 0;
+  this.lastYomuCaptionsActive = false;
   }
   shouldSuppressNativeCaptions(settings) {
-  return Boolean(settings.subtitlePlayerEnabled && this.video && this.hasRenderablePrimaryCue());
+  return Boolean(settings.subtitlePlayerEnabled && this.video && this.hasVisualCommitForCurrentCue(settings));
   }
-  hasRenderablePrimaryCue() {
-  return Boolean(this.cues.length || this.currentCue?.text);
+  hasVisualCommitForCurrentCue(settings) {
+  const text = this.currentCue?.text.trim() ?? "";
+  if (!text) return false;
+  if (!this.shouldParseSubtitles(settings)) return true;
+  return this.primaryVisualCommitMatches(text, settings);
+  }
+  primaryVisualCommitMatches(text, settings) {
+  return this.lastRenderedPrimaryKey === this.parseCacheKey(text, settings) && this.lastRenderedPrimaryText === text && Boolean(this.lastRenderedPrimaryHtml);
   }
   async discoverYouTubeTracksThrottled(force = false) {
   if (this.youtubeTrackDiscoveryInFlight) return;
@@ -26346,22 +26853,11 @@ class SubtitlePlayerController {
     canAlignNext: Boolean(this.video && adjacentSubtitleCueForOffset(baseCues, this.video.currentTime, this.trackTimingOffsetSeconds(id), true))
   };
   }
-  beginTrackSelection(role) {
-  if (role === "primary") {
-    this.primarySelectionRequest += 1;
-    return this.primarySelectionRequest;
-  }
-  this.secondarySelectionRequest += 1;
-  return this.secondarySelectionRequest;
-  }
-  invalidateTrackSelection(role) {
-  this.beginTrackSelection(role);
-  }
   isTrackSelectionCurrent(role, requestId, trackId) {
-  return !this.destroyed && (role === "primary" ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId);
+  return !this.destroyed && this.trackSelections.isCurrent(role, requestId) && (role === "primary" ? this.selectedTrackId : this.secondaryTrackId) === trackId;
   }
   resetPrimarySubtitleState() {
-  this.invalidateTrackSelection("primary");
+  this.trackSelections.invalidate("primary");
   this.selectedTrackId = "";
   this.cues = [];
   this.currentCue = void 0;
@@ -26376,7 +26872,7 @@ class SubtitlePlayerController {
   this.shadowLoopEnabled = false;
   }
   resetSecondarySubtitleState() {
-  this.invalidateTrackSelection("secondary");
+  this.trackSelections.invalidate("secondary");
   this.secondaryTrackId = "";
   this.secondaryCues = [];
   this.secondaryCue = void 0;

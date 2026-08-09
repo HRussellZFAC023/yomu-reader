@@ -11,6 +11,12 @@ const YOMU_HOSTED_AUDIO_URL = "https://audio.yomureader.com/?term={term}&reading
 const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
 const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+class RetryableTimeoutError extends Error {
+  constructor(message = "Request timed out.") {
+  super(message);
+  this.name = "RetryableTimeoutError";
+  }
+}
 function isAppleTouchBrowser() {
   if (typeof navigator === "undefined") return false;
   const userAgent = navigator.userAgent ?? "";
@@ -305,6 +311,7 @@ async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", option
     }
     return response;
   } catch (error) {
+    if (options.signal?.aborted) throw abortReasonFor(options.signal);
     lastError = error;
   }
   }
@@ -400,9 +407,10 @@ function browserReadableUrl(url) {
 function isHttpUrl(url) {
   return /^https?:\/\//i.test(url);
 }
-function fetchWithTimeout(url, options) {
+async function fetchWithTimeout(url, options) {
   const {
   timeoutMs,
+  timeoutLabel,
   allowPublicProxies: _allowPublicProxies,
   allowConfiguredProxy: _allowConfiguredProxy,
   allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -411,14 +419,41 @@ function fetchWithTimeout(url, options) {
   ...init
   } = options;
   if (!timeoutMs) return fetch(url, { ...init, signal });
+  const scope = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+  try {
+  return await fetchWithinAbortScope(url, init, scope.signal);
+  } finally {
+  scope.dispose();
+  }
+}
+function fetchTimeoutScope(signal, timeoutMs, timeoutLabel) {
   const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-  const abort = () => controller.abort();
-  signal?.addEventListener("abort", abort, { once: true });
-  return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-  globalThis.clearTimeout(timeout);
-  signal?.removeEventListener("abort", abort);
-  });
+  const timeout = globalThis.setTimeout(() => {
+  controller.abort(new RetryableTimeoutError(timeoutLabel));
+  }, timeoutMs);
+  const abort = () => controller.abort(signal ? abortReasonFor(signal) : void 0);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener("abort", abort, { once: true });
+  return {
+  signal: controller.signal,
+  dispose: () => {
+    globalThis.clearTimeout(timeout);
+    signal?.removeEventListener("abort", abort);
+  }
+  };
+}
+async function fetchWithinAbortScope(url, init, signal) {
+  try {
+  const response = await fetch(url, { ...init, signal });
+  throwIfFetchAborted(signal);
+  return response;
+  } catch (error) {
+  throwIfFetchAborted(signal, error);
+  throw error;
+  }
+}
+function throwIfFetchAborted(signal, fallback) {
+  if (signal.aborted) throw signal.reason ?? fallback;
 }
 function bridgeEventId(event) {
   return safeReadString(normalizedBridgeEventDetail$1(event), "id");
@@ -1284,6 +1319,7 @@ async function requestViaFetch(url, options, userscriptRequest = getUserscriptHt
   redirect: options.redirect ?? "follow",
   referrerPolicy: options.referrerPolicy ?? "no-referrer",
   timeoutMs: options.timeoutMs,
+  timeoutLabel: options.timeoutLabel,
   allowConfiguredProxy: options.allowConfiguredProxy,
   allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
   allowPublicProxies: options.allowPublicProxies,
@@ -2392,7 +2428,9 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
   contextOccurrences: "In context ×{count}",
   loadTargetSubtitles: "Load {language} subtitles",
-  loadOutputSubtitles: "Load {language} subtitles"
+  loadOutputSubtitles: "Load {language} subtitles",
+  readingAnnotations: "Reading annotations",
+  hideReadingsFor: "Hide readings for"
   }),
   ja: Object.freeze({
   puckStudyTarget: "{language}を学習",
@@ -2402,7 +2440,9 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
   contextOccurrences: "文脈内 ×{count}",
   loadTargetSubtitles: "{language}字幕を読み込む",
-  loadOutputSubtitles: "{language}字幕を読み込む"
+  loadOutputSubtitles: "{language}字幕を読み込む",
+  readingAnnotations: "読みの注釈",
+  hideReadingsFor: "読みを隠す対象"
   })
 });
 const COPY = {
@@ -4387,7 +4427,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示

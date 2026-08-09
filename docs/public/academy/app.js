@@ -37357,6 +37357,15 @@ ${spelling}`);
     const [character, mode, data] = row2;
     return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
   }
+  function isAbortError$2(error) {
+    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
+  class RetryableTimeoutError extends Error {
+    constructor(message = "Request timed out.") {
+      super(message);
+      this.name = "RetryableTimeoutError";
+    }
+  }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
     const userAgent = navigator.userAgent ?? "";
@@ -37648,6 +37657,7 @@ ${spelling}`);
         }
         return response;
       } catch (error) {
+        if (options.signal?.aborted) throw abortReasonFor(options.signal);
         lastError = error;
       }
     }
@@ -37743,9 +37753,10 @@ ${spelling}`);
   function isHttpUrl(url) {
     return /^https?:\/\//i.test(url);
   }
-  function fetchWithTimeout$2(url, options) {
+  async function fetchWithTimeout$2(url, options) {
     const {
       timeoutMs,
+      timeoutLabel,
       allowPublicProxies: _allowPublicProxies,
       allowConfiguredProxy: _allowConfiguredProxy,
       allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -37754,14 +37765,41 @@ ${spelling}`);
       ...init
     } = options;
     if (!timeoutMs) return fetch(url, { ...init, signal });
+    const scope2 = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+    try {
+      return await fetchWithinAbortScope(url, init, scope2.signal);
+    } finally {
+      scope2.dispose();
+    }
+  }
+  function fetchTimeoutScope(signal, timeoutMs, timeoutLabel) {
     const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-    const abort = () => controller.abort();
-    signal?.addEventListener("abort", abort, { once: true });
-    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-      globalThis.clearTimeout(timeout);
-      signal?.removeEventListener("abort", abort);
-    });
+    const timeout = globalThis.setTimeout(() => {
+      controller.abort(new RetryableTimeoutError(timeoutLabel));
+    }, timeoutMs);
+    const abort = () => controller.abort(signal ? abortReasonFor(signal) : void 0);
+    if (signal?.aborted) abort();
+    else signal?.addEventListener("abort", abort, { once: true });
+    return {
+      signal: controller.signal,
+      dispose: () => {
+        globalThis.clearTimeout(timeout);
+        signal?.removeEventListener("abort", abort);
+      }
+    };
+  }
+  async function fetchWithinAbortScope(url, init, signal) {
+    try {
+      const response = await fetch(url, { ...init, signal });
+      throwIfFetchAborted(signal);
+      return response;
+    } catch (error) {
+      throwIfFetchAborted(signal, error);
+      throw error;
+    }
+  }
+  function throwIfFetchAborted(signal, fallback) {
+    if (signal.aborted) throw signal.reason ?? fallback;
   }
   function userscriptRequestCandidates() {
     const candidates = [];
@@ -38138,6 +38176,7 @@ ${spelling}`);
       redirect: options.redirect ?? "follow",
       referrerPolicy: options.referrerPolicy ?? "no-referrer",
       timeoutMs: options.timeoutMs,
+      timeoutLabel: options.timeoutLabel,
       allowConfiguredProxy: options.allowConfiguredProxy,
       allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
       allowPublicProxies: options.allowPublicProxies,
@@ -38366,7 +38405,9 @@ ${spelling}`);
       popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
       contextOccurrences: "In context ×{count}",
       loadTargetSubtitles: "Load {language} subtitles",
-      loadOutputSubtitles: "Load {language} subtitles"
+      loadOutputSubtitles: "Load {language} subtitles",
+      readingAnnotations: "Reading annotations",
+      hideReadingsFor: "Hide readings for"
     }),
     ja: Object.freeze({
       puckStudyTarget: "{language}を学習",
@@ -38376,7 +38417,9 @@ ${spelling}`);
       popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
       contextOccurrences: "文脈内 ×{count}",
       loadTargetSubtitles: "{language}字幕を読み込む",
-      loadOutputSubtitles: "{language}字幕を読み込む"
+      loadOutputSubtitles: "{language}字幕を読み込む",
+      readingAnnotations: "読みの注釈",
+      hideReadingsFor: "読みを隠す対象"
     })
   });
   const COPY$c = {
@@ -40380,7 +40423,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示
@@ -44612,6 +44655,14 @@ recommendedJiten	Jiten由来の頻度バッジです。
     if (insertIndex < 0) sources.push(source2);
     else sources.splice(insertIndex, 0, source2);
   }
+  function kanjiNavigationForElement(element2) {
+    const host2 = element2.closest("[data-jpdb-reader-kanji-nav]");
+    if (!host2) return void 0;
+    return {
+      enabled: true,
+      label: host2.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
+    };
+  }
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
@@ -44786,29 +44837,20 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
   }
   function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
-    let html = "";
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-      const start = ruby.start - token.start;
-      const end = ruby.end - token.start;
-      html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
-      localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, "inline");
   }
   function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, "detached");
+  }
+  function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
     let html = "";
     let localOffset = 0;
     for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
       const start = ruby.start - token.start;
       const end = ruby.end - token.start;
       html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
-      html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-      html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
-      html += "</span>";
+      const base = renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation);
+      html += layout === "detached" ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span></span>` : `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
       localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -45044,14 +45086,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
       }
     }
     return runs;
-  }
-  function kanjiNavigationForElement(element2) {
-    const host2 = element2.closest("[data-jpdb-reader-kanji-nav]");
-    if (!host2) return void 0;
-    return {
-      enabled: true,
-      label: host2.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
-    };
   }
   function renderKanjiNavigationText(value, options) {
     if (!options?.enabled) return escapeHtml$2(value);
@@ -94268,7 +94302,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
       void options.onSubmit(input2.value, lifecycle.signal).then(() => {
         if (!lifecycle.signal.aborted && screen.isConnected) restoreSubmit();
       }).catch((error) => {
-        if (lifecycle.signal.aborted || isAbortError$2(error)) return;
+        if (lifecycle.signal.aborted || isAbortError$1(error)) return;
         const unavailable = error instanceof Error && "code" in error && error.code === "unavailable";
         feedback2.replaceChildren(fieldError(academyText(options.language, unavailable ? "accessUnavailable" : "accessInvalid")));
         restoreSubmit();
@@ -94283,7 +94317,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     }, { once: true });
     return screen;
   }
-  function isAbortError$2(error) {
+  function isAbortError$1(error) {
     return error instanceof DOMException && error.name === "AbortError";
   }
   const EXACT_SOURCE_CONTRACTS$1 = Object.freeze({
@@ -301690,9 +301724,6 @@ ${component.reading}`;
       source: "jpdb"
     };
   }
-  function isAbortError$1(error) {
-    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
-  }
   class PromiseLruCache {
     constructor(maxSize) {
       this.maxSize = maxSize;
@@ -303086,7 +303117,7 @@ ${component.reading}`;
     try {
       return await fetchImpl(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError$1(error)) throw new JitenApiError("Jiten request timed out.");
+      if (isAbortError$2(error)) throw new JitenApiError("Jiten request timed out.");
       throw error;
     } finally {
       globalThis.clearTimeout(timeoutId);
@@ -307370,11 +307401,11 @@ ${component.reading}`;
     }
     searchSource(source2, query, settings, options) {
       return source2 === "nadeshiko" ? this.searchNadeshiko(query, settings, options).catch((error) => {
-        if (isAbortError$1(error)) throw error;
+        if (isAbortError$2(error)) throw error;
         log$h.warn("Nadeshiko examples failed", { query }, error);
         return [];
       }) : this.searchImmersionKit(query, settings, options).catch((error) => {
-        if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
         log$h.warn("Immersion Kit examples failed", { query }, error);
         return [];
       });
@@ -307804,7 +307835,7 @@ ${component.reading}`;
       try {
         return await requestJsonCandidate(candidate2, timeoutMs, proxyUrl, signal, language2);
       } catch (error) {
-        if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
         lastError = error;
       }
     }
@@ -307829,7 +307860,7 @@ ${component.reading}`;
       statusFailureMessage: (status2) => formatUiText(language2, "immersionKitRequestFailedWithStatus", { status: status2 }),
       timeoutLabel: uiText(language2, "immersionKitRequestTimedOut")
     }).catch((error) => {
-      if (isAbortError$1(error)) throw error;
+      if (isAbortError$2(error)) throw error;
       if (isImmersionKitRateLimitError(error)) throw error;
       if (error instanceof Error && /blocked|cross-origin|cors/i.test(error.message)) {
         throw new Error(uiText(language2, "immersionKitSearchBlocked"));
@@ -309156,7 +309187,7 @@ ${component.reading}`;
       return true;
     }
     shouldIgnoreAbortedExampleLoad(error, controller, container) {
-      if (!isAbortError$1(error) || !controller.signal.aborted) return false;
+      if (!isAbortError$2(error) || !controller.signal.aborted) return false;
       clearImmersionLoadingState(container);
       return true;
     }
@@ -309426,7 +309457,7 @@ ${component.reading}`;
                 handleAbort();
                 return;
               }
-              if (isAbortError$1(error)) {
+              if (isAbortError$2(error)) {
                 fail2(error);
                 return;
               }
@@ -309453,7 +309484,7 @@ ${component.reading}`;
         const examples = await this.options.client.search(query, settings, searchOptions);
         return immersionSearchResultForQuery(query, exactQuery, triedQueries, examples);
       } catch (error) {
-        if (isAbortError$1(error) || isImmersionKitRateLimitError(error)) throw error;
+        if (isAbortError$2(error) || isImmersionKitRateLimitError(error)) throw error;
         return null;
       }
     }
@@ -310284,7 +310315,7 @@ ${component.reading}`;
     try {
       return await fetch(url, { ...init, signal: controller.signal });
     } catch (error) {
-      if (isAbortError$1(error)) throw new JpdbApiError("timed-out", "JPDB request timed out.", { cause: error });
+      if (isAbortError$2(error)) throw new JpdbApiError("timed-out", "JPDB request timed out.", { cause: error });
       throw error;
     } finally {
       window.clearTimeout(timeoutId);
@@ -329038,11 +329069,11 @@ ${options.version}`;
       this.setStatus(root, this.text("jpdbKanjiUpdated"));
     }
     gradeSubmissionInFlight = false;
-    async gradeCurrentCard(grade2, selectedTarget, expectedCard) {
+    async gradeCurrentCard(grade2, selectedTarget2, expectedCard) {
       const submittedCard = this.visibleWords[this.index];
       if (!submittedCard || expectedCard && !this.sameGradeCardIdentity(submittedCard, expectedCard) || !this.canReviewCard(submittedCard)) return false;
       const sessionScopedBunpro = submittedCard.source === "bunpro" || submittedCard.reviewSource === "bunpro-api";
-      if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+      if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade2, selectedTarget2);
       if (this.gradeSubmissionInFlight) return false;
       this.gradeSubmissionInFlight = true;
       const gradeButtons = [
@@ -329053,7 +329084,7 @@ ${options.version}`;
         button2.disabled = true;
       });
       try {
-        return await this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+        return await this.gradeCurrentCardUnlocked(grade2, selectedTarget2);
       } finally {
         this.gradeSubmissionInFlight = false;
         if (submittedCard && this.visibleWords[this.index] === submittedCard) {
@@ -329069,32 +329100,32 @@ ${options.version}`;
       if (!bunpro) return true;
       return current.bunproReviewId === expected.bunproReviewId && current.bunproReviewSessionId === expected.bunproReviewSessionId && current.bunproReviewInputMode === expected.bunproReviewInputMode && current.bunproReviewEndpoint === expected.bunproReviewEndpoint;
     }
-    async gradeCurrentCardUnlocked(grade2, selectedTarget) {
+    async gradeCurrentCardUnlocked(grade2, selectedTarget2) {
       const target2 = this.currentGradeTarget();
       if (!target2) return false;
       if (!this.canReviewCard(target2.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target2.card);
       if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-        return this.gradeOfflineCard(target2, grade2, selectedTarget, isCorrection);
+        return this.gradeOfflineCard(target2, grade2, selectedTarget2, isCorrection);
       }
       try {
-        return await this.submitCurrentGrade(target2, grade2, selectedTarget, isCorrection);
+        return await this.submitCurrentGrade(target2, grade2, selectedTarget2, isCorrection);
       } catch (error) {
-        return this.handleFailedGrade(target2, grade2, selectedTarget, isCorrection, error);
+        return this.handleFailedGrade(target2, grade2, selectedTarget2, isCorrection, error);
       }
     }
-    async gradeOfflineCard(target2, grade2, selectedTarget, isCorrection) {
-      const queueTargets = this.offlineGradeTargetsForSelection(target2.card, selectedTarget);
+    async gradeOfflineCard(target2, grade2, selectedTarget2, isCorrection) {
+      const queueTargets = this.offlineGradeTargetsForSelection(target2.card, selectedTarget2);
       if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
         const choice2 = await this.confirmOfflineReviewing(target2.root);
         if (choice2 === "stop") return false;
-        if (choice2 === "retry") return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+        if (choice2 === "retry") return this.gradeCurrentCardUnlocked(grade2, selectedTarget2);
       }
       return this.queueGradeForLater(target2, grade2, queueTargets, isCorrection);
     }
-    async submitCurrentGrade(target2, grade2, selectedTarget, isCorrection) {
+    async submitCurrentGrade(target2, grade2, selectedTarget2, isCorrection) {
       this.setStatus(target2.root, this.text("grading"));
-      const submittedTarget = await this.submitGrade(target2.card, grade2, selectedTarget);
+      const submittedTarget = await this.submitGrade(target2.card, grade2, selectedTarget2);
       this.offlineReviewingAccepted = false;
       this.invalidateReviewSourceCache(target2.card);
       this.setStatus(target2.root, this.gradeSuccessStatus(grade2, submittedTarget));
@@ -329108,7 +329139,7 @@ ${options.version}`;
       await this.advanceAfterGrade(target2.root, target2.card, grade2);
       return true;
     }
-    async handleFailedGrade(target2, grade2, selectedTarget, isCorrection, error) {
+    async handleFailedGrade(target2, grade2, selectedTarget2, isCorrection, error) {
       log$7.warn("New tab grade failed", { term: target2.card.spelling, source: target2.card.source, grade: grade2 }, error);
       if (this.localYomuStorageFailure(error)) {
         const message = this.text("yomuLocalSrsStorageFailed");
@@ -329120,8 +329151,8 @@ ${options.version}`;
         await this.reloadAfterAmbiguousBunproGrade(target2.root, target2.card);
         return true;
       }
-      const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target2.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target2.card);
-      const promptResult = await this.resolveFailedGradePrompt(target2, grade2, selectedTarget, queueTargets, error);
+      const queueTargets = selectedTarget2 ? this.offlineGradeTargetsForSelection(target2.card, selectedTarget2) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target2.card);
+      const promptResult = await this.resolveFailedGradePrompt(target2, grade2, selectedTarget2, queueTargets, error);
       if (promptResult !== null) return promptResult;
       return this.queueGradeForLater(target2, grade2, queueTargets, isCorrection);
     }
@@ -329129,14 +329160,14 @@ ${options.version}`;
       if (isLocalYomuSrsStorageError(error)) return true;
       return error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => isLocalYomuSrsStorageError(failure.error));
     }
-    async resolveFailedGradePrompt(target2, grade2, selectedTarget, queueTargets, error) {
-      if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target2.card, selectedTarget, error)) return null;
+    async resolveFailedGradePrompt(target2, grade2, selectedTarget2, queueTargets, error) {
+      if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target2.card, selectedTarget2, error)) return null;
       const choice2 = await this.confirmOfflineReviewing(target2.root);
       if (choice2 === "stop") return false;
       if (choice2 !== "retry") return null;
       const current = this.currentGradeTarget();
       if (!current || !this.sameGradeCardIdentity(current.card, target2.card)) return false;
-      return this.gradeCurrentCardUnlocked(grade2, selectedTarget);
+      return this.gradeCurrentCardUnlocked(grade2, selectedTarget2);
     }
     async queueGradeForLater(target2, grade2, queueTargets, isCorrection) {
       if (!queueTargets.length || !await this.gradeQueue.enqueue(target2.card, grade2, queueTargets)) {
@@ -329154,14 +329185,14 @@ ${options.version}`;
     networkGradeTargets(targets2) {
       return targets2.some((target2) => target2 !== "yomu-local");
     }
-    shouldConfirmOfflineReviewAfterFailure(targets2, card, selectedTarget, error) {
-      return this.networkGradeTargets(targets2) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
+    shouldConfirmOfflineReviewAfterFailure(targets2, card, selectedTarget2, error) {
+      return this.networkGradeTargets(targets2) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget2, error);
     }
     // True when a multi-target submit failed for only SOME of its providers:
     // at least one provider already recorded this grade.
-    partialGradeSubmission(card, selectedTarget, error) {
+    partialGradeSubmission(card, selectedTarget2, error) {
       if (!(error instanceof NewTabGradeSubmissionError)) return false;
-      const attempted = selectedTarget ? this.offlineGradeTargetsForSelection(card, selectedTarget).length : this.reviewSourceSummary(card).targets.length;
+      const attempted = selectedTarget2 ? this.offlineGradeTargetsForSelection(card, selectedTarget2).length : this.reviewSourceSummary(card).targets.length;
       return attempted > error.failures.length;
     }
     // Asks once per outage whether to keep reviewing offline. "Continue" is
@@ -329197,9 +329228,9 @@ ${options.version}`;
       this.markQueueRefreshed();
       await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
-    gradeSuccessStatus(grade2, selectedTarget) {
+    gradeSuccessStatus(grade2, selectedTarget2) {
       const mark = passingNewTabGrade(grade2) ? "✓" : "✕";
-      return selectedTarget ? `${mark} ${selectedTarget.shortLabel}` : mark;
+      return selectedTarget2 ? `${mark} ${selectedTarget2.shortLabel}` : mark;
     }
     queueableFailedGradeTargets(error) {
       if (!(error instanceof NewTabGradeSubmissionError)) return void 0;
@@ -329210,9 +329241,9 @@ ${options.version}`;
       const card = this.visibleWords[this.index];
       return root && card ? { root, card } : null;
     }
-    async submitGrade(card, grade2, selectedTarget) {
-      if (selectedTarget) {
-        return await this.submitSelectedLookupTarget(card, selectedTarget, grade2);
+    async submitGrade(card, grade2, selectedTarget2) {
+      if (selectedTarget2) {
+        return await this.submitSelectedLookupTarget(card, selectedTarget2, grade2);
       }
       const targets2 = this.reviewTargetsForCard(card);
       if (!targets2.length) throw new Error(this.text("couldNotSubmitGrade"));
@@ -329227,8 +329258,8 @@ ${options.version}`;
       if (failures.length) throw new NewTabGradeSubmissionError(failures);
       return null;
     }
-    async submitSelectedLookupTarget(card, selectedTarget, grade2) {
-      const target2 = this.lookupReviewTargetForSelection(card, selectedTarget);
+    async submitSelectedLookupTarget(card, selectedTarget2, grade2) {
+      const target2 = this.lookupReviewTargetForSelection(card, selectedTarget2);
       if (!target2) throw new Error(this.text("couldNotSubmitGrade"));
       if (target2.kind === "anki") {
         const refreshed = await this.submitAnkiGrade(card, grade2, target2.ankiCardId);
@@ -329241,14 +329272,14 @@ ${options.version}`;
       return target2;
     }
     // fallow-ignore-next-line complexity
-    lookupReviewTargetForSelection(card, selectedTarget) {
+    lookupReviewTargetForSelection(card, selectedTarget2) {
       const targets2 = this.lookupReviewTargetsForCard(card);
-      if (selectedTarget.kind === "jpdb") return targets2.find((target2) => target2.kind === "jpdb") ?? null;
-      if (selectedTarget.kind === "jiten") return targets2.find((target2) => target2.kind === "jiten") ?? null;
-      if (selectedTarget.kind === "bunpro") return targets2.find((target2) => target2.kind === "bunpro") ?? null;
-      if (selectedTarget.kind === "wanikani") return targets2.find((target2) => target2.kind === "wanikani") ?? null;
-      if (selectedTarget.kind === "yomu-local") return targets2.find((target2) => target2.kind === "yomu-local") ?? null;
-      const selectedCardId = Number(selectedTarget.ankiCardId);
+      if (selectedTarget2.kind === "jpdb") return targets2.find((target2) => target2.kind === "jpdb") ?? null;
+      if (selectedTarget2.kind === "jiten") return targets2.find((target2) => target2.kind === "jiten") ?? null;
+      if (selectedTarget2.kind === "bunpro") return targets2.find((target2) => target2.kind === "bunpro") ?? null;
+      if (selectedTarget2.kind === "wanikani") return targets2.find((target2) => target2.kind === "wanikani") ?? null;
+      if (selectedTarget2.kind === "yomu-local") return targets2.find((target2) => target2.kind === "yomu-local") ?? null;
+      const selectedCardId = Number(selectedTarget2.ankiCardId);
       if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
       return targets2.find((target2) => target2.kind === "anki" && target2.ankiCardId === selectedCardId) ?? null;
     }
@@ -366185,6 +366216,9 @@ ${options.version}`;
     if (markVisibilityChosen) settings.subtitleSecondaryVisibleChosen = true;
     return changed;
   }
+  function readingAnnotationModeForTarget(mode, targetLanguage2) {
+    return targetLanguage2 !== "ja" && mode === "difficult-kanji" ? "all" : mode;
+  }
   const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
     "auto",
     ...availableInterfaceLocales().map((locale) => locale.tag)
@@ -366333,6 +366367,7 @@ ${options.version}`;
       shortcuts: readShortcutFormSettings(reader, current)
     };
     preserveDetachedJapaneseSettings(settings, current, data);
+    enforceTargetReadingAnnotationMode(settings);
     return normalizeReaderSettings(settings);
   }
   function readLanguageProfileFormSettings(data, current, interfaceLanguage, dictionaryPreferences) {
@@ -366425,6 +366460,15 @@ ${options.version}`;
         if (current[name] === "pitch") settings[name] = current[name];
       }
     }
+  }
+  function enforceTargetReadingAnnotationMode(settings) {
+    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    const targetLanguage2 = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
+    const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage2);
+    if (mode === settings.furiganaMode) return;
+    settings.furiganaMode = mode;
+    settings.showFurigana = mode !== "off";
+    settings.hideKnownFurigana = mode === "known-status";
   }
   function normalizedStringIds(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -367041,12 +367085,13 @@ ${options.version}`;
   function booleanAttributeHtml(attributes) {
     return Object.entries(attributes).filter(([, value]) => value).map(([key2]) => ` ${key2}`).join("");
   }
-  function renderFuriganaHiddenStateGroupControls(settings) {
+  function renderReadingHiddenStateGroupControls(settings, targetLanguage2) {
     const language2 = settings.interfaceLanguage;
     const selected2 = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_STATE_GROUPS.map((group2) => checkbox(`furiganaHide-${group2}`, uiText(language2, CARD_STATE_LABEL_KEYS[group2]), selected2.has(group2))).join("");
     const hidden = effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden";
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, "hideFuriganaFor")}</legend>${boxes}</fieldset>`;
+    const legendKey = targetLanguage2 === "ja" ? "hideFuriganaFor" : "hideReadingsFor";
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, legendKey)}</legend>${boxes}</fieldset>`;
   }
   function renderWordColorHiddenStateGroupControls(settings) {
     const language2 = settings.interfaceLanguage;
@@ -368821,6 +368866,168 @@ ${options.version}`;
                     </div>
                 </div>`;
   }
+  const READING_MODE_OPTIONS = [
+    ["known-status", "furiganaHideKnown"],
+    ["difficult-kanji", "furiganaDifficultKanji"],
+    ["hover", "furiganaHoverOnly"],
+    ["all", "furiganaAllParsed"],
+    ["off", "off"]
+  ];
+  const CLAMPED_ROW_OPTIONS = [
+    ["show", "clampedRowReadingsShow"],
+    ["hover", "clampedRowReadingsHover"]
+  ];
+  function renderReadingAnnotationControls(settings, targetLanguage2) {
+    const text2 = settingsText(settings.interfaceLanguage);
+    const japaneseMode = effectiveFuriganaMode(settings);
+    const mode = readingAnnotationModeForTarget(japaneseMode, targetLanguage2);
+    return `<div data-language-family="reading-annotation" data-reading-annotation-controls data-reading-annotation-target="${escapeHtml$2(targetLanguage2)}" data-reading-annotation-last-mode="${escapeHtml$2(mode)}" data-reading-annotation-japanese-mode="${escapeHtml$2(japaneseMode)}">
+        ${select("furiganaMode", text2(modeLabelKey(targetLanguage2)), mode, modeOptions(text2, targetLanguage2))}
+        ${difficultyNoteHtml(settings, text2, targetLanguage2)}
+        ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions$1(text2, CLAMPED_ROW_OPTIONS))}
+        ${renderReadingHiddenStateGroupControls(settings, targetLanguage2)}
+    </div>`;
+  }
+  function syncReadingAnnotationControls(form2, text2) {
+    const targetLanguage2 = selectedTarget(form2);
+    const modeSelect = form2.querySelector('select[name="furiganaMode"]');
+    if (!modeSelect) return;
+    const currentMode = selectedReadingMode(modeSelect);
+    const state = targetSwitchState(modeSelect, currentMode, targetLanguage2);
+    trackExplicitModeChanges(modeSelect);
+    const selectedMode = state.selectedMode;
+    replaceOptions(modeSelect, modeOptions(text2, targetLanguage2), selectedMode);
+    setSelectLabel(modeSelect, text2(modeLabelKey(targetLanguage2)));
+    syncClampedRowControl(form2, text2);
+    syncControlState(modeSelect, targetLanguage2, selectedMode, state.japaneseMode);
+    syncHiddenStateLegend(form2, text2, targetLanguage2);
+    syncDifficultyNote(form2, text2, targetLanguage2, selectedMode);
+  }
+  function difficultyNoteHtml(settings, text2, targetLanguage2) {
+    if (targetLanguage2 !== "ja") {
+      return '<div class="jpdb-reader-help" data-furigana-difficulty-note hidden></div>';
+    }
+    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? "" : " hidden";
+    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapeHtml$2(text2("furiganaDifficultKanjiHelp"))}</div>`;
+  }
+  function selectedReadingMode(selectElement) {
+    return readingModeValue(selectElement.value) ?? "all";
+  }
+  function syncClampedRowControl(form2, text2) {
+    const selectElement = form2.querySelector('select[name="clampedRowReadings"]');
+    if (!selectElement) return;
+    replaceOptions(selectElement, localizedOptions$1(text2, CLAMPED_ROW_OPTIONS), selectElement.value);
+    setSelectLabel(selectElement, text2("clampedRowReadings"));
+  }
+  function syncControlState(selectElement, targetLanguage2, selectedMode, japaneseMode) {
+    const controls = selectElement.closest("[data-reading-annotation-controls]");
+    if (!controls) return;
+    controls.dataset.readingAnnotationTarget = targetLanguage2;
+    controls.dataset.readingAnnotationLastMode = selectedMode;
+    controls.dataset.readingAnnotationJapaneseMode = japaneseMode;
+    delete controls.dataset.readingAnnotationModeChanged;
+  }
+  function syncHiddenStateLegend(form2, text2, targetLanguage2) {
+    const key2 = targetLanguage2 === "ja" ? "hideFuriganaFor" : "hideReadingsFor";
+    form2.querySelector("[data-furigana-hide-groups] > legend")?.replaceChildren(text2(key2));
+  }
+  function modeOptions(text2, targetLanguage2) {
+    return READING_MODE_OPTIONS.filter(([mode]) => targetLanguage2 === "ja" || mode !== "difficult-kanji").map(([mode, key2]) => [mode, text2(key2)]);
+  }
+  function modeLabelKey(targetLanguage2) {
+    return targetLanguage2 === "ja" ? "furiganaMode" : "readingAnnotations";
+  }
+  function selectedTarget(form2) {
+    return learningTargetRosterIdForTag(form2.querySelector('select[name="targetLanguage"]')?.value) ?? learningTargetRosterIdForTag(form2.dataset.language) ?? "ja";
+  }
+  function localizedOptions$1(text2, options) {
+    return options.map(([value, key2]) => [value, text2(key2)]);
+  }
+  function replaceOptions(selectElement, options, selected2) {
+    selectElement.replaceChildren(...options.map(([value, label]) => {
+      const option2 = selectElement.ownerDocument.createElement("option");
+      option2.value = value;
+      option2.textContent = label;
+      option2.selected = value === selected2;
+      return option2;
+    }));
+  }
+  function setSelectLabel(selectElement, copy2) {
+    const label = selectElement.closest("label");
+    if (!label) return;
+    const container = Array.from(label.children).find(
+      (child) => child instanceof HTMLElement && child.classList.contains(SETTINGS_LABEL_TEXT_CLASS)
+    );
+    if (container) {
+      container.replaceChildren(copy2);
+      return;
+    }
+    const textNode2 = Array.from(label.childNodes).find((node2) => node2.nodeType === Node.TEXT_NODE);
+    if (textNode2) textNode2.textContent = copy2;
+    else label.insertBefore(label.ownerDocument.createTextNode(copy2), label.firstChild);
+  }
+  function syncDifficultyNote(form2, text2, targetLanguage2, selectedMode) {
+    const note = form2.querySelector("[data-furigana-difficulty-note]");
+    if (!note) return;
+    if (targetLanguage2 === "ja") {
+      note.dataset.helpKey = "furiganaDifficultKanjiHelp";
+      note.replaceChildren(text2("furiganaDifficultKanjiHelp"));
+    } else {
+      delete note.dataset.helpKey;
+      note.replaceChildren();
+    }
+    note.hidden = targetLanguage2 !== "ja" || selectedMode !== "difficult-kanji";
+  }
+  function targetSwitchState(selectElement, currentMode, targetLanguage2) {
+    const controls = selectElement.closest("[data-reading-annotation-controls]");
+    const previousTarget = previousReadingTarget(controls, targetLanguage2);
+    const lastMode = readingModeValue(controls?.dataset.readingAnnotationLastMode);
+    const learnerChangedMode = learnerChangedReadingMode(controls, lastMode, currentMode);
+    const storedJapaneseMode = storedJapaneseReadingMode(controls, currentMode);
+    const japaneseMode = updatedJapaneseMode(previousTarget, currentMode, storedJapaneseMode, learnerChangedMode);
+    return {
+      selectedMode: selectedModeAfterTargetSwitch(
+        targetLanguage2,
+        previousTarget,
+        currentMode,
+        japaneseMode,
+        learnerChangedMode
+      ),
+      japaneseMode
+    };
+  }
+  function previousReadingTarget(controls, fallback) {
+    return learningTargetRosterIdForTag(controls?.dataset.readingAnnotationTarget) ?? fallback;
+  }
+  function learnerChangedReadingMode(controls, lastMode, currentMode) {
+    if (controls?.dataset.readingAnnotationModeChanged === "true") return true;
+    return lastMode !== null && lastMode !== currentMode;
+  }
+  function storedJapaneseReadingMode(controls, fallback) {
+    return readingModeValue(controls?.dataset.readingAnnotationJapaneseMode) ?? fallback;
+  }
+  function updatedJapaneseMode(previousTarget, currentMode, storedMode, learnerChangedMode) {
+    if (previousTarget === "ja") return currentMode;
+    return learnerChangedMode ? currentMode : storedMode;
+  }
+  function shouldRestoreJapaneseMode(targetLanguage2, previousTarget, learnerChangedMode) {
+    return targetLanguage2 === "ja" && previousTarget !== "ja" && !learnerChangedMode;
+  }
+  function selectedModeAfterTargetSwitch(targetLanguage2, previousTarget, currentMode, japaneseMode, learnerChangedMode) {
+    if (shouldRestoreJapaneseMode(targetLanguage2, previousTarget, learnerChangedMode)) return japaneseMode;
+    return readingAnnotationModeForTarget(currentMode, targetLanguage2);
+  }
+  function readingModeValue(value) {
+    return READING_MODE_OPTIONS.find(([mode]) => mode === value)?.[0] ?? null;
+  }
+  function trackExplicitModeChanges(selectElement) {
+    if (selectElement.dataset.readingAnnotationTracking === "true") return;
+    selectElement.dataset.readingAnnotationTracking = "true";
+    selectElement.addEventListener("change", () => {
+      const controls = selectElement.closest("[data-reading-annotation-controls]");
+      if (controls) controls.dataset.readingAnnotationModeChanged = "true";
+    });
+  }
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   function syncSubtitlePreview(form2) {
     const preview = form2.querySelector("[data-subtitle-preview]");
@@ -369479,20 +369686,9 @@ ${options.version}`;
     ["underline-new", "appearancePresetUnderlineNew"],
     ["no-colors", "appearancePresetNoColors"]
   ];
-  const FURIGANA_MODE_OPTIONS = [
-    ["known-status", "furiganaHideKnown"],
-    ["difficult-kanji", "furiganaDifficultKanji"],
-    ["hover", "furiganaHoverOnly"],
-    ["all", "furiganaAllParsed"],
-    ["off", "off"]
-  ];
   const WORD_COLOR_STATE_OPTIONS = [
     ["all", "wordColorStatesAll"],
     ["new-only", "wordColorStatesNewOnly"]
-  ];
-  const CLAMPED_ROW_READINGS_OPTIONS = [
-    ["show", "clampedRowReadingsShow"],
-    ["hover", "clampedRowReadingsHover"]
   ];
   const AUDIO_AUTO_PLAY_MODE_OPTIONS = [
     ["all", "audioAutoPlayAll"],
@@ -369553,10 +369749,6 @@ ${options.version}`;
     ["1200000", "balanced"],
     ["2000000", "sharper"]
   ];
-  function renderFuriganaDifficultyNote(settings) {
-    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? "" : " hidden";
-    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, "furiganaDifficultKanjiHelp")}</div>`;
-  }
   function renderAppearancePreview(language2) {
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section jp-only" data-language-family="pitch-legend">
@@ -369718,6 +369910,7 @@ ${options.version}`;
     const language2 = settings.interfaceLanguage;
     const text2 = settingsText(language2);
     const pageScanMode = pageScanModeFromSettings(settings);
+    const targetLanguage2 = activeTargetLanguageId(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>${escapedUiText(language2, "reader")}</legend>
@@ -369742,12 +369935,7 @@ ${options.version}`;
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div data-language-family="reading-annotation">
-                        ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
-                        ${renderFuriganaDifficultyNote(settings)}
-                        ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
-                        ${renderFuriganaHiddenStateGroupControls(settings)}
-                    </div>
+                    ${renderReadingAnnotationControls(settings, targetLanguage2)}
                     ${select("wordColorStates", text2("wordColorStates"), settings.wordColorStates, localizedOptions(text2, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
                     <div data-language-family="pronunciation">
@@ -370145,9 +370333,9 @@ ${options.version}`;
       if (value !== void 0) element2.replaceChildren(value);
     });
     const targetSelect = form2.querySelector('select[name="targetLanguage"]');
-    const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
-    if (targetSelect && selectedTarget) {
-      setInnerHtml(targetSelect, renderStudyTargetOptions(language2, selectedTarget));
+    const selectedTarget2 = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
+    if (targetSelect && selectedTarget2) {
+      setInnerHtml(targetSelect, renderStudyTargetOptions(language2, selectedTarget2));
     }
     const learnerSelect = form2.querySelector('select[name="learnerLanguage"]');
     const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? learnerSelect.value : "en";
@@ -370248,7 +370436,6 @@ ${options.version}`;
     ["[data-academy-pairing-code-label]", "academyPairingCode"]
   ];
   const HIDE_GROUP_LEGEND_TEXT_KEYS = [
-    ["[data-furigana-hide-groups]", "hideFuriganaFor"],
     ["[data-word-color-hide-groups]", "hideColorFor"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
@@ -370443,8 +370630,7 @@ ${options.version}`;
     localizeColorSourceSelects(form2, text2);
     setSelectOptionLabels(form2, "appearancePreset", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS));
     setSelectOptionLabels(form2, "wordColorStates", localizedOptions(text2, WORD_COLOR_STATE_OPTIONS));
-    setSelectOptionLabels(form2, "clampedRowReadings", localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS));
-    setSelectOptionLabels(form2, "furiganaMode", localizedOptions(text2, FURIGANA_MODE_OPTIONS));
+    syncReadingAnnotationControls(form2, text2);
   }
   function localizeColorSourceSelects(form2, text2) {
     const options = colorSourceSelectOptions(text2);
@@ -370933,7 +371119,6 @@ ${options.version}`;
     "showFloatingButton",
     "pageScanMode",
     "appearancePreset",
-    "furiganaMode",
     "clampedRowReadings",
     "wordColorStates",
     "showPitchAccent",
@@ -371782,23 +371967,41 @@ ${options.version}`;
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
   function bindLiveSettingsSync(form2, dependencies) {
+    let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
     window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
       if (!dependencies.isActive()) return;
       const detail = event.detail;
       if (detail?.settings && detail.preview !== true) {
-        const settings = { ...dependencies.getSettings(), ...detail.settings };
+        const previousSettings = adoptedSettings;
+        const settings = { ...previousSettings, ...detail.settings };
         dependencies.adoptSettings(settings);
-        syncFormFromSettings(form2, settings);
-        syncYoutubeImmersionTarget(form2, settings, activeTargetLanguageId(settings), true);
+        syncFormFromSettings(form2, previousSettings, settings);
+        dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
         syncSubtitlePreview(form2);
         syncFontFamilyControls(form2);
+        adoptedSettings = snapshotLiveSettings(settings);
       }
       const theme = themeFromSettingsChangeEvent(event);
       if (theme) dependencies.applyTheme(theme);
     });
   }
-  function syncFormFromSettings(form2, settings) {
-    for (const key2 of Object.keys(settings)) {
+  function snapshotLiveSettings(settings) {
+    return {
+      ...settings,
+      languageProfiles: settings.languageProfiles.map((profile2) => ({
+        ...profile2,
+        dictionaries: {
+          installed: [...profile2.dictionaries.installed],
+          enabled: [...profile2.dictionaries.enabled],
+          order: [...profile2.dictionaries.order]
+        },
+        definitionTranslationProviderIds: [...profile2.definitionTranslationProviderIds]
+      })),
+      dictionaryLookupLinks: settings.dictionaryLookupLinks.map((link) => ({ ...link }))
+    };
+  }
+  function syncFormFromSettings(form2, previousSettings, settings) {
+    for (const key2 of changedSettingKeys(previousSettings, settings)) {
       if (key2 === "theme") continue;
       const val = settings[key2];
       if (typeof val !== "string" && typeof val !== "number" && typeof val !== "boolean") continue;
@@ -371819,9 +372022,160 @@ ${options.version}`;
       }
     }
   }
+  function changedSettingKeys(previousSettings, settings) {
+    return Object.keys(settings).filter((key2) => !Object.is(previousSettings[key2], settings[key2]));
+  }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;
     return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
+  }
+  function syncLanguageProfileForm(form2, settings, request2, dependencies) {
+    if (request2.source === "target-picker") {
+      syncPickedTarget(form2, settings, request2.targetLanguage, dependencies);
+      return;
+    }
+    syncAdoptedLanguageProfileForm(form2, request2.previousSettings, settings, dependencies);
+  }
+  function syncPickedTarget(form2, settings, targetLanguage2, dependencies) {
+    syncLanguageFamilyDom(form2, targetLanguage2);
+    syncYoutubeImmersionTarget(form2, settings, targetLanguage2);
+    syncLookupPills(
+      form2,
+      dictionaryLookupLinksForTarget(lookupLinkRows(new FormData(form2)), targetLanguage2),
+      targetLanguage2
+    );
+    localizeSettingsForm(form2, settings.interfaceLanguage);
+    dependencies.refreshTargetControls(targetLanguage2);
+  }
+  function syncAdoptedLanguageProfileForm(form2, previousSettings, settings, dependencies) {
+    const targetLanguage2 = activeTargetLanguageId(settings);
+    const changes = languageProfileFormFacetChanges(previousSettings, settings);
+    syncAdoptedLanguageFacets(form2, settings, targetLanguage2, changes);
+    syncAdoptedPresentationFacets(form2, settings, targetLanguage2, changes, dependencies);
+  }
+  function syncAdoptedLanguageFacets(form2, settings, targetLanguage2, changes) {
+    if (changes.profileControls) syncAdoptedProfileControls(form2, settings);
+    if (changes.targetLanguage) syncLanguageFamilyDom(form2, targetLanguage2);
+    if (changes.lookupLinks) {
+      syncLookupPills(
+        form2,
+        adoptedLookupLinks(settings.dictionaryLookupLinks, targetLanguage2, changes.targetLanguage),
+        targetLanguage2
+      );
+    }
+  }
+  function adoptedLookupLinks(links, targetLanguage2, targetChanged) {
+    return targetChanged ? dictionaryLookupLinksForTarget(links, targetLanguage2) : links;
+  }
+  function syncAdoptedPresentationFacets(form2, settings, targetLanguage2, changes, dependencies) {
+    if (changes.youtubeBaseline) syncYoutubeImmersionTarget(form2, settings, targetLanguage2, true);
+    if (changes.interfaceLocalization) localizeSettingsForm(form2, settings.interfaceLanguage);
+    if (changes.dependentControls) dependencies.refreshTargetControls(targetLanguage2);
+  }
+  function languageProfileFormFacetChanges(previousSettings, settings) {
+    return {
+      profileControls: profileControlsKey(previousSettings) !== profileControlsKey(settings),
+      targetLanguage: activeTargetLanguageId(previousSettings) !== activeTargetLanguageId(settings),
+      lookupLinks: lookupSurfaceKey(previousSettings) !== lookupSurfaceKey(settings),
+      interfaceLocalization: localizationSurfaceKey(previousSettings) !== localizationSurfaceKey(settings),
+      youtubeBaseline: youtubeBaselineKey(previousSettings) !== youtubeBaselineKey(settings),
+      dependentControls: dependentControlsKey(previousSettings) !== dependentControlsKey(settings)
+    };
+  }
+  function profileControlsKey(settings) {
+    const profile2 = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    if (!profile2) {
+      return JSON.stringify([
+        settings.activeLanguageProfileId,
+        activeTargetLanguageId(settings),
+        activeLearnerLanguageId(settings),
+        settings.parserProvider,
+        []
+      ]);
+    }
+    return JSON.stringify([
+      settings.activeLanguageProfileId,
+      activeTargetLanguageId(settings),
+      activeLearnerLanguageId(settings),
+      profile2.parserProvider,
+      [...profile2.definitionTranslationProviderIds].sort()
+    ]);
+  }
+  function lookupSurfaceKey(settings) {
+    const targetLanguage2 = activeTargetLanguageId(settings);
+    const renderedLinks = lookupPillEditorRows(
+      settings.dictionaryLookupLinks,
+      [],
+      targetLanguage2
+    );
+    return JSON.stringify([
+      targetLanguage2,
+      renderedLinks.map(dictionaryLookupLinkKey)
+    ]);
+  }
+  function dictionaryLookupLinkKey(link) {
+    return [
+      link.id,
+      link.label,
+      link.urlTemplate,
+      link.enabled,
+      link.action ?? null,
+      link.priority ?? null
+    ];
+  }
+  function localizationSurfaceKey(settings) {
+    return JSON.stringify([
+      settings.interfaceLanguage,
+      activeTargetLanguageId(settings),
+      activeLearnerLanguageId(settings)
+    ]);
+  }
+  function youtubeBaselineKey(settings) {
+    return JSON.stringify([
+      activeTargetLanguageId(settings),
+      settings.youtubeImmersionEnabled,
+      settings.youtubeImmersionEnabledChosen
+    ]);
+  }
+  function dependentControlsKey(settings) {
+    return JSON.stringify([
+      settings.activeLanguageProfileId,
+      activeTargetLanguageId(settings),
+      activeLearnerLanguageId(settings)
+    ]);
+  }
+  function syncAdoptedProfileControls(form2, settings) {
+    const profile2 = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    const profileControls = profile2 ? {
+      parserProvider: profile2.parserProvider,
+      translationProviderIds: profile2.definitionTranslationProviderIds
+    } : {
+      parserProvider: settings.parserProvider,
+      translationProviderIds: []
+    };
+    setSelectValue(form2, "targetLanguage", activeTargetLanguageId(settings));
+    setSelectValue(form2, "learnerLanguage", activeLearnerLanguageId(settings));
+    setSelectValue(form2, "parserProvider", profileControls.parserProvider);
+    syncTranslationProviders(form2, profileControls.translationProviderIds);
+  }
+  function setSelectValue(form2, name, value) {
+    const select2 = form2.querySelector(`select[name="${name}"]`);
+    if (select2) select2.value = value;
+  }
+  function syncTranslationProviders(form2, enabledProviderIds) {
+    const enabled = new Set(enabledProviderIds);
+    form2.querySelectorAll('input[name="definitionTranslationProviderIds"]').forEach((input2) => {
+      input2.checked = enabled.has(input2.value);
+    });
+  }
+  function syncLookupPills(form2, links, targetLanguage2) {
+    const container = form2.querySelector(".jpdb-reader-lookup-links");
+    if (!container) return;
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(
+      links,
+      [],
+      targetLanguage2
+    ));
   }
   const PUBLISHED_DICTIONARY_CATALOG_URL = "https://dictionaries.yomureader.com/v1/catalog.json";
   async function publishedDictionaryHeadwordLanguages(requester = requestPublishedCatalog) {
@@ -373114,6 +373468,11 @@ ${options.version}`;
         adoptSettings: (settings) => {
           this.settings = settings;
         },
+        syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
+          form2,
+          settings,
+          { source: "durable-settings", previousSettings }
+        ),
         applyTheme: (theme) => {
           const input2 = form2.querySelector("[data-theme-value]");
           if (input2 && input2.value !== theme) {
@@ -373142,12 +373501,10 @@ ${options.version}`;
       form2.querySelector('select[name="targetLanguage"]')?.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
         if (!isLearningTargetRosterId(value)) return;
-        syncLanguageFamilyDom(form2, value);
-        syncYoutubeImmersionTarget(form2, this.settings, value);
-        this.renderLookupPillsForTarget(form2, value);
-        localizeSettingsForm(form2, this.settings.interfaceLanguage);
-        void this.refreshTargetDictionaryAvailability(form2, value);
-        void this.refreshDictionaryStatus(form2);
+        this.syncLanguageProfileForm(form2, this.settings, {
+          source: "target-picker",
+          targetLanguage: value
+        });
       });
       this.bindAppearancePresets(form2, applyThemePreview);
       form2.querySelector('select[name="popupMode"]')?.addEventListener("change", () => syncStickyBottomSheetAvailability(form2));
@@ -373210,24 +373567,13 @@ ${options.version}`;
       });
       syncPageScanModeControls(form2);
     }
-    /**
-     * Swap the pill editor to the newly picked target's verified hotlinks.
-     *
-     * The dialog is the one place a target changes, and the row it shows has to
-     * change with it or the learner saves Japanese pills against a Spanish
-     * target. The rows are read back out of the live form first so anything the
-     * learner typed in this session — a custom site, a relabelled pill, an
-     * enabled toggle a shared site carries over — survives the swap.
-     */
-    renderLookupPillsForTarget(form2, targetLanguage2) {
-      const container = form2.querySelector(".jpdb-reader-lookup-links");
-      if (!container) return;
-      const submitted = lookupLinkRows(new FormData(form2));
-      setInnerHtml(container, renderDictionaryLookupLinkEditor(
-        dictionaryLookupLinksForTarget(submitted, targetLanguage2),
-        [],
-        targetLanguage2
-      ));
+    syncLanguageProfileForm(form2, settings, request2) {
+      syncLanguageProfileForm(form2, settings, request2, {
+        refreshTargetControls: (targetLanguage2) => {
+          void this.refreshTargetDictionaryAvailability(form2, targetLanguage2);
+          void this.refreshDictionaryStatus(form2);
+        }
+      });
     }
     async refreshTargetDictionaryAvailability(form2, selected2 = selectedTargetLanguage(form2, this.settings)) {
       const requestId = ++this.targetDictionaryAvailabilityRequestId;

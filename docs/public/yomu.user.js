@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.b22ad263c909.user.js#sha256=sirSY8kJULtwGvwR3aGy07dwsbz04GcgjqIouqGX2jI=
+// @require https://yomureader.com/greasyfork/yomu-runtime.b7a654f0736f.user.js#sha256=t6ZU8HNvGvyTtfONjcjf2idKDMAu9fWp+16LyczUH4I=
 // @resource yomuCss  https://yomureader.com/yomu.06756a99805b.css#sha256=BnVqmYBbGJ8fYRBJrbpdxbbZzBXpEVrwHyyGClXluR4=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -2534,20 +2534,20 @@ return {
 ...importedCard,
 ...existingCard,
 meanings: uniquePrimitiveStrings([
-...stringArray$1(importedCard.meanings),
-...stringArray$1(existingCard.meanings)
+...stringArray(importedCard.meanings),
+...stringArray(existingCard.meanings)
 ]),
 sentence: existingCard.sentence || importedCard.sentence,
 sourceUrl: existingCard.sourceUrl || importedCard.sourceUrl,
 tags: uniquePrimitiveStrings([
-...stringArray$1(importedCard.tags),
-...stringArray$1(existingCard.tags)
+...stringArray(importedCard.tags),
+...stringArray(existingCard.tags)
 ]),
 createdAt: minFiniteNumber(importedCard.createdAt, existingCard.createdAt) ?? existingCard.createdAt ?? importedCard.createdAt,
 updatedAt: maxFiniteNumber(importedCard.updatedAt, existingCard.updatedAt) ?? existingCard.updatedAt ?? importedCard.updatedAt
 };
 }
-function stringArray$1(value) {
+function stringArray(value) {
 return Array.isArray(value) ? value.filter((item) => typeof item === "string" && item.trim().length > 0) : [];
 }
 function uniquePrimitiveStrings(values) {
@@ -3557,7 +3557,6 @@ const HAS_JAPANESE = new RegExp(`(?:[${JAPANESE_SCRIPT}]|${SUPPLEMENTARY_KANJI_P
 const HAS_JAPANESE_LETTER = new RegExp(`(?:[${JAPANESE_LETTERS}]|${SUPPLEMENTARY_KANJI_PATTERN})`, "u");
 const KANJI_RE$1 = new RegExp(KANJI_PATTERN, "u");
 const KANA_ONLY_RUN_RE = new RegExp(`^[${KANA_WITH_PROLONGED}]+$`, "u");
-const READING_KANA_CHAR_RE = new RegExp(`[${READING_KANA}]`, "u");
 const READING_KANA_ONLY_RE = new RegExp(`^[${READING_KANA}]+$`, "u");
 const BMP_KANJI_CHARACTER_RE = new RegExp(`^[${KANJI}]$`, "u");
 function isJapaneseKanjiCharacter(value) {
@@ -3869,4097 +3868,26 @@ const RENDERED_WORD_CONTRAST_VARS = [
 const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
 (name) => name !== "--jpdb-reader-word-contrast-shadow"
 );
-const BLOCKED_HTML_ELEMENTS = new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
-const BLOCKED_ATTRIBUTES = new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
-const URL_ATTRIBUTES = new Set(["href", "poster", "src", "xlink:href"]);
-const SAFE_URL_PROTOCOLS = new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
-const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
-let trustedHtmlPolicy;
-function setInnerHtml(element, html) {
-if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
-}
-function replaceWithHtmlFragment(element, html) {
-try {
-const ownerDocument = element.ownerDocument || document;
-const { source, rootSelector } = contextualSanitizerSource(element, html);
-const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
-const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
-if (!parsedRoot) return false;
-sanitizeChildren(parsedRoot, parsed);
-const fragment = ownerDocument.createDocumentFragment();
-fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
-sanitizeChildren(fragment, ownerDocument);
-const target = element.localName === "template" && "content" in element ? element.content : element;
-target.replaceChildren(fragment);
-return true;
-} catch {
-return false;
-}
-}
-function contextualSanitizerSource(element, html) {
-if (element.namespaceURI === SVG_NAMESPACE) {
-return {
-source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-}
-switch (element.localName.toLowerCase()) {
-case "table":
-return {
-source: `<table data-yomu-sanitize-root>${html}</table>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-case "thead":
-case "tbody":
-case "tfoot":
-return {
-source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-case "tr":
-return {
-source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-case "colgroup":
-return {
-source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-case "select":
-return {
-source: `<select data-yomu-sanitize-root>${html}</select>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-case "optgroup":
-return {
-source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
-rootSelector: "[data-yomu-sanitize-root]"
-};
-default:
-return { source: html, rootSelector: "" };
-}
-}
-function htmlToFirstElement(html) {
-const trimmed = html.trim();
-if (!trimmed) return null;
-const template = document.createElement("template");
-setInnerHtml(template, trimmed);
-const first = template.content.firstElementChild;
-return first instanceof HTMLElement ? document.importNode(first, true) : null;
-}
-function appendToDocumentHead(element) {
-const target = document.head || document.documentElement || document.body;
-if (target) {
-target.appendChild(element);
-return;
-}
-document.addEventListener(
-"DOMContentLoaded",
-() => {
-if (!element.isConnected) appendToDocumentHead(element);
-},
-{ once: true }
-);
-}
-function escapeHtml(value) {
-return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-function sanitizeChildren(parent, ownerDocument) {
-for (const node of Array.from(parent.childNodes)) {
-if (node.nodeType !== 1) continue;
-const element = node;
-const localName = element.localName.toLowerCase();
-if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
-element.remove();
-continue;
-}
-if (localName.includes("-")) {
-sanitizeChildren(element, ownerDocument);
-element.replaceWith(...Array.from(element.childNodes));
-continue;
-}
-sanitizeElement(element, ownerDocument);
-const childRoot = localName === "template" && "content" in element ? element.content : element;
-sanitizeChildren(childRoot, ownerDocument);
-}
-}
-function sanitizeElement(element, ownerDocument) {
-for (const attribute of Array.from(element.attributes)) {
-const name = attribute.name.toLowerCase();
-if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
-element.removeAttribute(attribute.name);
-continue;
-}
-if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
-element.removeAttribute(attribute.name);
-continue;
-}
-if (name === "style") {
-const style = sanitizedInlineStyle(attribute.value, ownerDocument);
-if (style) element.setAttribute(attribute.name, style);
-else element.removeAttribute(attribute.name);
-}
-}
-if (element.getAttribute("target")?.toLowerCase() === "_blank") {
-const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
-rel.add("noopener");
-rel.add("noreferrer");
-element.setAttribute("rel", [...rel].join(" "));
-}
-}
-function sanitizedInlineStyle(value, ownerDocument) {
-const declaration = ownerDocument.createElement("span").style;
-declaration.cssText = value;
-const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
-let removedProperty = false;
-for (const property of Array.from(declaration)) {
-const propertyValue = declaration.getPropertyValue(property);
-if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
-declaration.removeProperty(property);
-removedProperty = true;
-}
-}
-return containsUnsafeSource || removedProperty ? declaration.cssText : value;
-}
-function isSafeHtmlUrl(value) {
-const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
-if (!candidate) return true;
-if (candidate.startsWith("#")) return true;
-if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
-try {
-const parsed = new URL(candidate, "https://yomureader.invalid/");
-return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
-} catch {
-return false;
-}
-}
-function trustedHtml(value) {
-try {
-const factory = trustedTypesFactory();
-if (!factory) return value;
-if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-return trustedHtmlPolicy?.createHTML(value) ?? value;
-} catch {
-trustedHtmlPolicy = null;
-return value;
-}
-}
-function trustedTypesFactory() {
-const root = globalThis;
-return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
-(factory) => Boolean(factory)
-);
-}
-function createTrustedHtmlPolicy(factory) {
-const existing = factory.getPolicy?.("yomu-reader");
-if (existing?.createHTML) return existing;
-const options = { createHTML: (html) => html };
-return createTrustedHtmlPolicyWithOptions(
-factory,
-pageCompartmentValue(options, {
-cloneFunctions: true,
-wrapReflectors: true
-})
-) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-}
-function createTrustedHtmlPolicyWithOptions(factory, options) {
-try {
-return factory.createPolicy?.("yomu-reader", options) ?? null;
-} catch {
-return null;
-}
-}
-const CORE_COLOR_TOKENS = {
-black: "#000000",
-white: "#ffffff"
-};
-const BRAND_COLOR_TOKENS = {
-accent: "#5ea780",
-consoleAccent: "#247a58"
-};
-const READER_THEME_COLOR_TOKENS = {
-dark: {
-bg: "#181b20",
-surface: "#20242b",
-surface2: "#282e37",
-accentText: "#11161d"
-},
-light: {
-bg: "#fbfcfe",
-surface: "#f4f7fa",
-surface2: "#e8edf3",
-text: "#17202a",
-accentText: CORE_COLOR_TOKENS.white
-}
-};
-const OVERLAY_COLOR_TOKENS = {
-text: CORE_COLOR_TOKENS.white,
-outline: CORE_COLOR_TOKENS.black,
-background: READER_THEME_COLOR_TOKENS.dark.bg
-};
-const OCR_OVERLAY_COLOR_TOKENS = {
-text: READER_THEME_COLOR_TOKENS.light.text,
-outline: CORE_COLOR_TOKENS.white
-};
-const DEFAULT_WORD_COLOR_TOKENS = {
-new: "#ffffff",
-learning: "#ffd166",
-known: "#7bd88f",
-due: "#5fb3b3",
-failed: "#ff6b6b",
-ignored: "#b8a7ff"
-};
-const DEFAULT_PITCH_COLOR_TOKENS = {
-heiban: "#359eff",
-atamadaka: "#fe4b74",
-nakadaka: "#fba840",
-odaka: "#57ccb7",
-unknown: "#94a3b8"
-};
-const LOOKUP_PILL_COLOR_TOKENS = {
-jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
-jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
-bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-"yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
-jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
-weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
-kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
-takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
-"wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
-"immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
-nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
-uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
-anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
-copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
-};
-const PAGE_WORD_COLOR_TOKENS = {
-unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
-};
-const LOGGER_COLOR_TOKENS = {
-debug: "#6b7280",
-warn: "#a15c00",
-error: "#b91c1c"
-};
-const JITEN_API_KEY_PREFIX = "ak_";
-function effectiveJpdbApiKey(settings) {
-const apiKey = settings.apiKey.trim();
-return isJitenApiCredential(apiKey) ? "" : apiKey;
-}
-function effectiveJitenApiKey(settings) {
-const explicit = settings.jitenApiKey.trim();
-if (explicit) return explicit;
-const apiKey = settings.apiKey.trim();
-return isJitenApiCredential(apiKey) ? apiKey : "";
-}
-function hasJpdbApiCredential(settings) {
-return Boolean(effectiveJpdbApiKey(settings));
-}
-function hasJitenApiCredential(settings) {
-return Boolean(effectiveJitenApiKey(settings));
-}
-function effectiveBunproFrontendApiToken(settings) {
-return settings.bunproFrontendApiToken?.trim() ?? "";
-}
-function effectiveBunproLegacyApiKey(settings) {
-return settings.bunproApiKey?.trim() ?? "";
-}
-function hasBunproFrontendCredential(settings) {
-return Boolean(effectiveBunproFrontendApiToken(settings));
-}
-function isBunproFrontendCredentialExpired(settings, now = Date.now()) {
-const raw = settings.bunproFrontendApiTokenExpiresAt?.trim();
-if (!raw || !hasBunproFrontendCredential(settings)) return false;
-const expiresAt = Date.parse(raw);
-return Number.isFinite(expiresAt) && expiresAt <= now;
-}
-function effectiveWanikaniApiToken(settings) {
-return settings.wanikaniApiToken?.trim() ?? "";
-}
-function hasWanikaniApiCredential(settings) {
-return Boolean(effectiveWanikaniApiToken(settings));
-}
-function isJitenApiCredential(value) {
-return value.trim().startsWith(JITEN_API_KEY_PREFIX);
-}
-const __vite_import_meta_env__ = { "DEV": false };
-const LOG_PREFIX = "[Yomu]";
-const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-const RUNTIME_LOG_KEY = "yomu:enable-logs";
-const REDACTED = "[redacted]";
-const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
-const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-const env = __vite_import_meta_env__;
-const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-class ScopedLogger {
-constructor(parent, scopeName) {
-this.parent = parent;
-this.scopeName = scopeName;
-}
-debug(message, ...args) {
-this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-}
-info(message, ...args) {
-this.parent.write(this.scopeName, message, args, console.info, "");
-}
-warn(message, ...args) {
-const optional = args.some(isOptionalCorsBridgeError);
-this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
-}
-error(message, ...args) {
-this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-}
-warnOnce(key, message, ...args) {
-this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
-}
-time(label, ...args) {
-if (!this.parent.isEnabled()) return () => void 0;
-const start = nowMs();
-this.debug(`${label} started`, ...args);
-return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-}
-}
-class LoggerImpl {
-settingsProvider;
-forceEnabled = false;
-onceKeys = new Set();
-configure(options) {
-this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-}
-scope(scopeName) {
-return new ScopedLogger(this, scopeName);
-}
-isEnabled() {
-if (BUILD_LOGGING_ENABLED) return true;
-if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-try {
-return this.settingsProvider?.().enableLogging === true;
-} catch {
-return false;
-}
-}
-isDevMode() {
-return isDevMode();
-}
-enable(persist = false) {
-this.forceEnabled = true;
-if (persist) setRuntimeLoggingOverride(true);
-this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-}
-disable(persist = false) {
-this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-this.forceEnabled = false;
-if (persist) setRuntimeLoggingOverride(false);
-}
-reset() {
-this.onceKeys.clear();
-}
-warnOnce(key, scope, message, args) {
-if (this.onceKeys.has(key)) return;
-this.onceKeys.add(key);
-this.write(scope, message, args, console.warn, WARN_STYLE);
-}
-write(scope, message, args, writer, levelStyle) {
-if (!this.isEnabled()) return;
-writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-}
-}
-const Logger = new LoggerImpl();
-setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
-function configureLogger(options) {
-runtimeLoggingOverride = void 0;
-Logger.configure(options);
-}
-function loggingSettingsSummary(settings) {
-return {
-enableLogging: settings.enableLogging,
-hasApiKey: hasJpdbApiCredential(settings),
-hasJitenApiKey: hasJitenApiCredential(settings),
-localDictionariesEnabled: settings.localDictionariesEnabled,
-localDictionarySources: settings.dictionaryPreferences.length,
-ankiEnabled: settings.ankiEnabled,
-newTabEnabled: settings.newTabEnabled,
-newTabSource: settings.newTabSource,
-ocrEnabled: settings.ocrEnabled,
-subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
-youtubeImmersionEnabled: settings.youtubeImmersionEnabled
-};
-}
-function isDevMode() {
-return BUILD_IS_DEV_MODE;
-}
-function writeDebugToConsole(...args) {
-if (isDevMode()) console.log(...args);
-else console.debug(...args);
-}
-function isOptionalCorsBridgeError(value) {
-return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
-}
-let runtimeLoggingOverride;
-function getRuntimeLoggingOverride() {
-if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
-try {
-runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-} catch {
-runtimeLoggingOverride = false;
-}
-return runtimeLoggingOverride;
-}
-function setRuntimeLoggingOverride(enabled) {
-runtimeLoggingOverride = enabled;
-try {
-if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-} catch {
-}
-}
-function nowMs() {
-return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-}
-function sanitizeForConsole(value) {
-if (typeof value === "string") return redactString(value);
-if (value === null || value === void 0 || typeof value !== "object") return value;
-const sanitized = sanitizeSpecialConsoleValue(value);
-if (sanitized.handled) return sanitized.value;
-if (Array.isArray(value)) return value.map(sanitizeForConsole);
-return sanitizeRecordForConsole(value);
-}
-function sanitizeSpecialConsoleValue(value) {
-for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-const sanitized = sanitizer(value);
-if (sanitized.handled) return sanitized;
-}
-return { handled: false };
-}
-const CONSOLE_VALUE_SANITIZERS = [
-(value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-(value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-(value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-(value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-];
-function sanitizeRecordForConsole(record2) {
-return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
-key,
-shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
-]));
-}
-function sanitizeFlatValue(value) {
-if (typeof value === "string") return redactString(value);
-if (value instanceof Error) return { name: value.name, message: value.message };
-return value;
-}
-function shouldRedactEntry(key, value) {
-if (!SECRET_KEY_PATTERN.test(key)) return false;
-if (typeof value === "number" && /tokens?/i.test(key)) return false;
-return true;
-}
-function redactString(value) {
-return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-}
-if (typeof window !== "undefined") {
-window.__YOMU_LOGGER__ = Logger;
-window.YomuLogger = Logger;
-}
-function runtime() {
-const targetRuntime = yomuLearningTargetRuntime();
-if (!targetRuntime) throw new Error("Yomu learning-target runtime did not load.");
-return targetRuntime;
-}
-function activeLearningTarget() {
-return runtime().activeLearningTarget();
-}
-function activeLearningTargetGeneration() {
-return runtime().activeLearningTargetGeneration();
-}
-function activeLearningTargetLanguage() {
-return runtime().activeLearningTargetLanguage();
-}
-function adoptLearningTargetLanguage(value) {
-return runtime().adoptLearningTargetLanguage(value);
-}
-function defaultLearningTargetModule() {
-return runtime().defaultLearningTargetModule();
-}
-function learningTargetModuleFor(language) {
-return runtime().learningTargetModuleFor(language);
-}
-function normalizeLearningTargetLanguage(value) {
-return runtime().normalizeLearningTargetLanguage(value);
-}
-const languages = [
-{
-id: "sq",
-runtimeLocale: "sq",
-englishName: "Albanian",
-nativeName: "Shqip",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "grc",
-runtimeLocale: "grc",
-englishName: "Ancient Greek",
-nativeName: "Ἑλληνιστί",
-defaultScript: "Grek",
-scripts: [
-"Grek"
-],
-direction: "ltr"
-},
-{
-id: "ar",
-runtimeLocale: "ar",
-englishName: "Arabic",
-nativeName: "العربية",
-defaultScript: "Arab",
-scripts: [
-"Arab"
-],
-direction: "rtl"
-},
-{
-id: "yue",
-runtimeLocale: "yue-Hant",
-englishName: "Cantonese",
-nativeName: "粵語",
-defaultScript: "Hant",
-scripts: [
-"Hant"
-],
-direction: "ltr"
-},
-{
-id: "zh",
-runtimeLocale: "zh-Hans",
-englishName: "Chinese",
-nativeName: "中文（简体）",
-defaultScript: "Hans",
-scripts: [
-"Hans",
-"Hant"
-],
-direction: "ltr"
-},
-{
-id: "da",
-runtimeLocale: "da",
-englishName: "Danish",
-nativeName: "Dansk",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "nl",
-runtimeLocale: "nl",
-englishName: "Dutch",
-nativeName: "Nederlands",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "en",
-runtimeLocale: "en",
-englishName: "English",
-nativeName: "English",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "fi",
-runtimeLocale: "fi",
-englishName: "Finnish",
-nativeName: "Suomi",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "fr",
-runtimeLocale: "fr",
-englishName: "French",
-nativeName: "Français",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "de",
-runtimeLocale: "de",
-englishName: "German",
-nativeName: "Deutsch",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "el",
-runtimeLocale: "el",
-englishName: "Greek",
-nativeName: "Ελληνικά",
-defaultScript: "Grek",
-scripts: [
-"Grek"
-],
-direction: "ltr"
-},
-{
-id: "hu",
-runtimeLocale: "hu",
-englishName: "Hungarian",
-nativeName: "Magyar",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "id",
-runtimeLocale: "id",
-englishName: "Indonesian",
-nativeName: "Bahasa Indonesia",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "it",
-runtimeLocale: "it",
-englishName: "Italian",
-nativeName: "Italiano",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "km",
-runtimeLocale: "km",
-englishName: "Khmer",
-nativeName: "ខ្មែរ",
-defaultScript: "Khmr",
-scripts: [
-"Khmr"
-],
-direction: "ltr"
-},
-{
-id: "ko",
-runtimeLocale: "ko",
-englishName: "Korean",
-nativeName: "한국어",
-defaultScript: "Kore",
-scripts: [
-"Kore"
-],
-direction: "ltr"
-},
-{
-id: "lo",
-runtimeLocale: "lo",
-englishName: "Lao",
-nativeName: "ລາວ",
-defaultScript: "Laoo",
-scripts: [
-"Laoo"
-],
-direction: "ltr"
-},
-{
-id: "la",
-runtimeLocale: "la",
-englishName: "Latin",
-nativeName: "Latina",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "mn",
-runtimeLocale: "mn-Cyrl",
-englishName: "Mongolian",
-nativeName: "Монгол",
-defaultScript: "Cyrl",
-scripts: [
-"Cyrl",
-"Mong"
-],
-direction: "ltr"
-},
-{
-id: "fa",
-runtimeLocale: "fa",
-englishName: "Persian",
-nativeName: "فارسی",
-defaultScript: "Arab",
-scripts: [
-"Arab"
-],
-direction: "rtl"
-},
-{
-id: "pl",
-runtimeLocale: "pl",
-englishName: "Polish",
-nativeName: "Polski",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "pt",
-runtimeLocale: "pt",
-englishName: "Portuguese",
-nativeName: "Português",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "ro",
-runtimeLocale: "ro",
-englishName: "Romanian",
-nativeName: "Română",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "ru",
-runtimeLocale: "ru",
-englishName: "Russian",
-nativeName: "Русский",
-defaultScript: "Cyrl",
-scripts: [
-"Cyrl"
-],
-direction: "ltr"
-},
-{
-id: "sh",
-runtimeLocale: "sr-Latn",
-englishName: "Serbo-Croatian",
-nativeName: "Srpskohrvatski",
-defaultScript: "Latn",
-scripts: [
-"Latn",
-"Cyrl"
-],
-direction: "ltr"
-},
-{
-id: "es",
-runtimeLocale: "es",
-englishName: "Spanish",
-nativeName: "Español",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "sv",
-runtimeLocale: "sv",
-englishName: "Swedish",
-nativeName: "Svenska",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "tl",
-runtimeLocale: "fil",
-englishName: "Tagalog",
-nativeName: "Tagalog",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "th",
-runtimeLocale: "th",
-englishName: "Thai",
-nativeName: "ไทย",
-defaultScript: "Thai",
-scripts: [
-"Thai"
-],
-direction: "ltr"
-},
-{
-id: "tr",
-runtimeLocale: "tr",
-englishName: "Turkish",
-nativeName: "Türkçe",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-},
-{
-id: "vi",
-runtimeLocale: "vi",
-englishName: "Vietnamese",
-nativeName: "Tiếng Việt",
-defaultScript: "Latn",
-scripts: [
-"Latn"
-],
-direction: "ltr"
-}
-];
-const languageConfig = {
-languages
-};
-const LEARNER_LANGUAGE_IDS = [
-"sq",
-"grc",
-"ar",
-"yue",
-"zh",
-"da",
-"nl",
-"en",
-"fi",
-"fr",
-"de",
-"el",
-"hu",
-"id",
-"it",
-"km",
-"ko",
-"lo",
-"la",
-"mn",
-"fa",
-"pl",
-"pt",
-"ro",
-"ru",
-"sh",
-"es",
-"sv",
-"tl",
-"th",
-"tr",
-"vi"
-];
-const configuredLanguages = languageConfig.languages;
-const LEARNER_LANGUAGES = Object.freeze(
-configuredLanguages.map(
-(language) => Object.freeze({
-...language,
-scripts: Object.freeze([...language.scripts])
-})
-)
-);
-const LANGUAGE_BY_ID = new Map(
-LEARNER_LANGUAGES.map((language) => [language.id, language])
-);
-function learnerLanguageById(id) {
-const language = LANGUAGE_BY_ID.get(id);
-if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
-return language;
-}
-function isLearnerLanguageId(value) {
-return LEARNER_LANGUAGE_IDS.includes(value);
-}
-function canonicalLanguageTag(value) {
-if (typeof value !== "string") return null;
-const candidate = value.trim().replace(/_/g, "-");
-if (!candidate || candidate.length > 255) return null;
-try {
-return Intl.getCanonicalLocales(candidate)[0] ?? null;
-} catch {
-return null;
-}
-}
-function languageSubtag(value) {
-const canonical = canonicalLanguageTag(value);
-if (!canonical) return null;
-try {
-return new Intl.Locale(canonical).language;
-} catch {
-return canonical.split("-")[0]?.toLowerCase() ?? null;
-}
-}
-function languageDisplayName(language, locale = "en") {
-try {
-return new Intl.DisplayNames([locale], { type: "language" }).of(language) ?? language;
-} catch {
-return language;
-}
-}
-const SLICE1_TARGET_LANGUAGE = "ja";
-const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
-const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
-id: "ja",
-runtimeLocale: "ja",
-englishName: "Japanese",
-nativeName: "日本語",
-defaultScript: "Jpan",
-scripts: Object.freeze(["Jpan"]),
-direction: "ltr",
-studyTargetReadiness: "full"
-});
-const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
-const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
-Object.freeze([
-JAPANESE_TARGET_ROSTER_ENTRY,
-...LEARNER_LANGUAGES.map((language) => Object.freeze({
-...language,
-studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
-}))
-]);
-Object.freeze(
-LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
-);
-function canonicalTagForSlice1Language(id) {
-const runtimeLocale = learnerLanguageById(id).runtimeLocale;
-return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
-}
-function learningTargetRosterIdForTag(value) {
-const canonical = canonicalLanguageTag(value);
-if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
-return slice1LanguageIdForTag(value);
-}
-function slice1LanguageIdForTag(value) {
-if (typeof value !== "string") return null;
-const input = value.trim().toLowerCase().replace(/_/g, "-");
-const inputBase = input.split("-")[0] ?? "";
-if (isLearnerLanguageId(inputBase)) return inputBase;
-const canonical = canonicalLanguageTag(value);
-if (!canonical) return null;
-const base = languageSubtag(canonical);
-if (!base) return null;
-if (base === "sr" || base === "hr" || base === "bs") return "sh";
-if (base === "fil") return "tl";
-return isLearnerLanguageId(base) ? base : null;
-}
-function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
-if (typeof value === "string") {
-const input = value.trim().toLowerCase().replace(/_/g, "-");
-if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
-}
-const canonical = canonicalLanguageTag(value);
-const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
-if (canonical && canonicalId) {
-if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
-return canonical;
-}
-const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
-return canonicalTagForSlice1Language(fallbackId);
-}
-const ankiFieldNames = (names) => names.split("|");
-const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-"Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-);
-const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-"Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-);
-ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-[
-...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-"Expression Reading",
-"Japanese Expression",
-...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-[
-...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-...ANKI_HEADWORD_FIELD_NAME_TAIL
-];
-ankiFieldNames(
-"Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-);
-ankiFieldNames(
-"Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-);
-ankiFieldNames(
-"Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-);
-ankiFieldNames(
-"Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
-);
-const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
-"SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
-);
-ankiFieldNames(
-"Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-);
-function normalizeAnkiFieldName(value) {
-return value.replace(/[_\s-]+/g, "").toLowerCase();
-}
-const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
-function isSentenceAudioFieldName(fieldName) {
-return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
-}
-const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
-function normalizeAnkiFieldMappings(value) {
-if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-const out = {};
-Object.entries(value).forEach(([modelName, mapping]) => {
-const normalizedModelName = modelName.trim();
-if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
-const normalizedMapping = {};
-for (const role of ANKI_FIELD_MAPPING_ROLES) {
-const fieldName = mapping[role];
-if (typeof fieldName !== "string") continue;
-const normalizedFieldName = fieldName.trim();
-if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
-}
-if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
-});
-return out;
-}
-function migrateAnkiSentenceAudioMappings(mappings) {
-const out = {};
-const movedModels = [];
-for (const [modelName, mapping] of Object.entries(mappings)) {
-const audioField = mapping.audio?.trim() ?? "";
-if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
-out[modelName] = mapping;
-continue;
-}
-const { audio: _audio, ...rest } = mapping;
-out[modelName] = { ...rest, sentenceAudio: audioField };
-movedModels.push(modelName);
-}
-return { mappings: out, movedModels };
-}
-const FALLBACK_HEX_COLOR = "#000000";
-function normalizeHexColor(color) {
-return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
-}
-function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
-const l1 = relativeLuminance(a, normalizeColor);
-const l2 = relativeLuminance(b, normalizeColor);
-const light = Math.max(l1, l2);
-const dark = Math.min(l1, l2);
-return (light + 0.05) / (dark + 0.05);
-}
-function relativeLuminance(color, normalizeColor = normalizeHexColor) {
-const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
-const channel = value / 255;
-return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-});
-return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
-const a = sharedHexToRgb(from, normalizeColor);
-const b = sharedHexToRgb(to, normalizeColor);
-return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
-}
-function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
-const safe = normalizeHexColor(normalizeColor(color));
+const AGGREGATE_RUNTIME_MODULES_SLOT = Symbol.for("yomu.aggregate-runtime-modules.v1");
+function aggregateRuntimeModules() {
+const modules = globalThis[AGGREGATE_RUNTIME_MODULES_SLOT];
+if (!isAggregateRuntimeModules(modules)) {
+throw new Error("The Yomu aggregate runtime Modules are not installed.");
+}
+return modules;
+}
+function isAggregateRuntimeModules(value) {
+if (!value || typeof value !== "object") return false;
 return [
-parseInt(safe.slice(1, 3), 16),
-parseInt(safe.slice(3, 5), 16),
-parseInt(safe.slice(5, 7), 16)
-];
-}
-const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
-const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
-const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
-const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
-const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
-const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
-function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
-if (typeof value !== "string") return fallback;
-const trimmed = value.trim();
-if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
-const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
-if (!shortHex) return fallback;
-return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
-}
-function accentToRgba(color, alpha) {
-const safe = sanitizeAccentColor(color);
-const red = parseInt(safe.slice(1, 3), 16);
-const green = parseInt(safe.slice(3, 5), 16);
-const blue = parseInt(safe.slice(5, 7), 16);
-return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
-}
-function accessibleOcrBackgroundOpacity(opacity) {
-const numericOpacity = Number(opacity);
-const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
-return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
-}
-function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
-const accent = sanitizeAccentColor(accentColor);
-const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
-if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-return accent;
-}
-for (let amount = 0.08; amount <= 1; amount += 0.04) {
-const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
-if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
-return candidate;
-}
-}
-return "#000000";
-}
-function ocrRenderedBackgroundContrast(color, opacity) {
-const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
-return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
-}
-const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
-DEFAULT_ACCENT_COLOR,
-DEFAULT_OCR_BACKGROUND_OPACITY
-);
-function hasOwn(value, key) {
-return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
-}
-function objectRecord$3(value) {
-return value && typeof value === "object" ? value : null;
-}
-function trimmedText(value) {
-return typeof value === "string" ? value.trim() : "";
-}
-function stringValue(value) {
-return typeof value === "string" ? value : "";
-}
-function finiteNumber$1(value, fallback) {
-const number = Number(value);
-return Number.isFinite(number) ? number : fallback;
-}
-function booleanValue(value, fallback) {
-return typeof value === "boolean" ? value : fallback;
-}
-const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
-const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
-function isSupportedLanguageProfileSchemaVersion(value) {
-return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
-}
-const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
-const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
-const PARSER_PROVIDERS = new Set(["local", "jiten", "jpdb", "auto"]);
-function readOutputLanguageField(source) {
-return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
-}
-function createDefaultLanguageProfile(defaults = {}) {
-return {
-schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
-id: DEFAULT_LANGUAGE_PROFILE_ID,
-...outputLanguageFields(normalizeSlice1LearnerLanguage(
-readOutputLanguageField(defaults),
-DEFAULT_SLICE1_LEARNER_LANGUAGE
-)),
-targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
-uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
-parserProvider: normalizeParserProvider$1(defaults.parserProvider, "local"),
-dictionaries: emptyProfileDictionaries(),
-definitionTranslationProviderIds: []
-};
-}
-function normalizeLanguageProfiles(value, activeProfileId, defaults = {}) {
-const rawProfiles = Array.isArray(value) ? value : [];
-const profiles = [];
-const usedIds = new Set();
-for (let index = 0; index < rawProfiles.length; index += 1) {
-const profile = normalizeLanguageProfile(rawProfiles[index], index, defaults);
-if (!profile) continue;
-profile.id = uniqueProfileId(profile.id, usedIds);
-usedIds.add(profile.id);
-profiles.push(profile);
-}
-if (!profiles.length) profiles.push(createDefaultLanguageProfile(defaults));
-const requestedActiveId = typeof activeProfileId === "string" ? activeProfileId.trim() : "";
-const active = profiles.find((profile) => profile.id === requestedActiveId) ?? profiles[0];
-return {
-profiles,
-activeProfileId: active.id
-};
-}
-function outputLanguageFields(outputLanguage) {
-return { outputLanguage, learnerLanguage: outputLanguage };
-}
-function activeLanguageProfile(profiles, activeProfileId) {
-return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
-}
-function resolveLanguageProfile(value) {
-if (isRecord$2(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
-const normalized2 = normalizeLanguageProfiles([value], value.id, {
-outputLanguage: readOutputLanguageField(value),
-uiLocale: value.uiLocale,
-parserProvider: value.parserProvider
-});
-return normalized2.profiles[0];
-}
-const source = isRecord$2(value) ? value : {};
-const normalized = normalizeLanguageProfiles(
-source.languageProfiles,
-source.activeLanguageProfileId,
-{
-outputLanguage: readOutputLanguageField(source),
-uiLocale: source.interfaceLanguage,
-parserProvider: source.parserProvider
-}
-);
-return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
-}
-function normalizeLanguageProfile(value, index, defaults) {
-if (!isRecord$2(value)) return null;
-if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
-return {
-schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
-id: normalizeProfileId(value.id, index),
-...outputLanguageFields(normalizeSlice1LearnerLanguage(
-readOutputLanguageField(value),
-normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults))
-)),
-targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
-uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, "en")),
-parserProvider: normalizeParserProvider$1(value.parserProvider, normalizeParserProvider$1(defaults.parserProvider, "local")),
-dictionaries: normalizeProfileDictionaries(value.dictionaries),
-definitionTranslationProviderIds: normalizeStringIds(value.definitionTranslationProviderIds)
-};
-}
-function normalizeProfileId(value, index) {
-const candidate = typeof value === "string" ? value.trim() : "";
-return PROFILE_ID_RE.test(candidate) ? candidate : `profile-${index + 1}`;
-}
-function uniqueProfileId(candidate, used) {
-if (!used.has(candidate)) return candidate;
-let suffix = 2;
-while (used.has(`${candidate}-${suffix}`)) suffix += 1;
-return `${candidate}-${suffix}`;
-}
-function normalizeUiLocale(value, fallback) {
-if (value === "auto") return "auto";
-return canonicalLanguageTag(value) ?? fallback;
-}
-function normalizeParserProvider$1(value, fallback) {
-return PARSER_PROVIDERS.has(value) ? value : fallback;
-}
-function normalizeProfileDictionaries(value) {
-if (!isRecord$2(value)) return emptyProfileDictionaries();
-const enabled = normalizeStringIds(value.enabled);
-const order = normalizeStringIds(value.order);
-const installed = normalizeStringIds([
-...normalizeStringIds(value.installed),
-...enabled,
-...order
-]);
-const installedSet = new Set(installed);
-return {
-installed,
-enabled: enabled.filter((id) => installedSet.has(id)),
-order: [
-...order.filter((id) => installedSet.has(id)),
-...installed.filter((id) => !order.includes(id))
-]
-};
-}
-function emptyProfileDictionaries() {
-return { installed: [], enabled: [], order: [] };
-}
-function normalizeStringIds(value) {
-if (!Array.isArray(value)) return [];
-const seen = new Set();
-const result = [];
-for (const item of value) {
-if (typeof item !== "string") continue;
-const id = item.trim();
-if (!id || id.length > 160 || seen.has(id)) continue;
-seen.add(id);
-result.push(id);
-}
-return result;
-}
-function isRecord$2(value) {
-return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-function targetLanguageOf(value) {
-return resolveLanguageProfile(value).targetLanguage;
-}
-function outputLanguageOf(value) {
-return resolveLanguageProfile(value).outputLanguage;
-}
-function adoptLearningTargetFromSettings(value) {
-return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
-}
-function isTargetDefaultOcrLanguageTag(value) {
-const tag = value?.trim().toLowerCase();
-if (!tag) return false;
-return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
-}
-const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = new Set(["ja-jp", "ko-kr"]);
-const CARD_STATE_LABEL_KEYS = {
-new: "stateNew",
-learning: "stateLearning",
-young: "stateYoung",
-mature: "stateMature",
-known: "stateKnown",
-mastered: "stateMastered",
-due: "stateDue",
-failed: "stateFailed",
-locked: "stateLocked",
-"never-forget": "stateNeverForget",
-blacklisted: "stateBlacklisted",
-suspended: "stateSuspended",
-"in-deck": "stateInDeck",
-"not-in-deck": "stateNotInDeck",
-redundant: "stateRedundant",
-frequent: "stateFrequent",
-unparsed: "stateUnparsed"
-};
-function resolveUiLanguage(language) {
-return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
-}
-function uiText(language, key) {
-return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
-}
-function cardStateLabel(state, language, fallback = state) {
-return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
-}
-function formatUiText(language, key, values) {
-return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
-}
-function uiList(language, parts) {
-return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
-}
-function fallbackResolveUiLanguage(language) {
-if (language === "ja" || language === "en") return language;
-const languages2 = typeof navigator === "undefined" ? [] : [
-...Array.isArray(navigator.languages) ? navigator.languages : [],
-navigator.language
-];
-return languages2.some((value) => typeof value === "string" && value.toLowerCase().startsWith("ja")) ? "ja" : "en";
-}
-function fallbackCardStateLabel(state, fallback) {
-return CARD_STATE_LABEL_KEYS[state] ? fallbackUiText(CARD_STATE_LABEL_KEYS[state]) : fallback;
-}
-function fallbackUiText(key) {
-return String(key);
-}
-function formatTemplate(template, values) {
-return Object.entries(values).reduce(
-(text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
-template
-);
-}
-function externalLinkIcon() {
-return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-<path d="M7 17 17 7"></path>
-<path d="M9 7h8v8"></path>
-</svg>`;
-}
-function copyIcon() {
-return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-<rect x="9" y="9" width="10" height="10" rx="2"></rect>
-<path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
-</svg>`;
-}
-function ankiIcon() {
-return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-<rect x="5" y="4" width="14" height="16" rx="2"></rect>
-<path d="M12 8v8"></path>
-<path d="M8 12h8"></path>
-</svg>`;
-}
-function speakerIcon() {
-return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-<path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
-<path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
-<path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
-</svg>`;
-}
-const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
-const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
-function hasTargetLookupSites(targetLanguage) {
-return yomuSettingsSurfaceCompanion()?.lookupLinks?.hasTargetLookupSites(targetLanguage) ?? false;
-}
-function isTargetLookupLinkId(id) {
-return yomuSettingsSurfaceCompanion()?.lookupLinks?.isTargetLookupLinkId(id) ?? false;
-}
-function targetLookupLinks(targetLanguage) {
-return yomuSettingsSurfaceCompanion()?.lookupLinks?.targetLookupLinks(targetLanguage) ?? [];
-}
-const MAX_EXTRA_LOOKUP_LINKS = 16;
-const JPDB_LOOKUP_LINK = {
-id: "jpdb",
-label: "JPDB",
-urlTemplate: "https://jpdb.io/search?q={query}",
-enabled: true
-};
-const JITEN_LIVE_FREQUENCY_PILL = {
-id: "jiten-frequency",
-label: "Jiten",
-urlTemplate: "",
-enabled: true,
-action: "frequency-live"
-};
-const JPDB_LIVE_FREQUENCY_PILL = {
-id: "jpdb-frequency",
-label: "JPDB",
-urlTemplate: "",
-enabled: true,
-action: "frequency-live"
-};
-const JISHO_LOOKUP_LINK = {
-id: "jisho",
-label: "Jisho",
-urlTemplate: "https://jisho.org/search/{query}",
-enabled: false
-};
-const YOMU_LOOKUP_LINK = {
-id: "yomu-search",
-label: "Yomu",
-urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
-enabled: true
-};
-const JITEN_LOOKUP_LINK = {
-id: "jiten",
-label: "Jiten",
-urlTemplate: "https://jiten.moe/parse?text={query}",
-enabled: true
-};
-const BUNPRO_LOOKUP_LINK = {
-id: "bunpro",
-label: "Bunpro",
-urlTemplate: "https://bunpro.jp/search?query={query}",
-enabled: true
-};
-const BUNPRO_LIVE_FREQUENCY_PILL = {
-id: "bunpro-frequency",
-label: "Bunpro",
-urlTemplate: "",
-enabled: true,
-action: "frequency-live"
-};
-const WEBLIO_LOOKUP_LINK = {
-id: "weblio",
-label: "Weblio",
-urlTemplate: "https://www.weblio.jp/content/{query}",
-enabled: false
-};
-const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
-const KOTOBANK_LOOKUP_LINK = {
-id: "kotobank",
-label: "Kotobank",
-urlTemplate: "https://kotobank.jp/search?q={query}",
-enabled: false
-};
-const TAKOBOTO_LOOKUP_LINK = {
-id: "takoboto",
-label: "Takoboto",
-urlTemplate: "https://takoboto.jp/?q={query}",
-enabled: false
-};
-const WIKTIONARY_LOOKUP_LINK = {
-id: "wiktionary-ja",
-label: "Wiktionary",
-urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
-enabled: false
-};
-const IMMERSION_KIT_LOOKUP_LINK = {
-id: "immersion-kit",
-label: "Immersion Kit",
-urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
-enabled: false
-};
-const NADESHIKO_LOOKUP_LINK = {
-id: "nadeshiko",
-label: "Nadeshiko",
-urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
-enabled: false
-};
-const UCHISEN_LOOKUP_LINK = {
-id: "uchisen",
-label: "Uchisen",
-urlTemplate: "https://uchisen.com/kanji/{query}",
-enabled: false
-};
-const COPY_LOOKUP_LINK = {
-id: "copy",
-label: "Copy",
-urlTemplate: "",
-enabled: true,
-action: "copy"
-};
-const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-YOMU_LOOKUP_LINK,
-JITEN_LOOKUP_LINK,
-JITEN_LIVE_FREQUENCY_PILL,
-JPDB_LOOKUP_LINK,
-JPDB_LIVE_FREQUENCY_PILL,
-BUNPRO_LOOKUP_LINK,
-BUNPRO_LIVE_FREQUENCY_PILL,
-JISHO_LOOKUP_LINK,
-WEBLIO_LOOKUP_LINK,
-KOTOBANK_LOOKUP_LINK,
-TAKOBOTO_LOOKUP_LINK,
-WIKTIONARY_LOOKUP_LINK,
-IMMERSION_KIT_LOOKUP_LINK,
-NADESHIKO_LOOKUP_LINK,
-UCHISEN_LOOKUP_LINK,
-COPY_LOOKUP_LINK
-];
-const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
-{ ...JPDB_LOOKUP_LINK, enabled: false },
-{ ...JISHO_LOOKUP_LINK, enabled: true },
-COPY_LOOKUP_LINK
-];
-const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
-YOMU_LOOKUP_LINK.id,
-JITEN_LOOKUP_LINK.id,
-JITEN_LIVE_FREQUENCY_PILL.id,
-JPDB_LOOKUP_LINK.id,
-JPDB_LIVE_FREQUENCY_PILL.id,
-BUNPRO_LOOKUP_LINK.id,
-BUNPRO_LIVE_FREQUENCY_PILL.id,
-JISHO_LOOKUP_LINK.id,
-WEBLIO_LOOKUP_LINK.id,
-KOTOBANK_LOOKUP_LINK.id,
-TAKOBOTO_LOOKUP_LINK.id,
-WIKTIONARY_LOOKUP_LINK.id,
-IMMERSION_KIT_LOOKUP_LINK.id,
-UCHISEN_LOOKUP_LINK.id,
-COPY_LOOKUP_LINK.id
-], [
-JITEN_LOOKUP_LINK.id,
-JITEN_LIVE_FREQUENCY_PILL.id,
-JPDB_LOOKUP_LINK.id,
-JPDB_LIVE_FREQUENCY_PILL.id,
-YOMU_LOOKUP_LINK.id,
-BUNPRO_LOOKUP_LINK.id,
-JISHO_LOOKUP_LINK.id,
-WEBLIO_LOOKUP_LINK.id,
-KOTOBANK_LOOKUP_LINK.id,
-TAKOBOTO_LOOKUP_LINK.id,
-WIKTIONARY_LOOKUP_LINK.id,
-IMMERSION_KIT_LOOKUP_LINK.id,
-UCHISEN_LOOKUP_LINK.id,
-COPY_LOOKUP_LINK.id
-], [
-YOMU_LOOKUP_LINK.id,
-JITEN_LOOKUP_LINK.id,
-JPDB_LOOKUP_LINK.id,
-JISHO_LOOKUP_LINK.id,
-WEBLIO_LOOKUP_LINK.id,
-REMOVED_GOO_LOOKUP_LINK_ID,
-KOTOBANK_LOOKUP_LINK.id,
-TAKOBOTO_LOOKUP_LINK.id,
-WIKTIONARY_LOOKUP_LINK.id,
-IMMERSION_KIT_LOOKUP_LINK.id,
-UCHISEN_LOOKUP_LINK.id,
-COPY_LOOKUP_LINK.id
-], [
-JITEN_LOOKUP_LINK.id,
-JPDB_LOOKUP_LINK.id,
-YOMU_LOOKUP_LINK.id,
-JISHO_LOOKUP_LINK.id,
-WEBLIO_LOOKUP_LINK.id,
-REMOVED_GOO_LOOKUP_LINK_ID,
-KOTOBANK_LOOKUP_LINK.id,
-TAKOBOTO_LOOKUP_LINK.id,
-WIKTIONARY_LOOKUP_LINK.id,
-IMMERSION_KIT_LOOKUP_LINK.id,
-UCHISEN_LOOKUP_LINK.id,
-COPY_LOOKUP_LINK.id
-], [
-JPDB_LOOKUP_LINK.id,
-JISHO_LOOKUP_LINK.id,
-COPY_LOOKUP_LINK.id,
-YOMU_LOOKUP_LINK.id,
-JITEN_LOOKUP_LINK.id,
-WEBLIO_LOOKUP_LINK.id,
-REMOVED_GOO_LOOKUP_LINK_ID,
-KOTOBANK_LOOKUP_LINK.id,
-TAKOBOTO_LOOKUP_LINK.id,
-WIKTIONARY_LOOKUP_LINK.id,
-IMMERSION_KIT_LOOKUP_LINK.id,
-UCHISEN_LOOKUP_LINK.id
-]];
-function normalizeDictionaryLookupLinkSettings(value, targetLanguage = "ja") {
-const links = normalizeDictionaryLookupLinks(
-value?.dictionaryLookupLinks,
-!hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
-targetLanguage
-);
-if (targetLanguage === "ja" && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
-return savedLookupLinksInDefaultOrder(links);
-}
-return targetLanguage === "ja" && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
-}
-const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
-function normalizeDictionaryPreferences(value) {
-if (!Array.isArray(value)) return [];
-return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
-}
-function normalizeDictionaryPreference(item, index) {
-const record2 = objectRecord$3(item);
-if (!record2) return null;
-const name = stringValue(record2.name);
-if (!name.trim()) return null;
-const alias = stringValue(record2.alias);
-return {
-name,
-alias: alias.trim() ? alias : name,
-enabled: booleanValue(record2.enabled, true),
-priority: finiteNumber$1(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
-allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
-type: normalizeDictionaryType(record2.type, name)
-};
-}
-function defaultDictionaryLookupLinks(mode = "local", targetLanguage = "ja") {
-if (targetLanguage !== "ja" && hasTargetLookupSites(targetLanguage)) {
-return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
-}
-return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
-...link,
-priority: index,
-enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" || link.id === "bunpro-frequency" : link.enabled
-}));
-}
-function legacyDefaultLookupLinksWithNewBuiltIns(links) {
-const linkById = new Map(links.map((link) => [link.id, link]));
-return defaultDictionaryLookupLinks("local").map((defaultLink) => {
-const link = linkById.get(defaultLink.id) ?? defaultLink;
-if (link.id === JPDB_LOOKUP_LINK.id || link.id === YOMU_LOOKUP_LINK.id) return { ...link, enabled: true };
-if (link.id === JISHO_LOOKUP_LINK.id) return { ...link, enabled: false };
-return link;
-});
-}
-function isLegacyDefaultLookupLinkSet(value) {
-const links = normalizeLegacyLookupLinkSet(value);
-return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => matchesLegacyLookupLink(links[index], expected)));
-}
-function isPreviousDefaultLookupLinkSet(value) {
-if (!Array.isArray(value)) return false;
-const links = normalizeLookupLinkSet(value, value.length);
-if (!links) return false;
-const linkIds = links.map((link) => link.id).filter((id) => !isRemovedBuiltInLookupLinkId(id));
-return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some((ids) => {
-const expectedIds = ids.filter((id) => !isRemovedBuiltInLookupLinkId(id));
-return linkIds.length === expectedIds.length && expectedIds.every((id, index) => linkIds[index] === id);
-});
-}
-function normalizeLegacyLookupLinkSet(value) {
-return normalizeLookupLinkSet(value, LEGACY_DEFAULT_LOOKUP_LINK_SET.length);
-}
-function normalizeLookupLinkSet(value, length) {
-if (!Array.isArray(value) || value.length !== length) return null;
-const links = value.map(normalizeDictionaryLookupLink);
-return links.every(isDictionaryLookupLink) ? links : null;
-}
-function isDictionaryLookupLink(link) {
-return link !== null;
-}
-function matchesLegacyLookupLink(link, expected) {
-return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
-}
-function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage = "ja") {
-const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage);
-if (!Array.isArray(value)) return builtIns;
-const normalized = [];
-const seen = new Set();
-const defaults = new Map(builtIns.map((link) => [link.id, link]));
-let extras = 0;
-const add = (link) => {
-const id = link.id.trim();
-if (!id || seen.has(id)) return;
-const builtIn = defaults.get(id);
-const known = Boolean(builtIn);
-if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
-if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
-seen.add(id);
-normalized.push(builtIn ? { ...builtIn, enabled: link.enabled, priority: link.priority } : { ...link, id });
-if (!known) extras++;
-};
-for (const item of value) {
-const link = normalizeDictionaryLookupLink(item);
-if (link && !isRemovedBuiltInLookupLink(link)) add(link);
-}
-appendMissingBuiltInLookupLinks(builtIns, seen, add);
-return withLookupLinkPriorities(normalized);
-}
-function isBuiltInLookupLinkForAnotherTarget(id) {
-return DEFAULT_DICTIONARY_LOOKUP_LINKS.some((link) => link.id === id) || isTargetLookupLinkId(id);
-}
-function isRemovedBuiltInLookupLink(link) {
-return isRemovedBuiltInLookupLinkId(link.id);
-}
-function isRemovedBuiltInLookupLinkId(id) {
-return id === REMOVED_GOO_LOOKUP_LINK_ID;
-}
-function defaultLookupLinkMode(preferJpdb) {
-return preferJpdb ? "jpdb" : "local";
-}
-function savedLookupLinksInDefaultOrder(links) {
-const linkById = new Map(links.map((link) => [link.id, link]));
-return withLookupLinkPriorities(DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink));
-}
-function withLookupLinkPriorities(links) {
-return links.map((link, index) => ({
-...link,
-priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
-}));
-}
-function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
-for (const builtIn of builtIns) {
-if (!seen.has(builtIn.id)) add(builtIn);
-}
-}
-function normalizeDictionaryLookupLink(value) {
-if (!value || typeof value !== "object") return null;
-const record2 = value;
-const id = normalizedLookupLinkId(record2);
-const label = normalizedLookupLinkLabel(record2, id);
-const urlTemplate = normalizedLookupLinkUrlTemplate(record2);
-const action = normalizedLookupLinkAction(record2, id);
-if (!isUsableDictionaryLookupLink(id, label, urlTemplate, action)) return null;
-return {
-id,
-label,
-urlTemplate,
-enabled: normalizedLookupLinkEnabled(record2),
-action,
-priority: finiteNumber$1(record2.priority, Number.MAX_SAFE_INTEGER)
-};
-}
-function normalizedLookupLinkUrlTemplate(record2) {
-return typeof record2.urlTemplate === "string" ? record2.urlTemplate.trim() : "";
-}
-function normalizedLookupLinkEnabled(record2) {
-return typeof record2.enabled === "boolean" ? record2.enabled : true;
-}
-function isUsableDictionaryLookupLink(id, label, urlTemplate, action) {
-if (!id || !label) return false;
-return action === "copy" || action === "frequency-live" || action === "frequency-local" || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
-}
-function normalizedLookupLinkId(record2) {
-if (typeof record2.id === "string" && record2.id.trim()) return record2.id.trim();
-return typeof record2.label === "string" ? `custom-${stableLookupLinkId(record2.label)}` : "";
-}
-function normalizedLookupLinkLabel(record2, id) {
-return typeof record2.label === "string" && record2.label.trim() ? record2.label.trim().slice(0, 24) : id;
-}
-function normalizedLookupLinkAction(record2, id) {
-if (record2.action === "copy" || id === "copy") return "copy";
-if (record2.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
-if (record2.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
-return "open";
-}
-function stableLookupLinkId(value) {
-const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
-return slug || "lookup";
-}
-function isSafeLookupUrlTemplate(value) {
-try {
-const url = new URL(value.replace(/\{[^}]+\}/g, "x"));
-return url.protocol === "https:" || url.protocol === "http:";
-} catch {
-return false;
-}
-}
-function normalizeDictionaryType(value, name = "") {
-if (value === "terms" || value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata") return value;
-return inferDictionaryTypeFromName(name);
-}
-function inferDictionaryTypeFromName(name) {
-const normalized = name.toLowerCase();
-if (/\b(?:ipa|pronunciation|phonetic)\b/.test(normalized)) return "pronunciation";
-if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return "frequency";
-if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
-return "terms";
-}
-const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
-const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
-const NO_EXPLICIT_USER_CHOICE = [];
-const CHOSEN_SUFFIX = "Chosen";
-function coupledIntentKeys(keys, known) {
-const expanded = new Set(keys);
-for (const key of keys) {
-const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
-if (known(sibling)) expanded.add(sibling);
-}
-return [...expanded];
-}
-function settingsIntentLedgerFromStorage(stored, legacyPins) {
-const fromLegacy = ledgerFromLegacyPins(legacyPins);
-const fromStored = parseSettingsIntentLedger(stored);
-if (!fromStored) return fromLegacy;
-return {
-revision: Math.max(fromStored.revision, fromLegacy.revision),
-records: { ...fromLegacy.records, ...fromStored.records }
-};
-}
-function parseSettingsIntentLedger(value) {
-const record2 = objectRecord$2(value);
-if (!record2) return null;
-const records = objectRecord$2(record2.records);
-if (!records) return null;
-const parsed = {};
-let highest = 0;
-for (const [key, entry] of Object.entries(records)) {
-const item = objectRecord$2(entry);
-if (!item) continue;
-const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
-parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
-highest = Math.max(highest, seq);
-}
-const revision = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
-return { revision: Math.max(revision, highest), records: parsed };
-}
-function ledgerFromLegacyPins(value) {
-const record2 = objectRecord$2(value);
-if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
-const records = {};
-for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
-return { revision: 0, records };
-}
-function objectRecord$2(value) {
-return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function recordSettingsIntent(ledger, keys, settings) {
-if (!keys.length) return ledger;
-const records = { ...ledger.records };
-let revision = ledger.revision;
-for (const key of keys) {
-if (!hasOwn(settings, key)) continue;
-const value = settings[key];
-records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision, value } : { seq: ++revision };
-}
-return revision === ledger.revision ? ledger : { revision, records };
-}
-function clearSettingsIntent(ledger, keys) {
-const cleared = keys.filter((key) => hasOwn(ledger.records, key));
-if (!cleared.length) return ledger;
-const records = { ...ledger.records };
-for (const key of cleared) delete records[key];
-return { revision: ledger.revision + 1, records };
-}
-function applySettingsIntent(settings, ledger) {
-const keys = Object.keys(ledger.records);
-if (!keys.length) return settings;
-const next = { ...settings };
-let changed = false;
-for (const key of keys) {
-const record2 = ledger.records[key];
-if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
-if (sameSettingsValue(next[key], record2.value)) continue;
-next[key] = record2.value;
-changed = true;
-}
-return changed ? next : settings;
-}
-function isSubstitutableSettingValue(value) {
-return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
-}
-function settingsIntentKeys(ledger) {
-return Object.keys(ledger.records);
-}
-function sameSettingsValue(left, right) {
-return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
-function createDefaultSubtitleSettings(fontFamily) {
-return {
-subtitlePlayerEnabled: true,
-subtitleAutoDetect: true,
-subtitleOverlayVisible: false,
-subtitleSecondaryVisible: false,
-subtitleOverlayVisibleChosen: false,
-subtitleSecondaryVisibleChosen: false,
-subtitleNativeBlurred: true,
-subtitleNativeBlurStrength: 12,
-subtitleKaraokeMode: true,
-subtitleTranscriptVisible: false,
-subtitlePausePanel: false,
-subtitleShadowAutoPause: false,
-subtitleTranscriptPlacement: "right",
-subtitleTranscriptAutoScroll: true,
-subtitleTranscriptAutoScrollResumeSeconds: 30,
-subtitleAutoCopyLine: false,
-subtitleCopyIncludeTranslation: true,
-subtitleControlsMode: "auto",
-subtitleFontSize: 28,
-subtitleBottomOffset: 16,
-subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
-subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
-subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
-subtitleBackgroundOpacity: 0,
-subtitleFontFamily: fontFamily,
-subtitleFontWeight: 760,
-subtitleMiningPause: true,
-subtitleHoverPause: true,
-subtitleSeekPadding: 0.08
-};
-}
-const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
-const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
-async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
-if (typeof storedValue === "boolean") return storedValue;
-return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-const currentValue = await gmStorageGet(
-PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-void 0
-);
-if (typeof currentValue === "boolean") return currentValue;
-await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
-return migrationFallback;
-});
-}
-async function persistPreferredJapaneseSiteLanguage(value) {
-await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
-await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
-});
-}
-function settingsValueEquals(left, right) {
-return left === right || JSON.stringify(left) === JSON.stringify(right);
-}
-function recoverLegacySettings(current, legacy, settledKeys, defaults) {
-return recoverInto(current, legacy, settledKeys, defaults, () => false);
-}
-function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
-return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
-}
-function recoverInto(current, donor, settledKeys, defaults, excluded) {
-let settings = current;
-let changed = false;
-for (const key of Object.keys(defaults)) {
-if (excluded(key)) continue;
-if (settledKeys.has(key)) continue;
-if (!settingsValueEquals(settings[key], defaults[key])) continue;
-if (settingsValueEquals(donor[key], defaults[key])) continue;
-settings = { ...settings, [key]: donor[key] };
-settledKeys.add(key);
-changed = true;
-}
-return { settings, changed };
-}
-function audioSubSourceProviderName(name) {
-const trimmed = name.trim().normalize("NFC");
-return trimmed.split(/\s+/, 1)[0] ?? trimmed;
-}
-function audioSubSourceNameKey(name) {
-return audioSubSourceProviderName(name).toLowerCase();
-}
-function matchesShortcut(event, shortcut = "") {
-if (!shortcut) return false;
-const parts = parseShortcut(shortcut);
-const key = parts.key?.toLowerCase();
-if (!key) return false;
-const eventKey = normalizeEventKey(event.key).toLowerCase();
-return eventKey === key && shortcutModifiersMatch(event, parts.modifiers);
-}
-function shortcutModifiersMatch(event, modifiers) {
-return event.altKey === modifiers.has("alt") && event.ctrlKey === modifiers.has("ctrl") && event.metaKey === modifiers.has("meta") && event.shiftKey === modifiers.has("shift");
-}
-function shortcutIsPressed(shortcut = "", event, pressedKeys = new Set()) {
-if (!shortcut.trim()) return true;
-const parts = parseShortcut(shortcut);
-if (!shortcutModifiersArePressed(parts.modifiers, event)) return false;
-if (!parts.key) return parts.modifiers.size > 0;
-return shortcutKeyIsPressed(parts.key, event, pressedKeys);
-}
-function shortcutModifiersArePressed(modifiers, event) {
-return modifiers.has("alt") === event.altKey && modifiers.has("ctrl") === event.ctrlKey && modifiers.has("meta") === event.metaKey && modifiers.has("shift") === event.shiftKey;
-}
-function shortcutKeyIsPressed(key, event, pressedKeys) {
-const normalized = key.toLowerCase();
-return pressedKeys.has(normalized) || "key" in event && normalizeEventKey(event.key).toLowerCase() === normalized;
-}
-function parseShortcut(shortcut) {
-const parts = shortcut.split("+").map((part) => normalizeShortcutPart(part)).filter(Boolean);
-const modifiers = new Set(parts.filter(isModifierKey).map((part) => part.toLowerCase()));
-const key = [...parts].reverse().find((part) => !isModifierKey(part)) ?? "";
-return { key: key.toLowerCase(), modifiers };
-}
-function normalizeShortcutPart(part) {
-const value = typeof part === "string" ? part.trim() : "";
-if (!value) return "";
-const lower = value.toLowerCase();
-const alias = shortcutPartAlias(lower);
-if (alias) return alias;
-if (value.length === 1) return value.toUpperCase();
-return value[0]?.toUpperCase() + value.slice(1);
-}
-function shortcutPartAlias(lower) {
-return SHORTCUT_PART_ALIASES.get(lower) ?? "";
-}
-const SHORTCUT_PART_ALIASES = new Map([
-["control", "Ctrl"],
-["cmd", "Meta"],
-["command", "Meta"],
-["win", "Meta"],
-["windows", "Meta"],
-["option", "Alt"],
-["esc", "Escape"],
-["spacebar", "Space"],
-[" ", "Space"]
-]);
-function normalizeEventKey(key) {
-if (key === " ") return "Space";
-return normalizeShortcutPart(key);
-}
-function isModifierKey(key) {
-return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
-}
-const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
-const LEGACY_SETTINGS_STORAGE_KEYS = [
-"jpdb-reader-settings",
-"yomu-reader-settings",
-"yomu-settings"
-];
-const SETTINGS_STORAGE_KEYS = [
-SETTINGS_STORAGE_KEY,
-...LEGACY_SETTINGS_STORAGE_KEYS
-];
-const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
-const log$a = Logger.scope("Settings");
-let settingsResetInProgress = false;
-const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
-const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
-const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
-const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
-const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
-const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
-function isPopupLookupEnabled(settings) {
-return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
-}
-const AUDIO_SOURCE_TYPE_VALUES = [
-"jpod101",
-"language-pod-101",
-"jisho",
-"bunpro",
-"lingua-libre",
-"wiktionary",
-"jiten-tts",
-"jpdb-tts",
-"text-to-speech",
-"text-to-speech-reading",
-"custom",
-"custom-json"
-];
-const DEFAULT_AUDIO_SOURCES = [
-{ type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-{ type: "jpod101", url: "", voice: "", enabled: false },
-{ type: "language-pod-101", url: "", voice: "", enabled: false },
-{ type: "jisho", url: "", voice: "", enabled: false },
-{ type: "bunpro", url: "", voice: "", enabled: false },
-{ type: "jiten-tts", url: "", voice: "", enabled: false },
-{ type: "jpdb-tts", url: "", voice: "", enabled: false },
-{ type: "text-to-speech", url: "", voice: "", enabled: false }
-];
-const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
-{ type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-{ type: "jpod101", url: "", voice: "", enabled: true },
-{ type: "language-pod-101", url: "", voice: "", enabled: true },
-{ type: "jisho", url: "", voice: "", enabled: true },
-{ type: "text-to-speech", url: "", voice: "", enabled: true }
-];
-const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
-{ type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
-{ type: "jpod101", url: "", voice: "", enabled: true },
-{ type: "language-pod-101", url: "", voice: "", enabled: true },
-{ type: "jisho", url: "", voice: "", enabled: true },
-{ type: "jiten-tts", url: "", voice: "", enabled: true },
-{ type: "jpdb-tts", url: "", voice: "", enabled: true },
-{ type: "text-to-speech", url: "", voice: "", enabled: true }
-];
-const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
-DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
-);
-const READER_COLOR_SOURCES = new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
-const EXPLICIT_FURIGANA_MODES = new Set(["all", "difficult-kanji", "known-status", "hover"]);
-const OCR_ENGINE_ALIASES = new Map([
-["MangaOcrAdapter", "MangaOCR"],
-["PpOcrAdapter", "PaddleOCR"],
-["AppleVisionAdapter", "AppleVision"]
-]);
-const DEFAULT_COLOR_CHANNELS = {
-wordHighlightColorSource: "jpdb",
-wordUnderlineColorSource: "pitch",
-wordTextColorSource: "anki",
-subtitleHighlightColorSource: "jpdb",
-subtitleUnderlineColorSource: "pitch",
-subtitleTextColorSource: "anki"
-};
-const KANJI_BOOLEAN_SETTING_KEYS = [
-"jpdbKanjiEnabled",
-"kanjiImmersionKitEnabled",
-"uchisenEnabled",
-"wanikaniKanjiEnabled"
-];
-const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
-"jpdbPageEnhancementsEnabled",
-"jpdbPageWordEnhancementsEnabled",
-"jpdbPageKanjiEnhancementsEnabled"
-];
-const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
-"jpdbDefinitionsEnabled",
-"jitenDefinitionsEnabled",
-"bunproDefinitionsEnabled",
-"wanikaniDefinitionsEnabled"
-];
-const API_DEFINITION_NUMBER_SETTING_RANGES = {
-jpdbDefinitionsPriority: { min: 0, max: 999 },
-jitenDefinitionsPriority: { min: 0, max: 999 },
-bunproDefinitionsPriority: { min: 0, max: 999 },
-wanikaniDefinitionsPriority: { min: 0, max: 999 }
-};
-const SOURCE_ALIAS_SETTING_KEYS = [
-"jpdbDefinitionsAlias",
-"jitenDefinitionsAlias",
-"bunproDefinitionsAlias",
-"wanikaniDefinitionsAlias",
-"jpdbKanjiAlias",
-"kanjiImmersionKitAlias",
-"uchisenAlias",
-"wanikaniKanjiAlias",
-"rtkAlias",
-"kanjivgAlias",
-"kanjiOriginsAlias",
-"kanjiDictionariesAlias",
-"immersionKitAlias",
-"ankiSectionAlias",
-"studyTranslationAlias",
-"studyGrammarAlias"
-];
-const MINING_BOOLEAN_SETTING_KEYS = [
-"jpdbMiningEnabled",
-"bunproMiningEnabled",
-"wanikaniReviewEnabled",
-"yomuLocalSrsEnabled",
-"dictionarySourcesInitiallyExpanded"
-];
-const SUBTITLE_BOOLEAN_SETTING_KEYS = [
-"subtitleOverlayVisibleChosen",
-"subtitleSecondaryVisibleChosen",
-"subtitleNativeBlurred",
-"subtitleKaraokeMode",
-"subtitlePausePanel",
-"subtitleShadowAutoPause",
-"subtitleAutoCopyLine",
-"subtitleCopyIncludeTranslation",
-"subtitleMiningPause",
-"subtitleHoverPause"
-];
-const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
-"ankiFrontReading",
-"ankiFrontSentence",
-"ankiFrontImage",
-"ankiMobileHandoff",
-"studyTranslationEnabled",
-"studyGrammarEnabled",
-"enableLogging"
-];
-const ANKI_STUDY_NUMBER_SETTING_RANGES = {
-ankiSectionPriority: { min: 0, max: 999 },
-studyTranslationPriority: { min: 0, max: 999 },
-studyGrammarPriority: { min: 0, max: 999 }
-};
-const KANJI_NUMBER_SETTING_RANGES = {
-jpdbKanjiPriority: { min: 0, max: 999 },
-kanjiImmersionKitPriority: { min: 0, max: 999 },
-uchisenPriority: { min: 0, max: 999 },
-wanikaniKanjiPriority: { min: 0, max: 999 },
-rtkPriority: { min: 0, max: 999 },
-kanjivgPriority: { min: 0, max: 999 },
-kanjiOriginsPriority: { min: 0, max: 999 },
-kanjiDictionariesPriority: { min: 0, max: 999 },
-similarKanjiWordsPriority: { min: 0, max: 999 },
-similarKanjiWordLimit: { min: 2, max: 24 }
-};
-const READER_ACCENT_COLOR_SETTING_KEYS = [
-"wordColorNew",
-"wordColorLearning",
-"wordColorKnown",
-"wordColorDue",
-"wordColorFailed",
-"wordColorIgnored",
-"pitchColorHeiban",
-"pitchColorAtamadaka",
-"pitchColorNakadaka",
-"pitchColorOdaka",
-"pitchColorUnknown"
-];
-const ANKI_TEMPLATE_MODES = ["context", "recognition"];
-const INTERFACE_LANGUAGES = ["en", "ja", "auto"];
-const THEMES = ["dark", "light", "auto"];
-const POPUP_MODES = ["sheet", "popover", "auto"];
-const HOVER_POPUP_MODES = ["sheet", "popover", "auto"];
-const POPOVER_HEIGHT_MODES = ["fixed", "available"];
-const AUDIO_AUTO_PLAY_MODES = ["off", "all", "hover", "tap"];
-const AUDIO_TTS_MODES = ["source-order", "fallback"];
-const IMMERSION_KIT_CATEGORIES = ["anime", "drama", "games", "all"];
-const IMMERSION_KIT_SORTS = ["sentence_length:desc", "sentence_length:asc"];
-const IMMERSION_EXAMPLE_SOURCES = ["nadeshiko", "combined", "immersion-kit"];
-const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
-const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
-const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
-const NEW_TAB_SOURCES = ["jpdb", "bunpro", "wanikani", "yomu-local", "anki", "auto", "dictionary"];
-const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
-const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
-const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
-"kanji-doodle",
-"word",
-"type-word",
-"recall-cloze",
-"listen-pitch",
-"speaking"
-];
-const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
-const NEW_TAB_TYPE_WORD_INPUT_MODES = ["keyboard", "handwriting"];
-const LEGACY_COLOR_CHANNEL_DEFAULTS = {
-wordHighlightColorSource: "auto",
-wordUnderlineColorSource: "auto",
-wordTextColorSource: "off",
-subtitleHighlightColorSource: "off",
-subtitleUnderlineColorSource: "pitch",
-subtitleTextColorSource: "auto"
-};
-const LEGACY_DEFAULT_ANKI_DECK_NAMES = new Set(["よむ", "Yomu", "yomu"]);
-const LEGACY_DEFAULT_ANKI_MODEL_NAMES = new Set(["よむ Japanese", "Yomu Japanese"]);
-const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = "Alt+ArrowLeft";
-const LEGACY_NEXT_SUBTITLE_SHORTCUT = "Alt+ArrowRight";
-const DEFAULT_SETTINGS = {
-apiKey: "",
-jitenApiKey: "",
-bunproApiKey: "",
-bunproFrontendApiToken: "",
-bunproFrontendApiTokenExpiresAt: "",
-wanikaniApiToken: "",
-onboardingSeen: false,
-interfaceLanguage: "en",
-languageProfiles: [createDefaultLanguageProfile()],
-activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
-accentColor: DEFAULT_ACCENT_COLOR,
-wordColorNew: DEFAULT_WORD_COLORS.new,
-wordColorLearning: DEFAULT_WORD_COLORS.learning,
-wordColorKnown: DEFAULT_WORD_COLORS.known,
-wordColorDue: DEFAULT_WORD_COLORS.due,
-wordColorFailed: DEFAULT_WORD_COLORS.failed,
-wordColorIgnored: DEFAULT_WORD_COLORS.ignored,
-pitchColorHeiban: DEFAULT_PITCH_COLORS.heiban,
-pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
-pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
-pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
-pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
-...DEFAULT_COLOR_CHANNELS,
-jpdbDefinitionsEnabled: true,
-jpdbDefinitionsAlias: "",
-jpdbDefinitionsPriority: 1,
-jitenDefinitionsEnabled: true,
-jitenDefinitionsAlias: "",
-jitenDefinitionsPriority: 0,
-bunproDefinitionsEnabled: true,
-bunproDefinitionsAlias: "",
-bunproDefinitionsPriority: 2,
-wanikaniDefinitionsEnabled: true,
-wanikaniDefinitionsAlias: "",
-wanikaniDefinitionsPriority: 3,
-jpdbPageEnhancementsEnabled: true,
-jpdbPageWordEnhancementsEnabled: true,
-jpdbPageKanjiEnhancementsEnabled: true,
-jpdbKanjiEnabled: true,
-jpdbKanjiAlias: "",
-jpdbKanjiPriority: 10,
-kanjiImmersionKitEnabled: true,
-kanjiImmersionKitAlias: "",
-kanjiImmersionKitPriority: 60,
-uchisenEnabled: true,
-uchisenAlias: "",
-uchisenPriority: 50,
-wanikaniKanjiEnabled: true,
-wanikaniKanjiAlias: "",
-wanikaniKanjiPriority: 55,
-rtkEnabled: true,
-rtkAlias: "",
-rtkPriority: 20,
-kanjivgEnabled: true,
-kanjivgAlias: "",
-kanjivgPriority: 0,
-kanjiOriginsEnabled: true,
-kanjiOriginsAlias: "",
-kanjiOriginsPriority: 30,
-kanjiOriginKanjiMapEnabled: true,
-kanjiOriginGraphEnabled: true,
-kanjiOriginRadicalImagesEnabled: true,
-similarKanjiWords: true,
-similarKanjiWordsPriority: 40,
-similarKanjiWordLimit: 8,
-audioEnabled: true,
-autoPlayAudio: true,
-suppressAutoAudioOnVideo: true,
-audioAutoPlayMode: "all",
-audioSources: DEFAULT_AUDIO_SOURCES,
-audioEnableDefaultSources: true,
-audioSourceUrl: DEFAULT_AUDIO_URL,
-audioViaBlob: true,
-audioFallbackChimeEnabled: true,
-audioTimeoutMs: 6e3,
-audioSelectionMode: "random",
-audioTtsMode: "fallback",
-immersionKitEnabled: true,
-immersionKitAlias: "",
-immersionKitExampleSource: "immersion-kit",
-nadeshikoApiKey: "",
-immersionKitPriority: 80,
-immersionKitExpandedLimitMigrated20260721: true,
-immersionKitLimitEnabled: false,
-immersionKitLimit: 12,
-immersionKitMinLength: 8,
-immersionKitMaxLength: 80,
-immersionKitCategory: "all",
-immersionKitSort: "sentence_length:asc",
-immersionKitExactMatch: false,
-immersionKitShowTranslation: true,
-immersionKitRevealTranslationOnClick: true,
-immersionKitShowImages: true,
-immersionKitAutoPlayAudio: true,
-immersionKitPlayOnHover: true,
-immersionKitPlayOnImageClick: true,
-immersionKitPlaybackRate: 1,
-lookupOnClick: true,
-lookupOnHover: true,
-lookupOnMiddleMouse: true,
-hoverOpenDelayMs: 0,
-hoverCloseDelayMs: 80,
-popupActivationMode: "hover",
-scanModifierKey: "shift",
-showFloatingButton: true,
-newTabEnabled: false,
-newTabAnkiEnabled: false,
-newTabAnkiDisabledDecks: [],
-newTabSource: "auto",
-newTabJpdbDeck: "all",
-newTabJpdbReviewMode: "auto",
-corsProxyUrl: "",
-newTabKanjiKeywordSource: "auto",
-newTabParsingEnabled: true,
-newTabFrontSentenceEnabled: true,
-newTabOfflineEnabled: true,
-newTabOfflineLimit: 50,
-newTabDailyGoalMinutes: 60,
-newTabKanjiUnlockEnabled: true,
-newTabStopAtBatchEnd: false,
-newTabSwipeReviews: true,
-newTabShortcutHintsEnabled: true,
-newTabKanjiAutogradeEnabled: true,
-newTabKanjiAutoSubmit: false,
-newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
-newTabStudyDisabledSteps: [],
-newTabTypeWordInputMode: "keyboard",
-newTabStudyTourSeen: false,
-puckPositionX: void 0,
-puckPositionY: void 0,
-manualScanEnabled: false,
-annotationsPaused: false,
-showFurigana: true,
-furiganaMode: "all",
-clampedRowReadings: "show",
-puckFuriganaModeBeforeHide: "",
-furiganaHiddenStateGroups: ["known", "due", "failed"],
-wordColorStates: "all",
-wordColorHiddenStateGroups: [],
-showPitchAccent: true,
-showLookupPillFrequency: true,
-suppressRedundantWordUi: false,
-sheetCloseButtonOnLeft: false,
-hideKnownFurigana: true,
-ocrEnabled: true,
-ocrAutoScanImages: true,
-ocrVideoPauseFrames: false,
-ocrShowTextOverlay: false,
-ocrOverlayTheme: "auto",
-ocrProvider: "google-lens",
-ocrEndpointUrl: "",
-ocrEngine: "auto",
-ocrCloudVisionApiKey: "",
-ocrLanguage: "",
-ocrMaxImagePixels: 12e5,
-ocrMinImageArea: 45e3,
-ocrMaxImagesPerPage: 3,
-ocrPrefetchMargin: 700,
-ocrPrefetchPages: 2,
-ocrConcurrency: 3,
-ocrInvertDarkPanels: true,
-ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
-ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
-ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
-ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
-ocrFontScale: 1,
-localDictionariesEnabled: true,
-parserProvider: "local",
-localDictionaryMaxResults: 12,
-localDictionaryShowKanji: true,
-kanjiDictionariesAlias: "",
-kanjiDictionariesPriority: 30,
-dictionarySourcesInitiallyExpanded: true,
-dictionaryPreferences: [],
-dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
-...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
-youtubeImmersionEnabled: true,
-youtubeImmersionEnabledChosen: false,
-youtubeShowFilterNotice: true,
-youtubeFilterNoticeRestored20260711: true,
-themeAutoRestored20260730: true,
-youtubeShowChannelRecommendations: true,
-youtubeShowChannelRecommendationsChosen: false,
-preferJapaneseSiteLanguage: true,
-ankiEnabled: false,
-ankiSectionEnabled: false,
-ankiSectionAlias: "",
-ankiSectionPriority: 90,
-ankiConnectUrl: "http://127.0.0.1:8765",
-ankiDeck: "よむ",
-ankiModel: "よむ Japanese",
-ankiTemplateMode: "recognition",
-ankiFrontReading: true,
-ankiFrontSentence: true,
-ankiFrontImage: true,
-ankiMobileHandoff: false,
-studyTranslationEnabled: true,
-studyTranslationAlias: "",
-studyGrammarEnabled: true,
-studyGrammarAlias: "",
-enableLogging: false,
-ankiTags: "yomu",
-ankiMineWithJpdb: false,
-ankiCaptureScreenshot: true,
-ankiFieldMappings: {},
-ankiSentenceAudioMappingMigrated: true,
-theme: "auto",
-popupMode: "auto",
-hoverPopupMode: "popover",
-stickyBottomSheet: false,
-popoverBackdropEnabled: true,
-popoverWidth: 520,
-popoverHeight: 540,
-popoverHeightMode: "fixed",
-readerFontFamily: DEFAULT_READER_FONT_FAMILY,
-popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
-popupFontWeight: 450,
-jpdbMiningEnabled: true,
-bunproMiningEnabled: true,
-wanikaniReviewEnabled: true,
-yomuLocalSrsEnabled: true,
-apiGradingProvider: "jiten",
-miningDeck: "forq",
-autoMineOnReview: false,
-neverForgetDeck: "never-forget",
-blacklistDeck: "blacklist",
-addToForq: false,
-enableReviews: true,
-twoButtonReviews: false,
-studyTranslationPriority: 10,
-studyGrammarPriority: 20,
-shortcuts: {
-scanPage: "Shift+J",
-hoverLookup: "",
-openSettings: "Ctrl+Shift+J",
-playAudio: "A",
-closePopup: "Escape",
-previousLookupWord: "Shift+ArrowLeft",
-nextLookupWord: "Shift+ArrowRight",
-previousSubtitle: "A",
-nextSubtitle: "D",
-copySubtitle: "Shift+C",
-toggleOcr: "Shift+O",
-toggleSubtitleOverlay: "Shift+H",
-toggleYoutubeImmersion: "Shift+Y",
-scanImages: "Shift+I",
-massReviewVisible: "Shift+M",
-studyReveal: "Space",
-studyRevealAlternate: "Enter",
-studyUndo: "U",
-studyPrevious: "ArrowLeft",
-studyPreviousAlternate: "P",
-studyNext: "ArrowRight",
-studyNextAlternate: "N",
-gradeNothing: "1",
-gradeSomething: "2",
-gradeHard: "3",
-gradeOkay: "4",
-gradeEasy: "5",
-gradeFail: "1",
-gradePass: "2"
-}
-};
-const LEGACY_DEFAULT_TRUE_ANKI_SETTINGS = [
-"ankiMobileHandoff",
-"ankiMineWithJpdb",
-"ankiSectionEnabled",
-"ankiFrontReading",
-"ankiFrontSentence",
-"ankiFrontImage",
-"ankiCaptureScreenshot"
-];
-const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
-["ankiConnectUrl", DEFAULT_SETTINGS.ankiConnectUrl],
-["ankiTemplateMode", DEFAULT_SETTINGS.ankiTemplateMode],
-["ankiTags", DEFAULT_SETTINGS.ankiTags]
-];
-function mergeSettings(value) {
-const settingsValue = migrateSentenceAudioFieldMappings(
-migrateDefaultLightTheme(
-migratePinnedOcrLanguage(
-migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
-)
-)
-);
-const audio = normalizeAudioSettings(settingsValue);
-const supportedSettings = stripUnsupportedSettings(settingsValue);
-const apiCredentials2 = normalizeApiCredentialSettings(settingsValue);
-const parserProvider = normalizeParserProvider(settingsValue);
-const dictionaryPreferences = normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences);
-const languageProfileSettings = normalizeLanguageProfileSettings(
-settingsValue,
-parserProvider,
-dictionaryPreferences
-);
-return {
-...DEFAULT_SETTINGS,
-...supportedSettings ?? {},
-...apiCredentials2,
-...normalizeLookupSettings(settingsValue),
-...normalizeNewTabSettings(settingsValue),
-...normalizeReaderDisplaySettings(settingsValue),
-...audio,
-...normalizeMediaSettings(settingsValue),
-...normalizeSubtitleSettings(settingsValue),
-...normalizeKanjiSettings(settingsValue),
-...normalizeAnkiAndStudySettings(settingsValue),
-...normalizePresentationSettings(settingsValue),
-...normalizeMiningSettings(settingsValue),
-...normalizeSourceAliasSettings(settingsValue),
-...normalizeRemovedDictionarySettings(settingsValue),
-dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
-settingsValue,
-activeTargetRosterId(languageProfileSettings)
-),
-...languageProfileSettings,
-preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
-shortcuts: normalizeShortcutSettings(settingsValue)
-};
-}
-function normalizePreferredJapaneseSiteLanguage(value) {
-if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
-return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
-}
-return typeof value.preferJapaneseSiteLanguage === "boolean" ? value.preferJapaneseSiteLanguage : false;
-}
-function normalizeParserProvider(value) {
-const provider = value?.parserProvider;
-if (provider === "local" || provider === "jiten" || provider === "jpdb" || provider === "auto") return provider;
-return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
-}
-function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences) {
-const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion));
-const normalized = normalizeLanguageProfiles(
-value?.languageProfiles,
-value?.activeLanguageProfileId,
-{
-outputLanguage: "en",
-uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
-parserProvider
-}
-);
-const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
-if (!active) {
-return {
-languageProfiles: normalized.profiles,
-activeLanguageProfileId: normalized.activeProfileId,
-parserProvider,
-interfaceLanguage: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
-dictionaryPreferences
-};
-}
-const profilesAreAuthoritative = hasPersistedProfiles && normalized.profiles.some(languageProfileHasIndependentState);
-if (!profilesAreAuthoritative) {
-active.parserProvider = parserProvider;
-active.uiLocale = normalizeInterfaceLanguage(value?.interfaceLanguage);
-active.dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-}
-return {
-languageProfiles: normalized.profiles,
-activeLanguageProfileId: normalized.activeProfileId,
-parserProvider: active.parserProvider,
-interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
-dictionaryPreferences: profilesAreAuthoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
-};
-}
-function activeTargetRosterId(profileSettings) {
-const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
-return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
-}
-function languageProfileHasIndependentState(profile) {
-return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
-}
-function languageProfileDictionariesFromPreferences(preferences) {
-const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-return {
-installed: ordered.map((preference) => preference.name),
-enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-order: ordered.map((preference) => preference.name)
-};
-}
-function dictionaryPreferencesForLanguageProfile(preferences, dictionaries) {
-if (!dictionaries.installed.length) return preferences;
-const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
-const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
-const order = new Map(
-dictionaries.order.map((id, index) => [normalizedProfileDictionaryId(id), index])
-);
-return preferences.map((preference, index) => {
-const key = normalizedProfileDictionaryId(preference.name);
-return {
-...preference,
-enabled: installed.has(key) && enabled.has(key),
-priority: order.get(key) ?? dictionaries.order.length + index
-};
-}).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
-}
-function normalizedProfileDictionaryId(value) {
-return value.normalize("NFKC").trim().toLocaleLowerCase("en-US");
-}
-function profileInterfaceLanguage(value, fallback) {
-return value === "auto" || value === "en" || value === "ja" ? value : fallback === "auto" || fallback === "en" || fallback === "ja" ? fallback : DEFAULT_SETTINGS.interfaceLanguage;
-}
-function normalizeApiCredentialSettings(value) {
-const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
-const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
-const bunproApiKey = trimmedStringSetting(value, "bunproApiKey", DEFAULT_SETTINGS.bunproApiKey);
-const bunproFrontendApiToken = trimmedStringSetting(value, "bunproFrontendApiToken", DEFAULT_SETTINGS.bunproFrontendApiToken);
-const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
-const wanikaniApiToken = trimmedStringSetting(value, "wanikaniApiToken", DEFAULT_SETTINGS.wanikaniApiToken);
-if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
-return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
-}
-function stripUnsupportedSettings(value) {
-if (!value) return null;
-const supportedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
-return Object.fromEntries(
-Object.entries(value).filter(([key]) => supportedKeys.has(key))
-);
-}
-function migrateHiddenFilterNotice(value) {
-if (!value) return value;
-if (value.youtubeFilterNoticeRestored20260711) return value;
-const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
-if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
-return migrated;
-}
-function migrateDefaultLightTheme(value) {
-if (!value) return value;
-if (value.themeAutoRestored20260730) return value;
-const migrated = { ...value, themeAutoRestored20260730: true };
-if (migrated.theme === "light") migrated.theme = "auto";
-return migrated;
-}
-function migratePinnedOcrLanguage(value) {
-if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
-return { ...value, ocrLanguage: "" };
-}
-function migrateSentenceAudioFieldMappings(value) {
-if (!value) return value;
-if (value.ankiSentenceAudioMappingMigrated) return value;
-const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
-if (!value.ankiFieldMappings) return migrated;
-const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
-if (!movedModels.length) return migrated;
-log$a.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
-return { ...migrated, ankiFieldMappings: mappings };
-}
-function migrateLegacyDefaultMobileSettings(value) {
-if (!value) return value;
-const migrateAnki = isLegacyDefaultAnkiSettings(value);
-const migrateNewTabAnki = isLegacyDefaultNewTabAnkiSettings(value);
-if (!migrateAnki && !migrateNewTabAnki) return value;
-const migrated = { ...value };
-if (migrateAnki) {
-migrated.ankiEnabled = false;
-migrated.ankiSectionEnabled = false;
-migrated.ankiMobileHandoff = false;
-migrated.ankiMineWithJpdb = false;
-}
-if (migrateNewTabAnki) migrated.newTabAnkiEnabled = false;
-return migrated;
-}
-function isLegacyDefaultAnkiSettings(value) {
-if (!isPreCurrentSavedSettingsPayload(value)) return false;
-return legacyAnkiBooleanSettingsAreDefault(value) && legacyAnkiStringSettingsAreDefault(value) && legacyStringSettingIn(value, "ankiDeck", LEGACY_DEFAULT_ANKI_DECK_NAMES) && legacyStringSettingIn(value, "ankiModel", LEGACY_DEFAULT_ANKI_MODEL_NAMES) && legacyAnkiFieldMappingsAreDefault(value);
-}
-function legacyAnkiBooleanSettingsAreDefault(value) {
-return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key) => legacyBooleanSettingMatches(value, key, true));
-}
-function legacyAnkiStringSettingsAreDefault(value) {
-return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key, expected]) => legacyStringSettingMatches(value, key, expected));
-}
-function isLegacyDefaultNewTabAnkiSettings(value) {
-if (!isPreCurrentSavedSettingsPayload(value)) return false;
-return legacyBooleanSettingMatches(value, "newTabAnkiEnabled", true) && legacyBooleanSettingMatches(value, "newTabEnabled", false) && legacyStringListSettingIsEmpty(value, "newTabAnkiDisabledDecks") && legacyStringSettingMatches(value, "newTabSource", DEFAULT_SETTINGS.newTabSource) && legacyStringSettingMatches(value, "newTabJpdbDeck", DEFAULT_SETTINGS.newTabJpdbDeck) && legacyStringSettingMatches(value, "newTabJpdbReviewMode", DEFAULT_SETTINGS.newTabJpdbReviewMode);
-}
-function isPreCurrentSavedSettingsPayload(value) {
-return !hasOwn(value, "jitenApiKey");
-}
-function legacyBooleanSettingMatches(value, key, expected) {
-return hasOwn(value, key) && value[key] === expected;
-}
-function legacyStringSettingMatches(value, key, expected) {
-const raw = value[key];
-return hasOwn(value, key) && typeof raw === "string" && raw.trim() === expected;
-}
-function legacyStringSettingIn(value, key, expected) {
-const raw = value[key];
-return hasOwn(value, key) && typeof raw === "string" && expected.has(raw.trim());
-}
-function legacyStringListSettingIsEmpty(value, key) {
-const raw = value[key];
-return hasOwn(value, key) && Array.isArray(raw) && raw.length === 0;
-}
-function legacyAnkiFieldMappingsAreDefault(value) {
-const raw = value.ankiFieldMappings;
-return hasOwn(value, "ankiFieldMappings") && Boolean(raw) && typeof raw === "object" && !Array.isArray(raw) && Object.keys(raw).length === 0;
-}
-function normalizeAudioSettings(value) {
-const settings = value ?? {};
-const hasSavedAudioSources = hasOwn(settings, "audioSources") || Boolean(settings.audioSourceUrl);
-const audioSources = hasSavedAudioSources ? normalizeAudioSources(settings.audioSources, settings.audioSourceUrl) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
-const audioAutoPlayMode = normalizeAudioAutoPlayMode(settings.audioAutoPlayMode);
-return {
-autoPlayAudio: audioAutoPlayMode === "off" ? false : booleanSetting(value, "autoPlayAudio"),
-suppressAutoAudioOnVideo: booleanSetting(value, "suppressAutoAudioOnVideo"),
-audioAutoPlayMode,
-audioSources,
-audioSourceUrl: preferredAudioSourceUrl(audioSources, settings.audioSourceUrl),
-audioTtsMode: normalizeAudioTtsMode(settings.audioTtsMode)
-};
-}
-function preferredAudioSourceUrl(audioSources, fallback) {
-return audioSources.find((source) => source.url)?.url ?? fallback ?? DEFAULT_AUDIO_URL;
-}
-function normalizeShortcutSettings(value) {
-const shortcuts = {
-...DEFAULT_SETTINGS.shortcuts,
-...value?.shortcuts ?? {}
-};
-if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
-shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
-}
-if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
-shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
-}
-migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
-return shortcuts;
-}
-function migrateLegacySubtitleLineShortcuts(shortcuts, savedShortcuts) {
-if (!savedShortcuts) return;
-if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
-shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
-}
-if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
-shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
-}
-}
-function normalizeLookupSettings(value) {
-return {
-interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
-...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
-...normalizeDefinitionSourcePrioritySettings(value),
-...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
-lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
-lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
-lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
-hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
-hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
-};
-}
-function normalizeDefinitionSourcePrioritySettings(value) {
-const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
-const ordered = isLegacyDefaultDefinitionSourceOrder(value) ? {
-...normalized,
-jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
-jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
-} : normalized;
-if (!hasOwn(value, "bunproDefinitionsPriority")) {
-ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
-}
-return ordered;
-}
-function normalizeSourceAliasSettings(value) {
-const aliases = {};
-for (const key of SOURCE_ALIAS_SETTING_KEYS) {
-aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
-}
-return aliases;
-}
-function isLegacyDefaultDefinitionSourceOrder(value) {
-return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
-}
-function normalizeRemovedDictionarySettings(value) {
-return {
-jpdbDefinitionsEnabled: booleanSetting(value, "jpdbDefinitionsEnabled"),
-localDictionariesEnabled: booleanSetting(value, "localDictionariesEnabled"),
-dictionarySourcesInitiallyExpanded: booleanSetting(value, "dictionarySourcesInitiallyExpanded"),
-localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
-localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
-};
-}
-function normalizeNewTabSettings(value) {
-return {
-newTabEnabled: booleanSetting(value, "newTabEnabled"),
-newTabAnkiEnabled: booleanSetting(value, "newTabAnkiEnabled"),
-newTabAnkiDisabledDecks: normalizeStringList(value?.newTabAnkiDisabledDecks),
-newTabSource: normalizeNewTabSource(value?.newTabSource),
-newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
-newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value?.newTabJpdbReviewMode),
-corsProxyUrl: normalizeCorsProxyUrl(value?.corsProxyUrl),
-newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value?.newTabKanjiKeywordSource),
-newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
-newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
-newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
-newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
-newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
-newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
-newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
-newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
-newTabShortcutHintsEnabled: booleanSetting(value, "newTabShortcutHintsEnabled"),
-newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
-newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
-newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
-newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
-newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode),
-newTabStudyTourSeen: booleanSetting(value, "newTabStudyTourSeen")
-};
-}
-function normalizeNewTabStudyStepOrder(value) {
-const ordered = normalizeStudyStepList(value);
-const legacyDefault = ["kanji-doodle", "word", "recall-cloze", "listen-pitch", "speaking", "type-word"];
-if (ordered.join(",") === legacyDefault.join(",")) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
-return [
-...ordered,
-...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
-];
-}
-function normalizeNewTabStudyDisabledSteps(value) {
-return normalizeStudyStepList(value);
-}
-function normalizeStudyStepList(value) {
-if (!Array.isArray(value)) return [];
-const out = [];
-for (const item of value) {
-if (!isNewTabStudyChallengeStep(item) || out.includes(item)) continue;
-out.push(item);
-}
-return out;
-}
-function isNewTabStudyChallengeStep(value) {
-return typeof value === "string" && NEW_TAB_STUDY_CHALLENGE_STEPS.has(value);
-}
-function normalizeReaderDisplaySettings(value) {
-const settings = value ?? {};
-return {
-accentColor: sanitizeAccentColor(settings.accentColor),
-...normalizeAccentColorSettings(settings, READER_ACCENT_COLOR_SETTING_KEYS),
-...normalizeReaderColorChannelSettings(value),
-puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
-puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
-showFurigana: booleanSetting(value, "showFurigana"),
-furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
-clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
-puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
-furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
-wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
-wordColorHiddenStateGroups: normalizeWordColorHiddenStateGroups(settings.wordColorHiddenStateGroups),
-hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
-};
-}
-function normalizeAccentColorSettings(settings, keys) {
-const normalized = {};
-for (const key of keys) {
-normalized[key] = sanitizeAccentColor(settings[key], String(DEFAULT_SETTINGS[key]));
-}
-return normalized;
-}
-function normalizeKanjiSettings(value) {
-return {
-...normalizeBooleanSettingGroup(value, KANJI_BOOLEAN_SETTING_KEYS),
-...normalizeNumberSettingGroup(value, KANJI_NUMBER_SETTING_RANGES)
-};
-}
-function normalizeAnkiAndStudySettings(value) {
-const settings = value ?? {};
-return {
-ankiSectionEnabled: normalizeAnkiSectionEnabled(value),
-...normalizeNumberSettingGroup(value, ANKI_STUDY_NUMBER_SETTING_RANGES),
-ankiConnectUrl: normalizeUrl(settings.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
-ankiDeck: normalizeAnkiName(settings.ankiDeck, DEFAULT_SETTINGS.ankiDeck, "Yomu"),
-ankiModel: normalizeAnkiName(settings.ankiModel, DEFAULT_SETTINGS.ankiModel, "Yomu Japanese"),
-ankiTemplateMode: normalizeAnkiTemplateMode(settings.ankiTemplateMode),
-ankiFieldMappings: normalizeAnkiFieldMappings(settings.ankiFieldMappings),
-...normalizeBooleanSettingGroup(value, ANKI_STUDY_BOOLEAN_SETTING_KEYS)
-};
-}
-function normalizeAnkiSectionEnabled(value) {
-const ankiEnabled = booleanSetting(value, "ankiEnabled");
-return hasOwn(value, "ankiSectionEnabled") ? booleanSetting(value, "ankiSectionEnabled") : ankiEnabled;
-}
-function normalizePresentationSettings(value) {
-return {
-theme: normalizeTheme(value?.theme),
-popupMode: normalizePopupMode(value?.popupMode),
-hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
-stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
-popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
-popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
-popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
-popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
-readerFontFamily: normalizeFontFamily(value?.readerFontFamily, DEFAULT_SETTINGS.readerFontFamily),
-popupFontFamily: normalizeFontFamily(value?.popupFontFamily, DEFAULT_SETTINGS.popupFontFamily),
-popupFontWeight: clampNumber(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight)
-};
-}
-function normalizeMiningSettings(value) {
-return {
-ankiTags: trimmedStringSetting(value, "ankiTags", DEFAULT_SETTINGS.ankiTags),
-miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
-autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
-neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
-blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
-...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
-};
-}
-function normalizeApiGradingProvider(value) {
-if (value === "jpdb") return "jpdb";
-if (value === "jiten") return "jiten";
-if (value === "bunpro") return "bunpro";
-return DEFAULT_SETTINGS.apiGradingProvider;
-}
-function normalizeOptionalIsoDateString(value) {
-if (typeof value !== "string" || !value.trim()) return "";
-const time = Date.parse(value.trim());
-return Number.isFinite(time) ? new Date(time).toISOString() : "";
-}
-function normalizeMediaSettings(value) {
-const settings = value ?? {};
-const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
-const immersionExampleLimit = normalizeImmersionExampleLimitSettings(value);
-return {
-audioViaBlob: booleanSetting(value, "audioViaBlob"),
-audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
-youtubeImmersionEnabled: booleanSetting(value, "youtubeImmersionEnabled"),
-youtubeImmersionEnabledChosen: booleanSetting(value, "youtubeImmersionEnabledChosen"),
-youtubeShowFilterNotice: booleanSetting(value, "youtubeShowFilterNotice"),
-youtubeShowChannelRecommendations: booleanSetting(value, "youtubeShowChannelRecommendations"),
-youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
-immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
-nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
-immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
-...immersionExampleLimit,
-immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
-immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
-immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
-immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
-immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
-immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
-immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
-immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
-ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
-ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
-ocrEngine: normalizeOcrEngine(settings.ocrEngine),
-ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
-ocrTextColor: normalizeOcrTextColor(settings),
-ocrOutlineColor: normalizeOcrOutlineColor(settings),
-ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
-ocrBackgroundOpacity,
-ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
-};
-}
-function normalizeImmersionExampleLimitSettings(value) {
-const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true && value?.immersionKitLimitEnabled === true && value?.immersionKitLimit === 3;
-return {
-immersionKitExpandedLimitMigrated20260721: true,
-immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, "immersionKitLimitEnabled"),
-immersionKitLimit: legacyDefault ? DEFAULT_SETTINGS.immersionKitLimit : clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
-};
-}
-function normalizeOcrTextColor(settings) {
-const color = sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor);
-return color === LEGACY_DEFAULT_OCR_TEXT_COLOR ? DEFAULT_SETTINGS.ocrTextColor : color;
-}
-function normalizeOcrOutlineColor(settings) {
-const color = sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor);
-return color === LEGACY_DEFAULT_OCR_OUTLINE_COLOR ? DEFAULT_SETTINGS.ocrOutlineColor : color;
-}
-function normalizeSubtitleSettings(value) {
-return {
-...normalizeBooleanSettingGroup(value, SUBTITLE_BOOLEAN_SETTING_KEYS),
-subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
-subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
-subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
-subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
-subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
-subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
-subtitleNativeBlurStrength: clampNumber(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
-subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
-subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
-};
-}
-function normalizeFontFamily(value, fallback) {
-return trimmedText(value) || fallback;
-}
-function normalizeOptionalCoordinate(value) {
-const number = Number(value);
-return Number.isFinite(number) && number >= 0 ? number : void 0;
-}
-function normalizeStringList(value) {
-if (!Array.isArray(value)) return [];
-return [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))];
-}
-function normalizeAnkiName(value, fallback, oldDefault) {
-if (typeof value !== "string") return fallback;
-const trimmed = value.trim();
-if (!trimmed || trimmed === oldDefault) return fallback;
-return trimmed;
-}
-function normalizeAnkiTemplateMode(value) {
-return normalizeOption(value, ANKI_TEMPLATE_MODES, DEFAULT_SETTINGS.ankiTemplateMode);
-}
-function normalizeInterfaceLanguage(value) {
-return normalizeOption(value, INTERFACE_LANGUAGES, DEFAULT_SETTINGS.interfaceLanguage);
-}
-function normalizeTheme(value) {
-return normalizeOption(value, THEMES, DEFAULT_SETTINGS.theme);
-}
-function normalizePopupMode(value) {
-return normalizeOption(value, POPUP_MODES, DEFAULT_SETTINGS.popupMode);
-}
-function normalizeHoverPopupMode(value) {
-return normalizeOption(value, HOVER_POPUP_MODES, DEFAULT_SETTINGS.hoverPopupMode);
-}
-function normalizePopoverHeightMode(value) {
-return normalizeOption(value, POPOVER_HEIGHT_MODES, DEFAULT_SETTINGS.popoverHeightMode);
-}
-function normalizeAudioAutoPlayMode(value) {
-return normalizeOption(value, AUDIO_AUTO_PLAY_MODES, DEFAULT_SETTINGS.audioAutoPlayMode);
-}
-function normalizeAudioTtsMode(value) {
-return normalizeOption(value, AUDIO_TTS_MODES, DEFAULT_SETTINGS.audioTtsMode);
-}
-function normalizeImmersionKitCategory(value) {
-return normalizeOption(value, IMMERSION_KIT_CATEGORIES, DEFAULT_SETTINGS.immersionKitCategory);
-}
-function normalizeImmersionKitSort(value) {
-return normalizeOption(value, IMMERSION_KIT_SORTS, DEFAULT_SETTINGS.immersionKitSort);
-}
-function normalizeImmersionExampleSource(value) {
-return normalizeOption(value, IMMERSION_EXAMPLE_SOURCES, DEFAULT_SETTINGS.immersionKitExampleSource);
-}
-function normalizeOption(value, allowed, fallback) {
-return allowed.includes(value) ? value : fallback;
-}
-function normalizeUrl(value, fallback) {
-if (typeof value !== "string" || !value.trim()) return fallback;
-try {
-return new URL(value.trim()).toString().replace(/\/$/, "");
-} catch {
-return fallback;
-}
-}
-function shortcutFromLegacyModifier(value) {
-if (value === "alt") return "Alt";
-if (value === "ctrl") return "Ctrl";
-if (value === "meta") return "Meta";
-return value === "shift" ? "Shift" : "";
-}
-function clampNumber(value, min, max, fallback) {
-const number = Number(value);
-return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
-}
-function normalizeBooleanSettingGroup(value, keys) {
-const normalized = {};
-for (const key of keys) {
-normalized[key] = booleanSetting(value, key);
-}
-return normalized;
-}
-function normalizeNumberSettingGroup(value, ranges) {
-const normalized = {};
-for (const key of Object.keys(ranges)) {
-const { min, max } = ranges[key];
-const fallback = DEFAULT_SETTINGS[key];
-normalized[key] = clampNumber(value?.[key], min, max, typeof fallback === "number" ? fallback : 0);
-}
-return normalized;
-}
-function booleanSetting(value, key) {
-const rawValue = value?.[key];
-const fallback = DEFAULT_SETTINGS[key];
-if (typeof rawValue === "boolean") return rawValue;
-return typeof fallback === "boolean" ? fallback : false;
-}
-function booleanSettingWithFallback(value, key, fallback) {
-const rawValue = value?.[key];
-return typeof rawValue === "boolean" ? rawValue : fallback;
-}
-function trimmedStringSetting(value, key, fallback) {
-const rawValue = value?.[key];
-return typeof rawValue === "string" ? rawValue.trim() : fallback;
-}
-function normalizeSubtitleControlsMode(value) {
-return normalizeOption(value, SUBTITLE_CONTROL_MODES, DEFAULT_SETTINGS.subtitleControlsMode);
-}
-function normalizeOcrOverlayTheme(value) {
-return normalizeOption(value, OCR_OVERLAY_THEMES, DEFAULT_SETTINGS.ocrOverlayTheme);
-}
-function normalizeSubtitleTranscriptPlacement(value) {
-return normalizeOption(value, SUBTITLE_TRANSCRIPT_PLACEMENTS, DEFAULT_SETTINGS.subtitleTranscriptPlacement);
-}
-function normalizeNewTabSource(value) {
-return normalizeOption(value, NEW_TAB_SOURCES, DEFAULT_SETTINGS.newTabSource);
-}
-function normalizeNewTabJpdbReviewMode(value) {
-return normalizeOption(value, NEW_TAB_JPDB_REVIEW_MODES, DEFAULT_SETTINGS.newTabJpdbReviewMode);
-}
-function normalizeCorsProxyUrl(value) {
-if (value == null) return DEFAULT_SETTINGS.corsProxyUrl;
-const raw = typeof value === "string" ? value.trim() : "";
-if (!raw) return "";
-try {
-const url = new URL(raw);
-return url.protocol === "https:" ? url.href.replace(/\/+$/, "") : "";
-} catch {
-return "";
-}
-}
-function normalizeNewTabKanjiKeywordSource(value) {
-return normalizeOption(value, NEW_TAB_KANJI_KEYWORD_SOURCES, DEFAULT_SETTINGS.newTabKanjiKeywordSource);
-}
-function normalizeReaderColorChannelSettings(value) {
-if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
-const channels = {
-wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
-wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
-wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
-subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
-subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
-subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))
-};
-return normalizeStaleDoublePitchHighlightChannels(value, channels);
-}
-function isLegacyDefaultColorChannelSettings(value) {
-if (!value) return false;
-return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key) => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
-}
-function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
-const source = value === "auto" ? autoFallback : value;
-return READER_COLOR_SOURCES.has(source) ? source : fallback;
-}
-function normalizeStaleDoublePitchHighlightChannels(settings, channels) {
-const staleWordHighlight = hasStaleWordPitchHighlight(settings, channels);
-const staleSubtitleHighlight = hasStaleSubtitlePitchHighlight(settings, channels);
-if (!staleWordHighlight && !staleSubtitleHighlight) return channels;
-return {
-...channels,
-wordHighlightColorSource: staleWordHighlight ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource : channels.wordHighlightColorSource,
-subtitleHighlightColorSource: staleSubtitleHighlight ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource : channels.subtitleHighlightColorSource
-};
-}
-function hasStaleWordPitchHighlight(settings, channels) {
-if (!settings) return false;
-if (settings.wordHighlightMode === "pitch") return true;
-return hasStalePitchHighlightPair(settings, channels, "wordHighlightColorSource", "wordUnderlineColorSource");
-}
-function hasStaleSubtitlePitchHighlight(settings, channels) {
-if (!settings) return false;
-if (settings.wordHighlightMode === "pitch") return true;
-return hasStalePitchHighlightPair(settings, channels, "subtitleHighlightColorSource", "subtitleUnderlineColorSource");
-}
-function hasStalePitchHighlightPair(settings, channels, highlight, underline) {
-return (isPreCurrentSavedSettingsPayload(settings) || hasOwn(settings, "wordHighlightMode")) && isRawPitchPair(settings, highlight, underline) && channels[highlight] === "pitch" && channels[underline] === "pitch";
-}
-function isRawPitchPair(settings, highlight, underline) {
-return settings[highlight] === "pitch" && settings[underline] === "pitch";
-}
-function legacyHighlightColorSourceForAuto(settings, fallback) {
-const mode = legacyEffectiveWordHighlightMode(settings);
-if (mode === "pitch") return fallback;
-return legacyReaderColorSourceForAuto(settings, fallback);
-}
-function legacyReaderColorSourceForAuto(settings, fallback) {
-const mode = legacyEffectiveWordHighlightMode(settings);
-return mode === "status" ? fallback : mode ?? fallback;
-}
-function legacySubtitleHighlightColorSourceForAuto(settings, fallback) {
-const mode = legacyEffectiveWordHighlightMode(settings);
-if (mode === "pitch") return fallback;
-return legacySubtitleColorSourceForAuto(settings, fallback);
-}
-function legacySubtitleColorSourceForAuto(settings, fallback) {
-const mode = legacyEffectiveWordHighlightMode(settings);
-if (!mode) return fallback;
-return mode === "status" ? "jpdb" : mode;
-}
-function legacyEffectiveWordHighlightMode(settings) {
-if (!settings || !hasOwn(settings, "wordHighlightMode")) return null;
-if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch" || settings.wordHighlightMode === "off") return settings.wordHighlightMode;
-return hasLegacyMiningStatusSource(settings) ? "status" : "pitch";
-}
-function hasLegacyMiningStatusSource(settings) {
-return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
-}
-function normalizeFuriganaMode(value, settings) {
-if (value === "auto") return effectiveLegacyAutoFuriganaMode();
-if (isFuriganaMode(value)) return value;
-if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
-if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
-return DEFAULT_SETTINGS.furiganaMode;
-}
-function effectiveLegacyAutoFuriganaMode() {
-return "all";
-}
-function isFuriganaMode(value) {
-return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
-}
-const FURIGANA_STATE_GROUPS = new Set(FURIGANA_HIDE_STATE_GROUPS);
-function normalizeFuriganaHiddenStateGroups(value) {
-if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
-const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
-return [...new Set(groups)];
-}
-function normalizeWordColorHiddenStateGroups(value) {
-if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
-const groups = value.filter((item) => typeof item === "string" && WORD_COLOR_HIDE_STATE_GROUPS.includes(item));
-return [...new Set(groups)];
-}
-function legacyBooleanSettingIs(settings, key, expected) {
-return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
-}
-function normalizeDeckIdSetting(value, fallback) {
-return typeof value === "string" && value.trim() ? value.trim() : fallback;
-}
-function shouldLookupAnkiStatus(settings) {
-return settings.ankiEnabled === true;
-}
-function shouldLookupBunproWordStates(settings, now = Date.now()) {
-return hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings, now);
-}
-function effectiveReaderColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) {
-const concrete = source === "auto" ? legacyReaderColorSourceForAuto(settings, fallback) : source;
-return effectiveAvailableColorSource(settings, concrete, fallback);
-}
-function effectiveReaderTextColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordTextColorSource) {
-return effectiveTextColorSource(settings, effectiveReaderColorSource(settings, source, fallback));
-}
-function effectiveSubtitleColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource) {
-const concrete = source === "auto" ? legacySubtitleColorSourceForAuto(settings, fallback) : source;
-if (concrete === "status") return "status";
-return effectiveAvailableColorSource(settings, concrete);
-}
-function effectiveSubtitleTextColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.subtitleTextColorSource) {
-return effectiveTextColorSource(settings, effectiveSubtitleColorSource(settings, source, fallback));
-}
-function effectiveTextColorSource(settings, source) {
-return effectiveAvailableColorSource(settings, source);
-}
-function effectiveAvailableColorSource(settings, source, fallback = "off") {
-if (source === "jpdb" && !hasSrsStateColorSource(settings)) {
-if (hasAnkiStatusSource(settings)) return "anki";
-return fallback === "jpdb" ? "off" : effectiveAvailableColorSource(settings, fallback, "off");
-}
-if (source === "anki" && !hasAnkiStatusSource(settings)) {
-return fallback === "anki" ? "off" : effectiveAvailableColorSource(settings, fallback, "off");
-}
-if (source === "anki") return "anki";
-if (source === "status") return effectiveAvailableStatusSource(settings, true);
-return source;
-}
-function effectiveAvailableStatusSource(settings, includeRequestedAnki = false) {
-const hasStates = hasSrsStateColorSource(settings);
-const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
-if (hasStates && hasAnki) return "status";
-if (hasStates) return "jpdb";
-if (hasAnki) return "anki";
-return "off";
-}
-function hasLocalSrsStatusSource(settings) {
-return settings.yomuLocalSrsEnabled === true;
-}
-function hasSrsStateColorSource(settings) {
-return hasJpdbStatusSource(settings) || hasLocalSrsStatusSource(settings);
-}
-function hasJpdbStatusSource(settings) {
-const credentials = {
-apiKey: settings.apiKey ?? "",
-jitenApiKey: settings.jitenApiKey ?? ""
-};
-return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials));
-}
-function hasAnkiStatusSource(settings) {
-return Boolean(settings.ankiEnabled);
-}
-function hasRequestedAnkiColorSource(settings) {
-return COLOR_STATUS_CHANNEL_KEYS.some((key) => {
-const source = settings[key];
-return source === "anki" || source === "status";
-});
-}
-const COLOR_STATUS_CHANNEL_KEYS = [
-"wordHighlightColorSource",
-"wordUnderlineColorSource",
-"wordTextColorSource",
-"subtitleHighlightColorSource",
-"subtitleUnderlineColorSource",
-"subtitleTextColorSource"
-];
-function effectiveFuriganaMode(settings) {
-if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
-if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
-return effectiveLegacyAutoFuriganaMode();
-}
-function isExplicitFuriganaMode(value) {
-return EXPLICIT_FURIGANA_MODES.has(value);
-}
-function applyUrlBootstrapSettings(settings, search = location.search) {
-const params = new URLSearchParams(search);
-const bootstrap = urlBootstrapSettings(params);
-if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-log$a.info("Applying URL bootstrap settings", {
-hasApiKey: Boolean(bootstrap.apiKey),
-hasAudio: Boolean(bootstrap.audio),
-hasOcr: Boolean(bootstrap.ocr)
-});
-return {
-...settings,
-apiKey: bootstrapValue(bootstrap.apiKey, settings.apiKey),
-audioSources: bootstrapAudioSources(settings, bootstrap.audio),
-audioSourceUrl: bootstrapValue(bootstrap.audio, settings.audioSourceUrl),
-ocrEndpointUrl: bootstrapValue(bootstrap.ocr, settings.ocrEndpointUrl)
-};
-}
-function hasUrlBootstrapSettings(bootstrap) {
-return Boolean(bootstrap.apiKey || bootstrap.audio || bootstrap.ocr);
-}
-function bootstrapValue(value, fallback) {
-return value || fallback;
-}
-function urlBootstrapSettings(params) {
-return {
-apiKey: params.get("apiKey")?.trim() ?? "",
-audio: params.get("audio")?.trim() ?? "",
-ocr: params.get("ocr")?.trim() ?? ""
-};
-}
-function bootstrapAudioSources(settings, audio) {
-return audio ? [{ type: "custom-json", url: audio, voice: "", enabled: true }, ...settings.audioSources.filter((source) => source.url !== audio)] : settings.audioSources;
-}
-function normalizeOcrProvider(value, settings) {
-if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
-if (typeof value !== "string") return DEFAULT_SETTINGS.ocrProvider;
-return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value) ? value : DEFAULT_SETTINGS.ocrProvider);
-}
-const OCR_PROVIDER_ALIASES = {
-auto: "google-lens",
-fast: "google-lens",
-"page-text": "google-lens",
-"custom-json": "local-service"
-};
-const OCR_PROVIDERS = new Set(["google-lens", "cloud-vision", "local-service", "off"]);
-function normalizeCloudVisionApiKey(value) {
-return typeof value === "string" ? value.trim() : DEFAULT_SETTINGS.ocrCloudVisionApiKey;
-}
-function isBlankLegacyLocalOcrSetting(value, settings) {
-if (value !== "local-service" || !settings) return false;
-if (hasOwn(settings, "ocrCloudVisionApiKey")) return false;
-return !(typeof settings.ocrEndpointUrl === "string" && settings.ocrEndpointUrl.trim());
-}
-function normalizeOcrEngine(value) {
-const normalized = normalizedOcrEngineInput(value);
-return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_SETTINGS.ocrEngine;
-}
-function normalizedOcrEngineInput(value) {
-return typeof value === "string" ? value.trim() : "";
-}
-async function loadSettings() {
-if (settingsResetInProgress) return mergeSettings(null);
-try {
-const storedPreferredJapaneseSiteLanguage = await gmStorageGet(
-PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
-void 0
-);
-const intentLedger = await readSettingsIntentLedger();
-const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
-const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
-let settings = mergeSettings(currentRecord);
-let recoveredLegacySettings = false;
-const settledKeys = new Set(settingsIntentKeys(intentLedger));
-for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
-const legacyRecord = settingsRecord(await gmStorageGet(key, null));
-if (!legacyRecord) continue;
-const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
-settings = recovery.settings;
-recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
-}
-const strandedRecord = strandedHostedLocalSettingsRecord();
-if (strandedRecord) {
-const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
-settings = recovery.settings;
-recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
-}
-settings = {
-...settings,
-preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
-storedPreferredJapaneseSiteLanguage,
-settings.preferJapaneseSiteLanguage
-)
-};
-settings = mergeSettings(applySettingsIntent(settings, intentLedger));
-if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
-else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
-cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
-}
-return settings;
-} catch (error) {
-log$a.warn("Settings load failed", { error });
-return mergeSettings(null);
-}
-}
-function strandedHostedLocalSettingsRecord() {
-if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
-return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
-}
-async function promoteStrandedHostedSettingsToGmStorage() {
-if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
-try {
-const gmRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
-const strandedRecord = settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
-if (!strandedRecord) return false;
-const current = mergeSettings(gmRecord);
-const recovery = recoverStrandedHostedSettings(
-current,
-mergeSettings(strandedRecord),
-new Set(gmRecord ? Object.keys(gmRecord) : []),
-DEFAULT_SETTINGS
-);
-if (recovery.changed) await persistSettings(recovery.settings, NO_EXPLICIT_USER_CHOICE);
-return true;
-} catch (error) {
-log$a.warn("Stranded hosted settings promotion failed", { error });
-return false;
-}
-}
-function settingsRecord(value) {
-return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-}
-function subscribeToSettingsStorageChanges(onSettings) {
-let active = true;
-let refreshRevision = 0;
-const refresh = () => {
-const revision = ++refreshRevision;
-void loadSettings().then((settings) => {
-if (active && revision === refreshRevision) onSettings(settings);
-});
-};
-const unsubscribers = [
-subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
-subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
-subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
-subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh)
-];
-return () => {
-active = false;
-refreshRevision += 1;
-for (const unsubscribe of unsubscribers) unsubscribe();
-};
-}
-async function saveSettings(settings, options) {
-const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
-if (settingsResetInProgress) {
-log$a.warn("Rejected save during reset");
-throw new Error();
-}
-try {
-const normalizedSettings = mergeSettings(settings);
-if (intent.persistPreferredJapaneseSiteLanguage) {
-await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
-}
-await persistSettings(
-normalizedSettings,
-intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
-intent.clearExplicitUserChoiceKeys
-);
-} catch (error) {
-log$a.warn("Settings save failed", { error });
-throw error;
-}
-}
-function coupledSettingsIntentKeys(keys) {
-return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
-}
-async function readSettingsIntentLedger() {
-return settingsIntentLedgerFromStorage(
-await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
-await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
-);
-}
-async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
-const normalizedSettings = mergeSettings(settings);
-let storedSettings = normalizedSettings;
-await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
-const ledger = await readSettingsIntentLedger();
-const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
-const nextLedger = recordSettingsIntent(
-withdrawn,
-coupledSettingsIntentKeys(explicitUserChoiceKeys),
-normalizedSettings
-);
-if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
-storedSettings = mergeSettings(
-applySettingsIntent(normalizedSettings, nextLedger)
-);
-const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
-await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
-storedSettings = supportedSettings;
-});
-dispatchSettingsChange(storedSettings);
-}
-function dispatchSettingsChange(settings) {
-try {
-dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
-} catch {
-}
-}
-function beginSettingsResetGuard() {
-settingsResetInProgress = true;
-beginManagedStateReset();
-}
-function endSettingsResetGuard() {
-settingsResetInProgress = false;
-endManagedStateReset();
-}
-async function deleteSettingsStorage() {
-for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
-await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
-await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
-await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
-}
-function isAudioSourceType(value) {
-return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
-}
-function normalizeAudioSource(value) {
-const record2 = audioSourceRecord(value);
-if (!record2) return null;
-if (!isAudioSourceType(record2.type)) return null;
-const subSources = normalizeAudioSubSources(record2.subSources);
-return {
-type: record2.type,
-url: stringValue(record2.url),
-voice: stringValue(record2.voice),
-enabled: audioSourceEnabled(record2.enabled),
-...subSources.length ? { subSources } : {}
-};
-}
-function normalizeAudioSubSources(value) {
-if (!Array.isArray(value)) return [];
-const seen = new Set();
-const subSources = [];
-for (const entry of value) {
-if (!entry || typeof entry !== "object") continue;
-const record2 = entry;
-const name = stringValue(record2.name).trim();
-if (!name) continue;
-const key = audioSubSourceNameKey(name);
-if (seen.has(key)) continue;
-seen.add(key);
-subSources.push({ name, enabled: audioSourceEnabled(record2.enabled) });
-}
-return subSources;
-}
-function audioSourceRecord(value) {
-return value && typeof value === "object" ? value : null;
-}
-function audioSourceEnabled(value) {
-return typeof value === "boolean" ? value : true;
-}
-function normalizeAudioSources(value, legacyUrl) {
-const sources = Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : [];
-if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(withBunproAudioSource(migrateLegacyDefaultAudioSources(sources))) : sources;
-if (typeof legacyUrl === "string" && legacyUrl.trim()) {
-return ensureHostedAudioSourceFirst([{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }]);
-}
-return DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
-}
-function ensureHostedAudioSourceFirst(sources) {
-const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0];
-return [
-{ ...hosted },
-...sources.filter((source) => !isHostedAudioSource(source)).map((source) => ({ ...source }))
-];
-}
-function isHostedAudioSource(source) {
-return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
-}
-function migrateLegacyDefaultAudioSources(sources) {
-if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
-const migrated = sources.map((source) => ({ ...source }));
-ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: false }, "text-to-speech");
-ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: false }, "jpdb-tts");
-for (const source of migrated) {
-if (isDefaultOffAudioSource(source)) source.enabled = false;
-}
-return migrated;
-}
-function isUntouchedLegacyDefaultAudioSources(sources) {
-return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS) || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
-}
-function audioSourceListMatches(sources, expected) {
-return sources.length === expected.length && expected.every((source, index) => audioSourceMatches(sources[index], source));
-}
-function audioSourceMatches(source, expected) {
-return Boolean(source && source.type === expected.type && source.url === expected.url && source.voice === expected.voice && source.enabled === expected.enabled);
-}
-function isDefaultOffAudioSource(source) {
-return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
-}
-function withBunproAudioSource(sources) {
-const result = sources.map((source) => ({ ...source }));
-ensureBuiltInAudioSource(result, { type: "bunpro", url: "", voice: "", enabled: false }, "jiten-tts");
-return result;
-}
-function ensureBuiltInAudioSource(sources, source, beforeType) {
-if (sources.some((candidate) => candidate.type === source.type)) return;
-const insertIndex = sources.findIndex((candidate) => candidate.type === beforeType);
-if (insertIndex < 0) sources.push(source);
-else sources.splice(insertIndex, 0, source);
-}
-const EASY_FURIGANA_KANJI = new Set(
-"一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
-);
-const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka".split(","));
-const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
-const MINING_INSIGHT_UNKNOWN_STATES = new Set(["new", "not-in-deck", "in-deck"]);
-const MINING_INSIGHT_MIN_CARD_COUNT = 3;
-const FURIGANA_GROUP_STATES = {
-new: ["new", "not-in-deck", "in-deck"],
-learning: ["learning", "young"],
-known: ["known", "mature", "mastered", "never-forget", "redundant"],
-due: ["due"],
-failed: ["failed"]
-};
-function furiganaHiddenStates(settings) {
-const states = new Set();
-for (const group of settings.furiganaHiddenStateGroups) {
-for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
-}
-return states;
-}
-function shouldHideFuriganaForCardState(settings, state) {
-const mode = effectiveFuriganaMode(settings);
-if (mode === "off") return true;
-return mode === "known-status" && furiganaHiddenStates(settings).has(state);
-}
-function nonOverlappingTokens(tokens, text2) {
-const safe = [];
-let offset = 0;
-for (const token of tokens) {
-if (!isSafeTokenSpan(token, offset, text2)) continue;
-safe.push(token);
-offset = token.end;
-}
-return safe;
-}
-function isSafeTokenSpan(token, offset, text2) {
-if (!Number.isInteger(token.start) || !Number.isInteger(token.end) || token.start < offset || token.start < 0 || token.end <= token.start || token.end > text2.length) return false;
-return learningTargetForToken(token).isLookupableText(text2.slice(token.start, token.end));
-}
-function miningInsightTokenKeys(tokens) {
-const sentences = new Map();
-for (const token of tokens) {
-const sentence = miningInsightSentenceKey(token);
-if (!sentence || isParticleCard(token.card)) continue;
-const cardKey2 = readerCardKey(token.card);
-const sentenceCards = sentences.get(sentence) ?? new Map();
-if (!sentences.has(sentence)) sentences.set(sentence, sentenceCards);
-if (!sentenceCards.has(cardKey2)) {
-sentenceCards.set(cardKey2, { unknown: isMiningUnknownCard(token.card) });
-}
-}
-const keys = new Set();
-sentences.forEach((cards, sentence) => {
-if (cards.size < MINING_INSIGHT_MIN_CARD_COUNT) return;
-const unknownCards = [...cards.entries()].filter(([, card]) => card.unknown);
-if (unknownCards.length !== 1) return;
-keys.add(miningInsightKey(sentence, unknownCards[0][0]));
-});
-return keys;
-}
-function isMiningUnknownCard(card) {
-return MINING_INSIGHT_UNKNOWN_STATES.has(primaryCardState(card.cardState));
-}
-function miningInsightTokenKey(token) {
-return miningInsightKey(miningInsightSentenceKey(token), readerCardKey(token.card));
-}
-function miningInsightKey(sentence, cardKey2) {
-return `${sentence}\0${cardKey2}`;
-}
-function miningInsightSentenceKey(token) {
-return (token.sentence ?? "").replace(/\s+/g, " ").trim();
-}
-function readerCardKey(card) {
-return `${readerCardSource(card)}:${readerCardId(card)}/${readerReadingIndex(card)}`;
-}
-function readerCardSource(card) {
-return card.source ?? (card.reviewSource === "jiten-api" ? "jiten" : "jpdb");
-}
-function readerCardId(card) {
-return readerCardSource(card) === "jiten" ? card.jitenWordId ?? card.vid : card.vid;
-}
-function readerReadingIndex(card) {
-return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
-}
-function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTokenRubies = false) {
-if (!allowRuby) return false;
-if (!effectiveTokenRubies(surface, token, preserveTokenRubies).length) return false;
-return furiganaModeAllowsRuby(effectiveFuriganaMode(settings), surface, token, settings);
-}
-function furiganaModeAllowsRuby(mode, surface, token, settings) {
-if (mode === "off") return false;
-if (mode === "hover") return true;
-if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-if (mode !== "difficult-kanji") return true;
-return learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || hasDifficultKanji(surface);
-}
-function hasDifficultKanji(surface) {
-for (const char of surface) {
-if (KANJI_RE$1.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
-}
-return false;
-}
-function readerWordClassName(state, token, settings) {
-const classes = ["jpdb-reader-word"];
-if (isParticleCard(token.card)) {
-classes.push("jpdb-reader-particle");
-}
-if (hasKnownCardState(token.card)) {
-classes.push(`jpdb-${state}`);
-const source = readerCardSource(token.card);
-if (source !== "jpdb") classes.push(`${source}-${state}`);
-}
-classes.push(...cardDeckMembershipClassNames(token.card));
-if (settings.showPitchAccent) classes.push(`jpdb-pitch-${tokenPitchClass(token)}`);
-return classes.join(" ");
-}
-function hasKnownCardState(card) {
-return Array.isArray(card.cardState) && card.cardState.length > 0;
-}
-function isParticleCard(card) {
-return card.partOfSpeech.includes("prt") || PARTICLE_SURFACE_RE.test(card.spelling.trim());
-}
-function safePitchClass(value) {
-return PITCH_CLASSES.has(value) ? value : "unknown";
-}
-function tokenPitchClass(token) {
-return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
-}
-function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
-let html = "";
-let localOffset = 0;
-for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-const start = ruby.start - token.start;
-const end = ruby.end - token.start;
-html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
-localOffset = end;
-}
-html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-return html;
-}
-function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
-let html = "";
-let localOffset = 0;
-for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-const start = ruby.start - token.start;
-const end = ruby.end - token.start;
-html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
-html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml(ruby.text)}</span>`;
-html += "</span>";
-localOffset = end;
-}
-html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-return html;
-}
-function inferredInflectedSurfaceRubies(surface, spelling, reading) {
-const visibleSurface = surface.trim();
-const baseSpelling = spelling.trim();
-const baseReading = reading.trim();
-if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-if (!KANJI_RE$1.test(visibleSurface) || !READING_KANA_ONLY_RE.test(baseReading) || baseReading === baseSpelling) return [];
-for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
-if (!baseReading.endsWith(spellingSuffix)) continue;
-const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
-if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
-const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-if (surfaceSuffix && !READING_KANA_ONLY_RE.test(surfaceSuffix)) continue;
-const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
-if (rubies.length) return rubies;
-}
-if (visibleSurface.startsWith(baseSpelling) && !READING_KANA_CHAR_RE.test(baseSpelling)) {
-const surfaceSuffix = visibleSurface.slice(baseSpelling.length);
-if (!surfaceSuffix || READING_KANA_ONLY_RE.test(surfaceSuffix)) {
-return [{
-text: baseReading,
-start: 0,
-end: baseSpelling.length,
-length: baseSpelling.length
-}];
-}
-}
-return [];
-}
-function trailingKanaSuffixes(value) {
-const suffixes = [];
-for (let index = 0; index < value.length; index += 1) {
-const suffix = value.slice(index);
-if (suffix && READING_KANA_ONLY_RE.test(suffix)) suffixes.push(suffix);
-}
-return suffixes.sort((first, second) => second.length - first.length);
-}
-function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
-const trimmed = trimSharedKanaAffixes$1(surfaceStem, readingStem);
-if (!trimmed.surface || !trimmed.reading) return [];
-if (!KANJI_RE$1.test(trimmed.surface) || !READING_KANA_ONLY_RE.test(trimmed.reading)) return [];
-return [{
-text: trimmed.reading,
-start: trimmed.offset,
-end: trimmed.offset + trimmed.surface.length,
-length: trimmed.surface.length
-}];
-}
-function trimSharedKanaAffixes$1(surface, reading) {
-let trimmedSurface = surface;
-let trimmedReading = reading;
-let offset = 0;
-while (trimmedSurface && trimmedReading && sameKanaCharacter(trimmedSurface[0], trimmedReading[0])) {
-trimmedSurface = trimmedSurface.slice(1);
-trimmedReading = trimmedReading.slice(1);
-offset += 1;
-}
-while (trimmedSurface && trimmedReading && sameKanaCharacter(
-trimmedSurface[trimmedSurface.length - 1],
-trimmedReading[trimmedReading.length - 1]
-)) {
-trimmedSurface = trimmedSurface.slice(0, -1);
-trimmedReading = trimmedReading.slice(0, -1);
-}
-return { surface: trimmedSurface, reading: trimmedReading, offset };
-}
-function sameKanaCharacter(first, second) {
-return Boolean(first && second && first === second && READING_KANA_ONLY_RE.test(first));
-}
-function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
-const target = learningTargetForToken(token);
-if (target.typography.readingAnnotationMode === "none") return [];
-const sources = sourceTokenRubies(surface, token);
-if (target.experiences.characterLookup === "term-dictionary") {
-return sources.filter((ruby) => localRubyRange(surface, token, ruby));
-}
-if (preserveTokenRubies) {
-return sources.flatMap((ruby) => {
-const range = localRubyRange(surface, token, ruby);
-if (!range) return [];
-const base = surface.slice(range.start, range.end);
-if (!KANJI_RE$1.test(base)) return [];
-if (!READING_KANA_CHAR_RE.test(base)) return [ruby];
-const parts = kanjiOnlyRubySegments(surface, token, ruby);
-return parts.length ? parts : [ruby];
-});
-}
-return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
-}
-function sourceTokenRubies(surface, token) {
-if (token.rubies.length) return token.rubies;
-const reading = token.card.reading.trim();
-if (!surface || !reading || reading === surface) return [];
-if (surface.trim() === token.card.spelling.trim()) {
-return [{ text: reading, start: token.start, end: token.end, length: token.length }];
-}
-if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE$1.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
-const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-if (inferred.length) {
-return inferred.map((ruby) => ({
-...ruby,
-start: token.start + ruby.start,
-end: token.start + ruby.end
-}));
-}
-return [];
-}
-function learningTargetForToken(token) {
-return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
-}
-function kanjiOnlyRubySegments(surface, token, ruby) {
-const range = localRubyRange(surface, token, ruby);
-if (!range) return [];
-return kanjiRubyParts(surface.slice(range.start, range.end), ruby.text.trim()).map((part) => ({
-text: part.text,
-start: token.start + range.start + part.start,
-end: token.start + range.start + part.end,
-length: part.end - part.start
-}));
-}
-function localRubyRange(surface, token, ruby) {
-const start = ruby.start - token.start;
-const end = ruby.end - token.start;
-if (start < 0 || end > surface.length || end <= start) return null;
-return { start, end };
-}
-function kanjiRubyParts(base, reading) {
-if (!base || !reading || !KANJI_RE$1.test(base)) return [];
-if (!READING_KANA_ONLY_RE.test(reading)) return [{ text: reading, start: 0, end: base.length }];
-const anchors = alignRubyKanaAnchors(base, reading);
-if (!anchors) return trimRubyPartToKanji(base, reading);
-const parts = [];
-let baseOffset = 0;
-let readingOffset = 0;
-for (const anchor of anchors) {
-appendRubyGap(parts, base, baseOffset, anchor.baseStart, reading.slice(readingOffset, anchor.readingStart));
-baseOffset = anchor.baseEnd;
-readingOffset = anchor.readingEnd;
-}
-appendRubyGap(parts, base, baseOffset, base.length, reading.slice(readingOffset));
-return parts.length ? parts : trimRubyPartToKanji(base, reading);
-}
-function appendRubyGap(parts, base, start, end, reading) {
-const part = trimRubyPartToKanji(base.slice(start, end), reading)[0];
-if (part) parts.push({ text: part.text, start: start + part.start, end: start + part.end });
-}
-function trimRubyPartToKanji(base, reading) {
-const trimmed = trimSharedKanaAffixes$1(base, reading);
-if (!trimmed.surface || !trimmed.reading || !KANJI_RE$1.test(trimmed.surface)) return [];
-const kanjiOnly = kanaTrimmedKanjiRange(trimmed.surface, trimmed.reading);
-if (kanjiOnly) {
-return [{
-text: trimmed.reading,
-start: trimmed.offset + kanjiOnly.start,
-end: trimmed.offset + kanjiOnly.end
-}];
-}
-return [{
-text: trimmed.reading,
-start: trimmed.offset,
-end: trimmed.offset + trimmed.surface.length
-}];
-}
-function kanaTrimmedKanjiRange(base, reading) {
-if (!READING_KANA_ONLY_RE.test(reading) || !READING_KANA_CHAR_RE.test(base)) return null;
-const chars = Array.from(base);
-const first = chars.findIndex((char) => KANJI_RE$1.test(char));
-if (first < 0) return null;
-let last = -1;
-for (let index = chars.length - 1; index >= first; index -= 1) {
-if (KANJI_RE$1.test(chars[index])) {
-last = index;
-break;
-}
-}
-if (last < first || first === 0 && last === chars.length - 1) return null;
-return { start: first, end: last + 1 };
-}
-function alignRubyKanaAnchors(base, reading) {
-const runs = rubyBaseKanaRuns(base);
-if (!runs.length) return [];
-return findRubyKanaAnchorPlan(base, reading, runs, 0, 0, []);
-}
-function findRubyKanaAnchorPlan(base, reading, runs, index, readingOffset, anchors) {
-if (index >= runs.length) return rubyKanaAnchorPlanIsValid(base, reading, anchors) ? anchors : null;
-const run = runs[index];
-for (const readingStart of readingRunOccurrences(reading, run.text, readingOffset)) {
-const nextAnchors = anchors.concat({
-...run,
-readingStart,
-readingEnd: readingStart + run.text.length
-});
-const plan = findRubyKanaAnchorPlan(base, reading, runs, index + 1, readingStart + run.text.length, nextAnchors);
-if (plan) return plan;
-}
-return null;
-}
-function readingRunOccurrences(reading, text2, offset) {
-const occurrences = [];
-let index = reading.indexOf(text2, offset);
-while (index >= 0) {
-occurrences.push(index);
-index = reading.indexOf(text2, index + 1);
-}
-return occurrences;
-}
-function rubyKanaAnchorPlanIsValid(base, reading, anchors) {
-let baseOffset = 0;
-let readingOffset = 0;
-for (const anchor of anchors) {
-if (!rubyGapCanOwnReading(base.slice(baseOffset, anchor.baseStart), reading.slice(readingOffset, anchor.readingStart))) return false;
-baseOffset = anchor.baseEnd;
-readingOffset = anchor.readingEnd;
-}
-return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
-}
-function rubyGapCanOwnReading(base, reading) {
-return KANJI_RE$1.test(base) ? reading.length > 0 : reading.length === 0;
-}
-function rubyBaseKanaRuns(base) {
-const runs = [];
-let start = -1;
-for (let index = 0; index <= base.length; index += 1) {
-const isKana = index < base.length && READING_KANA_CHAR_RE.test(base[index]);
-if (isKana && start < 0) start = index;
-if ((!isKana || index === base.length) && start >= 0) {
-runs.push({ text: base.slice(start, index), baseStart: start, baseEnd: index });
-start = -1;
-}
-}
-return runs;
+aggregateRuntimeMember(value, "tokenTextRendering", "renderRuby"),
+aggregateRuntimeMember(value, "localYomuDeck", "normalizeStoredYomuSrsDeck"),
+aggregateRuntimeMember(value, "handleDrag", "createHandleDragController")
+].every((member) => typeof member === "function");
+}
+function aggregateRuntimeMember(value, moduleName, memberName) {
+const module = Reflect.get(value, moduleName);
+if (!module || typeof module !== "object") return void 0;
+return Reflect.get(module, memberName);
 }
 function kanjiNavigationForElement(element) {
 const host = element.closest("[data-jpdb-reader-kanji-nav]");
@@ -7969,18 +3897,36 @@ enabled: true,
 label: host.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
 };
 }
-function renderKanjiNavigationText(value, options) {
-if (!options?.enabled) return escapeHtml(value);
-return Array.from(value).map(
-(character) => isKanjiForInlineNavigation(character) ? renderKanjiNavigationCharacter(character, options.label) : escapeHtml(character)
-).join("");
-}
-function renderKanjiNavigationCharacter(character, label) {
-const safeCharacter = escapeHtml(character);
-return `<button class="jpdb-reader-kanji-inline" type="button" data-action="kanji" data-kanji="${safeCharacter}" title="${escapeHtml(`${label}: ${character}`)}">${safeCharacter}</button>`;
-}
-function isKanjiForInlineNavigation(value) {
-return isUnifiedIdeograph(value);
+const tokenTextRendering = aggregateRuntimeModules().tokenTextRendering;
+const {
+PITCH_CLASSES,
+effectiveTokenRubies,
+inferredInflectedSurfaceRubies,
+isParticleCard,
+localRubyRange,
+miningInsightTokenKey,
+miningInsightTokenKeys,
+nonOverlappingTokens,
+readerCardId,
+readerCardSource,
+readerReadingIndex,
+readerWordClassName,
+renderHighlightedTextHtml,
+renderKanjiNavigationText,
+renderRuby,
+renderTokenReadings,
+shouldHideFuriganaForCardState,
+shouldRenderRuby,
+tokenPitchClass
+} = tokenTextRendering;
+function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+return renderTokenReadings(
+surface,
+token,
+kanjiNavigation,
+preserveTokenRubies,
+"detached"
+);
 }
 const RENDERED_WORD_CARD_STATES = [
 "new",
@@ -8317,6 +4263,32 @@ function yieldToNextTask() {
 return new Promise((resolve) => window.setTimeout(resolve, 0));
 }
 const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
+function runtime() {
+const targetRuntime = yomuLearningTargetRuntime();
+if (!targetRuntime) throw new Error("Yomu learning-target runtime did not load.");
+return targetRuntime;
+}
+function activeLearningTarget() {
+return runtime().activeLearningTarget();
+}
+function activeLearningTargetGeneration() {
+return runtime().activeLearningTargetGeneration();
+}
+function activeLearningTargetLanguage() {
+return runtime().activeLearningTargetLanguage();
+}
+function adoptLearningTargetLanguage(value) {
+return runtime().adoptLearningTargetLanguage(value);
+}
+function defaultLearningTargetModule() {
+return runtime().defaultLearningTargetModule();
+}
+function learningTargetModuleFor(language) {
+return runtime().learningTargetModuleFor(language);
+}
+function normalizeLearningTargetLanguage(value) {
+return runtime().normalizeLearningTargetLanguage(value);
+}
 function isTargetLanguageText(text2) {
 return activeLearningTarget().isLookupableText(text2);
 }
@@ -8978,6 +4950,208 @@ const YOUTUBE_APP_HOSTS = new Set([
 ]);
 function isYouTubeAppHostname(hostname = location.hostname) {
 return YOUTUBE_APP_HOSTS.has(hostname.toLowerCase());
+}
+const BLOCKED_HTML_ELEMENTS = new Set(["base", "embed", "frame", "frameset", "iframe", "link", "meta", "noscript", "object", "portal", "script", "style", "foreignobject"]);
+const BLOCKED_ATTRIBUTES = new Set(["action", "autofocus", "formaction", "is", "nonce", "ping", "srcdoc", "srcset"]);
+const URL_ATTRIBUTES = new Set(["href", "poster", "src", "xlink:href"]);
+const SAFE_URL_PROTOCOLS = new Set(["about:", "blob:", "chrome-extension:", "file:", "http:", "https:", "mailto:", "moz-extension:", "safari-web-extension:", "tel:"]);
+const DATA_URL_PATTERN = /^data:(?:image\/(?:avif|bmp|gif|jpe?g|png|webp)|audio\/[a-z0-9.+-]+|video\/[a-z0-9.+-]+)(?:;[^,]*)?,/i;
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+let trustedHtmlPolicy;
+function setInnerHtml(element, html) {
+if (!replaceWithHtmlFragment(element, html)) element.textContent = html;
+}
+function replaceWithHtmlFragment(element, html) {
+try {
+const ownerDocument = element.ownerDocument || document;
+const { source, rootSelector } = contextualSanitizerSource(element, html);
+const parsed = new DOMParser().parseFromString(trustedHtml(source), "text/html");
+const parsedRoot = rootSelector ? parsed.querySelector(rootSelector) : parsed.body;
+if (!parsedRoot) return false;
+sanitizeChildren(parsedRoot, parsed);
+const fragment = ownerDocument.createDocumentFragment();
+fragment.append(...Array.from(parsedRoot.childNodes, (node) => ownerDocument.importNode(node, true)));
+sanitizeChildren(fragment, ownerDocument);
+const target = element.localName === "template" && "content" in element ? element.content : element;
+target.replaceChildren(fragment);
+return true;
+} catch {
+return false;
+}
+}
+function contextualSanitizerSource(element, html) {
+if (element.namespaceURI === SVG_NAMESPACE) {
+return {
+source: `<svg xmlns="${SVG_NAMESPACE}" data-yomu-sanitize-root>${html}</svg>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+}
+switch (element.localName.toLowerCase()) {
+case "table":
+return {
+source: `<table data-yomu-sanitize-root>${html}</table>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+case "thead":
+case "tbody":
+case "tfoot":
+return {
+source: `<table><${element.localName} data-yomu-sanitize-root>${html}</${element.localName}></table>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+case "tr":
+return {
+source: `<table><tbody><tr data-yomu-sanitize-root>${html}</tr></tbody></table>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+case "colgroup":
+return {
+source: `<table><colgroup data-yomu-sanitize-root>${html}</colgroup></table>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+case "select":
+return {
+source: `<select data-yomu-sanitize-root>${html}</select>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+case "optgroup":
+return {
+source: `<select><optgroup data-yomu-sanitize-root>${html}</optgroup></select>`,
+rootSelector: "[data-yomu-sanitize-root]"
+};
+default:
+return { source: html, rootSelector: "" };
+}
+}
+function htmlToFirstElement(html) {
+const trimmed = html.trim();
+if (!trimmed) return null;
+const template = document.createElement("template");
+setInnerHtml(template, trimmed);
+const first = template.content.firstElementChild;
+return first instanceof HTMLElement ? document.importNode(first, true) : null;
+}
+function appendToDocumentHead(element) {
+const target = document.head || document.documentElement || document.body;
+if (target) {
+target.appendChild(element);
+return;
+}
+document.addEventListener(
+"DOMContentLoaded",
+() => {
+if (!element.isConnected) appendToDocumentHead(element);
+},
+{ once: true }
+);
+}
+function escapeHtml(value) {
+return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+function sanitizeChildren(parent, ownerDocument) {
+for (const node of Array.from(parent.childNodes)) {
+if (node.nodeType !== 1) continue;
+const element = node;
+const localName = element.localName.toLowerCase();
+if (BLOCKED_HTML_ELEMENTS.has(localName) || localName.startsWith("animate") || localName === "set") {
+element.remove();
+continue;
+}
+if (localName.includes("-")) {
+sanitizeChildren(element, ownerDocument);
+element.replaceWith(...Array.from(element.childNodes));
+continue;
+}
+sanitizeElement(element, ownerDocument);
+const childRoot = localName === "template" && "content" in element ? element.content : element;
+sanitizeChildren(childRoot, ownerDocument);
+}
+}
+function sanitizeElement(element, ownerDocument) {
+for (const attribute of Array.from(element.attributes)) {
+const name = attribute.name.toLowerCase();
+if (name.startsWith("on") || BLOCKED_ATTRIBUTES.has(name)) {
+element.removeAttribute(attribute.name);
+continue;
+}
+if (URL_ATTRIBUTES.has(name) && !isSafeHtmlUrl(attribute.value)) {
+element.removeAttribute(attribute.name);
+continue;
+}
+if (name === "style") {
+const style = sanitizedInlineStyle(attribute.value, ownerDocument);
+if (style) element.setAttribute(attribute.name, style);
+else element.removeAttribute(attribute.name);
+}
+}
+if (element.getAttribute("target")?.toLowerCase() === "_blank") {
+const rel = new Set((element.getAttribute("rel") ?? "").split(/\s+/).filter(Boolean));
+rel.add("noopener");
+rel.add("noreferrer");
+element.setAttribute("rel", [...rel].join(" "));
+}
+}
+function sanitizedInlineStyle(value, ownerDocument) {
+const declaration = ownerDocument.createElement("span").style;
+declaration.cssText = value;
+const containsUnsafeSource = /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(value) || [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]));
+let removedProperty = false;
+for (const property of Array.from(declaration)) {
+const propertyValue = declaration.getPropertyValue(property);
+if (property === "behavior" || property === "-moz-binding" || /(?:expression\s*\(|javascript\s*:|vbscript\s*:|@import|-moz-binding)/i.test(propertyValue) || [...propertyValue.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].some((match) => !isSafeHtmlUrl(match[2]))) {
+declaration.removeProperty(property);
+removedProperty = true;
+}
+}
+return containsUnsafeSource || removedProperty ? declaration.cssText : value;
+}
+function isSafeHtmlUrl(value) {
+const candidate = value.trim().replace(/[\u0000-\u0020\u007f]+/g, "");
+if (!candidate) return true;
+if (candidate.startsWith("#")) return true;
+if (/^data:/i.test(candidate)) return DATA_URL_PATTERN.test(candidate);
+try {
+const parsed = new URL(candidate, "https://yomureader.invalid/");
+return SAFE_URL_PROTOCOLS.has(parsed.protocol) && (parsed.protocol !== "about:" || parsed.href === "about:blank");
+} catch {
+return false;
+}
+}
+function trustedHtml(value) {
+try {
+const factory = trustedTypesFactory();
+if (!factory) return value;
+if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+return trustedHtmlPolicy?.createHTML(value) ?? value;
+} catch {
+trustedHtmlPolicy = null;
+return value;
+}
+}
+function trustedTypesFactory() {
+const root = globalThis;
+return [root.trustedTypes, typeof window === "undefined" ? void 0 : window.trustedTypes, root.unsafeWindow?.trustedTypes].find(
+(factory) => Boolean(factory)
+);
+}
+function createTrustedHtmlPolicy(factory) {
+const existing = factory.getPolicy?.("yomu-reader");
+if (existing?.createHTML) return existing;
+const options = { createHTML: (html) => html };
+return createTrustedHtmlPolicyWithOptions(
+factory,
+pageCompartmentValue(options, {
+cloneFunctions: true,
+wrapReflectors: true
+})
+) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+}
+function createTrustedHtmlPolicyWithOptions(factory, options) {
+try {
+return factory.createPolicy?.("yomu-reader", options) ?? null;
+} catch {
+return null;
+}
 }
 function syncProjectedReadings(owner, projections) {
 yomuAnnotationsCompanion()?.syncProjectedReadings(owner, projections);
@@ -16131,7 +12305,303 @@ if (control.getAttribute("aria-disabled") === "true") return true;
 if (control.closest('[aria-disabled="true"]')) return true;
 return control.matches(":disabled, fieldset[disabled] *");
 }
-const log$9 = Logger.scope("CardStateSignal");
+const CORE_COLOR_TOKENS = {
+black: "#000000",
+white: "#ffffff"
+};
+const BRAND_COLOR_TOKENS = {
+accent: "#5ea780",
+consoleAccent: "#247a58"
+};
+const READER_THEME_COLOR_TOKENS = {
+dark: {
+bg: "#181b20",
+surface: "#20242b",
+surface2: "#282e37",
+accentText: "#11161d"
+},
+light: {
+bg: "#fbfcfe",
+surface: "#f4f7fa",
+surface2: "#e8edf3",
+text: "#17202a",
+accentText: CORE_COLOR_TOKENS.white
+}
+};
+const OVERLAY_COLOR_TOKENS = {
+text: CORE_COLOR_TOKENS.white,
+outline: CORE_COLOR_TOKENS.black,
+background: READER_THEME_COLOR_TOKENS.dark.bg
+};
+const OCR_OVERLAY_COLOR_TOKENS = {
+text: READER_THEME_COLOR_TOKENS.light.text,
+outline: CORE_COLOR_TOKENS.white
+};
+const DEFAULT_WORD_COLOR_TOKENS = {
+new: "#ffffff",
+learning: "#ffd166",
+known: "#7bd88f",
+due: "#5fb3b3",
+failed: "#ff6b6b",
+ignored: "#b8a7ff"
+};
+const DEFAULT_PITCH_COLOR_TOKENS = {
+heiban: "#359eff",
+atamadaka: "#fe4b74",
+nakadaka: "#fba840",
+odaka: "#57ccb7",
+unknown: "#94a3b8"
+};
+const LOOKUP_PILL_COLOR_TOKENS = {
+jpdb: { bg: "#2563c7", border: "#4f8ff0", text: CORE_COLOR_TOKENS.white },
+jiten: { bg: "#13845f", border: "#34c89a", text: CORE_COLOR_TOKENS.white },
+bunpro: { bg: "#be3455", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+"yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
+jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
+weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
+kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
+takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
+"wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
+"immersion-kit": { bg: "#0e7490", border: "#22d3ee", text: CORE_COLOR_TOKENS.white },
+nadeshiko: { bg: "#7c3aed", border: "#a78bfa", text: CORE_COLOR_TOKENS.white },
+uchisen: { bg: "#9a3412", border: "#fb923c", text: CORE_COLOR_TOKENS.white },
+anki: { bg: "#2f6da8", border: "#68a6e6", text: CORE_COLOR_TOKENS.white },
+copy: { bg: "#7e3fbf", border: "#a064e5", text: CORE_COLOR_TOKENS.white }
+};
+const PAGE_WORD_COLOR_TOKENS = {
+unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
+};
+const LOGGER_COLOR_TOKENS = {
+debug: "#6b7280",
+warn: "#a15c00",
+error: "#b91c1c"
+};
+const JITEN_API_KEY_PREFIX = "ak_";
+function effectiveJpdbApiKey(settings) {
+const apiKey = settings.apiKey.trim();
+return isJitenApiCredential(apiKey) ? "" : apiKey;
+}
+function effectiveJitenApiKey(settings) {
+const explicit = settings.jitenApiKey.trim();
+if (explicit) return explicit;
+const apiKey = settings.apiKey.trim();
+return isJitenApiCredential(apiKey) ? apiKey : "";
+}
+function hasJpdbApiCredential(settings) {
+return Boolean(effectiveJpdbApiKey(settings));
+}
+function hasJitenApiCredential(settings) {
+return Boolean(effectiveJitenApiKey(settings));
+}
+function effectiveBunproFrontendApiToken(settings) {
+return settings.bunproFrontendApiToken?.trim() ?? "";
+}
+function effectiveBunproLegacyApiKey(settings) {
+return settings.bunproApiKey?.trim() ?? "";
+}
+function hasBunproFrontendCredential(settings) {
+return Boolean(effectiveBunproFrontendApiToken(settings));
+}
+function isBunproFrontendCredentialExpired(settings, now = Date.now()) {
+const raw = settings.bunproFrontendApiTokenExpiresAt?.trim();
+if (!raw || !hasBunproFrontendCredential(settings)) return false;
+const expiresAt = Date.parse(raw);
+return Number.isFinite(expiresAt) && expiresAt <= now;
+}
+function effectiveWanikaniApiToken(settings) {
+return settings.wanikaniApiToken?.trim() ?? "";
+}
+function hasWanikaniApiCredential(settings) {
+return Boolean(effectiveWanikaniApiToken(settings));
+}
+function isJitenApiCredential(value) {
+return value.trim().startsWith(JITEN_API_KEY_PREFIX);
+}
+const __vite_import_meta_env__ = { "DEV": false };
+const LOG_PREFIX = "[Yomu]";
+const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+const RUNTIME_LOG_KEY = "yomu:enable-logs";
+const REDACTED = "[redacted]";
+const OPTIONAL_CORS_BRIDGE_MESSAGE = "No configured proxy.";
+const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+const env = __vite_import_meta_env__;
+const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+class ScopedLogger {
+constructor(parent, scopeName) {
+this.parent = parent;
+this.scopeName = scopeName;
+}
+debug(message, ...args) {
+this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+}
+info(message, ...args) {
+this.parent.write(this.scopeName, message, args, console.info, "");
+}
+warn(message, ...args) {
+const optional = args.some(isOptionalCorsBridgeError);
+this.parent.write(this.scopeName, message, args, optional ? writeDebugToConsole : console.warn, optional ? DEBUG_STYLE : WARN_STYLE);
+}
+error(message, ...args) {
+this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+}
+warnOnce(key, message, ...args) {
+this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
+}
+time(label, ...args) {
+if (!this.parent.isEnabled()) return () => void 0;
+const start = nowMs();
+this.debug(`${label} started`, ...args);
+return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+}
+}
+class LoggerImpl {
+settingsProvider;
+forceEnabled = false;
+onceKeys = new Set();
+configure(options) {
+this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+}
+scope(scopeName) {
+return new ScopedLogger(this, scopeName);
+}
+isEnabled() {
+if (BUILD_LOGGING_ENABLED) return true;
+if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+try {
+return this.settingsProvider?.().enableLogging === true;
+} catch {
+return false;
+}
+}
+isDevMode() {
+return isDevMode();
+}
+enable(persist = false) {
+this.forceEnabled = true;
+if (persist) setRuntimeLoggingOverride(true);
+this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+}
+disable(persist = false) {
+this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+this.forceEnabled = false;
+if (persist) setRuntimeLoggingOverride(false);
+}
+reset() {
+this.onceKeys.clear();
+}
+warnOnce(key, scope, message, args) {
+if (this.onceKeys.has(key)) return;
+this.onceKeys.add(key);
+this.write(scope, message, args, console.warn, WARN_STYLE);
+}
+write(scope, message, args, writer, levelStyle) {
+if (!this.isEnabled()) return;
+writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+}
+}
+const Logger = new LoggerImpl();
+setAttemptRecorder((label, error) => Logger.scope("Attempt").debug(`${label} failed`, error));
+function configureLogger(options) {
+runtimeLoggingOverride = void 0;
+Logger.configure(options);
+}
+function loggingSettingsSummary(settings) {
+return {
+enableLogging: settings.enableLogging,
+hasApiKey: hasJpdbApiCredential(settings),
+hasJitenApiKey: hasJitenApiCredential(settings),
+localDictionariesEnabled: settings.localDictionariesEnabled,
+localDictionarySources: settings.dictionaryPreferences.length,
+ankiEnabled: settings.ankiEnabled,
+newTabEnabled: settings.newTabEnabled,
+newTabSource: settings.newTabSource,
+ocrEnabled: settings.ocrEnabled,
+subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
+youtubeImmersionEnabled: settings.youtubeImmersionEnabled
+};
+}
+function isDevMode() {
+return BUILD_IS_DEV_MODE;
+}
+function writeDebugToConsole(...args) {
+if (isDevMode()) console.log(...args);
+else console.debug(...args);
+}
+function isOptionalCorsBridgeError(value) {
+return value instanceof Error && value.message === OPTIONAL_CORS_BRIDGE_MESSAGE;
+}
+let runtimeLoggingOverride;
+function getRuntimeLoggingOverride() {
+if (runtimeLoggingOverride !== void 0) return runtimeLoggingOverride;
+try {
+runtimeLoggingOverride = gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+} catch {
+runtimeLoggingOverride = false;
+}
+return runtimeLoggingOverride;
+}
+function setRuntimeLoggingOverride(enabled) {
+runtimeLoggingOverride = enabled;
+try {
+if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+} catch {
+}
+}
+function nowMs() {
+return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+}
+function sanitizeForConsole(value) {
+if (typeof value === "string") return redactString(value);
+if (value === null || value === void 0 || typeof value !== "object") return value;
+const sanitized = sanitizeSpecialConsoleValue(value);
+if (sanitized.handled) return sanitized.value;
+if (Array.isArray(value)) return value.map(sanitizeForConsole);
+return sanitizeRecordForConsole(value);
+}
+function sanitizeSpecialConsoleValue(value) {
+for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+const sanitized = sanitizer(value);
+if (sanitized.handled) return sanitized;
+}
+return { handled: false };
+}
+const CONSOLE_VALUE_SANITIZERS = [
+(value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+(value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+(value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+(value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+];
+function sanitizeRecordForConsole(record2) {
+return Object.fromEntries(Object.entries(record2).map(([key, value]) => [
+key,
+shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
+]));
+}
+function sanitizeFlatValue(value) {
+if (typeof value === "string") return redactString(value);
+if (value instanceof Error) return { name: value.name, message: value.message };
+return value;
+}
+function shouldRedactEntry(key, value) {
+if (!SECRET_KEY_PATTERN.test(key)) return false;
+if (typeof value === "number" && /tokens?/i.test(key)) return false;
+return true;
+}
+function redactString(value) {
+return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+}
+if (typeof window !== "undefined") {
+window.__YOMU_LOGGER__ = Logger;
+window.YomuLogger = Logger;
+}
+const log$a = Logger.scope("CardStateSignal");
 const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
 const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
 const SEEN_SIGNAL_LIMIT = 32;
@@ -16173,7 +12643,7 @@ card: cardStateSignalCard(card)
 try {
 gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
 } catch (error) {
-log$9.debug("GM card-state publish failed", error);
+log$a.debug("GM card-state publish failed", error);
 }
 publishBroadcastCardStateSignal(signal);
 }
@@ -16184,7 +12654,7 @@ const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
 channel.postMessage(signal);
 channel.close();
 } catch (error) {
-log$9.debug("Broadcast card-state publish failed", error);
+log$a.debug("Broadcast card-state publish failed", error);
 }
 }
 function subscribeToCardStateSignals(onCard) {
@@ -16206,7 +12676,7 @@ const channel = new BroadcastChannel(CARD_STATE_CHANNEL_NAME);
 channel.onmessage = (event) => handle(event.data);
 cleanups.push(() => channel.close());
 } catch (error) {
-log$9.debug("Broadcast card-state listener failed", error);
+log$a.debug("Broadcast card-state listener failed", error);
 }
 }
 return () => cleanups.forEach((cleanup) => cleanup());
@@ -16265,6 +12735,60 @@ await yomuKanjiStudyCompanion()?.renderStudyToolResult?.(button, action, sentenc
 }
 function handleStudyGrammarAction(button, sentence, language = "en", options = {}) {
 return yomuKanjiStudyCompanion()?.handleStudyGrammarAction?.(button, sentence, language, options) ?? false;
+}
+const CARD_STATE_LABEL_KEYS = {
+new: "stateNew",
+learning: "stateLearning",
+young: "stateYoung",
+mature: "stateMature",
+known: "stateKnown",
+mastered: "stateMastered",
+due: "stateDue",
+failed: "stateFailed",
+locked: "stateLocked",
+"never-forget": "stateNeverForget",
+blacklisted: "stateBlacklisted",
+suspended: "stateSuspended",
+"in-deck": "stateInDeck",
+"not-in-deck": "stateNotInDeck",
+redundant: "stateRedundant",
+frequent: "stateFrequent",
+unparsed: "stateUnparsed"
+};
+function resolveUiLanguage(language) {
+return yomuI18nCompanion()?.resolveUiLanguage(language) ?? fallbackResolveUiLanguage(language);
+}
+function uiText(language, key) {
+return yomuI18nCompanion()?.uiText(language, key) ?? fallbackUiText(key);
+}
+function cardStateLabel(state, language, fallback = state) {
+return yomuI18nCompanion()?.cardStateLabel(state, language, fallback) ?? fallbackCardStateLabel(state, fallback);
+}
+function formatUiText(language, key, values) {
+return yomuI18nCompanion()?.formatUiText(language, key, values) ?? formatTemplate(fallbackUiText(key), values);
+}
+function uiList(language, parts) {
+return yomuI18nCompanion()?.uiList(language, parts) ?? new Intl.ListFormat(resolveUiLanguage(language), { style: "short", type: "conjunction" }).format(parts);
+}
+function fallbackResolveUiLanguage(language) {
+if (language === "ja" || language === "en") return language;
+const languages2 = typeof navigator === "undefined" ? [] : [
+...Array.isArray(navigator.languages) ? navigator.languages : [],
+navigator.language
+];
+return languages2.some((value) => typeof value === "string" && value.toLowerCase().startsWith("ja")) ? "ja" : "en";
+}
+function fallbackCardStateLabel(state, fallback) {
+return CARD_STATE_LABEL_KEYS[state] ? fallbackUiText(CARD_STATE_LABEL_KEYS[state]) : fallback;
+}
+function fallbackUiText(key) {
+return String(key);
+}
+function formatTemplate(template, values) {
+return Object.entries(values).reduce(
+(text2, [name, value]) => text2.replaceAll(`{${name}}`, String(value)),
+template
+);
 }
 function userFacingError(copyKey, options = {}) {
 return Object.assign(
@@ -16340,6 +12864,32 @@ return /never\s*-?\s*forget|blacklist|suspend/i.test(`${deck.id} ${deck.name}`);
 function normalizeDeckChoiceRenderOptions(value) {
 return typeof value === "boolean" ? { includeJpdb: value } : value;
 }
+function canonicalLanguageTag(value) {
+if (typeof value !== "string") return null;
+const candidate = value.trim().replace(/_/g, "-");
+if (!candidate || candidate.length > 255) return null;
+try {
+return Intl.getCanonicalLocales(candidate)[0] ?? null;
+} catch {
+return null;
+}
+}
+function languageSubtag(value) {
+const canonical = canonicalLanguageTag(value);
+if (!canonical) return null;
+try {
+return new Intl.Locale(canonical).language;
+} catch {
+return canonical.split("-")[0]?.toLowerCase() ?? null;
+}
+}
+function languageDisplayName(language, locale = "en") {
+try {
+return new Intl.DisplayNames([locale], { type: "language" }).of(language) ?? language;
+} catch {
+return language;
+}
+}
 function canonicalStudyCardIdentity(expression, reading = "", options = {}) {
 const normalizedExpression = expression.normalize("NFKC").trim();
 if (!normalizedExpression) throw new TypeError("Vocabulary expression is required.");
@@ -16362,278 +12912,14 @@ partOfSpeech,
 language
 };
 }
-function isRecord$1(value) {
-return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-function normalizeStoredYomuSrsDeck(value) {
-if (!isRecord$1(value) || value.version !== 1 || !isRecord$1(value.cards)) return { version: 1, cards: {} };
-const cards = {};
-for (const candidate of Object.values(value.cards)) {
-const normalized = normalizeStoredCard(candidate);
-if (!normalized) continue;
-cards[normalized.id] = cards[normalized.id] ? mergeStoredYomuSrsCards(cards[normalized.id], normalized) : normalized;
-}
-const tombstones = {};
-if (isRecord$1(value.tombstones)) {
-for (const [id, timestamp] of Object.entries(value.tombstones)) {
-if (typeof timestamp !== "number" || !Number.isSafeInteger(timestamp) || timestamp < 0) continue;
-const card = cards[id];
-if (card && card.updatedAt > timestamp) continue;
-delete cards[id];
-tombstones[id] = timestamp;
-}
-}
-return Object.keys(tombstones).length ? { version: 1, cards, tombstones } : { version: 1, cards };
-}
-function mergeStoredYomuSrsDecks(leftValue, rightValue) {
-const left = normalizeStoredYomuSrsDeck(leftValue);
-const right = normalizeStoredYomuSrsDeck(rightValue);
-const cards = { ...left.cards };
-const tombstones = { ...left.tombstones ?? {} };
-for (const [id, timestamp] of Object.entries(right.tombstones ?? {})) {
-tombstones[id] = Math.max(tombstones[id] ?? 0, timestamp);
-}
-for (const [id, incoming] of Object.entries(right.cards)) {
-const tombstone = tombstones[id];
-if (tombstone !== void 0 && tombstone >= incoming.updatedAt) continue;
-if (tombstone !== void 0) delete tombstones[id];
-cards[id] = cards[id] ? mergeStoredYomuSrsCards(cards[id], incoming) : incoming;
-}
-return normalizeStoredYomuSrsDeck({ version: 1, cards, tombstones });
-}
-function mergeStoredYomuSrsCards(existing, incoming) {
-const existingIdentity = storedCardIdentity(existing);
-const incomingIdentity = storedCardIdentity(incoming);
-if (existingIdentity.key !== incomingIdentity.key) {
-throw new TypeError("Cannot merge Yomu SRS cards with different identities.");
-}
-const identity = existingIdentity;
-const schedule = preferredSchedule(existing, incoming);
-const scheduleFields = { ...schedule };
-delete scheduleFields.language;
-delete scheduleFields.partOfSpeech;
-return {
-...scheduleFields,
-id: identity.key,
-expression: identity.expression,
-reading: identity.reading,
-...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
-...identity.language !== "ja" ? { language: identity.language } : {},
-meanings: uniqueText([...existing.meanings, ...incoming.meanings]),
-sentence: existing.sentence || incoming.sentence,
-sourceProviderId: existing.sourceProviderId || incoming.sourceProviderId,
-sourceCardId: existing.sourceCardId || incoming.sourceCardId,
-sourceUrl: existing.sourceUrl || incoming.sourceUrl,
-tags: uniqueText([...existing.tags ?? [], ...incoming.tags ?? []]),
-createdAt: Math.min(existing.createdAt, incoming.createdAt),
-updatedAt: Math.max(existing.updatedAt, incoming.updatedAt),
-reviews: Math.max(existing.reviews, incoming.reviews),
-lapses: Math.max(existing.lapses, incoming.lapses),
-retainWithoutAcademyProvenance: retainsWithoutAcademy(existing) || retainsWithoutAcademy(incoming),
-academyProvenance: {
-...incoming.academyProvenance ?? {},
-...existing.academyProvenance ?? {}
-}
-};
-}
-function upsertAcademyVocabulary(deck, input, now) {
-const identity = canonicalStudyCardIdentity(input.expression, input.reading);
-const meanings = uniqueText(input.meanings);
-const provenance = normalizeProvenance(input.provenance, now);
-const existing = deck.cards[identity.key];
-const previousProvenance = existing?.academyProvenance?.[provenance.id];
-if (previousProvenance && !sameProvenance(previousProvenance, provenance)) {
-throw new Error(`Conflicting Academy vocabulary provenance id: ${provenance.id}`);
-}
-const incoming = {
-id: identity.key,
-expression: identity.expression,
-reading: identity.reading,
-meanings,
-sentence: cleanOptional(input.sentence),
-tags: ["academy"],
-dueAt: finiteDueAt(input.dueAt, now),
-lastReviewAt: null,
-createdAt: now,
-updatedAt: now,
-reviews: 0,
-lapses: 0,
-intervalDays: 0,
-ease: 2.5,
-retainWithoutAcademyProvenance: false,
-academyProvenance: { [provenance.id]: previousProvenance ?? provenance }
-};
-const card = existing ? preserveExistingSchedule(
-mergeStoredYomuSrsCards(existing, incoming),
-existing,
-input.postponeExisting === true && !previousProvenance ? input.dueAt : void 0
-) : incoming;
-deck.cards[identity.key] = card;
-return {
-card,
-cardCreated: !existing,
-provenanceAdded: !previousProvenance,
-provenanceCount: Object.keys(card.academyProvenance ?? {}).length
-};
-}
-function finiteDueAt(value, fallback) {
-return value !== void 0 && Number.isFinite(value) && value >= fallback ? value : fallback;
-}
-function preserveExistingSchedule(merged, existing, notBefore) {
-return {
-...merged,
-dueAt: notBefore === void 0 ? existing.dueAt : Math.max(existing.dueAt, notBefore),
-lastReviewAt: existing.lastReviewAt,
-reviews: existing.reviews,
-lapses: existing.lapses,
-intervalDays: existing.intervalDays,
-ease: existing.ease
-};
-}
-function removeAcademyVocabularyProvenance(deck, cardId, provenanceId, now) {
-const direct = deck.cards[cardId];
-const card = direct ?? Object.values(deck.cards).find((candidate) => candidate.academyProvenance?.[provenanceId]);
-if (!card) return { card: null, provenanceRemoved: false, cardDeleted: false, reason: "card-not-found" };
-if (!card.academyProvenance?.[provenanceId]) {
-return { card, provenanceRemoved: false, cardDeleted: false, reason: "provenance-not-found" };
-}
-const academyProvenance = { ...card.academyProvenance };
-delete academyProvenance[provenanceId];
-const remaining = Object.keys(academyProvenance).length;
-if (!remaining && !retainsWithoutAcademy(card) && !hasStudyHistory(card)) {
-delete deck.cards[card.id];
-deck.tombstones = { ...deck.tombstones ?? {}, [card.id]: now };
-return { card: null, provenanceRemoved: true, cardDeleted: true, reason: "deleted" };
-}
-const updated = {
-...card,
-updatedAt: now,
-tags: remaining ? card.tags : uniqueText([...(card.tags ?? []).filter((tag) => tag !== "academy"), "legacy-academy"]),
-academyProvenance
-};
-deck.cards[card.id] = updated;
-const reason = remaining ? "other-provenance" : retainsWithoutAcademy(card) ? "independent-card" : "study-history";
-return { card: updated, provenanceRemoved: true, cardDeleted: false, reason };
-}
-function normalizeStoredCard(value) {
-if (!isRecord$1(value) || typeof value.expression !== "string") return null;
-let identity;
-try {
-identity = canonicalStudyCardIdentity(
-value.expression,
-typeof value.reading === "string" ? value.reading : "",
-{
-...typeof value.partOfSpeech === "string" ? { partOfSpeech: value.partOfSpeech } : {},
-...typeof value.language === "string" ? { language: value.language } : {}
-}
-);
-} catch {
-return null;
-}
-const createdAt = finiteNumber(value.createdAt, 0);
-const updatedAt = finiteNumber(value.updatedAt, createdAt);
-return {
-id: identity.key,
-expression: identity.expression,
-reading: identity.reading,
-...identity.partOfSpeech ? { partOfSpeech: identity.partOfSpeech } : {},
-...identity.language !== "ja" ? { language: identity.language } : {},
-meanings: stringArray(value.meanings),
-...cleanOptional(value.sentence) ? { sentence: cleanOptional(value.sentence) } : {},
-...cleanOptional(value.sourceProviderId) ? { sourceProviderId: cleanOptional(value.sourceProviderId) } : {},
-...cleanOptional(value.sourceCardId) ? { sourceCardId: cleanOptional(value.sourceCardId) } : {},
-...cleanOptional(value.sourceUrl) ? { sourceUrl: cleanOptional(value.sourceUrl) } : {},
-tags: stringArray(value.tags),
-dueAt: finiteNumber(value.dueAt, createdAt),
-lastReviewAt: value.lastReviewAt === null ? null : finiteNumber(value.lastReviewAt, null),
-createdAt,
-updatedAt,
-reviews: nonNegativeInteger(value.reviews),
-lapses: nonNegativeInteger(value.lapses),
-intervalDays: Math.max(0, finiteNumber(value.intervalDays, 0)),
-ease: finiteNumber(value.ease, 2.5),
-retainWithoutAcademyProvenance: typeof value.retainWithoutAcademyProvenance === "boolean" ? value.retainWithoutAcademyProvenance : true,
-academyProvenance: normalizeProvenanceRecord(value.academyProvenance, updatedAt)
-};
-}
-function storedCardIdentity(card) {
-return canonicalStudyCardIdentity(card.expression, card.reading, {
-partOfSpeech: card.partOfSpeech,
-language: card.language ?? "ja"
-});
-}
-function preferredSchedule(left, right) {
-if (left.reviews !== right.reviews) return left.reviews > right.reviews ? left : right;
-const leftReviewed = left.lastReviewAt ?? -1;
-const rightReviewed = right.lastReviewAt ?? -1;
-if (leftReviewed !== rightReviewed) return leftReviewed > rightReviewed ? left : right;
-if (left.reviews === 0 && left.dueAt !== right.dueAt) return left.dueAt < right.dueAt ? left : right;
-return left.updatedAt >= right.updatedAt ? left : right;
-}
-function normalizeProvenance(value, addedAt) {
-const id = requiredText(value.id, "Academy vocabulary provenance id");
-if (value.kind !== "review-seed" && value.kind !== "study-encounter") {
-throw new TypeError("Academy vocabulary provenance kind is invalid.");
-}
-return {
-id,
-kind: value.kind,
-addedAt,
-...cleanOptional(value.activityId) ? { activityId: cleanOptional(value.activityId) } : {},
-...cleanOptional(value.conceptId) ? { conceptId: cleanOptional(value.conceptId) } : {},
-...cleanOptional(value.sourceId) ? { sourceId: cleanOptional(value.sourceId) } : {},
-...value.reason ? { reason: value.reason } : {}
-};
-}
-function normalizeProvenanceRecord(value, fallbackAt) {
-if (!isRecord$1(value)) return {};
-const result = {};
-for (const candidate of Object.values(value)) {
-if (!isRecord$1(candidate)) continue;
-try {
-const normalized = normalizeProvenance({
-id: String(candidate.id ?? ""),
-kind: candidate.kind,
-...typeof candidate.activityId === "string" ? { activityId: candidate.activityId } : {},
-...typeof candidate.conceptId === "string" ? { conceptId: candidate.conceptId } : {},
-...typeof candidate.sourceId === "string" ? { sourceId: candidate.sourceId } : {},
-...candidate.reason === "new-learning" || candidate.reason === "repair" || candidate.reason === "delayed-review" ? { reason: candidate.reason } : {}
-}, finiteNumber(candidate.addedAt, fallbackAt));
-result[normalized.id] = normalized;
-} catch {
-}
-}
-return result;
-}
-function sameProvenance(left, right) {
-return left.id === right.id && left.kind === right.kind && left.activityId === right.activityId && left.conceptId === right.conceptId && left.sourceId === right.sourceId;
-}
-function retainsWithoutAcademy(card) {
-return card.retainWithoutAcademyProvenance !== false;
-}
-function hasStudyHistory(card) {
-return card.reviews > 0 || card.lapses > 0 || card.intervalDays > 0 || card.lastReviewAt !== null;
-}
-function requiredText(value, label) {
-const normalized = value.trim();
-if (!normalized) throw new TypeError(`${label} is required.`);
-return normalized;
-}
-function cleanOptional(value) {
-return typeof value === "string" && value.trim() ? value.trim() : void 0;
-}
-function stringArray(value) {
-return Array.isArray(value) ? uniqueText(value.filter((item) => typeof item === "string")) : [];
-}
-function uniqueText(values) {
-return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
-function finiteNumber(value, fallback) {
-return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-function nonNegativeInteger(value) {
-return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : 0;
-}
+const localYomuDeck = aggregateRuntimeModules().localYomuDeck;
+const {
+mergeStoredYomuSrsCards,
+mergeStoredYomuSrsDecks,
+normalizeStoredYomuSrsDeck,
+removeAcademyVocabularyProvenance,
+upsertAcademyVocabulary
+} = localYomuDeck;
 const LEGACY_DECK_KEY = "yomu:srs-local:v1";
 const DECK_INDEX_KEY = "yomu:srs-local:v2:index";
 const CARD_KEY_PREFIX = "yomu:srs-local:v2:card:";
@@ -17111,6 +13397,3105 @@ return date.getTime();
 function normalizedQueueLimit(limit) {
 if (Number.isNaN(limit) || limit <= 0) return 0;
 return Number.isFinite(limit) ? Math.floor(limit) : Number.MAX_SAFE_INTEGER;
+}
+const languages = [
+{
+id: "sq",
+runtimeLocale: "sq",
+englishName: "Albanian",
+nativeName: "Shqip",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "grc",
+runtimeLocale: "grc",
+englishName: "Ancient Greek",
+nativeName: "Ἑλληνιστί",
+defaultScript: "Grek",
+scripts: [
+"Grek"
+],
+direction: "ltr"
+},
+{
+id: "ar",
+runtimeLocale: "ar",
+englishName: "Arabic",
+nativeName: "العربية",
+defaultScript: "Arab",
+scripts: [
+"Arab"
+],
+direction: "rtl"
+},
+{
+id: "yue",
+runtimeLocale: "yue-Hant",
+englishName: "Cantonese",
+nativeName: "粵語",
+defaultScript: "Hant",
+scripts: [
+"Hant"
+],
+direction: "ltr"
+},
+{
+id: "zh",
+runtimeLocale: "zh-Hans",
+englishName: "Chinese",
+nativeName: "中文（简体）",
+defaultScript: "Hans",
+scripts: [
+"Hans",
+"Hant"
+],
+direction: "ltr"
+},
+{
+id: "da",
+runtimeLocale: "da",
+englishName: "Danish",
+nativeName: "Dansk",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "nl",
+runtimeLocale: "nl",
+englishName: "Dutch",
+nativeName: "Nederlands",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "en",
+runtimeLocale: "en",
+englishName: "English",
+nativeName: "English",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "fi",
+runtimeLocale: "fi",
+englishName: "Finnish",
+nativeName: "Suomi",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "fr",
+runtimeLocale: "fr",
+englishName: "French",
+nativeName: "Français",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "de",
+runtimeLocale: "de",
+englishName: "German",
+nativeName: "Deutsch",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "el",
+runtimeLocale: "el",
+englishName: "Greek",
+nativeName: "Ελληνικά",
+defaultScript: "Grek",
+scripts: [
+"Grek"
+],
+direction: "ltr"
+},
+{
+id: "hu",
+runtimeLocale: "hu",
+englishName: "Hungarian",
+nativeName: "Magyar",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "id",
+runtimeLocale: "id",
+englishName: "Indonesian",
+nativeName: "Bahasa Indonesia",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "it",
+runtimeLocale: "it",
+englishName: "Italian",
+nativeName: "Italiano",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "km",
+runtimeLocale: "km",
+englishName: "Khmer",
+nativeName: "ខ្មែរ",
+defaultScript: "Khmr",
+scripts: [
+"Khmr"
+],
+direction: "ltr"
+},
+{
+id: "ko",
+runtimeLocale: "ko",
+englishName: "Korean",
+nativeName: "한국어",
+defaultScript: "Kore",
+scripts: [
+"Kore"
+],
+direction: "ltr"
+},
+{
+id: "lo",
+runtimeLocale: "lo",
+englishName: "Lao",
+nativeName: "ລາວ",
+defaultScript: "Laoo",
+scripts: [
+"Laoo"
+],
+direction: "ltr"
+},
+{
+id: "la",
+runtimeLocale: "la",
+englishName: "Latin",
+nativeName: "Latina",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "mn",
+runtimeLocale: "mn-Cyrl",
+englishName: "Mongolian",
+nativeName: "Монгол",
+defaultScript: "Cyrl",
+scripts: [
+"Cyrl",
+"Mong"
+],
+direction: "ltr"
+},
+{
+id: "fa",
+runtimeLocale: "fa",
+englishName: "Persian",
+nativeName: "فارسی",
+defaultScript: "Arab",
+scripts: [
+"Arab"
+],
+direction: "rtl"
+},
+{
+id: "pl",
+runtimeLocale: "pl",
+englishName: "Polish",
+nativeName: "Polski",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "pt",
+runtimeLocale: "pt",
+englishName: "Portuguese",
+nativeName: "Português",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "ro",
+runtimeLocale: "ro",
+englishName: "Romanian",
+nativeName: "Română",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "ru",
+runtimeLocale: "ru",
+englishName: "Russian",
+nativeName: "Русский",
+defaultScript: "Cyrl",
+scripts: [
+"Cyrl"
+],
+direction: "ltr"
+},
+{
+id: "sh",
+runtimeLocale: "sr-Latn",
+englishName: "Serbo-Croatian",
+nativeName: "Srpskohrvatski",
+defaultScript: "Latn",
+scripts: [
+"Latn",
+"Cyrl"
+],
+direction: "ltr"
+},
+{
+id: "es",
+runtimeLocale: "es",
+englishName: "Spanish",
+nativeName: "Español",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "sv",
+runtimeLocale: "sv",
+englishName: "Swedish",
+nativeName: "Svenska",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "tl",
+runtimeLocale: "fil",
+englishName: "Tagalog",
+nativeName: "Tagalog",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "th",
+runtimeLocale: "th",
+englishName: "Thai",
+nativeName: "ไทย",
+defaultScript: "Thai",
+scripts: [
+"Thai"
+],
+direction: "ltr"
+},
+{
+id: "tr",
+runtimeLocale: "tr",
+englishName: "Turkish",
+nativeName: "Türkçe",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+},
+{
+id: "vi",
+runtimeLocale: "vi",
+englishName: "Vietnamese",
+nativeName: "Tiếng Việt",
+defaultScript: "Latn",
+scripts: [
+"Latn"
+],
+direction: "ltr"
+}
+];
+const languageConfig = {
+languages
+};
+const LEARNER_LANGUAGE_IDS = [
+"sq",
+"grc",
+"ar",
+"yue",
+"zh",
+"da",
+"nl",
+"en",
+"fi",
+"fr",
+"de",
+"el",
+"hu",
+"id",
+"it",
+"km",
+"ko",
+"lo",
+"la",
+"mn",
+"fa",
+"pl",
+"pt",
+"ro",
+"ru",
+"sh",
+"es",
+"sv",
+"tl",
+"th",
+"tr",
+"vi"
+];
+const configuredLanguages = languageConfig.languages;
+const LEARNER_LANGUAGES = Object.freeze(
+configuredLanguages.map(
+(language) => Object.freeze({
+...language,
+scripts: Object.freeze([...language.scripts])
+})
+)
+);
+const LANGUAGE_BY_ID = new Map(
+LEARNER_LANGUAGES.map((language) => [language.id, language])
+);
+function learnerLanguageById(id) {
+const language = LANGUAGE_BY_ID.get(id);
+if (!language) throw new Error(`Unknown Slice 1 learner language: ${id}`);
+return language;
+}
+function isLearnerLanguageId(value) {
+return LEARNER_LANGUAGE_IDS.includes(value);
+}
+const SLICE1_TARGET_LANGUAGE = "ja";
+const DEFAULT_SLICE1_LEARNER_LANGUAGE = "en";
+const JAPANESE_TARGET_ROSTER_ENTRY = Object.freeze({
+id: "ja",
+runtimeLocale: "ja",
+englishName: "Japanese",
+nativeName: "日本語",
+defaultScript: "Jpan",
+scripts: Object.freeze(["Jpan"]),
+direction: "ltr",
+studyTargetReadiness: "full"
+});
+const READING_ONLY_STUDY_TARGET_ID_LIST = "sq grc ar yue zh da nl en fi fr de el hu id it km ko lo la mn fa pl pt ro ru sh es sv tl th tr vi";
+const READING_ONLY_STUDY_TARGET_IDS = READING_ONLY_STUDY_TARGET_ID_LIST.split(" ");
+Object.freeze([
+JAPANESE_TARGET_ROSTER_ENTRY,
+...LEARNER_LANGUAGES.map((language) => Object.freeze({
+...language,
+studyTargetReadiness: READING_ONLY_STUDY_TARGET_IDS.includes(language.id) ? "reading-only" : "planned"
+}))
+]);
+Object.freeze(
+LEARNER_LANGUAGES.map((language) => canonicalLanguageTag(language.runtimeLocale) ?? language.runtimeLocale)
+);
+function canonicalTagForSlice1Language(id) {
+const runtimeLocale = learnerLanguageById(id).runtimeLocale;
+return canonicalLanguageTag(runtimeLocale) ?? runtimeLocale;
+}
+function learningTargetRosterIdForTag(value) {
+const canonical = canonicalLanguageTag(value);
+if (languageSubtag(canonical) === SLICE1_TARGET_LANGUAGE) return SLICE1_TARGET_LANGUAGE;
+return slice1LanguageIdForTag(value);
+}
+function slice1LanguageIdForTag(value) {
+if (typeof value !== "string") return null;
+const input = value.trim().toLowerCase().replace(/_/g, "-");
+const inputBase = input.split("-")[0] ?? "";
+if (isLearnerLanguageId(inputBase)) return inputBase;
+const canonical = canonicalLanguageTag(value);
+if (!canonical) return null;
+const base = languageSubtag(canonical);
+if (!base) return null;
+if (base === "sr" || base === "hr" || base === "bs") return "sh";
+if (base === "fil") return "tl";
+return isLearnerLanguageId(base) ? base : null;
+}
+function normalizeSlice1LearnerLanguage(value, fallback = DEFAULT_SLICE1_LEARNER_LANGUAGE) {
+if (typeof value === "string") {
+const input = value.trim().toLowerCase().replace(/_/g, "-");
+if (isLearnerLanguageId(input)) return canonicalTagForSlice1Language(input);
+}
+const canonical = canonicalLanguageTag(value);
+const canonicalId = canonical ? slice1LanguageIdForTag(canonical) : null;
+if (canonical && canonicalId) {
+if (canonicalId === "sh") return canonicalTagForSlice1Language("sh");
+return canonical;
+}
+const fallbackId = slice1LanguageIdForTag(fallback) ?? DEFAULT_SLICE1_LEARNER_LANGUAGE;
+return canonicalTagForSlice1Language(fallbackId);
+}
+const ankiFieldNames = (names) => names.split("|");
+const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+"Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+);
+const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+"Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+);
+ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+[
+...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+"Expression Reading",
+"Japanese Expression",
+...ANKI_HEADWORD_FIELD_NAME_TAIL
+];
+[
+...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+...ANKI_HEADWORD_FIELD_NAME_TAIL
+];
+ankiFieldNames(
+"Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+);
+ankiFieldNames(
+"Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+);
+ankiFieldNames(
+"Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+);
+ankiFieldNames(
+"Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Sound|Voice"
+);
+const ANKI_SENTENCE_AUDIO_FIELD_NAMES = ankiFieldNames(
+"SentenceAudio|Sentence Audio|SentAudio|Sentence Sound|Context Audio|Example Audio"
+);
+ankiFieldNames(
+"Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+);
+function normalizeAnkiFieldName(value) {
+return value.replace(/[_\s-]+/g, "").toLowerCase();
+}
+const NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES = new Set(ANKI_SENTENCE_AUDIO_FIELD_NAMES.map(normalizeAnkiFieldName));
+function isSentenceAudioFieldName(fieldName) {
+return NORMALIZED_SENTENCE_AUDIO_FIELD_NAMES.has(normalizeAnkiFieldName(fieldName));
+}
+const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "sentenceAudio", "image"];
+function normalizeAnkiFieldMappings(value) {
+if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+const out = {};
+Object.entries(value).forEach(([modelName, mapping]) => {
+const normalizedModelName = modelName.trim();
+if (!normalizedModelName || !mapping || typeof mapping !== "object" || Array.isArray(mapping)) return;
+const normalizedMapping = {};
+for (const role of ANKI_FIELD_MAPPING_ROLES) {
+const fieldName = mapping[role];
+if (typeof fieldName !== "string") continue;
+const normalizedFieldName = fieldName.trim();
+if (normalizedFieldName) normalizedMapping[role] = normalizedFieldName;
+}
+if (Object.keys(normalizedMapping).length) out[normalizedModelName] = normalizedMapping;
+});
+return out;
+}
+function migrateAnkiSentenceAudioMappings(mappings) {
+const out = {};
+const movedModels = [];
+for (const [modelName, mapping] of Object.entries(mappings)) {
+const audioField = mapping.audio?.trim() ?? "";
+if (!audioField || mapping.sentenceAudio?.trim() || !isSentenceAudioFieldName(audioField)) {
+out[modelName] = mapping;
+continue;
+}
+const { audio: _audio, ...rest } = mapping;
+out[modelName] = { ...rest, sentenceAudio: audioField };
+movedModels.push(modelName);
+}
+return { mappings: out, movedModels };
+}
+const FALLBACK_HEX_COLOR = "#000000";
+function normalizeHexColor(color) {
+return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
+}
+function sharedContrastRatio(a, b, normalizeColor = normalizeHexColor) {
+const l1 = relativeLuminance(a, normalizeColor);
+const l2 = relativeLuminance(b, normalizeColor);
+const light = Math.max(l1, l2);
+const dark = Math.min(l1, l2);
+return (light + 0.05) / (dark + 0.05);
+}
+function relativeLuminance(color, normalizeColor = normalizeHexColor) {
+const [red, green, blue] = sharedHexToRgb(color, normalizeColor).map((value) => {
+const channel = value / 255;
+return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+});
+return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+function sharedMixHex(from, to, amount, normalizeColor = normalizeHexColor) {
+const a = sharedHexToRgb(from, normalizeColor);
+const b = sharedHexToRgb(to, normalizeColor);
+return `#${a.map((value, index) => Math.round(value + (b[index] - value) * amount).toString(16).padStart(2, "0")).join("")}`;
+}
+function sharedHexToRgb(color, normalizeColor = normalizeHexColor) {
+const safe = normalizeHexColor(normalizeColor(color));
+return [
+parseInt(safe.slice(1, 3), 16),
+parseInt(safe.slice(3, 5), 16),
+parseInt(safe.slice(5, 7), 16)
+];
+}
+const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
+const DEFAULT_OCR_BACKGROUND_OPACITY = 0.68;
+const DEFAULT_OCR_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
+const DEFAULT_OCR_OUTLINE_COLOR = OVERLAY_COLOR_TOKENS.outline;
+const OCR_BACKGROUND_MIN_TEXT_CONTRAST = 4.5;
+const OCR_BACKGROUND_MIN_RENDERED_OPACITY = 0.56;
+function sanitizeAccentColor(value, fallback = DEFAULT_ACCENT_COLOR) {
+if (typeof value !== "string") return fallback;
+const trimmed = value.trim();
+if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+if (!shortHex) return fallback;
+return `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase();
+}
+function accentToRgba(color, alpha) {
+const safe = sanitizeAccentColor(color);
+const red = parseInt(safe.slice(1, 3), 16);
+const green = parseInt(safe.slice(3, 5), 16);
+const blue = parseInt(safe.slice(5, 7), 16);
+return `rgba(${red},${green},${blue},${Math.max(0, Math.min(1, alpha))})`;
+}
+function accessibleOcrBackgroundOpacity(opacity) {
+const numericOpacity = Number(opacity);
+const clampedOpacity = Number.isFinite(numericOpacity) ? Math.max(0, Math.min(1, numericOpacity)) : DEFAULT_OCR_BACKGROUND_OPACITY;
+return Math.max(OCR_BACKGROUND_MIN_RENDERED_OPACITY, clampedOpacity);
+}
+function accessibleOcrBackgroundColor(accentColor, opacity = DEFAULT_OCR_BACKGROUND_OPACITY) {
+const accent = sanitizeAccentColor(accentColor);
+const renderedOpacity = accessibleOcrBackgroundOpacity(opacity);
+if (ocrRenderedBackgroundContrast(accent, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+return accent;
+}
+for (let amount = 0.08; amount <= 1; amount += 0.04) {
+const candidate = sharedMixHex(accent, "#000000", amount, sanitizeAccentColor);
+if (ocrRenderedBackgroundContrast(candidate, renderedOpacity) >= OCR_BACKGROUND_MIN_TEXT_CONTRAST) {
+return candidate;
+}
+}
+return "#000000";
+}
+function ocrRenderedBackgroundContrast(color, opacity) {
+const renderedOnWhite = sharedMixHex("#ffffff", color, opacity, sanitizeAccentColor);
+return sharedContrastRatio(renderedOnWhite, DEFAULT_OCR_TEXT_COLOR, sanitizeAccentColor);
+}
+const DEFAULT_OCR_BACKGROUND_COLOR = accessibleOcrBackgroundColor(
+DEFAULT_ACCENT_COLOR,
+DEFAULT_OCR_BACKGROUND_OPACITY
+);
+function hasOwn(value, key) {
+return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+}
+function objectRecord$3(value) {
+return value && typeof value === "object" ? value : null;
+}
+function trimmedText(value) {
+return typeof value === "string" ? value.trim() : "";
+}
+function stringValue(value) {
+return typeof value === "string" ? value : "";
+}
+function finiteNumber(value, fallback) {
+const number = Number(value);
+return Number.isFinite(number) ? number : fallback;
+}
+function booleanValue(value, fallback) {
+return typeof value === "boolean" ? value : fallback;
+}
+const LANGUAGE_PROFILE_SCHEMA_VERSION = 2;
+const SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS = [1, 2];
+function isSupportedLanguageProfileSchemaVersion(value) {
+return SUPPORTED_LANGUAGE_PROFILE_SCHEMA_VERSIONS.includes(value);
+}
+const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
+const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
+const PARSER_PROVIDERS = new Set(["local", "jiten", "jpdb", "auto"]);
+function readOutputLanguageField(source) {
+return source.schemaVersion === 1 ? source.learnerLanguage ?? source.outputLanguage : source.outputLanguage ?? source.learnerLanguage;
+}
+function createDefaultLanguageProfile(defaults = {}) {
+return {
+schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
+id: DEFAULT_LANGUAGE_PROFILE_ID,
+...outputLanguageFields(normalizeSlice1LearnerLanguage(
+readOutputLanguageField(defaults),
+DEFAULT_SLICE1_LEARNER_LANGUAGE
+)),
+targetLanguage: normalizeLearningTargetLanguage(defaults.targetLanguage),
+uiLocale: normalizeUiLocale(defaults.uiLocale, "en"),
+parserProvider: normalizeParserProvider$1(defaults.parserProvider, "local"),
+dictionaries: emptyProfileDictionaries(),
+definitionTranslationProviderIds: []
+};
+}
+function normalizeLanguageProfiles(value, activeProfileId, defaults = {}) {
+const rawProfiles = Array.isArray(value) ? value : [];
+const profiles = [];
+const usedIds = new Set();
+for (let index = 0; index < rawProfiles.length; index += 1) {
+const profile = normalizeLanguageProfile(rawProfiles[index], index, defaults);
+if (!profile) continue;
+profile.id = uniqueProfileId(profile.id, usedIds);
+usedIds.add(profile.id);
+profiles.push(profile);
+}
+if (!profiles.length) profiles.push(createDefaultLanguageProfile(defaults));
+const requestedActiveId = typeof activeProfileId === "string" ? activeProfileId.trim() : "";
+const active = profiles.find((profile) => profile.id === requestedActiveId) ?? profiles[0];
+return {
+profiles,
+activeProfileId: active.id
+};
+}
+function outputLanguageFields(outputLanguage) {
+return { outputLanguage, learnerLanguage: outputLanguage };
+}
+function activeLanguageProfile(profiles, activeProfileId) {
+return profiles.find((profile) => profile.id === activeProfileId) ?? profiles[0] ?? null;
+}
+function resolveLanguageProfile(value) {
+if (isRecord$2(value) && isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) {
+const normalized2 = normalizeLanguageProfiles([value], value.id, {
+outputLanguage: readOutputLanguageField(value),
+uiLocale: value.uiLocale,
+parserProvider: value.parserProvider
+});
+return normalized2.profiles[0];
+}
+const source = isRecord$2(value) ? value : {};
+const normalized = normalizeLanguageProfiles(
+source.languageProfiles,
+source.activeLanguageProfileId,
+{
+outputLanguage: readOutputLanguageField(source),
+uiLocale: source.interfaceLanguage,
+parserProvider: source.parserProvider
+}
+);
+return activeLanguageProfile(normalized.profiles, normalized.activeProfileId) ?? createDefaultLanguageProfile();
+}
+function normalizeLanguageProfile(value, index, defaults) {
+if (!isRecord$2(value)) return null;
+if (!isSupportedLanguageProfileSchemaVersion(value.schemaVersion)) return null;
+return {
+schemaVersion: LANGUAGE_PROFILE_SCHEMA_VERSION,
+id: normalizeProfileId(value.id, index),
+...outputLanguageFields(normalizeSlice1LearnerLanguage(
+readOutputLanguageField(value),
+normalizeSlice1LearnerLanguage(readOutputLanguageField(defaults))
+)),
+targetLanguage: normalizeLearningTargetLanguage(value.targetLanguage ?? defaults.targetLanguage),
+uiLocale: normalizeUiLocale(value.uiLocale, normalizeUiLocale(defaults.uiLocale, "en")),
+parserProvider: normalizeParserProvider$1(value.parserProvider, normalizeParserProvider$1(defaults.parserProvider, "local")),
+dictionaries: normalizeProfileDictionaries(value.dictionaries),
+definitionTranslationProviderIds: normalizeStringIds(value.definitionTranslationProviderIds)
+};
+}
+function normalizeProfileId(value, index) {
+const candidate = typeof value === "string" ? value.trim() : "";
+return PROFILE_ID_RE.test(candidate) ? candidate : `profile-${index + 1}`;
+}
+function uniqueProfileId(candidate, used) {
+if (!used.has(candidate)) return candidate;
+let suffix = 2;
+while (used.has(`${candidate}-${suffix}`)) suffix += 1;
+return `${candidate}-${suffix}`;
+}
+function normalizeUiLocale(value, fallback) {
+if (value === "auto") return "auto";
+return canonicalLanguageTag(value) ?? fallback;
+}
+function normalizeParserProvider$1(value, fallback) {
+return PARSER_PROVIDERS.has(value) ? value : fallback;
+}
+function normalizeProfileDictionaries(value) {
+if (!isRecord$2(value)) return emptyProfileDictionaries();
+const enabled = normalizeStringIds(value.enabled);
+const order = normalizeStringIds(value.order);
+const installed = normalizeStringIds([
+...normalizeStringIds(value.installed),
+...enabled,
+...order
+]);
+const installedSet = new Set(installed);
+return {
+installed,
+enabled: enabled.filter((id) => installedSet.has(id)),
+order: [
+...order.filter((id) => installedSet.has(id)),
+...installed.filter((id) => !order.includes(id))
+]
+};
+}
+function emptyProfileDictionaries() {
+return { installed: [], enabled: [], order: [] };
+}
+function normalizeStringIds(value) {
+if (!Array.isArray(value)) return [];
+const seen = new Set();
+const result = [];
+for (const item of value) {
+if (typeof item !== "string") continue;
+const id = item.trim();
+if (!id || id.length > 160 || seen.has(id)) continue;
+seen.add(id);
+result.push(id);
+}
+return result;
+}
+function isRecord$2(value) {
+return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function targetLanguageOf(value) {
+return resolveLanguageProfile(value).targetLanguage;
+}
+function outputLanguageOf(value) {
+return resolveLanguageProfile(value).outputLanguage;
+}
+function adoptLearningTargetFromSettings(value) {
+return adoptLearningTargetLanguage(resolveLanguageProfile(value).targetLanguage);
+}
+function isTargetDefaultOcrLanguageTag(value) {
+const tag = value?.trim().toLowerCase();
+if (!tag) return false;
+return LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS.has(tag);
+}
+const LEGACY_MACHINE_WRITTEN_OCR_DEFAULTS = new Set(["ja-jp", "ko-kr"]);
+function externalLinkIcon() {
+return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 17 17 7"></path>
+        <path d="M9 7h8v8"></path>
+    </svg>`;
+}
+function copyIcon() {
+return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="9" y="9" width="10" height="10" rx="2"></rect>
+        <path d="M5 15V7a2 2 0 0 1 2-2h8"></path>
+    </svg>`;
+}
+function ankiIcon() {
+return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <rect x="5" y="4" width="14" height="16" rx="2"></rect>
+        <path d="M12 8v8"></path>
+        <path d="M8 12h8"></path>
+    </svg>`;
+}
+function speakerIcon() {
+return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
+        <path d="M15.2 8.2a5 5 0 0 1 0 7.6"></path>
+        <path d="M17.8 5.7a8.4 8.4 0 0 1 0 12.6"></path>
+    </svg>`;
+}
+const IMMERSION_KIT_SEARCH_URL_TEMPLATE = "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1";
+const NADESHIKO_SEARCH_URL_TEMPLATE = "https://nadeshiko.co/search/{query}";
+function hasTargetLookupSites(targetLanguage) {
+return yomuSettingsSurfaceCompanion()?.lookupLinks?.hasTargetLookupSites(targetLanguage) ?? false;
+}
+function isTargetLookupLinkId(id) {
+return yomuSettingsSurfaceCompanion()?.lookupLinks?.isTargetLookupLinkId(id) ?? false;
+}
+function targetLookupLinks(targetLanguage) {
+return yomuSettingsSurfaceCompanion()?.lookupLinks?.targetLookupLinks(targetLanguage) ?? [];
+}
+const MAX_EXTRA_LOOKUP_LINKS = 16;
+const JPDB_LOOKUP_LINK = {
+id: "jpdb",
+label: "JPDB",
+urlTemplate: "https://jpdb.io/search?q={query}",
+enabled: true
+};
+const JITEN_LIVE_FREQUENCY_PILL = {
+id: "jiten-frequency",
+label: "Jiten",
+urlTemplate: "",
+enabled: true,
+action: "frequency-live"
+};
+const JPDB_LIVE_FREQUENCY_PILL = {
+id: "jpdb-frequency",
+label: "JPDB",
+urlTemplate: "",
+enabled: true,
+action: "frequency-live"
+};
+const JISHO_LOOKUP_LINK = {
+id: "jisho",
+label: "Jisho",
+urlTemplate: "https://jisho.org/search/{query}",
+enabled: false
+};
+const YOMU_LOOKUP_LINK = {
+id: "yomu-search",
+label: "Yomu",
+urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
+enabled: true
+};
+const JITEN_LOOKUP_LINK = {
+id: "jiten",
+label: "Jiten",
+urlTemplate: "https://jiten.moe/parse?text={query}",
+enabled: true
+};
+const BUNPRO_LOOKUP_LINK = {
+id: "bunpro",
+label: "Bunpro",
+urlTemplate: "https://bunpro.jp/search?query={query}",
+enabled: true
+};
+const BUNPRO_LIVE_FREQUENCY_PILL = {
+id: "bunpro-frequency",
+label: "Bunpro",
+urlTemplate: "",
+enabled: true,
+action: "frequency-live"
+};
+const WEBLIO_LOOKUP_LINK = {
+id: "weblio",
+label: "Weblio",
+urlTemplate: "https://www.weblio.jp/content/{query}",
+enabled: false
+};
+const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
+const KOTOBANK_LOOKUP_LINK = {
+id: "kotobank",
+label: "Kotobank",
+urlTemplate: "https://kotobank.jp/search?q={query}",
+enabled: false
+};
+const TAKOBOTO_LOOKUP_LINK = {
+id: "takoboto",
+label: "Takoboto",
+urlTemplate: "https://takoboto.jp/?q={query}",
+enabled: false
+};
+const WIKTIONARY_LOOKUP_LINK = {
+id: "wiktionary-ja",
+label: "Wiktionary",
+urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
+enabled: false
+};
+const IMMERSION_KIT_LOOKUP_LINK = {
+id: "immersion-kit",
+label: "Immersion Kit",
+urlTemplate: IMMERSION_KIT_SEARCH_URL_TEMPLATE,
+enabled: false
+};
+const NADESHIKO_LOOKUP_LINK = {
+id: "nadeshiko",
+label: "Nadeshiko",
+urlTemplate: NADESHIKO_SEARCH_URL_TEMPLATE,
+enabled: false
+};
+const UCHISEN_LOOKUP_LINK = {
+id: "uchisen",
+label: "Uchisen",
+urlTemplate: "https://uchisen.com/kanji/{query}",
+enabled: false
+};
+const COPY_LOOKUP_LINK = {
+id: "copy",
+label: "Copy",
+urlTemplate: "",
+enabled: true,
+action: "copy"
+};
+const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+YOMU_LOOKUP_LINK,
+JITEN_LOOKUP_LINK,
+JITEN_LIVE_FREQUENCY_PILL,
+JPDB_LOOKUP_LINK,
+JPDB_LIVE_FREQUENCY_PILL,
+BUNPRO_LOOKUP_LINK,
+BUNPRO_LIVE_FREQUENCY_PILL,
+JISHO_LOOKUP_LINK,
+WEBLIO_LOOKUP_LINK,
+KOTOBANK_LOOKUP_LINK,
+TAKOBOTO_LOOKUP_LINK,
+WIKTIONARY_LOOKUP_LINK,
+IMMERSION_KIT_LOOKUP_LINK,
+NADESHIKO_LOOKUP_LINK,
+UCHISEN_LOOKUP_LINK,
+COPY_LOOKUP_LINK
+];
+const LEGACY_DEFAULT_LOOKUP_LINK_SET = [
+{ ...JPDB_LOOKUP_LINK, enabled: false },
+{ ...JISHO_LOOKUP_LINK, enabled: true },
+COPY_LOOKUP_LINK
+];
+const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+YOMU_LOOKUP_LINK.id,
+JITEN_LOOKUP_LINK.id,
+JITEN_LIVE_FREQUENCY_PILL.id,
+JPDB_LOOKUP_LINK.id,
+JPDB_LIVE_FREQUENCY_PILL.id,
+BUNPRO_LOOKUP_LINK.id,
+BUNPRO_LIVE_FREQUENCY_PILL.id,
+JISHO_LOOKUP_LINK.id,
+WEBLIO_LOOKUP_LINK.id,
+KOTOBANK_LOOKUP_LINK.id,
+TAKOBOTO_LOOKUP_LINK.id,
+WIKTIONARY_LOOKUP_LINK.id,
+IMMERSION_KIT_LOOKUP_LINK.id,
+UCHISEN_LOOKUP_LINK.id,
+COPY_LOOKUP_LINK.id
+], [
+JITEN_LOOKUP_LINK.id,
+JITEN_LIVE_FREQUENCY_PILL.id,
+JPDB_LOOKUP_LINK.id,
+JPDB_LIVE_FREQUENCY_PILL.id,
+YOMU_LOOKUP_LINK.id,
+BUNPRO_LOOKUP_LINK.id,
+JISHO_LOOKUP_LINK.id,
+WEBLIO_LOOKUP_LINK.id,
+KOTOBANK_LOOKUP_LINK.id,
+TAKOBOTO_LOOKUP_LINK.id,
+WIKTIONARY_LOOKUP_LINK.id,
+IMMERSION_KIT_LOOKUP_LINK.id,
+UCHISEN_LOOKUP_LINK.id,
+COPY_LOOKUP_LINK.id
+], [
+YOMU_LOOKUP_LINK.id,
+JITEN_LOOKUP_LINK.id,
+JPDB_LOOKUP_LINK.id,
+JISHO_LOOKUP_LINK.id,
+WEBLIO_LOOKUP_LINK.id,
+REMOVED_GOO_LOOKUP_LINK_ID,
+KOTOBANK_LOOKUP_LINK.id,
+TAKOBOTO_LOOKUP_LINK.id,
+WIKTIONARY_LOOKUP_LINK.id,
+IMMERSION_KIT_LOOKUP_LINK.id,
+UCHISEN_LOOKUP_LINK.id,
+COPY_LOOKUP_LINK.id
+], [
+JITEN_LOOKUP_LINK.id,
+JPDB_LOOKUP_LINK.id,
+YOMU_LOOKUP_LINK.id,
+JISHO_LOOKUP_LINK.id,
+WEBLIO_LOOKUP_LINK.id,
+REMOVED_GOO_LOOKUP_LINK_ID,
+KOTOBANK_LOOKUP_LINK.id,
+TAKOBOTO_LOOKUP_LINK.id,
+WIKTIONARY_LOOKUP_LINK.id,
+IMMERSION_KIT_LOOKUP_LINK.id,
+UCHISEN_LOOKUP_LINK.id,
+COPY_LOOKUP_LINK.id
+], [
+JPDB_LOOKUP_LINK.id,
+JISHO_LOOKUP_LINK.id,
+COPY_LOOKUP_LINK.id,
+YOMU_LOOKUP_LINK.id,
+JITEN_LOOKUP_LINK.id,
+WEBLIO_LOOKUP_LINK.id,
+REMOVED_GOO_LOOKUP_LINK_ID,
+KOTOBANK_LOOKUP_LINK.id,
+TAKOBOTO_LOOKUP_LINK.id,
+WIKTIONARY_LOOKUP_LINK.id,
+IMMERSION_KIT_LOOKUP_LINK.id,
+UCHISEN_LOOKUP_LINK.id
+]];
+function normalizeDictionaryLookupLinkSettings(value, targetLanguage = "ja") {
+const links = normalizeDictionaryLookupLinks(
+value?.dictionaryLookupLinks,
+!hasOwn(value, "dictionaryLookupLinks") && Boolean(value?.apiKey?.trim()),
+targetLanguage
+);
+if (targetLanguage === "ja" && isPreviousDefaultLookupLinkSet(value?.dictionaryLookupLinks)) {
+return savedLookupLinksInDefaultOrder(links);
+}
+return targetLanguage === "ja" && isLegacyDefaultLookupLinkSet(value?.dictionaryLookupLinks) ? legacyDefaultLookupLinksWithNewBuiltIns(links) : links;
+}
+const UNORDERED_DICTIONARY_PRIORITY_BASE = 1e3;
+function normalizeDictionaryPreferences(value) {
+if (!Array.isArray(value)) return [];
+return value.map(normalizeDictionaryPreference).filter((item) => item !== null).sort((a, b) => a.priority - b.priority || a.name.localeCompare(b.name));
+}
+function normalizeDictionaryPreference(item, index) {
+const record2 = objectRecord$3(item);
+if (!record2) return null;
+const name = stringValue(record2.name);
+if (!name.trim()) return null;
+const alias = stringValue(record2.alias);
+return {
+name,
+alias: alias.trim() ? alias : name,
+enabled: booleanValue(record2.enabled, true),
+priority: finiteNumber(record2.priority, UNORDERED_DICTIONARY_PRIORITY_BASE + index),
+allowSecondarySearches: booleanValue(record2.allowSecondarySearches, false),
+type: normalizeDictionaryType(record2.type, name)
+};
+}
+function defaultDictionaryLookupLinks(mode = "local", targetLanguage = "ja") {
+if (targetLanguage !== "ja" && hasTargetLookupSites(targetLanguage)) {
+return [YOMU_LOOKUP_LINK, ...targetLookupLinks(targetLanguage), COPY_LOOKUP_LINK].map((link, index) => ({ ...link, priority: index }));
+}
+return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link, index) => ({
+...link,
+priority: index,
+enabled: mode === "jpdb" ? link.id === "jpdb" || link.id === "jiten" || link.id === "yomu-search" || link.id === "bunpro" || link.id === "jiten-frequency" || link.id === "jpdb-frequency" || link.id === "bunpro-frequency" : link.enabled
+}));
+}
+function legacyDefaultLookupLinksWithNewBuiltIns(links) {
+const linkById = new Map(links.map((link) => [link.id, link]));
+return defaultDictionaryLookupLinks("local").map((defaultLink) => {
+const link = linkById.get(defaultLink.id) ?? defaultLink;
+if (link.id === JPDB_LOOKUP_LINK.id || link.id === YOMU_LOOKUP_LINK.id) return { ...link, enabled: true };
+if (link.id === JISHO_LOOKUP_LINK.id) return { ...link, enabled: false };
+return link;
+});
+}
+function isLegacyDefaultLookupLinkSet(value) {
+const links = normalizeLegacyLookupLinkSet(value);
+return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => matchesLegacyLookupLink(links[index], expected)));
+}
+function isPreviousDefaultLookupLinkSet(value) {
+if (!Array.isArray(value)) return false;
+const links = normalizeLookupLinkSet(value, value.length);
+if (!links) return false;
+const linkIds = links.map((link) => link.id).filter((id) => !isRemovedBuiltInLookupLinkId(id));
+return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some((ids) => {
+const expectedIds = ids.filter((id) => !isRemovedBuiltInLookupLinkId(id));
+return linkIds.length === expectedIds.length && expectedIds.every((id, index) => linkIds[index] === id);
+});
+}
+function normalizeLegacyLookupLinkSet(value) {
+return normalizeLookupLinkSet(value, LEGACY_DEFAULT_LOOKUP_LINK_SET.length);
+}
+function normalizeLookupLinkSet(value, length) {
+if (!Array.isArray(value) || value.length !== length) return null;
+const links = value.map(normalizeDictionaryLookupLink);
+return links.every(isDictionaryLookupLink) ? links : null;
+}
+function isDictionaryLookupLink(link) {
+return link !== null;
+}
+function matchesLegacyLookupLink(link, expected) {
+return Boolean(link && link.id === expected.id && link.label === expected.label && link.urlTemplate === expected.urlTemplate && link.enabled === expected.enabled && (expected.action === void 0 || link.action === expected.action));
+}
+function normalizeDictionaryLookupLinks(value, preferJpdb = false, targetLanguage = "ja") {
+const builtIns = defaultDictionaryLookupLinks(defaultLookupLinkMode(preferJpdb), targetLanguage);
+if (!Array.isArray(value)) return builtIns;
+const normalized = [];
+const seen = new Set();
+const defaults = new Map(builtIns.map((link) => [link.id, link]));
+let extras = 0;
+const add = (link) => {
+const id = link.id.trim();
+if (!id || seen.has(id)) return;
+const builtIn = defaults.get(id);
+const known = Boolean(builtIn);
+if (!known && isBuiltInLookupLinkForAnotherTarget(id)) return;
+if (!known && extras >= MAX_EXTRA_LOOKUP_LINKS) return;
+seen.add(id);
+normalized.push(builtIn ? { ...builtIn, enabled: link.enabled, priority: link.priority } : { ...link, id });
+if (!known) extras++;
+};
+for (const item of value) {
+const link = normalizeDictionaryLookupLink(item);
+if (link && !isRemovedBuiltInLookupLink(link)) add(link);
+}
+appendMissingBuiltInLookupLinks(builtIns, seen, add);
+return withLookupLinkPriorities(normalized);
+}
+function isBuiltInLookupLinkForAnotherTarget(id) {
+return DEFAULT_DICTIONARY_LOOKUP_LINKS.some((link) => link.id === id) || isTargetLookupLinkId(id);
+}
+function isRemovedBuiltInLookupLink(link) {
+return isRemovedBuiltInLookupLinkId(link.id);
+}
+function isRemovedBuiltInLookupLinkId(id) {
+return id === REMOVED_GOO_LOOKUP_LINK_ID;
+}
+function defaultLookupLinkMode(preferJpdb) {
+return preferJpdb ? "jpdb" : "local";
+}
+function savedLookupLinksInDefaultOrder(links) {
+const linkById = new Map(links.map((link) => [link.id, link]));
+return withLookupLinkPriorities(DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink));
+}
+function withLookupLinkPriorities(links) {
+return links.map((link, index) => ({
+...link,
+priority: link.priority === void 0 || link.priority === Number.MAX_SAFE_INTEGER ? index : link.priority
+}));
+}
+function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
+for (const builtIn of builtIns) {
+if (!seen.has(builtIn.id)) add(builtIn);
+}
+}
+function normalizeDictionaryLookupLink(value) {
+if (!value || typeof value !== "object") return null;
+const record2 = value;
+const id = normalizedLookupLinkId(record2);
+const label = normalizedLookupLinkLabel(record2, id);
+const urlTemplate = normalizedLookupLinkUrlTemplate(record2);
+const action = normalizedLookupLinkAction(record2, id);
+if (!isUsableDictionaryLookupLink(id, label, urlTemplate, action)) return null;
+return {
+id,
+label,
+urlTemplate,
+enabled: normalizedLookupLinkEnabled(record2),
+action,
+priority: finiteNumber(record2.priority, Number.MAX_SAFE_INTEGER)
+};
+}
+function normalizedLookupLinkUrlTemplate(record2) {
+return typeof record2.urlTemplate === "string" ? record2.urlTemplate.trim() : "";
+}
+function normalizedLookupLinkEnabled(record2) {
+return typeof record2.enabled === "boolean" ? record2.enabled : true;
+}
+function isUsableDictionaryLookupLink(id, label, urlTemplate, action) {
+if (!id || !label) return false;
+return action === "copy" || action === "frequency-live" || action === "frequency-local" || Boolean(urlTemplate && isSafeLookupUrlTemplate(urlTemplate));
+}
+function normalizedLookupLinkId(record2) {
+if (typeof record2.id === "string" && record2.id.trim()) return record2.id.trim();
+return typeof record2.label === "string" ? `custom-${stableLookupLinkId(record2.label)}` : "";
+}
+function normalizedLookupLinkLabel(record2, id) {
+return typeof record2.label === "string" && record2.label.trim() ? record2.label.trim().slice(0, 24) : id;
+}
+function normalizedLookupLinkAction(record2, id) {
+if (record2.action === "copy" || id === "copy") return "copy";
+if (record2.action === "frequency-live" || id === "jiten-frequency" || id === "jpdb-frequency") return "frequency-live";
+if (record2.action === "frequency-local" || id.startsWith("frequency-local:")) return "frequency-local";
+return "open";
+}
+function stableLookupLinkId(value) {
+const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
+return slug || "lookup";
+}
+function isSafeLookupUrlTemplate(value) {
+try {
+const url = new URL(value.replace(/\{[^}]+\}/g, "x"));
+return url.protocol === "https:" || url.protocol === "http:";
+} catch {
+return false;
+}
+}
+function normalizeDictionaryType(value, name = "") {
+if (value === "terms" || value === "kanji" || value === "frequency" || value === "pronunciation" || value === "metadata") return value;
+return inferDictionaryTypeFromName(name);
+}
+function inferDictionaryTypeFromName(name) {
+const normalized = name.toLowerCase();
+if (/\b(?:ipa|pronunciation|phonetic)\b/.test(normalized)) return "pronunciation";
+if (/\b(?:frequency|freq|jpdbv?\d*|bccwj|jiten|cc100|kwdlc|aozora|netflix|novel|anime|vn)\b/.test(normalized)) return "frequency";
+if (/\b(?:kanjidic|kanji)\b/.test(normalized)) return "kanji";
+return "terms";
+}
+const SETTINGS_INTENT_LEDGER_STORAGE_KEY = "yomu:settings-intent:v2";
+const EMPTY_SETTINGS_INTENT_LEDGER = { revision: 0, records: {} };
+const NO_EXPLICIT_USER_CHOICE = [];
+const CHOSEN_SUFFIX = "Chosen";
+function coupledIntentKeys(keys, known) {
+const expanded = new Set(keys);
+for (const key of keys) {
+const sibling = key.endsWith(CHOSEN_SUFFIX) ? key.slice(0, -CHOSEN_SUFFIX.length) : `${key}${CHOSEN_SUFFIX}`;
+if (known(sibling)) expanded.add(sibling);
+}
+return [...expanded];
+}
+function settingsIntentLedgerFromStorage(stored, legacyPins) {
+const fromLegacy = ledgerFromLegacyPins(legacyPins);
+const fromStored = parseSettingsIntentLedger(stored);
+if (!fromStored) return fromLegacy;
+return {
+revision: Math.max(fromStored.revision, fromLegacy.revision),
+records: { ...fromLegacy.records, ...fromStored.records }
+};
+}
+function parseSettingsIntentLedger(value) {
+const record2 = objectRecord$2(value);
+if (!record2) return null;
+const records = objectRecord$2(record2.records);
+if (!records) return null;
+const parsed = {};
+let highest = 0;
+for (const [key, entry] of Object.entries(records)) {
+const item = objectRecord$2(entry);
+if (!item) continue;
+const seq = typeof item.seq === "number" && Number.isFinite(item.seq) ? item.seq : 0;
+parsed[key] = hasOwn(item, "value") ? { seq, value: item.value } : { seq };
+highest = Math.max(highest, seq);
+}
+const revision = typeof record2.revision === "number" && Number.isFinite(record2.revision) ? record2.revision : 0;
+return { revision: Math.max(revision, highest), records: parsed };
+}
+function ledgerFromLegacyPins(value) {
+const record2 = objectRecord$2(value);
+if (!record2) return EMPTY_SETTINGS_INTENT_LEDGER;
+const records = {};
+for (const [key, pinned] of Object.entries(record2)) records[key] = { seq: 0, value: pinned };
+return { revision: 0, records };
+}
+function objectRecord$2(value) {
+return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function recordSettingsIntent(ledger, keys, settings) {
+if (!keys.length) return ledger;
+const records = { ...ledger.records };
+let revision = ledger.revision;
+for (const key of keys) {
+if (!hasOwn(settings, key)) continue;
+const value = settings[key];
+records[key] = isSubstitutableSettingValue(value) ? { seq: ++revision, value } : { seq: ++revision };
+}
+return revision === ledger.revision ? ledger : { revision, records };
+}
+function clearSettingsIntent(ledger, keys) {
+const cleared = keys.filter((key) => hasOwn(ledger.records, key));
+if (!cleared.length) return ledger;
+const records = { ...ledger.records };
+for (const key of cleared) delete records[key];
+return { revision: ledger.revision + 1, records };
+}
+function applySettingsIntent(settings, ledger) {
+const keys = Object.keys(ledger.records);
+if (!keys.length) return settings;
+const next = { ...settings };
+let changed = false;
+for (const key of keys) {
+const record2 = ledger.records[key];
+if (!hasOwn(record2, "value") || !hasOwn(next, key)) continue;
+if (sameSettingsValue(next[key], record2.value)) continue;
+next[key] = record2.value;
+changed = true;
+}
+return changed ? next : settings;
+}
+function isSubstitutableSettingValue(value) {
+return value === null || value === void 0 || typeof value === "boolean" || typeof value === "number" || typeof value === "string";
+}
+function settingsIntentKeys(ledger) {
+return Object.keys(ledger.records);
+}
+function sameSettingsValue(left, right) {
+return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function createDefaultSubtitleSettings(fontFamily) {
+return {
+subtitlePlayerEnabled: true,
+subtitleAutoDetect: true,
+subtitleOverlayVisible: false,
+subtitleSecondaryVisible: false,
+subtitleOverlayVisibleChosen: false,
+subtitleSecondaryVisibleChosen: false,
+subtitleNativeBlurred: true,
+subtitleNativeBlurStrength: 12,
+subtitleKaraokeMode: true,
+subtitleTranscriptVisible: false,
+subtitlePausePanel: false,
+subtitleShadowAutoPause: false,
+subtitleTranscriptPlacement: "right",
+subtitleTranscriptAutoScroll: true,
+subtitleTranscriptAutoScrollResumeSeconds: 30,
+subtitleAutoCopyLine: false,
+subtitleCopyIncludeTranslation: true,
+subtitleControlsMode: "auto",
+subtitleFontSize: 28,
+subtitleBottomOffset: 16,
+subtitleTextColor: OVERLAY_COLOR_TOKENS.text,
+subtitleOutlineColor: OVERLAY_COLOR_TOKENS.outline,
+subtitleBackgroundColor: OVERLAY_COLOR_TOKENS.background,
+subtitleBackgroundOpacity: 0,
+subtitleFontFamily: fontFamily,
+subtitleFontWeight: 760,
+subtitleMiningPause: true,
+subtitleHoverPause: true,
+subtitleSeekPadding: 0.08
+};
+}
+const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
+const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
+async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
+if (typeof storedValue === "boolean") return storedValue;
+return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+const currentValue = await gmStorageGet(
+PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+void 0
+);
+if (typeof currentValue === "boolean") return currentValue;
+await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, migrationFallback);
+return migrationFallback;
+});
+}
+async function persistPreferredJapaneseSiteLanguage(value) {
+await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+});
+}
+function settingsValueEquals(left, right) {
+return left === right || JSON.stringify(left) === JSON.stringify(right);
+}
+function recoverLegacySettings(current, legacy, settledKeys, defaults) {
+return recoverInto(current, legacy, settledKeys, defaults, () => false);
+}
+function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
+return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+}
+function recoverInto(current, donor, settledKeys, defaults, excluded) {
+let settings = current;
+let changed = false;
+for (const key of Object.keys(defaults)) {
+if (excluded(key)) continue;
+if (settledKeys.has(key)) continue;
+if (!settingsValueEquals(settings[key], defaults[key])) continue;
+if (settingsValueEquals(donor[key], defaults[key])) continue;
+settings = { ...settings, [key]: donor[key] };
+settledKeys.add(key);
+changed = true;
+}
+return { settings, changed };
+}
+function audioSubSourceProviderName(name) {
+const trimmed = name.trim().normalize("NFC");
+return trimmed.split(/\s+/, 1)[0] ?? trimmed;
+}
+function audioSubSourceNameKey(name) {
+return audioSubSourceProviderName(name).toLowerCase();
+}
+function matchesShortcut(event, shortcut = "") {
+if (!shortcut) return false;
+const parts = parseShortcut(shortcut);
+const key = parts.key?.toLowerCase();
+if (!key) return false;
+const eventKey = normalizeEventKey(event.key).toLowerCase();
+return eventKey === key && shortcutModifiersMatch(event, parts.modifiers);
+}
+function shortcutModifiersMatch(event, modifiers) {
+return event.altKey === modifiers.has("alt") && event.ctrlKey === modifiers.has("ctrl") && event.metaKey === modifiers.has("meta") && event.shiftKey === modifiers.has("shift");
+}
+function shortcutIsPressed(shortcut = "", event, pressedKeys = new Set()) {
+if (!shortcut.trim()) return true;
+const parts = parseShortcut(shortcut);
+if (!shortcutModifiersArePressed(parts.modifiers, event)) return false;
+if (!parts.key) return parts.modifiers.size > 0;
+return shortcutKeyIsPressed(parts.key, event, pressedKeys);
+}
+function shortcutModifiersArePressed(modifiers, event) {
+return modifiers.has("alt") === event.altKey && modifiers.has("ctrl") === event.ctrlKey && modifiers.has("meta") === event.metaKey && modifiers.has("shift") === event.shiftKey;
+}
+function shortcutKeyIsPressed(key, event, pressedKeys) {
+const normalized = key.toLowerCase();
+return pressedKeys.has(normalized) || "key" in event && normalizeEventKey(event.key).toLowerCase() === normalized;
+}
+function parseShortcut(shortcut) {
+const parts = shortcut.split("+").map((part) => normalizeShortcutPart(part)).filter(Boolean);
+const modifiers = new Set(parts.filter(isModifierKey).map((part) => part.toLowerCase()));
+const key = [...parts].reverse().find((part) => !isModifierKey(part)) ?? "";
+return { key: key.toLowerCase(), modifiers };
+}
+function normalizeShortcutPart(part) {
+const value = typeof part === "string" ? part.trim() : "";
+if (!value) return "";
+const lower = value.toLowerCase();
+const alias = shortcutPartAlias(lower);
+if (alias) return alias;
+if (value.length === 1) return value.toUpperCase();
+return value[0]?.toUpperCase() + value.slice(1);
+}
+function shortcutPartAlias(lower) {
+return SHORTCUT_PART_ALIASES.get(lower) ?? "";
+}
+const SHORTCUT_PART_ALIASES = new Map([
+["control", "Ctrl"],
+["cmd", "Meta"],
+["command", "Meta"],
+["win", "Meta"],
+["windows", "Meta"],
+["option", "Alt"],
+["esc", "Escape"],
+["spacebar", "Space"],
+[" ", "Space"]
+]);
+function normalizeEventKey(key) {
+if (key === " ") return "Space";
+return normalizeShortcutPart(key);
+}
+function isModifierKey(key) {
+return key === "Alt" || key === "Ctrl" || key === "Meta" || key === "Shift";
+}
+const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
+const EXPLICIT_USER_SETTINGS_STORAGE_KEY = "yomu:explicit-user-settings:v1";
+const LEGACY_SETTINGS_STORAGE_KEYS = [
+"jpdb-reader-settings",
+"yomu-reader-settings",
+"yomu-settings"
+];
+const SETTINGS_STORAGE_KEYS = [
+SETTINGS_STORAGE_KEY,
+...LEGACY_SETTINGS_STORAGE_KEYS
+];
+const SETTINGS_PERSISTENCE_STORAGE_LEASE = "reader-settings-persistence";
+const log$9 = Logger.scope("Settings");
+let settingsResetInProgress = false;
+const DEFAULT_AUDIO_URL = YOMU_HOSTED_AUDIO_URL;
+const LEGACY_DEFAULT_OCR_TEXT_COLOR = OCR_OVERLAY_COLOR_TOKENS.text;
+const LEGACY_DEFAULT_OCR_OUTLINE_COLOR = OCR_OVERLAY_COLOR_TOKENS.outline;
+const DEFAULT_READER_FONT_FAMILY = 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+const DEFAULT_POPUP_FONT_FAMILY = '"Nunito Sans", "Extra Sans JP", "Noto Sans Symbols2", "Segoe UI", "Noto Sans JP", "Noto Sans CJK JP", "Hiragino Sans GB", "Meiryo", sans-serif';
+const DEFAULT_WORD_COLORS = DEFAULT_WORD_COLOR_TOKENS;
+const DEFAULT_PITCH_COLORS = DEFAULT_PITCH_COLOR_TOKENS;
+function isPopupLookupEnabled(settings) {
+return settings.popupActivationMode !== "off" && (settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+}
+const AUDIO_SOURCE_TYPE_VALUES = [
+"jpod101",
+"language-pod-101",
+"jisho",
+"bunpro",
+"lingua-libre",
+"wiktionary",
+"jiten-tts",
+"jpdb-tts",
+"text-to-speech",
+"text-to-speech-reading",
+"custom",
+"custom-json"
+];
+const DEFAULT_AUDIO_SOURCES = [
+{ type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+{ type: "jpod101", url: "", voice: "", enabled: false },
+{ type: "language-pod-101", url: "", voice: "", enabled: false },
+{ type: "jisho", url: "", voice: "", enabled: false },
+{ type: "bunpro", url: "", voice: "", enabled: false },
+{ type: "jiten-tts", url: "", voice: "", enabled: false },
+{ type: "jpdb-tts", url: "", voice: "", enabled: false },
+{ type: "text-to-speech", url: "", voice: "", enabled: false }
+];
+const AUDIO_SOURCE_TYPES = new Set(AUDIO_SOURCE_TYPE_VALUES);
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS = [
+{ type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+{ type: "jpod101", url: "", voice: "", enabled: true },
+{ type: "language-pod-101", url: "", voice: "", enabled: true },
+{ type: "jisho", url: "", voice: "", enabled: true },
+{ type: "text-to-speech", url: "", voice: "", enabled: true }
+];
+const LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS = [
+{ type: "custom-json", url: YOMU_HOSTED_AUDIO_URL, voice: "", enabled: true },
+{ type: "jpod101", url: "", voice: "", enabled: true },
+{ type: "language-pod-101", url: "", voice: "", enabled: true },
+{ type: "jisho", url: "", voice: "", enabled: true },
+{ type: "jiten-tts", url: "", voice: "", enabled: true },
+{ type: "jpdb-tts", url: "", voice: "", enabled: true },
+{ type: "text-to-speech", url: "", voice: "", enabled: true }
+];
+const DEFAULT_OFF_AUDIO_SOURCE_TYPES = new Set(
+DEFAULT_AUDIO_SOURCES.filter((source) => source.type !== "custom-json" || source.url !== YOMU_HOSTED_AUDIO_URL).map((source) => source.type)
+);
+const READER_COLOR_SOURCES = new Set(["auto", "status", "jpdb", "anki", "pitch", "off"]);
+const EXPLICIT_FURIGANA_MODES = new Set(["all", "difficult-kanji", "known-status", "hover"]);
+const OCR_ENGINE_ALIASES = new Map([
+["MangaOcrAdapter", "MangaOCR"],
+["PpOcrAdapter", "PaddleOCR"],
+["AppleVisionAdapter", "AppleVision"]
+]);
+const DEFAULT_COLOR_CHANNELS = {
+wordHighlightColorSource: "jpdb",
+wordUnderlineColorSource: "pitch",
+wordTextColorSource: "anki",
+subtitleHighlightColorSource: "jpdb",
+subtitleUnderlineColorSource: "pitch",
+subtitleTextColorSource: "anki"
+};
+const KANJI_BOOLEAN_SETTING_KEYS = [
+"jpdbKanjiEnabled",
+"kanjiImmersionKitEnabled",
+"uchisenEnabled",
+"wanikaniKanjiEnabled"
+];
+const LOOKUP_PAGE_ENHANCEMENT_KEYS = [
+"jpdbPageEnhancementsEnabled",
+"jpdbPageWordEnhancementsEnabled",
+"jpdbPageKanjiEnhancementsEnabled"
+];
+const API_DEFINITION_BOOLEAN_SETTING_KEYS = [
+"jpdbDefinitionsEnabled",
+"jitenDefinitionsEnabled",
+"bunproDefinitionsEnabled",
+"wanikaniDefinitionsEnabled"
+];
+const API_DEFINITION_NUMBER_SETTING_RANGES = {
+jpdbDefinitionsPriority: { min: 0, max: 999 },
+jitenDefinitionsPriority: { min: 0, max: 999 },
+bunproDefinitionsPriority: { min: 0, max: 999 },
+wanikaniDefinitionsPriority: { min: 0, max: 999 }
+};
+const SOURCE_ALIAS_SETTING_KEYS = [
+"jpdbDefinitionsAlias",
+"jitenDefinitionsAlias",
+"bunproDefinitionsAlias",
+"wanikaniDefinitionsAlias",
+"jpdbKanjiAlias",
+"kanjiImmersionKitAlias",
+"uchisenAlias",
+"wanikaniKanjiAlias",
+"rtkAlias",
+"kanjivgAlias",
+"kanjiOriginsAlias",
+"kanjiDictionariesAlias",
+"immersionKitAlias",
+"ankiSectionAlias",
+"studyTranslationAlias",
+"studyGrammarAlias"
+];
+const MINING_BOOLEAN_SETTING_KEYS = [
+"jpdbMiningEnabled",
+"bunproMiningEnabled",
+"wanikaniReviewEnabled",
+"yomuLocalSrsEnabled",
+"dictionarySourcesInitiallyExpanded"
+];
+const SUBTITLE_BOOLEAN_SETTING_KEYS = [
+"subtitleOverlayVisibleChosen",
+"subtitleSecondaryVisibleChosen",
+"subtitleNativeBlurred",
+"subtitleKaraokeMode",
+"subtitlePausePanel",
+"subtitleShadowAutoPause",
+"subtitleAutoCopyLine",
+"subtitleCopyIncludeTranslation",
+"subtitleMiningPause",
+"subtitleHoverPause"
+];
+const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
+"ankiFrontReading",
+"ankiFrontSentence",
+"ankiFrontImage",
+"ankiMobileHandoff",
+"studyTranslationEnabled",
+"studyGrammarEnabled",
+"enableLogging"
+];
+const ANKI_STUDY_NUMBER_SETTING_RANGES = {
+ankiSectionPriority: { min: 0, max: 999 },
+studyTranslationPriority: { min: 0, max: 999 },
+studyGrammarPriority: { min: 0, max: 999 }
+};
+const KANJI_NUMBER_SETTING_RANGES = {
+jpdbKanjiPriority: { min: 0, max: 999 },
+kanjiImmersionKitPriority: { min: 0, max: 999 },
+uchisenPriority: { min: 0, max: 999 },
+wanikaniKanjiPriority: { min: 0, max: 999 },
+rtkPriority: { min: 0, max: 999 },
+kanjivgPriority: { min: 0, max: 999 },
+kanjiOriginsPriority: { min: 0, max: 999 },
+kanjiDictionariesPriority: { min: 0, max: 999 },
+similarKanjiWordsPriority: { min: 0, max: 999 },
+similarKanjiWordLimit: { min: 2, max: 24 }
+};
+const READER_ACCENT_COLOR_SETTING_KEYS = [
+"wordColorNew",
+"wordColorLearning",
+"wordColorKnown",
+"wordColorDue",
+"wordColorFailed",
+"wordColorIgnored",
+"pitchColorHeiban",
+"pitchColorAtamadaka",
+"pitchColorNakadaka",
+"pitchColorOdaka",
+"pitchColorUnknown"
+];
+const ANKI_TEMPLATE_MODES = ["context", "recognition"];
+const INTERFACE_LANGUAGES = ["en", "ja", "auto"];
+const THEMES = ["dark", "light", "auto"];
+const POPUP_MODES = ["sheet", "popover", "auto"];
+const HOVER_POPUP_MODES = ["sheet", "popover", "auto"];
+const POPOVER_HEIGHT_MODES = ["fixed", "available"];
+const AUDIO_AUTO_PLAY_MODES = ["off", "all", "hover", "tap"];
+const AUDIO_TTS_MODES = ["source-order", "fallback"];
+const IMMERSION_KIT_CATEGORIES = ["anime", "drama", "games", "all"];
+const IMMERSION_KIT_SORTS = ["sentence_length:desc", "sentence_length:asc"];
+const IMMERSION_EXAMPLE_SOURCES = ["nadeshiko", "combined", "immersion-kit"];
+const OCR_OVERLAY_THEMES = ["auto", "dark", "light"];
+const SUBTITLE_CONTROL_MODES = ["always", "hidden", "auto"];
+const SUBTITLE_TRANSCRIPT_PLACEMENTS = ["left", "bottom", "right"];
+const NEW_TAB_SOURCES = ["jpdb", "bunpro", "wanikani", "yomu-local", "anki", "auto", "dictionary"];
+const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
+const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
+const DEFAULT_NEW_TAB_STUDY_STEP_ORDER = [
+"kanji-doodle",
+"word",
+"type-word",
+"recall-cloze",
+"listen-pitch",
+"speaking"
+];
+const NEW_TAB_STUDY_CHALLENGE_STEPS = new Set(DEFAULT_NEW_TAB_STUDY_STEP_ORDER);
+const NEW_TAB_TYPE_WORD_INPUT_MODES = ["keyboard", "handwriting"];
+const LEGACY_COLOR_CHANNEL_DEFAULTS = {
+wordHighlightColorSource: "auto",
+wordUnderlineColorSource: "auto",
+wordTextColorSource: "off",
+subtitleHighlightColorSource: "off",
+subtitleUnderlineColorSource: "pitch",
+subtitleTextColorSource: "auto"
+};
+const LEGACY_DEFAULT_ANKI_DECK_NAMES = new Set(["よむ", "Yomu", "yomu"]);
+const LEGACY_DEFAULT_ANKI_MODEL_NAMES = new Set(["よむ Japanese", "Yomu Japanese"]);
+const LEGACY_PREVIOUS_SUBTITLE_SHORTCUT = "Alt+ArrowLeft";
+const LEGACY_NEXT_SUBTITLE_SHORTCUT = "Alt+ArrowRight";
+const DEFAULT_SETTINGS = {
+apiKey: "",
+jitenApiKey: "",
+bunproApiKey: "",
+bunproFrontendApiToken: "",
+bunproFrontendApiTokenExpiresAt: "",
+wanikaniApiToken: "",
+onboardingSeen: false,
+interfaceLanguage: "en",
+languageProfiles: [createDefaultLanguageProfile()],
+activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
+accentColor: DEFAULT_ACCENT_COLOR,
+wordColorNew: DEFAULT_WORD_COLORS.new,
+wordColorLearning: DEFAULT_WORD_COLORS.learning,
+wordColorKnown: DEFAULT_WORD_COLORS.known,
+wordColorDue: DEFAULT_WORD_COLORS.due,
+wordColorFailed: DEFAULT_WORD_COLORS.failed,
+wordColorIgnored: DEFAULT_WORD_COLORS.ignored,
+pitchColorHeiban: DEFAULT_PITCH_COLORS.heiban,
+pitchColorAtamadaka: DEFAULT_PITCH_COLORS.atamadaka,
+pitchColorNakadaka: DEFAULT_PITCH_COLORS.nakadaka,
+pitchColorOdaka: DEFAULT_PITCH_COLORS.odaka,
+pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
+...DEFAULT_COLOR_CHANNELS,
+jpdbDefinitionsEnabled: true,
+jpdbDefinitionsAlias: "",
+jpdbDefinitionsPriority: 1,
+jitenDefinitionsEnabled: true,
+jitenDefinitionsAlias: "",
+jitenDefinitionsPriority: 0,
+bunproDefinitionsEnabled: true,
+bunproDefinitionsAlias: "",
+bunproDefinitionsPriority: 2,
+wanikaniDefinitionsEnabled: true,
+wanikaniDefinitionsAlias: "",
+wanikaniDefinitionsPriority: 3,
+jpdbPageEnhancementsEnabled: true,
+jpdbPageWordEnhancementsEnabled: true,
+jpdbPageKanjiEnhancementsEnabled: true,
+jpdbKanjiEnabled: true,
+jpdbKanjiAlias: "",
+jpdbKanjiPriority: 10,
+kanjiImmersionKitEnabled: true,
+kanjiImmersionKitAlias: "",
+kanjiImmersionKitPriority: 60,
+uchisenEnabled: true,
+uchisenAlias: "",
+uchisenPriority: 50,
+wanikaniKanjiEnabled: true,
+wanikaniKanjiAlias: "",
+wanikaniKanjiPriority: 55,
+rtkEnabled: true,
+rtkAlias: "",
+rtkPriority: 20,
+kanjivgEnabled: true,
+kanjivgAlias: "",
+kanjivgPriority: 0,
+kanjiOriginsEnabled: true,
+kanjiOriginsAlias: "",
+kanjiOriginsPriority: 30,
+kanjiOriginKanjiMapEnabled: true,
+kanjiOriginGraphEnabled: true,
+kanjiOriginRadicalImagesEnabled: true,
+similarKanjiWords: true,
+similarKanjiWordsPriority: 40,
+similarKanjiWordLimit: 8,
+audioEnabled: true,
+autoPlayAudio: true,
+suppressAutoAudioOnVideo: true,
+audioAutoPlayMode: "all",
+audioSources: DEFAULT_AUDIO_SOURCES,
+audioEnableDefaultSources: true,
+audioSourceUrl: DEFAULT_AUDIO_URL,
+audioViaBlob: true,
+audioFallbackChimeEnabled: true,
+audioTimeoutMs: 6e3,
+audioSelectionMode: "random",
+audioTtsMode: "fallback",
+immersionKitEnabled: true,
+immersionKitAlias: "",
+immersionKitExampleSource: "immersion-kit",
+nadeshikoApiKey: "",
+immersionKitPriority: 80,
+immersionKitExpandedLimitMigrated20260721: true,
+immersionKitLimitEnabled: false,
+immersionKitLimit: 12,
+immersionKitMinLength: 8,
+immersionKitMaxLength: 80,
+immersionKitCategory: "all",
+immersionKitSort: "sentence_length:asc",
+immersionKitExactMatch: false,
+immersionKitShowTranslation: true,
+immersionKitRevealTranslationOnClick: true,
+immersionKitShowImages: true,
+immersionKitAutoPlayAudio: true,
+immersionKitPlayOnHover: true,
+immersionKitPlayOnImageClick: true,
+immersionKitPlaybackRate: 1,
+lookupOnClick: true,
+lookupOnHover: true,
+lookupOnMiddleMouse: true,
+hoverOpenDelayMs: 0,
+hoverCloseDelayMs: 80,
+popupActivationMode: "hover",
+scanModifierKey: "shift",
+showFloatingButton: true,
+newTabEnabled: false,
+newTabAnkiEnabled: false,
+newTabAnkiDisabledDecks: [],
+newTabSource: "auto",
+newTabJpdbDeck: "all",
+newTabJpdbReviewMode: "auto",
+corsProxyUrl: "",
+newTabKanjiKeywordSource: "auto",
+newTabParsingEnabled: true,
+newTabFrontSentenceEnabled: true,
+newTabOfflineEnabled: true,
+newTabOfflineLimit: 50,
+newTabDailyGoalMinutes: 60,
+newTabKanjiUnlockEnabled: true,
+newTabStopAtBatchEnd: false,
+newTabSwipeReviews: true,
+newTabShortcutHintsEnabled: true,
+newTabKanjiAutogradeEnabled: true,
+newTabKanjiAutoSubmit: false,
+newTabStudyStepOrder: [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER],
+newTabStudyDisabledSteps: [],
+newTabTypeWordInputMode: "keyboard",
+newTabStudyTourSeen: false,
+puckPositionX: void 0,
+puckPositionY: void 0,
+manualScanEnabled: false,
+annotationsPaused: false,
+showFurigana: true,
+furiganaMode: "all",
+clampedRowReadings: "show",
+puckFuriganaModeBeforeHide: "",
+furiganaHiddenStateGroups: ["known", "due", "failed"],
+wordColorStates: "all",
+wordColorHiddenStateGroups: [],
+showPitchAccent: true,
+showLookupPillFrequency: true,
+suppressRedundantWordUi: false,
+sheetCloseButtonOnLeft: false,
+hideKnownFurigana: true,
+ocrEnabled: true,
+ocrAutoScanImages: true,
+ocrVideoPauseFrames: false,
+ocrShowTextOverlay: false,
+ocrOverlayTheme: "auto",
+ocrProvider: "google-lens",
+ocrEndpointUrl: "",
+ocrEngine: "auto",
+ocrCloudVisionApiKey: "",
+ocrLanguage: "",
+ocrMaxImagePixels: 12e5,
+ocrMinImageArea: 45e3,
+ocrMaxImagesPerPage: 3,
+ocrPrefetchMargin: 700,
+ocrPrefetchPages: 2,
+ocrConcurrency: 3,
+ocrInvertDarkPanels: true,
+ocrTextColor: DEFAULT_OCR_TEXT_COLOR,
+ocrOutlineColor: DEFAULT_OCR_OUTLINE_COLOR,
+ocrBackgroundColor: DEFAULT_OCR_BACKGROUND_COLOR,
+ocrBackgroundOpacity: DEFAULT_OCR_BACKGROUND_OPACITY,
+ocrFontScale: 1,
+localDictionariesEnabled: true,
+parserProvider: "local",
+localDictionaryMaxResults: 12,
+localDictionaryShowKanji: true,
+kanjiDictionariesAlias: "",
+kanjiDictionariesPriority: 30,
+dictionarySourcesInitiallyExpanded: true,
+dictionaryPreferences: [],
+dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
+...createDefaultSubtitleSettings(DEFAULT_READER_FONT_FAMILY),
+youtubeImmersionEnabled: true,
+youtubeImmersionEnabledChosen: false,
+youtubeShowFilterNotice: true,
+youtubeFilterNoticeRestored20260711: true,
+themeAutoRestored20260730: true,
+youtubeShowChannelRecommendations: true,
+youtubeShowChannelRecommendationsChosen: false,
+preferJapaneseSiteLanguage: true,
+ankiEnabled: false,
+ankiSectionEnabled: false,
+ankiSectionAlias: "",
+ankiSectionPriority: 90,
+ankiConnectUrl: "http://127.0.0.1:8765",
+ankiDeck: "よむ",
+ankiModel: "よむ Japanese",
+ankiTemplateMode: "recognition",
+ankiFrontReading: true,
+ankiFrontSentence: true,
+ankiFrontImage: true,
+ankiMobileHandoff: false,
+studyTranslationEnabled: true,
+studyTranslationAlias: "",
+studyGrammarEnabled: true,
+studyGrammarAlias: "",
+enableLogging: false,
+ankiTags: "yomu",
+ankiMineWithJpdb: false,
+ankiCaptureScreenshot: true,
+ankiFieldMappings: {},
+ankiSentenceAudioMappingMigrated: true,
+theme: "auto",
+popupMode: "auto",
+hoverPopupMode: "popover",
+stickyBottomSheet: false,
+popoverBackdropEnabled: true,
+popoverWidth: 520,
+popoverHeight: 540,
+popoverHeightMode: "fixed",
+readerFontFamily: DEFAULT_READER_FONT_FAMILY,
+popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
+popupFontWeight: 450,
+jpdbMiningEnabled: true,
+bunproMiningEnabled: true,
+wanikaniReviewEnabled: true,
+yomuLocalSrsEnabled: true,
+apiGradingProvider: "jiten",
+miningDeck: "forq",
+autoMineOnReview: false,
+neverForgetDeck: "never-forget",
+blacklistDeck: "blacklist",
+addToForq: false,
+enableReviews: true,
+twoButtonReviews: false,
+studyTranslationPriority: 10,
+studyGrammarPriority: 20,
+shortcuts: {
+scanPage: "Shift+J",
+hoverLookup: "",
+openSettings: "Ctrl+Shift+J",
+playAudio: "A",
+closePopup: "Escape",
+previousLookupWord: "Shift+ArrowLeft",
+nextLookupWord: "Shift+ArrowRight",
+previousSubtitle: "A",
+nextSubtitle: "D",
+copySubtitle: "Shift+C",
+toggleOcr: "Shift+O",
+toggleSubtitleOverlay: "Shift+H",
+toggleYoutubeImmersion: "Shift+Y",
+scanImages: "Shift+I",
+massReviewVisible: "Shift+M",
+studyReveal: "Space",
+studyRevealAlternate: "Enter",
+studyUndo: "U",
+studyPrevious: "ArrowLeft",
+studyPreviousAlternate: "P",
+studyNext: "ArrowRight",
+studyNextAlternate: "N",
+gradeNothing: "1",
+gradeSomething: "2",
+gradeHard: "3",
+gradeOkay: "4",
+gradeEasy: "5",
+gradeFail: "1",
+gradePass: "2"
+}
+};
+const LEGACY_DEFAULT_TRUE_ANKI_SETTINGS = [
+"ankiMobileHandoff",
+"ankiMineWithJpdb",
+"ankiSectionEnabled",
+"ankiFrontReading",
+"ankiFrontSentence",
+"ankiFrontImage",
+"ankiCaptureScreenshot"
+];
+const LEGACY_DEFAULT_ANKI_STRING_SETTINGS = [
+["ankiConnectUrl", DEFAULT_SETTINGS.ankiConnectUrl],
+["ankiTemplateMode", DEFAULT_SETTINGS.ankiTemplateMode],
+["ankiTags", DEFAULT_SETTINGS.ankiTags]
+];
+function mergeSettings(value) {
+const settingsValue = migrateSentenceAudioFieldMappings(
+migrateDefaultLightTheme(
+migratePinnedOcrLanguage(
+migrateHiddenFilterNotice(migrateLegacyDefaultMobileSettings(value))
+)
+)
+);
+const audio = normalizeAudioSettings(settingsValue);
+const supportedSettings = stripUnsupportedSettings(settingsValue);
+const apiCredentials2 = normalizeApiCredentialSettings(settingsValue);
+const parserProvider = normalizeParserProvider(settingsValue);
+const dictionaryPreferences = normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences);
+const languageProfileSettings = normalizeLanguageProfileSettings(
+settingsValue,
+parserProvider,
+dictionaryPreferences
+);
+return {
+...DEFAULT_SETTINGS,
+...supportedSettings ?? {},
+...apiCredentials2,
+...normalizeLookupSettings(settingsValue),
+...normalizeNewTabSettings(settingsValue),
+...normalizeReaderDisplaySettings(settingsValue),
+...audio,
+...normalizeMediaSettings(settingsValue),
+...normalizeSubtitleSettings(settingsValue),
+...normalizeKanjiSettings(settingsValue),
+...normalizeAnkiAndStudySettings(settingsValue),
+...normalizePresentationSettings(settingsValue),
+...normalizeMiningSettings(settingsValue),
+...normalizeSourceAliasSettings(settingsValue),
+...normalizeRemovedDictionarySettings(settingsValue),
+dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(
+settingsValue,
+activeTargetRosterId(languageProfileSettings)
+),
+...languageProfileSettings,
+preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
+shortcuts: normalizeShortcutSettings(settingsValue)
+};
+}
+function normalizePreferredJapaneseSiteLanguage(value) {
+if (!value || !hasOwn(value, "preferJapaneseSiteLanguage")) {
+return DEFAULT_SETTINGS.preferJapaneseSiteLanguage;
+}
+return typeof value.preferJapaneseSiteLanguage === "boolean" ? value.preferJapaneseSiteLanguage : false;
+}
+function normalizeParserProvider(value) {
+const provider = value?.parserProvider;
+if (provider === "local" || provider === "jiten" || provider === "jpdb" || provider === "auto") return provider;
+return value ? "auto" : DEFAULT_SETTINGS.parserProvider;
+}
+function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences) {
+const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion));
+const normalized = normalizeLanguageProfiles(
+value?.languageProfiles,
+value?.activeLanguageProfileId,
+{
+outputLanguage: "en",
+uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
+parserProvider
+}
+);
+const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
+if (!active) {
+return {
+languageProfiles: normalized.profiles,
+activeLanguageProfileId: normalized.activeProfileId,
+parserProvider,
+interfaceLanguage: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
+dictionaryPreferences
+};
+}
+const profilesAreAuthoritative = hasPersistedProfiles && normalized.profiles.some(languageProfileHasIndependentState);
+if (!profilesAreAuthoritative) {
+active.parserProvider = parserProvider;
+active.uiLocale = normalizeInterfaceLanguage(value?.interfaceLanguage);
+active.dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
+}
+return {
+languageProfiles: normalized.profiles,
+activeLanguageProfileId: normalized.activeProfileId,
+parserProvider: active.parserProvider,
+interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
+dictionaryPreferences: profilesAreAuthoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
+};
+}
+function activeTargetRosterId(profileSettings) {
+const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
+return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
+}
+function languageProfileHasIndependentState(profile) {
+return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
+}
+function languageProfileDictionariesFromPreferences(preferences) {
+const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
+return {
+installed: ordered.map((preference) => preference.name),
+enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
+order: ordered.map((preference) => preference.name)
+};
+}
+function dictionaryPreferencesForLanguageProfile(preferences, dictionaries) {
+if (!dictionaries.installed.length) return preferences;
+const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
+const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
+const order = new Map(
+dictionaries.order.map((id, index) => [normalizedProfileDictionaryId(id), index])
+);
+return preferences.map((preference, index) => {
+const key = normalizedProfileDictionaryId(preference.name);
+return {
+...preference,
+enabled: installed.has(key) && enabled.has(key),
+priority: order.get(key) ?? dictionaries.order.length + index
+};
+}).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
+}
+function normalizedProfileDictionaryId(value) {
+return value.normalize("NFKC").trim().toLocaleLowerCase("en-US");
+}
+function profileInterfaceLanguage(value, fallback) {
+return value === "auto" || value === "en" || value === "ja" ? value : fallback === "auto" || fallback === "en" || fallback === "ja" ? fallback : DEFAULT_SETTINGS.interfaceLanguage;
+}
+function normalizeApiCredentialSettings(value) {
+const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
+const jitenApiKey = trimmedStringSetting(value, "jitenApiKey", DEFAULT_SETTINGS.jitenApiKey);
+const bunproApiKey = trimmedStringSetting(value, "bunproApiKey", DEFAULT_SETTINGS.bunproApiKey);
+const bunproFrontendApiToken = trimmedStringSetting(value, "bunproFrontendApiToken", DEFAULT_SETTINGS.bunproFrontendApiToken);
+const bunproFrontendApiTokenExpiresAt = normalizeOptionalIsoDateString(value?.bunproFrontendApiTokenExpiresAt);
+const wanikaniApiToken = trimmedStringSetting(value, "wanikaniApiToken", DEFAULT_SETTINGS.wanikaniApiToken);
+if (isJitenApiCredential(apiKey)) return { apiKey: "", jitenApiKey: jitenApiKey || apiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
+return { apiKey, jitenApiKey, bunproApiKey, bunproFrontendApiToken, bunproFrontendApiTokenExpiresAt, wanikaniApiToken };
+}
+function stripUnsupportedSettings(value) {
+if (!value) return null;
+const supportedKeys = new Set(Object.keys(DEFAULT_SETTINGS));
+return Object.fromEntries(
+Object.entries(value).filter(([key]) => supportedKeys.has(key))
+);
+}
+function migrateHiddenFilterNotice(value) {
+if (!value) return value;
+if (value.youtubeFilterNoticeRestored20260711) return value;
+const migrated = { ...value, youtubeFilterNoticeRestored20260711: true };
+if (migrated.youtubeShowFilterNotice === false) migrated.youtubeShowFilterNotice = true;
+return migrated;
+}
+function migrateDefaultLightTheme(value) {
+if (!value) return value;
+if (value.themeAutoRestored20260730) return value;
+const migrated = { ...value, themeAutoRestored20260730: true };
+if (migrated.theme === "light") migrated.theme = "auto";
+return migrated;
+}
+function migratePinnedOcrLanguage(value) {
+if (!value || !isTargetDefaultOcrLanguageTag(stringValue(value.ocrLanguage))) return value;
+return { ...value, ocrLanguage: "" };
+}
+function migrateSentenceAudioFieldMappings(value) {
+if (!value) return value;
+if (value.ankiSentenceAudioMappingMigrated) return value;
+const migrated = { ...value, ankiSentenceAudioMappingMigrated: true };
+if (!value.ankiFieldMappings) return migrated;
+const { mappings, movedModels } = migrateAnkiSentenceAudioMappings(value.ankiFieldMappings);
+if (!movedModels.length) return migrated;
+log$9.info("Moved Anki sentence-audio field mappings off the word-audio role", { models: movedModels });
+return { ...migrated, ankiFieldMappings: mappings };
+}
+function migrateLegacyDefaultMobileSettings(value) {
+if (!value) return value;
+const migrateAnki = isLegacyDefaultAnkiSettings(value);
+const migrateNewTabAnki = isLegacyDefaultNewTabAnkiSettings(value);
+if (!migrateAnki && !migrateNewTabAnki) return value;
+const migrated = { ...value };
+if (migrateAnki) {
+migrated.ankiEnabled = false;
+migrated.ankiSectionEnabled = false;
+migrated.ankiMobileHandoff = false;
+migrated.ankiMineWithJpdb = false;
+}
+if (migrateNewTabAnki) migrated.newTabAnkiEnabled = false;
+return migrated;
+}
+function isLegacyDefaultAnkiSettings(value) {
+if (!isPreCurrentSavedSettingsPayload(value)) return false;
+return legacyAnkiBooleanSettingsAreDefault(value) && legacyAnkiStringSettingsAreDefault(value) && legacyStringSettingIn(value, "ankiDeck", LEGACY_DEFAULT_ANKI_DECK_NAMES) && legacyStringSettingIn(value, "ankiModel", LEGACY_DEFAULT_ANKI_MODEL_NAMES) && legacyAnkiFieldMappingsAreDefault(value);
+}
+function legacyAnkiBooleanSettingsAreDefault(value) {
+return LEGACY_DEFAULT_TRUE_ANKI_SETTINGS.every((key) => legacyBooleanSettingMatches(value, key, true));
+}
+function legacyAnkiStringSettingsAreDefault(value) {
+return LEGACY_DEFAULT_ANKI_STRING_SETTINGS.every(([key, expected]) => legacyStringSettingMatches(value, key, expected));
+}
+function isLegacyDefaultNewTabAnkiSettings(value) {
+if (!isPreCurrentSavedSettingsPayload(value)) return false;
+return legacyBooleanSettingMatches(value, "newTabAnkiEnabled", true) && legacyBooleanSettingMatches(value, "newTabEnabled", false) && legacyStringListSettingIsEmpty(value, "newTabAnkiDisabledDecks") && legacyStringSettingMatches(value, "newTabSource", DEFAULT_SETTINGS.newTabSource) && legacyStringSettingMatches(value, "newTabJpdbDeck", DEFAULT_SETTINGS.newTabJpdbDeck) && legacyStringSettingMatches(value, "newTabJpdbReviewMode", DEFAULT_SETTINGS.newTabJpdbReviewMode);
+}
+function isPreCurrentSavedSettingsPayload(value) {
+return !hasOwn(value, "jitenApiKey");
+}
+function legacyBooleanSettingMatches(value, key, expected) {
+return hasOwn(value, key) && value[key] === expected;
+}
+function legacyStringSettingMatches(value, key, expected) {
+const raw = value[key];
+return hasOwn(value, key) && typeof raw === "string" && raw.trim() === expected;
+}
+function legacyStringSettingIn(value, key, expected) {
+const raw = value[key];
+return hasOwn(value, key) && typeof raw === "string" && expected.has(raw.trim());
+}
+function legacyStringListSettingIsEmpty(value, key) {
+const raw = value[key];
+return hasOwn(value, key) && Array.isArray(raw) && raw.length === 0;
+}
+function legacyAnkiFieldMappingsAreDefault(value) {
+const raw = value.ankiFieldMappings;
+return hasOwn(value, "ankiFieldMappings") && Boolean(raw) && typeof raw === "object" && !Array.isArray(raw) && Object.keys(raw).length === 0;
+}
+function normalizeAudioSettings(value) {
+const settings = value ?? {};
+const hasSavedAudioSources = hasOwn(settings, "audioSources") || Boolean(settings.audioSourceUrl);
+const audioSources = hasSavedAudioSources ? normalizeAudioSources(settings.audioSources, settings.audioSourceUrl) : DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+const audioAutoPlayMode = normalizeAudioAutoPlayMode(settings.audioAutoPlayMode);
+return {
+autoPlayAudio: audioAutoPlayMode === "off" ? false : booleanSetting(value, "autoPlayAudio"),
+suppressAutoAudioOnVideo: booleanSetting(value, "suppressAutoAudioOnVideo"),
+audioAutoPlayMode,
+audioSources,
+audioSourceUrl: preferredAudioSourceUrl(audioSources, settings.audioSourceUrl),
+audioTtsMode: normalizeAudioTtsMode(settings.audioTtsMode)
+};
+}
+function preferredAudioSourceUrl(audioSources, fallback) {
+return audioSources.find((source) => source.url)?.url ?? fallback ?? DEFAULT_AUDIO_URL;
+}
+function normalizeShortcutSettings(value) {
+const shortcuts = {
+...DEFAULT_SETTINGS.shortcuts,
+...value?.shortcuts ?? {}
+};
+if (value?.shortcuts && !hasOwn(value.shortcuts, "hoverLookup")) {
+shortcuts.hoverLookup = value.popupActivationMode === "modifier" ? shortcutFromLegacyModifier(value.scanModifierKey) : "";
+}
+if (value?.popupActivationMode === "modifier" && !shortcuts.hoverLookup.trim() && !hasOwn(value?.shortcuts ?? {}, "hoverLookup")) {
+shortcuts.hoverLookup = shortcutFromLegacyModifier(value.scanModifierKey) || "Shift";
+}
+migrateLegacySubtitleLineShortcuts(shortcuts, value?.shortcuts);
+return shortcuts;
+}
+function migrateLegacySubtitleLineShortcuts(shortcuts, savedShortcuts) {
+if (!savedShortcuts) return;
+if (savedShortcuts.previousSubtitle === LEGACY_PREVIOUS_SUBTITLE_SHORTCUT) {
+shortcuts.previousSubtitle = DEFAULT_SETTINGS.shortcuts.previousSubtitle;
+}
+if (savedShortcuts.nextSubtitle === LEGACY_NEXT_SUBTITLE_SHORTCUT) {
+shortcuts.nextSubtitle = DEFAULT_SETTINGS.shortcuts.nextSubtitle;
+}
+}
+function normalizeLookupSettings(value) {
+return {
+interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
+...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
+...normalizeDefinitionSourcePrioritySettings(value),
+...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
+lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
+lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
+lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
+hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
+hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+};
+}
+function normalizeDefinitionSourcePrioritySettings(value) {
+const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
+const ordered = isLegacyDefaultDefinitionSourceOrder(value) ? {
+...normalized,
+jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
+jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
+} : normalized;
+if (!hasOwn(value, "bunproDefinitionsPriority")) {
+ordered.bunproDefinitionsPriority = Math.min(999, Math.max(ordered.jpdbDefinitionsPriority, ordered.jitenDefinitionsPriority) + 1);
+}
+return ordered;
+}
+function normalizeSourceAliasSettings(value) {
+const aliases = {};
+for (const key of SOURCE_ALIAS_SETTING_KEYS) {
+aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
+}
+return aliases;
+}
+function isLegacyDefaultDefinitionSourceOrder(value) {
+return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && !hasOwn(value, "bunproDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
+}
+function normalizeRemovedDictionarySettings(value) {
+return {
+jpdbDefinitionsEnabled: booleanSetting(value, "jpdbDefinitionsEnabled"),
+localDictionariesEnabled: booleanSetting(value, "localDictionariesEnabled"),
+dictionarySourcesInitiallyExpanded: booleanSetting(value, "dictionarySourcesInitiallyExpanded"),
+localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
+localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
+};
+}
+function normalizeNewTabSettings(value) {
+return {
+newTabEnabled: booleanSetting(value, "newTabEnabled"),
+newTabAnkiEnabled: booleanSetting(value, "newTabAnkiEnabled"),
+newTabAnkiDisabledDecks: normalizeStringList(value?.newTabAnkiDisabledDecks),
+newTabSource: normalizeNewTabSource(value?.newTabSource),
+newTabJpdbDeck: normalizeDeckIdSetting(value?.newTabJpdbDeck, DEFAULT_SETTINGS.newTabJpdbDeck),
+newTabJpdbReviewMode: normalizeNewTabJpdbReviewMode(value?.newTabJpdbReviewMode),
+corsProxyUrl: normalizeCorsProxyUrl(value?.corsProxyUrl),
+newTabKanjiKeywordSource: normalizeNewTabKanjiKeywordSource(value?.newTabKanjiKeywordSource),
+newTabParsingEnabled: booleanSetting(value, "newTabParsingEnabled"),
+newTabFrontSentenceEnabled: booleanSetting(value, "newTabFrontSentenceEnabled"),
+newTabOfflineEnabled: booleanSetting(value, "newTabOfflineEnabled"),
+newTabOfflineLimit: clampNumber(value?.newTabOfflineLimit, 0, 500, DEFAULT_SETTINGS.newTabOfflineLimit),
+newTabDailyGoalMinutes: clampNumber(value?.newTabDailyGoalMinutes, 0, 1440, DEFAULT_SETTINGS.newTabDailyGoalMinutes),
+newTabKanjiUnlockEnabled: booleanSetting(value, "newTabKanjiUnlockEnabled"),
+newTabStopAtBatchEnd: booleanSetting(value, "newTabStopAtBatchEnd"),
+newTabSwipeReviews: booleanSetting(value, "newTabSwipeReviews"),
+newTabShortcutHintsEnabled: booleanSetting(value, "newTabShortcutHintsEnabled"),
+newTabKanjiAutogradeEnabled: booleanSetting(value, "newTabKanjiAutogradeEnabled"),
+newTabKanjiAutoSubmit: booleanSetting(value, "newTabKanjiAutoSubmit"),
+newTabStudyStepOrder: normalizeNewTabStudyStepOrder(value?.newTabStudyStepOrder),
+newTabStudyDisabledSteps: normalizeNewTabStudyDisabledSteps(value?.newTabStudyDisabledSteps),
+newTabTypeWordInputMode: normalizeOption(value?.newTabTypeWordInputMode, NEW_TAB_TYPE_WORD_INPUT_MODES, DEFAULT_SETTINGS.newTabTypeWordInputMode),
+newTabStudyTourSeen: booleanSetting(value, "newTabStudyTourSeen")
+};
+}
+function normalizeNewTabStudyStepOrder(value) {
+const ordered = normalizeStudyStepList(value);
+const legacyDefault = ["kanji-doodle", "word", "recall-cloze", "listen-pitch", "speaking", "type-word"];
+if (ordered.join(",") === legacyDefault.join(",")) return [...DEFAULT_NEW_TAB_STUDY_STEP_ORDER];
+return [
+...ordered,
+...DEFAULT_NEW_TAB_STUDY_STEP_ORDER.filter((step) => !ordered.includes(step))
+];
+}
+function normalizeNewTabStudyDisabledSteps(value) {
+return normalizeStudyStepList(value);
+}
+function normalizeStudyStepList(value) {
+if (!Array.isArray(value)) return [];
+const out = [];
+for (const item of value) {
+if (!isNewTabStudyChallengeStep(item) || out.includes(item)) continue;
+out.push(item);
+}
+return out;
+}
+function isNewTabStudyChallengeStep(value) {
+return typeof value === "string" && NEW_TAB_STUDY_CHALLENGE_STEPS.has(value);
+}
+function normalizeReaderDisplaySettings(value) {
+const settings = value ?? {};
+return {
+accentColor: sanitizeAccentColor(settings.accentColor),
+...normalizeAccentColorSettings(settings, READER_ACCENT_COLOR_SETTING_KEYS),
+...normalizeReaderColorChannelSettings(value),
+puckPositionX: normalizeOptionalCoordinate(settings.puckPositionX),
+puckPositionY: normalizeOptionalCoordinate(settings.puckPositionY),
+showFurigana: booleanSetting(value, "showFurigana"),
+furiganaMode: normalizeFuriganaMode(settings.furiganaMode, value),
+clampedRowReadings: settings.clampedRowReadings === "hover" ? "hover" : "show",
+puckFuriganaModeBeforeHide: isFuriganaMode(settings.puckFuriganaModeBeforeHide) && settings.puckFuriganaModeBeforeHide !== "off" ? settings.puckFuriganaModeBeforeHide : "",
+furiganaHiddenStateGroups: normalizeFuriganaHiddenStateGroups(settings.furiganaHiddenStateGroups),
+wordColorStates: settings.wordColorStates === "new-only" ? "new-only" : "all",
+wordColorHiddenStateGroups: normalizeWordColorHiddenStateGroups(settings.wordColorHiddenStateGroups),
+hideKnownFurigana: booleanSetting(value, "hideKnownFurigana")
+};
+}
+function normalizeAccentColorSettings(settings, keys) {
+const normalized = {};
+for (const key of keys) {
+normalized[key] = sanitizeAccentColor(settings[key], String(DEFAULT_SETTINGS[key]));
+}
+return normalized;
+}
+function normalizeKanjiSettings(value) {
+return {
+...normalizeBooleanSettingGroup(value, KANJI_BOOLEAN_SETTING_KEYS),
+...normalizeNumberSettingGroup(value, KANJI_NUMBER_SETTING_RANGES)
+};
+}
+function normalizeAnkiAndStudySettings(value) {
+const settings = value ?? {};
+return {
+ankiSectionEnabled: normalizeAnkiSectionEnabled(value),
+...normalizeNumberSettingGroup(value, ANKI_STUDY_NUMBER_SETTING_RANGES),
+ankiConnectUrl: normalizeUrl(settings.ankiConnectUrl, DEFAULT_SETTINGS.ankiConnectUrl),
+ankiDeck: normalizeAnkiName(settings.ankiDeck, DEFAULT_SETTINGS.ankiDeck, "Yomu"),
+ankiModel: normalizeAnkiName(settings.ankiModel, DEFAULT_SETTINGS.ankiModel, "Yomu Japanese"),
+ankiTemplateMode: normalizeAnkiTemplateMode(settings.ankiTemplateMode),
+ankiFieldMappings: normalizeAnkiFieldMappings(settings.ankiFieldMappings),
+...normalizeBooleanSettingGroup(value, ANKI_STUDY_BOOLEAN_SETTING_KEYS)
+};
+}
+function normalizeAnkiSectionEnabled(value) {
+const ankiEnabled = booleanSetting(value, "ankiEnabled");
+return hasOwn(value, "ankiSectionEnabled") ? booleanSetting(value, "ankiSectionEnabled") : ankiEnabled;
+}
+function normalizePresentationSettings(value) {
+return {
+theme: normalizeTheme(value?.theme),
+popupMode: normalizePopupMode(value?.popupMode),
+hoverPopupMode: normalizeHoverPopupMode(value?.hoverPopupMode),
+stickyBottomSheet: booleanSetting(value, "stickyBottomSheet"),
+popoverBackdropEnabled: booleanSetting(value, "popoverBackdropEnabled"),
+popoverWidth: clampNumber(value?.popoverWidth, 280, 900, DEFAULT_SETTINGS.popoverWidth),
+popoverHeight: clampNumber(value?.popoverHeight, 220, 900, DEFAULT_SETTINGS.popoverHeight),
+popoverHeightMode: normalizePopoverHeightMode(value?.popoverHeightMode),
+readerFontFamily: normalizeFontFamily(value?.readerFontFamily, DEFAULT_SETTINGS.readerFontFamily),
+popupFontFamily: normalizeFontFamily(value?.popupFontFamily, DEFAULT_SETTINGS.popupFontFamily),
+popupFontWeight: clampNumber(value?.popupFontWeight, 300, 900, DEFAULT_SETTINGS.popupFontWeight)
+};
+}
+function normalizeMiningSettings(value) {
+return {
+ankiTags: trimmedStringSetting(value, "ankiTags", DEFAULT_SETTINGS.ankiTags),
+miningDeck: normalizeDeckIdSetting(value?.miningDeck, DEFAULT_SETTINGS.miningDeck),
+autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
+neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
+blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
+apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
+...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
+};
+}
+function normalizeApiGradingProvider(value) {
+if (value === "jpdb") return "jpdb";
+if (value === "jiten") return "jiten";
+if (value === "bunpro") return "bunpro";
+return DEFAULT_SETTINGS.apiGradingProvider;
+}
+function normalizeOptionalIsoDateString(value) {
+if (typeof value !== "string" || !value.trim()) return "";
+const time = Date.parse(value.trim());
+return Number.isFinite(time) ? new Date(time).toISOString() : "";
+}
+function normalizeMediaSettings(value) {
+const settings = value ?? {};
+const ocrBackgroundOpacity = accessibleOcrBackgroundOpacity(settings.ocrBackgroundOpacity);
+const immersionExampleLimit = normalizeImmersionExampleLimitSettings(value);
+return {
+audioViaBlob: booleanSetting(value, "audioViaBlob"),
+audioFallbackChimeEnabled: booleanSetting(value, "audioFallbackChimeEnabled"),
+youtubeImmersionEnabled: booleanSetting(value, "youtubeImmersionEnabled"),
+youtubeImmersionEnabledChosen: booleanSetting(value, "youtubeImmersionEnabledChosen"),
+youtubeShowFilterNotice: booleanSetting(value, "youtubeShowFilterNotice"),
+youtubeShowChannelRecommendations: booleanSetting(value, "youtubeShowChannelRecommendations"),
+youtubeShowChannelRecommendationsChosen: booleanSetting(value, "youtubeShowChannelRecommendationsChosen"),
+immersionKitExampleSource: normalizeImmersionExampleSource(settings.immersionKitExampleSource),
+nadeshikoApiKey: trimmedStringSetting(value, "nadeshikoApiKey", DEFAULT_SETTINGS.nadeshikoApiKey),
+immersionKitPriority: clampNumber(settings.immersionKitPriority, 0, 999, DEFAULT_SETTINGS.immersionKitPriority),
+...immersionExampleLimit,
+immersionKitMinLength: clampNumber(settings.immersionKitMinLength, 0, 120, DEFAULT_SETTINGS.immersionKitMinLength),
+immersionKitMaxLength: clampNumber(settings.immersionKitMaxLength, 0, 240, DEFAULT_SETTINGS.immersionKitMaxLength),
+immersionKitCategory: normalizeImmersionKitCategory(settings.immersionKitCategory),
+immersionKitSort: normalizeImmersionKitSort(settings.immersionKitSort),
+immersionKitPlaybackRate: clampNumber(settings.immersionKitPlaybackRate, 0.5, 2, DEFAULT_SETTINGS.immersionKitPlaybackRate),
+immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
+immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
+immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
+ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
+ocrOverlayTheme: normalizeOcrOverlayTheme(settings.ocrOverlayTheme),
+ocrEngine: normalizeOcrEngine(settings.ocrEngine),
+ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
+ocrTextColor: normalizeOcrTextColor(settings),
+ocrOutlineColor: normalizeOcrOutlineColor(settings),
+ocrBackgroundColor: accessibleOcrBackgroundColor(settings.accentColor, ocrBackgroundOpacity),
+ocrBackgroundOpacity,
+ocrFontScale: clampNumber(settings.ocrFontScale, 0.7, 1.8, DEFAULT_SETTINGS.ocrFontScale)
+};
+}
+function normalizeImmersionExampleLimitSettings(value) {
+const legacyDefault = value?.immersionKitExpandedLimitMigrated20260721 !== true && value?.immersionKitLimitEnabled === true && value?.immersionKitLimit === 3;
+return {
+immersionKitExpandedLimitMigrated20260721: true,
+immersionKitLimitEnabled: legacyDefault ? false : booleanSetting(value, "immersionKitLimitEnabled"),
+immersionKitLimit: legacyDefault ? DEFAULT_SETTINGS.immersionKitLimit : clampNumber(value?.immersionKitLimit, 1, 12, DEFAULT_SETTINGS.immersionKitLimit)
+};
+}
+function normalizeOcrTextColor(settings) {
+const color = sanitizeAccentColor(settings.ocrTextColor, DEFAULT_SETTINGS.ocrTextColor);
+return color === LEGACY_DEFAULT_OCR_TEXT_COLOR ? DEFAULT_SETTINGS.ocrTextColor : color;
+}
+function normalizeOcrOutlineColor(settings) {
+const color = sanitizeAccentColor(settings.ocrOutlineColor, DEFAULT_SETTINGS.ocrOutlineColor);
+return color === LEGACY_DEFAULT_OCR_OUTLINE_COLOR ? DEFAULT_SETTINGS.ocrOutlineColor : color;
+}
+function normalizeSubtitleSettings(value) {
+return {
+...normalizeBooleanSettingGroup(value, SUBTITLE_BOOLEAN_SETTING_KEYS),
+subtitleControlsMode: normalizeSubtitleControlsMode(value?.subtitleControlsMode),
+subtitleTranscriptPlacement: normalizeSubtitleTranscriptPlacement(value?.subtitleTranscriptPlacement),
+subtitleTextColor: sanitizeAccentColor(value?.subtitleTextColor, DEFAULT_SETTINGS.subtitleTextColor),
+subtitleOutlineColor: sanitizeAccentColor(value?.subtitleOutlineColor, DEFAULT_SETTINGS.subtitleOutlineColor),
+subtitleBackgroundColor: sanitizeAccentColor(value?.subtitleBackgroundColor, DEFAULT_SETTINGS.subtitleBackgroundColor),
+subtitleBackgroundOpacity: clampNumber(value?.subtitleBackgroundOpacity, 0, 1, DEFAULT_SETTINGS.subtitleBackgroundOpacity),
+subtitleNativeBlurStrength: clampNumber(value?.subtitleNativeBlurStrength, 4, 20, DEFAULT_SETTINGS.subtitleNativeBlurStrength),
+subtitleFontFamily: normalizeFontFamily(value?.subtitleFontFamily, DEFAULT_SETTINGS.subtitleFontFamily),
+subtitleFontWeight: clampNumber(value?.subtitleFontWeight, 100, 900, DEFAULT_SETTINGS.subtitleFontWeight)
+};
+}
+function normalizeFontFamily(value, fallback) {
+return trimmedText(value) || fallback;
+}
+function normalizeOptionalCoordinate(value) {
+const number = Number(value);
+return Number.isFinite(number) && number >= 0 ? number : void 0;
+}
+function normalizeStringList(value) {
+if (!Array.isArray(value)) return [];
+return [...new Set(value.map((item) => typeof item === "string" ? item.trim() : "").filter(Boolean))];
+}
+function normalizeAnkiName(value, fallback, oldDefault) {
+if (typeof value !== "string") return fallback;
+const trimmed = value.trim();
+if (!trimmed || trimmed === oldDefault) return fallback;
+return trimmed;
+}
+function normalizeAnkiTemplateMode(value) {
+return normalizeOption(value, ANKI_TEMPLATE_MODES, DEFAULT_SETTINGS.ankiTemplateMode);
+}
+function normalizeInterfaceLanguage(value) {
+return normalizeOption(value, INTERFACE_LANGUAGES, DEFAULT_SETTINGS.interfaceLanguage);
+}
+function normalizeTheme(value) {
+return normalizeOption(value, THEMES, DEFAULT_SETTINGS.theme);
+}
+function normalizePopupMode(value) {
+return normalizeOption(value, POPUP_MODES, DEFAULT_SETTINGS.popupMode);
+}
+function normalizeHoverPopupMode(value) {
+return normalizeOption(value, HOVER_POPUP_MODES, DEFAULT_SETTINGS.hoverPopupMode);
+}
+function normalizePopoverHeightMode(value) {
+return normalizeOption(value, POPOVER_HEIGHT_MODES, DEFAULT_SETTINGS.popoverHeightMode);
+}
+function normalizeAudioAutoPlayMode(value) {
+return normalizeOption(value, AUDIO_AUTO_PLAY_MODES, DEFAULT_SETTINGS.audioAutoPlayMode);
+}
+function normalizeAudioTtsMode(value) {
+return normalizeOption(value, AUDIO_TTS_MODES, DEFAULT_SETTINGS.audioTtsMode);
+}
+function normalizeImmersionKitCategory(value) {
+return normalizeOption(value, IMMERSION_KIT_CATEGORIES, DEFAULT_SETTINGS.immersionKitCategory);
+}
+function normalizeImmersionKitSort(value) {
+return normalizeOption(value, IMMERSION_KIT_SORTS, DEFAULT_SETTINGS.immersionKitSort);
+}
+function normalizeImmersionExampleSource(value) {
+return normalizeOption(value, IMMERSION_EXAMPLE_SOURCES, DEFAULT_SETTINGS.immersionKitExampleSource);
+}
+function normalizeOption(value, allowed, fallback) {
+return allowed.includes(value) ? value : fallback;
+}
+function normalizeUrl(value, fallback) {
+if (typeof value !== "string" || !value.trim()) return fallback;
+try {
+return new URL(value.trim()).toString().replace(/\/$/, "");
+} catch {
+return fallback;
+}
+}
+function shortcutFromLegacyModifier(value) {
+if (value === "alt") return "Alt";
+if (value === "ctrl") return "Ctrl";
+if (value === "meta") return "Meta";
+return value === "shift" ? "Shift" : "";
+}
+function clampNumber(value, min, max, fallback) {
+const number = Number(value);
+return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : fallback;
+}
+function normalizeBooleanSettingGroup(value, keys) {
+const normalized = {};
+for (const key of keys) {
+normalized[key] = booleanSetting(value, key);
+}
+return normalized;
+}
+function normalizeNumberSettingGroup(value, ranges) {
+const normalized = {};
+for (const key of Object.keys(ranges)) {
+const { min, max } = ranges[key];
+const fallback = DEFAULT_SETTINGS[key];
+normalized[key] = clampNumber(value?.[key], min, max, typeof fallback === "number" ? fallback : 0);
+}
+return normalized;
+}
+function booleanSetting(value, key) {
+const rawValue = value?.[key];
+const fallback = DEFAULT_SETTINGS[key];
+if (typeof rawValue === "boolean") return rawValue;
+return typeof fallback === "boolean" ? fallback : false;
+}
+function booleanSettingWithFallback(value, key, fallback) {
+const rawValue = value?.[key];
+return typeof rawValue === "boolean" ? rawValue : fallback;
+}
+function trimmedStringSetting(value, key, fallback) {
+const rawValue = value?.[key];
+return typeof rawValue === "string" ? rawValue.trim() : fallback;
+}
+function normalizeSubtitleControlsMode(value) {
+return normalizeOption(value, SUBTITLE_CONTROL_MODES, DEFAULT_SETTINGS.subtitleControlsMode);
+}
+function normalizeOcrOverlayTheme(value) {
+return normalizeOption(value, OCR_OVERLAY_THEMES, DEFAULT_SETTINGS.ocrOverlayTheme);
+}
+function normalizeSubtitleTranscriptPlacement(value) {
+return normalizeOption(value, SUBTITLE_TRANSCRIPT_PLACEMENTS, DEFAULT_SETTINGS.subtitleTranscriptPlacement);
+}
+function normalizeNewTabSource(value) {
+return normalizeOption(value, NEW_TAB_SOURCES, DEFAULT_SETTINGS.newTabSource);
+}
+function normalizeNewTabJpdbReviewMode(value) {
+return normalizeOption(value, NEW_TAB_JPDB_REVIEW_MODES, DEFAULT_SETTINGS.newTabJpdbReviewMode);
+}
+function normalizeCorsProxyUrl(value) {
+if (value == null) return DEFAULT_SETTINGS.corsProxyUrl;
+const raw = typeof value === "string" ? value.trim() : "";
+if (!raw) return "";
+try {
+const url = new URL(raw);
+return url.protocol === "https:" ? url.href.replace(/\/+$/, "") : "";
+} catch {
+return "";
+}
+}
+function normalizeNewTabKanjiKeywordSource(value) {
+return normalizeOption(value, NEW_TAB_KANJI_KEYWORD_SOURCES, DEFAULT_SETTINGS.newTabKanjiKeywordSource);
+}
+function normalizeReaderColorChannelSettings(value) {
+if (isLegacyDefaultColorChannelSettings(value)) return { ...DEFAULT_COLOR_CHANNELS };
+const channels = {
+wordHighlightColorSource: normalizeReaderColorSource(value?.wordHighlightColorSource, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource, legacyHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordHighlightColorSource)),
+wordUnderlineColorSource: normalizeReaderColorSource(value?.wordUnderlineColorSource, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordUnderlineColorSource)),
+wordTextColorSource: normalizeReaderColorSource(value?.wordTextColorSource, DEFAULT_COLOR_CHANNELS.wordTextColorSource, legacyReaderColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.wordTextColorSource)),
+subtitleHighlightColorSource: normalizeReaderColorSource(value?.subtitleHighlightColorSource, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource, legacySubtitleHighlightColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource)),
+subtitleUnderlineColorSource: normalizeReaderColorSource(value?.subtitleUnderlineColorSource, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleUnderlineColorSource)),
+subtitleTextColorSource: normalizeReaderColorSource(value?.subtitleTextColorSource, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource, legacySubtitleColorSourceForAuto(value, DEFAULT_COLOR_CHANNELS.subtitleTextColorSource))
+};
+return normalizeStaleDoublePitchHighlightChannels(value, channels);
+}
+function isLegacyDefaultColorChannelSettings(value) {
+if (!value) return false;
+return Object.keys(LEGACY_COLOR_CHANNEL_DEFAULTS).every((key) => hasOwn(value, key) && value[key] === LEGACY_COLOR_CHANNEL_DEFAULTS[key]);
+}
+function normalizeReaderColorSource(value, fallback, autoFallback = fallback) {
+const source = value === "auto" ? autoFallback : value;
+return READER_COLOR_SOURCES.has(source) ? source : fallback;
+}
+function normalizeStaleDoublePitchHighlightChannels(settings, channels) {
+const staleWordHighlight = hasStaleWordPitchHighlight(settings, channels);
+const staleSubtitleHighlight = hasStaleSubtitlePitchHighlight(settings, channels);
+if (!staleWordHighlight && !staleSubtitleHighlight) return channels;
+return {
+...channels,
+wordHighlightColorSource: staleWordHighlight ? DEFAULT_COLOR_CHANNELS.wordHighlightColorSource : channels.wordHighlightColorSource,
+subtitleHighlightColorSource: staleSubtitleHighlight ? DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource : channels.subtitleHighlightColorSource
+};
+}
+function hasStaleWordPitchHighlight(settings, channels) {
+if (!settings) return false;
+if (settings.wordHighlightMode === "pitch") return true;
+return hasStalePitchHighlightPair(settings, channels, "wordHighlightColorSource", "wordUnderlineColorSource");
+}
+function hasStaleSubtitlePitchHighlight(settings, channels) {
+if (!settings) return false;
+if (settings.wordHighlightMode === "pitch") return true;
+return hasStalePitchHighlightPair(settings, channels, "subtitleHighlightColorSource", "subtitleUnderlineColorSource");
+}
+function hasStalePitchHighlightPair(settings, channels, highlight, underline) {
+return (isPreCurrentSavedSettingsPayload(settings) || hasOwn(settings, "wordHighlightMode")) && isRawPitchPair(settings, highlight, underline) && channels[highlight] === "pitch" && channels[underline] === "pitch";
+}
+function isRawPitchPair(settings, highlight, underline) {
+return settings[highlight] === "pitch" && settings[underline] === "pitch";
+}
+function legacyHighlightColorSourceForAuto(settings, fallback) {
+const mode = legacyEffectiveWordHighlightMode(settings);
+if (mode === "pitch") return fallback;
+return legacyReaderColorSourceForAuto(settings, fallback);
+}
+function legacyReaderColorSourceForAuto(settings, fallback) {
+const mode = legacyEffectiveWordHighlightMode(settings);
+return mode === "status" ? fallback : mode ?? fallback;
+}
+function legacySubtitleHighlightColorSourceForAuto(settings, fallback) {
+const mode = legacyEffectiveWordHighlightMode(settings);
+if (mode === "pitch") return fallback;
+return legacySubtitleColorSourceForAuto(settings, fallback);
+}
+function legacySubtitleColorSourceForAuto(settings, fallback) {
+const mode = legacyEffectiveWordHighlightMode(settings);
+if (!mode) return fallback;
+return mode === "status" ? "jpdb" : mode;
+}
+function legacyEffectiveWordHighlightMode(settings) {
+if (!settings || !hasOwn(settings, "wordHighlightMode")) return null;
+if (settings.wordHighlightMode === "status" || settings.wordHighlightMode === "pitch" || settings.wordHighlightMode === "off") return settings.wordHighlightMode;
+return hasLegacyMiningStatusSource(settings) ? "status" : "pitch";
+}
+function hasLegacyMiningStatusSource(settings) {
+return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
+}
+function normalizeFuriganaMode(value, settings) {
+if (value === "auto") return effectiveLegacyAutoFuriganaMode();
+if (isFuriganaMode(value)) return value;
+if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
+if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
+return DEFAULT_SETTINGS.furiganaMode;
+}
+function effectiveLegacyAutoFuriganaMode() {
+return "all";
+}
+function isFuriganaMode(value) {
+return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
+}
+const FURIGANA_STATE_GROUPS = new Set(FURIGANA_HIDE_STATE_GROUPS);
+function normalizeFuriganaHiddenStateGroups(value) {
+if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.furiganaHiddenStateGroups];
+const groups = value.filter((item) => typeof item === "string" && FURIGANA_STATE_GROUPS.has(item));
+return [...new Set(groups)];
+}
+function normalizeWordColorHiddenStateGroups(value) {
+if (!Array.isArray(value)) return [...DEFAULT_SETTINGS.wordColorHiddenStateGroups];
+const groups = value.filter((item) => typeof item === "string" && WORD_COLOR_HIDE_STATE_GROUPS.includes(item));
+return [...new Set(groups)];
+}
+function legacyBooleanSettingIs(settings, key, expected) {
+return Boolean(settings && Object.prototype.hasOwnProperty.call(settings, key) && settings[key] === expected);
+}
+function normalizeDeckIdSetting(value, fallback) {
+return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+function shouldLookupAnkiStatus(settings) {
+return settings.ankiEnabled === true;
+}
+function shouldLookupBunproWordStates(settings, now = Date.now()) {
+return hasBunproFrontendCredential(settings) && !isBunproFrontendCredentialExpired(settings, now);
+}
+function effectiveReaderColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordHighlightColorSource) {
+const concrete = source === "auto" ? legacyReaderColorSourceForAuto(settings, fallback) : source;
+return effectiveAvailableColorSource(settings, concrete, fallback);
+}
+function effectiveReaderTextColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.wordTextColorSource) {
+return effectiveTextColorSource(settings, effectiveReaderColorSource(settings, source, fallback));
+}
+function effectiveSubtitleColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.subtitleHighlightColorSource) {
+const concrete = source === "auto" ? legacySubtitleColorSourceForAuto(settings, fallback) : source;
+if (concrete === "status") return "status";
+return effectiveAvailableColorSource(settings, concrete);
+}
+function effectiveSubtitleTextColorSource(settings, source, fallback = DEFAULT_COLOR_CHANNELS.subtitleTextColorSource) {
+return effectiveTextColorSource(settings, effectiveSubtitleColorSource(settings, source, fallback));
+}
+function effectiveTextColorSource(settings, source) {
+return effectiveAvailableColorSource(settings, source);
+}
+function effectiveAvailableColorSource(settings, source, fallback = "off") {
+if (source === "jpdb" && !hasSrsStateColorSource(settings)) {
+if (hasAnkiStatusSource(settings)) return "anki";
+return fallback === "jpdb" ? "off" : effectiveAvailableColorSource(settings, fallback, "off");
+}
+if (source === "anki" && !hasAnkiStatusSource(settings)) {
+return fallback === "anki" ? "off" : effectiveAvailableColorSource(settings, fallback, "off");
+}
+if (source === "anki") return "anki";
+if (source === "status") return effectiveAvailableStatusSource(settings, true);
+return source;
+}
+function effectiveAvailableStatusSource(settings, includeRequestedAnki = false) {
+const hasStates = hasSrsStateColorSource(settings);
+const hasAnki = hasAnkiStatusSource(settings) || Boolean(includeRequestedAnki && settings.ankiEnabled && hasRequestedAnkiColorSource(settings));
+if (hasStates && hasAnki) return "status";
+if (hasStates) return "jpdb";
+if (hasAnki) return "anki";
+return "off";
+}
+function hasLocalSrsStatusSource(settings) {
+return settings.yomuLocalSrsEnabled === true;
+}
+function hasSrsStateColorSource(settings) {
+return hasJpdbStatusSource(settings) || hasLocalSrsStatusSource(settings);
+}
+function hasJpdbStatusSource(settings) {
+const credentials = {
+apiKey: settings.apiKey ?? "",
+jitenApiKey: settings.jitenApiKey ?? ""
+};
+return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials));
+}
+function hasAnkiStatusSource(settings) {
+return Boolean(settings.ankiEnabled);
+}
+function hasRequestedAnkiColorSource(settings) {
+return COLOR_STATUS_CHANNEL_KEYS.some((key) => {
+const source = settings[key];
+return source === "anki" || source === "status";
+});
+}
+const COLOR_STATUS_CHANNEL_KEYS = [
+"wordHighlightColorSource",
+"wordUnderlineColorSource",
+"wordTextColorSource",
+"subtitleHighlightColorSource",
+"subtitleUnderlineColorSource",
+"subtitleTextColorSource"
+];
+function effectiveFuriganaMode(settings) {
+if (!settings.showFurigana || settings.furiganaMode === "off") return "off";
+if (isExplicitFuriganaMode(settings.furiganaMode)) return settings.furiganaMode;
+return effectiveLegacyAutoFuriganaMode();
+}
+function isExplicitFuriganaMode(value) {
+return EXPLICIT_FURIGANA_MODES.has(value);
+}
+function applyUrlBootstrapSettings(settings, search = location.search) {
+const params = new URLSearchParams(search);
+const bootstrap = urlBootstrapSettings(params);
+if (!hasUrlBootstrapSettings(bootstrap)) return settings;
+log$9.info("Applying URL bootstrap settings", {
+hasApiKey: Boolean(bootstrap.apiKey),
+hasAudio: Boolean(bootstrap.audio),
+hasOcr: Boolean(bootstrap.ocr)
+});
+return {
+...settings,
+apiKey: bootstrapValue(bootstrap.apiKey, settings.apiKey),
+audioSources: bootstrapAudioSources(settings, bootstrap.audio),
+audioSourceUrl: bootstrapValue(bootstrap.audio, settings.audioSourceUrl),
+ocrEndpointUrl: bootstrapValue(bootstrap.ocr, settings.ocrEndpointUrl)
+};
+}
+function hasUrlBootstrapSettings(bootstrap) {
+return Boolean(bootstrap.apiKey || bootstrap.audio || bootstrap.ocr);
+}
+function bootstrapValue(value, fallback) {
+return value || fallback;
+}
+function urlBootstrapSettings(params) {
+return {
+apiKey: params.get("apiKey")?.trim() ?? "",
+audio: params.get("audio")?.trim() ?? "",
+ocr: params.get("ocr")?.trim() ?? ""
+};
+}
+function bootstrapAudioSources(settings, audio) {
+return audio ? [{ type: "custom-json", url: audio, voice: "", enabled: true }, ...settings.audioSources.filter((source) => source.url !== audio)] : settings.audioSources;
+}
+function normalizeOcrProvider(value, settings) {
+if (isBlankLegacyLocalOcrSetting(value, settings)) return DEFAULT_SETTINGS.ocrProvider;
+if (typeof value !== "string") return DEFAULT_SETTINGS.ocrProvider;
+return OCR_PROVIDER_ALIASES[value] ?? (OCR_PROVIDERS.has(value) ? value : DEFAULT_SETTINGS.ocrProvider);
+}
+const OCR_PROVIDER_ALIASES = {
+auto: "google-lens",
+fast: "google-lens",
+"page-text": "google-lens",
+"custom-json": "local-service"
+};
+const OCR_PROVIDERS = new Set(["google-lens", "cloud-vision", "local-service", "off"]);
+function normalizeCloudVisionApiKey(value) {
+return typeof value === "string" ? value.trim() : DEFAULT_SETTINGS.ocrCloudVisionApiKey;
+}
+function isBlankLegacyLocalOcrSetting(value, settings) {
+if (value !== "local-service" || !settings) return false;
+if (hasOwn(settings, "ocrCloudVisionApiKey")) return false;
+return !(typeof settings.ocrEndpointUrl === "string" && settings.ocrEndpointUrl.trim());
+}
+function normalizeOcrEngine(value) {
+const normalized = normalizedOcrEngineInput(value);
+return normalized ? OCR_ENGINE_ALIASES.get(normalized) ?? normalized : DEFAULT_SETTINGS.ocrEngine;
+}
+function normalizedOcrEngineInput(value) {
+return typeof value === "string" ? value.trim() : "";
+}
+async function loadSettings() {
+if (settingsResetInProgress) return mergeSettings(null);
+try {
+const storedPreferredJapaneseSiteLanguage = await gmStorageGet(
+PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+void 0
+);
+const intentLedger = await readSettingsIntentLedger();
+const cacheStandaloneBaseline = isHostedYomuOrigin() && !hasAsyncGmStorageBackend() && localFallbackStoredValue(SETTINGS_STORAGE_KEY, null) === null;
+const currentRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+let settings = mergeSettings(currentRecord);
+let recoveredLegacySettings = false;
+const settledKeys = new Set(settingsIntentKeys(intentLedger));
+for (const key of LEGACY_SETTINGS_STORAGE_KEYS) {
+const legacyRecord = settingsRecord(await gmStorageGet(key, null));
+if (!legacyRecord) continue;
+const recovery = recoverLegacySettings(settings, mergeSettings(legacyRecord), settledKeys, DEFAULT_SETTINGS);
+settings = recovery.settings;
+recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+}
+const strandedRecord = strandedHostedLocalSettingsRecord();
+if (strandedRecord) {
+const recovery = recoverStrandedHostedSettings(settings, mergeSettings(strandedRecord), settledKeys, DEFAULT_SETTINGS);
+settings = recovery.settings;
+recoveredLegacySettings = recoveredLegacySettings || recovery.changed;
+}
+settings = {
+...settings,
+preferJapaneseSiteLanguage: await authoritativePreferredJapaneseSiteLanguage(
+storedPreferredJapaneseSiteLanguage,
+settings.preferJapaneseSiteLanguage
+)
+};
+settings = mergeSettings(applySettingsIntent(settings, intentLedger));
+if (recoveredLegacySettings) await persistSettings(settings, NO_EXPLICIT_USER_CHOICE);
+else if (isHostedYomuOrigin() && (hasAsyncGmStorageBackend() || cacheStandaloneBaseline)) {
+cacheManagedValueForHostedStartup(SETTINGS_STORAGE_KEY, stripUnsupportedSettings(settings) ?? settings);
+}
+return settings;
+} catch (error) {
+log$9.warn("Settings load failed", { error });
+return mergeSettings(null);
+}
+}
+function strandedHostedLocalSettingsRecord() {
+if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return null;
+return settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
+}
+async function promoteStrandedHostedSettingsToGmStorage() {
+if (!isHostedYomuOrigin() || !hasAsyncGmStorageBackend()) return false;
+try {
+const gmRecord = settingsRecord(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
+const strandedRecord = settingsRecord(localFallbackStoredValue(SETTINGS_STORAGE_KEY, null));
+if (!strandedRecord) return false;
+const current = mergeSettings(gmRecord);
+const recovery = recoverStrandedHostedSettings(
+current,
+mergeSettings(strandedRecord),
+new Set(gmRecord ? Object.keys(gmRecord) : []),
+DEFAULT_SETTINGS
+);
+if (recovery.changed) await persistSettings(recovery.settings, NO_EXPLICIT_USER_CHOICE);
+return true;
+} catch (error) {
+log$9.warn("Stranded hosted settings promotion failed", { error });
+return false;
+}
+}
+function settingsRecord(value) {
+return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+function subscribeToSettingsStorageChanges(onSettings) {
+let active = true;
+let refreshRevision = 0;
+const refresh = () => {
+const revision = ++refreshRevision;
+void loadSettings().then((settings) => {
+if (active && revision === refreshRevision) onSettings(settings);
+});
+};
+const unsubscribers = [
+subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, refresh),
+subscribeToStoredValueChanges(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, refresh),
+subscribeToStoredValueChanges(EXPLICIT_USER_SETTINGS_STORAGE_KEY, refresh),
+subscribeToStoredValueChanges(SETTINGS_INTENT_LEDGER_STORAGE_KEY, refresh)
+];
+return () => {
+active = false;
+refreshRevision += 1;
+for (const unsubscribe of unsubscribers) unsubscribe();
+};
+}
+async function saveSettings(settings, options) {
+const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
+if (settingsResetInProgress) {
+log$9.warn("Rejected save during reset");
+throw new Error();
+}
+try {
+const normalizedSettings = mergeSettings(settings);
+if (intent.persistPreferredJapaneseSiteLanguage) {
+await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
+}
+await persistSettings(
+normalizedSettings,
+intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+intent.clearExplicitUserChoiceKeys
+);
+} catch (error) {
+log$9.warn("Settings save failed", { error });
+throw error;
+}
+}
+function coupledSettingsIntentKeys(keys) {
+return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
+}
+async function readSettingsIntentLedger() {
+return settingsIntentLedgerFromStorage(
+await gmStorageGet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, null),
+await gmStorageGet(EXPLICIT_USER_SETTINGS_STORAGE_KEY, null)
+);
+}
+async function persistSettings(settings, explicitUserChoiceKeys, clearExplicitUserChoiceKeys = []) {
+const normalizedSettings = mergeSettings(settings);
+let storedSettings = normalizedSettings;
+await withGmStorageLease(SETTINGS_PERSISTENCE_STORAGE_LEASE, async () => {
+const ledger = await readSettingsIntentLedger();
+const withdrawn = clearSettingsIntent(ledger, coupledSettingsIntentKeys(clearExplicitUserChoiceKeys));
+const nextLedger = recordSettingsIntent(
+withdrawn,
+coupledSettingsIntentKeys(explicitUserChoiceKeys),
+normalizedSettings
+);
+if (nextLedger !== ledger) await gmStorageSet(SETTINGS_INTENT_LEDGER_STORAGE_KEY, nextLedger);
+storedSettings = mergeSettings(
+applySettingsIntent(normalizedSettings, nextLedger)
+);
+const supportedSettings = stripUnsupportedSettings(storedSettings) ?? storedSettings;
+await gmStorageSet(SETTINGS_STORAGE_KEY, supportedSettings);
+storedSettings = supportedSettings;
+});
+dispatchSettingsChange(storedSettings);
+}
+function dispatchSettingsChange(settings) {
+try {
+dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings }));
+} catch {
+}
+}
+function beginSettingsResetGuard() {
+settingsResetInProgress = true;
+beginManagedStateReset();
+}
+function endSettingsResetGuard() {
+settingsResetInProgress = false;
+endManagedStateReset();
+}
+async function deleteSettingsStorage() {
+for (const key of SETTINGS_STORAGE_KEYS) await gmStorageDelete(key);
+await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+await gmStorageDelete(EXPLICIT_USER_SETTINGS_STORAGE_KEY);
+await gmStorageDelete(SETTINGS_INTENT_LEDGER_STORAGE_KEY);
+}
+function isAudioSourceType(value) {
+return typeof value === "string" && AUDIO_SOURCE_TYPES.has(value);
+}
+function normalizeAudioSource(value) {
+const record2 = audioSourceRecord(value);
+if (!record2) return null;
+if (!isAudioSourceType(record2.type)) return null;
+const subSources = normalizeAudioSubSources(record2.subSources);
+return {
+type: record2.type,
+url: stringValue(record2.url),
+voice: stringValue(record2.voice),
+enabled: audioSourceEnabled(record2.enabled),
+...subSources.length ? { subSources } : {}
+};
+}
+function normalizeAudioSubSources(value) {
+if (!Array.isArray(value)) return [];
+const seen = new Set();
+const subSources = [];
+for (const entry of value) {
+if (!entry || typeof entry !== "object") continue;
+const record2 = entry;
+const name = stringValue(record2.name).trim();
+if (!name) continue;
+const key = audioSubSourceNameKey(name);
+if (seen.has(key)) continue;
+seen.add(key);
+subSources.push({ name, enabled: audioSourceEnabled(record2.enabled) });
+}
+return subSources;
+}
+function audioSourceRecord(value) {
+return value && typeof value === "object" ? value : null;
+}
+function audioSourceEnabled(value) {
+return typeof value === "boolean" ? value : true;
+}
+function normalizeAudioSources(value, legacyUrl) {
+const sources = Array.isArray(value) ? value.map(normalizeAudioSource).filter((source) => source !== null) : [];
+if (Array.isArray(value)) return sources.length ? ensureHostedAudioSourceFirst(withBunproAudioSource(migrateLegacyDefaultAudioSources(sources))) : sources;
+if (typeof legacyUrl === "string" && legacyUrl.trim()) {
+return ensureHostedAudioSourceFirst([{ type: "custom-json", url: legacyUrl.trim(), voice: "", enabled: true }]);
+}
+return DEFAULT_AUDIO_SOURCES.map((source) => ({ ...source }));
+}
+function ensureHostedAudioSourceFirst(sources) {
+const hosted = sources.find(isHostedAudioSource) ?? DEFAULT_AUDIO_SOURCES[0];
+return [
+{ ...hosted },
+...sources.filter((source) => !isHostedAudioSource(source)).map((source) => ({ ...source }))
+];
+}
+function isHostedAudioSource(source) {
+return source.type === "custom-json" && source.url.trim() === YOMU_HOSTED_AUDIO_URL;
+}
+function migrateLegacyDefaultAudioSources(sources) {
+if (!isUntouchedLegacyDefaultAudioSources(sources)) return sources;
+const migrated = sources.map((source) => ({ ...source }));
+ensureBuiltInAudioSource(migrated, { type: "jpdb-tts", url: "", voice: "", enabled: false }, "text-to-speech");
+ensureBuiltInAudioSource(migrated, { type: "jiten-tts", url: "", voice: "", enabled: false }, "jpdb-tts");
+for (const source of migrated) {
+if (isDefaultOffAudioSource(source)) source.enabled = false;
+}
+return migrated;
+}
+function isUntouchedLegacyDefaultAudioSources(sources) {
+return audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITHOUT_API_TTS) || audioSourceListMatches(sources, LEGACY_DEFAULT_AUDIO_SOURCES_WITH_API_TTS);
+}
+function audioSourceListMatches(sources, expected) {
+return sources.length === expected.length && expected.every((source, index) => audioSourceMatches(sources[index], source));
+}
+function audioSourceMatches(source, expected) {
+return Boolean(source && source.type === expected.type && source.url === expected.url && source.voice === expected.voice && source.enabled === expected.enabled);
+}
+function isDefaultOffAudioSource(source) {
+return DEFAULT_OFF_AUDIO_SOURCE_TYPES.has(source.type) && !source.url.trim() && !source.voice.trim();
+}
+function withBunproAudioSource(sources) {
+const result = sources.map((source) => ({ ...source }));
+ensureBuiltInAudioSource(result, { type: "bunpro", url: "", voice: "", enabled: false }, "jiten-tts");
+return result;
+}
+function ensureBuiltInAudioSource(sources, source, beforeType) {
+if (sources.some((candidate) => candidate.type === source.type)) return;
+const insertIndex = sources.findIndex((candidate) => candidate.type === beforeType);
+if (insertIndex < 0) sources.push(source);
+else sources.splice(insertIndex, 0, source);
 }
 function cssColorToHex(value, backdrop) {
 const color = cssColorToRgba(value);
@@ -19628,6 +19013,15 @@ return void 0;
 }
 }
 Logger.scope("DictionaryArchiveCache");
+function isAbortError$2(error) {
+return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+}
+class RetryableTimeoutError extends Error {
+constructor(message = "Request timed out.") {
+super(message);
+this.name = "RetryableTimeoutError";
+}
+}
 const PRIVATE_IPV4_RANGES = [
 [0, 16777215],
 [167772160, 184549375],
@@ -19894,6 +19288,7 @@ continue;
 }
 return response;
 } catch (error) {
+if (options.signal?.aborted) throw abortReasonFor(options.signal);
 lastError = error;
 }
 }
@@ -19989,9 +19384,10 @@ return null;
 function isHttpUrl(url) {
 return /^https?:\/\//i.test(url);
 }
-function fetchWithTimeout$1(url, options) {
+async function fetchWithTimeout$1(url, options) {
 const {
 timeoutMs,
+timeoutLabel,
 allowPublicProxies: _allowPublicProxies,
 allowConfiguredProxy: _allowConfiguredProxy,
 allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -20000,16 +19396,46 @@ signal,
 ...init
 } = options;
 if (!timeoutMs) return fetch(url, { ...init, signal });
+const scope = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+try {
+return await fetchWithinAbortScope(url, init, scope.signal);
+} finally {
+scope.dispose();
+}
+}
+function fetchTimeoutScope(signal, timeoutMs, timeoutLabel) {
 const controller = new AbortController();
-const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-const abort = () => controller.abort();
-signal?.addEventListener("abort", abort, { once: true });
-return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+const timeout = globalThis.setTimeout(() => {
+controller.abort(new RetryableTimeoutError(timeoutLabel));
+}, timeoutMs);
+const abort = () => controller.abort(signal ? abortReasonFor(signal) : void 0);
+if (signal?.aborted) abort();
+else signal?.addEventListener("abort", abort, { once: true });
+return {
+signal: controller.signal,
+dispose: () => {
 globalThis.clearTimeout(timeout);
 signal?.removeEventListener("abort", abort);
-});
+}
+};
+}
+async function fetchWithinAbortScope(url, init, signal) {
+try {
+const response = await fetch(url, { ...init, signal });
+throwIfFetchAborted(signal);
+return response;
+} catch (error) {
+throwIfFetchAborted(signal, error);
+throw error;
+}
+}
+function throwIfFetchAborted(signal, fallback) {
+if (signal.aborted) throw signal.reason ?? fallback;
 }
 Logger.scope("Yomitan");
+function isRecord$1(value) {
+return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 const GLOSSARY_DISPLAY_TEXT_KEYS = new Set(["text", "content", "description", "alt", "title"]);
 function glossaryValueToText(value) {
 return glossaryValueToProfileText(value, {
@@ -20490,6 +19916,7 @@ credentials: options.credentials ?? "omit",
 redirect: options.redirect ?? "follow",
 referrerPolicy: options.referrerPolicy ?? "no-referrer",
 timeoutMs: options.timeoutMs,
+timeoutLabel: options.timeoutLabel,
 allowConfiguredProxy: options.allowConfiguredProxy,
 allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
 allowPublicProxies: options.allowPublicProxies,
@@ -21777,9 +21204,6 @@ const oldest = cache.keys().next().value;
 if (typeof oldest !== "string") break;
 cache.delete(oldest);
 }
-}
-function isAbortError$2(error) {
-return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
 class PromiseLruCache {
 constructor(maxSize) {
@@ -30897,198 +30321,13 @@ const content = withRuby ? renderRuby(surface, chipToken) : escapeHtml(surface);
 const readingAttr = reading ? ` data-reading="${escapeHtml(reading)}"` : "";
 return `<button type="button" class="${classes}" data-token-choice="true" data-vid="${token.card.vid}" data-sid="${token.card.sid}" data-surface="${escapeHtml(surface)}" data-expression="${escapeHtml(token.card.spelling)}"${readingAttr} data-pitch-class="${escapeHtml(pitchClass || "unknown")}">${content}</button>`;
 }
-function createHandleDragController(options) {
-let state = initialDragState();
-let pointerId = 0;
-let touchId = 0;
-let dragging = false;
-let moved = false;
-let activeInput = null;
-let activeHandle = null;
-let activeCaptureTarget = null;
-const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
-const setLastPoint = (point) => {
-state = {
-...state,
-lastX: point.x,
-lastY: point.y,
-deltaX: point.x - state.startX,
-deltaY: point.y - state.startY
-};
-};
-const updateDrag = (point) => {
-if (!activeHandle) return;
-setLastPoint(point);
-if (movementDistance(state) > options.tapMovementPx) moved = true;
-options.onUpdate?.(state, activeHandle);
-};
-const beginDrag = (handle, point, input) => {
-if (dragging || activeInput) return false;
-state = {
-startX: point.x,
-startY: point.y,
-lastX: point.x,
-lastY: point.y,
-deltaX: 0,
-deltaY: 0
-};
-dragging = true;
-moved = false;
-activeInput = input;
-activeHandle = handle;
-options.onBegin?.(handle, state, input);
-return true;
-};
-const finishDrag = () => {
-if (!dragging) return;
-const wasMoved = moved;
-const handle = activeHandle;
-const captureTarget = activeCaptureTarget;
-dragging = false;
-moved = false;
-activeInput = null;
-activeHandle = null;
-activeCaptureTarget = null;
-cleanupListeners();
-releasePointerCapture(captureTarget, pointerId);
-options.onFinish(state, wasMoved, handle);
-};
-function cleanupListeners() {
-if (typeof document === "undefined") return;
-document.removeEventListener("pointermove", handlePointerMove, true);
-document.removeEventListener("pointerup", handlePointerUp, true);
-document.removeEventListener("pointercancel", handlePointerCancel, true);
-document.removeEventListener("touchmove", handleTouchMove, true);
-document.removeEventListener("touchend", handleTouchEnd, true);
-document.removeEventListener("touchcancel", handleTouchCancel, true);
-}
-function cancel() {
-if (!dragging) return;
-const handle = activeHandle;
-const captureTarget = activeCaptureTarget;
-dragging = false;
-moved = false;
-activeInput = null;
-activeHandle = null;
-activeCaptureTarget = null;
-cleanupListeners();
-releasePointerCapture(captureTarget, pointerId);
-options.onCancel?.(state, handle);
-}
-function handlePointerMove(event) {
-if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-consumeDragEvent(event);
-updateDrag({ x: event.clientX, y: event.clientY });
-}
-function handlePointerUp(event) {
-if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
-consumeDragEvent(event);
-if (options.updateOnEnd) updateDrag({ x: event.clientX, y: event.clientY });
-else setLastPoint({ x: event.clientX, y: event.clientY });
-finishDrag();
-}
-function handlePointerCancel(event) {
-if (activeInput !== "pointer" || event.pointerId !== pointerId) return;
-cancel();
-}
-function handleTouchMove(event) {
-if (!dragging || activeInput !== "touch") return;
-const touch = changedTouch(event, touchId);
-if (!touch) return;
-consumeDragEvent(event);
-updateDrag({ x: touch.clientX, y: touch.clientY });
-}
-function handleTouchEnd(event) {
-if (!dragging || activeInput !== "touch") return;
-const touch = changedTouch(event, touchId);
-if (!touch) return;
-consumeDragEvent(event);
-if (options.updateOnEnd) updateDrag({ x: touch.clientX, y: touch.clientY });
-else setLastPoint({ x: touch.clientX, y: touch.clientY });
-finishDrag();
-}
-function handleTouchCancel(event) {
-if (activeInput !== "touch" || !changedTouch(event, touchId)) return;
-cancel();
-}
-return {
-isDragging: () => dragging,
-pointerDown(handle, event) {
-if (activeInput) return;
-if (event.button !== void 0 && event.button !== 0) return;
-consumeDragEvent(event);
-if (!beginDrag(handle, { x: event.clientX, y: event.clientY }, "pointer")) return;
-pointerId = event.pointerId;
-activeCaptureTarget = event.target instanceof Element ? event.target : handle;
-setPointerCapture(activeCaptureTarget, event.pointerId);
-document.addEventListener("pointermove", handlePointerMove, { capture: true, passive: false });
-document.addEventListener("pointerup", handlePointerUp, true);
-document.addEventListener("pointercancel", handlePointerCancel, true);
-},
-touchStart(handle, event) {
-if (activeInput) return;
-const touch = firstChangedTouch(event);
-if (!touch) return;
-consumeDragEvent(event);
-if (!beginDrag(handle, { x: touch.clientX, y: touch.clientY }, "touch")) return;
-touchId = touch.identifier;
-document.addEventListener("touchmove", handleTouchMove, { capture: true, passive: false });
-document.addEventListener("touchend", handleTouchEnd, true);
-document.addEventListener("touchcancel", handleTouchCancel, true);
-},
-cancel,
-cleanupListeners
-};
-}
-function initialDragState() {
-return {
-startX: 0,
-startY: 0,
-lastX: 0,
-lastY: 0,
-deltaX: 0,
-deltaY: 0
-};
-}
-function getContainedClosest(target, root, selector, onFound) {
-if (!(target instanceof Element)) return null;
-const element = target.closest(selector);
-if (!element || !root.contains(element)) return null;
-onFound?.(element);
-return element;
-}
-function consumeDragEvent(event) {
-event.preventDefault();
-event.stopPropagation();
-}
-function changedTouch(event, touchId) {
-for (const touch of Array.from(event.changedTouches)) {
-if (touch.identifier === touchId) return touch;
-}
-return null;
-}
-function firstChangedTouch(event) {
-return event.changedTouches.item(0);
-}
-function releasePointerCapture(handle, id) {
-try {
-handle?.releasePointerCapture?.(id);
-} catch {
-}
-}
-function setPointerCapture(handle, id) {
-try {
-handle.setPointerCapture?.(id);
-} catch {
-}
-}
-function addViewportChangeListeners(listener, signal) {
-const options = { passive: true, signal };
-window.addEventListener("resize", listener, options);
-window.addEventListener("orientationchange", listener, options);
-window.visualViewport?.addEventListener?.("resize", listener, options);
-window.visualViewport?.addEventListener?.("scroll", listener, options);
-}
+const handleDrag = aggregateRuntimeModules().handleDrag;
+const {
+addViewportChangeListeners,
+createHandleDragController,
+firstChangedTouch,
+getContainedClosest
+} = handleDrag;
 const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
 const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
 const MIN_SHEET_HEIGHT_PX = 180;

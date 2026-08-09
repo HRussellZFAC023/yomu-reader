@@ -7463,6 +7463,9 @@ function targetOcrLanguageHint(configured) {
   if (!configuredTag) return activeLearningTarget().ocr.languageHint;
   return languageSubtag(configuredTag) ?? configuredTag;
 }
+function isAbortError(error) {
+  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+}
 function userscriptRequestCandidates() {
   const candidates = [];
   const add = (request, thisArg) => {
@@ -7876,7 +7879,9 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
   contextOccurrences: "In context ×{count}",
   loadTargetSubtitles: "Load {language} subtitles",
-  loadOutputSubtitles: "Load {language} subtitles"
+  loadOutputSubtitles: "Load {language} subtitles",
+  readingAnnotations: "Reading annotations",
+  hideReadingsFor: "Hide readings for"
   }),
   ja: Object.freeze({
   puckStudyTarget: "{language}を学習",
@@ -7886,7 +7891,9 @@ const TARGET_AWARE_UI_COPY = Object.freeze({
   popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
   contextOccurrences: "文脈内 ×{count}",
   loadTargetSubtitles: "{language}字幕を読み込む",
-  loadOutputSubtitles: "{language}字幕を読み込む"
+  loadOutputSubtitles: "{language}字幕を読み込む",
+  readingAnnotations: "読みの注釈",
+  hideReadingsFor: "読みを隠す対象"
   })
 });
 const COPY = {
@@ -9871,7 +9878,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示
@@ -11806,13 +11813,17 @@ function tokenPitchClass(token) {
   return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
 }
 function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+  return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies);
+}
+function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
   let html = "";
   let localOffset = 0;
   for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
   const start = ruby.start - token.start;
   const end = ruby.end - token.start;
   html += renderKanjiNavigationText(surface.slice(localOffset, start));
-  html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end))}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
+  const base = renderKanjiNavigationText(surface.slice(start, end));
+  html += `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml(ruby.text)}</rt><rp>)</rp></ruby>`;
   localOffset = end;
   }
   html += renderKanjiNavigationText(surface.slice(localOffset));
@@ -12893,9 +12904,6 @@ function ocrArtifactRootOffset(element) {
   if (!root || root === document.body || root === document.documentElement) return { left: 0, top: 0 };
   const rect = root.getBoundingClientRect();
   return { left: rect.left, top: rect.top };
-}
-function isAbortError(error) {
-  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }
 function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
   return new Promise((resolve, reject) => {

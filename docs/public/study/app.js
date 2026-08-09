@@ -1503,6 +1503,15 @@
   const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
   const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
   const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  function isAbortError$1(error) {
+    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
+  }
+  class RetryableTimeoutError extends Error {
+    constructor(message = "Request timed out.") {
+      super(message);
+      this.name = "RetryableTimeoutError";
+    }
+  }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
     const userAgent2 = navigator.userAgent ?? "";
@@ -1825,6 +1834,7 @@
         }
         return response;
       } catch (error) {
+        if (options.signal?.aborted) throw abortReasonFor(options.signal);
         lastError = error;
       }
     }
@@ -1920,9 +1930,10 @@
   function isHttpUrl$1(url) {
     return /^https?:\/\//i.test(url);
   }
-  function fetchWithTimeout$3(url, options) {
+  async function fetchWithTimeout$3(url, options) {
     const {
       timeoutMs,
+      timeoutLabel,
       allowPublicProxies: _allowPublicProxies,
       allowConfiguredProxy: _allowConfiguredProxy,
       allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
@@ -1931,14 +1942,41 @@
       ...init
     } = options;
     if (!timeoutMs) return fetch(url, { ...init, signal });
+    const scope = fetchTimeoutScope(signal, timeoutMs, timeoutLabel);
+    try {
+      return await fetchWithinAbortScope(url, init, scope.signal);
+    } finally {
+      scope.dispose();
+    }
+  }
+  function fetchTimeoutScope(signal, timeoutMs, timeoutLabel) {
     const controller = new AbortController();
-    const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
-    const abort = () => controller.abort();
-    signal?.addEventListener("abort", abort, { once: true });
-    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
-      globalThis.clearTimeout(timeout);
-      signal?.removeEventListener("abort", abort);
-    });
+    const timeout = globalThis.setTimeout(() => {
+      controller.abort(new RetryableTimeoutError(timeoutLabel));
+    }, timeoutMs);
+    const abort = () => controller.abort(signal ? abortReasonFor(signal) : void 0);
+    if (signal?.aborted) abort();
+    else signal?.addEventListener("abort", abort, { once: true });
+    return {
+      signal: controller.signal,
+      dispose: () => {
+        globalThis.clearTimeout(timeout);
+        signal?.removeEventListener("abort", abort);
+      }
+    };
+  }
+  async function fetchWithinAbortScope(url, init, signal) {
+    try {
+      const response = await fetch(url, { ...init, signal });
+      throwIfFetchAborted(signal);
+      return response;
+    } catch (error) {
+      throwIfFetchAborted(signal, error);
+      throw error;
+    }
+  }
+  function throwIfFetchAborted(signal, fallback) {
+    if (signal.aborted) throw signal.reason ?? fallback;
   }
   const LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["127.0.0.1", "localhost", "[::1]"]);
   const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
@@ -2881,6 +2919,7 @@
       redirect: options.redirect ?? "follow",
       referrerPolicy: options.referrerPolicy ?? "no-referrer",
       timeoutMs: options.timeoutMs,
+      timeoutLabel: options.timeoutLabel,
       allowConfiguredProxy: options.allowConfiguredProxy,
       allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
       allowPublicProxies: options.allowPublicProxies,
@@ -4084,7 +4123,9 @@
       popupLanguageAxes: "Reading {target} · Definitions/translation: {output}",
       contextOccurrences: "In context ×{count}",
       loadTargetSubtitles: "Load {language} subtitles",
-      loadOutputSubtitles: "Load {language} subtitles"
+      loadOutputSubtitles: "Load {language} subtitles",
+      readingAnnotations: "Reading annotations",
+      hideReadingsFor: "Hide readings for"
     }),
     ja: Object.freeze({
       puckStudyTarget: "{language}を学習",
@@ -4094,7 +4135,9 @@
       popupLanguageAxes: "学習対象：{target}・定義/翻訳：{output}",
       contextOccurrences: "文脈内 ×{count}",
       loadTargetSubtitles: "{language}字幕を読み込む",
-      loadOutputSubtitles: "{language}字幕を読み込む"
+      loadOutputSubtitles: "{language}字幕を読み込む",
+      readingAnnotations: "読みの注釈",
+      hideReadingsFor: "読みを隠す対象"
     })
   });
   const COPY = {
@@ -6098,7 +6141,7 @@ statusColorNoSourceHelp	学習状態の色はデッキから読み取ります�
 furiganaHideKnown	なじみのある語を非表示
 furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
-clampedRowReadings	省略行のふりがな
+clampedRowReadings	省略行の読み
 clampedRowReadingsShow	表示（行が広がる）
 clampedRowReadingsHover	ホバー時のみ
 showPitchAccent	発音を表示
@@ -18837,6 +18880,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
+  function kanjiNavigationForElement(element2) {
+    const host = element2.closest("[data-jpdb-reader-kanji-nav]");
+    if (!host) return void 0;
+    return {
+      enabled: true,
+      label: host.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
+    };
+  }
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
@@ -19011,29 +19062,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return isParticleCard(token.card) ? "particle" : safePitchClass(token.pitchClass);
   }
   function renderRuby(surface, token, kanjiNavigation, preserveTokenRubies = false) {
-    let html = "";
-    let localOffset = 0;
-    for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
-      const start = ruby.start - token.start;
-      const end = ruby.end - token.start;
-      html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<ruby><span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
-      localOffset = end;
-    }
-    html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
-    return html;
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, "inline");
   }
   function renderDetachedReadings(surface, token, kanjiNavigation, preserveTokenRubies = false) {
+    return renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, "detached");
+  }
+  function renderTokenReadings(surface, token, kanjiNavigation, preserveTokenRubies, layout) {
     let html = "";
     let localOffset = 0;
     for (const ruby of effectiveTokenRubies(surface, token, preserveTokenRubies)) {
       const start = ruby.start - token.start;
       const end = ruby.end - token.start;
       html += renderKanjiNavigationText(surface.slice(localOffset, start), kanjiNavigation);
-      html += `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}">`;
-      html += `<span class="jpdb-reader-ruby-base">${renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation)}</span>`;
-      html += `<span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span>`;
-      html += "</span>";
+      const base = renderKanjiNavigationText(surface.slice(start, end), kanjiNavigation);
+      html += layout === "detached" ? `<span class="jpdb-reader-detached-ruby" data-yomu-source-start="${ruby.start}" data-yomu-source-end="${ruby.end}"><span class="jpdb-reader-ruby-base">${base}</span><span class="jpdb-reader-furi jpdb-reader-detached-furi" aria-hidden="true">${escapeHtml$2(ruby.text)}</span></span>` : `<ruby><span class="jpdb-reader-ruby-base">${base}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$2(ruby.text)}</rt><rp>)</rp></ruby>`;
       localOffset = end;
     }
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
@@ -19269,14 +19311,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }
     return runs;
-  }
-  function kanjiNavigationForElement(element2) {
-    const host = element2.closest("[data-jpdb-reader-kanji-nav]");
-    if (!host) return void 0;
-    return {
-      enabled: true,
-      label: host.dataset.jpdbReaderKanjiNavLabel || "Show kanji"
-    };
   }
   function renderKanjiNavigationText(value, options) {
     if (!options?.enabled) return escapeHtml$2(value);
@@ -39273,9 +39307,6 @@ ${key}`] = { t: now, v: value };
     publicJitenBackoffRemainingMs,
     renderJitenDefinitionSource
   });
-  function isAbortError$1(error) {
-    return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
-  }
   const JPDB_FAILURE_COPY_KEY = {
     "missing-key": "jpdbApiKeyMissingError",
     "rejected-key": "jpdbApiKeyRejectedError",
@@ -52273,6 +52304,58 @@ ${entry.reading}`);
       return target;
     }
   }
+  class SharedAbortableOperation {
+    constructor(start, onInactive) {
+      this.onInactive = onInactive;
+      this.promise = start(this.controller.signal).finally(() => {
+        this.settled = true;
+        this.onInactive();
+      });
+    }
+    controller = new AbortController();
+    promise;
+    subscribers = 0;
+    settled = false;
+    subscribe(signal) {
+      if (signal?.aborted) {
+        this.abandonIfUnobserved();
+        return Promise.reject(abortSignalReason(signal));
+      }
+      this.subscribers += 1;
+      return new Promise((resolve, reject) => {
+        let active = true;
+        const finish = (settle) => {
+          if (!active) return;
+          active = false;
+          signal?.removeEventListener("abort", onAbort);
+          this.unsubscribe();
+          settle();
+        };
+        const onAbort = () => finish(() => reject(abortSignalReason(signal)));
+        signal?.addEventListener("abort", onAbort, { once: true });
+        this.promise.then(
+          (value) => finish(() => resolve(value)),
+          (error) => finish(() => reject(error))
+        );
+      });
+    }
+    unsubscribe() {
+      this.subscribers -= 1;
+      this.abandonIfUnobserved();
+    }
+    abandonIfUnobserved() {
+      if (this.subscribers > 0 || this.settled) return;
+      this.onInactive();
+      this.controller.abort();
+    }
+  }
+  function abortSignalReason(signal) {
+    if (signal?.reason !== void 0) return signal.reason;
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
   const DEFAULT_TIMEOUT_MS = 8e3;
   const TRANSLATION_CACHE_LIMIT = 320;
   const GOOGLE_TRANSLATE_ENDPOINT = "https://translate.googleapis.com/translate_a/single";
@@ -52379,26 +52462,36 @@ ${entry.reading}`);
     return `${GOOGLE_TRANSLATE_ENDPOINT}?${params.toString()}`;
   }
   async function translateText(text2, options) {
+    throwIfTranslationAborted(options.signal);
     const original = text2.trim();
     if (!original) return "";
     const sourceLanguage = normalizeTranslationLanguage(options.sourceLanguage, { allowAuto: true });
     const outputLanguage = normalizeTranslationLanguage(options.outputLanguage);
     if (sourceLanguage !== "auto" && sourceLanguage.toLowerCase() === outputLanguage.toLowerCase()) return original;
     const cacheKey = `${sourceLanguage}:${outputLanguage}:${original}`;
-    const cached = translationCache.get(cacheKey);
-    if (cached !== void 0) return cached;
-    const active = translationInFlight.get(cacheKey);
-    if (active) return active;
-    const request = performTranslation(original, {
+    return resolveTranslationRequest(cacheKey, original, {
       ...options,
       sourceLanguage,
       outputLanguage
     });
-    translationInFlight.set(cacheKey, request);
-    void request.finally(() => {
+  }
+  function resolveTranslationRequest(cacheKey, original, options) {
+    const cached = translationCache.get(cacheKey);
+    if (cached !== void 0) return Promise.resolve(cached);
+    const active = translationInFlight.get(cacheKey);
+    if (active) return active.subscribe(options.signal);
+    return startTranslationRequest(cacheKey, original, options);
+  }
+  function startTranslationRequest(cacheKey, original, options) {
+    let request;
+    request = new SharedAbortableOperation((signal) => performTranslation(original, { ...options, signal }), () => {
       if (translationInFlight.get(cacheKey) === request) translationInFlight.delete(cacheKey);
-    }).catch(() => void 0);
-    return request;
+    });
+    translationInFlight.set(cacheKey, request);
+    return request.subscribe(options.signal);
+  }
+  function throwIfTranslationAborted(signal) {
+    if (signal?.aborted) throw abortSignalReason(signal);
   }
   function requiredGoogleTranslationLanguage(language2) {
     const capability = googleTranslationLanguageCapability(language2);
@@ -52422,10 +52515,12 @@ ${entry.reading}`);
         allowPublicProxies: false,
         preferFetch: true,
         failureLabel: "Translation request",
-        timeoutLabel: "Translation timed out."
+        timeoutLabel: "Translation timed out.",
+        signal: options.signal
       });
       const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
       if (!translated) throw new Error("No translation returned.");
+      throwIfTranslationAborted(options.signal);
       translationCache.set(`${options.sourceLanguage}:${options.outputLanguage}:${text2}`, translated);
       pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
       return translated;
@@ -96834,6 +96929,9 @@ ${reading}`);
     if (markVisibilityChosen) settings.subtitleSecondaryVisibleChosen = true;
     return changed;
   }
+  function readingAnnotationModeForTarget(mode, targetLanguage2) {
+    return targetLanguage2 !== "ja" && mode === "difficult-kanji" ? "all" : mode;
+  }
   const SELECTABLE_INTERFACE_LANGUAGES = Object.freeze([
     "auto",
     ...availableInterfaceLocales().map((locale) => locale.tag)
@@ -96982,6 +97080,7 @@ ${reading}`);
       shortcuts: readShortcutFormSettings(reader, current)
     };
     preserveDetachedJapaneseSettings(settings, current, data);
+    enforceTargetReadingAnnotationMode(settings);
     return normalizeReaderSettings(settings);
   }
   function readLanguageProfileFormSettings(data, current, interfaceLanguage, dictionaryPreferences) {
@@ -97074,6 +97173,15 @@ ${reading}`);
         if (current[name] === "pitch") settings[name] = current[name];
       }
     }
+  }
+  function enforceTargetReadingAnnotationMode(settings) {
+    const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    const targetLanguage2 = learningTargetRosterIdForTag(active?.targetLanguage) ?? "ja";
+    const mode = readingAnnotationModeForTarget(settings.furiganaMode, targetLanguage2);
+    if (mode === settings.furiganaMode) return;
+    settings.furiganaMode = mode;
+    settings.showFurigana = mode !== "off";
+    settings.hideKnownFurigana = mode === "known-status";
   }
   function normalizedStringIds(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -97980,12 +98088,13 @@ ${reading}`);
   function booleanAttributeHtml(attributes) {
     return Object.entries(attributes).filter(([, value]) => value).map(([key]) => ` ${key}`).join("");
   }
-  function renderFuriganaHiddenStateGroupControls(settings) {
+  function renderReadingHiddenStateGroupControls(settings, targetLanguage2) {
     const language2 = settings.interfaceLanguage;
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_STATE_GROUPS.map((group) => checkbox(`furiganaHide-${group}`, uiText(language2, CARD_STATE_LABEL_KEYS[group]), selected.has(group))).join("");
     const hidden = effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden";
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, "hideFuriganaFor")}</legend>${boxes}</fieldset>`;
+    const legendKey = targetLanguage2 === "ja" ? "hideFuriganaFor" : "hideReadingsFor";
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${hidden}><legend>${escapedUiText$4(language2, legendKey)}</legend>${boxes}</fieldset>`;
   }
   function renderWordColorHiddenStateGroupControls(settings) {
     const language2 = settings.interfaceLanguage;
@@ -100014,6 +100123,168 @@ ${reading}`);
                     </div>
                 </div>`;
   }
+  const READING_MODE_OPTIONS = [
+    ["known-status", "furiganaHideKnown"],
+    ["difficult-kanji", "furiganaDifficultKanji"],
+    ["hover", "furiganaHoverOnly"],
+    ["all", "furiganaAllParsed"],
+    ["off", "off"]
+  ];
+  const CLAMPED_ROW_OPTIONS = [
+    ["show", "clampedRowReadingsShow"],
+    ["hover", "clampedRowReadingsHover"]
+  ];
+  function renderReadingAnnotationControls(settings, targetLanguage2) {
+    const text2 = settingsText(settings.interfaceLanguage);
+    const japaneseMode = effectiveFuriganaMode(settings);
+    const mode = readingAnnotationModeForTarget(japaneseMode, targetLanguage2);
+    return `<div data-language-family="reading-annotation" data-reading-annotation-controls data-reading-annotation-target="${escapeHtml$2(targetLanguage2)}" data-reading-annotation-last-mode="${escapeHtml$2(mode)}" data-reading-annotation-japanese-mode="${escapeHtml$2(japaneseMode)}">
+        ${select("furiganaMode", text2(modeLabelKey(targetLanguage2)), mode, modeOptions(text2, targetLanguage2))}
+        ${difficultyNoteHtml(settings, text2, targetLanguage2)}
+        ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions$1(text2, CLAMPED_ROW_OPTIONS))}
+        ${renderReadingHiddenStateGroupControls(settings, targetLanguage2)}
+    </div>`;
+  }
+  function syncReadingAnnotationControls(form, text2) {
+    const targetLanguage2 = selectedTarget(form);
+    const modeSelect = form.querySelector('select[name="furiganaMode"]');
+    if (!modeSelect) return;
+    const currentMode = selectedReadingMode(modeSelect);
+    const state2 = targetSwitchState(modeSelect, currentMode, targetLanguage2);
+    trackExplicitModeChanges(modeSelect);
+    const selectedMode2 = state2.selectedMode;
+    replaceOptions(modeSelect, modeOptions(text2, targetLanguage2), selectedMode2);
+    setSelectLabel(modeSelect, text2(modeLabelKey(targetLanguage2)));
+    syncClampedRowControl(form, text2);
+    syncControlState(modeSelect, targetLanguage2, selectedMode2, state2.japaneseMode);
+    syncHiddenStateLegend(form, text2, targetLanguage2);
+    syncDifficultyNote(form, text2, targetLanguage2, selectedMode2);
+  }
+  function difficultyNoteHtml(settings, text2, targetLanguage2) {
+    if (targetLanguage2 !== "ja") {
+      return '<div class="jpdb-reader-help" data-furigana-difficulty-note hidden></div>';
+    }
+    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? "" : " hidden";
+    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapeHtml$2(text2("furiganaDifficultKanjiHelp"))}</div>`;
+  }
+  function selectedReadingMode(selectElement) {
+    return readingModeValue(selectElement.value) ?? "all";
+  }
+  function syncClampedRowControl(form, text2) {
+    const selectElement = form.querySelector('select[name="clampedRowReadings"]');
+    if (!selectElement) return;
+    replaceOptions(selectElement, localizedOptions$1(text2, CLAMPED_ROW_OPTIONS), selectElement.value);
+    setSelectLabel(selectElement, text2("clampedRowReadings"));
+  }
+  function syncControlState(selectElement, targetLanguage2, selectedMode2, japaneseMode) {
+    const controls = selectElement.closest("[data-reading-annotation-controls]");
+    if (!controls) return;
+    controls.dataset.readingAnnotationTarget = targetLanguage2;
+    controls.dataset.readingAnnotationLastMode = selectedMode2;
+    controls.dataset.readingAnnotationJapaneseMode = japaneseMode;
+    delete controls.dataset.readingAnnotationModeChanged;
+  }
+  function syncHiddenStateLegend(form, text2, targetLanguage2) {
+    const key = targetLanguage2 === "ja" ? "hideFuriganaFor" : "hideReadingsFor";
+    form.querySelector("[data-furigana-hide-groups] > legend")?.replaceChildren(text2(key));
+  }
+  function modeOptions(text2, targetLanguage2) {
+    return READING_MODE_OPTIONS.filter(([mode]) => targetLanguage2 === "ja" || mode !== "difficult-kanji").map(([mode, key]) => [mode, text2(key)]);
+  }
+  function modeLabelKey(targetLanguage2) {
+    return targetLanguage2 === "ja" ? "furiganaMode" : "readingAnnotations";
+  }
+  function selectedTarget(form) {
+    return learningTargetRosterIdForTag(form.querySelector('select[name="targetLanguage"]')?.value) ?? learningTargetRosterIdForTag(form.dataset.language) ?? "ja";
+  }
+  function localizedOptions$1(text2, options) {
+    return options.map(([value, key]) => [value, text2(key)]);
+  }
+  function replaceOptions(selectElement, options, selected) {
+    selectElement.replaceChildren(...options.map(([value, label]) => {
+      const option = selectElement.ownerDocument.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      option.selected = value === selected;
+      return option;
+    }));
+  }
+  function setSelectLabel(selectElement, copy2) {
+    const label = selectElement.closest("label");
+    if (!label) return;
+    const container = Array.from(label.children).find(
+      (child) => child instanceof HTMLElement && child.classList.contains(SETTINGS_LABEL_TEXT_CLASS)
+    );
+    if (container) {
+      container.replaceChildren(copy2);
+      return;
+    }
+    const textNode = Array.from(label.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
+    if (textNode) textNode.textContent = copy2;
+    else label.insertBefore(label.ownerDocument.createTextNode(copy2), label.firstChild);
+  }
+  function syncDifficultyNote(form, text2, targetLanguage2, selectedMode2) {
+    const note = form.querySelector("[data-furigana-difficulty-note]");
+    if (!note) return;
+    if (targetLanguage2 === "ja") {
+      note.dataset.helpKey = "furiganaDifficultKanjiHelp";
+      note.replaceChildren(text2("furiganaDifficultKanjiHelp"));
+    } else {
+      delete note.dataset.helpKey;
+      note.replaceChildren();
+    }
+    note.hidden = targetLanguage2 !== "ja" || selectedMode2 !== "difficult-kanji";
+  }
+  function targetSwitchState(selectElement, currentMode, targetLanguage2) {
+    const controls = selectElement.closest("[data-reading-annotation-controls]");
+    const previousTarget = previousReadingTarget(controls, targetLanguage2);
+    const lastMode = readingModeValue(controls?.dataset.readingAnnotationLastMode);
+    const learnerChangedMode = learnerChangedReadingMode(controls, lastMode, currentMode);
+    const storedJapaneseMode = storedJapaneseReadingMode(controls, currentMode);
+    const japaneseMode = updatedJapaneseMode(previousTarget, currentMode, storedJapaneseMode, learnerChangedMode);
+    return {
+      selectedMode: selectedModeAfterTargetSwitch(
+        targetLanguage2,
+        previousTarget,
+        currentMode,
+        japaneseMode,
+        learnerChangedMode
+      ),
+      japaneseMode
+    };
+  }
+  function previousReadingTarget(controls, fallback) {
+    return learningTargetRosterIdForTag(controls?.dataset.readingAnnotationTarget) ?? fallback;
+  }
+  function learnerChangedReadingMode(controls, lastMode, currentMode) {
+    if (controls?.dataset.readingAnnotationModeChanged === "true") return true;
+    return lastMode !== null && lastMode !== currentMode;
+  }
+  function storedJapaneseReadingMode(controls, fallback) {
+    return readingModeValue(controls?.dataset.readingAnnotationJapaneseMode) ?? fallback;
+  }
+  function updatedJapaneseMode(previousTarget, currentMode, storedMode, learnerChangedMode) {
+    if (previousTarget === "ja") return currentMode;
+    return learnerChangedMode ? currentMode : storedMode;
+  }
+  function shouldRestoreJapaneseMode(targetLanguage2, previousTarget, learnerChangedMode) {
+    return targetLanguage2 === "ja" && previousTarget !== "ja" && !learnerChangedMode;
+  }
+  function selectedModeAfterTargetSwitch(targetLanguage2, previousTarget, currentMode, japaneseMode, learnerChangedMode) {
+    if (shouldRestoreJapaneseMode(targetLanguage2, previousTarget, learnerChangedMode)) return japaneseMode;
+    return readingAnnotationModeForTarget(currentMode, targetLanguage2);
+  }
+  function readingModeValue(value) {
+    return READING_MODE_OPTIONS.find(([mode]) => mode === value)?.[0] ?? null;
+  }
+  function trackExplicitModeChanges(selectElement) {
+    if (selectElement.dataset.readingAnnotationTracking === "true") return;
+    selectElement.dataset.readingAnnotationTracking = "true";
+    selectElement.addEventListener("change", () => {
+      const controls = selectElement.closest("[data-reading-annotation-controls]");
+      if (controls) controls.dataset.readingAnnotationModeChanged = "true";
+    });
+  }
   const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
   function syncSubtitlePreview(form) {
     const preview = form.querySelector("[data-subtitle-preview]");
@@ -100672,20 +100943,9 @@ ${reading}`);
     ["underline-new", "appearancePresetUnderlineNew"],
     ["no-colors", "appearancePresetNoColors"]
   ];
-  const FURIGANA_MODE_OPTIONS = [
-    ["known-status", "furiganaHideKnown"],
-    ["difficult-kanji", "furiganaDifficultKanji"],
-    ["hover", "furiganaHoverOnly"],
-    ["all", "furiganaAllParsed"],
-    ["off", "off"]
-  ];
   const WORD_COLOR_STATE_OPTIONS = [
     ["all", "wordColorStatesAll"],
     ["new-only", "wordColorStatesNewOnly"]
-  ];
-  const CLAMPED_ROW_READINGS_OPTIONS = [
-    ["show", "clampedRowReadingsShow"],
-    ["hover", "clampedRowReadingsHover"]
   ];
   const AUDIO_AUTO_PLAY_MODE_OPTIONS = [
     ["all", "audioAutoPlayAll"],
@@ -100746,10 +101006,6 @@ ${reading}`);
     ["1200000", "balanced"],
     ["2000000", "sharper"]
   ];
-  function renderFuriganaDifficultyNote(settings) {
-    const hidden = furiganaModeNeedsDifficultyExplanation(settings) ? "" : " hidden";
-    return `<div class="jpdb-reader-help" data-furigana-difficulty-note data-help-key="furiganaDifficultKanjiHelp"${hidden}>${escapedUiText(settings.interfaceLanguage, "furiganaDifficultKanjiHelp")}</div>`;
-  }
   function renderAppearancePreview(language2) {
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section jp-only" data-language-family="pitch-legend">
@@ -100911,6 +101167,7 @@ ${reading}`);
     const language2 = settings.interfaceLanguage;
     const text2 = settingsText(language2);
     const pageScanMode = pageScanModeFromSettings$1(settings);
+    const targetLanguage2 = activeTargetLanguageId(settings);
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>${escapedUiText(language2, "reader")}</legend>
@@ -100935,12 +101192,7 @@ ${reading}`);
                         <div data-manual-page-scan-shortcut-label>${shortcutInput("shortcuts.scanPage", text2("manualPageScanShortcut"), settings.shortcuts.scanPage)}</div>
                     </div>
                     ${select("appearancePreset", text2("appearancePreset"), "", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS))}
-                    <div data-language-family="reading-annotation">
-                        ${select("furiganaMode", text2("furiganaMode"), effectiveFuriganaMode(settings), localizedOptions(text2, FURIGANA_MODE_OPTIONS))}
-                        ${renderFuriganaDifficultyNote(settings)}
-                        ${select("clampedRowReadings", text2("clampedRowReadings"), settings.clampedRowReadings, localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS))}
-                        ${renderFuriganaHiddenStateGroupControls(settings)}
-                    </div>
+                    ${renderReadingAnnotationControls(settings, targetLanguage2)}
                     ${select("wordColorStates", text2("wordColorStates"), settings.wordColorStates, localizedOptions(text2, WORD_COLOR_STATE_OPTIONS))}
                     ${renderWordColorHiddenStateGroupControls(settings)}
                     <div data-language-family="pronunciation">
@@ -101338,9 +101590,9 @@ ${reading}`);
       if (value !== void 0) element2.replaceChildren(value);
     });
     const targetSelect = form.querySelector('select[name="targetLanguage"]');
-    const selectedTarget = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
-    if (targetSelect && selectedTarget) {
-      setInnerHtml(targetSelect, renderStudyTargetOptions(language2, selectedTarget));
+    const selectedTarget2 = targetSelect && learningTargetRosterIdForTag(targetSelect.value);
+    if (targetSelect && selectedTarget2) {
+      setInnerHtml(targetSelect, renderStudyTargetOptions(language2, selectedTarget2));
     }
     const learnerSelect = form.querySelector('select[name="learnerLanguage"]');
     const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? learnerSelect.value : "en";
@@ -101441,7 +101693,6 @@ ${reading}`);
     ["[data-academy-pairing-code-label]", "academyPairingCode"]
   ];
   const HIDE_GROUP_LEGEND_TEXT_KEYS = [
-    ["[data-furigana-hide-groups]", "hideFuriganaFor"],
     ["[data-word-color-hide-groups]", "hideColorFor"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
@@ -101636,8 +101887,7 @@ ${reading}`);
     localizeColorSourceSelects(form, text2);
     setSelectOptionLabels(form, "appearancePreset", localizedOptions(text2, APPEARANCE_PRESET_OPTIONS));
     setSelectOptionLabels(form, "wordColorStates", localizedOptions(text2, WORD_COLOR_STATE_OPTIONS));
-    setSelectOptionLabels(form, "clampedRowReadings", localizedOptions(text2, CLAMPED_ROW_READINGS_OPTIONS));
-    setSelectOptionLabels(form, "furiganaMode", localizedOptions(text2, FURIGANA_MODE_OPTIONS));
+    syncReadingAnnotationControls(form, text2);
   }
   function localizeColorSourceSelects(form, text2) {
     const options = colorSourceSelectOptions(text2);
@@ -102126,7 +102376,6 @@ ${reading}`);
     "showFloatingButton",
     "pageScanMode",
     "appearancePreset",
-    "furiganaMode",
     "clampedRowReadings",
     "wordColorStates",
     "showPitchAccent",
@@ -102975,23 +103224,41 @@ ${reading}`);
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
   function bindLiveSettingsSync(form, dependencies) {
+    let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
     window.addEventListener(SETTINGS_CHANGE_EVENT, (event) => {
       if (!dependencies.isActive()) return;
       const detail = event.detail;
       if (detail?.settings && detail.preview !== true) {
-        const settings = { ...dependencies.getSettings(), ...detail.settings };
+        const previousSettings = adoptedSettings;
+        const settings = { ...previousSettings, ...detail.settings };
         dependencies.adoptSettings(settings);
-        syncFormFromSettings(form, settings);
-        syncYoutubeImmersionTarget(form, settings, activeTargetLanguageId(settings), true);
+        syncFormFromSettings(form, previousSettings, settings);
+        dependencies.syncAdoptedLanguageProfile(previousSettings, settings);
         syncSubtitlePreview(form);
         syncFontFamilyControls(form);
+        adoptedSettings = snapshotLiveSettings(settings);
       }
       const theme = themeFromSettingsChangeEvent(event);
       if (theme) dependencies.applyTheme(theme);
     });
   }
-  function syncFormFromSettings(form, settings) {
-    for (const key of Object.keys(settings)) {
+  function snapshotLiveSettings(settings) {
+    return {
+      ...settings,
+      languageProfiles: settings.languageProfiles.map((profile) => ({
+        ...profile,
+        dictionaries: {
+          installed: [...profile.dictionaries.installed],
+          enabled: [...profile.dictionaries.enabled],
+          order: [...profile.dictionaries.order]
+        },
+        definitionTranslationProviderIds: [...profile.definitionTranslationProviderIds]
+      })),
+      dictionaryLookupLinks: settings.dictionaryLookupLinks.map((link) => ({ ...link }))
+    };
+  }
+  function syncFormFromSettings(form, previousSettings, settings) {
+    for (const key of changedSettingKeys(previousSettings, settings)) {
       if (key === "theme") continue;
       const val = settings[key];
       if (typeof val !== "string" && typeof val !== "number" && typeof val !== "boolean") continue;
@@ -103012,9 +103279,160 @@ ${reading}`);
       }
     }
   }
+  function changedSettingKeys(previousSettings, settings) {
+    return Object.keys(settings).filter((key) => !Object.is(previousSettings[key], settings[key]));
+  }
   function themeFromSettingsChangeEvent(event) {
     const theme = event.detail?.settings?.theme;
     return theme === "auto" || theme === "dark" || theme === "light" ? theme : void 0;
+  }
+  function syncLanguageProfileForm(form, settings, request, dependencies) {
+    if (request.source === "target-picker") {
+      syncPickedTarget(form, settings, request.targetLanguage, dependencies);
+      return;
+    }
+    syncAdoptedLanguageProfileForm(form, request.previousSettings, settings, dependencies);
+  }
+  function syncPickedTarget(form, settings, targetLanguage2, dependencies) {
+    syncLanguageFamilyDom(form, targetLanguage2);
+    syncYoutubeImmersionTarget(form, settings, targetLanguage2);
+    syncLookupPills(
+      form,
+      dictionaryLookupLinksForTarget(lookupLinkRows(new FormData(form)), targetLanguage2),
+      targetLanguage2
+    );
+    localizeSettingsForm(form, settings.interfaceLanguage);
+    dependencies.refreshTargetControls(targetLanguage2);
+  }
+  function syncAdoptedLanguageProfileForm(form, previousSettings, settings, dependencies) {
+    const targetLanguage2 = activeTargetLanguageId(settings);
+    const changes = languageProfileFormFacetChanges(previousSettings, settings);
+    syncAdoptedLanguageFacets(form, settings, targetLanguage2, changes);
+    syncAdoptedPresentationFacets(form, settings, targetLanguage2, changes, dependencies);
+  }
+  function syncAdoptedLanguageFacets(form, settings, targetLanguage2, changes) {
+    if (changes.profileControls) syncAdoptedProfileControls(form, settings);
+    if (changes.targetLanguage) syncLanguageFamilyDom(form, targetLanguage2);
+    if (changes.lookupLinks) {
+      syncLookupPills(
+        form,
+        adoptedLookupLinks(settings.dictionaryLookupLinks, targetLanguage2, changes.targetLanguage),
+        targetLanguage2
+      );
+    }
+  }
+  function adoptedLookupLinks(links, targetLanguage2, targetChanged) {
+    return targetChanged ? dictionaryLookupLinksForTarget(links, targetLanguage2) : links;
+  }
+  function syncAdoptedPresentationFacets(form, settings, targetLanguage2, changes, dependencies) {
+    if (changes.youtubeBaseline) syncYoutubeImmersionTarget(form, settings, targetLanguage2, true);
+    if (changes.interfaceLocalization) localizeSettingsForm(form, settings.interfaceLanguage);
+    if (changes.dependentControls) dependencies.refreshTargetControls(targetLanguage2);
+  }
+  function languageProfileFormFacetChanges(previousSettings, settings) {
+    return {
+      profileControls: profileControlsKey(previousSettings) !== profileControlsKey(settings),
+      targetLanguage: activeTargetLanguageId(previousSettings) !== activeTargetLanguageId(settings),
+      lookupLinks: lookupSurfaceKey(previousSettings) !== lookupSurfaceKey(settings),
+      interfaceLocalization: localizationSurfaceKey(previousSettings) !== localizationSurfaceKey(settings),
+      youtubeBaseline: youtubeBaselineKey(previousSettings) !== youtubeBaselineKey(settings),
+      dependentControls: dependentControlsKey(previousSettings) !== dependentControlsKey(settings)
+    };
+  }
+  function profileControlsKey(settings) {
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    if (!profile) {
+      return JSON.stringify([
+        settings.activeLanguageProfileId,
+        activeTargetLanguageId(settings),
+        activeLearnerLanguageId(settings),
+        settings.parserProvider,
+        []
+      ]);
+    }
+    return JSON.stringify([
+      settings.activeLanguageProfileId,
+      activeTargetLanguageId(settings),
+      activeLearnerLanguageId(settings),
+      profile.parserProvider,
+      [...profile.definitionTranslationProviderIds].sort()
+    ]);
+  }
+  function lookupSurfaceKey(settings) {
+    const targetLanguage2 = activeTargetLanguageId(settings);
+    const renderedLinks = lookupPillEditorRows(
+      settings.dictionaryLookupLinks,
+      [],
+      targetLanguage2
+    );
+    return JSON.stringify([
+      targetLanguage2,
+      renderedLinks.map(dictionaryLookupLinkKey)
+    ]);
+  }
+  function dictionaryLookupLinkKey(link) {
+    return [
+      link.id,
+      link.label,
+      link.urlTemplate,
+      link.enabled,
+      link.action ?? null,
+      link.priority ?? null
+    ];
+  }
+  function localizationSurfaceKey(settings) {
+    return JSON.stringify([
+      settings.interfaceLanguage,
+      activeTargetLanguageId(settings),
+      activeLearnerLanguageId(settings)
+    ]);
+  }
+  function youtubeBaselineKey(settings) {
+    return JSON.stringify([
+      activeTargetLanguageId(settings),
+      settings.youtubeImmersionEnabled,
+      settings.youtubeImmersionEnabledChosen
+    ]);
+  }
+  function dependentControlsKey(settings) {
+    return JSON.stringify([
+      settings.activeLanguageProfileId,
+      activeTargetLanguageId(settings),
+      activeLearnerLanguageId(settings)
+    ]);
+  }
+  function syncAdoptedProfileControls(form, settings) {
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    const profileControls = profile ? {
+      parserProvider: profile.parserProvider,
+      translationProviderIds: profile.definitionTranslationProviderIds
+    } : {
+      parserProvider: settings.parserProvider,
+      translationProviderIds: []
+    };
+    setSelectValue(form, "targetLanguage", activeTargetLanguageId(settings));
+    setSelectValue(form, "learnerLanguage", activeLearnerLanguageId(settings));
+    setSelectValue(form, "parserProvider", profileControls.parserProvider);
+    syncTranslationProviders(form, profileControls.translationProviderIds);
+  }
+  function setSelectValue(form, name, value) {
+    const select2 = form.querySelector(`select[name="${name}"]`);
+    if (select2) select2.value = value;
+  }
+  function syncTranslationProviders(form, enabledProviderIds) {
+    const enabled = new Set(enabledProviderIds);
+    form.querySelectorAll('input[name="definitionTranslationProviderIds"]').forEach((input2) => {
+      input2.checked = enabled.has(input2.value);
+    });
+  }
+  function syncLookupPills(form, links, targetLanguage2) {
+    const container = form.querySelector(".jpdb-reader-lookup-links");
+    if (!container) return;
+    setInnerHtml(container, renderDictionaryLookupLinkEditor(
+      links,
+      [],
+      targetLanguage2
+    ));
   }
   const PUBLISHED_DICTIONARY_CATALOG_URL = "https://dictionaries.yomureader.com/v1/catalog.json";
   async function publishedDictionaryHeadwordLanguages(requester = requestPublishedCatalog) {
@@ -105254,6 +105672,11 @@ ${reading}`);
         adoptSettings: (settings) => {
           this.settings = settings;
         },
+        syncAdoptedLanguageProfile: (previousSettings, settings) => this.syncLanguageProfileForm(
+          form,
+          settings,
+          { source: "durable-settings", previousSettings }
+        ),
         applyTheme: (theme) => {
           const input2 = form.querySelector("[data-theme-value]");
           if (input2 && input2.value !== theme) {
@@ -105282,12 +105705,10 @@ ${reading}`);
       form.querySelector('select[name="targetLanguage"]')?.addEventListener("change", (event) => {
         const value = event.currentTarget.value;
         if (!isLearningTargetRosterId(value)) return;
-        syncLanguageFamilyDom(form, value);
-        syncYoutubeImmersionTarget(form, this.settings, value);
-        this.renderLookupPillsForTarget(form, value);
-        localizeSettingsForm(form, this.settings.interfaceLanguage);
-        void this.refreshTargetDictionaryAvailability(form, value);
-        void this.refreshDictionaryStatus(form);
+        this.syncLanguageProfileForm(form, this.settings, {
+          source: "target-picker",
+          targetLanguage: value
+        });
       });
       this.bindAppearancePresets(form, applyThemePreview);
       form.querySelector('select[name="popupMode"]')?.addEventListener("change", () => syncStickyBottomSheetAvailability(form));
@@ -105350,24 +105771,13 @@ ${reading}`);
       });
       syncPageScanModeControls(form);
     }
-    /**
-     * Swap the pill editor to the newly picked target's verified hotlinks.
-     *
-     * The dialog is the one place a target changes, and the row it shows has to
-     * change with it or the learner saves Japanese pills against a Spanish
-     * target. The rows are read back out of the live form first so anything the
-     * learner typed in this session — a custom site, a relabelled pill, an
-     * enabled toggle a shared site carries over — survives the swap.
-     */
-    renderLookupPillsForTarget(form, targetLanguage2) {
-      const container = form.querySelector(".jpdb-reader-lookup-links");
-      if (!container) return;
-      const submitted = lookupLinkRows(new FormData(form));
-      setInnerHtml(container, renderDictionaryLookupLinkEditor(
-        dictionaryLookupLinksForTarget(submitted, targetLanguage2),
-        [],
-        targetLanguage2
-      ));
+    syncLanguageProfileForm(form, settings, request) {
+      syncLanguageProfileForm(form, settings, request, {
+        refreshTargetControls: (targetLanguage2) => {
+          void this.refreshTargetDictionaryAvailability(form, targetLanguage2);
+          void this.refreshDictionaryStatus(form);
+        }
+      });
     }
     async refreshTargetDictionaryAvailability(form, selected = selectedTargetLanguage(form, this.settings)) {
       const requestId = ++this.targetDictionaryAvailabilityRequestId;
@@ -107477,7 +107887,10 @@ ${reading}`);
           hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
           scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage
         },
-        dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
+        dictionaryLookupLinks: defaultDictionaryLookupLinks(
+          openSettings === true ? "jpdb" : "local",
+          targetLanguage2
+        ),
         interfaceLanguage,
         ...languageProfileSelection,
         accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
@@ -111167,6 +111580,10 @@ ${reading}`);
   }
   const YOUTUBE_VIDEO_PLAYER_SELECTOR = "#movie_player, .html5-video-player";
   const YOUTUBE_VIDEO_OWNER_SELECTOR = `${YOUTUBE_VIDEO_PLAYER_SELECTOR}, ytd-player, ytd-watch-flexy, #player, #player-container, #player-container-outer, .html5-video-container`;
+  const YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS = 15e3;
+  const YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES = 96;
+  const YOUTUBE_CAPTION_SEMANTIC_MISS = Symbol("youtube-caption-semantic-miss");
+  const youtubeCaptionLoadStates = /* @__PURE__ */ new WeakMap();
   async function discoverCurrentYouTubeCaptionTracks(options) {
     if (!isYouTubePage()) return null;
     const videoId = getYouTubeVideoId();
@@ -111188,16 +111605,56 @@ ${reading}`);
     ]);
   }
   async function loadYouTubeTrackCues(track, options) {
-    if (!track.url) return [];
+    const initialUrl = track.url;
+    if (!initialUrl) return [];
+    throwIfYouTubeCaptionLoadAborted(options.signal);
     applyPreferredYouTubeCaptionCandidate(track);
-    const tried = /* @__PURE__ */ new Set();
-    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(track.url), options, tried);
-    if (primary.length) return primary;
-    return loadFallbackYouTubeTrackCues(track, options, tried);
+    return resolveYouTubeCaptionLoad(track, options, track.url ?? initialUrl);
   }
-  async function loadFallbackYouTubeTrackCues(track, options, tried) {
-    for (const candidate of await fallbackYouTubeCaptionCandidates(track)) {
+  function resolveYouTubeCaptionLoad(track, options, sourceUrl) {
+    const state2 = youtubeCaptionLoadState(options.requestText);
+    const loadKey = youtubeCaptionLoadKey(track);
+    if (freshYouTubeCaptionSemanticMiss(state2, loadKey)) return Promise.resolve([]);
+    const existing = state2.loads.get(loadKey);
+    if (existing) return existing.subscribe(options.signal);
+    return startYouTubeCaptionLoad(track, options, sourceUrl, state2, loadKey);
+  }
+  function startYouTubeCaptionLoad(track, options, sourceUrl, state2, loadKey) {
+    let operation;
+    operation = new SharedAbortableOperation(
+      (signal) => loadYouTubeTrackCuesUncached(track, { ...options, signal }, state2, loadKey, sourceUrl),
+      () => {
+        if (state2.loads.get(loadKey) === operation) state2.loads.delete(loadKey);
+      }
+    );
+    state2.loads.set(loadKey, operation);
+    return operation.subscribe(options.signal);
+  }
+  async function loadYouTubeTrackCuesUncached(track, options, state2, loadKey, sourceUrl) {
+    throwIfYouTubeCaptionLoadAborted(options.signal);
+    const tried = /* @__PURE__ */ new Set();
+    const primary = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(sourceUrl), options, tried);
+    throwIfYouTubeCaptionLoadAborted(options.signal);
+    if (primary === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+      rememberYouTubeCaptionSemanticMiss(state2, loadKey);
+      return [];
+    }
+    if (primary.length) return primary;
+    return loadFallbackYouTubeTrackCues(track, options, state2, tried);
+  }
+  async function loadFallbackYouTubeTrackCues(track, options, state2, tried) {
+    const candidates = await fallbackYouTubeCaptionCandidates(track, options.signal);
+    throwIfYouTubeCaptionLoadAborted(options.signal);
+    for (const candidate of candidates) {
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       const cues = await loadYouTubeCueUrls(track, youtubeSubtitleRequestUrls(candidate.url), options, tried);
+      throwIfYouTubeCaptionLoadAborted(options.signal);
+      if (cues === YOUTUBE_CAPTION_SEMANTIC_MISS) {
+        track.url = candidate.url;
+        track.youtubeTrack = candidate.raw;
+        rememberYouTubeCaptionSemanticMiss(state2, youtubeCaptionLoadKey(track));
+        return [];
+      }
       if (!cues.length) continue;
       track.url = candidate.url;
       track.youtubeTrack = candidate.raw;
@@ -111207,24 +111664,84 @@ ${reading}`);
   }
   async function loadYouTubeCueUrls(track, urls, options, tried) {
     for (const url of urls) {
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       if (tried.has(url)) continue;
       tried.add(url);
       const cues = await loadYouTubeCueUrl(track, url, options);
-      if (cues.length) return cues;
+      if (youtubeCueLoadSettled(cues)) return cues;
     }
     return [];
   }
+  function youtubeCueLoadSettled(cues) {
+    return cues === YOUTUBE_CAPTION_SEMANTIC_MISS || cues.length > 0;
+  }
   async function loadYouTubeCueUrl(track, url, options) {
     try {
-      const text2 = await options.requestText(url);
-      if (!text2.trim()) throw new Error("YouTube timedtext response was empty.");
-      return normalizeSubtitleCues(parseSubtitleText(text2, {
-        smoothYouTubeFragments: true,
-        youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
-      }));
+      const text2 = await options.requestText(url, options.signal);
+      throwIfYouTubeCaptionLoadAborted(options.signal);
+      return parseYouTubeCaptionResponse(track, text2);
     } catch (error) {
-      options.onRequestError?.(track, url, error);
-      return [];
+      return settleYouTubeCaptionRequestError(track, url, options, error);
+    }
+  }
+  function parseYouTubeCaptionResponse(track, text2) {
+    if (!text2.trim()) return YOUTUBE_CAPTION_SEMANTIC_MISS;
+    return normalizeSubtitleCues(parseSubtitleText(text2, {
+      smoothYouTubeFragments: true,
+      youtubeAutoGenerated: isAutoGeneratedSubtitleTrack(track)
+    }));
+  }
+  function settleYouTubeCaptionRequestError(track, url, options, error) {
+    throwIfYouTubeCaptionRequestAborted(options.signal, error);
+    options.onRequestError?.(track, url, error);
+    return [];
+  }
+  function hasFreshYouTubeCaptionSemanticMiss(track, requestText2) {
+    return Boolean(track.url) && freshYouTubeCaptionSemanticMiss(youtubeCaptionLoadState(requestText2), youtubeCaptionLoadKey(track));
+  }
+  function youtubeCaptionLoadState(requestText2) {
+    const existing = youtubeCaptionLoadStates.get(requestText2);
+    if (existing) return existing;
+    const created = { semanticMisses: /* @__PURE__ */ new Map(), loads: /* @__PURE__ */ new Map() };
+    youtubeCaptionLoadStates.set(requestText2, created);
+    return created;
+  }
+  function throwIfYouTubeCaptionLoadAborted(signal) {
+    if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+  }
+  function youtubeCaptionAbortReason(signal) {
+    return abortSignalReason(signal);
+  }
+  function youtubeCaptionLoadKey(track) {
+    return `${youtubeCaptionTrackIdentity(track)}|${youtubeCaptionSourceVersion(track.url)}`;
+  }
+  function youtubeCaptionSourceVersion(url) {
+    if (!url) return "";
+    try {
+      const parsed = new URL(url, typeof location === "undefined" ? "https://www.youtube.com/" : location.href);
+      parsed.hash = "";
+      parsed.searchParams.delete("fmt");
+      parsed.searchParams.sort();
+      return parsed.href;
+    } catch {
+      return url;
+    }
+  }
+  function freshYouTubeCaptionSemanticMiss(state2, key, now = Date.now()) {
+    pruneYouTubeCaptionSemanticMisses(state2, now);
+    return (state2.semanticMisses.get(key) ?? 0) > now;
+  }
+  function rememberYouTubeCaptionSemanticMiss(state2, key, now = Date.now()) {
+    state2.semanticMisses.delete(key);
+    state2.semanticMisses.set(key, now + YOUTUBE_CAPTION_SEMANTIC_MISS_TTL_MS);
+    pruneYouTubeCaptionSemanticMisses(state2, now);
+    while (state2.semanticMisses.size > YOUTUBE_CAPTION_SEMANTIC_MISS_MAX_ENTRIES) {
+      state2.semanticMisses.delete(state2.semanticMisses.keys().next().value ?? "");
+    }
+  }
+  function pruneYouTubeCaptionSemanticMisses(state2, now) {
+    for (const [key, expiresAt] of state2.semanticMisses) {
+      if (expiresAt <= now) state2.semanticMisses.delete(key);
     }
   }
   function applyPreferredYouTubeCaptionCandidate(track) {
@@ -111237,7 +111754,9 @@ ${reading}`);
   async function loadFirstUsableYouTubeSibling(track, tracks, options) {
     const siblings = tracks.filter((candidate) => isUsableYouTubeSibling(candidate, track));
     for (const sibling of siblings) {
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       const cues = await usableYouTubeSiblingCues(sibling, options);
+      throwIfYouTubeCaptionLoadAborted(options.signal);
       if (!cues.length) continue;
       sibling.cues = cues;
       return { track: sibling, cues };
@@ -111270,9 +111789,9 @@ ${reading}`);
     if (!button2) return false;
     return button2.getAttribute("aria-disabled") !== "true" && button2.style.display !== "none";
   }
-  async function fallbackYouTubeCaptionCandidates(track) {
+  async function fallbackYouTubeCaptionCandidates(track, signal) {
     if (track.kind !== "youtube") return [];
-    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""]);
+    const candidates = await getAndroidYouTubeCaptionTracks([track.targetLanguage ?? "", track.language ?? ""], signal);
     return candidates.filter((candidate) => youtubeCaptionCandidateMatchesTrack(candidate, track)).sort((a, b) => youtubeTrackUrlScore(b.url) - youtubeTrackUrlScore(a.url));
   }
   function youtubeCaptionCandidateMatchesTrack(candidate, track) {
@@ -111543,14 +112062,20 @@ ${reading}`);
   function applyYouTubeCaptionClientName(url, clientName) {
     if (clientName && !url.searchParams.has("c")) url.searchParams.set("c", clientName);
   }
-  async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = []) {
+  async function getAndroidYouTubeCaptionTracks(preferredTranslationLanguages = [], signal) {
+    throwIfYouTubeCaptionLoadAborted(signal);
     const request = androidYouTubeCaptionRequest();
     if (!request) return [];
     try {
-      return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages);
-    } catch {
+      return await fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal);
+    } catch (error) {
+      throwIfYouTubeCaptionRequestAborted(signal, error);
       return [];
     }
+  }
+  function throwIfYouTubeCaptionRequestAborted(signal, error) {
+    if (signal?.aborted) throw youtubeCaptionAbortReason(signal);
+    if (isAbortError$1(error)) throw error;
   }
   function androidYouTubeCaptionRequest() {
     const videoId = getYouTubeVideoId();
@@ -111567,8 +112092,8 @@ ${reading}`);
       videoId
     };
   }
-  async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages) {
-    const response = await fetch(request.url, request.init);
+  async function fetchAndroidYouTubeCaptionTracks(request, preferredTranslationLanguages, signal) {
+    const response = await fetch(request.url, { ...request.init, signal });
     if (!response.ok) return [];
     const payload = await response.json();
     return androidYouTubeCaptionTracksFromPayload(payload, request.videoId, preferredTranslationLanguages);
@@ -112186,6 +112711,7 @@ ${reading}`);
   const TRANSLATION_SEPARATOR = "\n";
   const log$a = Logger.scope("SubtitleTranslate");
   async function translateSubtitleCues(cues, sourceLanguage, outputLanguage, options = {}) {
+    throwIfSubtitleTranslationAborted(options.signal);
     if (!cues.length) return [];
     const texts = cues.map((cue) => cue.text.trim());
     const batches = batchTexts(
@@ -112193,17 +112719,21 @@ ${reading}`);
       options.batchSize ?? TRANSLATION_BATCH_SIZE,
       options.encodedCharBudget ?? TRANSLATION_BATCH_ENCODED_CHAR_BUDGET
     );
-    const translated = [];
-    for (let index = 0; index < batches.length; index += 1) {
-      if (index > 0) await waitForTranslationTurn();
-      const batch = batches[index] ?? [];
-      const results = await translateBatch(batch, sourceLanguage, outputLanguage);
-      translated.push(...results);
-    }
+    const translated = await translateSubtitleBatches(batches, sourceLanguage, outputLanguage, options.signal);
+    throwIfSubtitleTranslationAborted(options.signal);
     return cues.map((cue, index) => ({
       ...cue,
       text: translated[index] || cue.text
     }));
+  }
+  async function translateSubtitleBatches(batches, sourceLanguage, outputLanguage, signal) {
+    const translated = [];
+    for (const [index, batch] of batches.entries()) {
+      if (index > 0) await waitForTranslationTurn(signal);
+      const results = await translateBatch(batch, sourceLanguage, outputLanguage, signal);
+      translated.push(...results);
+    }
+    return translated;
   }
   function batchTexts(texts, size, encodedCharBudget) {
     const batches = [];
@@ -112223,27 +112753,48 @@ ${reading}`);
     if (current.length) batches.push(current);
     return batches;
   }
-  async function translateBatch(texts, sourceLanguage, outputLanguage) {
+  async function translateBatch(texts, sourceLanguage, outputLanguage, signal) {
     const joined = texts.join(TRANSLATION_SEPARATOR);
     const done = log$a.time("Translate subtitle batch", { count: texts.length });
     try {
       const result = await translateText(joined, {
         sourceLanguage,
         outputLanguage,
-        timeoutMs: TRANSLATION_TIMEOUT_MS
+        timeoutMs: TRANSLATION_TIMEOUT_MS,
+        signal
       });
+      throwIfSubtitleTranslationAborted(signal);
       const lines = result.split(TRANSLATION_SEPARATOR);
       log$a.info("Subtitle batch translated", { count: texts.length, resultCount: lines.length });
       return padTranslationResults(lines, texts);
     } catch (error) {
+      throwIfSubtitleTranslationCancelled(signal, error);
       log$a.warn("Subtitle batch translation failed", { count: texts.length, error });
       return texts;
     } finally {
       done();
     }
   }
-  function waitForTranslationTurn() {
-    return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+  function waitForTranslationTurn(signal) {
+    throwIfSubtitleTranslationAborted(signal);
+    return new Promise((resolve, reject) => {
+      const timer = globalThis.setTimeout(() => {
+        signal?.removeEventListener("abort", onAbort);
+        resolve();
+      }, 0);
+      const onAbort = () => {
+        globalThis.clearTimeout(timer);
+        reject(abortSignalReason(signal));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
+    });
+  }
+  function throwIfSubtitleTranslationCancelled(signal, error) {
+    if (signal?.aborted) throw abortSignalReason(signal);
+    if (isAbortError$1(error)) throw error;
+  }
+  function throwIfSubtitleTranslationAborted(signal) {
+    if (signal?.aborted) throw abortSignalReason(signal);
   }
   function padTranslationResults(translated, originals) {
     const result = translated.map((text2) => text2.trim());
@@ -112251,6 +112802,7 @@ ${reading}`);
     return result;
   }
   async function loadSubtitleTrackCues(track, options) {
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (track.cues?.length) return { track, cues: track.cues };
     if (track.translatedFromTrackId) {
       return loadTranslatedTrackCues(track, options);
@@ -112258,6 +112810,7 @@ ${reading}`);
     if (track.track) return loadNativeTrackCues(track);
     if (isRemoteSubtitleTrack(track)) {
       const cues = await loadRemoteTrackCues(track, options);
+      throwIfSubtitleTrackLoadAborted(options.signal);
       track.cues = cues;
       return { track, cues };
     }
@@ -112269,11 +112822,14 @@ ${reading}`);
     const sourceTrack = options.tracks.find((t) => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     const translatedCues = await translateSubtitleCues(
       sourceCues,
       track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || "en",
-      track.targetLanguage || track.language || targetSubtitleLanguageTag()
+      track.targetLanguage || track.language || targetSubtitleLanguageTag(),
+      { signal: options.signal }
     );
+    throwIfSubtitleTrackLoadAborted(options.signal);
     track.cues = translatedCues;
     return { track, cues: translatedCues };
   }
@@ -112293,33 +112849,63 @@ ${reading}`);
   async function loadYouTubeTrackWithFallback(track, options) {
     const youtubeOptions = {
       requestText: options.requestText,
-      onRequestError: options.onYouTubeRequestError
+      onRequestError: options.onYouTubeRequestError,
+      signal: options.signal
     };
     const cues = await loadYouTubeTrackCues(track, youtubeOptions);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (cues.length) {
       track.cues = cues;
       return { track, cues };
     }
     const translatedSource = await loadYouTubeTranslationSourceFallback(track, options);
+    throwIfSubtitleTrackLoadAborted(options.signal);
     if (translatedSource.length) {
       track.cues = translatedSource;
       return { track, cues: translatedSource };
     }
+    if (hasFreshYouTubeCaptionSemanticMiss(track, options.requestText)) {
+      track.cues = [];
+      return { track, cues: [] };
+    }
+    return loadYouTubeSiblingOrEmpty(track, options, youtubeOptions);
+  }
+  async function loadYouTubeSiblingOrEmpty(track, options, youtubeOptions) {
     const fallback = await loadFirstUsableYouTubeSibling(track, options.tracks, youtubeOptions);
     if (fallback) return fallback;
     track.cues = [];
     return { track, cues: [] };
   }
   async function loadYouTubeTranslationSourceFallback(track, options) {
-    if (options.translationFallback === "skip") return [];
-    if (track.sourceType !== "translation") return [];
-    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
-    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
-    const targetLanguage2 = normalizedTrackLanguage(track.targetLanguage || track.language);
-    if (!sourceTrack || !sourceLanguage || !targetLanguage2 || sourceLanguage === targetLanguage2) return [];
-    const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
+    const plan = youtubeTranslationSourcePlan(track, options);
+    if (!plan) return [];
+    const { cues: sourceCues } = await loadSubtitleTrackCues(plan.sourceTrack, options);
     if (!sourceCues.length) return [];
-    return translateSubtitleCues(sourceCues, sourceTrack.language || sourceTrack.sourceLanguage || sourceLanguage, targetLanguage2);
+    return translateSubtitleCues(
+      sourceCues,
+      youtubeTranslationSourceLanguage(plan),
+      plan.targetLanguage,
+      { signal: options.signal }
+    );
+  }
+  function youtubeTranslationSourcePlan(track, options) {
+    if (options.translationFallback === "skip" || track.sourceType !== "translation") return null;
+    const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
+    if (!sourceTrack) return null;
+    return youtubeTranslationLanguagePlan(track, sourceTrack);
+  }
+  function youtubeTranslationLanguagePlan(track, sourceTrack) {
+    const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
+    const targetLanguage2 = normalizedYouTubeTranslationTargetLanguage(track);
+    if (!sourceLanguage || !targetLanguage2) return null;
+    if (sourceLanguage === targetLanguage2) return null;
+    return { sourceTrack, sourceLanguage, targetLanguage: targetLanguage2 };
+  }
+  function youtubeTranslationSourceLanguage(plan) {
+    return plan.sourceTrack.language || plan.sourceTrack.sourceLanguage || plan.sourceLanguage;
+  }
+  function normalizedYouTubeTranslationTargetLanguage(track) {
+    return normalizedTrackLanguage(track.targetLanguage || track.language);
   }
   function findYouTubeTranslationSourceTrack(track, tracks) {
     const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
@@ -112356,15 +112942,32 @@ ${reading}`);
   }
   async function loadRemoteTrackCues(track, options) {
     try {
-      const cues = normalizeSubtitleCues(parseSubtitleText(await options.requestText(track.url ?? "")), {
-        transcriptEligible: options.transcriptEligible
-      });
-      if (cues.length) return cues;
-      options.onRemoteEmpty?.(track);
+      return settleRemoteTrackCues(track, options, await requestRemoteTrackCues(track, options));
     } catch (error) {
-      options.onRemoteError?.(track, error);
+      return settleRemoteTrackError(track, options, error);
     }
+  }
+  async function requestRemoteTrackCues(track, options) {
+    const text2 = await options.requestText(track.url ?? "", options.signal);
+    return normalizeSubtitleCues(parseSubtitleText(text2), { transcriptEligible: options.transcriptEligible });
+  }
+  function settleRemoteTrackCues(track, options, cues) {
+    if (cues.length) return cues;
+    options.onRemoteEmpty?.(track);
     return [];
+  }
+  function settleRemoteTrackError(track, options, error) {
+    throwIfRemoteTrackLoadAborted(options.signal, error);
+    options.onRemoteError?.(track, error);
+    return [];
+  }
+  function throwIfRemoteTrackLoadAborted(signal, error) {
+    throwIfSubtitleTrackLoadAborted(signal);
+    if (isAbortError$1(error)) throw error;
+  }
+  function throwIfSubtitleTrackLoadAborted(signal) {
+    if (!signal?.aborted) return;
+    throw signal.reason ?? new DOMException("Aborted", "AbortError");
   }
   function trackStatusText(track, language2 = "en") {
     if (track.loadingState === "loading") return ` · ${uiText(language2, "trackStatusLoading")}`;
@@ -112758,29 +113361,39 @@ ${reading}`);
     return [...tracks].filter((track) => isOutputLanguageSubtitleTrack(track, language2)).sort((left, right) => Number(!isSubtitleTrackLanguage(left, language2)) - Number(!isSubtitleTrackLanguage(right, language2)) || compareSubtitleTrackOptions(left, right))[0];
   }
   function renderSubtitlePrimary(input2) {
-    const activeCue = input2.cue;
-    const parsedHasReaderWords = input2.parsedHtml?.includes("jpdb-reader-word") ?? false;
-    const karaokeActive = input2.karaokeMode && cueHasExactWordTimings(activeCue);
-    const mode = subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords);
+    const parsedHasReaderWords = subtitlePrimaryHasReaderWords(input2.parsedHtml);
+    const karaokeEligible = subtitleKaraokeEligible(input2);
+    const mode = subtitlePrimaryRenderMode(input2, karaokeEligible, parsedHasReaderWords);
     return {
       html: renderSubtitlePrimaryHtml(input2, mode),
-      karaokeActive,
-      shouldRequestParse: input2.hasParser && !input2.parsedHtml,
-      nextRenderedPrimary: nextRenderedPrimaryCache(input2, karaokeActive)
+      karaokeActive: subtitleKaraokeIsActive(karaokeEligible, mode),
+      shouldRequestParse: subtitlePrimaryNeedsParse(input2),
+      nextRenderedPrimary: nextRenderedPrimaryCache(input2, mode)
     };
+  }
+  function subtitlePrimaryHasReaderWords(html) {
+    return html?.includes("jpdb-reader-word") === true;
+  }
+  function subtitleKaraokeEligible(input2) {
+    if (!input2.karaokeMode) return false;
+    return cueHasExactWordTimings(input2.cue);
+  }
+  function subtitleKaraokeIsActive(eligible, mode) {
+    return eligible && mode !== "pending-parser";
+  }
+  function subtitlePrimaryNeedsParse(input2) {
+    return input2.hasParser && input2.parsedHtml === void 0;
   }
   function subtitlePrimaryRenderMode(input2, karaokeActive, parsedHasReaderWords) {
     if (parsedHasReaderWords) return "parsed";
-    if (hasPlainKaraokeRender(input2, karaokeActive)) return "karaoke";
-    if (input2.parsedHtml) return "parsed";
+    if (input2.parsedHtml !== void 0) return "parsed";
     if (hasReusablePrimaryParserCache(input2)) return "cached-parser";
-    return parserFallbackRenderMode(input2.hasParser);
+    if (input2.hasParser) return "pending-parser";
+    if (hasPlainKaraokeRender(input2, karaokeActive)) return "karaoke";
+    return "plain";
   }
   function hasPlainKaraokeRender(input2, karaokeActive) {
     return Boolean(karaokeActive && input2.cue);
-  }
-  function parserFallbackRenderMode(hasParser) {
-    return hasParser ? "loading-parser" : "plain";
   }
   function hasReusablePrimaryParserCache(input2) {
     return Boolean(input2.hasParser && input2.lastRenderedText === input2.text && input2.lastRenderedHtml);
@@ -112792,12 +113405,12 @@ ${reading}`);
     parsed: (input2) => input2.parsedHtml ?? "",
     karaoke: (input2) => renderSubtitleKaraokeCue(input2.cue, input2.time),
     "cached-parser": (input2) => input2.lastRenderedHtml,
-    "loading-parser": (input2) => `<span class="jpdb-subtitle-primary-loading">${escapeWithBreaks(input2.text)}</span>`,
+    "pending-parser": () => "",
     plain: (input2) => escapeWithBreaks(input2.text)
   };
-  function nextRenderedPrimaryCache(input2, karaokeActive) {
-    if (input2.parsedHtml) return { text: input2.text, html: input2.parsedHtml };
-    return karaokeActive ? { text: input2.text, html: "" } : void 0;
+  function nextRenderedPrimaryCache(input2, mode) {
+    if (input2.parsedHtml !== void 0) return { text: input2.text, html: input2.parsedHtml };
+    return mode === "karaoke" ? { text: input2.text, html: "" } : void 0;
   }
   const SUBTITLE_SECONDARY_CLASS = "jpdb-subtitle-secondary";
   const SUBTITLE_SECONDARY_BLURRED_CLASS = "jpdb-subtitle-secondary-blurred";
@@ -113054,33 +113667,80 @@ ${reading}`);
     return `${trackCount} ${uiText(language2, "subtitleTracksDetected")}`;
   }
   const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
+  const YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-yomu-captions-active";
+  function snapshotSubtitleNativeTrackModes(snapshot, tracks) {
+    for (const option of tracks) {
+      if (option.track && !snapshot.has(option.track)) snapshot.set(option.track, option.track.mode);
+    }
+  }
+  function releaseSubtitleNativeTrackModes(snapshot) {
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+    setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+    for (const [track, mode] of snapshot) restoreSubtitleNativeTrackMode(track, mode);
+    snapshot.clear();
+  }
+  function releaseDepartedSubtitleNativeTrackModes(snapshot, tracks) {
+    const retained = new Set(tracks.flatMap((option) => option.track ? [option.track] : []));
+    for (const [track, mode] of snapshot) {
+      if (retained.has(track)) continue;
+      restoreSubtitleNativeTrackMode(track, mode);
+      snapshot.delete(track);
+    }
+  }
+  function reconcileSubtitleNativeTrackModes(snapshot, tracks) {
+    releaseDepartedSubtitleNativeTrackModes(snapshot, tracks);
+    snapshotSubtitleNativeTrackModes(snapshot, tracks);
+  }
   function applySubtitleNativeTrackModes(state2) {
     const youtubePage = isYouTubePage();
     const hasYomuCaptionContent = Boolean(state2.hasPrimaryCues || state2.currentCueText);
-    const yomuCaptionsActive = Boolean(state2.suppressNativeCaptions || state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent));
+    const yomuCaptionsActive = state2.suppressNativeCaptions === void 0 ? Boolean(state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent)) : state2.suppressNativeCaptions;
     if (!youtubePage) return applyGenericNativeTrackModes(state2, yomuCaptionsActive);
     setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return applyYouTubeNativeTrackModes(state2, yomuCaptionsActive);
   }
   function applyGenericNativeTrackModes(state2, yomuCaptionsActive) {
+    if (!yomuCaptionsActive) {
+      restoreInactiveGenericNativeTrackModes(state2);
+      setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+      setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
+      return false;
+    }
     for (const option of state2.tracks) {
       if (!option.track) continue;
       if (isSelectedSubtitleTrack(option, state2)) {
-        if (yomuCaptionsActive) option.track.mode = "hidden";
-        else ensureTextTrackReadable(option.track);
+        option.track.mode = "hidden";
         continue;
       }
-      if (yomuCaptionsActive) option.track.mode = "disabled";
+      option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive && (state2.suppressCaptionPlayerUi ?? true)) suppressGenericCaptionPlayerUi(state2.video);
-    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
-    setDocumentClassState("jpdb-subtitle-yomu-captions-active", false);
+    setDocumentClassState(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, true);
+    setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, false);
     return false;
+  }
+  function restoreInactiveGenericNativeTrackModes(state2) {
+    for (const option of state2.tracks) {
+      if (option.track) restoreInactiveGenericNativeTrackMode(option.track, option, state2);
+    }
+  }
+  function restoreInactiveGenericNativeTrackMode(track, option, state2) {
+    if (isSelectedSubtitleTrack(option, state2)) {
+      track.mode = "showing";
+      return;
+    }
+    const originalMode = state2.nativeTrackModeSnapshot?.get(track);
+    if (originalMode !== void 0) restoreSubtitleNativeTrackMode(track, originalMode);
+  }
+  function restoreSubtitleNativeTrackMode(track, mode) {
+    try {
+      track.mode = mode;
+    } catch {
+    }
   }
   function applyYouTubeNativeTrackModes(state2, yomuCaptionsActive) {
     applyYouTubeTextTrackModes(state2);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
-    setDocumentClassState("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
+    setDocumentClassState(YOUTUBE_NATIVE_CAPTIONS_SUPPRESSED_CLASS, hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
   }
   function setDocumentClassState(className, enabled) {
@@ -113094,89 +113754,6 @@ ${reading}`);
   }
   function isSelectedSubtitleTrack(option, state2) {
     return option.id === state2.selectedTrackId || option.id === state2.secondaryTrackId;
-  }
-  function suppressGenericCaptionPlayerUi(video) {
-    for (const player of genericCaptionPlayersForVideo(video)) {
-      try {
-        player.toggleCaptions?.(false);
-      } catch {
-      }
-    }
-    suppressVidstackCaptionPlayers(video);
-    suppressPressedCaptionButtons(video);
-  }
-  function genericCaptionPlayersForVideo(video) {
-    const players = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const candidate of genericCaptionPlayerCandidates()) {
-      if (!isGenericCaptionPlayer(candidate)) continue;
-      if (seen.has(candidate)) continue;
-      if (video && candidate.media instanceof HTMLMediaElement && candidate.media !== video) continue;
-      seen.add(candidate);
-      players.push(candidate);
-    }
-    return players;
-  }
-  function genericCaptionPlayerCandidates() {
-    const typedWindow = window;
-    return [
-      typedWindow.player,
-      typedWindow.plyr,
-      ...Array.isArray(typedWindow.players) ? typedWindow.players : []
-    ];
-  }
-  function isGenericCaptionPlayer(value) {
-    if (!value || typeof value !== "object") return false;
-    const player = value;
-    return typeof player.toggleCaptions === "function" && (player.media instanceof HTMLMediaElement || Boolean(player.captions) || typeof player.currentTrack === "number");
-  }
-  function suppressVidstackCaptionPlayers(video) {
-    for (const player of vidstackCaptionPlayersForVideo(video)) {
-      const tracks = player.textTracks;
-      if (!tracks) continue;
-      try {
-        if (tracks.selected) tracks.selected.mode = "disabled";
-        for (const track of Array.from(tracks)) {
-          if (track.mode && track.mode !== "disabled") track.mode = "disabled";
-        }
-      } catch {
-      }
-    }
-  }
-  function vidstackCaptionPlayersForVideo(video) {
-    const scope = genericCaptionButtonScope(video);
-    const scopedPlayer = scope instanceof Element && isVidstackMediaPlayer(scope) ? [scope] : [];
-    return [
-      ...scopedPlayer,
-      ...Array.from(scope.querySelectorAll("media-player, [data-media-player]")).filter(isVidstackMediaPlayer)
-    ].filter((player, index, players) => players.indexOf(player) === index);
-  }
-  function isVidstackMediaPlayer(value) {
-    return value instanceof HTMLElement && (value.localName === "media-player" || value.hasAttribute("data-media-player")) && Boolean(value.textTracks);
-  }
-  function suppressPressedCaptionButtons(video) {
-    const scope = genericCaptionButtonScope(video);
-    const buttons = Array.from(scope.querySelectorAll(
-      [
-        '[data-plyr="captions"][aria-pressed="true"]',
-        '[data-plyr="captions"].plyr__control--pressed',
-        'media-caption-button[aria-pressed="true"]',
-        "media-caption-button[data-pressed]",
-        '[data-media-tooltip="caption"][aria-pressed="true"]',
-        '[data-media-tooltip="caption"][data-pressed]',
-        '[aria-label*="caption" i][aria-pressed="true"]',
-        '[title*="caption" i][aria-pressed="true"]'
-      ].join(", ")
-    ));
-    for (const button2 of buttons) {
-      try {
-        button2.click();
-      } catch {
-      }
-    }
-  }
-  function genericCaptionButtonScope(video) {
-    return video?.closest('media-player, [data-media-player], .plyr, [class*="player" i], [class*="video" i]') ?? document;
   }
   function mirrorNativeFullscreenCues(options) {
     if (!canMirrorNativeFullscreenCues(options.video)) return previousNativeFullscreenCueMirror(options);
@@ -113620,6 +114197,41 @@ ${reading}`);
   }
   function normalizeHostedSubtitleOpenPanel(value) {
     return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
+  }
+  class SubtitleSelectionLifecycle {
+    states = {
+      primary: { requestId: 0 },
+      secondary: { requestId: 0 }
+    };
+    begin(role) {
+      const state2 = this.states[role];
+      this.supersede(state2);
+      state2.controller = new AbortController();
+      return state2.requestId;
+    }
+    invalidate(role) {
+      this.supersede(this.states[role]);
+    }
+    abortAll() {
+      for (const state2 of Object.values(this.states)) this.supersede(state2);
+    }
+    signal(role, requestId) {
+      const state2 = this.states[role];
+      return state2.requestId === requestId ? state2.controller?.signal : void 0;
+    }
+    isCurrent(role, requestId) {
+      return this.states[role].requestId === requestId;
+    }
+    supersede(state2) {
+      const controller = state2.controller;
+      state2.controller = void 0;
+      state2.requestId += 1;
+      controller?.abort();
+    }
+  }
+  function settleSubtitleSelectionFailure(signal, error) {
+    if (signal.aborted || isAbortError$1(error)) return null;
+    throw error;
   }
   function planTranscriptHydrationIndexes(options) {
     const indexes = /* @__PURE__ */ new Set();
@@ -114701,22 +115313,7 @@ ${reading}`);
     return view.scrollY || view.pageYOffset || view.document?.documentElement?.scrollTop || 0;
   }
   function renderControllerPrimarySubtitle(options) {
-    if (shouldHoldLastAnnotatedPrimary(options)) {
-      return {
-        ...renderSubtitlePrimary({
-          cue: void 0,
-          text: options.lastRenderedText,
-          parsedHtml: options.lastRenderedHtml,
-          hasParser: options.hasParser,
-          lastRenderedText: options.lastRenderedText,
-          lastRenderedHtml: options.lastRenderedHtml,
-          karaokeMode: false,
-          time: options.time
-        }),
-        shouldRequestParse: true
-      };
-    }
-    const hasReusablePrimary = rendersTheSameCue(options) && (parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
+    const hasReusablePrimary = rendersTheSameCue(options) && (Boolean(options.lastRenderedHtml) || options.hasFreshEmptyParsedHtml);
     return renderSubtitlePrimary({
       cue: options.cue,
       text: options.text,
@@ -114727,9 +115324,6 @@ ${reading}`);
       karaokeMode: options.settings.subtitleKaraokeMode,
       time: options.time
     });
-  }
-  function shouldHoldLastAnnotatedPrimary(options) {
-    return Boolean(options.holdLastAnnotatedWhilePending && options.cue && options.lastRenderedText !== options.text && parsedSubtitleHtmlHasReaderWords(options.lastRenderedHtml));
   }
   function rendersTheSameCue(options) {
     return options.lastRenderedKey === options.parseKey && options.lastRenderedText === options.text;
@@ -114774,8 +115368,164 @@ ${reading}`);
     }
     return { ready, batch };
   }
+  const SUBTITLE_REQUEST_BACKOFF_INITIAL_MS = 5e3;
+  const SUBTITLE_REQUEST_BACKOFF_MAX_MS = 6e4;
+  const SUBTITLE_REQUEST_BACKOFF_RETENTION_MS = SUBTITLE_REQUEST_BACKOFF_MAX_MS * 2;
+  const SUBTITLE_REQUEST_BACKOFF_MAX_FAILURES = 5;
+  const EMPTY_SUBTITLE_REQUEST_BACKOFF = {
+    failures: 0,
+    version: 0
+  };
+  class SubtitleRequestPolicy {
+    constructor(options) {
+      this.options = options;
+      this.now = options.now ?? (() => Date.now());
+    }
+    inFlight = /* @__PURE__ */ new Map();
+    endpointTails = /* @__PURE__ */ new Map();
+    backoff = /* @__PURE__ */ new Map();
+    now;
+    async run(url, operation, signal) {
+      throwIfSubtitleRequestCallerAborted(signal);
+      const resourceKey = subtitleRequestResourceKey(url);
+      const endpointKey = subtitleRequestEndpointKey(url);
+      const existing = this.inFlight.get(resourceKey);
+      if (existing) return existing.subscribe(signal);
+      const now = this.now();
+      this.pruneBackoff(now);
+      const cooling = this.activeBackoff(endpointKey, now);
+      if (cooling) return Promise.reject(new SubtitleRequestCooldownError(cooling.retryAt - now, cooling.status));
+      return this.startResourceOperation(resourceKey, endpointKey, operation, signal);
+    }
+    startResourceOperation(resourceKey, endpointKey, operation, signal) {
+      let entry;
+      entry = new SharedAbortableOperation(
+        (requestSignal) => this.enqueueEndpointOperation(endpointKey, requestSignal, operation),
+        () => {
+          if (this.inFlight.get(resourceKey) === entry) this.inFlight.delete(resourceKey);
+        }
+      );
+      this.inFlight.set(resourceKey, entry);
+      return entry.subscribe(signal);
+    }
+    enqueueEndpointOperation(endpointKey, signal, operation) {
+      const predecessor = this.endpointTails.get(endpointKey) ?? Promise.resolve();
+      const request = predecessor.then(() => {
+        throwIfSubtitleRequestAborted(signal);
+        return this.runEndpointOperation(endpointKey, signal, operation);
+      });
+      const tail = request.then(() => void 0, () => void 0);
+      this.endpointTails.set(endpointKey, tail);
+      void tail.then(() => {
+        if (this.endpointTails.get(endpointKey) === tail) this.endpointTails.delete(endpointKey);
+      });
+      return request;
+    }
+    async runEndpointOperation(endpointKey, signal, operation) {
+      throwIfSubtitleRequestAborted(signal);
+      const now = this.now();
+      this.pruneBackoff(now);
+      const cooling = this.activeBackoff(endpointKey, now);
+      if (cooling) throw new SubtitleRequestCooldownError(cooling.retryAt - now, cooling.status);
+      const backoffVersion = (this.backoff.get(endpointKey) || EMPTY_SUBTITLE_REQUEST_BACKOFF).version;
+      try {
+        const result = await raceSubtitleRequestAbort(operation(signal), signal);
+        this.clearBackoff(endpointKey, backoffVersion);
+        return result;
+      } catch (error) {
+        this.recordFailure(endpointKey, error);
+        throw error;
+      }
+    }
+    activeBackoff(endpointKey, now) {
+      const state2 = this.backoff.get(endpointKey);
+      return state2 && state2.retryAt > now ? state2 : void 0;
+    }
+    recordFailure(endpointKey, error) {
+      const failure = this.options.classifyFailure(error);
+      if (failure.status !== 429) return;
+      const previous = this.backoff.get(endpointKey) || EMPTY_SUBTITLE_REQUEST_BACKOFF;
+      const failures = Math.min(previous.failures + 1, SUBTITLE_REQUEST_BACKOFF_MAX_FAILURES);
+      this.backoff.set(endpointKey, {
+        failures,
+        retryAt: this.now() + subtitleRequestBackoffMs(failures),
+        status: failure.status,
+        version: previous.version + 1
+      });
+    }
+    clearBackoff(endpointKey, operationVersion) {
+      const current = this.backoff.get(endpointKey);
+      if (!current || current.version === operationVersion) this.backoff.delete(endpointKey);
+    }
+    pruneBackoff(now) {
+      for (const [key, state2] of this.backoff) {
+        if (state2.retryAt + SUBTITLE_REQUEST_BACKOFF_RETENTION_MS <= now) this.backoff.delete(key);
+      }
+    }
+  }
+  function raceSubtitleRequestAbort(operation, signal) {
+    if (signal.aborted) return Promise.reject(abortSignalReason(signal));
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (settle) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener("abort", onAbort);
+        settle();
+      };
+      const onAbort = () => finish(() => reject(abortSignalReason(signal)));
+      signal.addEventListener("abort", onAbort, { once: true });
+      operation.then(
+        (value) => finish(() => resolve(value)),
+        (error) => finish(() => reject(error))
+      );
+    });
+  }
+  function throwIfSubtitleRequestAborted(signal) {
+    if (signal.aborted) throw abortSignalReason(signal);
+  }
+  function throwIfSubtitleRequestCallerAborted(signal) {
+    if (signal?.aborted) throw abortSignalReason(signal);
+  }
+  class SubtitleRequestCooldownError extends Error {
+    constructor(retryAfterMs, status) {
+      super(`Subtitle request is cooling down for ${Math.max(1, Math.ceil(retryAfterMs))} ms.`);
+      this.retryAfterMs = retryAfterMs;
+      this.status = status;
+      this.name = "SubtitleRequestCooldownError";
+    }
+  }
+  function subtitleRequestBackoffMs(failures) {
+    return Math.min(
+      SUBTITLE_REQUEST_BACKOFF_INITIAL_MS * 2 ** Math.max(0, failures - 1),
+      SUBTITLE_REQUEST_BACKOFF_MAX_MS
+    );
+  }
+  function subtitleRequestResourceKey(url) {
+    return `resource:${normalizedSubtitleRequestUrl(url)}`;
+  }
+  function subtitleRequestEndpointKey(url) {
+    try {
+      const parsed = new URL(url, subtitleRequestBaseUrl());
+      return `endpoint:${parsed.origin}${parsed.pathname}`;
+    } catch {
+      return subtitleRequestResourceKey(url);
+    }
+  }
+  function normalizedSubtitleRequestUrl(url) {
+    try {
+      const parsed = new URL(url, subtitleRequestBaseUrl());
+      parsed.hash = "";
+      parsed.searchParams.sort();
+      return parsed.href;
+    } catch {
+      return url;
+    }
+  }
+  function subtitleRequestBaseUrl() {
+    return typeof location === "undefined" ? "https://invalid.local/" : location.href;
+  }
   const SUBTITLE_REQUEST_TIMEOUT_MS = 8e3;
-  const SUBTITLE_REQUEST_MAX_ATTEMPTS = 2;
   const SUBTITLE_REQUEST_RETRY_DELAY_MS = 250;
   class SubtitleRequestError extends Error {
     constructor(message, retryable, status) {
@@ -114785,30 +115535,32 @@ ${reading}`);
       this.name = "SubtitleRequestError";
     }
   }
-  async function requestSubtitleText(url) {
+  const subtitleRequestPolicy = new SubtitleRequestPolicy({
+    classifyFailure: (error) => ({ status: error instanceof SubtitleRequestError ? error.status : void 0 })
+  });
+  function requestSubtitleText(url, signal) {
     if (/^(blob|data):/i.test(url)) {
-      return fetchSubtitleText(url);
+      return fetchSubtitleText(url, "include", signal);
     }
-    let lastError;
-    for (let attempt2 = 0; attempt2 < SUBTITLE_REQUEST_MAX_ATTEMPTS; attempt2 += 1) {
-      try {
-        return await requestSubtitleTextOnce(url);
-      } catch (error) {
-        lastError = error;
-        if (!isRetryableSubtitleRequestError(error) || attempt2 + 1 >= SUBTITLE_REQUEST_MAX_ATTEMPTS) throw error;
-        await delaySubtitleRetry();
-      }
-    }
-    throw lastError;
+    return subtitleRequestPolicy.run(url, (requestSignal) => requestSubtitleTextWithRetry(url, requestSignal), signal);
   }
-  function requestSubtitleTextOnce(url) {
+  async function requestSubtitleTextWithRetry(url, signal) {
+    try {
+      return await requestSubtitleTextOnce(url, signal);
+    } catch (error) {
+      if (!shouldRetrySubtitleRequest(error)) throw error;
+      await delaySubtitleRetry(signal);
+      return requestSubtitleTextOnce(url, signal);
+    }
+  }
+  function requestSubtitleTextOnce(url, signal) {
     if (isYouTubeTimedTextUrl(url)) {
-      return requestSubtitleTextWithUserscript(url).catch((error) => shouldTryAlternateSubtitleTransport(error) ? fetchSubtitleText(url) : Promise.reject(error));
+      return requestSubtitleTextWithUserscript(url, void 0, signal).catch((error) => shouldTryAlternateSubtitleTransport(error) ? fetchSubtitleText(url, "include", signal) : Promise.reject(error));
     }
     if (shouldFetchSubtitleInPageContext(url)) {
-      return fetchSubtitleText(url).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error) : Promise.reject(error));
+      return fetchSubtitleText(url, "include", signal).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error, signal) : Promise.reject(error));
     }
-    return fetchSubtitleText(url, "omit").catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error) : Promise.reject(error));
+    return fetchSubtitleText(url, "omit", signal).catch((error) => shouldTryAlternateSubtitleTransport(error) ? requestSubtitleTextWithUserscript(url, error, signal) : Promise.reject(error));
   }
   function subtitleRequestFailureDetails(url) {
     try {
@@ -114823,7 +115575,7 @@ ${reading}`);
       return { url: "invalid" };
     }
   }
-  function requestSubtitleTextWithUserscript(url, pageFetchError) {
+  function requestSubtitleTextWithUserscript(url, pageFetchError, signal) {
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) {
       return requestViaUserscriptManager(userscriptRequest, {
@@ -114838,17 +115590,27 @@ ${reading}`);
           return String(response.responseText ?? response.response ?? "");
         },
         onError: () => new SubtitleRequestError("Subtitle request failed during transport.", true),
-        onTimeout: () => new SubtitleRequestError("Subtitle request timed out.", true)
+        onTimeout: () => new SubtitleRequestError("Subtitle request timed out.", true),
+        signal
       });
     }
     if (pageFetchError) return Promise.reject(pageFetchError);
-    return fetchSubtitleText(url);
+    return fetchSubtitleText(url, "include", signal);
   }
-  function fetchSubtitleText(url, credentials = "include") {
-    return fetch(url, { credentials, signal: subtitleRequestSignal() }).then((response) => {
+  async function fetchSubtitleText(url, credentials = "include", signal) {
+    const request = subtitleRequestAbortScope(signal);
+    try {
+      const response = await fetch(url, { credentials, signal: request.signal });
       assertCompleteSubtitleStatus(response.status);
-      return response.text();
-    });
+      return await response.text();
+    } catch (error) {
+      throw subtitleFetchFailure(request.signal, error);
+    } finally {
+      request.dispose();
+    }
+  }
+  function subtitleFetchFailure(signal, error) {
+    return signal.aborted ? signal.reason ?? error : error;
   }
   function assertCompleteSubtitleStatus(status) {
     if (status >= 200 && status < 300 && status !== 206) return;
@@ -114861,15 +115623,45 @@ ${reading}`);
   function isRetryableSubtitleRequestError(error) {
     return !(error instanceof SubtitleRequestError) || error.retryable;
   }
+  function shouldRetrySubtitleRequest(error) {
+    return !isAbortError$1(error) && isRetryableSubtitleRequestError(error) && (!(error instanceof SubtitleRequestError) || error.status !== 429);
+  }
   function shouldTryAlternateSubtitleTransport(error) {
+    if (isAbortError$1(error)) return false;
     if (!(error instanceof SubtitleRequestError)) return true;
     return error.status === void 0 || error.status === 0 || error.status === 401 || error.status === 403;
   }
-  function delaySubtitleRetry() {
-    return new Promise((resolve) => globalThis.setTimeout(resolve, SUBTITLE_REQUEST_RETRY_DELAY_MS));
+  function delaySubtitleRetry(signal) {
+    if (signal.aborted) return Promise.reject(subtitleAbortReason(signal));
+    return new Promise((resolve, reject) => {
+      const timer = globalThis.setTimeout(() => finish(resolve), SUBTITLE_REQUEST_RETRY_DELAY_MS);
+      const onAbort = () => finish(() => reject(subtitleAbortReason(signal)));
+      const finish = (settle) => {
+        globalThis.clearTimeout(timer);
+        signal.removeEventListener("abort", onAbort);
+        settle();
+      };
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
   }
-  function subtitleRequestSignal() {
-    return typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(SUBTITLE_REQUEST_TIMEOUT_MS) : void 0;
+  function subtitleRequestAbortScope(signal) {
+    const controller = new AbortController();
+    const relayAbort = () => controller.abort(subtitleAbortReason(signal));
+    if (signal?.aborted) relayAbort();
+    else signal?.addEventListener("abort", relayAbort, { once: true });
+    const timeout = globalThis.setTimeout(() => {
+      controller.abort(new SubtitleRequestError("Subtitle request timed out.", true));
+    }, SUBTITLE_REQUEST_TIMEOUT_MS);
+    return {
+      signal: controller.signal,
+      dispose: () => {
+        globalThis.clearTimeout(timeout);
+        signal?.removeEventListener("abort", relayAbort);
+      }
+    };
+  }
+  function subtitleAbortReason(signal) {
+    return signal?.reason ?? new DOMException("Aborted", "AbortError");
   }
   function shouldFetchSubtitleInPageContext(url) {
     try {
@@ -115584,6 +116376,19 @@ ${reading}`);
         return { html, provisional };
       }
     }
+    // Parser/enrichment rejection is different from an ordinary empty parse:
+    // any provisional HTML for this key is incomplete by definition and must
+    // not win canonicalization over the stable plain fallback. Keep a settled
+    // authoritative result if one already won the race; otherwise discard all
+    // uncommitted tiers and cache the plain frame for the normal retry TTL.
+    rememberPlainCueFallback(key, html) {
+      const authoritative = this.parsedHtmlCache.get(key);
+      if (authoritative !== void 0) return authoritative;
+      this.deleteParsedSubtitleKey(key);
+      this.emptyParsedHtmlCache.set(key, { html, expiresAt: Date.now() + SUBTITLE_EMPTY_PARSE_RETRY_MS });
+      this.pruneParsedSubtitleCaches();
+      return html;
+    }
     canonicalParsedHtmlResults(results) {
       return results.map((result) => {
         const authoritative = this.parsedHtmlCache.get(result.key);
@@ -115652,6 +116457,9 @@ ${reading}`);
       if (!key) return;
       this.parsedHtmlCache.delete(key);
       this.provisionalParsedHtmlCache.delete(key);
+      this.enrichedProvisionalParsedHtmlKeys.delete(key);
+      this.incompleteEnrichmentAttempts.delete(key);
+      this.sessionParseCacheChecked.delete(key);
       this.emptyParsedHtmlCache.delete(key);
       this.pendingParsedHtml.delete(key);
       this.pendingProvisionalParsedHtml.delete(key);
@@ -116274,9 +117082,6 @@ ${reading}`);
       error
     })
   };
-  function normalizedSubtitleText(value) {
-    return (value ?? "").replace(/\s+/g, " ").trim();
-  }
   function transcriptWarmupIndexes(priority, focusIndex, rowCount) {
     return [
       ...priority,
@@ -116565,6 +117370,8 @@ ${reading}`);
     transcriptPanelSize = loadTranscriptPanelSize();
     videoInset = createSubtitleVideoInsetAdapter();
     lastYomuCaptionsActive = false;
+    nativeCaptionOwnership;
+    nativeTrackModeSnapshot = /* @__PURE__ */ new Map();
     youtubeDomCaptionFallbackTrackId = "";
     fullscreen = false;
     pinnedPlayer = new SubtitlePinnedPlayerTracker();
@@ -116584,8 +117391,7 @@ ${reading}`);
     transcriptPanelClosing = false;
     transcriptLayoutReferenceRect;
     transcriptLayoutReferenceViewport = "";
-    primarySelectionRequest = 0;
-    secondarySelectionRequest = 0;
+    trackSelections = new SubtitleSelectionLifecycle();
     subtitleLanguageContext;
     subtitleSourceContextKey = "";
     pausePanelOpen = false;
@@ -116811,8 +117617,10 @@ ${reading}`);
       this.hideNativeFullscreenCueTrack();
       this.resetShadowPracticeState();
       this.clearPlaybackPauseReassert();
+      this.trackSelections.abortAll();
       this.abortController?.abort();
       this.abortController = void 0;
+      this.releaseNativeCaptionOwnership();
       this.observer?.disconnect();
       this.observer = void 0;
       this.observerMode = "off";
@@ -117235,6 +118043,7 @@ ${reading}`);
       const removed = this.tracks.filter(predicate);
       if (!removed.length) return 0;
       this.removeSubtitleTrackIds(new Set(removed.map((track) => track.id)));
+      releaseDepartedSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
       this.lastTranscriptSignature = "";
       this.render();
       this.renderOpenSubtitlePanel();
@@ -117340,6 +118149,7 @@ ${reading}`);
     addNativeTrack(track) {
       if (this.shouldIgnoreNativeTrack(track)) return;
       const option = this.createNativeTrackOption(track);
+      snapshotSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, [option]);
       this.tracks.push(option);
       this.markNativeCueListsDirty();
       this.observeNativeTrack(track);
@@ -117450,7 +118260,7 @@ ${reading}`);
       if (synthetic) void this.selectTrack(synthetic.id, { auto: true });
     }
     autoSelectNativeTrack(option, track, role) {
-      const requestId = this.beginTrackSelection(role);
+      const requestId = this.trackSelections.begin(role);
       this.setSelectedNativeTrackId(role, option.id);
       ensureTextTrackReadable(track);
       void this.loadNativeTrackCues(option, role, requestId);
@@ -118049,7 +118859,6 @@ ${reading}`);
       const now = this.video ? this.subtitlePlaybackTime(this.video) : 0;
       this.currentCue = normalizeSubtitleCues([{ start: now, end: now + 4, text: text2 }])[0];
       if (selected?.loadingState === "waiting") selected.loadingState = "ready";
-      this.setNativeTrackModes();
       this.render();
       this.renderOpenSubtitlePanel();
       this.syncControls();
@@ -118062,9 +118871,15 @@ ${reading}`);
       const text2 = this.currentCue?.text.trim() ?? "";
       if (!text2) {
         this.renderEmptySubtitle(settings);
-        return;
+      } else {
+        this.renderActiveSubtitle(text2, settings);
       }
-      this.renderActiveSubtitle(text2, settings);
+      this.syncNativeCaptionOwnership(settings);
+    }
+    syncNativeCaptionOwnership(settings) {
+      const next = this.shouldSuppressNativeCaptions(settings);
+      if (this.nativeCaptionOwnership === next) return;
+      this.setNativeTrackModes();
     }
     renderEmptySubtitle(settings) {
       if (!this.subtitleEl) return;
@@ -118080,7 +118895,7 @@ ${reading}`);
       const changed = this.applyPrimaryRow(primary.html);
       this.applySecondaryLine(settings);
       this.applyRenderedPrimarySubtitle(primary, text2, settings);
-      if (changed) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
+      if (changed && primary.html) this.notifyParsedTokensForRenderedPrimary(text2, settings, primary.html);
     }
     applyPrimaryRow(html) {
       const content = subtitleContentLanguage(
@@ -118122,21 +118937,17 @@ ${reading}`);
       const activeCue = this.currentCue;
       const parseKey = this.parseCacheKey(text2, settings);
       const parsedHtml = this.primaryParsedHtmlForRender(text2, settings, parseKey);
-      const pending2 = Boolean(this.pendingParsedCueHtml(parseKey, "provisional") ?? this.pendingParsedCueHtml(parseKey, "authoritative"));
-      const provisionalStillEnriching = this.htmlCache.provisionalParsedHtmlCache.has(parseKey) && !this.htmlCache.enrichedProvisionalParsedHtmlKeys.has(parseKey);
-      const canHoldPreviousAnnotation = this.lastRenderedPrimaryText !== text2 && parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml);
       return renderControllerPrimarySubtitle({
         cue: activeCue,
         text: text2,
         settings,
         parseKey,
-        parsedHtml: pending2 && provisionalStillEnriching && canHoldPreviousAnnotation ? void 0 : parsedHtml,
+        parsedHtml,
         lastRenderedKey: this.lastRenderedPrimaryKey,
         lastRenderedText: this.lastRenderedPrimaryText,
         lastRenderedHtml: this.lastRenderedPrimaryHtml,
         hasFreshEmptyParsedHtml: this.hasFreshEmptyParsedHtml(parseKey),
         hasParser: this.shouldParseSubtitles(settings),
-        holdLastAnnotatedWhilePending: pending2,
         time: this.video ? this.subtitlePlaybackTime(this.video) : activeCue?.start ?? 0
       });
     }
@@ -118150,8 +118961,7 @@ ${reading}`);
     }
     committedPrimaryParsedHtml(key) {
       if (this.lastRenderedPrimaryKey !== key) return void 0;
-      if (!parsedSubtitleHtmlHasReaderWords(this.lastRenderedPrimaryHtml)) return void 0;
-      return this.lastRenderedPrimaryHtml;
+      return this.lastRenderedPrimaryHtml || void 0;
     }
     provisionalPrimaryParsedHtmlForRender(text2, settings, key) {
       const provisional = this.htmlCache.provisionalParsedHtmlCache.get(key);
@@ -118173,7 +118983,7 @@ ${reading}`);
         return false;
       }
       this.ensureEnrichedProvisionalParsedCueHtml(text2, settings, key);
-      return this.htmlCache.parsedTokenCache.has(key);
+      return false;
     }
     applyRenderedPrimarySubtitle(primary, text2, settings) {
       this.applyRenderedPrimaryKaraoke(primary);
@@ -118201,42 +119011,17 @@ ${reading}`);
       const serial = ++this.renderSerial;
       const cached = this.htmlCache.parsedHtmlCache.get(key);
       if (cached) {
-        const root = this.replacePrimaryHtml(cached, serial);
-        if (root) this.notifyParsedTokensForKey(key, true, [root]);
+        this.applyParsedPrimaryHtml(key, text2, cached, serial);
         return;
       }
       try {
         const html = await this.parseCueHtml(text2, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
         this.applyParsedPrimaryHtml(key, text2, html, serial);
       } catch {
+        const fallback = escapeWithBreaks(text2);
+        const settled = this.htmlCache.rememberPlainCueFallback(key, fallback);
+        this.applyParsedPrimaryHtml(key, text2, settled, serial);
       }
-    }
-    replacePrimaryHtml(html, serial) {
-      if (serial !== this.renderSerial) return null;
-      const primary = this.subtitleEl?.querySelector(".jpdb-subtitle-primary");
-      if (primary) {
-        const currentCue = this.currentCue ?? null;
-        const shouldSyncKaraoke = this.shouldRenderKaraokePrimary(primary, currentCue);
-        const shouldRenderPlainKaraoke = shouldSyncKaraoke && !parsedSubtitleHtmlHasReaderWords(html);
-        const replacement = this.primaryReplacementHtml(html, currentCue, shouldRenderPlainKaraoke);
-        setInnerHtml(primary, replacement);
-        this.lastAppliedPrimaryRowHtml = replacement;
-        this.syncKaraokePrimary(currentCue, shouldSyncKaraoke);
-        this.syncSubtitleTextSize();
-        this.syncNativePlayerControlHitProtection();
-        return primary;
-      }
-      return null;
-    }
-    shouldRenderKaraokePrimary(primary, currentCue) {
-      return Boolean(this.options.getSettings().subtitleKaraokeMode && currentCue && cueHasExactWordTimings(currentCue) && normalizedSubtitleText(primary.textContent) === normalizedSubtitleText(currentCue.text));
-    }
-    primaryReplacementHtml(html, currentCue, shouldKaraoke) {
-      return shouldKaraoke && currentCue && !html.includes("jpdb-reader-word") ? renderSubtitleKaraokeCue(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start) : html;
-    }
-    syncKaraokePrimary(currentCue, shouldKaraoke) {
-      if (!shouldKaraoke || !currentCue) return;
-      this.applyKaraokeStateToPrimary(currentCue, this.video ? this.subtitlePlaybackTime(this.video) : currentCue.start);
     }
     shouldParseSubtitles(settings = this.options.getSettings()) {
       return canParseSubtitleTranscriptRows(settings);
@@ -118411,11 +119196,15 @@ ${reading}`);
     }
     applyParsedPrimaryHtml(key, text2, html, serial) {
       if (!this.shouldParseSubtitles()) return;
-      const root = this.replacePrimaryHtml(html, serial);
+      if (serial !== this.renderSerial) return;
+      if (!this.currentCueMatchesParseKey(key, text2)) return;
       this.lastRenderedPrimaryKey = key;
       this.lastRenderedPrimaryText = text2;
       this.lastRenderedPrimaryHtml = html;
-      if (root) this.notifyParsedTokensForKey(key, true, [root]);
+      this.render();
+    }
+    currentCueMatchesParseKey(key, text2) {
+      return this.currentCue?.text.trim() === text2 && this.parseCacheKey(text2) === key;
     }
     async parseCueHtmlBatch(texts, settings = this.options.getSettings(), options = {}) {
       const items = uniqueSubtitleParseTexts(texts).map((text2) => ({ text: text2, key: this.parseCacheKey(text2, settings) }));
@@ -119864,7 +120653,7 @@ ${reading}`);
       return true;
     }
     preparePrimaryTrackSelection(id) {
-      const requestId = this.beginTrackSelection("primary");
+      const requestId = this.trackSelections.begin("primary");
       this.selectedTrackId = id;
       this.lastAutoCopiedCueSignature = "";
       if (this.secondaryTrackId === id) this.clearSecondaryTrackSelection();
@@ -119878,7 +120667,7 @@ ${reading}`);
       return requestId;
     }
     clearSecondaryTrackSelection() {
-      this.invalidateTrackSelection("secondary");
+      this.trackSelections.invalidate("secondary");
       this.secondaryTrackId = "";
       this.secondaryCues = [];
       this.secondaryCue = void 0;
@@ -119912,15 +120701,22 @@ ${reading}`);
     async loadTrackSelection(request) {
       const selected = this.tracks.find((option) => option.id === request.id);
       if (!selected) return this.currentTrackSelection(request.role, request.requestId, request.id, void 0, []);
+      const signal = this.trackSelections.signal(request.role, request.requestId);
+      if (!signal) return null;
       this.markTrackLoading(selected);
       this.setNativeTrackModes();
-      const loaded = await loadSubtitleTrackCues(selected, {
-        ...TRACK_LOAD_OPTIONS,
-        tracks: this.tracks,
-        transcriptEligible: request.transcriptEligible,
-        translationFallback: this.translationFallbackModeForSelection(request, selected)
-      });
-      return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+      try {
+        const loaded = await loadSubtitleTrackCues(selected, {
+          ...TRACK_LOAD_OPTIONS,
+          tracks: this.tracks,
+          transcriptEligible: request.transcriptEligible,
+          translationFallback: this.translationFallbackModeForSelection(request, selected),
+          signal
+        });
+        return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+      } catch (error) {
+        return settleSubtitleSelectionFailure(signal, error);
+      }
     }
     translationFallbackModeForSelection(request, track) {
       if (request.role !== "secondary") return "full";
@@ -119968,7 +120764,7 @@ ${reading}`);
     prepareSecondaryTrackSelection(id) {
       if (this.selectedTrackId === id) {
         this.suppressYouTubeAutoSelectForCurrentVideo();
-        this.invalidateTrackSelection("primary");
+        this.trackSelections.invalidate("primary");
         this.selectedTrackId = "";
         this.cues = [];
         this.currentCue = void 0;
@@ -119979,7 +120775,7 @@ ${reading}`);
         this.lastShadowSignature = "";
         this.resetShadowPracticeState();
       }
-      const requestId = this.beginTrackSelection("secondary");
+      const requestId = this.trackSelections.begin("secondary");
       this.secondaryTrackId = id;
       this.secondaryCues = [];
       this.secondaryCue = void 0;
@@ -120008,31 +120804,44 @@ ${reading}`);
       this.syncControls();
     }
     setNativeTrackModes() {
+      reconcileSubtitleNativeTrackModes(this.nativeTrackModeSnapshot, this.tracks);
       if (this.nativeFullscreenHostTracksRestored) return;
       const settings = this.options.getSettings();
-      const selected = this.tracks.find((track) => track.id === this.selectedTrackId);
+      const suppressNativeCaptions = this.shouldSuppressNativeCaptions(settings);
       this.lastYomuCaptionsActive = applySubtitleNativeTrackModes({
         tracks: this.tracks,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         overlayVisible: settings.subtitleOverlayVisible || this.isTranscriptPanelOpen(),
-        // DOM-caption fallback is a hand-off: the page caption stays
-        // visible until a parse-settled Yomu cue is ready. Loaded cue lists
-        // are ready immediately; fallback text becomes ready at currentCue.
-        suppressNativeCaptions: this.shouldSuppressNativeCaptions(settings),
-        suppressCaptionPlayerUi: !this.shouldUseDomCaptionFallback(selected),
+        // Caption ownership is a visual hand-off: the page/native caption
+        // stays visible until the exact current Yomu cue has a settled
+        // parse (or a final plain fallback) ready to paint.
+        suppressNativeCaptions,
         video: this.video,
         hasPrimaryCues: Boolean(this.cues.length),
         currentCueText: this.currentCue?.text,
         youtubeDomCaptionFallbackTrackId: this.youtubeDomCaptionFallbackTrackId,
-        lastYomuCaptionsActive: this.lastYomuCaptionsActive
+        lastYomuCaptionsActive: this.lastYomuCaptionsActive,
+        nativeTrackModeSnapshot: this.nativeTrackModeSnapshot
       });
+      this.nativeCaptionOwnership = suppressNativeCaptions;
+    }
+    releaseNativeCaptionOwnership() {
+      releaseSubtitleNativeTrackModes(this.nativeTrackModeSnapshot);
+      this.nativeCaptionOwnership = void 0;
+      this.lastYomuCaptionsActive = false;
     }
     shouldSuppressNativeCaptions(settings) {
-      return Boolean(settings.subtitlePlayerEnabled && this.video && this.hasRenderablePrimaryCue());
+      return Boolean(settings.subtitlePlayerEnabled && this.video && this.hasVisualCommitForCurrentCue(settings));
     }
-    hasRenderablePrimaryCue() {
-      return Boolean(this.cues.length || this.currentCue?.text);
+    hasVisualCommitForCurrentCue(settings) {
+      const text2 = this.currentCue?.text.trim() ?? "";
+      if (!text2) return false;
+      if (!this.shouldParseSubtitles(settings)) return true;
+      return this.primaryVisualCommitMatches(text2, settings);
+    }
+    primaryVisualCommitMatches(text2, settings) {
+      return this.lastRenderedPrimaryKey === this.parseCacheKey(text2, settings) && this.lastRenderedPrimaryText === text2 && Boolean(this.lastRenderedPrimaryHtml);
     }
     async discoverYouTubeTracksThrottled(force = false) {
       if (this.youtubeTrackDiscoveryInFlight) return;
@@ -122127,22 +122936,11 @@ ${reading}`);
         canAlignNext: Boolean(this.video && adjacentSubtitleCueForOffset(baseCues, this.video.currentTime, this.trackTimingOffsetSeconds(id), true))
       };
     }
-    beginTrackSelection(role) {
-      if (role === "primary") {
-        this.primarySelectionRequest += 1;
-        return this.primarySelectionRequest;
-      }
-      this.secondarySelectionRequest += 1;
-      return this.secondarySelectionRequest;
-    }
-    invalidateTrackSelection(role) {
-      this.beginTrackSelection(role);
-    }
     isTrackSelectionCurrent(role, requestId, trackId) {
-      return !this.destroyed && (role === "primary" ? this.primarySelectionRequest === requestId && this.selectedTrackId === trackId : this.secondarySelectionRequest === requestId && this.secondaryTrackId === trackId);
+      return !this.destroyed && this.trackSelections.isCurrent(role, requestId) && (role === "primary" ? this.selectedTrackId : this.secondaryTrackId) === trackId;
     }
     resetPrimarySubtitleState() {
-      this.invalidateTrackSelection("primary");
+      this.trackSelections.invalidate("primary");
       this.selectedTrackId = "";
       this.cues = [];
       this.currentCue = void 0;
@@ -122157,7 +122955,7 @@ ${reading}`);
       this.shadowLoopEnabled = false;
     }
     resetSecondarySubtitleState() {
-      this.invalidateTrackSelection("secondary");
+      this.trackSelections.invalidate("secondary");
       this.secondaryTrackId = "";
       this.secondaryCues = [];
       this.secondaryCue = void 0;
@@ -148074,11 +148872,11 @@ ${options.version}`;
       this.setStatus(root, this.text("jpdbKanjiUpdated"));
     }
     gradeSubmissionInFlight = false;
-    async gradeCurrentCard(grade, selectedTarget, expectedCard) {
+    async gradeCurrentCard(grade, selectedTarget2, expectedCard) {
       const submittedCard = this.visibleWords[this.index];
       if (!submittedCard || expectedCard && !this.sameGradeCardIdentity(submittedCard, expectedCard) || !this.canReviewCard(submittedCard)) return false;
       const sessionScopedBunpro = submittedCard.source === "bunpro" || submittedCard.reviewSource === "bunpro-api";
-      if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+      if (!sessionScopedBunpro) return await this.gradeCurrentCardUnlocked(grade, selectedTarget2);
       if (this.gradeSubmissionInFlight) return false;
       this.gradeSubmissionInFlight = true;
       const gradeButtons = [
@@ -148089,7 +148887,7 @@ ${options.version}`;
         button2.disabled = true;
       });
       try {
-        return await this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        return await this.gradeCurrentCardUnlocked(grade, selectedTarget2);
       } finally {
         this.gradeSubmissionInFlight = false;
         if (submittedCard && this.visibleWords[this.index] === submittedCard) {
@@ -148105,32 +148903,32 @@ ${options.version}`;
       if (!bunpro) return true;
       return current.bunproReviewId === expected.bunproReviewId && current.bunproReviewSessionId === expected.bunproReviewSessionId && current.bunproReviewInputMode === expected.bunproReviewInputMode && current.bunproReviewEndpoint === expected.bunproReviewEndpoint;
     }
-    async gradeCurrentCardUnlocked(grade, selectedTarget) {
+    async gradeCurrentCardUnlocked(grade, selectedTarget2) {
       const target = this.currentGradeTarget();
       if (!target) return false;
       if (!this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-        return this.gradeOfflineCard(target, grade, selectedTarget, isCorrection);
+        return this.gradeOfflineCard(target, grade, selectedTarget2, isCorrection);
       }
       try {
-        return await this.submitCurrentGrade(target, grade, selectedTarget, isCorrection);
+        return await this.submitCurrentGrade(target, grade, selectedTarget2, isCorrection);
       } catch (error) {
-        return this.handleFailedGrade(target, grade, selectedTarget, isCorrection, error);
+        return this.handleFailedGrade(target, grade, selectedTarget2, isCorrection, error);
       }
     }
-    async gradeOfflineCard(target, grade, selectedTarget, isCorrection) {
-      const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
+    async gradeOfflineCard(target, grade, selectedTarget2, isCorrection) {
+      const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget2);
       if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
         const choice = await this.confirmOfflineReviewing(target.root);
         if (choice === "stop") return false;
-        if (choice === "retry") return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        if (choice === "retry") return this.gradeCurrentCardUnlocked(grade, selectedTarget2);
       }
       return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
     }
-    async submitCurrentGrade(target, grade, selectedTarget, isCorrection) {
+    async submitCurrentGrade(target, grade, selectedTarget2, isCorrection) {
       this.setStatus(target.root, this.text("grading"));
-      const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
+      const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget2);
       this.offlineReviewingAccepted = false;
       this.invalidateReviewSourceCache(target.card);
       this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
@@ -148144,7 +148942,7 @@ ${options.version}`;
       await this.advanceAfterGrade(target.root, target.card, grade);
       return true;
     }
-    async handleFailedGrade(target, grade, selectedTarget, isCorrection, error) {
+    async handleFailedGrade(target, grade, selectedTarget2, isCorrection, error) {
       log$2.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
       if (this.localYomuStorageFailure(error)) {
         const message = this.text("yomuLocalSrsStorageFailed");
@@ -148156,8 +148954,8 @@ ${options.version}`;
         await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
         return true;
       }
-      const queueTargets = selectedTarget ? this.offlineGradeTargetsForSelection(target.card, selectedTarget) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
-      const promptResult = await this.resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error);
+      const queueTargets = selectedTarget2 ? this.offlineGradeTargetsForSelection(target.card, selectedTarget2) : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+      const promptResult = await this.resolveFailedGradePrompt(target, grade, selectedTarget2, queueTargets, error);
       if (promptResult !== null) return promptResult;
       return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
     }
@@ -148165,14 +148963,14 @@ ${options.version}`;
       if (isLocalYomuSrsStorageError(error)) return true;
       return error instanceof NewTabGradeSubmissionError && error.failures.some((failure) => isLocalYomuSrsStorageError(failure.error));
     }
-    async resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error) {
-      if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget, error)) return null;
+    async resolveFailedGradePrompt(target, grade, selectedTarget2, queueTargets, error) {
+      if (!this.shouldConfirmOfflineReviewAfterFailure(queueTargets, target.card, selectedTarget2, error)) return null;
       const choice = await this.confirmOfflineReviewing(target.root);
       if (choice === "stop") return false;
       if (choice !== "retry") return null;
       const current = this.currentGradeTarget();
       if (!current || !this.sameGradeCardIdentity(current.card, target.card)) return false;
-      return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+      return this.gradeCurrentCardUnlocked(grade, selectedTarget2);
     }
     async queueGradeForLater(target, grade, queueTargets, isCorrection) {
       if (!queueTargets.length || !await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
@@ -148190,14 +148988,14 @@ ${options.version}`;
     networkGradeTargets(targets2) {
       return targets2.some((target) => target !== "yomu-local");
     }
-    shouldConfirmOfflineReviewAfterFailure(targets2, card, selectedTarget, error) {
-      return this.networkGradeTargets(targets2) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget, error);
+    shouldConfirmOfflineReviewAfterFailure(targets2, card, selectedTarget2, error) {
+      return this.networkGradeTargets(targets2) && window.navigator.onLine === false && !this.partialGradeSubmission(card, selectedTarget2, error);
     }
     // True when a multi-target submit failed for only SOME of its providers:
     // at least one provider already recorded this grade.
-    partialGradeSubmission(card, selectedTarget, error) {
+    partialGradeSubmission(card, selectedTarget2, error) {
       if (!(error instanceof NewTabGradeSubmissionError)) return false;
-      const attempted = selectedTarget ? this.offlineGradeTargetsForSelection(card, selectedTarget).length : this.reviewSourceSummary(card).targets.length;
+      const attempted = selectedTarget2 ? this.offlineGradeTargetsForSelection(card, selectedTarget2).length : this.reviewSourceSummary(card).targets.length;
       return attempted > error.failures.length;
     }
     // Asks once per outage whether to keep reviewing offline. "Continue" is
@@ -148233,9 +149031,9 @@ ${options.version}`;
       this.markQueueRefreshed();
       await this.loadWordsInto(root, false, { useOfflineCache: false });
     }
-    gradeSuccessStatus(grade, selectedTarget) {
+    gradeSuccessStatus(grade, selectedTarget2) {
       const mark = passingNewTabGrade(grade) ? "✓" : "✕";
-      return selectedTarget ? `${mark} ${selectedTarget.shortLabel}` : mark;
+      return selectedTarget2 ? `${mark} ${selectedTarget2.shortLabel}` : mark;
     }
     queueableFailedGradeTargets(error) {
       if (!(error instanceof NewTabGradeSubmissionError)) return void 0;
@@ -148246,9 +149044,9 @@ ${options.version}`;
       const card = this.visibleWords[this.index];
       return root && card ? { root, card } : null;
     }
-    async submitGrade(card, grade, selectedTarget) {
-      if (selectedTarget) {
-        return await this.submitSelectedLookupTarget(card, selectedTarget, grade);
+    async submitGrade(card, grade, selectedTarget2) {
+      if (selectedTarget2) {
+        return await this.submitSelectedLookupTarget(card, selectedTarget2, grade);
       }
       const targets2 = this.reviewTargetsForCard(card);
       if (!targets2.length) throw new Error(this.text("couldNotSubmitGrade"));
@@ -148263,8 +149061,8 @@ ${options.version}`;
       if (failures.length) throw new NewTabGradeSubmissionError(failures);
       return null;
     }
-    async submitSelectedLookupTarget(card, selectedTarget, grade) {
-      const target = this.lookupReviewTargetForSelection(card, selectedTarget);
+    async submitSelectedLookupTarget(card, selectedTarget2, grade) {
+      const target = this.lookupReviewTargetForSelection(card, selectedTarget2);
       if (!target) throw new Error(this.text("couldNotSubmitGrade"));
       if (target.kind === "anki") {
         const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId);
@@ -148277,14 +149075,14 @@ ${options.version}`;
       return target;
     }
     // fallow-ignore-next-line complexity
-    lookupReviewTargetForSelection(card, selectedTarget) {
+    lookupReviewTargetForSelection(card, selectedTarget2) {
       const targets2 = this.lookupReviewTargetsForCard(card);
-      if (selectedTarget.kind === "jpdb") return targets2.find((target) => target.kind === "jpdb") ?? null;
-      if (selectedTarget.kind === "jiten") return targets2.find((target) => target.kind === "jiten") ?? null;
-      if (selectedTarget.kind === "bunpro") return targets2.find((target) => target.kind === "bunpro") ?? null;
-      if (selectedTarget.kind === "wanikani") return targets2.find((target) => target.kind === "wanikani") ?? null;
-      if (selectedTarget.kind === "yomu-local") return targets2.find((target) => target.kind === "yomu-local") ?? null;
-      const selectedCardId = Number(selectedTarget.ankiCardId);
+      if (selectedTarget2.kind === "jpdb") return targets2.find((target) => target.kind === "jpdb") ?? null;
+      if (selectedTarget2.kind === "jiten") return targets2.find((target) => target.kind === "jiten") ?? null;
+      if (selectedTarget2.kind === "bunpro") return targets2.find((target) => target.kind === "bunpro") ?? null;
+      if (selectedTarget2.kind === "wanikani") return targets2.find((target) => target.kind === "wanikani") ?? null;
+      if (selectedTarget2.kind === "yomu-local") return targets2.find((target) => target.kind === "yomu-local") ?? null;
+      const selectedCardId = Number(selectedTarget2.ankiCardId);
       if (!Number.isFinite(selectedCardId) || selectedCardId <= 0) return null;
       return targets2.find((target) => target.kind === "anki" && target.ankiCardId === selectedCardId) ?? null;
     }
