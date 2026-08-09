@@ -195,7 +195,7 @@ interface YomuCompanionRegistry {
     };
     settings?: {
         SettingsDialogController: SettingsDialogControllerClass;
-        LookupModalAccessibility?: LookupModalAccessibilityClass;
+        LookupModalAccessibility: LookupModalAccessibilityClass;
         OnboardingController: OnboardingControllerClass;
         // Multilingual catalogues and locale copy are intentionally owned by
         // the settings companion so they do not enter the size-limited core.

@@ -3,11 +3,31 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     registerYomuCompanion,
     yomuImageOcrController,
+    yomuNormalizeOcrRenderedText,
     yomuSettingsSurfaceCompanion,
     yomuSubtitlePlayerController,
+    yomuVideoCompanionSlot,
 } from '../../src/reader/companions/registry';
 
 const companionDescriptor = () => Object.getOwnPropertyDescriptor(globalThis, '__yomuCompanions');
+const originalCompanionSlots = {
+    imageOcrController: yomuImageOcrController(),
+    normalizeOcrRenderedText: yomuNormalizeOcrRenderedText(),
+    settings: yomuSettingsSurfaceCompanion(),
+    video: yomuVideoCompanionSlot(),
+};
+
+function restoreMutatedCompanionSlots(): void {
+    const ImageOcrController = originalCompanionSlots.imageOcrController;
+    if (ImageOcrController) {
+        registerYomuCompanion('ocr', {
+            ImageOcrController,
+            normalizeOcrRenderedText: originalCompanionSlots.normalizeOcrRenderedText,
+        });
+    }
+    if (originalCompanionSlots.video) registerYomuCompanion('video', originalCompanionSlots.video);
+    if (originalCompanionSlots.settings) registerYomuCompanion('settings', originalCompanionSlots.settings);
+}
 
 describe('companion registry', () => {
     const originalDescriptor = companionDescriptor();
@@ -15,6 +35,10 @@ describe('companion registry', () => {
     afterEach(() => {
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
+        // registerYomuCompanion also updates the module-local Firefox fallback.
+        // Restoring only this jsdom realm's descriptor leaves partial test slots
+        // behind for the next file when Vitest reuses the module graph.
+        restoreMutatedCompanionSlots();
         if (originalDescriptor) {
             Object.defineProperty(globalThis, '__yomuCompanions', originalDescriptor);
         } else {
@@ -77,12 +101,14 @@ describe('companion registry', () => {
 
     it('exposes multilingual dictionary setup and definition translation through the settings companion', () => {
         const SettingsDialogController = class TestSettingsDialogController {};
+        const LookupModalAccessibility = class TestLookupModalAccessibility {};
         const OnboardingController = class TestOnboardingController {};
         const installOfflineParsingDictionaries = vi.fn();
         const installDefinitionTranslationBehaviors = vi.fn();
 
         registerYomuCompanion('settings', {
             SettingsDialogController: SettingsDialogController as never,
+            LookupModalAccessibility: LookupModalAccessibility as never,
             OnboardingController: OnboardingController as never,
             installOfflineParsingDictionaries: installOfflineParsingDictionaries as never,
             installDefinitionTranslationBehaviors: installDefinitionTranslationBehaviors as never,
@@ -103,5 +129,12 @@ describe('companion registry', () => {
             installOfflineParsingDictionaries,
             installDefinitionTranslationBehaviors,
         });
+    });
+
+    it('restores every runtime slot mutated by the registry tests', () => {
+        expect(yomuImageOcrController()).toBe(originalCompanionSlots.imageOcrController);
+        expect(yomuNormalizeOcrRenderedText()).toBe(originalCompanionSlots.normalizeOcrRenderedText);
+        expect(yomuSettingsSurfaceCompanion()).toBe(originalCompanionSlots.settings);
+        expect(yomuVideoCompanionSlot()).toBe(originalCompanionSlots.video);
     });
 });
