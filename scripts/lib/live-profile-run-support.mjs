@@ -54,6 +54,7 @@ export function createLiveProfileRunSupport({
             executableIdentities,
         ),
         fatalRequestLedger: classify => createFatalRequestLedger(classify),
+        browserDiagnostics: () => createBrowserDiagnostics(),
         ambientWindow: (samples, boundary) => ambientWindowEvidence(samples, boundary),
         captureWorkloadEnd: collectors => captureWorkloadEnd(collectors),
         verifyLaunchIdentity: descriptor => verifyLaunchIdentity(descriptor),
@@ -357,11 +358,11 @@ function environmentText(environment, key) {
 function createFatalRequestLedger(classify) {
     const entries = [];
     return Object.freeze({
-        classify(rawUrl) {
+        classify(request) {
             try {
-                return classify(rawUrl);
+                return classify(request);
             } catch (error) {
-                entries.push(fatalRequestEntry(rawUrl, error));
+                entries.push(fatalRequestEntry(request, error));
                 throw error;
             }
         },
@@ -372,15 +373,67 @@ function createFatalRequestLedger(classify) {
     });
 }
 
-function fatalRequestEntry(rawUrl, error) {
+function createBrowserDiagnostics() {
+    const consoleErrors = [];
+    const pageErrors = [];
     return Object.freeze({
-        url: String(rawUrl),
-        error: {
-            name: errorValue(error, 'name', 'Error'),
-            message: String(errorValue(error, 'message', error)),
-            code: errorValue(error, 'code', null),
+        install(page) {
+            page.on('console', message => {
+                if (message.type() !== 'error') return;
+                appendBoundedDiagnostic(consoleErrors, message.text());
+            });
+            page.on('pageerror', error => appendBoundedDiagnostic(pageErrors, diagnosticError(error)));
+        },
+        summary(state) {
+            return {
+                bootstrap: state?.bootstrap ?? null,
+                consoleErrors: consoleErrors.map(entry => entry.slice(0, 2_000)),
+                pageErrors: pageErrors.map(entry => ({
+                    ...entry,
+                    message: entry.message.slice(0, 2_000),
+                    stack: entry.stack.slice(0, 4_000),
+                })),
+            };
         },
     });
+}
+
+function appendBoundedDiagnostic(entries, entry) {
+    entries.push(entry);
+    if (entries.length > 20) entries.shift();
+}
+
+function fatalRequestEntry(request, error) {
+    const descriptor = requestDescriptor(request);
+    return Object.freeze({
+        method: descriptor.method,
+        url: descriptor.url,
+        error: diagnosticRequestError(error),
+    });
+}
+
+function diagnosticError(error) {
+    return {
+        name: String(errorValue(error, 'name', 'Error')),
+        message: String(errorValue(error, 'message', error)),
+        stack: String(errorValue(error, 'stack', '')),
+    };
+}
+
+function requestDescriptor(request) {
+    if (typeof request === 'string') return { method: 'GET', url: request };
+    return {
+        method: String(errorValue(request, 'method', 'GET')).toUpperCase(),
+        url: String(errorValue(request, 'url', '')),
+    };
+}
+
+function diagnosticRequestError(error) {
+    return {
+        name: errorValue(error, 'name', 'Error'),
+        message: String(errorValue(error, 'message', error)),
+        code: errorValue(error, 'code', null),
+    };
 }
 
 function ambientWindowEvidence(samples, boundary) {

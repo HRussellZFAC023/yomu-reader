@@ -196,6 +196,7 @@ async function runReplay(run) {
     const browserType = run.engine === 'webkit' ? webkit : chromium;
     const network = { requests: 0, failed: [], byHost: {}, byType: {} };
     const bridgeRequests = [];
+    const browserDiagnostics = runSupport.browserDiagnostics();
     const fatalBridgeLedger = runSupport.fatalRequestLedger(evidenceContract.classifyBridgeRequest);
     let launchPlan;
     let browser;
@@ -232,9 +233,10 @@ async function runReplay(run) {
             gmProgram: gmBootstrap,
             instrumentationProgram: instrumentation,
         });
-        await context.addInitScript({ content: bootstrap.content });
+        await context.addInitScript({ content: bootstrap.content[run.engine] });
 
         page = await context.newPage();
+        browserDiagnostics.install(page);
         installNetworkJournal(page, network);
         client = run.engine === 'chromium' ? await context.newCDPSession(page) : null;
         if (client) {
@@ -299,6 +301,7 @@ async function runReplay(run) {
             network: networkSummary(network),
             yomuBridgeRequests: summarizeBridgeRequests(bridgeRequests),
             fatalBridgeRequests: fatalBridgeLedger.snapshot(),
+            diagnostics: browserDiagnostics.summary(final),
             bootstrapSources: bootstrap.sources,
             artifacts: { directory: runDir, screenshot: join(runDir, 'live-watch.png') },
             final,
@@ -308,6 +311,7 @@ async function runReplay(run) {
     } catch (error) {
         if (profilerStarted && client) await stopFunctionProfiler(client, run.mode).catch(() => undefined);
         await page?.screenshot({ path: join(runDir, 'failure.png'), fullPage: false }).catch(() => undefined);
+        const state = page ? await readLiveState(page, client).catch(() => null) : null;
         const failure = {
             engine: run.engine,
             mode: run.mode,
@@ -325,10 +329,11 @@ async function runReplay(run) {
             },
             error: { name: error?.name ?? 'Error', message: String(error?.message ?? error), stack: String(error?.stack ?? '') },
             finalUrl: page?.url() ?? '',
-            state: page ? await readLiveState(page, client).catch(() => null) : null,
+            state,
             network: networkSummary(network),
             yomuBridgeRequests: summarizeBridgeRequests(bridgeRequests),
             fatalBridgeRequests: fatalBridgeLedger.snapshot(),
+            diagnostics: browserDiagnostics.summary(state),
             artifacts: {
                 directory: runDir,
                 screenshot: existsSync(join(runDir, 'failure.png')) ? join(runDir, 'failure.png') : null,
@@ -674,6 +679,7 @@ function readLivePageState() {
     const rounded = value => Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
     const video = document.querySelector('video.html5-main-video, #movie_player video, ytd-player video');
     const owner = document.querySelector('#jpdb-reader-runtime-owner');
+    const bootstrapState = window.__yomuLiveProfileBootstrap;
     const captionTracks = globalThis.ytInitialPlayerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
     const resources = performance.getEntriesByType('resource');
     return {
@@ -703,6 +709,13 @@ function readLivePageState() {
             ocrFrames: document.querySelectorAll('.jpdb-ocr-video-frame').length,
             popovers: document.querySelectorAll('.jpdb-reader-popover').length,
         },
+        bootstrap: bootstrapState && typeof bootstrapState === 'object' ? {
+            current: typeof bootstrapState.current === 'string' ? bootstrapState.current : '',
+            completed: Array.isArray(bootstrapState.completed) ? bootstrapState.completed.map(String) : [],
+            events: Array.isArray(bootstrapState.events)
+                ? bootstrapState.events.slice(-12)
+                : [],
+        } : null,
         pagePerf: window.__yomuLiveWatchPerf?.snapshot() ?? null,
     };
 }
@@ -769,7 +782,7 @@ function initializeLiveWatchInstrumentation() {
 // explicit so a future endpoint cannot silently turn into real test traffic.
 // fallow-ignore-next-line complexity
 async function bridgeResponse(request, journal, fatalBridgeLedger) {
-    const requestKind = fatalBridgeLedger.classify(request.url);
+    const requestKind = fatalBridgeLedger.classify(request);
     const body = gmRequestFetchBody(request);
     const url = new URL(request.url);
     const journalEntry = {
@@ -788,6 +801,8 @@ async function bridgeResponse(request, journal, fatalBridgeLedger) {
         return textResponse('', 'text/plain', 204);
     }
     if (request.browserFetchObservation) throw new Error(`Unexpected browser-fetch observation for ${requestKind}.`);
+    const deterministicProviderResponse = evidenceContract.deterministicProviderResponse(requestKind);
+    if (deterministicProviderResponse) return deterministicProviderResponse;
     if (requestKind === 'jpdb-parse') {
         const parsed = parseJsonBody(body);
         return jsonHttpResponse(mockJpdbParseFromVocabulary(parsed, vocabulary, { defaultState: ['known'] }));

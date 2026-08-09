@@ -33,10 +33,24 @@ const BROWSER_FETCH_ROUTES = Object.freeze([
     Object.freeze({ origin: 'https://www.youtube.com', pathname: '/api/timedtext' }),
 ]);
 const BRIDGE_ROUTES = Object.freeze([
-    Object.freeze({ kind: 'youtube-timedtext', origin: 'https://www.youtube.com', pathname: '/api/timedtext' }),
-    Object.freeze({ kind: 'jpdb-parse', origin: 'https://jpdb.io', pathname: '/api/v1/parse' }),
-    Object.freeze({ kind: 'ocr', origin: 'http://127.0.0.1:7331', pathname: '/ocr' }),
-    Object.freeze({ kind: 'jpdb-search', origin: 'https://jpdb.io', pathname: '/search' }),
+    Object.freeze({ kind: 'youtube-timedtext', method: 'GET', origin: 'https://www.youtube.com', pathname: '/api/timedtext' }),
+    Object.freeze({ kind: 'jpdb-parse', method: 'POST', origin: 'https://jpdb.io', pathname: '/api/v1/parse' }),
+    Object.freeze({ kind: 'ocr', method: 'POST', origin: 'http://127.0.0.1:7331', pathname: '/ocr' }),
+    Object.freeze({ kind: 'jpdb-search', method: 'GET', origin: 'https://jpdb.io', pathname: '/search' }),
+    Object.freeze({ kind: 'jiten-public-parse', method: 'GET', origin: 'https://api.jiten.moe', pathname: '/api/vocabulary/parse' }),
+    Object.freeze({ kind: 'jiten-vocabulary-search', method: 'GET', origin: 'https://api.jiten.moe', pathname: '/api/vocabulary/search' }),
+    Object.freeze({ kind: 'bunpro-reviewables-search', method: 'POST', origin: 'https://api.bunpro.jp', pathname: '/api/frontend/search/reviewables_v1_1' }),
+    Object.freeze({ kind: 'jpdb-list-user-decks', method: 'POST', origin: 'https://jpdb.io', pathname: '/api/v1/list-user-decks' }),
+]);
+const BOOTSTRAP_STATE_KEY = '__yomuLiveProfileBootstrap';
+const DETERMINISTIC_PROVIDER_RESPONSES = new Map([
+    ['jiten-public-parse', Object.freeze([])],
+    ['jiten-vocabulary-search', Object.freeze({ results: Object.freeze([]) })],
+    ['bunpro-reviewables-search', Object.freeze({
+        grammar_points: Object.freeze({ data: Object.freeze([]) }),
+        vocabs: Object.freeze({ data: Object.freeze([]) }),
+    })],
+    ['jpdb-list-user-decks', Object.freeze({ decks: Object.freeze([]) })],
 ]);
 const WORKLOAD_BUILDERS = new Map([
     ['interaction', () => Object.freeze({
@@ -116,6 +130,7 @@ export function createLiveProfileEvidenceContract(config) {
         transport: TRANSPORT_SCOPE,
         preflight: input => liveProfilePreflight(config, input),
         classifyBridgeRequest,
+        deterministicProviderResponse,
         failure: (error, details = {}) => liveProfileFailure(error, details),
     });
 }
@@ -359,15 +374,28 @@ function positiveDuration(value) {
     return durationMs;
 }
 
-function classifyBridgeRequest(rawUrl) {
-    const url = parseBridgeUrl(rawUrl);
-    const route = BRIDGE_ROUTES.find(candidate => routeMatches(candidate, url));
+function classifyBridgeRequest(rawRequest) {
+    const request = bridgeRequestDescriptor(rawRequest);
+    const url = parseBridgeUrl(request.url);
+    const route = BRIDGE_ROUTES.find(candidate => routeMatches(candidate, request.method, url));
     if (route) return route.kind;
-    fail('Live profiler received an unrecognized GM request.', { url: `${url.origin}${url.pathname}` });
+    fail('Live profiler received an unrecognized GM request.', {
+        method: request.method,
+        url: `${url.origin}${url.pathname}`,
+    });
 }
 
-function routeMatches(route, url) {
-    return route.origin === url.origin && route.pathname === url.pathname;
+function bridgeRequestDescriptor(rawRequest) {
+    if (typeof rawRequest === 'string') return { method: 'GET', url: rawRequest };
+    const request = requiredRecord(rawRequest, 'Live profiler received an invalid GM request.');
+    return {
+        method: requiredText(String(request.method ?? 'GET'), 'Live profiler received an invalid GM request method.').toUpperCase(),
+        url: requiredText(String(request.url ?? ''), 'Live profiler received an invalid GM request URL.'),
+    };
+}
+
+function routeMatches(route, method, url) {
+    return route.method === method && route.origin === url.origin && route.pathname === url.pathname;
 }
 
 function parseBridgeUrl(rawUrl) {
@@ -378,16 +406,37 @@ function parseBridgeUrl(rawUrl) {
     }
 }
 
+function deterministicProviderResponse(kind) {
+    if (!DETERMINISTIC_PROVIDER_RESPONSES.has(kind)) return null;
+    return jsonHttpResponse(DETERMINISTIC_PROVIDER_RESPONSES.get(kind));
+}
+
+function jsonHttpResponse(value) {
+    return Object.freeze({
+        status: 200,
+        responseText: JSON.stringify(value),
+        contentType: 'application/json; charset=utf-8',
+    });
+}
+
 function createProfileBootstrap(artifacts, productProgram, programs) {
     const inputs = requiredRecord(programs, 'Live profiler bootstrap programs are missing.');
     const sources = profileBootstrapSources(artifacts.sha256, artifacts.sourceUrl);
-    const content = [
-        evaluatedProgram(requiredText(inputs.gmProgram, 'Live profiler GM bootstrap is missing.'), sources.gm),
-        evaluatedProgram(requiredText(inputs.instrumentationProgram, 'Live profiler instrumentation is missing.'), sources.instrumentation),
-        evaluatedProgram(requiredText(productProgram, 'Live profiler product graph is missing.'), sources.product),
-        `//# sourceURL=${sources.bootstrap}`,
-    ].join('\n;\n');
-    return Object.freeze({ content, sources });
+    const staged = [
+        stagedProgram('gm', [], requiredText(inputs.gmProgram, 'Live profiler GM bootstrap is missing.')),
+        stagedProgram('instrumentation', ['gm'], requiredText(inputs.instrumentationProgram, 'Live profiler instrumentation is missing.')),
+        stagedProgram('product', ['gm', 'instrumentation'], requiredText(productProgram, 'Live profiler product graph is missing.')),
+    ];
+    const chromium = staged
+        .map((entry, index) => evaluatedProgram(entry, [sources.gm, sources.instrumentation, sources.product][index]))
+        .concat(`//# sourceURL=${sources.bootstrap}`)
+        .join('\n;\n');
+    const webkit = [...staged, `//# sourceURL=${sources.bootstrap}`].join('\n;\n');
+    return Object.freeze({
+        content: Object.freeze({ chromium, webkit }),
+        sources,
+        stateKey: BOOTSTRAP_STATE_KEY,
+    });
 }
 
 function profileBootstrapSources(graphSha256, product) {
@@ -402,6 +451,30 @@ function profileBootstrapSources(graphSha256, product) {
 
 function evaluatedProgram(program, sourceUrl) {
     return `(0, eval)(${JSON.stringify(`${program}\n//# sourceURL=${sourceUrl}`)});`;
+}
+
+function stagedProgram(stage, expectedCompleted, program) {
+    return [
+        bootstrapStageProgram(stage, 'start', expectedCompleted),
+        program,
+        bootstrapStageProgram(stage, 'complete', expectedCompleted),
+    ].join('\n;\n');
+}
+
+function bootstrapStageProgram(stage, phase, expectedCompleted) {
+    const expected = JSON.stringify(expectedCompleted);
+    const nextCompleted = JSON.stringify([...expectedCompleted, stage]);
+    return `(() => {
+        const key = ${JSON.stringify(BOOTSTRAP_STATE_KEY)};
+        const state = globalThis[key] ??= { current: '', completed: [], events: [] };
+        const expected = ${expected};
+        if (JSON.stringify(state.completed) !== JSON.stringify(expected)) {
+            throw new Error(${JSON.stringify(`Live profiler bootstrap order failed at ${stage}:${phase}.`)});
+        }
+        state.current = ${JSON.stringify(`${stage}:${phase}`)};
+        state.events.push({ stage: ${JSON.stringify(stage)}, phase: ${JSON.stringify(phase)} });
+        ${phase === 'complete' ? `state.completed = ${nextCompleted};` : ''}
+    })();`;
 }
 
 function completeLiveProfile(config, workload, artifacts, browserRegistry, results) {

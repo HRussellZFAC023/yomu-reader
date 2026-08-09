@@ -102,20 +102,38 @@ describe('live profile evidence contract', () => {
         })).toThrow(/exactly one yomuCss resource/u);
     });
 
-    it('attributes one ordered bootstrap to distinct harness and product sources', () => {
+    it('keeps Chromium source attribution and executes WebKit bootstrap directly in order', () => {
         const fixture = artifactFixture();
         const evidence = preflightEvidence(fixture);
         const bootstrap = evidence.bootstrap({
             gmProgram: 'globalThis.__bootstrapOrder = ["gm"]; function gmHarnessFunction() { return new Error().stack; } globalThis.gmHarnessFunction = gmHarnessFunction;',
             instrumentationProgram: 'globalThis.__bootstrapOrder.push("instrumentation");',
         });
-        const sandbox = {} as Record<string, any>;
+        const chromium = {} as Record<string, any>;
+        const webkit = {} as Record<string, any>;
 
-        runInNewContext(bootstrap.content, sandbox);
+        runInNewContext(bootstrap.content.chromium, chromium);
+        runInNewContext(bootstrap.content.webkit, webkit);
 
-        expect(sandbox.__bootstrapOrder).toEqual(['gm', 'instrumentation', 'product']);
-        expect(sandbox.gmHarnessFunction()).toContain(bootstrap.sources.gm);
-        expect(sandbox.productGraphFunction()).toContain(bootstrap.sources.product);
+        for (const sandbox of [chromium, webkit]) {
+            expect(sandbox.__bootstrapOrder).toEqual(['gm', 'instrumentation', 'product']);
+            expect(sandbox[bootstrap.stateKey]).toMatchObject({
+                current: 'product:complete',
+                completed: ['gm', 'instrumentation', 'product'],
+                events: [
+                    { stage: 'gm', phase: 'start' },
+                    { stage: 'gm', phase: 'complete' },
+                    { stage: 'instrumentation', phase: 'start' },
+                    { stage: 'instrumentation', phase: 'complete' },
+                    { stage: 'product', phase: 'start' },
+                    { stage: 'product', phase: 'complete' },
+                ],
+            });
+        }
+        expect(bootstrap.content.webkit).not.toContain('(0, eval)');
+        expect(bootstrap.content.chromium).toContain('(0, eval)');
+        expect(chromium.gmHarnessFunction()).toContain(bootstrap.sources.gm);
+        expect(chromium.productGraphFunction()).toContain(bootstrap.sources.product);
         const cpu = summarizeCpuProfile(cpuProfileForSources(bootstrap.sources), evidence.artifacts.descriptor);
         const coverage = summarizePreciseCoverage(coverageForSources(bootstrap.sources), evidence.artifacts.descriptor, []);
         expect(cpu).toMatchObject({ totalSampleCount: 2, sampleCount: 1 });
@@ -230,14 +248,34 @@ describe('live profile evidence contract', () => {
         expect(() => evidence.complete(results)).toThrow(/evidence is incomplete/u);
     });
 
-    it('fails unknown GM endpoints and serializes terminal failure evidence', () => {
+    it('classifies exact GM route methods, mocks providers, and fails closed otherwise', () => {
         const contract = profileContract();
-        expect(contract.classifyBridgeRequest('https://www.youtube.com/api/timedtext?lang=ja')).toBe('youtube-timedtext');
-        expect(contract.classifyBridgeRequest('https://jpdb.io/api/v1/parse?token=one')).toBe('jpdb-parse');
-        expect(contract.classifyBridgeRequest('https://jpdb.io/search?q=読む')).toBe('jpdb-search');
-        expect(() => contract.classifyBridgeRequest('https://jpdb.io/api/v1/parse/extra')).toThrow(/unrecognized GM request/u);
-        expect(() => contract.classifyBridgeRequest('http://jpdb.io/api/v1/parse')).toThrow(/unrecognized GM request/u);
-        expect(() => contract.classifyBridgeRequest('https://example.com/new-service')).toThrow(/unrecognized GM request/u);
+        const routes = [
+            [{ method: 'GET', url: 'https://www.youtube.com/api/timedtext?lang=ja' }, 'youtube-timedtext'],
+            [{ method: 'POST', url: 'https://jpdb.io/api/v1/parse?token=one' }, 'jpdb-parse'],
+            [{ method: 'POST', url: 'http://127.0.0.1:7331/ocr' }, 'ocr'],
+            [{ method: 'GET', url: 'https://jpdb.io/search?q=読む' }, 'jpdb-search'],
+            [{ method: 'GET', url: 'https://api.jiten.moe/api/vocabulary/parse?text=日本語' }, 'jiten-public-parse'],
+            [{ method: 'GET', url: 'https://api.jiten.moe/api/vocabulary/search?query=日本語&limit=10' }, 'jiten-vocabulary-search'],
+            [{ method: 'POST', url: 'https://api.bunpro.jp/api/frontend/search/reviewables_v1_1' }, 'bunpro-reviewables-search'],
+            [{ method: 'POST', url: 'https://jpdb.io/api/v1/list-user-decks' }, 'jpdb-list-user-decks'],
+        ] as const;
+        for (const [request, kind] of routes) expect(contract.classifyBridgeRequest(request)).toBe(kind);
+
+        expect(JSON.parse(contract.deterministicProviderResponse('jiten-public-parse').responseText)).toEqual([]);
+        expect(JSON.parse(contract.deterministicProviderResponse('jiten-vocabulary-search').responseText)).toEqual({ results: [] });
+        expect(JSON.parse(contract.deterministicProviderResponse('bunpro-reviewables-search').responseText)).toEqual({
+            grammar_points: { data: [] },
+            vocabs: { data: [] },
+        });
+        expect(JSON.parse(contract.deterministicProviderResponse('jpdb-list-user-decks').responseText)).toEqual({ decks: [] });
+        expect(contract.deterministicProviderResponse('jpdb-parse')).toBeNull();
+
+        expect(() => contract.classifyBridgeRequest({ method: 'GET', url: 'https://jpdb.io/api/v1/parse' })).toThrow(/unrecognized GM request/u);
+        expect(() => contract.classifyBridgeRequest({ method: 'POST', url: 'https://api.jiten.moe/api/vocabulary/parse' })).toThrow(/unrecognized GM request/u);
+        expect(() => contract.classifyBridgeRequest({ method: 'GET', url: 'https://jpdb.io/api/v1/parse/extra' })).toThrow(/unrecognized GM request/u);
+        expect(() => contract.classifyBridgeRequest({ method: 'POST', url: 'http://jpdb.io/api/v1/parse' })).toThrow(/unrecognized GM request/u);
+        expect(() => contract.classifyBridgeRequest({ method: 'GET', url: 'https://example.com/new-service' })).toThrow(/unrecognized GM request/u);
 
         const failure = contract.failure(new Error('browser launch failed'), { requestedRuns: ['chromium:none'] });
         expect(failure).toMatchObject({

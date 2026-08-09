@@ -158,8 +158,25 @@ describe('live profile run support', () => {
             absorbed = true;
         }
         expect(absorbed).toBe(true);
-        expect(ledger.snapshot()).toEqual([expect.objectContaining({ url: 'https://unknown.example/request' })]);
+        expect(ledger.snapshot()).toEqual([expect.objectContaining({ method: 'GET', url: 'https://unknown.example/request' })]);
         expect(() => ledger.assertEmpty()).toThrow(/unrecognized GM request/u);
+    });
+
+    it('captures bounded page errors, console errors, and the last bootstrap stage', () => {
+        const support = createLiveProfileRunSupport();
+        const diagnostics = support.browserDiagnostics();
+        const listeners = new Map<string, (value: any) => void>();
+        diagnostics.install({ on: (type: string, listener: (value: any) => void) => listeners.set(type, listener) });
+
+        listeners.get('console')?.({ type: () => 'warning', text: () => 'ignored' });
+        listeners.get('console')?.({ type: () => 'error', text: () => 'bootstrap console failure' });
+        listeners.get('pageerror')?.(Object.assign(new Error('product stage failed'), { stack: 'product-stack' }));
+
+        expect(diagnostics.summary({ bootstrap: { current: 'product:start', completed: ['gm', 'instrumentation'] } })).toEqual({
+            bootstrap: { current: 'product:start', completed: ['gm', 'instrumentation'] },
+            consoleErrors: ['bootstrap console failure'],
+            pageErrors: [{ name: 'Error', message: 'product stage failed', stack: 'product-stack' }],
+        });
     });
 
     it('ties ambient playback to wall duration and rejects tiny or stalled progress', () => {
