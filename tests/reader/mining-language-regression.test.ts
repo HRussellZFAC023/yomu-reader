@@ -149,9 +149,9 @@ describe('mining across target-language script classes', () => {
         });
         expect(corpus.mappings).toEqual({
             'ja-en': { expression: 'Japanese', reading: 'Reading', meaning: 'English', sentence: 'Example' },
-            'es-en': { expression: 'Spanish', meaning: 'English', sentence: 'Example' },
-            'ru-en': { expression: 'Russian', meaning: 'English', sentence: 'Example' },
-            'es-en-unnamed': { expression: 'Field1', meaning: null, sentence: 'Field3' },
+            'es-en': { expression: 'Spanish', reading: null, meaning: 'English', sentence: 'Example' },
+            'ru-en': { expression: 'Russian', reading: null, meaning: 'English', sentence: 'Example' },
+            'es-en-unnamed': { expression: 'Field1', reading: null, meaning: null, sentence: 'Field3' },
         });
         expect(corpus.notes['es-en']).toMatchObject({
             Spanish: 'español',
@@ -168,6 +168,23 @@ describe('mining across target-language script classes', () => {
             Reading: 'にほんご',
             English: expect.stringContaining('Japanese language'),
             Example: expect.stringContaining('今日は静かな喫茶店で'),
+        });
+    });
+
+    it('reports a supported dictionary-reading slot when the Anki model has no reading field', () => {
+        const fixture = MAPPING_FIXTURES.find(item => item.id === 'es-en')!;
+        setActiveLearningTargetLanguage(fixture.language);
+
+        const scan = scanAnkiModelFields(
+            'Generic mining fixture',
+            [...fixture.fields],
+            notes(fixture.fields, fixture.rows),
+        );
+
+        expect(scan.suggestions.find(suggestion => suggestion.role === 'reading')).toEqual({
+            role: 'reading',
+            fieldName: null,
+            confidence: 'low',
         });
     });
 });
