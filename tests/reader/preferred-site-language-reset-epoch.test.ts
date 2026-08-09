@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { scheduler } from 'node:timers/promises';
 import { installFreshManagedStateEpochSessionForTests } from '../../src/reader/app/managed-state-epoch';
 
 const EPOCH_KEY = 'yomu:state-epoch';
@@ -13,6 +14,13 @@ interface EpochRecord {
 }
 
 let disablePreference: (() => void) | undefined;
+
+function settleAsyncHandlers(): Promise<void> {
+    // The install API resolves after the epoch barrier while its async-only
+    // preference read can still be reconciling. Yield through Node's scheduler,
+    // outside the fakeable global timer APIs, so that promise chain can drain.
+    return scheduler.yield();
+}
 
 afterEach(() => {
     disablePreference?.();
@@ -105,8 +113,4 @@ function installGmStore(values: Map<string, unknown>): void {
     vi.stubGlobal('GM_setValue', vi.fn((key: string, value: unknown) => { values.set(key, value); }));
     vi.stubGlobal('GM_deleteValue', vi.fn((key: string) => { values.delete(key); }));
     vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
-}
-
-function settleAsyncHandlers(): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, 0));
 }
