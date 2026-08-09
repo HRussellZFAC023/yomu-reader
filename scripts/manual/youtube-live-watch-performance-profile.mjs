@@ -605,9 +605,15 @@ async function installNonInvasivePageInstrumentation(context) {
 async function bridgeResponse(request, journal) {
     const body = gmRequestFetchBody(request);
     const url = new URL(request.url);
-    journal.push({ url: `${url.origin}${url.pathname}`, method: request.method ?? 'GET', bytes: requestBodyBytes(body) });
+    const journalEntry = {
+        url: `${url.origin}${url.pathname}`,
+        method: request.method ?? 'GET',
+        bytes: requestBodyBytes(body),
+        caption: captionRequestDescriptor(url),
+    };
+    journal.push(journalEntry);
     if (url.hostname === 'www.youtube.com' && url.pathname === '/api/timedtext') {
-        return liveTextResponse(request);
+        return liveTextResponse(request, journalEntry);
     }
     if (url.href.startsWith('https://jpdb.io/api/v1/parse')) {
         const parsed = parseJsonBody(body);
@@ -626,9 +632,28 @@ async function bridgeResponse(request, journal) {
     return textResponse('', 'text/plain', 204);
 }
 
-async function liveTextResponse(request) {
+async function liveTextResponse(request, journalEntry) {
     const response = await fetch(request.url, { method: request.method ?? 'GET', redirect: 'follow' });
-    return textResponse(await response.text(), response.headers.get('content-type') ?? 'text/plain', response.status);
+    const responseText = await response.text();
+    journalEntry.response = {
+        status: response.status,
+        bytes: Buffer.byteLength(responseText),
+        format: timedTextBodyFormat(responseText),
+    };
+    return textResponse(responseText, response.headers.get('content-type') ?? 'text/plain', response.status);
+}
+
+function captionRequestDescriptor(url) {
+    if (url.hostname !== 'www.youtube.com' || url.pathname !== '/api/timedtext') return null;
+    return Object.fromEntries(['lang', 'tlang', 'kind', 'fmt'].map(key => [key, url.searchParams.get(key) ?? '']));
+}
+
+function timedTextBodyFormat(value) {
+    const body = value.trimStart();
+    if (!body) return 'empty';
+    if (body.startsWith('{')) return 'json';
+    if (body.startsWith('<')) return 'xml';
+    return 'text';
 }
 
 function installNetworkJournal(page, network) {
@@ -657,6 +682,9 @@ function networkSummary(network) {
 }
 
 function summarizeBridgeRequests(requests) {
+    const timedText = requests
+        .filter(request => request.caption)
+        .map(request => ({ ...request.caption, response: request.response ?? null }));
     return {
         count: requests.length,
         byEndpoint: Object.fromEntries(requests.reduce((counts, request) => {
@@ -664,6 +692,7 @@ function summarizeBridgeRequests(requests) {
             return counts;
         }, new Map())),
         requestBytes: requests.reduce((sum, request) => sum + request.bytes, 0),
+        timedText,
     };
 }
 

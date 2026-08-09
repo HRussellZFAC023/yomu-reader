@@ -181,7 +181,8 @@ describe('YouTube performance harness', () => {
         expect(source).toContain("Emulation.setCPUThrottlingRate");
         expect(source).toContain('Playwright/CDP exposes renderer work');
         expect(source).toContain('addUserscriptGraphInitScripts');
-        expect(source).toContain('return liveTextResponse(request)');
+        expect(source).toContain('return liveTextResponse(request, journalEntry)');
+        expect(source).toContain('format: timedTextBodyFormat(responseText)');
         expect(source).toContain("page.locator('.jpdb-ocr-layer .jpdb-ocr-line')");
         expect(source).not.toContain("page.route('**/*'");
     });
