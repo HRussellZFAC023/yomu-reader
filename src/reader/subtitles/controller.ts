@@ -2027,12 +2027,7 @@ export class SubtitlePlayerController {
     private tick(): void {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
-        if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
-        if (!this.subtitleRuntimeShouldTick(settings)) {
-            // Disabled with no bound video: the tick has nothing to housekeep.
-            // Park it (leave tickTimer undefined) so a backgrounded videoless
-            // page reaches a true zero-timer idle instead of re-arming a 1.5s
-            // wakeup forever; refresh() / video discovery calls wakeTick().
+        if (!this.tickPlayerAndShouldContinue(settings)) { // Refresh/discovery wakes the parked timer.
             this.tickTimer = undefined;
             return;
         }
@@ -2044,18 +2039,17 @@ export class SubtitlePlayerController {
         this.tickTimer = tickTimer;
     }
 
-    private subtitleRuntimeShouldTick(settings: ReaderSettings): boolean {
+    private tickPlayerAndShouldContinue(settings: ReaderSettings): boolean {
+        if (settings.subtitlePlayerEnabled && !document.hidden) this.tickSubtitlePlayer(settings);
         return settings.subtitlePlayerEnabled || Boolean(this.video);
     }
 
     private wakeTick(): void {
         if (this.destroyed || this.tickTimer !== undefined) return;
-        if (!this.subtitleRuntimeShouldTick(this.options.getSettings())) return;
         this.tick();
     }
 
-    // The active cadence is only needed while a video is actually playing;
-    // hidden tabs and videoless pages ticking that fast just drains battery.
+    // Idle cadence saves battery.
     private tickDelayMs(settings: ReaderSettings): number {
         if (document.hidden || !settings.subtitlePlayerEnabled || !this.video) return SUBTITLE_TICK_IDLE_MS;
         if (this.video.paused) return SUBTITLE_TICK_PAUSED_MS;

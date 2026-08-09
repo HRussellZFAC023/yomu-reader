@@ -4,7 +4,7 @@ import { uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
 import { jpOnlyOn, languageFamilyIncludes, syncLanguageFamilyDom } from '../settings/language-gating';
 import { settingsText } from '../settings/settings-text';
-import { changedSettingsKeys, defaultDictionaryLookupLinks, formatShortcutEvent, sanitizeAccentColor, saveSettings } from '../settings/index';
+import { changedSettingsKeys, defaultDictionaryLookupLinks, defaultLookupLinkMode, formatShortcutEvent, normalizeInterfaceLanguage, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { applyOverlayPageScale } from '../ui/page-scale';
@@ -56,8 +56,11 @@ interface OnboardingOptions {
     onPersistenceFailed?: (previousSettings: ReaderSettings) => void;
 }
 
-function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
-    return value === 'en' || value === 'ja' || value === 'auto' ? value : fallback;
+function selectedOnboardingLanguage(
+    select: HTMLSelectElement | undefined,
+    fallback: InterfaceLanguage,
+): InterfaceLanguage {
+    return normalizeInterfaceLanguage(select?.value, fallback);
 }
 
 export class OnboardingController {
@@ -341,14 +344,14 @@ export class OnboardingController {
         actions.append(dictionaries, setup);
 
         this.languageSelect.addEventListener('change', () => {
-            const language = normalizeLanguage(this.languageSelect?.value, this.options.getSettings().interfaceLanguage);
+            const language = selectedOnboardingLanguage(this.languageSelect, this.options.getSettings().interfaceLanguage);
             log.info('Onboarding language changed', { language });
             this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language });
             this.localize(language);
         });
         this.learnerLanguageSelect.addEventListener('change', () => {
             const learnerLanguage = selectedLearnerLanguage(
-                this.learnerLanguageSelect?.value,
+                this.learnerLanguageSelect,
                 onboardingLearnerLanguage(this.options.getSettings()),
             );
             const selected = learnerLanguageById(learnerLanguage);
@@ -474,8 +477,8 @@ export class OnboardingController {
             populateStudyTargetSelect(
                 this.targetLanguageSelect,
                 language,
-                selectedOnboardingTargetLanguage(
-                    this.targetLanguageSelect.value,
+                selectedTargetId(
+                    this.targetLanguageSelect,
                     onboardingTargetLanguage(this.options.getSettings()),
                 ),
             );
@@ -529,13 +532,13 @@ export class OnboardingController {
         const current = this.options.getSettings();
         const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
         const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
-        const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage);
+        const interfaceLanguage = selectedOnboardingLanguage(this.languageSelect, current.interfaceLanguage);
         const learnerLanguage = selectedLearnerLanguage(
-            this.learnerLanguageSelect?.value,
+            this.learnerLanguageSelect,
             onboardingLearnerLanguage(current),
         );
-        const targetLanguage = selectedOnboardingTargetLanguage(
-            this.targetLanguageSelect?.value,
+        const targetLanguage = selectedTargetId(
+            this.targetLanguageSelect,
             onboardingTargetLanguage(current),
         );
         const languageProfileSelection = updateActiveOnboardingLanguageProfile(
@@ -549,23 +552,28 @@ export class OnboardingController {
             onboardingSeen: true,
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
-            youtubeImmersionEnabled: this.youtubeImmersionChoiceTouched
-                ? this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled
-                : current.youtubeImmersionEnabled,
+            youtubeImmersionEnabled: checkboxValue(
+                this.youtubeImmersionInput,
+                current.youtubeImmersionEnabled,
+                this.youtubeImmersionChoiceTouched,
+            ),
             youtubeImmersionEnabledChosen:
                 current.youtubeImmersionEnabledChosen || this.youtubeImmersionChoiceTouched,
-            preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
+            preferJapaneseSiteLanguage: checkboxValue(
+                this.preferJapaneseSiteLanguageInput,
+                current.preferJapaneseSiteLanguage,
+            ),
             annotationsPaused: pageScanMode === 'off',
             manualScanEnabled: pageScanMode === 'manual',
             ocrEnabled: ocrMode !== 'off',
             ocrAutoScanImages: ocrMode === 'auto',
             shortcuts: {
                 ...current.shortcuts,
-                hoverLookup: this.hoverLookupShortcutInput?.value.trim() ?? current.shortcuts.hoverLookup,
-                scanPage: this.manualPageScanShortcutInput?.value.trim() ?? current.shortcuts.scanPage,
+                hoverLookup: shortcutValue(this.hoverLookupShortcutInput, current.shortcuts.hoverLookup),
+                scanPage: shortcutValue(this.manualPageScanShortcutInput, current.shortcuts.scanPage),
             },
             dictionaryLookupLinks: defaultDictionaryLookupLinks(
-                openSettings === true ? 'jpdb' : 'local',
+                defaultLookupLinkMode(openSettings === true),
                 targetLanguage,
             ),
             interfaceLanguage,
@@ -709,8 +717,16 @@ function selectedMode<T extends string>(inputs: HTMLInputElement[], fallback: T)
     return (inputs.find(input => input.checked)?.value as T | undefined) ?? fallback;
 }
 
-function normalizeLanguage(value: unknown, fallback: InterfaceLanguage): InterfaceLanguage {
-    return value === 'en' || value === 'ja' || value === 'auto' ? value : fallback;
+function shortcutValue(input: HTMLInputElement | undefined, fallback: string): string {
+    return input?.value.trim() ?? fallback;
+}
+
+function checkboxValue(
+    input: HTMLInputElement | undefined,
+    fallback: boolean,
+    useInput = true,
+): boolean {
+    return useInput ? input?.checked ?? fallback : fallback;
 }
 
 type OnboardingLanguageProfileCopy = {
@@ -750,9 +766,10 @@ function onboardingLearnerLanguage(settings: ReaderSettings): LearnerLanguageId 
 }
 
 function selectedLearnerLanguage(
-    value: string | undefined,
+    select: HTMLSelectElement | undefined,
     fallback: LearnerLanguageId,
 ): LearnerLanguageId {
+    const value = select?.value;
     return value && isLearnerLanguageId(value) ? value : fallback;
 }
 
@@ -761,11 +778,11 @@ function onboardingTargetLanguage(settings: ReaderSettings): LearningTargetRoste
     return learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja';
 }
 
-function selectedOnboardingTargetLanguage(
-    value: string | undefined,
+function selectedTargetId(
+    select: HTMLSelectElement | undefined,
     fallback: LearningTargetRosterId,
 ): LearningTargetRosterId {
-    const selected = learningTargetRosterIdForTag(value);
+    const selected = learningTargetRosterIdForTag(select?.value);
     return selected && isSelectableStudyTarget(selected) ? selected : fallback;
 }
 

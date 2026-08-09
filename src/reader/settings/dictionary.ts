@@ -487,7 +487,7 @@ function isRemovedBuiltInLookupLinkId(id: string): boolean {
     return id === REMOVED_GOO_LOOKUP_LINK_ID;
 }
 
-function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
+export function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
     return preferJpdb ? 'jpdb' : 'local';
 }
 

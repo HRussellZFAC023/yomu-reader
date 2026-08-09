@@ -87,12 +87,10 @@ export function targetCollationLocale(): LanguageTag {
     return activeLearningTarget().collationLocale;
 }
 
-/**
- * The subtitle language code that means "the target language". Used as the
- * translation destination when a track carries no language of its own.
- */
-export function targetSubtitleLanguageTag(): LanguageTag {
-    return activeLearningTarget().subtitles.languageTag;
+/** Translation destination: track tag, fallback tag, or active target. */
+export function targetSubtitleLanguageTag(track?: { targetLanguage?: string; language?: string }): LanguageTag {
+    if (!track) return activeLearningTarget().subtitles.languageTag;
+    return track.targetLanguage || track.language || activeLearningTarget().subtitles.languageTag;
 }
 
 /**

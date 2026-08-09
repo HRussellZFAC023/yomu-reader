@@ -68,13 +68,20 @@ async function loadTranslatedTrackCues<T extends SubtitleTrackLoadable>(
     throwIfSubtitleTrackLoadAborted(options.signal);
     const translatedCues = await translateSubtitleCues(
         sourceCues,
-        track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || 'en',
-        track.targetLanguage || track.language || targetSubtitleLanguageTag(),
+        translatedSourceTag(track, sourceTrack),
+        targetSubtitleLanguageTag(track),
         { signal: options.signal },
     );
     throwIfSubtitleTrackLoadAborted(options.signal);
     track.cues = translatedCues;
     return { track, cues: translatedCues };
+}
+
+function translatedSourceTag(
+    track: SubtitleTrackLoadable,
+    sourceTrack: SubtitleTrackLoadable,
+): string {
+    return track.sourceLanguage || sourceTrack.language || sourceTrack.sourceLanguage || 'en';
 }
 
 function isRemoteSubtitleTrack(track: SubtitleTrackLoadable): boolean {

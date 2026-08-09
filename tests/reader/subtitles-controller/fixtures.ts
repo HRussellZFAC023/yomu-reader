@@ -135,10 +135,10 @@ export function createSubtitleController<TSettings extends ReaderSettings>(
     const controller = new SubtitlePlayerController({
         getSettings: () => settings,
         parseJapanese: hooks.parseJapanese ?? (async () => []),
-        ...(hooks.parseJapaneseBatch ? { parseJapaneseBatch: hooks.parseJapaneseBatch } : {}),
-        ...(hooks.beforeRenderTokens ? { beforeRenderTokens: hooks.beforeRenderTokens } : {}),
-        ...(hooks.afterParseTokens ? { afterParseTokens: hooks.afterParseTokens } : {}),
-        ...(hooks.onTranscriptPanelClosed ? { onTranscriptPanelClosed: hooks.onTranscriptPanelClosed } : {}),
+        parseJapaneseBatch: hooks.parseJapaneseBatch,
+        beforeRenderTokens: hooks.beforeRenderTokens,
+        afterParseTokens: hooks.afterParseTokens,
+        onTranscriptPanelClosed: hooks.onTranscriptPanelClosed,
         onSettingsChange: hooks.onSettingsChange ?? (() => undefined),
     });
     return { settings, controller };

@@ -37,7 +37,7 @@ import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
-export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
+export { COPY_LOOKUP_LINK, MAX_EXTRA_LOOKUP_LINKS, MAX_LOOKUP_LINK_ROWS, defaultDictionaryLookupLinks, defaultLookupLinkMode, dictionaryLookupLinksForTarget, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences, retireStaleDictionaryPreferences } from './dictionary';
 export { NO_EXPLICIT_USER_CHOICE } from './intent-ledger';
 
 export const SETTINGS_STORAGE_KEY = 'jpdb-popup-reader-settings';
@@ -1362,8 +1362,8 @@ function normalizeAnkiTemplateMode(value: unknown): AnkiTemplateMode {
     return normalizeOption(value, ANKI_TEMPLATE_MODES, DEFAULT_SETTINGS.ankiTemplateMode);
 }
 
-function normalizeInterfaceLanguage(value: unknown): InterfaceLanguage {
-    return normalizeOption(value, INTERFACE_LANGUAGES, DEFAULT_SETTINGS.interfaceLanguage);
+export function normalizeInterfaceLanguage(value: unknown, fallback: InterfaceLanguage = DEFAULT_SETTINGS.interfaceLanguage): InterfaceLanguage {
+    return normalizeOption(value, INTERFACE_LANGUAGES, fallback);
 }
 
 function normalizeTheme(value: unknown): ReaderSettings['theme'] {

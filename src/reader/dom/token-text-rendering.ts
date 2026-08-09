@@ -143,23 +143,23 @@ export function nonOverlappingTokens(tokens: JPDBToken[], text: string): JPDBTok
 }
 
 function isSafeTokenSpan(token: JPDBToken, offset: number, text: string): boolean {
-    if (!Number.isInteger(token.start)
-        || !Number.isInteger(token.end)
-        || token.start < offset
-        || token.start < 0
-        || token.end <= token.start
-        || token.end > text.length) return false;
-    return tokenSourceSpanIsRenderable(token, text.slice(token.start, token.end));
+    const { start, end } = token;
+    return Number.isInteger(start)
+        && Number.isInteger(end)
+        && spanFitsText(start, end, offset, text)
+        && tokenSourceSpanIsRenderable(token, text.slice(start, end));
+}
+
+function spanFitsText(start: number, end: number, offset: number, text: string): boolean {
+    return start >= Math.max(0, offset)
+        && end > start
+        && end <= text.length;
 }
 
 function tokenSourceSpanIsRenderable(token: JPDBToken, source: string): boolean {
     const target = learningTargetForToken(token);
-    // Japanese's scan detector deliberately includes orthographic marks so a
-    // wider kana run remains discoverable. Those marks cannot own page text by
-    // themselves: rendering a parser token over `・` or `ー` would create a
-    // floating word/reading with no lexical base. Other target detectors are
-    // script-letter based, so their lookup predicate is already the narrower
-    // render-boundary predicate.
+    // Japanese scan detection accepts marks like `・`/`ー`; rendering still
+    // requires a lexical letter. Other targets' lookup predicates already do.
     return target.language === 'ja'
         ? HAS_JAPANESE_LETTER.test(source)
         : target.isLookupableText(source);
@@ -234,21 +234,21 @@ export function shouldRenderRuby(
 
 function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken, settings: ReaderSettings): boolean {
     if (mode === 'off') return false;
-    if (mode === 'hover') return true;
     if (mode === 'known-status') return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
-    if (mode !== 'difficult-kanji') return true;
-    // The curated difficulty list is a Japanese learning aid, not a universal
-    // script heuristic. Targets without the Japanese input Adapter keep their
-    // dictionary readings visible instead of silently losing all annotations.
-    return learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana'
-        || hasDifficultKanji(surface);
+    return mode !== 'difficult-kanji' || targetAllowsFurigana(surface, token);
 }
 
-function hasDifficultKanji(surface: string): boolean {
+function targetAllowsFurigana(surface: string, token: JPDBToken): boolean {
+    // Easy-kanji filtering is Japanese-only.
+    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana') return true;
     for (const char of surface) {
-        if (KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+        if (isDifficultKanji(char)) return true;
     }
     return false;
+}
+
+function isDifficultKanji(char: string): boolean {
+    return KANJI_RE.test(char) && !EASY_FURIGANA_KANJI.has(char);
 }
 
 export function readerWordClassName(
