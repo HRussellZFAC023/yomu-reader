@@ -105,6 +105,20 @@ describe('docs localization browser smoke readiness', () => {
         );
     });
 
+    it('uses successful documents plus route semantics instead of network idleness', () => {
+        const navigation = functionBody('navigateLocaleProof');
+
+        expect(SMOKE_SOURCE).not.toContain("waitUntil: 'networkidle'");
+        expect(navigation).toContain("waitUntil: 'domcontentloaded'");
+        expect(navigation).toContain('assert.ok(response?.ok()');
+        expect(SMOKE_SOURCE).toContain(
+            "await navigateLocaleProof(page, '/learn/reading', 'English reading route');",
+        );
+        expect(SMOKE_SOURCE).toContain(
+            "await navigateLocaleProof(page, '/privacy/', 'English privacy route');",
+        );
+    });
+
     it('preloads the same SRI-bound core that the hosted graph executes', () => {
         expect(DOCS_CONFIG_SOURCE).toContain("createHash('sha256')");
         expect(DOCS_CONFIG_SOURCE).toContain('integrity: hostedReaderCoreIntegrity');

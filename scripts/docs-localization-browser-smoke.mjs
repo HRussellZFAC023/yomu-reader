@@ -87,7 +87,7 @@ try {
     });
     await assertHostedLocaleIsolation(page, '/ja/', 'ja', 'Japanese homepage');
 
-    await page.goto(`${ORIGIN}/learn/reading`, { waitUntil: 'networkidle' });
+    await navigateLocaleProof(page, '/learn/reading', 'English reading route');
     await assertRoute(page, '/learn/reading', 'en');
     await assertLocaleHref(page, '日本語', '/ja/learn/reading');
     await assertRouteMetadata(page, '/learn/reading', 'en');
@@ -96,7 +96,7 @@ try {
     await assertRouteMetadata(page, '/ja/learn/reading', 'ja');
     await assertJapaneseThemeAccessibility(page);
 
-    await page.goto(`${ORIGIN}/privacy/`, { waitUntil: 'networkidle' });
+    await navigateLocaleProof(page, '/privacy/', 'English privacy route');
     await assertRoute(page, '/privacy/', 'en');
     await assertLocaleHref(page, '日本語', '/ja/');
     await chooseLocale(page, 'Change language', '/ja/');
