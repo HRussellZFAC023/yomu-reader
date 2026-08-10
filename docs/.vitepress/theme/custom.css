@@ -1702,6 +1702,32 @@ html.dark:has(.yomu-home) {
   word-break: keep-all;
 }
 
+/* The live language names do not all wrap to the same number of lines. Keep
+   every roster candidate in one hidden overlapping grid cell so the h1 always
+   reserves the real maximum at the current font and responsive width. The
+   visible frame can then rotate without moving the Try me surface below it. */
+.yomu-fold-h1[data-yomu-hero-rotator='on'],
+.yomu-home .yomu-fold-h1-reserve {
+  display: grid;
+}
+
+.yomu-home .yomu-fold-h1-reserve,
+.yomu-home .yomu-fold-h1-live,
+.yomu-home .yomu-fold-h1-reserve-candidate {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.yomu-home .yomu-fold-h1-reserve {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.yomu-home .yomu-fold-h1-live,
+.yomu-home .yomu-fold-h1-reserve-candidate {
+  align-self: start;
+}
+
 /* The rotating study target. Amber/vermillion is the page's guidance colour,
    so the one word that changes carries it; the entry nudge follows the page's
    rotation grammar. dir comes from the roster so RTL names (العربية) isolate

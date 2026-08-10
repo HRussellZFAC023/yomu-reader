@@ -8,6 +8,11 @@ const EXPECTED_ROUTE_FRAMES = Object.freeze({
     '/': { lang: 'en', staticHeading: EN_STATIC_HEADING, prefix: 'Read ', suffix: ' with Yomu.' },
     '/ja/': { lang: 'ja', staticHeading: JA_STATIC_HEADING, prefix: 'よむで', suffix: 'を読む。' },
 });
+const HOMEPAGE_TRY_ME_LOOKUP_SELECTOR = '.yomu-try-me-text .jpdb-reader-word'
+    + '[data-expression="今日"]'
+    + '[data-sentence="今日は静かな喫茶店で新しい本を読みました。"]'
+    + '[data-token-start="0"][data-token-end="2"]';
+const HERO_GEOMETRY_WIDTHS = [320, 375, 720, 721, 1024, 1280];
 const browser = await chromium.launch({ headless: true });
 
 try {
@@ -30,15 +35,19 @@ try {
     assert.equal(initialHtml.includes(EN_STATIC_HEADING), false, 'English headline leaked into initial Japanese HTML');
     await assertHomepage(page, '/ja/', 'ja');
     await assertNoWrongLanguageFrame(page);
+    await assertFoldPromptChrome(page, 'Japanese homepage');
+    const japaneseHeroGeometry = await assertHeroHeadlineReservation(page, 'Japanese homepage');
     await assertHostedRuntimeOrder(page, {
         surface: 'Japanese homepage',
-        annotationSelector: '.yomu-try-me-text .jpdb-reader-word',
-        exerciseLookup: true,
+        annotationSelector: HOMEPAGE_TRY_ME_LOOKUP_SELECTOR,
+        lookupExpression: '今日',
     });
 
     await chooseLocale(page, '言語を変更', '/');
     await assertHomepage(page, '/', 'en');
     await assertNoWrongLanguageFrame(page);
+    await assertFoldPromptChrome(page, 'English homepage');
+    const englishHeroGeometry = await assertHeroHeadlineReservation(page, 'English homepage');
 
     await chooseLocale(page, 'Change language', '/ja/');
     await assertHomepage(page, '/ja/', 'ja');
@@ -69,12 +78,13 @@ try {
     await assertHostedRuntimeOrder(page, {
         surface: 'Academy',
         annotationSelector: '.academy-root .academy-title[data-yomu-runtime-surface] .jpdb-reader-word',
-        exerciseLookup: false,
     });
     assert.deepEqual(hydrationMessages, [], `Vue hydration warning: ${hydrationMessages.join('\n')}`);
     assert.deepEqual(pageErrors, [], `Public page error: ${pageErrors.join('\n')}`);
 
-    console.log(`Docs locale browser smoke passed: SSR/hydration, route metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots).`);
+    console.log(
+        `Docs locale browser smoke passed: SSR/hydration, route metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots; hero geometry ${JSON.stringify({ ja: japaneseHeroGeometry, en: englishHeroGeometry })}).`,
+    );
 } finally {
     await browser.close();
 }
@@ -85,7 +95,9 @@ async function installFirstFrameProbe(page) {
         let scheduled = false;
         const capture = () => {
             scheduled = false;
-            const heading = document.querySelector('#yomu-home-title')?.textContent?.trim() ?? '';
+            const headingRoot = document.querySelector('#yomu-home-title');
+            const heading = (headingRoot?.querySelector('[data-yomu-hero-live]') ?? headingRoot)
+                ?.textContent?.trim() ?? '';
             if (!heading) return;
             window.__yomuLocaleFrames.push({
                 path: location.pathname,
@@ -124,8 +136,8 @@ async function chooseLocale(page, label, href) {
 async function assertHomepage(page, pathname, lang) {
     await page.waitForFunction(
         ({ pathname: expectedPath, lang: expectedLang, expected }) => {
-            const heading = document.querySelector('#yomu-home-title[data-yomu-hero-rotator="on"]')
-                ?.textContent?.trim() ?? '';
+            const headingRoot = document.querySelector('#yomu-home-title[data-yomu-hero-rotator="on"]');
+            const heading = headingRoot?.querySelector('[data-yomu-hero-live]')?.textContent?.trim() ?? '';
             return [
                 location.pathname === expectedPath,
                 document.documentElement.lang === expectedLang,
@@ -137,6 +149,94 @@ async function assertHomepage(page, pathname, lang) {
         { pathname, lang, expected: EXPECTED_ROUTE_FRAMES[pathname] },
     );
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
+async function assertHeroHeadlineReservation(page, surface) {
+    const originalViewport = page.viewportSize();
+    assert.ok(originalViewport, `${surface} has no viewport`);
+    const snapshots = [];
+    try {
+        for (const width of HERO_GEOMETRY_WIDTHS) {
+            await page.setViewportSize({ width, height: Math.max(originalViewport.height, 900) });
+            await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            const geometry = await page.evaluate(() => {
+                const heading = document.querySelector('#yomu-home-title[data-yomu-hero-rotator="on"]');
+                const reserve = heading.querySelector('[data-yomu-hero-reserve]');
+                const live = heading.querySelector('[data-yomu-hero-live]');
+                const candidates = Array.from(heading.querySelectorAll('[data-yomu-hero-candidate]'));
+                const heights = candidates.map(candidate => candidate.getBoundingClientRect().height);
+                const lineHeight = Number.parseFloat(getComputedStyle(heading).lineHeight);
+                const maxCandidateHeight = Math.max(...heights);
+                return {
+                    declaredCount: Number(heading.getAttribute('data-yomu-hero-candidate-count')),
+                    candidateCount: candidates.length,
+                    uniqueCandidateCount: new Set(candidates.map(candidate => candidate.getAttribute('data-yomu-hero-candidate'))).size,
+                    headingHeight: heading.getBoundingClientRect().height,
+                    reserveHeight: reserve.getBoundingClientRect().height,
+                    liveHeight: live.getBoundingClientRect().height,
+                    liveText: live.textContent.trim(),
+                    accessibleName: heading.getAttribute('aria-label'),
+                    reserveAriaHidden: reserve.getAttribute('aria-hidden'),
+                    reserveIgnored: reserve.getAttribute('data-jpdb-reader-surface-ignore'),
+                    reservePointerEvents: getComputedStyle(reserve).pointerEvents,
+                    maxCandidateHeight,
+                    maxLines: Math.round(maxCandidateHeight / lineHeight),
+                };
+            });
+            assert.ok(geometry.declaredCount > 1, `${surface} has no measured language roster`);
+            assert.equal(geometry.candidateCount, geometry.declaredCount, `${surface} omitted a sizing candidate at ${width}px`);
+            assert.equal(geometry.uniqueCandidateCount, geometry.declaredCount, `${surface} duplicated a sizing candidate at ${width}px`);
+            assert.ok(geometry.maxCandidateHeight > 0, `${surface} candidates have no geometry at ${width}px`);
+            assert.ok(geometry.liveText, `${surface} has no current live heading at ${width}px`);
+            assert.equal(geometry.accessibleName, geometry.liveText, `${surface} accessible heading is not exactly its live sentence at ${width}px`);
+            assert.equal(geometry.reserveAriaHidden, 'true', `${surface} sizing candidates are exposed to accessibility at ${width}px`);
+            assert.equal(geometry.reserveIgnored, 'true', `${surface} sizing candidates are lookupable at ${width}px`);
+            assert.equal(geometry.reservePointerEvents, 'none', `${surface} sizing candidates intercept pointers at ${width}px`);
+            assert.ok(
+                Math.abs(geometry.reserveHeight - geometry.maxCandidateHeight) <= 0.75,
+                `${surface} reserve does not equal its tallest candidate at ${width}px`,
+            );
+            assert.ok(
+                Math.abs(geometry.headingHeight - geometry.reserveHeight) <= 0.75,
+                `${surface} heading does not reserve the roster maximum at ${width}px`,
+            );
+            assert.ok(
+                geometry.liveHeight <= geometry.reserveHeight + 0.75,
+                `${surface} live headline exceeds its reserve at ${width}px`,
+            );
+            snapshots.push({
+                width,
+                candidates: geometry.candidateCount,
+                maxLines: geometry.maxLines,
+                height: geometry.reserveHeight,
+            });
+        }
+    } finally {
+        await page.setViewportSize(originalViewport);
+        await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    }
+    return snapshots;
+}
+
+async function assertFoldPromptChrome(page, surface) {
+    const state = await page.evaluate(() => {
+        const prompt = document.querySelector('[data-yomu-fold-prompt]');
+        const fallback = prompt.querySelector('.yomu-fold-prompt-fallback');
+        return {
+            ignored: prompt.getAttribute('data-jpdb-reader-surface-ignore'),
+            ariaHidden: prompt.getAttribute('aria-hidden'),
+            promptPointerEvents: getComputedStyle(prompt).pointerEvents,
+            fallbackTag: fallback.tagName,
+            fallbackHref: fallback.getAttribute('href'),
+            fallbackPointerEvents: getComputedStyle(fallback).pointerEvents,
+        };
+    });
+    assert.equal(state.ignored, 'true', `${surface} prompt is not isolated from Reader annotation`);
+    assert.equal(state.ariaHidden, null, `${surface} prompt is hidden from accessibility`);
+    assert.notEqual(state.promptPointerEvents, 'none', `${surface} prompt cannot receive pointers`);
+    assert.equal(state.fallbackTag, 'A', `${surface} fallback is not a native link`);
+    assert.equal(state.fallbackHref, '#read', `${surface} fallback lost its native destination`);
+    assert.notEqual(state.fallbackPointerEvents, 'none', `${surface} fallback link cannot receive pointers`);
 }
 
 async function assertRoute(page, pathname, lang) {
@@ -220,7 +320,7 @@ function dynamicHeadingMatches(heading, expected) {
     ].every(Boolean);
 }
 
-async function assertHostedRuntimeOrder(page, { surface, annotationSelector, exerciseLookup }) {
+async function assertHostedRuntimeOrder(page, { surface, annotationSelector, lookupExpression }) {
     await page.waitForFunction(() =>
         document.querySelector('#jpdb-reader-runtime-owner[data-yomu-runtime-health="ready"]'),
     null,
@@ -244,10 +344,167 @@ async function assertHostedRuntimeOrder(page, { surface, annotationSelector, exe
     if (surface === 'Academy') await assertAcademyRuntimeRevision(page);
     const annotatedWord = page.locator(annotationSelector).first();
     await annotatedWord.waitFor({ state: 'visible', timeout: 20_000 });
-    if (!exerciseLookup) return;
-    await annotatedWord.hover();
-    await page.locator('.jpdb-reader-popover').first().waitFor({ state: 'visible', timeout: 8_000 });
+    if (!lookupExpression) return;
+    await assertOwnedHoverLookup(page, annotatedWord, annotationSelector, lookupExpression);
     await page.keyboard.press('Escape');
+}
+
+async function assertOwnedHoverLookup(page, target, selector, expectedExpression) {
+    await target.scrollIntoViewIfNeeded();
+    const box = await target.boundingBox();
+    assert.ok(box && box.width > 0 && box.height > 0, `${expectedExpression} has no pointer geometry`);
+    const center = {
+        x: box.x + box.width / 2,
+        y: box.y + box.height / 2,
+    };
+    const initialHeading = (await page.locator('#yomu-home-title [data-yomu-hero-live]').textContent())?.trim();
+    assert.ok(initialHeading, 'homepage hero rotator has no heading');
+    const ownsCenter = await page.evaluate(({ selector: targetSelector, x, y }) => {
+        const lookupTarget = document.querySelector(targetSelector);
+        const hit = document.elementFromPoint(x, y);
+        return Boolean(hit && lookupTarget?.contains(hit));
+    }, { selector, ...center });
+    assert.ok(ownsCenter, `${expectedExpression} does not own its visible center`);
+
+    // Arm before the one real pointer move. Once the exact target first owns the
+    // hover, every painted frame must keep it: the probe latches a transient loss
+    // instead of letting a later return to the same coordinates hide the reflow.
+    await page.mouse.move(0, 0);
+    await page.evaluate(({ selector: targetSelector, x, y }) => {
+        const probe = {
+            running: true,
+            started: false,
+            lost: false,
+            rotated: false,
+            samples: 0,
+            headingAtStart: '',
+            ownsPointer: false,
+            startGeometry: null,
+            lossGeometry: null,
+        };
+        window.__yomuTryMeOwnershipProbe = probe;
+        const targetOwnsPointer = () => {
+            const lookupTarget = document.querySelector(targetSelector);
+            const hit = document.elementFromPoint(x, y);
+            if (!lookupTarget) return false;
+            if (!hit) return false;
+            if (!lookupTarget.contains(hit)) return false;
+            return lookupTarget.matches(':hover');
+        };
+        const headingText = () => {
+            const heading = document.querySelector('#yomu-home-title [data-yomu-hero-live]');
+            if (!heading) return '';
+            return (heading.textContent || '').trim();
+        };
+        const pointGeometry = () => {
+            const lookupTarget = document.querySelector(targetSelector);
+            const hit = document.elementFromPoint(x, y);
+            const heading = document.querySelector('#yomu-home-title');
+            const foldLive = document.querySelector('.yomu-fold-live');
+            const prompt = document.querySelector('[data-yomu-fold-prompt]');
+            const sample = document.querySelector('.yomu-fold-try');
+            const targetRect = lookupTarget.getBoundingClientRect();
+            const headingRect = heading.getBoundingClientRect();
+            const foldLiveRect = foldLive.getBoundingClientRect();
+            const promptRect = prompt.getBoundingClientRect();
+            const sampleRect = sample.getBoundingClientRect();
+            return {
+                targetTop: targetRect.top,
+                targetBottom: targetRect.bottom,
+                headingTop: headingRect.top,
+                headingBottom: headingRect.bottom,
+                headingHeight: headingRect.height,
+                foldLiveTop: foldLiveRect.top,
+                promptTop: promptRect.top,
+                promptHeight: promptRect.height,
+                promptText: prompt.textContent.trim(),
+                promptMissing: prompt.hasAttribute('data-yomu-runtime-missing'),
+                sampleTop: sampleRect.top,
+                scrollY,
+                hitTag: hit.tagName,
+                hitClass: hit.getAttribute('class'),
+                heading: headingText(),
+            };
+        };
+        const startProbe = (ownsPointer, heading) => {
+            if (probe.started) return;
+            if (!ownsPointer) return;
+            if (!heading) return;
+            probe.started = true;
+            probe.headingAtStart = heading;
+            probe.startGeometry = pointGeometry();
+        };
+        const recordSample = () => {
+            if (probe.started) probe.samples += 1;
+        };
+        const recordLoss = ownsPointer => {
+            if (!probe.started) return;
+            if (ownsPointer) return;
+            if (!probe.lost) probe.lossGeometry = pointGeometry();
+            probe.lost = true;
+        };
+        const recordRotation = heading => {
+            if (!probe.started) return;
+            if (!heading) return;
+            if (heading !== probe.headingAtStart) probe.rotated = true;
+        };
+        const sample = () => {
+            if (!probe.running) return;
+            const ownsPointer = targetOwnsPointer();
+            const heading = headingText();
+            probe.ownsPointer = ownsPointer;
+            startProbe(ownsPointer, heading);
+            recordSample();
+            recordLoss(ownsPointer);
+            recordRotation(heading);
+            requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+    }, { selector, ...center });
+    await page.mouse.move(center.x, center.y);
+    await page.waitForFunction(
+        ({ expectedExpression: expression }) => {
+            const popoverMatches = popover => {
+                const rect = popover.getBoundingClientRect();
+                const style = getComputedStyle(popover);
+                const spelling = popover.querySelector('.jpdb-reader-spelling');
+                let spellingText = '';
+                if (spelling) spellingText = spelling.textContent || '';
+                return [
+                    rect.width > 0,
+                    rect.height > 0,
+                    style.display !== 'none',
+                    style.visibility !== 'hidden',
+                    spellingText.includes(expression),
+                ].every(Boolean);
+            };
+            const probePassed = () => {
+                const probe = window.__yomuTryMeOwnershipProbe;
+                if (!probe) return false;
+                return [
+                    probe.started,
+                    probe.rotated,
+                    probe.samples,
+                    probe.ownsPointer,
+                    !probe.lost,
+                ].every(Boolean);
+            };
+            const popovers = Array.from(document.querySelectorAll('.jpdb-reader-popover'));
+            return [
+                probePassed(),
+                popovers.some(popoverMatches),
+            ].every(Boolean);
+        },
+        { expectedExpression },
+        { timeout: 8_000 },
+    ).catch(async error => {
+        const probe = await page.evaluate(() => window.__yomuTryMeOwnershipProbe);
+        throw new Error(`Try Me ownership did not settle: ${JSON.stringify(probe)}`, { cause: error });
+    });
+    await page.evaluate(() => {
+        const probe = window.__yomuTryMeOwnershipProbe;
+        if (probe) probe.running = false;
+    });
 }
 
 async function navigateToAcademyShell(page) {

@@ -907,18 +907,18 @@ function installHostedHeroLanguageRotator(): void {
     // The rotator owns the headline from here on. Static route localisation has
     // already supplied the correct language before hydration.
     heading.dataset.yomuLocalize = 'off';
+    heading.dataset.yomuHeroCandidateCount = String(languages.length);
+    const sizingLayer = buildHostedHeroSizingLayer(languages);
+    const liveFrame = document.createElement('span');
+    liveFrame.className = 'yomu-fold-h1-live';
+    liveFrame.dataset.yomuHeroLive = '';
+    heading.replaceChildren(sizingLayer, liveFrame);
     let index = 0;
     const render = () => {
         if (!heading.isConnected) return;
-        const [before, after] = HOSTED_HERO_HEADLINES[activeWebsiteLocale()];
         const language = languages[index];
-        // A fresh span every tick so the entry animation replays.
-        const word = document.createElement('span');
-        word.className = 'yomu-fold-h1-lang';
-        word.lang = language.locale;
-        word.dir = language.direction;
-        word.textContent = language.nativeName;
-        heading.replaceChildren(document.createTextNode(before), word, document.createTextNode(after));
+        renderHostedHeroFrame(liveFrame, language, true);
+        heading.setAttribute('aria-label', (liveFrame.textContent || '').trim());
     };
     render();
     window.setInterval(() => {
@@ -926,6 +926,36 @@ function installHostedHeroLanguageRotator(): void {
         index = (index + 1) % languages.length;
         render();
     }, HOSTED_HERO_ROTATION_MS);
+}
+
+function buildHostedHeroSizingLayer(languages: readonly HostedHeroStudyLanguage[]): HTMLElement {
+    const layer = document.createElement('span');
+    layer.className = 'yomu-fold-h1-reserve';
+    layer.dataset.yomuHeroReserve = '';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.setAttribute('data-jpdb-reader-surface-ignore', 'true');
+    for (const language of languages) {
+        const candidate = document.createElement('span');
+        candidate.className = 'yomu-fold-h1-reserve-candidate';
+        candidate.dataset.yomuHeroCandidate = language.id;
+        renderHostedHeroFrame(candidate, language, false);
+        layer.append(candidate);
+    }
+    return layer;
+}
+
+function renderHostedHeroFrame(
+    frame: HTMLElement,
+    language: HostedHeroStudyLanguage,
+    animated: boolean,
+): void {
+    const [before, after] = HOSTED_HERO_HEADLINES[activeWebsiteLocale()];
+    const word = document.createElement('span');
+    word.className = animated ? 'yomu-fold-h1-lang' : 'yomu-fold-h1-reserve-lang';
+    word.lang = language.locale;
+    word.dir = language.direction;
+    word.textContent = language.nativeName;
+    frame.replaceChildren(document.createTextNode(before), word, document.createTextNode(after));
 }
 
 // The fold's live line is pre-annotated static markup, so it still looks
