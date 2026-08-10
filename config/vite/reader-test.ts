@@ -6,6 +6,8 @@ export function readerTestConfig(
     env: TestConfigEnv = process.env,
     parallelism = availableParallelism(),
 ) {
+    const workers = readMaxWorkers(env, parallelism);
+
     return {
         environment: 'jsdom',
         include: ['tests/reader/**/*.test.ts'],
@@ -21,7 +23,8 @@ export function readerTestConfig(
         // Keep the default at the top-level Vitest option. A pool-specific
         // maxForks takes precedence over --maxWorkers, which made the release
         // runner's advertised one-worker limit silently launch one fork per core.
-        maxWorkers: readMaxWorkers(env, parallelism),
+        minWorkers: 1,
+        maxWorkers: workers,
         poolOptions: {
             forks: {
                 // Direct, targeted, sharded, and release-gate commands are
