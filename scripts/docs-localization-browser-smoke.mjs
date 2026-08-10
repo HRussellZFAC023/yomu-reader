@@ -16,7 +16,14 @@ const HERO_GEOMETRY_WIDTHS = [320, 375, 720, 721, 1024, 1280];
 const browser = await chromium.launch({ headless: true });
 
 try {
-    const page = await browser.newPage();
+    // VitePress preview dynamically Brotli-compresses eligible large text
+    // responses. Its single-process encoder spends tens of seconds on Academy's
+    // deliberately readable application bundle. That is a preview-server artifact,
+    // not product readiness. Gzip keeps compressed transport coverage while
+    // leaving the semantic DOM/runtime assertions below as the readiness gate.
+    const page = await browser.newPage({
+        extraHTTPHeaders: { 'Accept-Encoding': 'gzip' },
+    });
     const hydrationMessages = [];
     const pageErrors = [];
     page.on('console', message => {
@@ -71,7 +78,7 @@ try {
     const frames = await page.evaluate(() => window.__yomuLocaleFrames?.length ?? 0);
     assert.ok(frames >= 1, 'first-frame probe did not observe the final route rendering');
 
-    await navigateToAcademyShell(page);
+    await navigateToAcademyShell(page, { assertPreviewTransport: true });
     await assertAcademyReaderCold(page);
     await page.evaluate(() => localStorage.setItem('yomu:academy:language:v1', 'ja'));
     await navigateToAcademyShell(page);
@@ -507,15 +514,28 @@ async function assertOwnedHoverLookup(page, target, selector, expectedExpression
     });
 }
 
-async function navigateToAcademyShell(page) {
+async function navigateToAcademyShell(page, { assertPreviewTransport = false } = {}) {
     // Academy registers its offline worker as soon as the shell loads. The
     // first install intentionally precaches hundreds of lesson and voice
     // assets, so transport-level network idleness is neither bounded nor a
     // product-readiness signal. The assertions after navigation own readiness:
     // English waits for its visible cold shell; Japanese waits for the hosted
     // runtime health marker, dependency order, and an annotated word.
-    const response = await page.goto(`${ORIGIN}/academy/`, { waitUntil: 'domcontentloaded' });
+    const applicationResponse = assertPreviewTransport
+        ? page.waitForResponse(candidate => new URL(candidate.url()).pathname === '/academy/app.js')
+        : null;
+    const navigation = page.goto(`${ORIGIN}/academy/`, { waitUntil: 'domcontentloaded' });
+    const [response, application] = applicationResponse
+        ? await Promise.all([navigation, applicationResponse])
+        : [await navigation, null];
     assert.ok(response?.ok(), 'Academy route response failed');
+    if (!application) return;
+    assert.ok(application.ok(), 'Academy application response failed');
+    assert.equal(
+        application.headers()['content-encoding'],
+        'gzip',
+        'Docs preview ignored the smoke transport and may be dynamically Brotli-encoding Academy',
+    );
 }
 
 async function assertAcademyRuntimeRevision(page) {

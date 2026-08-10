@@ -15,25 +15,37 @@ function functionBody(name: string): string {
 }
 
 describe('docs localization browser smoke readiness', () => {
+    it('uses deterministic compressed preview transport without weakening readiness', () => {
+        const navigation = functionBody('navigateToAcademyShell');
+
+        expect(SMOKE_SOURCE).toContain("extraHTTPHeaders: { 'Accept-Encoding': 'gzip' }");
+        expect(SMOKE_SOURCE).toContain('assertPreviewTransport: true');
+        expect(navigation).toMatch(
+            /assert\.equal\(\s*application\.headers\(\)\['content-encoding'\],\s*'gzip'/u,
+        );
+    });
+
     it('does not make Academy readiness depend on its offline precache becoming idle', () => {
         const navigation = functionBody('navigateToAcademyShell');
 
         expect(navigation).toContain("waitUntil: 'domcontentloaded'");
         expect(navigation).not.toContain("waitUntil: 'networkidle'");
         expect(navigation).toContain("assert.ok(response?.ok(), 'Academy route response failed')");
-        expect(SMOKE_SOURCE.match(/await navigateToAcademyShell\(page\);/gu)).toHaveLength(2);
+        expect(SMOKE_SOURCE.match(
+            /await navigateToAcademyShell\(page(?:, \{ assertPreviewTransport: true \})?\);/gu,
+        )).toHaveLength(2);
     });
 
     it('keeps semantic cold-shell and hosted-runtime readiness assertions after navigation', () => {
         const academyFlow = SMOKE_SOURCE.slice(
-            SMOKE_SOURCE.indexOf('await navigateToAcademyShell(page);'),
+            SMOKE_SOURCE.indexOf('await navigateToAcademyShell(page, { assertPreviewTransport: true });'),
             SMOKE_SOURCE.indexOf('assert.deepEqual(hydrationMessages'),
         );
         const coldAssertion = functionBody('assertAcademyReaderCold');
         const runtimeAssertion = functionBody('assertHostedRuntimeOrder');
 
         expect(academyFlow).toMatch(
-            /navigateToAcademyShell\(page\);[\s\S]*assertAcademyReaderCold\(page\);[\s\S]*navigateToAcademyShell\(page\);[\s\S]*assertHostedRuntimeOrder\(page,/u,
+            /navigateToAcademyShell\(page, \{ assertPreviewTransport: true \}\);[\s\S]*assertAcademyReaderCold\(page\);[\s\S]*navigateToAcademyShell\(page\);[\s\S]*assertHostedRuntimeOrder\(page,/u,
         );
         expect(coldAssertion).toContain(".academy-root').waitFor({ state: 'visible' })");
         expect(runtimeAssertion).toContain("data-yomu-runtime-health=\"ready\"");
