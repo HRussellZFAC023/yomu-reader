@@ -1,10 +1,12 @@
 import { yomuVideoCompanionSlot } from '../companions/registry';
+import { isHostedReaderRuntime } from './runtime-presence';
 
 // The Japanese-site-language machinery (locale hints, cookie preferences,
 // alternate-link redirects, per-site rules) ships in the Yomu Video companion
 // (ADR-0003 size budget); without the companion the preference simply does
 // nothing, which is the correct degraded state.
 export async function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promise<void> {
+    if (isHostedReaderRuntime()) return;
     await yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
 
@@ -14,12 +16,13 @@ export function applyPreferredJapaneseSiteLanguage(
     deferCookieResponseReloadUntilPersisted = false,
     targetLanguage = 'ja',
 ): void {
-    const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
-    if (deferCookieResponseReloadUntilPersisted) {
-        apply?.(enabled, revertOnDisable, true, targetLanguage);
-        return;
-    }
-    apply?.(enabled, revertOnDisable, false, targetLanguage);
+    if (isHostedReaderRuntime()) return;
+    yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(
+        enabled,
+        revertOnDisable,
+        deferCookieResponseReloadUntilPersisted,
+        targetLanguage,
+    );
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: Parameters<typeof import('./preferred-site-language-impl').preferredJapaneseSiteUrl>[1]): string | null {

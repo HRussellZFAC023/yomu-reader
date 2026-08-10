@@ -1324,11 +1324,21 @@ describe('settings dialog keyboard dismissal', () => {
     });
 
     it('persists a Japanese-sites opt-out before reporting the settings saved', async () => {
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            preferJapaneseSiteLanguage: true,
+        };
         const onSettingsPersisted = vi.fn();
-        const { dismiss, form } = createSettingsDialog({ onSettingsPersisted });
+        const { dismiss, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            onSettingsPersisted,
+        });
         const preferJapaneseSites = form.querySelector<HTMLInputElement>(
             'input[name="preferJapaneseSiteLanguage"]',
         )!;
+        expect(preferJapaneseSites.checked).toBe(true);
         preferJapaneseSites.checked = false;
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));

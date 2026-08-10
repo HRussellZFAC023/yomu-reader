@@ -3,9 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { readerWordSurfaceText } from '../../src/reader/dom/reader-word';
 
 const SMOKE_SOURCE = readFileSync('scripts/docs-localization-browser-smoke.mjs', 'utf8');
+const DOCS_CONFIG_SOURCE = readFileSync('docs/.vitepress/config.mts', 'utf8');
 const HOME_SOURCE = readFileSync('docs/index.md', 'utf8');
 const THEME_SOURCE = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
 const THEME_CSS = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
+const USERSCRIPT_ENTRY_SOURCE = readFileSync('src/reader/userscript/entry.ts', 'utf8');
+const STUDY_ENTRY_SOURCE = readFileSync('src/reader/newtab/entry.ts', 'utf8');
+const ACADEMY_ENTRY_SOURCE = readFileSync('src/academy/entrypoint.ts', 'utf8');
 
 function functionBody(name: string): string {
     const start = SMOKE_SOURCE.indexOf(`async function ${name}(`);
@@ -15,14 +19,96 @@ function functionBody(name: string): string {
 }
 
 describe('docs localization browser smoke readiness', () => {
+    it('gates userscript side effects behind installed or hosted ownership', () => {
+        const gate = 'if (installedRuntime || (docEl && shouldInstallHostedReaderRuntime())) {';
+        const gateStart = USERSCRIPT_ENTRY_SOURCE.indexOf(gate);
+        const gateEnd = USERSCRIPT_ENTRY_SOURCE.indexOf('\n}\n\nfunction bootWhenDocumentIsReady', gateStart);
+        const guardedBoot = USERSCRIPT_ENTRY_SOURCE.slice(gateStart, gateEnd);
+
+        expect(USERSCRIPT_ENTRY_SOURCE).toContain('const installedRuntime = announceInstalledReaderRuntime();');
+        expect(USERSCRIPT_ENTRY_SOURCE).toContain('const docEl = document.documentElement;');
+        expect(gateStart).toBeGreaterThan(
+            USERSCRIPT_ENTRY_SOURCE.indexOf('const installedRuntime = announceInstalledReaderRuntime();'),
+        );
+        expect(gateEnd).toBeGreaterThan(gateStart);
+        expect(guardedBoot).toContain("if (!installedRuntime) docEl.dataset.yomuHosted = '';");
+        expect(guardedBoot).toContain('installPreferredJapaneseSiteLanguageFromStoredSettings()');
+        expect(guardedBoot).toContain('applyMokuroReaderOcrDefault()');
+        expect(guardedBoot).toContain('installUserscriptHttpBridgeWhenReady()');
+        expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady()');
+        expect(guardedBoot).toContain('promoteStrandedHostedSettingsToGmStorage()');
+        expect(guardedBoot).toContain('installPageOpenShadowRootDiscoveryBridge()');
+        expect(guardedBoot).toContain('bootWhenDocumentIsReady()');
+        expect(USERSCRIPT_ENTRY_SOURCE).toContain(
+            'if (installedRuntime && !yomuNewTab) delete docEl?.dataset.yomuHosted;',
+        );
+    });
+
+    it('marks page-owned Study and Academy policy before either app starts', () => {
+        const studyMark = "if (!detectInstalledReaderRuntime()) document.documentElement.dataset.yomuHosted = '';";
+        const academyMark = "if (shouldInstallHostedReaderRuntime()) document.documentElement.dataset.yomuHosted = '';";
+
+        expect(STUDY_ENTRY_SOURCE).toContain(studyMark);
+        expect(STUDY_ENTRY_SOURCE.indexOf(studyMark))
+            .toBeLessThan(STUDY_ENTRY_SOURCE.indexOf('bootNewTabRuntime()'));
+        expect(ACADEMY_ENTRY_SOURCE).toContain(academyMark);
+        expect(ACADEMY_ENTRY_SOURCE.indexOf(academyMark))
+            .toBeLessThan(ACADEMY_ENTRY_SOURCE.indexOf('void app.start()'));
+    });
+
+    it('runs one current hosted-locale contract in Chromium and Firefox', () => {
+        const localeIsolation = functionBody('assertHostedLocaleIsolation');
+        const contaminated = functionBody('assertContaminatedHostedContextStaysEnglish');
+        const installed = functionBody('assertInstalledRuntimePreservesStoredState');
+        const studyFirst = functionBody('assertStudyDoesNotContaminateRoot');
+        const academyFirst = functionBody('assertAcademyDoesNotContaminateRoot');
+        const firstRoot = SMOKE_SOURCE.indexOf("page.goto(`${ORIGIN}/`, { waitUntil: 'domcontentloaded' })");
+
+        expect(SMOKE_SOURCE).toContain("import { chromium, firefox } from 'playwright'");
+        expect(SMOKE_SOURCE).toContain("const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium'");
+        expect(SMOKE_SOURCE).toContain("url.hostname = 'yomureader.localhost'");
+        expect(SMOKE_SOURCE).toContain("locale: 'en-GB'");
+        expect(SMOKE_SOURCE).toContain("assertServerRenderedLocale('/', EN_STATIC_HEADING, JA_STATIC_HEADING, 'English')");
+        expect(SMOKE_SOURCE).toContain("assertServerRenderedLocale('/ja/', JA_STATIC_HEADING, EN_STATIC_HEADING, 'Japanese')");
+        expect(firstRoot).toBeGreaterThan(-1);
+        expect(firstRoot).toBeLessThan(SMOKE_SOURCE.indexOf("chooseLocale(page, 'Change language', '/ja/')"));
+        expect(localeIsolation).toContain("page.locator('html[data-yomu-hosted]')");
+        expect(localeIsolation).toContain('page.evaluate(readLocalePolicySnapshot)');
+        expect(SMOKE_SOURCE).toContain("localStorage.getItem('yomu:prefer-japanese-site-language:v1')");
+        expect(SMOKE_SOURCE).toContain("localStorage.getItem('yomu:prefer-japanese-site-language')");
+        expect(SMOKE_SOURCE).toContain("sessionStorage.getItem('yomu:jps')");
+        expect(SMOKE_SOURCE).toContain('async function withLocaleProofPage(');
+        expect(SMOKE_SOURCE).toContain('function seedLocaleProofStorage(');
+        expect(contaminated).toContain("'yomu:settings-intent:v2':");
+        expect(contaminated).toContain("'yomu:explicit-user-settings:v1':");
+        expect(contaminated).toContain('contaminated: true');
+        expect(localeIsolation).toContain("state.scalar, 'true'");
+        expect(localeIsolation).toContain("state.startupCache, 'true'");
+        expect(SMOKE_SOURCE).toContain('data-yomu-installed-runtime-kind="userscript"');
+        expect(installed).toContain('state.runtimeScripts, 0');
+        expect(installed).toContain('state.settings, expectedSettings');
+        expect(studyFirst).toContain("window.__YOMU_READER_RUNTIME__ === 'newtab'");
+        expect(studyFirst).toContain('document.documentElement.dataset.yomuHosted !== undefined');
+        expect(academyFirst).toContain("'yomu:academy:language:v1': 'ja'");
+        expect(academyFirst).toContain("assertEnglishHostedHomepage(page, 'Academy-to-English homepage'");
+        expect(SMOKE_SOURCE).not.toContain('jpdb-reader-hosted-application');
+    });
+
     it('uses deterministic compressed preview transport without weakening readiness', () => {
         const navigation = functionBody('navigateToAcademyShell');
 
-        expect(SMOKE_SOURCE).toContain("extraHTTPHeaders: { 'Accept-Encoding': 'gzip' }");
-        expect(SMOKE_SOURCE).toContain('assertPreviewTransport: true');
+        expect(SMOKE_SOURCE).toContain("'Accept-Encoding': BROWSER_NAME === 'chromium' ? 'gzip' : 'identity'");
+        expect(SMOKE_SOURCE).toContain("await page.route('**/*', route => route.continue())");
+        expect(SMOKE_SOURCE).toContain("assertPreviewTransport: BROWSER_NAME === 'chromium'");
         expect(navigation).toMatch(
             /assert\.equal\(\s*application\.headers\(\)\['content-encoding'\],\s*'gzip'/u,
         );
+    });
+
+    it('preloads the same SRI-bound core that the hosted graph executes', () => {
+        expect(DOCS_CONFIG_SOURCE).toContain("createHash('sha256')");
+        expect(DOCS_CONFIG_SOURCE).toContain('integrity: hostedReaderCoreIntegrity');
+        expect(DOCS_CONFIG_SOURCE).toContain("crossorigin: 'anonymous'");
     });
 
     it('does not make Academy readiness depend on its offline precache becoming idle', () => {
@@ -32,20 +118,22 @@ describe('docs localization browser smoke readiness', () => {
         expect(navigation).not.toContain("waitUntil: 'networkidle'");
         expect(navigation).toContain("assert.ok(response?.ok(), 'Academy route response failed')");
         expect(SMOKE_SOURCE.match(
-            /await navigateToAcademyShell\(page(?:, \{ assertPreviewTransport: true \})?\);/gu,
+            /await navigateToAcademyShell\(page(?:, \{ assertPreviewTransport: BROWSER_NAME === 'chromium' \})?\);/gu,
         )).toHaveLength(2);
     });
 
     it('keeps semantic cold-shell and hosted-runtime readiness assertions after navigation', () => {
         const academyFlow = SMOKE_SOURCE.slice(
-            SMOKE_SOURCE.indexOf('await navigateToAcademyShell(page, { assertPreviewTransport: true });'),
+            SMOKE_SOURCE.indexOf(
+                "await navigateToAcademyShell(page, { assertPreviewTransport: BROWSER_NAME === 'chromium' });",
+            ),
             SMOKE_SOURCE.indexOf('assert.deepEqual(hydrationMessages'),
         );
         const coldAssertion = functionBody('assertAcademyReaderCold');
         const runtimeAssertion = functionBody('assertHostedRuntimeOrder');
 
         expect(academyFlow).toMatch(
-            /navigateToAcademyShell\(page, \{ assertPreviewTransport: true \}\);[\s\S]*assertAcademyReaderCold\(page\);[\s\S]*navigateToAcademyShell\(page\);[\s\S]*assertHostedRuntimeOrder\(page,/u,
+            /navigateToAcademyShell\(page, \{ assertPreviewTransport: BROWSER_NAME === 'chromium' \}\);[\s\S]*assertAcademyReaderCold\(page\);[\s\S]*navigateToAcademyShell\(page\);[\s\S]*assertHostedRuntimeOrder\(page,/u,
         );
         expect(coldAssertion).toContain(".academy-root').waitFor({ state: 'visible' })");
         expect(runtimeAssertion).toContain("data-yomu-runtime-health=\"ready\"");

@@ -834,9 +834,10 @@
     const runtimeCompanionAttribute = 'data-yomu-hosted-pdf-companion';
     const runtimeReadyTimeoutMs = 2600;
     const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
+    const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
     const runtimeCompanionFiles = [
       // yomu:runtime-companions:start
-      'greasyfork/yomu-runtime.21508c7efd6b.user.js',
+      'greasyfork/yomu-runtime.842f0c0f5bbe.user.js',
       // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
@@ -1131,6 +1132,9 @@
         document.querySelector('.jpdb-subtitle-player, .jpdb-reader-settings')
       );
     }
+    function hasInstalledYomuRuntime() {
+      return Boolean(document.getElementById(installedRuntimeMarkerId));
+    }
     function waitForYomuRuntime(timeoutMs = runtimeReadyTimeoutMs) {
       if (hasYomuRuntime()) return Promise.resolve(true);
       return new Promise(resolve => {
@@ -1163,12 +1167,14 @@
     }
     function loadYomuScript() {
       if (hasYomuRuntime()) return Promise.resolve(true);
+      if (hasInstalledYomuRuntime()) return waitForYomuRuntime();
       const existing = document.getElementById(runtimeScriptId) || document.querySelector(`script[${runtimeScriptAttribute}]`);
       if (existing) return waitForYomuRuntime();
       return loadScriptCandidates(runtimeAssetCandidates('yomu.user.js'), 0, { id: runtimeScriptId, attribute: runtimeScriptAttribute });
     }
     async function loadYomuCompanions() {
       for (const fileName of runtimeCompanionFiles) {
+        if (hasInstalledYomuRuntime()) return waitForYomuRuntime();
         if (document.querySelector(`script[${runtimeCompanionAttribute}="${fileName}"]`)) continue;
         const loaded = await loadScriptCandidates(runtimeAssetCandidates(fileName), 0, {
           attribute: runtimeCompanionAttribute,
@@ -1200,9 +1206,11 @@
     }
     async function ensureYomuRuntime(options = {}) {
       if (hasYomuRuntime()) return true;
+      if (hasInstalledYomuRuntime()) return waitForYomuRuntime();
       if (!options.silent) setStatus(options.message || text().loadingRuntime);
       runtimeLoadPromise ||= (async () => {
         await loadYomuCss();
+        if (hasInstalledYomuRuntime()) return waitForYomuRuntime();
         const companionsLoaded = await loadYomuCompanions();
         if (!companionsLoaded) return false;
         return loadYomuScript();

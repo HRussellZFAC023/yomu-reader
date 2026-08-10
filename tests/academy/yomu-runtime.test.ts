@@ -258,6 +258,13 @@ describe('Academy hosted Yomu runtime', () => {
 
         expect(document.querySelector('link[data-yomu-hosted-academy-css]')).toBeNull();
         expect(document.querySelector('script[id^="yomu-hosted-academy-runtime"]')).toBeNull();
+        expect(prose.dataset.yomuRuntimeSurface).toBe('academy-copy');
+        const surfaceMutations: MutationRecord[] = [];
+        const observer = new MutationObserver(records => surfaceMutations.push(...records));
+        observer.observe(prose, {
+            attributes: true,
+            attributeFilter: ['data-yomu-runtime-surface'],
+        });
 
         const owner = document.createElement('meta');
         owner.id = READER_RUNTIME_MARKER_ID;
@@ -283,6 +290,9 @@ describe('Academy hosted Yomu runtime', () => {
         document.head.append(owner);
 
         expect(await boot).toBe(true);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        observer.disconnect();
+        expect(surfaceMutations).toHaveLength(1);
     });
 });
 

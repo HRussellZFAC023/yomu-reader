@@ -5,7 +5,7 @@ import {
     isPrivateManagedStorageKey,
     logicalManagedStorageKey,
 } from './managed-storage-keys';
-import { HOSTED_DEMO_SETTINGS_KEYS } from './hosted-demo-settings';
+import { HOSTED_LOCAL_SETTINGS_KEYS } from './hosted-demo-settings';
 import { isPromiseLike } from '../core/async-utils';
 import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
@@ -533,17 +533,23 @@ function migratedLocalStorageSyncValue<T>(key: string, epoch: ManagedStateEpoch)
 const HOSTED_SETTINGS_BLOB_KEY = 'jpdb-popup-reader-settings';
 const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = '__yomuHostedPendingGmPatch';
 
-// A hosted page's localStorage settings copy includes demo-player staging
-// values the docs theme force-writes. Promoting a stranded copy into the
-// shared GM store must drop those keys so visiting the homepage can never
-// flip the user's real settings everywhere. (Stranded-settings field recovery
-// in settings/index.ts applies the same exclusion.)
+// A hosted page's localStorage settings copy includes policy values owned by
+// the built-in Reader. Promoting a stranded copy into the shared GM store must
+// drop those keys so visiting a hosted surface can never change the learner's
+// installed Reader settings. (Stranded-settings field recovery in
+// settings/index.ts applies the same exclusion.)
 function sanitizedStrandedLocalValue<T>(key: string, value: T): T {
-    if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
-    const record = { ...(value as Record<string, unknown>) };
-    delete record[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-    for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record[demoKey];
+    if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
+    const record: Record<string, unknown> = { ...value };
+    let policy = record;
+    if (key === 'yomu:settings-intent:v2') {
+        if (!isPlainRecord(record.records)) return value;
+        policy = record.records = { ...record.records };
+    } else if (key !== HOSTED_SETTINGS_BLOB_KEY && key !== 'yomu:explicit-user-settings:v1') {
+        return value;
+    }
+    delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+    HOSTED_LOCAL_SETTINGS_KEYS.forEach(hostedKey => delete policy[hostedKey]);
     return record as T;
 }
 
@@ -572,10 +578,10 @@ function localFallbackValueForWrite(key: string, value: unknown): unknown {
     // Leave it as a stranded local blob: settings/index.ts can recover only
     // its non-default fields later. Marking the full object as a patch would
     // let default values clobber unrelated, newer GM settings.
-    if (!previous) return value;
+    if (!previous) return current;
     const changed = changedRecordFields(previous, current);
     return {
-        ...(value as Record<string, unknown>),
+        ...current,
         [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed },
     };
 }
@@ -1631,7 +1637,7 @@ function removeLocalManagedValue(key: string): void {
 }
 
 function localMirrorBelongsToEpoch(key: string, epoch: ManagedStateEpoch): boolean {
-    const serialized = localStorageSerializedValue(key);
+    const serialized = recoverableLocalStorageSerializedValue(key);
     if (serialized === null) return false;
     const entry = localMirrorProvenanceRecord()?.values[key];
     if (!entry) return epoch.generation === 0;
@@ -1674,7 +1680,8 @@ function localMirrorProvenanceRecord(): LocalMirrorProvenance | null {
     return { version: 1, values };
 }
 
-function localStorageSerializedValue(key: string): string | null {
+function recoverableLocalStorageSerializedValue(key: string): string | null {
+    if (key === 'yomu:prefer-japanese-site-language:v1') return null;
     try {
         return localStorage.getItem(key);
     } catch {

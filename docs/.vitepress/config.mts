@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { defineConfig, type DefaultTheme, type HeadConfig } from 'vitepress';
 import {
@@ -42,6 +43,9 @@ const hostedRuntimeGraphSource = readFileSync(
     new URL('../public/hosted-runtime-graph.js', import.meta.url),
     'utf8',
 ).trim();
+const hostedReaderCoreIntegrity = `sha256-${createHash('sha256')
+    .update(readFileSync(new URL('../public/yomu.user.js', import.meta.url)))
+    .digest('base64')}`;
 
 const repositoryName = 'yomu-reader';
 const base = '/';
@@ -543,7 +547,13 @@ export default defineConfig({
     // so every URL gets accurate metadata instead of the home page's values.
     head: [
         ['link', { rel: 'preload', href: `${base}yomu-icon.svg`, as: 'image', type: 'image/svg+xml', fetchpriority: 'high' }],
-        ['link', { rel: 'preload', href: `${base}yomu.user.js?v=${encodeURIComponent(pkg.version)}`, as: 'script' }],
+        ['link', {
+            rel: 'preload',
+            href: `${base}yomu.user.js?v=${encodeURIComponent(pkg.version)}`,
+            as: 'script',
+            integrity: hostedReaderCoreIntegrity,
+            crossorigin: 'anonymous',
+        }],
         // Inline the generated final-userscript graph: the theme sees it before
         // hydration without imposing a cold network round-trip on every page.
         ['script', { 'data-yomu-hosted-runtime-graph': 'inline' }, hostedRuntimeGraphSource],

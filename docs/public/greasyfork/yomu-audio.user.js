@@ -4927,22 +4927,6 @@ const LOGGER_COLOR_TOKENS = {
   warn: "#a15c00",
   error: "#b91c1c"
 };
-const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-  showFurigana: true,
-  furiganaMode: "all",
-  showPitchAccent: true,
-  wordUnderlineColorSource: "pitch",
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: true,
-  subtitleControlsMode: "always",
-  subtitleTranscriptVisible: false,
-  ocrEnabled: true,
-  ocrVideoPauseFrames: true,
-  ocrProvider: "google-lens",
-  ocrOverlayTheme: "auto"
-};
-new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
 function isPromiseLike(value) {
   return Boolean(value && typeof value.then === "function");
 }
@@ -5396,7 +5380,11 @@ function migratedLocalStorageSyncValue(key, epoch) {
   return { kind: "found", value: promoted };
 }
 function sanitizedStrandedLocalValue(key, value) {
+  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
+  ({ ...value });
+  {
   return value;
+  }
 }
 function localFallbackValueForWrite(key, value) {
   return value;
@@ -5614,7 +5602,7 @@ function removeLocalManagedValue(key) {
   removeLocalMirrorProvenance(key);
 }
 function localMirrorBelongsToEpoch(key, epoch) {
-  const serialized = localStorageSerializedValue(key);
+  const serialized = recoverableLocalStorageSerializedValue(key);
   if (serialized === null) return false;
   const entry = localMirrorProvenanceRecord()?.values[key];
   if (!entry) return epoch.generation === 0;
@@ -5652,7 +5640,7 @@ function localMirrorProvenanceRecord() {
   }
   return { version: 1, values };
 }
-function localStorageSerializedValue(key) {
+function recoverableLocalStorageSerializedValue(key) {
   try {
   return localStorage.getItem(key);
   } catch {

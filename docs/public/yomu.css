@@ -9323,6 +9323,13 @@ html.jpdb-reader-doodle-active * {
   display: contents;
 }
 
+:root[data-yomu-hosted] :is(
+  [data-language-family="preferred-target-sites"],
+  [data-radial-id="japanese-site"]
+) {
+  display: none !important;
+}
+
 /* D43: an interface locale Yomu cannot speak yet is listed, dimmed and disabled,
    with the reason in its label. Dimming is the visual half of the same statement
    the `disabled` attribute makes to the keyboard and to assistive technology —

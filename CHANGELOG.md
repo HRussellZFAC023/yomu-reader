@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.8.90] - 2026-08-09
+## [1.8.90] - 2026-08-10
 
 ### Fixed
 
@@ -18,6 +18,7 @@
 - The public homepage demo and Academy load the final userscript's SRI-pinned dependency graph before the Reader core. Both surfaces annotate normally again after the aggregate-runtime split, and a missing or partially deployed dependency now stops the core instead of producing a broken Reader.
 - The public homepage Try me sentence now stays beneath a stationary pointer while its rotating language headline changes. Each pre-rendered word carries exact source geometry for parser-authoritative hover lookup, so the card opens for the word the visitor chose instead of whichever unrelated annotation happens to move under the pointer.
 - Yomu Gaming settings actions stay compact in desktop windows. Add-source, copy-address, account, help, and Academy buttons wrap naturally without stretching into giant full-width or full-height controls; narrow windows retain touch-friendly full-width actions.
+- The Reader built into yomureader.com now keeps the website's chosen language instead of redirecting a fresh English visit to Japanese. Opening Japanese versions of sites is opt-in for fresh installs; existing stored choices remain unchanged. Homepage, Study, PDF, Video, and Academy fallbacks keep that page-local policy separate, while an installed userscript or extension retains its own shared language preference and settings. Academy also re-announces reading surfaces when a late Reader becomes ready, so Firefox no longer sometimes leaves its Japanese copy plain.
 
 ### Changed
 

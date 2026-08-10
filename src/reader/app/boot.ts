@@ -8,6 +8,7 @@ import {
     READER_RUNTIME_MARKER_ID,
 } from './runtime-health';
 import { ensureManagedWebStorageCurrent, ensureManagedWebStorageCurrentSync } from './storage';
+import { detectInstalledReaderRuntime } from './runtime-presence';
 
 type YomuRuntimeKind = 'page' | 'dev' | 'userscript' | 'extension';
 
@@ -287,44 +288,8 @@ function isYouTubeMediaFrame(): boolean {
 }
 
 function detectRuntimeKind(): YomuRuntimeKind {
-    const global = globalThis as {
-        chrome?: { runtime?: { id?: string } };
-        browser?: { runtime?: { id?: string } };
-        GM?: {
-            getValue?: unknown;
-            xmlHttpRequest?: unknown;
-            xmlhttpRequest?: unknown;
-        };
-        GM_info?: unknown;
-        __yomuDevRuntime?: unknown;
-    };
-    if (isDevRuntime(global)) return 'dev';
-    if (isExtensionRuntime(global)) return 'extension';
-    if (isUserscriptRuntime(global)) return 'userscript';
-    return 'page';
-}
-
-function isDevRuntime(global: { __yomuDevRuntime?: unknown }): boolean {
-    return global.__yomuDevRuntime === true;
-}
-
-function isExtensionRuntime(global: { chrome?: { runtime?: { id?: string } }; browser?: { runtime?: { id?: string } } }): boolean {
-    return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
-}
-
-function isUserscriptRuntime(global: {
-    GM?: {
-        getValue?: unknown;
-        xmlHttpRequest?: unknown;
-        xmlhttpRequest?: unknown;
-    };
-    GM_info?: unknown;
-}): boolean {
-    return typeof GM_getValue === 'function'
-        || typeof global.GM?.getValue === 'function'
-        || typeof global.GM?.xmlHttpRequest === 'function'
-        || typeof global.GM?.xmlhttpRequest === 'function'
-        || Boolean(global.GM_info);
+    if ((globalThis as { __yomuDevRuntime?: unknown }).__yomuDevRuntime === true) return 'dev';
+    return detectInstalledReaderRuntime() ?? 'page';
 }
 
 function priority(kind: unknown): number {

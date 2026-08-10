@@ -41,6 +41,7 @@ import './styles/speaker-staging.css';
 import { createLocalQaAccessGateway, localQaAuthBypassEnabled } from './access/local-qa';
 import { AcademyApp } from './app';
 import { initYomuReaderRuntime } from './integration/yomu-runtime';
+import { shouldInstallHostedReaderRuntime } from '../reader/app/runtime-presence';
 
 declare global {
     interface Window {
@@ -50,6 +51,7 @@ declare global {
 
 const host = document.getElementById('yomu-academy');
 if (host) {
+    if (shouldInstallHostedReaderRuntime()) document.documentElement.dataset.yomuHosted = '';
     const devAuthBypass = localQaAuthBypassEnabled(location, import.meta.env.DEV);
     const app = new AcademyApp(host, {
         databaseName: localQaDatabaseName(),

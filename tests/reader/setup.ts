@@ -213,6 +213,7 @@ beforeEach(() => {
     // before re-establishing our own. This also preserves the cleanup learned
     // from historical non-isolated runs.
     vi.unstubAllGlobals();
+    if (typeof document !== 'undefined' && document.documentElement) delete document.documentElement.dataset.yomuHosted;
     resetPersistedManagedEpochForTests();
     resetManagedStateEpochSessionsForTests();
     resetManagedWebStorageForTests();
@@ -234,6 +235,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    if (typeof document !== 'undefined' && document.documentElement) delete document.documentElement.dataset.yomuHosted;
     resetManagedStateEpochSessionsForTests();
     resetManagedWebStorageForTests();
     resetLocaleState();

@@ -13,7 +13,7 @@ import {
 } from '../../../src/reader/app/support-banner-policy';
 import { shouldInstallHostedReaderRuntime } from '../../../src/reader/app/runtime-presence';
 import { gmStorageGet, gmStorageSet } from '../../../src/reader/app/storage';
-import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from '../../../src/reader/app/hosted-demo-settings';
+import { HOSTED_DEMO_VIDEO_SETTINGS_PATCH } from './hosted-demo-settings';
 import {
     loadHostedReaderRuntime,
     type HostedRuntimeLoadResult,

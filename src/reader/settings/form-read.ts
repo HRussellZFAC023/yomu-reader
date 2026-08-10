@@ -824,10 +824,9 @@ function readYoutubeFormSettings(reader: SettingsFormReader, current: ReaderSett
         : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has('preferJapaneseSiteLanguageSettingPresent');
     return {
-        // The stored default is ON for Japanese and implicitly OFF everywhere
-        // else until chosen. The checkbox renders that effective state, so an
-        // unchanged save must preserve the implicit value while a real toggle
-        // records the submitted value as an explicit choice.
+        // Site-language navigation is opt-in. The checkbox renders the effective
+        // state, so an unchanged save preserves it while a real toggle records
+        // the submitted value as an explicit choice.
         youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
         youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
         preferJapaneseSiteLanguage: siteLanguageSettingPresent

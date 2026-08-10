@@ -6675,22 +6675,22 @@ function createTrustedHtmlPolicyWithOptions(factory, options) {
   return null;
   }
 }
-const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-  showFurigana: true,
-  furiganaMode: "all",
-  showPitchAccent: true,
-  wordUnderlineColorSource: "pitch",
-  subtitlePlayerEnabled: true,
-  subtitleAutoDetect: true,
-  subtitleOverlayVisible: true,
-  subtitleControlsMode: "always",
-  subtitleTranscriptVisible: false,
-  ocrEnabled: true,
-  ocrVideoPauseFrames: true,
-  ocrProvider: "google-lens",
-  ocrOverlayTheme: "auto"
-};
-const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+  "showFurigana",
+  "furiganaMode",
+  "showPitchAccent",
+  "wordUnderlineColorSource",
+  "subtitlePlayerEnabled",
+  "subtitleAutoDetect",
+  "subtitleOverlayVisible",
+  "subtitleControlsMode",
+  "subtitleTranscriptVisible",
+  "ocrEnabled",
+  "ocrVideoPauseFrames",
+  "ocrProvider",
+  "ocrOverlayTheme",
+  "preferJapaneseSiteLanguage"
+];
 function isPromiseLike(value) {
   return Boolean(value && typeof value.then === "function");
 }
@@ -7666,11 +7666,17 @@ function migratedLocalStorageSyncValue(key, epoch) {
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
 const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
   const record2 = { ...value };
-  delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+  let policy = record2;
+  if (key === "yomu:settings-intent:v2") {
+  if (!isPlainRecord(record2.records)) return value;
+  policy = record2.records = { ...record2.records };
+  } else if (key !== HOSTED_SETTINGS_BLOB_KEY && key !== "yomu:explicit-user-settings:v1") {
+  return value;
+  }
+  delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+  HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
   return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
@@ -7688,10 +7694,10 @@ function localFallbackValueForWrite(key, value) {
   const previousValue = localStorageGet(key, void 0);
   const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
   const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
-  if (!previous) return value;
+  if (!previous) return current;
   const changed = changedRecordFields(previous, current);
   return {
-  ...value,
+  ...current,
   [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
   };
 }
@@ -8230,7 +8236,7 @@ function removeLocalManagedValue(key) {
   removeLocalMirrorProvenance(key);
 }
 function localMirrorBelongsToEpoch(key, epoch) {
-  const serialized = localStorageSerializedValue(key);
+  const serialized = recoverableLocalStorageSerializedValue(key);
   if (serialized === null) return false;
   const entry = localMirrorProvenanceRecord()?.values[key];
   if (!entry) return epoch.generation === 0;
@@ -8268,7 +8274,8 @@ function localMirrorProvenanceRecord() {
   }
   return { version: 1, values };
 }
-function localStorageSerializedValue(key) {
+function recoverableLocalStorageSerializedValue(key) {
+  if (key === "yomu:prefer-japanese-site-language:v1") return null;
   try {
   return localStorage.getItem(key);
   } catch {
@@ -14203,9 +14210,13 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleSeekPadding: 0.08
   };
 }
+function isHostedReaderRuntime() {
+  return document.documentElement?.dataset.yomuHosted !== void 0;
+}
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 async function persistPreferredJapaneseSiteLanguage(value) {
+  if (isHostedReaderRuntime()) return;
   await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
   await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
   });
@@ -14685,7 +14696,7 @@ const DEFAULT_SETTINGS = {
   themeAutoRestored20260730: true,
   youtubeShowChannelRecommendations: true,
   youtubeShowChannelRecommendationsChosen: false,
-  preferJapaneseSiteLanguage: true,
+  preferJapaneseSiteLanguage: false,
   // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
   ankiEnabled: false,
   ankiSectionEnabled: false,
@@ -53222,10 +53233,9 @@ function readYoutubeFormSettings(reader, current) {
   const channelRecommendations = channelControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
   const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
   return {
-  // The stored default is ON for Japanese and implicitly OFF everywhere
-  // else until chosen. The checkbox renders that effective state, so an
-  // unchanged save must preserve the implicit value while a real toggle
-  // records the submitted value as an explicit choice.
+  // Site-language navigation is opt-in. The checkbox renders the effective
+  // state, so an unchanged save preserves it while a real toggle records
+  // the submitted value as an explicit choice.
   youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
   youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
   preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,

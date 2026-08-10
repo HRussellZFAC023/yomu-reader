@@ -27156,22 +27156,22 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isManagedStorageSlotKey(key2) {
     return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key2.startsWith(prefix));
   }
-  const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-    showFurigana: true,
-    furiganaMode: "all",
-    showPitchAccent: true,
-    wordUnderlineColorSource: "pitch",
-    subtitlePlayerEnabled: true,
-    subtitleAutoDetect: true,
-    subtitleOverlayVisible: true,
-    subtitleControlsMode: "always",
-    subtitleTranscriptVisible: false,
-    ocrEnabled: true,
-    ocrVideoPauseFrames: true,
-    ocrProvider: "google-lens",
-    ocrOverlayTheme: "auto"
-  };
-  const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
+  const HOSTED_LOCAL_SETTINGS_KEYS = [
+    "showFurigana",
+    "furiganaMode",
+    "showPitchAccent",
+    "wordUnderlineColorSource",
+    "subtitlePlayerEnabled",
+    "subtitleAutoDetect",
+    "subtitleOverlayVisible",
+    "subtitleControlsMode",
+    "subtitleTranscriptVisible",
+    "ocrEnabled",
+    "ocrVideoPauseFrames",
+    "ocrProvider",
+    "ocrOverlayTheme",
+    "preferJapaneseSiteLanguage"
+  ];
   function delay(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
@@ -28969,11 +28969,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
   const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
   function sanitizedStrandedLocalValue(key2, value) {
-    if (key2 !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-    if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+    if (!isHostedYomuOrigin() || !isPlainRecord$1(value)) return value;
     const record2 = { ...value };
-    delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-    for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+    let policy = record2;
+    if (key2 === "yomu:settings-intent:v2") {
+      if (!isPlainRecord$1(record2.records)) return value;
+      policy = record2.records = { ...record2.records };
+    } else if (key2 !== HOSTED_SETTINGS_BLOB_KEY && key2 !== "yomu:explicit-user-settings:v1") {
+      return value;
+    }
+    delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+    HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
     return record2;
   }
   function pendingHostedLocalPatch(key2, epoch) {
@@ -28991,10 +28997,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const previousValue = localStorageGet(key2, void 0);
     const previous = isPlainRecord$1(previousValue) ? sanitizedStrandedLocalValue(key2, previousValue) : void 0;
     const earlierPatch = isPlainRecord$1(previousValue) && isPlainRecord$1(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
-    if (!previous) return value;
+    if (!previous) return current;
     const changed = changedRecordFields(previous, current);
     return {
-      ...value,
+      ...current,
       [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
     };
   }
@@ -29865,7 +29871,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     removeLocalMirrorProvenance(key2);
   }
   function localMirrorBelongsToEpoch(key2, epoch) {
-    const serialized = localStorageSerializedValue(key2);
+    const serialized = recoverableLocalStorageSerializedValue(key2);
     if (serialized === null) return false;
     const entry2 = localMirrorProvenanceRecord()?.values[key2];
     if (!entry2) return epoch.generation === 0;
@@ -29903,7 +29909,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return { version: 1, values };
   }
-  function localStorageSerializedValue(key2) {
+  function recoverableLocalStorageSerializedValue(key2) {
+    if (key2 === "yomu:prefer-japanese-site-language:v1") return null;
     try {
       return localStorage.getItem(key2);
     } catch {
@@ -42729,10 +42736,18 @@ recommendedJiten	Jiten由来の頻度バッジです。
       subtitleSeekPadding: 0.08
     };
   }
+  const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+  function isHostedReaderRuntime() {
+    return document.documentElement?.dataset.yomuHosted !== void 0;
+  }
+  function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
+    return forceLocalRuntime || !root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
+  }
   const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
   const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
   async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
     if (typeof storedValue === "boolean") return storedValue;
+    if (isHostedReaderRuntime()) return migrationFallback;
     return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
       const currentValue = await gmStorageGet(
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
@@ -42744,6 +42759,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     });
   }
   async function persistPreferredJapaneseSiteLanguage(value) {
+    if (isHostedReaderRuntime()) return;
     await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
       await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
     });
@@ -42758,7 +42774,13 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return recoverInto(current, legacy, settledKeys, defaults, () => false);
   }
   function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
-    return recoverInto(current, stranded, settledKeys, defaults, (key2) => HOSTED_DEMO_SETTINGS_KEYS.has(key2));
+    return recoverInto(
+      current,
+      stranded,
+      settledKeys,
+      defaults,
+      (key2) => HOSTED_LOCAL_SETTINGS_KEYS.includes(key2)
+    );
   }
   function recoverInto(current, donor, settledKeys, defaults, excluded) {
     let settings = current;
@@ -43460,7 +43482,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
     youtubeShowChannelRecommendationsChosen: false,
-    preferJapaneseSiteLanguage: true,
+    preferJapaneseSiteLanguage: false,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
@@ -286835,15 +286857,6 @@ recommendedJiten	Jiten由来の頻度バッジです。
     const values = new Set((value ?? "").split(",").map((item2) => item2.trim()).filter(Boolean));
     return READER_RUNTIME_SERVICES.filter((service) => values.has(service));
   }
-  const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
-  function installedReaderRuntimeKind(root = document) {
-    const marker = root.querySelector(`#${INSTALLED_READER_RUNTIME_MARKER_ID}`);
-    const kind = marker?.dataset.yomuInstalledRuntimeKind;
-    return kind === "userscript" || kind === "extension" ? kind : null;
-  }
-  function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
-    return forceLocalRuntime || installedReaderRuntimeKind(root) === null;
-  }
   const HOSTED_RUNTIME_GRAPH_SLOT = "__yomuHostedRuntimeGraph";
   const HOSTED_DEPENDENCY_PATH = /^greasyfork\/[a-z\d][a-z\d.-]*\.([a-f\d]{12})\.user\.js$/u;
   const HOSTED_CORE_PATH = "yomu.user.js";
@@ -287045,8 +287058,17 @@ recommendedJiten	Jiten由来の頻度バッジです。
   function initYomuReaderRuntime() {
     if (typeof window === "undefined" || typeof document === "undefined") return Promise.resolve(false);
     ensureAcademyAnnotationLifecycle();
-    bootPromise ??= bootWhenJapaneseAppears().catch(() => false);
+    bootPromise ??= bootWhenJapaneseAppears().then((ready2) => {
+      if (ready2) announceAcademyAnnotationSurfaces();
+      return ready2;
+    }).catch(() => false);
     return bootPromise;
+  }
+  function announceAcademyAnnotationSurfaces() {
+    document.querySelectorAll(OWNED_READING_SURFACE_SELECTOR).forEach((surface) => {
+      const owner = surface.dataset.yomuRuntimeSurface;
+      if (owner) surface.dataset.yomuRuntimeSurface = owner;
+    });
   }
   function observeAcademyAnnotationSurfaces(root) {
     refreshAcademyAnnotationSurfaces(root);
@@ -287209,6 +287231,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
   }
   const host = document.getElementById("yomu-academy");
   if (host) {
+    if (shouldInstallHostedReaderRuntime()) document.documentElement.dataset.yomuHosted = "";
     const devAuthBypass = localQaAuthBypassEnabled();
     const app = new AcademyApp(host, {
       databaseName: localQaDatabaseName(),
@@ -367044,10 +367067,9 @@ ${options.version}`;
     const channelRecommendations = channelControlsPresent ? has("youtubeShowChannelRecommendations") : current.youtubeShowChannelRecommendations;
     const siteLanguageSettingPresent = has("preferJapaneseSiteLanguageSettingPresent");
     return {
-      // The stored default is ON for Japanese and implicitly OFF everywhere
-      // else until chosen. The checkbox renders that effective state, so an
-      // unchanged save must preserve the implicit value while a real toggle
-      // records the submitted value as an explicit choice.
+      // Site-language navigation is opt-in. The checkbox renders the effective
+      // state, so an unchanged save preserves it while a real toggle records
+      // the submitted value as an explicit choice.
       youtubeImmersionEnabled: immersionChanged ? immersionEnabled : current.youtubeImmersionEnabled,
       youtubeImmersionEnabledChosen: current.youtubeImmersionEnabledChosen || immersionChanged,
       preferJapaneseSiteLanguage: siteLanguageSettingPresent ? has("preferJapaneseSiteLanguage") : current.preferJapaneseSiteLanguage,

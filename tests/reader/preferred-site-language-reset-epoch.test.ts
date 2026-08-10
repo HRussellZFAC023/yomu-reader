@@ -34,14 +34,14 @@ afterEach(() => {
 
 describe('preferred-site-language cache reset epoch', () => {
     it('does not let a pre-reset cache override the factory default on another origin after reboot', async () => {
-        const values = new Map<string, unknown>([[PREFERENCE_KEY, false]]);
+        const values = new Map<string, unknown>([[PREFERENCE_KEY, true]]);
         installGmStore(values);
         vi.stubGlobal('browser', { runtime: { id: 'epoch-cache-proof' } });
 
         const oldRealm = await import('../../src/reader/app/preferred-site-language-impl');
         await oldRealm.installPreferredJapaneseSiteLanguageFromStoredSettings();
         await settleAsyncHandlers();
-        expect(localStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('false');
+        expect(localStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('true');
 
         // Reset ran on a different origin: shared GM state advanced, but this
         // origin's pre-reset local cache and an unrelated host key remain.
@@ -49,15 +49,7 @@ describe('preferred-site-language cache reset epoch', () => {
         values.set(EPOCH_KEY, epoch(1, 'factory-reset'));
         localStorage.setItem('foreign-site-token', 'keep');
 
-        installFreshManagedStateEpochSessionForTests();
-        vi.resetModules();
-        const rebootedRealm = await import('../../src/reader/app/preferred-site-language-impl');
-        disablePreference = () => rebootedRealm.applyPreferredJapaneseSiteLanguage(false);
-        await rebootedRealm.installPreferredJapaneseSiteLanguageFromStoredSettings();
-        await settleAsyncHandlers();
-
-        const rebootedStorage = await import('../../src/reader/app/storage');
-        expect(rebootedStorage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('true');
+        expect(await rebootPreferenceCache()).toBe('false');
         expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toMatchObject({
             generation: 1,
             resetId: 'factory-reset',
@@ -86,18 +78,21 @@ describe('preferred-site-language cache reset epoch', () => {
         expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(currentEpoch);
 
         values.delete(PREFERENCE_KEY);
-        installFreshManagedStateEpochSessionForTests();
-        vi.resetModules();
-        const rebootedRealm = await import('../../src/reader/app/preferred-site-language-impl');
-        disablePreference = () => rebootedRealm.applyPreferredJapaneseSiteLanguage(false);
-        await rebootedRealm.installPreferredJapaneseSiteLanguageFromStoredSettings();
-        await settleAsyncHandlers();
-
-        const rebootedStorage = await import('../../src/reader/app/storage');
-        expect(rebootedStorage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('false');
+        expect(await rebootPreferenceCache()).toBe('false');
         expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(currentEpoch);
     });
 });
+
+async function rebootPreferenceCache(): Promise<string | null> {
+    installFreshManagedStateEpochSessionForTests();
+    vi.resetModules();
+    const preference = await import('../../src/reader/app/preferred-site-language-impl');
+    disablePreference = () => preference.applyPreferredJapaneseSiteLanguage(false);
+    await preference.installPreferredJapaneseSiteLanguageFromStoredSettings();
+    await settleAsyncHandlers();
+    const storage = await import('../../src/reader/app/storage');
+    return storage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY);
+}
 
 function epoch(generation: number, resetId: string): EpochRecord {
     return {

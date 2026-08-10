@@ -58,15 +58,12 @@ let preferenceRevision = 0;
 let currentPreferenceEnabled = false;
 let deferredCookieResponseReload = false;
 
-export function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promise<void> {
+export async function installPreferredJapaneseSiteLanguageFromStoredSettings(): Promise<void> {
     // Capture intent before an async epoch barrier: a later settings action
     // must supersede this whole install, not just its eventual storage read.
     const revision = ++preferenceRevision;
-    if (ensureManagedWebStorageCurrentSync()) {
-        installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision);
-        return Promise.resolve();
-    }
-    return ensureManagedWebStorageCurrent().then(() => installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision));
+    if (!ensureManagedWebStorageCurrentSync()) await ensureManagedWebStorageCurrent();
+    installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision);
 }
 
 function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision: number): void {
@@ -221,8 +218,8 @@ async function readStoredPreferenceAsync(): Promise<StoredPreference> {
         storedSettings = stored;
         break;
     }
-    // No stored settings at all (a fresh install): an explicit local opt-out still
-    // beats the default-on, it is just no longer allowed to outrank a real setting.
+    // No stored settings at all (a fresh install): a local cache remains below
+    // any real setting and otherwise falls back to the opt-in product default.
     const cached = readCachedPreferenceEnabled();
     return sitePreference(
         preferredLanguage,
@@ -249,9 +246,8 @@ function sitePreference(
 function readCachedPreferenceEnabled(): boolean | undefined {
     try {
         const value = managedLocalStorage.getItem(PREFERENCE_CACHE_KEY);
-        if (value === 'true' || value === 'false') return value === 'true';
-        const parsed = value == null ? undefined : JSON.parse(value);
-        return typeof parsed === 'boolean' ? parsed : undefined;
+        if (value === 'true') return true;
+        if (value === 'false') return false;
     } catch {
         return undefined;
     }

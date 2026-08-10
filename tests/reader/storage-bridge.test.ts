@@ -19,6 +19,14 @@ function stubGmStore(values: Map<string, unknown>): void {
     vi.stubGlobal('GM_listValues', vi.fn(() => [...values.keys()]));
 }
 
+async function expectMissingManagedValueFallback(): Promise<void> {
+    const storage = getUserscriptGmStorage();
+    expect(storage).toBeDefined();
+    if (!storage) throw new Error('Storage bridge did not install.');
+    const fallback = { default: true };
+    await expect(storage.getValue('yomu:enable-logs', fallback)).resolves.toBe(fallback);
+}
+
 describe('userscript GM storage bridge', () => {
     beforeEach(() => {
         vi.stubGlobal('location', HOSTED_LOCATION);
@@ -59,12 +67,16 @@ describe('userscript GM storage bridge', () => {
     it('returns the fallback for a missing managed key', async () => {
         stubGmStore(new Map());
         installUserscriptGmStorageBridge();
-        const storage = getUserscriptGmStorage();
-        expect(storage).toBeDefined();
-        if (!storage) return;
+        await expectMissingManagedValueFallback();
+    });
 
-        const fallback = { default: true };
-        await expect(storage.getValue('yomu:enable-logs', fallback)).resolves.toBe(fallback);
+    it('recognizes a missing default cloned by a message-based manager', async () => {
+        vi.stubGlobal('GM_getValue', vi.fn((_key: string, fallback: unknown) => structuredClone(fallback)));
+        vi.stubGlobal('GM_setValue', vi.fn());
+        vi.stubGlobal('GM_deleteValue', vi.fn());
+        vi.stubGlobal('GM_listValues', vi.fn(() => []));
+        installUserscriptGmStorageBridge();
+        await expectMissingManagedValueFallback();
     });
 
     it('refuses to read or write storage keys Yomu does not own', async () => {

@@ -1,4 +1,4 @@
-import { HOSTED_DEMO_SETTINGS_KEYS } from '../app/hosted-demo-settings';
+import { HOSTED_LOCAL_SETTINGS_KEYS } from '../app/hosted-demo-settings';
 import type { ReaderSettings } from '../app/types';
 
 /**
@@ -57,7 +57,13 @@ export function recoverStrandedHostedSettings(
 ): { settings: ReaderSettings; changed: boolean } {
     // The docs site force-enables demo-player settings in its localStorage copy;
     // those writes are not user intent and must never replicate.
-    return recoverInto(current, stranded, settledKeys, defaults, key => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+    return recoverInto(
+        current,
+        stranded,
+        settledKeys,
+        defaults,
+        key => HOSTED_LOCAL_SETTINGS_KEYS.includes(key as typeof HOSTED_LOCAL_SETTINGS_KEYS[number]),
+    );
 }
 
 function recoverInto(

@@ -306,7 +306,7 @@ Filter YouTube for Japanese and open Japanese versions of sites.
 | Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
 | Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
 | Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
-| Open Japanese versions of sites | — | on | `preferJapaneseSiteLanguage` |
+| Open Japanese versions of sites | — | off | `preferJapaneseSiteLanguage` |
 
 ## Anki (Mining tab)
 

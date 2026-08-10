@@ -126,7 +126,9 @@ async function handleStorageBridgeRequest(detail: StorageBridgeRequestDetail, ac
         }
         if (detail.op === 'get') {
             const value = await accessors.getValue(detail.key, MISSING);
-            send(value === MISSING ? { ok: true, found: false } : { ok: true, found: true, value });
+            send((value as Partial<typeof MISSING> | null)?.__yomuStorageBridgeMissing === true
+                ? { ok: true, found: false }
+                : { ok: true, found: true, value });
             return;
         }
         if (detail.op === 'set') {

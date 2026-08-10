@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
+import { chromium, firefox } from 'playwright';
 
-const ORIGIN = process.env.YOMU_DOCS_PREVIEW_URL || 'http://127.0.0.1:4199';
+const PREVIEW_ORIGIN = process.env.YOMU_DOCS_PREVIEW_URL || 'http://127.0.0.1:4199';
+const ORIGIN = productionPolicyPreviewOrigin(PREVIEW_ORIGIN);
 const JA_STATIC_HEADING = '日本語を学ぶための、すべてがそろう。';
 const EN_STATIC_HEADING = 'A complete system for learning 日本語.';
 const EXPECTED_ROUTE_FRAMES = Object.freeze({
@@ -13,7 +14,27 @@ const HOMEPAGE_TRY_ME_LOOKUP_SELECTOR = '.yomu-try-me-text .jpdb-reader-word'
     + '[data-sentence="今日は静かな喫茶店で新しい本を読みました。"]'
     + '[data-token-start="0"][data-token-end="2"]';
 const HERO_GEOMETRY_WIDTHS = [320, 375, 720, 721, 1024, 1280];
-const browser = await chromium.launch({ headless: true });
+const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium';
+const browserType = { chromium, firefox }[BROWSER_NAME];
+assert.ok(browserType, `Unsupported docs browser: ${BROWSER_NAME}`);
+const LOCALE_PROOF_BROWSER_OPTIONS = Object.freeze({
+    extraHTTPHeaders: {
+        'Accept-Encoding': BROWSER_NAME === 'chromium' ? 'gzip' : 'identity',
+    },
+    locale: 'en-GB',
+});
+const browser = await browserType.launch({ headless: true });
+
+function productionPolicyPreviewOrigin(value) {
+    const url = new URL(value);
+    if (['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
+        // *.localhost resolves to the same loopback preview in both engines,
+        // while staying outside the docs theme's exact development-host list.
+        // That exercises the production installed-owner suppression policy.
+        url.hostname = 'yomureader.localhost';
+    }
+    return url.origin;
+}
 
 try {
     // VitePress preview dynamically Brotli-compresses eligible large text
@@ -21,9 +42,10 @@ try {
     // deliberately readable application bundle. That is a preview-server artifact,
     // not product readiness. Gzip keeps compressed transport coverage while
     // leaving the semantic DOM/runtime assertions below as the readiness gate.
-    const page = await browser.newPage({
-        extraHTTPHeaders: { 'Accept-Encoding': 'gzip' },
-    });
+    const page = await browser.newPage(LOCALE_PROOF_BROWSER_OPTIONS);
+    // Firefox can prefetch a Brotli response before a later identity navigation;
+    // routing disables that cache while preserving the browser's real request.
+    await page.route('**/*', route => route.continue());
     const hydrationMessages = [];
     const pageErrors = [];
     page.on('console', message => {
@@ -34,12 +56,26 @@ try {
         if (/hydration|mismatch/i.test(error.message)) hydrationMessages.push(error.message);
     });
 
+    await Promise.all([
+        assertServerRenderedLocale('/', EN_STATIC_HEADING, JA_STATIC_HEADING, 'English'),
+        assertServerRenderedLocale('/ja/', JA_STATIC_HEADING, EN_STATIC_HEADING, 'Japanese'),
+    ]);
     await installFirstFrameProbe(page);
-    const response = await page.goto(`${ORIGIN}/ja/`, { waitUntil: 'domcontentloaded' });
-    assert.ok(response?.ok(), 'Japanese route response failed');
-    const initialHtml = await response.text();
-    assert.ok(initialHtml.includes(JA_STATIC_HEADING), 'Japanese is absent from initial server HTML');
-    assert.equal(initialHtml.includes(EN_STATIC_HEADING), false, 'English headline leaked into initial Japanese HTML');
+    const response = await page.goto(`${ORIGIN}/`, { waitUntil: 'domcontentloaded' });
+    assert.ok(response?.ok(), 'English route response failed');
+    await assertHomepage(page, '/', 'en');
+    await assertNoWrongLanguageFrame(page);
+    await assertFoldPromptChrome(page, 'English homepage');
+    const englishHeroGeometry = await assertHeroHeadlineReservation(page, 'English homepage');
+    await assertHostedRuntimeOrder(page, {
+        surface: 'English homepage',
+        annotationSelector: HOMEPAGE_TRY_ME_LOOKUP_SELECTOR,
+        lookupExpression: '今日',
+    });
+    await assertHostedLocaleIsolation(page, '/', 'en', 'English homepage', { fresh: true });
+
+    const japaneseResponse = await chooseLocale(page, 'Change language', '/ja/');
+    assert.ok(japaneseResponse.ok(), 'Japanese route response failed');
     await assertHomepage(page, '/ja/', 'ja');
     await assertNoWrongLanguageFrame(page);
     await assertFoldPromptChrome(page, 'Japanese homepage');
@@ -49,16 +85,7 @@ try {
         annotationSelector: HOMEPAGE_TRY_ME_LOOKUP_SELECTOR,
         lookupExpression: '今日',
     });
-
-    await chooseLocale(page, '言語を変更', '/');
-    await assertHomepage(page, '/', 'en');
-    await assertNoWrongLanguageFrame(page);
-    await assertFoldPromptChrome(page, 'English homepage');
-    const englishHeroGeometry = await assertHeroHeadlineReservation(page, 'English homepage');
-
-    await chooseLocale(page, 'Change language', '/ja/');
-    await assertHomepage(page, '/ja/', 'ja');
-    await assertNoWrongLanguageFrame(page);
+    await assertHostedLocaleIsolation(page, '/ja/', 'ja', 'Japanese homepage');
 
     await page.goto(`${ORIGIN}/learn/reading`, { waitUntil: 'networkidle' });
     await assertRoute(page, '/learn/reading', 'en');
@@ -78,7 +105,12 @@ try {
     const frames = await page.evaluate(() => window.__yomuLocaleFrames?.length ?? 0);
     assert.ok(frames >= 1, 'first-frame probe did not observe the final route rendering');
 
-    await navigateToAcademyShell(page, { assertPreviewTransport: true });
+    await assertContaminatedHostedContextStaysEnglish(browser);
+    await assertInstalledRuntimePreservesStoredState(browser);
+    await assertStudyDoesNotContaminateRoot(browser);
+    await assertAcademyDoesNotContaminateRoot(browser);
+
+    await navigateToAcademyShell(page, { assertPreviewTransport: BROWSER_NAME === 'chromium' });
     await assertAcademyReaderCold(page);
     await page.evaluate(() => localStorage.setItem('yomu:academy:language:v1', 'ja'));
     await navigateToAcademyShell(page);
@@ -90,10 +122,20 @@ try {
     assert.deepEqual(pageErrors, [], `Public page error: ${pageErrors.join('\n')}`);
 
     console.log(
-        `Docs locale browser smoke passed: SSR/hydration, route metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots; hero geometry ${JSON.stringify({ ja: japaneseHeroGeometry, en: englishHeroGeometry })}).`,
+        `Docs locale browser smoke passed in ${BROWSER_NAME}: SSR/hydration, hosted-locale isolation, route metadata, accessible copy, and reviewed-route fallback (${frames} painted-frame snapshots; hero geometry ${JSON.stringify({ ja: japaneseHeroGeometry, en: englishHeroGeometry })}).`,
     );
 } finally {
     await browser.close();
+}
+
+async function assertServerRenderedLocale(route, expectedHeading, excludedHeading, label) {
+    const response = await fetch(`${ORIGIN}${route}`, {
+        headers: { 'Accept-Encoding': 'gzip' },
+    });
+    assert.ok(response.ok, `${label} server response failed`);
+    const html = await response.text();
+    assert.ok(html.includes(expectedHeading), `${label} is absent from initial server HTML`);
+    assert.equal(html.includes(excludedHeading), false, `${label} route contains the other language's headline`);
 }
 
 async function installFirstFrameProbe(page) {
@@ -138,6 +180,7 @@ async function chooseLocale(page, label, href) {
         `locale choice ${href} did not load its server-rendered document`,
     );
     assert.equal(new URL(navigationResponse.url()).pathname, href);
+    return navigationResponse;
 }
 
 async function assertHomepage(page, pathname, lang) {
@@ -512,6 +555,220 @@ async function assertOwnedHoverLookup(page, target, selector, expectedExpression
         const probe = window.__yomuTryMeOwnershipProbe;
         if (probe) probe.running = false;
     });
+}
+
+function readLocalePolicySnapshot() {
+    const owner = document.getElementById('jpdb-reader-runtime-owner');
+    const installedMarker = document.getElementById('jpdb-reader-installed-runtime');
+    return {
+        pathname: location.pathname,
+        lang: document.documentElement.lang,
+        navigatorLanguage: navigator.language,
+        navigatorLanguages: [...navigator.languages],
+        hosted: document.documentElement.dataset.yomuHosted !== undefined,
+        ownerHealth: owner?.dataset.yomuRuntimeHealth,
+        runtimeOwner: Boolean(owner),
+        initialized: window.__yomuReaderAppInitialized === true,
+        installedMarker: Boolean(installedMarker),
+        installedKind: installedMarker?.dataset.yomuInstalledRuntimeKind,
+        runtimeScripts: document.querySelectorAll('script[data-yomu-hosted-runtime-role]').length,
+        scalar: localStorage.getItem('yomu:prefer-japanese-site-language:v1'),
+        startupCache: localStorage.getItem('yomu:prefer-japanese-site-language'),
+        settings: localStorage.getItem('jpdb-popup-reader-settings'),
+        redirect: sessionStorage.getItem('yomu:jps'),
+        redirectHosts: sessionStorage.getItem('yomu:jps:hosts'),
+        intentLedger: localStorage.getItem('yomu:settings-intent:v2'),
+        legacyPins: localStorage.getItem('yomu:explicit-user-settings:v1'),
+    };
+}
+
+function storedSiteLanguagePreference(stored) {
+    if (!stored) return null;
+    try {
+        return siteLanguagePreferenceValue(JSON.parse(stored));
+    } catch {
+        return 'invalid';
+    }
+}
+
+function siteLanguagePreferenceValue(settings) {
+    const preference = settings?.preferJapaneseSiteLanguage;
+    if (typeof preference !== 'boolean') return null;
+    return preference;
+}
+
+function seedLocaleProofStorage(fixture) {
+    if (location.origin !== fixture.origin) return;
+    Object.entries(fixture.local).forEach(([key, value]) => localStorage.setItem(key, value));
+    Object.entries(fixture.session).forEach(([key, value]) => sessionStorage.setItem(key, value));
+}
+
+async function withLocaleProofPage(browser, errorSurface, verify, setupContext = async () => {}) {
+    const context = await browser.newContext(LOCALE_PROOF_BROWSER_OPTIONS);
+    const pageErrors = [];
+    try {
+        await setupContext(context);
+        const page = await context.newPage();
+        page.on('pageerror', error => pageErrors.push(error.stack || error.message));
+        await verify(page);
+        assert.deepEqual(pageErrors, [], `${errorSurface} page error: ${pageErrors.join('\n')}`);
+    } finally {
+        await context.close();
+    }
+}
+
+async function navigateLocaleProof(page, pathname, surface) {
+    const response = await page.goto(`${ORIGIN}${pathname}`, { waitUntil: 'domcontentloaded' });
+    assert.ok(response?.ok(), `${surface} response failed`);
+    return response;
+}
+
+async function assertHostedLocaleIsolation(page, pathname, lang, surface, options = {}) {
+    await page.locator('html[data-yomu-hosted]').waitFor({ state: 'attached' });
+    await page.locator('#jpdb-reader-runtime-owner[data-yomu-runtime-health="ready"]')
+        .waitFor({ state: 'attached' });
+    await page.waitForFunction(() => window.__yomuReaderAppInitialized === true);
+    const state = await page.evaluate(readLocalePolicySnapshot);
+    const storedPreference = storedSiteLanguagePreference(state.settings);
+    assert.equal(state.pathname, pathname, `${surface} changed locale route`);
+    assert.equal(state.lang, lang, `${surface} document language changed`);
+    assert.equal(state.navigatorLanguage, 'en-GB', `${surface} rewrote navigator.language`);
+    assert.equal(state.navigatorLanguages[0], 'en-GB', `${surface} rewrote navigator.languages`);
+    assert.equal(state.hosted, true, `${surface} did not claim page-owned hosted policy`);
+    assert.equal(state.ownerHealth, 'ready', `${surface} hosted Reader did not become ready`);
+    assert.equal(state.initialized, true, `${surface} did not initialize the Reader application`);
+    assert.equal(state.installedMarker, false, `${surface} falsely claimed installed ownership`);
+    assert.notEqual(storedPreference, 'invalid', `${surface} stored invalid settings JSON`);
+    if (options.fresh) {
+        assert.equal(state.scalar, null, `${surface} invented shared learner intent`);
+        assert.notEqual(storedPreference, true, `${surface} persisted its local default as learner intent`);
+    }
+    if (options.contaminated) {
+        // These legacy records deliberately remain in place: route stability
+        // must come from the hosted-policy boundary, not destructive cleanup.
+        assert.equal(state.scalar, 'true', `${surface} deleted the contaminated learner scalar`);
+        assert.equal(state.startupCache, 'true', `${surface} deleted the contaminated startup cache`);
+        assert.notEqual(state.redirect, null, `${surface} deleted the contaminated redirect record`);
+        assert.notEqual(state.redirectHosts, null, `${surface} deleted the contaminated redirect provenance`);
+        assert.notEqual(state.intentLedger, null, `${surface} deleted the contaminated intent ledger`);
+        assert.notEqual(state.legacyPins, null, `${surface} deleted the contaminated legacy pins`);
+    }
+}
+
+async function assertEnglishHostedHomepage(page, surface, options) {
+    await navigateLocaleProof(page, '/', surface);
+    await assertHomepage(page, '/', 'en');
+    await assertHostedRuntimeOrder(page, {
+        surface,
+        annotationSelector: HOMEPAGE_TRY_ME_LOOKUP_SELECTOR,
+        lookupExpression: '今日',
+    });
+    await assertHostedLocaleIsolation(page, '/', 'en', surface, options);
+}
+
+async function assertContaminatedHostedContextStaysEnglish(browser) {
+    const surface = 'Contaminated English homepage';
+    const origin = new URL(ORIGIN).origin;
+    await withLocaleProofPage(browser, 'Contaminated hosted', async page => {
+        await assertEnglishHostedHomepage(page, surface, { contaminated: true });
+    }, context => context.addInitScript(seedLocaleProofStorage, {
+        origin,
+        local: {
+            'yomu:prefer-japanese-site-language:v1': 'true',
+            'yomu:prefer-japanese-site-language': 'true',
+            'jpdb-popup-reader-settings': JSON.stringify({ preferJapaneseSiteLanguage: true, theme: 'dark' }),
+            'yomu:settings-intent:v2': JSON.stringify({
+                revision: 1,
+                records: { preferJapaneseSiteLanguage: { seq: 1, value: true } },
+            }),
+            'yomu:explicit-user-settings:v1': JSON.stringify({ preferJapaneseSiteLanguage: true }),
+        },
+        session: {
+            'yomu:jps': JSON.stringify([`${origin}/`, `${origin}/ja/`, Date.now()]),
+            'yomu:jps:hosts': JSON.stringify([new URL(origin).hostname]),
+        },
+    }));
+}
+
+async function configureInstalledOwnerContext(context, expectedSettings) {
+    const origin = new URL(ORIGIN).origin;
+    await context.addInitScript(seedLocaleProofStorage, {
+        origin,
+        local: {
+            'yomu:prefer-japanese-site-language:v1': 'true',
+            'yomu:prefer-japanese-site-language': 'true',
+            'jpdb-popup-reader-settings': expectedSettings,
+        },
+        session: {
+            'yomu:jps': 'installed-pending-redirect',
+            'yomu:jps:hosts': '["installed.example"]',
+        },
+    });
+    await context.route(url => url.origin === origin && url.pathname === '/', async route => {
+        const response = await route.fetch();
+        const html = await response.text();
+        assert.ok(html.includes('<head>'), 'English homepage has no head for installed marker fixture');
+        const headers = { ...response.headers() };
+        delete headers['content-encoding'];
+        delete headers['content-length'];
+        await route.fulfill({
+            status: response.status(),
+            headers,
+            body: html.replace(
+                '<head>',
+                '<head><meta id="jpdb-reader-installed-runtime" data-yomu-installed-runtime-kind="userscript">',
+            ),
+        });
+    });
+}
+
+async function assertInstalledRuntimePreservesStoredState(browser) {
+    const expectedSettings = JSON.stringify({ preferJapaneseSiteLanguage: true, theme: 'dark' });
+    await withLocaleProofPage(browser, 'Installed-owner', async page => {
+        await navigateLocaleProof(page, '/', 'Installed-owner English homepage');
+        await assertHomepage(page, '/', 'en');
+        await page.locator(HOMEPAGE_TRY_ME_LOOKUP_SELECTOR).first().hover();
+        await page.waitForTimeout(750);
+        const state = await page.evaluate(readLocalePolicySnapshot);
+        assert.equal(state.pathname, '/', 'Installed owner changed locale route');
+        assert.equal(state.lang, 'en', 'Installed owner changed document language');
+        assert.equal(state.installedKind, 'userscript', 'Installed owner marker changed kind');
+        assert.equal(state.hosted, false, 'Hosted fallback claimed installed-owner policy');
+        assert.equal(state.runtimeOwner, false, 'Hosted fallback claimed runtime ownership');
+        assert.equal(state.runtimeScripts, 0, 'Hosted fallback injected runtime scripts');
+        assert.equal(state.scalar, 'true', 'Hosted fallback changed the learner scalar');
+        assert.equal(state.startupCache, 'true', 'Hosted fallback changed the startup cache');
+        assert.equal(state.settings, expectedSettings, 'Hosted fallback changed Reader settings');
+        assert.equal(state.redirect, 'installed-pending-redirect', 'Hosted fallback changed redirect state');
+        assert.equal(state.redirectHosts, '["installed.example"]', 'Hosted fallback changed redirect provenance');
+    }, context => configureInstalledOwnerContext(context, expectedSettings));
+}
+
+async function assertStudyDoesNotContaminateRoot(browser) {
+    await withLocaleProofPage(browser, 'Study-first', async page => {
+        await navigateLocaleProof(page, '/study/', 'Study');
+        await page.waitForFunction(() => window.__YOMU_READER_RUNTIME__ === 'newtab'
+            && document.documentElement.dataset.yomuHosted !== undefined);
+        await page.locator('.jpdb-reader-newtab[data-jpdb-reader-root][data-newtab-bound="true"]')
+            .waitFor({ state: 'visible', timeout: 20_000 });
+        await assertEnglishHostedHomepage(page, 'Study-to-English homepage', { fresh: true });
+    });
+}
+
+async function assertAcademyDoesNotContaminateRoot(browser) {
+    const origin = new URL(ORIGIN).origin;
+    await withLocaleProofPage(browser, 'Academy-first', async page => {
+        await navigateLocaleProof(page, '/academy/', 'Japanese-first Academy');
+        await assertHostedRuntimeOrder(page, {
+            surface: 'Academy',
+            annotationSelector: '.academy-root .academy-title[data-yomu-runtime-surface] .jpdb-reader-word',
+        });
+        await assertEnglishHostedHomepage(page, 'Academy-to-English homepage', { fresh: true });
+    }, context => context.addInitScript(seedLocaleProofStorage, {
+        origin,
+        local: { 'yomu:academy:language:v1': 'ja' },
+        session: {},
+    }));
 }
 
 async function navigateToAcademyShell(page, { assertPreviewTransport = false } = {}) {

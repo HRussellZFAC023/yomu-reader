@@ -318,7 +318,7 @@ describe('settings form localization', () => {
         expect(form.querySelector('.jpdb-reader-radio-group > legend')?.textContent).toBe('Examples per word limit');
     });
 
-    it('restores YouTube filter controls and the default YouTube shortcut', () => {
+    it('keeps YouTube controls while site-language navigation stays opt-in', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const filter = form.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
@@ -328,18 +328,18 @@ describe('settings form localization', () => {
         const shortcut = form.querySelector<HTMLInputElement>('input[name="shortcuts.toggleYoutubeImmersion"]')!;
 
         expect(DEFAULT_SETTINGS.youtubeImmersionEnabled).toBe(true);
-        expect(DEFAULT_SETTINGS.preferJapaneseSiteLanguage).toBe(true);
+        expect(DEFAULT_SETTINGS.preferJapaneseSiteLanguage).toBe(false);
         expect(DEFAULT_SETTINGS.youtubeShowChannelRecommendations).toBe(true);
         expect(DEFAULT_SETTINGS.youtubeShowFilterNotice).toBe(true);
         expect(DEFAULT_SETTINGS.shortcuts.toggleYoutubeImmersion).toBe('Shift+Y');
         expect(filter.checked).toBe(true);
-        expect(siteLanguage.checked).toBe(true);
+        expect(siteLanguage.checked).toBe(false);
         expect(channelSuggestions.checked).toBe(true);
         expect(notice.checked).toBe(true);
         expect(shortcut.value).toBe('Shift+Y');
 
         filter.checked = false;
-        siteLanguage.checked = false;
+        siteLanguage.checked = true;
         channelSuggestions.checked = false;
         notice.checked = false;
         shortcut.value = 'Ctrl+Y';
@@ -348,7 +348,7 @@ describe('settings form localization', () => {
 
         expect(saved.youtubeImmersionEnabled).toBe(false);
         expect(saved.youtubeImmersionEnabledChosen).toBe(true);
-        expect(saved.preferJapaneseSiteLanguage).toBe(false);
+        expect(saved.preferJapaneseSiteLanguage).toBe(true);
         expect(saved.youtubeShowChannelRecommendations).toBe(false);
         expect(saved.youtubeShowChannelRecommendationsChosen).toBe(true);
         expect(saved.youtubeShowFilterNotice).toBe(false);

@@ -19,14 +19,13 @@ describe('OnboardingController', () => {
         vi.unstubAllGlobals();
     });
 
-    it('shows default-on immersion options and saves first-run choices', async () => {
+    it('shows immersion options and keeps Japanese-site navigation opt-in', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             onboardingSeen: false,
             interfaceLanguage: 'en',
             theme: 'light',
             youtubeImmersionEnabled: true,
-            preferJapaneseSiteLanguage: true,
         };
         const setSettings = vi.fn((nextSettings: ReaderSettings) => {
             settings = nextSettings;
@@ -54,7 +53,7 @@ describe('OnboardingController', () => {
         const featureItems = Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li'));
         const featureText = () => Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li span'), item => String(item.textContent));
         expect(youtubeFilter.checked).toBe(true);
-        expect(siteLanguage.checked).toBe(true);
+        expect(siteLanguage.checked).toBe(false);
         expect(pageScanAuto.checked).toBe(true);
         expect(pageScanManual.checked).toBe(false);
         expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
@@ -86,7 +85,7 @@ describe('OnboardingController', () => {
 
         youtubeFilter.checked = false;
         youtubeFilter.dispatchEvent(new Event('change', { bubbles: true }));
-        siteLanguage.checked = false;
+        siteLanguage.checked = true;
         pageScanManual.checked = true;
         pageScanManual.dispatchEvent(new Event('change', { bubbles: true }));
         expect(scanShortcutLabel.hidden).toBe(false);
@@ -106,7 +105,7 @@ describe('OnboardingController', () => {
         expect(settings.onboardingSeen).toBe(true);
         expect(settings.youtubeImmersionEnabled).toBe(false);
         expect(settings.youtubeImmersionEnabledChosen).toBe(true);
-        expect(settings.preferJapaneseSiteLanguage).toBe(false);
+        expect(settings.preferJapaneseSiteLanguage).toBe(true);
         expect(settings.manualScanEnabled).toBe(true);
         expect(settings.theme).toBe('dark');
         expect(settings.accentColor).toBe('#336699');
@@ -114,14 +113,14 @@ describe('OnboardingController', () => {
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
         expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!)).toMatchObject({
             youtubeImmersionEnabled: false,
-            preferJapaneseSiteLanguage: false,
+            preferJapaneseSiteLanguage: true,
             manualScanEnabled: true,
             theme: 'dark',
             accentColor: '#336699',
         });
         expect(JSON.parse(
             localStorage.getItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)!,
-        )).toBe(false);
+        )).toBe(true);
     });
 
     it('offers a default-on offline dictionary download and starts it on completion', async () => {

@@ -38,8 +38,23 @@ let annotationLifecycle: { readonly root: HTMLElement; readonly dispose: () => v
 export function initYomuReaderRuntime(): Promise<boolean> {
     if (typeof window === 'undefined' || typeof document === 'undefined') return Promise.resolve(false);
     ensureAcademyAnnotationLifecycle();
-    bootPromise ??= bootWhenJapaneseAppears().catch(() => false);
+    bootPromise ??= bootWhenJapaneseAppears()
+        .then(ready => {
+            if (ready) announceAcademyAnnotationSurfaces();
+            return ready;
+        })
+        .catch(() => false);
     return bootPromise;
+}
+
+// Academy can finish rendering before a late hosted or installed Reader owns
+// its mutation observer. Re-announce the already-owned surfaces at readiness
+// so that first scan cannot depend on which side won that startup race.
+function announceAcademyAnnotationSurfaces(): void {
+    document.querySelectorAll<HTMLElement>(OWNED_READING_SURFACE_SELECTOR).forEach(surface => {
+        const owner = surface.dataset.yomuRuntimeSurface;
+        if (owner) surface.dataset.yomuRuntimeSurface = owner;
+    });
 }
 
 /**

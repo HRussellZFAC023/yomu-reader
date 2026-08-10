@@ -504,7 +504,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     themeAutoRestored20260730: true,
     youtubeShowChannelRecommendations: true,
     youtubeShowChannelRecommendationsChosen: false,
-    preferJapaneseSiteLanguage: true,
+    preferJapaneseSiteLanguage: false,
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,

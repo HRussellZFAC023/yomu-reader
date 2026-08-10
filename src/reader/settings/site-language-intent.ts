@@ -1,4 +1,5 @@
 import { gmStorageGet, gmStorageSet, withGmStorageLease } from '../app/storage';
+import { isHostedReaderRuntime } from '../app/runtime-presence';
 
 /**
  * The durable user-intent boundary for the preference that changes page
@@ -15,6 +16,7 @@ export async function authoritativePreferredJapaneseSiteLanguage(
     migrationFallback: boolean,
 ): Promise<boolean> {
     if (typeof storedValue === 'boolean') return storedValue;
+    if (isHostedReaderRuntime()) return migrationFallback;
     return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
         // Re-read inside the lease so an explicit change that raced this
         // one-time migration always wins.
@@ -29,6 +31,7 @@ export async function authoritativePreferredJapaneseSiteLanguage(
 }
 
 export async function persistPreferredJapaneseSiteLanguage(value: boolean): Promise<void> {
+    if (isHostedReaderRuntime()) return;
     await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
         await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
     });

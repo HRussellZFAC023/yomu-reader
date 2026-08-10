@@ -3,7 +3,7 @@ import {
     announceInstalledReaderRuntime,
     detectInstalledReaderRuntime,
     INSTALLED_READER_RUNTIME_MARKER_ID,
-    installedReaderRuntimeKind,
+    isHostedReaderRuntime,
     markInstalledReaderRuntime,
     shouldInstallHostedReaderRuntime,
 } from '../../src/reader/app/runtime-presence';
@@ -12,6 +12,7 @@ describe('installed reader runtime presence', () => {
     beforeEach(() => {
         document.head.innerHTML = '';
         document.body.innerHTML = '';
+        delete document.documentElement.dataset.yomuHosted;
     });
 
     it('announces a userscript at document-start through shared DOM state', () => {
@@ -19,7 +20,6 @@ describe('installed reader runtime presence', () => {
 
         const marker = document.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
         expect(marker?.dataset.yomuInstalledRuntimeKind).toBe('userscript');
-        expect(installedReaderRuntimeKind()).toBe('userscript');
     });
 
     it('does not make the page-injected hosted bundle look installed', () => {
@@ -40,5 +40,14 @@ describe('installed reader runtime presence', () => {
 
         expect(shouldInstallHostedReaderRuntime(false)).toBe(false);
         expect(shouldInstallHostedReaderRuntime(true)).toBe(true);
+    });
+
+    it('keeps the page application hosted beside an installed DOM storage bridge', () => {
+        markInstalledReaderRuntime('userscript');
+        document.documentElement.dataset.yomuHosted = '';
+
+        expect(document.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID)?.dataset.yomuInstalledRuntimeKind)
+            .toBe('userscript');
+        expect(isHostedReaderRuntime()).toBe(true);
     });
 });

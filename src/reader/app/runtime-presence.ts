@@ -18,8 +18,7 @@ export function detectInstalledReaderRuntime(
     globals: RuntimeDetectionGlobals = globalThis as RuntimeDetectionGlobals,
 ): InstalledReaderRuntimeKind | null {
     if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return 'extension';
-    const ambientLegacyGetValue = globals === globalThis && typeof GM_getValue === 'function';
-    if (ambientLegacyGetValue
+    if ((globals === globalThis && typeof GM_getValue === 'function')
         || typeof globals.GM_getValue === 'function'
         || typeof globals.GM?.getValue === 'function'
         || typeof globals.GM?.xmlHttpRequest === 'function'
@@ -43,44 +42,36 @@ export function announceInstalledReaderRuntime(
 export function markInstalledReaderRuntime(
     kind: InstalledReaderRuntimeKind,
     root: Document = document,
-): HTMLElement {
+): void {
     const existing = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
     const marker = existing instanceof HTMLElement ? existing : root.createElement('meta');
     marker.id = INSTALLED_READER_RUNTIME_MARKER_ID;
     marker.dataset.yomuInstalledRuntimeKind = kind;
     if (!marker.isConnected) appendInstalledRuntimeMarker(marker, root);
-    return marker;
 }
 
-export function installedReaderRuntimeKind(root: ParentNode = document): InstalledReaderRuntimeKind | null {
-    const marker = root.querySelector<HTMLElement>(`#${INSTALLED_READER_RUNTIME_MARKER_ID}`);
-    const kind = marker?.dataset.yomuInstalledRuntimeKind;
-    return kind === 'userscript' || kind === 'extension' ? kind : null;
+export function isHostedReaderRuntime(): boolean {
+    return document.documentElement?.dataset.yomuHosted !== undefined;
 }
 
 export function shouldInstallHostedReaderRuntime(
     forceLocalRuntime = false,
-    root: ParentNode = document,
+    root: Pick<Document, 'getElementById'> = document,
 ): boolean {
-    return forceLocalRuntime || installedReaderRuntimeKind(root) === null;
+    return forceLocalRuntime || !root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
 }
 
 function appendInstalledRuntimeMarker(marker: HTMLElement, root: Document): void {
-    const append = (): boolean => {
-        const parent = root.head || root.documentElement || root.body;
-        if (!parent) return false;
+    const parent = root.head || root.documentElement;
+    if (parent) {
         parent.append(marker);
-        return true;
-    };
-    if (append()) return;
-
-    const observer = typeof MutationObserver === 'function' ? new MutationObserver(() => {
-        if (!marker.isConnected && !append()) return;
-        observer?.disconnect();
-    }) : undefined;
-    observer?.observe(root, { childList: true, subtree: true });
-    root.addEventListener('DOMContentLoaded', () => {
-        observer?.disconnect();
-        if (!marker.isConnected) append();
-    }, { once: true });
+        return;
+    }
+    const observer = new MutationObserver(() => {
+        const readyParent = root.head || root.documentElement;
+        if (!readyParent) return;
+        readyParent.append(marker);
+        observer.disconnect();
+    });
+    observer.observe(root, { childList: true, subtree: true });
 }

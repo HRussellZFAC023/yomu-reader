@@ -115,6 +115,11 @@ function markedStringValues(source: string): string[] {
     return [...body.matchAll(/^\s*'([^']+)',\s*$/gmu)].map(value => value[1]);
 }
 
+function sourceIndexOrInfinity(source: string, needle: string, from: number): number {
+    const index = source.indexOf(needle, from);
+    return index < 0 ? Number.POSITIVE_INFINITY : index;
+}
+
 describe('hosted runtime graph generator', () => {
     const template = [
         'const RUNTIME_GRAPH = [',
@@ -267,6 +272,61 @@ describe('committed standalone hosted runtime consumers', () => {
         const source = readFileSync(surface.page, 'utf8');
         expect(arrayStringValues(source, surface.pageArray)).toEqual(FINAL_GRAPH.pagePaths);
         expect(markedStringValues(source)).toEqual(FINAL_GRAPH.pagePaths);
+    });
+
+    it.each(surfaces)('$name rechecks installed ownership across every async hosted-load boundary', surface => {
+        const source = readFileSync(surface.page, 'utf8');
+        const ensureStart = source.indexOf('async function ensureYomuRuntime');
+        const promiseStart = source.indexOf('runtimeLoadPromise ||=', ensureStart);
+        const cssReady = source.indexOf('await loadYomuCss();', promiseStart);
+        const postCssGuard = source.indexOf('if (hasInstalledYomuRuntime()) return waitForYomuRuntime();', cssReady);
+        const postCssLoad = Math.min(
+            sourceIndexOrInfinity(source, 'await loadYomuCompanions();', cssReady),
+            sourceIndexOrInfinity(source, 'return loadYomuScript();', cssReady),
+        );
+        const companionStart = source.indexOf('async function loadYomuCompanions');
+        const companionGuard = source.indexOf('if (hasInstalledYomuRuntime()) return waitForYomuRuntime();', companionStart);
+        const companionLoad = Math.min(
+            sourceIndexOrInfinity(source, 'loadScriptCandidates(', companionStart),
+            sourceIndexOrInfinity(source, 'loadYomuCompanion(fileName)', companionStart),
+        );
+        const coreStart = source.indexOf('function loadYomuScript');
+        const coreGuard = source.indexOf('if (hasInstalledYomuRuntime()) return waitForYomuRuntime();', coreStart);
+        const coreAppend = source.indexOf("runtimeAssetCandidates('yomu.user.js')", coreStart);
+        const ensureGuard = source.indexOf(
+            'if (hasInstalledYomuRuntime()) return waitForYomuRuntime();',
+            ensureStart,
+        );
+        const coreCompanionAwait = source.indexOf('await loadYomuCompanions()', coreStart);
+
+        expect(source).toContain("const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';");
+        expect(source).toContain('function hasInstalledYomuRuntime()');
+        expect(ensureStart).toBeGreaterThanOrEqual(0);
+        expect(promiseStart).toBeGreaterThan(ensureStart);
+        expect(cssReady).toBeGreaterThan(promiseStart);
+        expect(ensureGuard).toBeGreaterThan(ensureStart);
+        expect(ensureGuard).toBeLessThan(promiseStart);
+        expect(postCssGuard).toBeGreaterThan(cssReady);
+        expect(postCssGuard).toBeLessThan(postCssLoad);
+        expect(companionStart).toBeGreaterThanOrEqual(0);
+        expect(companionGuard).toBeGreaterThan(companionStart);
+        expect(companionGuard).toBeLessThan(companionLoad);
+        expect(coreStart).toBeGreaterThanOrEqual(0);
+        expect(coreGuard).toBeGreaterThan(coreStart);
+        expect(coreGuard).toBeLessThan(coreAppend);
+        if (coreCompanionAwait >= 0 && coreCompanionAwait < coreAppend) {
+            const postCompanionGuard = source.indexOf(
+                'if (hasInstalledYomuRuntime()) return waitForYomuRuntime();',
+                coreCompanionAwait,
+            );
+            expect(postCompanionGuard).toBeGreaterThan(coreCompanionAwait);
+            expect(postCompanionGuard).toBeLessThan(coreAppend);
+        } else {
+            const ensureCompanionAwait = source.indexOf('await loadYomuCompanions()', cssReady);
+            const guardedCoreCall = source.indexOf('return loadYomuScript();', ensureCompanionAwait);
+            expect(ensureCompanionAwait).toBeGreaterThan(postCssGuard);
+            expect(guardedCoreCall).toBeGreaterThan(ensureCompanionAwait);
+        }
     });
 
     it.each(surfaces)('$name service worker delegates the same atomic graph to the shared worker', surface => {

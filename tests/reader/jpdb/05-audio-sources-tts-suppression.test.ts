@@ -1218,14 +1218,19 @@ describe('reader helpers', () => {
 
             const siteButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="japanese-site"]');
             expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
-            expect(siteButton()?.classList.contains('is-on')).toBe(true);
+            expect(siteButton()?.classList.contains('is-off')).toBe(true);
 
             siteButton()?.click();
 
             expect(toggleJapaneseSiteLanguage).toHaveBeenCalledTimes(1);
             expect(siteButton()?.getAttribute('aria-label')).toBe('Open Japanese versions of sites');
-            expect(siteButton()?.classList.contains('is-off')).toBe(true);
+            expect(siteButton()?.classList.contains('is-on')).toBe(true);
             expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
+
+            siteButton()?.click();
+
+            expect(toggleJapaneseSiteLanguage).toHaveBeenCalledTimes(2);
+            expect(siteButton()?.classList.contains('is-off')).toBe(true);
         } finally {
             controller.destroy();
             restoreRects();

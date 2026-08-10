@@ -5,6 +5,10 @@ import {
     preferredJapaneseSiteUrl,
 } from '../../src/reader/app/preferred-site-language-impl';
 import {
+    applyPreferredJapaneseSiteLanguage as applyHostedSiteLanguagePolicy,
+    installPreferredJapaneseSiteLanguageFromStoredSettings as installHostedSiteLanguagePolicy,
+} from '../../src/reader/app/preferred-site-language';
+import {
     DEFAULT_SETTINGS,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
@@ -28,6 +32,44 @@ describe('preferred Japanese site language', () => {
         vi.useRealTimers();
     });
 
+    it('leaves contaminated hosted redirect state inert without reading it', async () => {
+        document.documentElement.dataset.yomuHosted = '';
+        vi.stubGlobal('location', {
+            href: 'https://yomureader.com/',
+            origin: 'https://yomureader.com',
+            hostname: 'yomureader.com',
+            pathname: '/',
+        });
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+        localStorage.setItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, 'true');
+        sessionStorage.setItem('yomu:jps', JSON.stringify([
+            'https://yomureader.com/',
+            'https://yomureader.com/ja/',
+            Date.now(),
+        ]));
+        sessionStorage.setItem('yomu:jps:hosts', JSON.stringify(['yomureader.com']));
+        await installHostedSiteLanguagePolicy();
+
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('true');
+        expect(navigator.language).not.toBe('ja-JP');
+    });
+
+    it('cannot re-enable site-language navigation while the hosted built-in owns the page', () => {
+        document.documentElement.dataset.yomuHosted = '';
+        vi.stubGlobal('location', {
+            href: 'https://yomureader.com/',
+            origin: 'https://yomureader.com',
+            hostname: 'yomureader.com',
+            pathname: '/',
+        });
+        localStorage.setItem('yomu:prefer-japanese-site-language', 'true');
+
+        applyHostedSiteLanguagePolicy(true);
+
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('true');
+        expect(navigator.language).not.toBe('ja-JP');
+    });
+
     it('applies Japanese locale hints without changing timezone or geolocation', async () => {
         const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response('ok'));
         const browserLocation = {
@@ -36,6 +78,11 @@ describe('preferred Japanese site language', () => {
             geolocation: navigator.geolocation,
         };
         vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
+            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
+            if (key === SETTINGS_STORAGE_KEY) return { ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true };
+            return fallback;
+        });
         vi.stubGlobal('unsafeWindow', window);
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
@@ -330,14 +377,15 @@ describe('preferred Japanese site language', () => {
         expect(replace).not.toHaveBeenCalled();
     });
 
-    it('uses the local opt-out cache before the default-on setting', () => {
+    it('leaves a fresh install on the current site language', async () => {
         const language = navigator.language;
-        localStorage.setItem('yomu:prefer-japanese-site-language', 'false');
         vi.stubGlobal('unsafeWindow', window);
 
         installPreferredJapaneseSiteLanguageFromStoredSettings();
+        await settleAsyncHandlers();
 
         expect(navigator.language).toBe(language);
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
     });
 
     // The reported bug: the cache is per origin, so every site opened while the

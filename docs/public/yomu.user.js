@@ -11,8 +11,8 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.21508c7efd6b.user.js#sha256=IVCMfv1r3m611Gy0tZoRH5EQtgJTnDBeQ4SJnCJScLM=
-// @resource yomuCss  https://yomureader.com/yomu.06756a99805b.css#sha256=BnVqmYBbGJ8fYRBJrbpdxbbZzBXpEVrwHyyGClXluR4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.842f0c0f5bbe.user.js#sha256=hC8MD1u+5cULeFmiscvdmmfUrS6wqz4HBC2UeMyWlUg=
+// @resource yomuCss  https://yomureader.com/yomu.853032b5cdfb.css#sha256=hTAytc37pqXnr3WoupZnlS6wPXXd3lUPXFpLs7iIjsM=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
 // @connect tatoeba.org
@@ -91,22 +91,22 @@ return null;
 function isManagedStorageSlotKey(key) {
 return MANAGED_SLOT_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
 }
-const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
-showFurigana: true,
-furiganaMode: "all",
-showPitchAccent: true,
-wordUnderlineColorSource: "pitch",
-subtitlePlayerEnabled: true,
-subtitleAutoDetect: true,
-subtitleOverlayVisible: true,
-subtitleControlsMode: "always",
-subtitleTranscriptVisible: false,
-ocrEnabled: true,
-ocrVideoPauseFrames: true,
-ocrProvider: "google-lens",
-ocrOverlayTheme: "auto"
-};
-const HOSTED_DEMO_SETTINGS_KEYS = new Set(Object.keys(HOSTED_DEMO_VIDEO_SETTINGS_PATCH));
+const HOSTED_LOCAL_SETTINGS_KEYS = [
+"showFurigana",
+"furiganaMode",
+"showPitchAccent",
+"wordUnderlineColorSource",
+"subtitlePlayerEnabled",
+"subtitleAutoDetect",
+"subtitleOverlayVisible",
+"subtitleControlsMode",
+"subtitleTranscriptVisible",
+"ocrEnabled",
+"ocrVideoPauseFrames",
+"ocrProvider",
+"ocrOverlayTheme",
+"preferJapaneseSiteLanguage"
+];
 function delay(ms) {
 return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -761,7 +761,7 @@ return;
 }
 if (detail.op === "get") {
 const value = await accessors.getValue(detail.key, MISSING$1);
-send(value === MISSING$1 ? { ok: true, found: false } : { ok: true, found: true, value });
+send(value?.__yomuStorageBridgeMissing === true ? { ok: true, found: false } : { ok: true, found: true, value });
 return;
 }
 if (detail.op === "set") {
@@ -2162,11 +2162,17 @@ return { kind: "found", value: promoted };
 const HOSTED_SETTINGS_BLOB_KEY = "jpdb-popup-reader-settings";
 const HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD = "__yomuHostedPendingGmPatch";
 function sanitizedStrandedLocalValue(key, value) {
-if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
-if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+if (!isHostedYomuOrigin() || !isPlainRecord(value)) return value;
 const record2 = { ...value };
-delete record2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-for (const demoKey of HOSTED_DEMO_SETTINGS_KEYS) delete record2[demoKey];
+let policy2 = record2;
+if (key === "yomu:settings-intent:v2") {
+if (!isPlainRecord(record2.records)) return value;
+policy2 = record2.records = { ...record2.records };
+} else if (key !== HOSTED_SETTINGS_BLOB_KEY && key !== "yomu:explicit-user-settings:v1") {
+return value;
+}
+delete policy2[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
+HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy2[hostedKey]);
 return record2;
 }
 function pendingHostedLocalPatch(key, epoch) {
@@ -2184,10 +2190,10 @@ const current = sanitizedStrandedLocalValue(key, value);
 const previousValue = localStorageGet(key, void 0);
 const previous = isPlainRecord(previousValue) ? sanitizedStrandedLocalValue(key, previousValue) : void 0;
 const earlierPatch = isPlainRecord(previousValue) && isPlainRecord(previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]) ? previousValue[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD] : {};
-if (!previous) return value;
+if (!previous) return current;
 const changed = changedRecordFields(previous, current);
 return {
-...value,
+...current,
 [HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD]: { ...earlierPatch, ...changed }
 };
 }
@@ -3058,7 +3064,7 @@ removeSessionStorageKey(key);
 removeLocalMirrorProvenance(key);
 }
 function localMirrorBelongsToEpoch(key, epoch) {
-const serialized = localStorageSerializedValue(key);
+const serialized = recoverableLocalStorageSerializedValue(key);
 if (serialized === null) return false;
 const entry = localMirrorProvenanceRecord()?.values[key];
 if (!entry) return epoch.generation === 0;
@@ -3096,7 +3102,8 @@ values[key] = { epoch: entry.epoch, fingerprint: entry.fingerprint };
 }
 return { version: 1, values };
 }
-function localStorageSerializedValue(key) {
+function recoverableLocalStorageSerializedValue(key) {
+if (key === "yomu:prefer-japanese-site-language:v1") return null;
 try {
 return localStorage.getItem(key);
 } catch {
@@ -14754,10 +14761,52 @@ subtitleHoverPause: true,
 subtitleSeekPadding: 0.08
 };
 }
+const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
+function detectInstalledReaderRuntime(globals = globalThis) {
+if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
+if (globals === globalThis && typeof GM_getValue === "function" || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
+return "userscript";
+}
+return null;
+}
+function announceInstalledReaderRuntime(globals = globalThis, root = document) {
+const kind = detectInstalledReaderRuntime(globals);
+if (!kind) return null;
+markInstalledReaderRuntime(kind, root);
+return kind;
+}
+function markInstalledReaderRuntime(kind, root = document) {
+const existing = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
+const marker2 = existing instanceof HTMLElement ? existing : root.createElement("meta");
+marker2.id = INSTALLED_READER_RUNTIME_MARKER_ID;
+marker2.dataset.yomuInstalledRuntimeKind = kind;
+if (!marker2.isConnected) appendInstalledRuntimeMarker(marker2, root);
+}
+function isHostedReaderRuntime() {
+return document.documentElement?.dataset.yomuHosted !== void 0;
+}
+function shouldInstallHostedReaderRuntime(forceLocalRuntime = false, root = document) {
+return forceLocalRuntime || !root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
+}
+function appendInstalledRuntimeMarker(marker2, root) {
+const parent = root.head || root.documentElement;
+if (parent) {
+parent.append(marker2);
+return;
+}
+const observer = new MutationObserver(() => {
+const readyParent = root.head || root.documentElement;
+if (!readyParent) return;
+readyParent.append(marker2);
+observer.disconnect();
+});
+observer.observe(root, { childList: true, subtree: true });
+}
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
 async function authoritativePreferredJapaneseSiteLanguage(storedValue, migrationFallback) {
 if (typeof storedValue === "boolean") return storedValue;
+if (isHostedReaderRuntime()) return migrationFallback;
 return withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
 const currentValue = await gmStorageGet(
 PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
@@ -14769,6 +14818,7 @@ return migrationFallback;
 });
 }
 async function persistPreferredJapaneseSiteLanguage(value) {
+if (isHostedReaderRuntime()) return;
 await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
 await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
 });
@@ -14780,7 +14830,13 @@ function recoverLegacySettings(current, legacy, settledKeys, defaults) {
 return recoverInto(current, legacy, settledKeys, defaults, () => false);
 }
 function recoverStrandedHostedSettings(current, stranded, settledKeys, defaults) {
-return recoverInto(current, stranded, settledKeys, defaults, (key) => HOSTED_DEMO_SETTINGS_KEYS.has(key));
+return recoverInto(
+current,
+stranded,
+settledKeys,
+defaults,
+(key) => HOSTED_LOCAL_SETTINGS_KEYS.includes(key)
+);
 }
 function recoverInto(current, donor, settledKeys, defaults, excluded) {
 let settings = current;
@@ -15269,7 +15325,7 @@ youtubeFilterNoticeRestored20260711: true,
 themeAutoRestored20260730: true,
 youtubeShowChannelRecommendations: true,
 youtubeShowChannelRecommendationsChosen: false,
-preferJapaneseSiteLanguage: true,
+preferJapaneseSiteLanguage: false,
 ankiEnabled: false,
 ankiSectionEnabled: false,
 ankiSectionAlias: "",
@@ -32859,15 +32915,17 @@ blockers: []
 };
 }
 async function installPreferredJapaneseSiteLanguageFromStoredSettings() {
+if (isHostedReaderRuntime()) return;
 await yomuVideoCompanionSlot()?.installPreferredJapaneseSiteLanguageFromStoredSettings?.();
 }
 function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
-const apply = yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage;
-if (deferCookieResponseReloadUntilPersisted) {
-apply?.(enabled, revertOnDisable, true, targetLanguage);
-return;
-}
-apply?.(enabled, revertOnDisable, false, targetLanguage);
+if (isHostedReaderRuntime()) return;
+yomuVideoCompanionSlot()?.applyPreferredJapaneseSiteLanguage?.(
+enabled,
+revertOnDisable,
+deferCookieResponseReloadUntilPersisted,
+targetLanguage
+);
 }
 function ocrInteractionModeFromSettings(settings) {
 if (!settings.ocrEnabled) return "off";
@@ -45261,20 +45319,8 @@ function isYouTubeMediaFrame() {
 return YOUTUBE_PLAYBACK_HOST_RE.test(location.hostname) && YOUTUBE_PLAYBACK_PATH_RE.test(location.pathname);
 }
 function detectRuntimeKind() {
-const global = globalThis;
-if (isDevRuntime(global)) return "dev";
-if (isExtensionRuntime(global)) return "extension";
-if (isUserscriptRuntime(global)) return "userscript";
-return "page";
-}
-function isDevRuntime(global) {
-return global.__yomuDevRuntime === true;
-}
-function isExtensionRuntime(global) {
-return Boolean(global.chrome?.runtime?.id || global.browser?.runtime?.id);
-}
-function isUserscriptRuntime(global) {
-return typeof GM_getValue === "function" || typeof global.GM?.getValue === "function" || typeof global.GM?.xmlHttpRequest === "function" || typeof global.GM?.xmlhttpRequest === "function" || Boolean(global.GM_info);
+if (globalThis.__yomuDevRuntime === true) return "dev";
+return detectInstalledReaderRuntime() ?? "page";
 }
 function priority(kind) {
 if (kind === "dev") return 4;
@@ -45369,58 +45415,25 @@ function releaseRuntime(ownerId) {
 const marker2 = document.getElementById(RUNTIME_MARKER_ID);
 if (marker2?.dataset.yomuRuntimeOwner === ownerId) marker2.remove();
 }
-const INSTALLED_READER_RUNTIME_MARKER_ID = "jpdb-reader-installed-runtime";
-function detectInstalledReaderRuntime(globals = globalThis) {
-if (globals.chrome?.runtime?.id || globals.browser?.runtime?.id) return "extension";
-const ambientLegacyGetValue = globals === globalThis && typeof GM_getValue === "function";
-if (ambientLegacyGetValue || typeof globals.GM_getValue === "function" || typeof globals.GM?.getValue === "function" || typeof globals.GM?.xmlHttpRequest === "function" || typeof globals.GM?.xmlhttpRequest === "function" || Boolean(globals.GM_info)) {
-return "userscript";
-}
-return null;
-}
-function announceInstalledReaderRuntime(globals = globalThis, root = document) {
-const kind = detectInstalledReaderRuntime(globals);
-if (!kind) return null;
-markInstalledReaderRuntime(kind, root);
-return kind;
-}
-function markInstalledReaderRuntime(kind, root = document) {
-const existing = root.getElementById(INSTALLED_READER_RUNTIME_MARKER_ID);
-const marker2 = existing instanceof HTMLElement ? existing : root.createElement("meta");
-marker2.id = INSTALLED_READER_RUNTIME_MARKER_ID;
-marker2.dataset.yomuInstalledRuntimeKind = kind;
-if (!marker2.isConnected) appendInstalledRuntimeMarker(marker2, root);
-return marker2;
-}
-function appendInstalledRuntimeMarker(marker2, root) {
-const append = () => {
-const parent = root.head || root.documentElement || root.body;
-if (!parent) return false;
-parent.append(marker2);
-return true;
-};
-if (append()) return;
-const observer = typeof MutationObserver === "function" ? new MutationObserver(() => {
-if (!marker2.isConnected && !append()) return;
-observer?.disconnect();
-}) : void 0;
-observer?.observe(root, { childList: true, subtree: true });
-root.addEventListener("DOMContentLoaded", () => {
-observer?.disconnect();
-if (!marker2.isConnected) append();
-}, { once: true });
-}
-announceInstalledReaderRuntime();
+const installedRuntime = announceInstalledReaderRuntime();
+const yomuNewTab = isYomuNewTabUrl(location.href);
+const docEl = document.documentElement;
+if (installedRuntime && !yomuNewTab) delete docEl?.dataset.yomuHosted;
+if (installedRuntime || docEl && shouldInstallHostedReaderRuntime()) {
+if (!installedRuntime) docEl.dataset.yomuHosted = "";
+if (!yomuNewTab) {
 void installPreferredJapaneseSiteLanguageFromStoredSettings().catch((error) => {
 console.error("[Yomu Reader] Failed to initialize site-language preference", error);
 });
+}
 applyMokuroReaderOcrDefault();
 installUserscriptHttpBridgeWhenReady();
 installUserscriptGmStorageBridgeWhenReady();
 void promoteStrandedHostedSettingsToGmStorage();
-if (!isYomuNewTabUrl(location.href)) {
+if (!yomuNewTab) {
 installPageOpenShadowRootDiscoveryBridge();
 bootWhenDocumentIsReady();
+}
 }
 function bootWhenDocumentIsReady() {
 if (document.readyState === "loading") {

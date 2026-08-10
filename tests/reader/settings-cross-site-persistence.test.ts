@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     DEFAULT_SETTINGS,
+    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
     changedSettingsKeys,
@@ -11,6 +12,24 @@ import {
     saveSettings,
     subscribeToSettingsStorageChanges,
 } from '../../src/reader/settings/index';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
+import { gmStorageGet } from '../../src/reader/app/storage';
+import {
+    installUserscriptGmStorageBridge,
+    uninstallUserscriptGmStorageBridge,
+} from '../../src/reader/userscript/storage-bridge';
+
+const hostedLocation = {
+    href: 'https://yomureader.com/',
+    hostname: 'yomureader.com',
+    pathname: '/',
+    origin: 'https://yomureader.com',
+};
+const hostedStudyLocation = {
+    ...hostedLocation,
+    href: 'https://yomureader.com/study/',
+    pathname: '/study/',
+};
 
 // Simulate a message-based userscript manager (Greasemonkey 4 / Safari
 // Userscripts / FireMonkey): every GM.getValue call structured-clones both the
@@ -28,6 +47,23 @@ function installSharedMessageBasedGm(store: Map<string, unknown>): void {
     vi.stubGlobal('GM_deleteValue', vi.fn(async (key: string) => {
         store.delete(key);
     }));
+}
+
+function managedStatePhysicalSlot(key: string, epoch: { generation: number; resetId: string }): string {
+    return `yomu:state-slot:v1:${encodeURIComponent(`${epoch.generation}:${epoch.resetId}`)}:${encodeURIComponent(key)}`;
+}
+
+function managedStateEnvelope(value: unknown, epoch: { generation: number; resetId: string }): unknown {
+    return { __yomuManagedStateEnvelope: 1, epoch: `${epoch.generation}:${epoch.resetId}`, value };
+}
+
+function enterHostedStudyPageRealm(store: Map<string, unknown>): void {
+    installSharedMessageBasedGm(store);
+    vi.stubGlobal('GM_listValues', vi.fn(async () => [...store.keys()]));
+    installUserscriptGmStorageBridge();
+    vi.unstubAllGlobals();
+    vi.stubGlobal('location', hostedStudyLocation);
+    document.documentElement.dataset.yomuHosted = '';
 }
 
 function installPackagedExtensionStorage(store: Map<string, unknown>): void {
@@ -51,8 +87,108 @@ function installPackagedExtensionStorage(store: Map<string, unknown>): void {
 
 describe('settings persist across sites (message-based GM store)', () => {
     afterEach(() => {
+        uninstallUserscriptGmStorageBridge();
         localStorage.clear();
+        sessionStorage.clear();
+        delete document.documentElement.dataset.yomuHosted;
         vi.unstubAllGlobals();
+    });
+
+    it.each([true, false])(
+        'keeps installed locale intent %s intact while Study owns page-local behavior',
+        async preference => {
+            vi.stubGlobal('location', hostedStudyLocation);
+            const epoch = { version: 1, generation: 1, resetId: 'study-bridge', committedAt: 1_000 } as const;
+            const settingsSlot = managedStatePhysicalSlot(SETTINGS_STORAGE_KEY, epoch);
+            const preferenceSlot = managedStatePhysicalSlot(
+                PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+                epoch,
+            );
+            const store = new Map<string, unknown>([
+                ['yomu:state-epoch', epoch],
+                [settingsSlot, managedStateEnvelope({
+                    ...DEFAULT_SETTINGS,
+                    theme: 'light',
+                    preferJapaneseSiteLanguage: preference,
+                }, epoch)],
+                [preferenceSlot, managedStateEnvelope(preference, epoch)],
+            ]);
+            // The Study application is a separate page realm: it has no direct
+            // GM capability, but reaches the installed runtime through the DOM bridge.
+            enterHostedStudyPageRealm(store);
+
+            const settings = await loadSettings();
+            expect(settings.preferJapaneseSiteLanguage).toBe(preference);
+            await saveSettings(
+                { ...settings, theme: 'dark' },
+                { explicitUserChoiceKeys: ['theme'] },
+            );
+
+            expect(store.get(preferenceSlot)).toEqual(managedStateEnvelope(preference, epoch));
+            expect(store.get(settingsSlot)).toMatchObject({
+                __yomuManagedStateEnvelope: 1,
+                epoch: '1:study-bridge',
+                value: {
+                    theme: 'dark',
+                    preferJapaneseSiteLanguage: preference,
+                },
+            });
+            expect(store.has(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+            expect(store.has(SETTINGS_STORAGE_KEY)).toBe(false);
+        },
+    );
+
+    it('does not promote prior hosted locale intent through an installed Study bridge', async () => {
+        vi.stubGlobal('location', hostedStudyLocation);
+        localStorage.setItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY, JSON.stringify({
+            revision: 2,
+            records: {
+                preferJapaneseSiteLanguage: { seq: 1, value: true },
+                subtitleFontSize: { seq: 2, value: 48 },
+            },
+        }));
+        localStorage.setItem(EXPLICIT_USER_SETTINGS_STORAGE_KEY, JSON.stringify({
+            preferJapaneseSiteLanguage: true,
+            onboardingSeen: true,
+        }));
+        const store = new Map<string, unknown>([
+            [SETTINGS_STORAGE_KEY, { ...DEFAULT_SETTINGS, theme: 'light', preferJapaneseSiteLanguage: false }],
+            [PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, false],
+        ]);
+        enterHostedStudyPageRealm(store);
+
+        const settings = await loadSettings();
+        expect(settings).toMatchObject({
+            preferJapaneseSiteLanguage: false,
+            subtitleFontSize: 48,
+            onboardingSeen: true,
+        });
+        await saveSettings({ ...settings, theme: 'dark' }, { explicitUserChoiceKeys: ['theme'] });
+
+        expect(store.get(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+        expect(store.get(SETTINGS_STORAGE_KEY)).toMatchObject({
+            theme: 'dark',
+            preferJapaneseSiteLanguage: false,
+        });
+        const ledger = store.get(SETTINGS_INTENT_LEDGER_STORAGE_KEY) as {
+            records: Record<string, unknown>;
+        };
+        expect(ledger.records).not.toHaveProperty('preferJapaneseSiteLanguage');
+        expect(ledger.records).toHaveProperty('subtitleFontSize');
+        expect(store.get(EXPLICIT_USER_SETTINGS_STORAGE_KEY)).toEqual({ onboardingSeen: true });
+    });
+
+    it('does not recover or promote the dedicated scalar after a shared read failure', async () => {
+        vi.stubGlobal('location', hostedLocation);
+        localStorage.setItem(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, 'true');
+        const setValue = vi.fn();
+        vi.stubGlobal('GM_getValue', vi.fn(async () => {
+            throw new Error('shared store unavailable');
+        }));
+        vi.stubGlobal('GM_setValue', setValue);
+
+        expect(await gmStorageGet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, undefined)).toBeUndefined();
+        expect(setValue).not.toHaveBeenCalled();
     });
 
     it('keeps furigana-off and onboarding-seen when navigating to the next site', async () => {
@@ -493,13 +629,6 @@ describe('settings persist in packaged-extension storage', () => {
 // stranded values into the shared store — except demo-player staging keys the
 // docs theme force-writes, which are not user intent.
 describe('stranded hosted settings recovery (yomureader.com localStorage)', () => {
-    const hostedLocation = {
-        href: 'https://yomureader.com/',
-        hostname: 'yomureader.com',
-        pathname: '/',
-        origin: 'https://yomureader.com',
-    };
-
     afterEach(() => {
         localStorage.clear();
         vi.unstubAllGlobals();
@@ -631,22 +760,25 @@ describe('stranded hosted settings recovery (yomureader.com localStorage)', () =
         expect(settings.jitenApiKey).toBe('real-key');
     });
 
-    it('strips demo staging keys when promoting a whole stranded blob into an empty shared store', async () => {
+    it('strips hosted policy keys when promoting a whole stranded blob into an empty shared store', async () => {
         vi.stubGlobal('location', hostedLocation);
         const store = new Map<string, unknown>();
         installSharedMessageBasedGm(store);
         localStorage.setItem('jpdb-popup-reader-settings', JSON.stringify({
             jitenApiKey: 'stranded-key',
             subtitleControlsMode: 'always',
+            preferJapaneseSiteLanguage: true,
         }));
 
         const settings = await loadSettings();
         expect(settings.jitenApiKey).toBe('stranded-key');
         expect(settings.subtitleControlsMode).toBe('auto');
+        expect(settings.preferJapaneseSiteLanguage).toBe(false);
 
         const shared = store.get('jpdb-popup-reader-settings') as Record<string, unknown>;
         expect(shared.jitenApiKey).toBe('stranded-key');
         expect(shared.subtitleControlsMode).not.toBe('always');
+        expect(shared.preferJapaneseSiteLanguage).toBeUndefined();
     });
 
     it('promotes a hosted save made before a late GM bridge and then clears the pending marker', async () => {
