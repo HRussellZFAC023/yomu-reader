@@ -16312,6 +16312,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const present = new Set(targetLookupSites(targetLanguage2).flatMap((site) => site.components));
     return LOOKUP_LINK_COMPONENTS.filter((component) => !present.has(component));
   }
+  function languageProfileDictionariesFromPreferences(preferences) {
+    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
+    return {
+      installed: ordered.map((preference) => preference.name),
+      enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
+      order: ordered.map((preference) => preference.name)
+    };
+  }
   const MAX_EXTRA_LOOKUP_LINKS = 16;
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
@@ -16731,12 +16739,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function captureActiveLanguageProfileDictionaries(settings, dictionaryPreferences) {
     const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
     if (!active) return { ...settings, dictionaryPreferences };
-    const ordered = [...dictionaryPreferences].sort((left, right) => left.priority - right.priority);
-    const dictionaries2 = {
-      installed: ordered.map((preference) => preference.name),
-      enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-      order: ordered.map((preference) => preference.name)
-    };
+    const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
     return {
       ...settings,
       dictionaryPreferences,
@@ -16969,6 +16972,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
     const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
     if (!active) return missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences);
+    return normalizedActiveProfileSettings(
+      value,
+      normalized,
+      active,
+      parserProvider,
+      dictionaryPreferences,
+      defaults
+    );
+  }
+  function normalizedActiveProfileSettings(value, normalized, active, parserProvider, dictionaryPreferences, defaults) {
     const authoritative = profilesAreAuthoritative(value, normalized.profiles, defaults);
     if (!authoritative) inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults);
     return activeProfileSettings(value, normalized, active, authoritative, dictionaryPreferences, defaults);
@@ -16988,7 +17001,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults) {
     active.parserProvider = parserProvider;
     active.uiLocale = normalizedInterfaceLanguage(value?.interfaceLanguage, defaults.interfaceLanguage);
-    active.dictionaries = languageProfileDictionariesFromPreferences$1(dictionaryPreferences);
+    active.dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
   }
   function missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences) {
     return {
@@ -17006,14 +17019,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       parserProvider: active.parserProvider,
       interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage, defaults.interfaceLanguage),
       dictionaryPreferences: authoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
-    };
-  }
-  function languageProfileDictionariesFromPreferences$1(preferences) {
-    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-    return {
-      installed: ordered.map((preference) => preference.name),
-      enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-      order: ordered.map((preference) => preference.name)
     };
   }
   function dictionaryPreferencesForLanguageProfile(preferences, dictionaries2) {
@@ -96475,14 +96480,6 @@ ${reading}`);
       activeLanguageProfileId: active.id
     };
   }
-  function languageProfileDictionariesFromPreferences(preferences) {
-    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-    return {
-      installed: ordered.map((preference) => preference.name),
-      enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-      order: ordered.map((preference) => preference.name)
-    };
-  }
   function readOutputLanguage(data, fallback) {
     const value = String(data.get("learnerLanguage") ?? "");
     return isLearnerLanguageId(value) ? value : fallback;
@@ -141020,6 +141017,51 @@ ${entry.url}`),
   function reviewConsumesProviderObligation(card) {
     return CONSUMED_REVIEW_SOURCES.has(card.reviewSource) || CONSUMED_CARD_SOURCES.has(card.source);
   }
+  function renderNewTabBrand(overflowMenu, brand) {
+    if (!overflowMenu) return null;
+    return el(
+      "div",
+      { class: "VPNavBarTitle jpdb-reader-newtab-brand", "data-v-6aa21345": "", "data-v-1168a8e4": "" },
+      el(
+        "a",
+        {
+          class: "title",
+          href: brand.homeHref,
+          "aria-label": APP_NAME,
+          "data-v-1168a8e4": ""
+        },
+        el("img", { class: "VPImage logo", src: brand.iconSrc, alt: "", width: 24, height: 24, "data-v-8426fc1a": "" }),
+        el("span", { "data-v-1168a8e4": "" }, NEW_TAB_HEADER_LABEL)
+      )
+    );
+  }
+  function renderNewTabThemeControls(options) {
+    if (!options.overflowMenu) return null;
+    return el(
+      "div",
+      { class: "jpdb-reader-newtab-theme-controls" },
+      el("span", {
+        class: "jpdb-reader-newtab-connectivity",
+        dataset: { newtabConnectivity: true },
+        role: "status",
+        "aria-live": "polite",
+        hidden: true
+      }, newTabText(options.language, "offlineReady")),
+      options.showSessionClockControl ? el("div", {
+        class: "jpdb-reader-newtab-session-clock-host",
+        dataset: { newtabSessionClockHost: true }
+      }) : null,
+      el(
+        "details",
+        { class: "jpdb-reader-newtab-more" },
+        el("summary", {
+          class: "jpdb-reader-newtab-overflow",
+          "aria-label": uiText(options.language, "more")
+        }, "..."),
+        options.overflowMenu
+      )
+    );
+  }
   function renderNewTabShell(options) {
     const { language: language2, overflowMenu } = options;
     const brand = resolveNewTabBrandAssets(location.href);
@@ -141031,21 +141073,7 @@ ${entry.url}`),
         el(
           "header",
           { class: "jpdb-reader-newtab-topbar" },
-          overflowMenu ? el(
-            "div",
-            { class: "VPNavBarTitle jpdb-reader-newtab-brand", "data-v-6aa21345": "", "data-v-1168a8e4": "" },
-            el(
-              "a",
-              {
-                class: "title",
-                href: brand.homeHref,
-                "aria-label": APP_NAME,
-                "data-v-1168a8e4": ""
-              },
-              el("img", { class: "VPImage logo", src: brand.iconSrc, alt: "", width: 24, height: 24, "data-v-8426fc1a": "" }),
-              el("span", { "data-v-1168a8e4": "" }, NEW_TAB_HEADER_LABEL)
-            )
-          ) : null,
+          renderNewTabBrand(overflowMenu, brand),
           el(
             "div",
             { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": newTabText(language2, "newTabMode") },
@@ -141053,30 +141081,7 @@ ${entry.url}`),
             el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "search" }, lang: contentLanguage2 }, newTabText(language2, "library")),
             el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: newTabAction("mode"), mode: "stats" }, lang: contentLanguage2 }, newTabText(language2, "stats"))
           ),
-          overflowMenu ? el(
-            "div",
-            { class: "jpdb-reader-newtab-theme-controls" },
-            el("span", {
-              class: "jpdb-reader-newtab-connectivity",
-              dataset: { newtabConnectivity: true },
-              role: "status",
-              "aria-live": "polite",
-              hidden: true
-            }, newTabText(language2, "offlineReady")),
-            options.showSessionClockControl ? el("div", {
-              class: "jpdb-reader-newtab-session-clock-host",
-              dataset: { newtabSessionClockHost: true }
-            }) : null,
-            el(
-              "details",
-              { class: "jpdb-reader-newtab-more" },
-              el("summary", {
-                class: "jpdb-reader-newtab-overflow",
-                "aria-label": uiText(language2, "more")
-              }, "..."),
-              overflowMenu
-            )
-          ) : null
+          renderNewTabThemeControls(options)
         ),
         el(
           "section",

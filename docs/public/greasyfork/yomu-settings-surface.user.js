@@ -13562,6 +13562,14 @@ function missingLookupComponents(targetLanguage2) {
   const present = new Set(targetLookupSites(targetLanguage2).flatMap((site) => site.components));
   return LOOKUP_LINK_COMPONENTS.filter((component) => !present.has(component));
 }
+function languageProfileDictionariesFromPreferences(preferences) {
+  const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
+  return {
+  installed: ordered.map((preference) => preference.name),
+  enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
+  order: ordered.map((preference) => preference.name)
+  };
+}
 const MAX_EXTRA_LOOKUP_LINKS = 16;
 const JPDB_LOOKUP_LINK = {
   id: "jpdb",
@@ -13981,12 +13989,7 @@ function mergeDictionaryPreferences(current, names, types = {}, replaced = []) {
 function captureActiveLanguageProfileDictionaries(settings, dictionaryPreferences) {
   const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
   if (!active) return { ...settings, dictionaryPreferences };
-  const ordered = [...dictionaryPreferences].sort((left, right) => left.priority - right.priority);
-  const dictionaries2 = {
-  installed: ordered.map((preference) => preference.name),
-  enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-  order: ordered.map((preference) => preference.name)
-  };
+  const dictionaries2 = languageProfileDictionariesFromPreferences(dictionaryPreferences);
   return {
   ...settings,
   dictionaryPreferences,
@@ -14216,6 +14219,16 @@ function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPrefe
   );
   const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
   if (!active) return missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences);
+  return normalizedActiveProfileSettings(
+  value,
+  normalized,
+  active,
+  parserProvider,
+  dictionaryPreferences,
+  defaults
+  );
+}
+function normalizedActiveProfileSettings(value, normalized, active, parserProvider, dictionaryPreferences, defaults) {
   const authoritative = profilesAreAuthoritative(value, normalized.profiles, defaults);
   if (!authoritative) inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults);
   return activeProfileSettings(value, normalized, active, authoritative, dictionaryPreferences, defaults);
@@ -14235,7 +14248,7 @@ function hasPersistedProfiles(value) {
 function inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults) {
   active.parserProvider = parserProvider;
   active.uiLocale = normalizedInterfaceLanguage(value?.interfaceLanguage, defaults.interfaceLanguage);
-  active.dictionaries = languageProfileDictionariesFromPreferences$1(dictionaryPreferences);
+  active.dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
 }
 function missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences) {
   return {
@@ -14253,14 +14266,6 @@ function activeProfileSettings(value, normalized, active, authoritative, diction
   parserProvider: active.parserProvider,
   interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage, defaults.interfaceLanguage),
   dictionaryPreferences: authoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
-  };
-}
-function languageProfileDictionariesFromPreferences$1(preferences) {
-  const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-  return {
-  installed: ordered.map((preference) => preference.name),
-  enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-  order: ordered.map((preference) => preference.name)
   };
 }
 function dictionaryPreferencesForLanguageProfile(preferences, dictionaries2) {
@@ -52809,14 +52814,6 @@ function readLanguageProfileFormSettings(data, current, interfaceLanguage, dicti
     definitionTranslationProviderIds
   } : profile),
   activeLanguageProfileId: active.id
-  };
-}
-function languageProfileDictionariesFromPreferences(preferences) {
-  const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-  return {
-  installed: ordered.map((preference) => preference.name),
-  enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-  order: ordered.map((preference) => preference.name)
   };
 }
 function readOutputLanguage(data, fallback) {
