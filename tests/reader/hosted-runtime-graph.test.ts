@@ -439,7 +439,9 @@ describe('committed standalone hosted runtime consumers', () => {
         const start = source.indexOf('async function openHostedVideoPlayer');
         const end = source.indexOf('async function assertHostedEmptyState', start);
         const openHostedVideoPlayer = source.slice(start, end);
-        expect(openHostedVideoPlayer).toContain('        null,\n        { timeout: 6000 },');
+        expect(openHostedVideoPlayer).toMatch(/null,\s*\{ timeout: 6000 \},/u);
+        expect(openHostedVideoPlayer).toContain("selectOption('ja')");
+        expect(openHostedVideoPlayer).toContain('input[name="onboardingInstallOfflineDictionaries"]');
     });
 });
 

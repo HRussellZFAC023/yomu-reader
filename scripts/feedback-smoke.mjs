@@ -711,11 +711,43 @@ async function verifyHostedFullscreenPausedOcrTapabilityMobile(page, baseUrl) {
 
 async function openHostedVideoPlayer(page, baseUrl) {
     await page.goto(`${baseUrl}/video-player/index.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(
-        () => Boolean(window.__yomuReaderAppInitialized && document.querySelector('.jpdb-subtitle-player')),
-        null,
-        { timeout: 6000 },
-    );
+    try {
+        await page.waitForFunction(
+            () => Boolean(window.__yomuReaderAppInitialized && (
+                document.querySelector('.jpdb-subtitle-player')
+                || document.querySelector('.jpdb-reader-onboarding')
+            )),
+            null,
+            { timeout: 6000 },
+        );
+        const onboarding = page.locator('.jpdb-reader-onboarding');
+        if (await onboarding.count()) {
+            // Hosted file readers deliberately have no ambient language policy.
+            // This Japanese-subtitle fixture must make the same explicit choice
+            // as a fresh learner before target-owned player work can begin.
+            await onboarding.locator('select[name="targetLanguage"]').selectOption('ja');
+            const dictionaries = onboarding.locator('input[name="onboardingInstallOfflineDictionaries"]');
+            if (await dictionaries.isChecked()) await dictionaries.uncheck();
+            await onboarding.locator('[data-onboarding-action="api-key"]').click();
+            await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+            await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
+        }
+        await page.waitForFunction(
+            () => Boolean(document.querySelector('.jpdb-subtitle-player')),
+            null,
+            { timeout: 6000 },
+        );
+    } catch (error) {
+        const state = await page.evaluate(settingsKey => ({
+            initialized: Boolean(window.__yomuReaderAppInitialized),
+            runtimeOwner: document.getElementById('jpdb-reader-runtime-owner')?.outerHTML ?? null,
+            subtitlePlayer: Boolean(document.querySelector('.jpdb-subtitle-player')),
+            onboarding: document.querySelector('.jpdb-reader-onboarding')?.outerHTML.slice(0, 500) ?? null,
+            settings: localStorage.getItem(settingsKey),
+            bodyText: document.body.innerText.slice(0, 500),
+        }), SETTINGS_KEY);
+        throw new Error(`Hosted video player did not initialize: ${JSON.stringify(state)}`, { cause: error });
+    }
 }
 
 async function assertHostedEmptyState(page, variant) {
