@@ -31,7 +31,7 @@ const FEED_HTML = `<!doctype html><html lang="ja"><head><meta charset="utf-8"><t
 </body></html>`;
 
 const SETTINGS = {
-    onboardingSeen: true, interfaceLanguage: 'ja', apiKey: '', jitenApiKey: '',
+    onboardingSeen: true, learningTargetChosen: true, interfaceLanguage: 'ja', apiKey: '', jitenApiKey: '',
     localDictionariesEnabled: false, lookupOnClick: true, showFurigana: true, showPitchAccent: true,
 };
 
@@ -62,7 +62,7 @@ await page.exposeFunction('__yomuFeedReq', request => {
     return { status: 404, responseText: '', contentType: 'text/plain' };
 });
 const prefixContent = `(() => {
-    const settings = ${JSON.stringify(JSON.stringify(SETTINGS))};
+    const settings = ${JSON.stringify(SETTINGS)};
     const store = {};
     window.GM_getValue = (key, fallback) => key === 'jpdb-popup-reader-settings' ? settings : (key in store ? store[key] : fallback);
     window.GM_setValue = (key, value) => { store[key] = value; };
