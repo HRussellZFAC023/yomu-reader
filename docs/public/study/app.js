@@ -1976,8 +1976,19 @@
   function throwIfFetchAborted(signal, fallback) {
     if (signal.aborted) throw signal.reason ?? fallback;
   }
-  const LOOPBACK_HOSTS = /* @__PURE__ */ new Set(["127.0.0.1", "localhost", "[::1]"]);
+  const DOCS_PREVIEW_HOST = "yomureader.localhost";
+  const WEB_PROTOCOLS = /* @__PURE__ */ new Set(["http:", "https:"]);
   const EXTENSION_PROTOCOLS = /* @__PURE__ */ new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+  const TRUSTED_HTTPS_ORIGIN_KINDS = /* @__PURE__ */ new Map([
+    [DOCS_ORIGIN, "docs"],
+    [GITHUB_PAGES_ORIGIN, "github-pages"]
+  ]);
+  const TRUSTED_WEB_HOST_KINDS = /* @__PURE__ */ new Map([
+    [DOCS_PREVIEW_HOST, "docs-preview"],
+    ["127.0.0.1", "loopback"],
+    ["localhost", "loopback"],
+    ["[::1]", "loopback"]
+  ]);
   function readTrustedYomuUrl(value) {
     let url;
     try {
@@ -1998,16 +2009,28 @@
     return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
   }
   function trustedYomuOriginKind(url, path) {
-    if (url.protocol === "https:" && url.origin === DOCS_ORIGIN) return "docs";
-    if (url.protocol === "https:" && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
-      return "github-pages";
-    }
-    if ((url.protocol === "http:" || url.protocol === "https:") && LOOPBACK_HOSTS.has(url.hostname)) {
-      return "loopback";
-    }
-    if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return "extension";
-    return null;
+    return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
   }
+  function trustedHttpsOriginKind(url, path) {
+    const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+    if (originKind !== "github-pages") return originKind ?? null;
+    return isYomuRepositoryPath(path) ? originKind : null;
+  }
+  function trustedWebHostKind(url) {
+    if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+    return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+  }
+  function trustedExtensionOriginKind(url) {
+    if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+    return url.hostname ? "extension" : null;
+  }
+  const STUDY_ROUTE_POLICIES = {
+    docs: isYomuStudyRoutePath,
+    "docs-preview": isYomuStudyRoutePath,
+    extension: isYomuStudyRoutePath,
+    "github-pages": isRepositoryStudyRoutePath,
+    loopback: isLoopbackStudyRoutePath
+  };
   function isYomuNewTabUrl(value) {
     const appUrl = readTrustedYomuUrl(value);
     return appUrl ? isTrustedStudyRoute(appUrl) : false;
@@ -2018,8 +2041,9 @@
   }
   function isTrustedStudyRoute(appUrl) {
     const { originKind, path } = appUrl;
-    if (originKind === "docs" || originKind === "extension") return isYomuStudyRoutePath(path);
-    if (originKind === "github-pages") return isRepositoryStudyRoutePath(path);
+    return STUDY_ROUTE_POLICIES[originKind](path);
+  }
+  function isLoopbackStudyRoutePath(path) {
     return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
   }
   function isRepositoryStudyRoutePath(path) {
@@ -4165,6 +4189,10 @@
       featureStudyBody: "Review words and characters on the study page.",
       featureGame: "Game",
       featureGameBody: "Install the Yomu app to use in games or anywhere on the PC.",
+      gamingChooseTargetTitle: "Choose the language you want to read",
+      gamingChooseTargetBody: "Yomu can read any supported language on your screen after you choose it.",
+      gamingChooseTargetAction: "Choose a language",
+      gamingTargetRequired: "Choose the language you want to read before capturing your screen.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned {language} text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -5315,10 +5343,8 @@
       translationUnavailable: "Translation unavailable.",
       translating: "Translating...",
       ...GRAMMAR_UI_COPY.en,
-      // D43 interface-locale picker. Yomu is in scope for 33 interface
-      // languages and ships two. The picker names the other 31 and says what
-      // each is waiting on, because a language that is listed and then
-      // silently replaced by English is the worse of the two failures.
+      // D43 interface-locale picker: Yomu ships two of 33 in-scope interface languages.
+      // The picker names what the other 31 are waiting on instead of silently replacing them with English.
       interfaceLocalesReady: "Ready now",
       interfaceLocalesInProgress: "On the way",
       interfaceLocaleRtlPending: "Right-to-left layout checks are still running",
@@ -5361,6 +5387,10 @@
     return copy2;
   }
   const JA_COPY = {
+    gamingChooseTargetTitle: "読みたい言語を選んでください",
+    gamingChooseTargetBody: "言語を選ぶと、画面上の対応言語を読み取れるようになります。",
+    gamingChooseTargetAction: "言語を選ぶ",
+    gamingTargetRequired: "画面をキャプチャする前に、読みたい言語を選んでください。",
     ...parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中

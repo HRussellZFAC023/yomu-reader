@@ -52,6 +52,8 @@ const COPY = {
         featureStudyBody: 'Review words and characters on the study page.',
         featureGame: 'Game',
         featureGameBody: 'Install the Yomu app to use in games or anywhere on the PC.',
+        gamingChooseTargetTitle: 'Choose the language you want to read', gamingChooseTargetBody: 'Yomu can read any supported language on your screen after you choose it.',
+        gamingChooseTargetAction: 'Choose a language', gamingTargetRequired: 'Choose the language you want to read before capturing your screen.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned {language} text found.',
         jpdbScanFailed: 'Page scan failed.',
@@ -1202,10 +1204,8 @@ const COPY = {
         translationUnavailable: 'Translation unavailable.',
         translating: 'Translating...',
         ...GRAMMAR_UI_COPY.en,
-        // D43 interface-locale picker. Yomu is in scope for 33 interface
-        // languages and ships two. The picker names the other 31 and says what
-        // each is waiting on, because a language that is listed and then
-        // silently replaced by English is the worse of the two failures.
+        // D43 interface-locale picker: Yomu ships two of 33 in-scope interface languages.
+        // The picker names what the other 31 are waiting on instead of silently replacing them with English.
         interfaceLocalesReady: 'Ready now',
         interfaceLocalesInProgress: 'On the way',
         interfaceLocaleRtlPending: 'Right-to-left layout checks are still running',
@@ -1214,7 +1214,6 @@ const COPY = {
         interfaceLocaleReadyCount: '{ready} of {total} interface languages are ready.',
     },
 } as const;
-
 export type UiCopyKey = keyof typeof COPY.en;
 
 export const CARD_STATE_LABEL_KEYS: Record<string, UiCopyKey> = {
@@ -1251,8 +1250,9 @@ function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
     });
     return copy;
 }
-
 const JA_COPY: Partial<Record<UiCopyKey, string>> = {
+    gamingChooseTargetTitle: '読みたい言語を選んでください', gamingChooseTargetBody: '言語を選ぶと、画面上の対応言語を読み取れるようになります。',
+    gamingChooseTargetAction: '言語を選ぶ', gamingTargetRequired: '画面をキャプチャする前に、読みたい言語を選んでください。',
     ...parseUiCopyTable(String.raw`
 interfaceLocalesReady	今すぐ使えます
 interfaceLocalesInProgress	準備中

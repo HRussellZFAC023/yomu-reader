@@ -11,7 +11,10 @@ import {
 import { normalizeOcrRequest, requestGamingOcr } from './ocr';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from './capture-shortcut';
 import {
+    applyMainRendererTargetChoice,
     createGamingTray,
+    runOverlayCapture,
+    runTargetGatedCapture,
     windowCloseIntent,
     type GamingTrayController,
     type GamingTrayHost,
@@ -66,6 +69,10 @@ let hotkeyRegistered = false;
 let hotkey = DEFAULT_CAPTURE_SHORTCUT;
 let hotkeyError = '';
 let registeredHotkey: string | null = null;
+// Main owns the screen sampler, so it needs an explicit positive choice of its own.
+// It starts closed and is synchronized by the main renderer after local settings load.
+let learningTargetChosen = false;
+let targetChoiceRequested = false;
 // Freeze-frame: the screen is grabbed once while none of our windows are visible,
 // then the overlay reads/crops from this frozen frame. This is what keeps the
 // overlay's own selection chrome out of the OCR'd image.
@@ -131,6 +138,7 @@ async function createMainWindow(): Promise<void> {
         mainWindow = null;
     });
     await window.loadURL(rendererUrl());
+    notifyTargetChoiceRequired();
     if (!window.isDestroyed() && !window.isVisible()) window.show();
 }
 
@@ -299,33 +307,69 @@ function installBrokenPipeGuard(): void {
     }
 }
 
-async function showOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
-    // Grab the frame while neither of our windows is on screen, so the overlay's
-    // own selection box / dim / toolbar can never be composited into the OCR image.
-    const hidMainWindow = Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible());
-    if (hidMainWindow) {
-        mainWindow?.hide();
-        await waitForCompositorFrame();
-    }
+async function requestOverlay(mode: YomuGamingCaptureMode = 'instant'): Promise<void> {
+    await runTargetGatedCapture({
+        learningTargetChosen,
+        chooseTarget: requestLearningTargetChoice,
+        capture: () => showOverlay(mode),
+    });
+}
+
+async function showOverlay(mode: YomuGamingCaptureMode): Promise<void> {
+    const hidMainWindow = await hideMainWindowForCapture();
     try {
-        const target = resolveCaptureTarget();
-        activeCaptureTarget = target;
-        frozenCapture = await captureFrozenFrame(target);
-        const window = await ensureOverlayWindow(mode, target);
-        window.setBounds(target.bounds);
-        window.show();
-        window.focus();
+        await openOverlayFromFrozenCapture(mode);
     } catch (error) {
-        // We hid the app to take a clean frame. If anything after that fails we must
-        // put it back, or the shortcut just makes Yomu disappear with nothing to show.
-        frozenCapture = null;
-        activeCaptureTarget = null;
-        if (hidMainWindow && mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.show();
-            mainWindow.focus();
-        }
+        restoreAfterOverlayFailure(hidMainWindow);
         reportOverlayFailure(error);
     }
+}
+
+async function hideMainWindowForCapture(): Promise<boolean> {
+    // Grab the frame while neither of our windows is on screen, so the overlay's
+    // own selection box / dim / toolbar can never be composited into the OCR image.
+    const window = visibleMainWindow();
+    if (!window) return false;
+    window.hide();
+    await waitForCompositorFrame();
+    return true;
+}
+
+function visibleMainWindow(): BrowserWindow | null {
+    const window = mainWindow;
+    if (!window) return null;
+    if (window.isDestroyed()) return null;
+    if (!window.isVisible()) return null;
+    return window;
+}
+
+async function openOverlayFromFrozenCapture(mode: YomuGamingCaptureMode): Promise<void> {
+    const target = resolveCaptureTarget();
+    activeCaptureTarget = target;
+    frozenCapture = await captureFrozenFrame(target);
+    const window = await ensureOverlayWindow(mode, target);
+    window.setBounds(target.bounds);
+    window.show();
+    window.focus();
+}
+
+function restoreAfterOverlayFailure(hidMainWindow: boolean): void {
+    // We hid the app to take a clean frame. If anything after that fails we must
+    // put it back, or the shortcut just makes Yomu disappear with nothing to show.
+    frozenCapture = null;
+    activeCaptureTarget = null;
+    const window = restorableMainWindow(hidMainWindow);
+    if (!window) return;
+    window.show();
+    window.focus();
+}
+
+function restorableMainWindow(wasHidden: boolean): BrowserWindow | null {
+    if (!wasHidden) return null;
+    const window = mainWindow;
+    if (!window) return null;
+    if (window.isDestroyed()) return null;
+    return window;
 }
 
 function reportOverlayFailure(error: unknown): void {
@@ -368,6 +412,33 @@ async function showApp(): Promise<void> {
     mainWindow?.focus();
 }
 
+async function requestLearningTargetChoice(): Promise<void> {
+    targetChoiceRequested = true;
+    await showApp();
+    notifyTargetChoiceRequired();
+}
+
+function notifyTargetChoiceRequired(): void {
+    if (!targetChoiceRequested) return;
+    const window = mainWindow;
+    if (!window) return;
+    if ([window.isDestroyed(), window.webContents.isLoading()].includes(true)) return;
+    window.webContents.send(YOMU_GAMING_CHANNELS.targetChoiceRequired);
+}
+
+function setLearningTargetChosen(event: Electron.IpcMainInvokeEvent, value: unknown): void {
+    const window = mainWindow;
+    applyMainRendererTargetChoice({
+        chosen: value === true,
+        senderId: event.sender.id,
+        mainRendererId: window && !window.isDestroyed() ? window.webContents.id : null,
+        apply: chosen => {
+            learningTargetChosen = chosen;
+            if (learningTargetChosen) targetChoiceRequested = false;
+        },
+    });
+}
+
 function lifecycleState() {
     return { quitting, hasTray: Boolean(tray), platform: process.platform };
 }
@@ -377,7 +448,7 @@ function lifecycleState() {
 function createTray(): void {
     if (tray) return;
     tray = createGamingTray(electronTrayHost(), {
-        readScreen: () => void showOverlay('instant').catch(reportOverlayFailure),
+        readScreen: () => void requestOverlay('instant').catch(reportOverlayFailure),
         openSettings: () => void showApp(),
         quit: () => quitApp(),
     }, trayStatus());
@@ -426,10 +497,10 @@ function quitApp(): void {
 function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.getEnvironment, () => environmentStatus());
     ipcMain.handle(YOMU_GAMING_CHANNELS.requestOcr, (_event, request) => requestGamingOcr(normalizeOcrRequest(request)));
-    ipcMain.handle(YOMU_GAMING_CHANNELS.getFrozenCapture, () => getFrozenCapture());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.recaptureFrozenFrame, () => recaptureFrozenFrame());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.getFrozenCapture, event => captureForOverlay(event, getFrozenCapture));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.recaptureFrozenFrame, event => captureForOverlay(event, recaptureFrozenFrame));
     ipcMain.handle(YOMU_GAMING_CHANNELS.openScreenSettings, () => openScreenRecordingSettings());
-    ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, (_event, mode: unknown) => showOverlay(normalizeCaptureMode(mode)));
+    ipcMain.handle(YOMU_GAMING_CHANNELS.showOverlay, (_event, mode: unknown) => requestOverlay(normalizeCaptureMode(mode)));
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideOverlay, () => hideOverlay());
     ipcMain.handle(YOMU_GAMING_CHANNELS.showApp, () => showApp());
     ipcMain.handle(YOMU_GAMING_CHANNELS.hideApp, () => {
@@ -439,6 +510,20 @@ function registerIpcHandlers(): void {
     ipcMain.handle(YOMU_GAMING_CHANNELS.updateCaptureShortcut, (_event, shortcut: string) => updateCaptureShortcut(shortcut));
     ipcMain.handle(YOMU_GAMING_CHANNELS.syncSettingsSnapshot, (_event, settings: unknown) => syncSettingsSnapshot(settings));
     ipcMain.handle(YOMU_GAMING_CHANNELS.restoreSettingsSnapshot, () => restoreSettingsSnapshot());
+    ipcMain.handle(YOMU_GAMING_CHANNELS.setLearningTargetChosen, (event, chosen: unknown) => setLearningTargetChosen(event, chosen));
+}
+
+function captureForOverlay(
+    event: Electron.IpcMainInvokeEvent,
+    capture: () => Promise<YomuGamingCaptureSource>,
+): Promise<YomuGamingCaptureSource> {
+    const overlay = overlayWindow;
+    return runOverlayCapture({
+        learningTargetChosen,
+        senderId: event.sender.id,
+        overlayRendererId: overlay && !overlay.isDestroyed() ? overlay.webContents.id : null,
+        capture,
+    });
 }
 
 function environmentStatus(): YomuGamingEnvironment {
@@ -714,7 +799,7 @@ function registerGlobalShortcuts(): void {
     }
     hotkeyRegistered = process.env.YOMU_GAMING_TEST_MODE === '1' || globalShortcut.register(hotkey, () => {
         if (overlayWindow?.isVisible()) hideOverlay();
-        else void showOverlay('instant').catch(reportOverlayFailure);
+        else void requestOverlay('instant').catch(reportOverlayFailure);
     });
     if (hotkeyRegistered) registeredHotkey = hotkey;
     // Single place the shortcut changes, so it is the single place the tray relabels.

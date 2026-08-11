@@ -47,4 +47,4 @@ Batch Mine scans the loaded transcript after you watch. It compares the words wi
 
 Video lines can already keep their sentence and an optional frame. Broader sentence-audio mining is in development, so treat audio on a mined sentence as source-dependent for now.
 
-Next: [Manga and games: Japanese inside pictures →](/learn/manga-and-games)
+Next: [Manga and games: text inside pictures →](/learn/manga-and-games)

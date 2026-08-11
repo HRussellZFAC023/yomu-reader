@@ -4,7 +4,7 @@ import {
     GITHUB_PAGES_ORIGIN,
 } from './constants';
 
-export type TrustedYomuOriginKind = 'docs' | 'github-pages' | 'loopback' | 'extension';
+export type TrustedYomuOriginKind = 'docs' | 'docs-preview' | 'github-pages' | 'loopback' | 'extension';
 
 export interface TrustedYomuUrl {
     url: URL;
@@ -12,8 +12,23 @@ export interface TrustedYomuUrl {
     originKind: TrustedYomuOriginKind;
 }
 
-const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]']);
+// The docs browser smoke uses this exact reserved pseudo-loopback host to avoid
+// the theme's force-local fallback while exercising production ownership. It
+// gets docs route semantics without production's broad GM-storage trust. Keep
+// it explicit: arbitrary *.localhost names do not acquire Yomu bridge trust.
+const DOCS_PREVIEW_HOST = 'yomureader.localhost';
+const WEB_PROTOCOLS = new Set(['http:', 'https:']);
 const EXTENSION_PROTOCOLS = new Set(['chrome-extension:', 'moz-extension:', 'safari-web-extension:']);
+const TRUSTED_HTTPS_ORIGIN_KINDS = new Map<string, 'docs' | 'github-pages'>([
+    [DOCS_ORIGIN, 'docs'],
+    [GITHUB_PAGES_ORIGIN, 'github-pages'],
+]);
+const TRUSTED_WEB_HOST_KINDS = new Map<string, 'docs-preview' | 'loopback'>([
+    [DOCS_PREVIEW_HOST, 'docs-preview'],
+    ['127.0.0.1', 'loopback'],
+    ['localhost', 'loopback'],
+    ['[::1]', 'loopback'],
+]);
 
 /**
  * Parses a URL only when its origin is allowed to host privileged Yomu UI.
@@ -48,13 +63,23 @@ export function isYomuRepositoryPath(path: string): boolean {
 }
 
 function trustedYomuOriginKind(url: URL, path: string): TrustedYomuOriginKind | null {
-    if (url.protocol === 'https:' && url.origin === DOCS_ORIGIN) return 'docs';
-    if (url.protocol === 'https:' && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
-        return 'github-pages';
-    }
-    if ((url.protocol === 'http:' || url.protocol === 'https:') && LOOPBACK_HOSTS.has(url.hostname)) {
-        return 'loopback';
-    }
-    if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return 'extension';
-    return null;
+    return trustedHttpsOriginKind(url, path)
+        ?? trustedWebHostKind(url)
+        ?? trustedExtensionOriginKind(url);
+}
+
+function trustedHttpsOriginKind(url: URL, path: string): TrustedYomuOriginKind | null {
+    const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+    if (originKind !== 'github-pages') return originKind ?? null;
+    return isYomuRepositoryPath(path) ? originKind : null;
+}
+
+function trustedWebHostKind(url: URL): TrustedYomuOriginKind | null {
+    if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+    return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
+}
+
+function trustedExtensionOriginKind(url: URL): TrustedYomuOriginKind | null {
+    if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+    return url.hostname ? 'extension' : null;
 }

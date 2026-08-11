@@ -1,17 +1,19 @@
 ---
 title: Manga and games
-description: Read Japanese trapped inside manga panels, screenshots and game frames with OCR, while keeping image requests explicit.
+description: Read text trapped inside manga panels, screenshots and game frames with OCR, while keeping image requests explicit.
 ---
 
 # Manga and games
 
-Some Japanese is trapped in a picture.
+Some writing is trapped in a picture.
 
 OCR turns the text inside a manga panel, screenshot or game frame into words you can press. The picture stays where it is. The usual lookup opens over it.
 
+First choose the language you are reading under Settings → Appearance. Yomu does not assume Japanese on a fresh install. The examples below use Japanese manga and game dialogue, but the same capture loop follows whichever supported learning target you choose.
+
 ## Read manga
 
-Some manga pages ship recognised text beside the image, as Mokuro pages do. Yomu reads that embedded text immediately. Other pages need an OCR provider after you ask for a scan.
+Some Japanese manga pages ship recognised text beside the image, as Mokuro pages do. Yomu reads that embedded text immediately. Other pages and languages need an OCR provider after you ask for a scan.
 
 Press a panel or use Scan images. Yomu can use Google Lens, your Google Cloud Vision key, a compatible local service or the browser extension's screenshot path. The [live OCR panel on the homepage](/#yomu-live-ocr) lets you try the loop with nothing installed.
 
@@ -23,7 +25,7 @@ Stylised lettering, tiny furigana, sound effects and text crossing artwork can c
 
 ## Read a game frame
 
-Yomu Gaming is a separate desktop app for Windows, macOS, Linux and Steam Deck desktop mode. Open it, choose a whole-screen or region capture shortcut, then press that shortcut during a scene. The captured Japanese becomes the same pressable reading surface.
+Yomu Gaming is a separate desktop app for Windows, macOS, Linux and Steam Deck desktop mode. On first launch, choose the language you want to read before setting up or starting capture. Then choose a whole-screen or region capture shortcut and press it during a scene. Text in the selected learning target becomes the same pressable reading surface.
 
 The default recognition path needs a connection. You can point Gaming at Cloud Vision or a compatible local reader. Busy games are easier when you capture only the dialogue box.
 

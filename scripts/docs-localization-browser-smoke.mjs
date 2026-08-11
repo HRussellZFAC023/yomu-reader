@@ -3,8 +3,8 @@ import { chromium, firefox } from 'playwright';
 
 const PREVIEW_ORIGIN = process.env.YOMU_DOCS_PREVIEW_URL || 'http://127.0.0.1:4199';
 const ORIGIN = productionPolicyPreviewOrigin(PREVIEW_ORIGIN);
-const JA_STATIC_HEADING = '日本語を学ぶための、すべてがそろう。';
-const EN_STATIC_HEADING = 'A complete system for learning 日本語.';
+const JA_STATIC_HEADING = '学んでいる言語を、よむで読む。';
+const EN_STATIC_HEADING = "Read the language you're learning with Yomu.";
 const EXPECTED_ROUTE_FRAMES = Object.freeze({
     '/': { lang: 'en', staticHeading: EN_STATIC_HEADING, prefix: 'Read ', suffix: ' with Yomu.' },
     '/ja/': { lang: 'ja', staticHeading: JA_STATIC_HEADING, prefix: 'よむで', suffix: 'を読む。' },
@@ -17,13 +17,19 @@ const HERO_GEOMETRY_WIDTHS = [320, 375, 720, 721, 1024, 1280];
 const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium';
 const browserType = { chromium, firefox }[BROWSER_NAME];
 assert.ok(browserType, `Unsupported docs browser: ${BROWSER_NAME}`);
+const BROWSER_CHANNEL = BROWSER_NAME === 'chromium'
+    ? process.env.YOMU_PLAYWRIGHT_CHANNEL?.trim()
+    : undefined;
 const LOCALE_PROOF_BROWSER_OPTIONS = Object.freeze({
     extraHTTPHeaders: {
         'Accept-Encoding': BROWSER_NAME === 'chromium' ? 'gzip' : 'identity',
     },
     locale: 'en-GB',
 });
-const browser = await browserType.launch({ headless: true });
+const browser = await browserType.launch({
+    headless: true,
+    ...(BROWSER_CHANNEL ? { channel: BROWSER_CHANNEL } : {}),
+});
 
 function productionPolicyPreviewOrigin(value) {
     const url = new URL(value);
@@ -134,8 +140,24 @@ async function assertServerRenderedLocale(route, expectedHeading, excludedHeadin
     });
     assert.ok(response.ok, `${label} server response failed`);
     const html = await response.text();
-    assert.ok(html.includes(expectedHeading), `${label} is absent from initial server HTML`);
-    assert.equal(html.includes(excludedHeading), false, `${label} route contains the other language's headline`);
+    assert.ok(
+        html.includes(encodeServerHtmlText(expectedHeading)),
+        `${label} is absent from initial server HTML`,
+    );
+    assert.equal(
+        html.includes(encodeServerHtmlText(excludedHeading)),
+        false,
+        `${label} route contains the other language's headline`,
+    );
+}
+
+function encodeServerHtmlText(value) {
+    return value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
 }
 
 async function installFirstFrameProbe(page) {
@@ -749,10 +771,18 @@ async function assertStudyDoesNotContaminateRoot(browser) {
         await navigateLocaleProof(page, '/study/', 'Study');
         await page.waitForFunction(() => window.__YOMU_READER_RUNTIME__ === 'newtab'
             && document.documentElement.dataset.yomuHosted !== undefined);
+        await completeStudyTargetChoice(page);
         await page.locator('.jpdb-reader-newtab[data-jpdb-reader-root][data-newtab-bound="true"]')
             .waitFor({ state: 'visible', timeout: 20_000 });
         await assertEnglishHostedHomepage(page, 'Study-to-English homepage', { fresh: true });
     });
+}
+
+async function completeStudyTargetChoice(page) {
+    const onboarding = page.locator('.jpdb-reader-onboarding');
+    await onboarding.waitFor({ state: 'visible', timeout: 20_000 });
+    await onboarding.locator('select[name="targetLanguage"]').selectOption('es');
+    await onboarding.locator('[data-onboarding-action="without-api"]').click();
 }
 
 async function assertAcademyDoesNotContaminateRoot(browser) {

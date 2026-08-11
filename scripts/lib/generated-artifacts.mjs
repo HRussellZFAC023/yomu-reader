@@ -31,8 +31,10 @@ export const GENERATED_ARTIFACT_PATHS = [
     'docs/public/yomu.user.js',
     'docs/public/yomu.css',
     'docs/public/yomu.*.css',
-    // Deterministically rendered from docs/public/og-image.svg by docs:build.
+    // Reviewed golden raster paired with docs/public/og-image.svg. The adjacent
+    // integrity manifest detects independent drift without cross-host rendering.
     'docs/public/og-image.png',
+    'docs/public/og-image.generated.json',
     'docs/public/hosted-runtime-graph.js',
     // The Reader sync stamps the immutable runtime graph into these hosted
     // shells. hosted-reader-worker.js is authored source, not generated output.

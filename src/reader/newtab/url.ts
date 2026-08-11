@@ -2,8 +2,19 @@ import { APP_REPOSITORY_NAME } from '../app/constants';
 import {
     normalizeYomuHostedPath,
     readTrustedYomuUrl,
+    type TrustedYomuOriginKind,
     type TrustedYomuUrl,
 } from '../app/trusted-hosted-url';
+
+type StudyRoutePolicy = (path: string) => boolean;
+
+const STUDY_ROUTE_POLICIES: Record<TrustedYomuOriginKind, StudyRoutePolicy> = {
+    docs: isYomuStudyRoutePath,
+    'docs-preview': isYomuStudyRoutePath,
+    extension: isYomuStudyRoutePath,
+    'github-pages': isRepositoryStudyRoutePath,
+    loopback: isLoopbackStudyRoutePath,
+};
 
 export function isYomuNewTabUrl(value: string): boolean {
     const appUrl = readTrustedYomuUrl(value);
@@ -18,8 +29,10 @@ export function isYomuStudyRoutePath(pathname: string): boolean {
 
 function isTrustedStudyRoute(appUrl: TrustedYomuUrl): boolean {
     const { originKind, path } = appUrl;
-    if (originKind === 'docs' || originKind === 'extension') return isYomuStudyRoutePath(path);
-    if (originKind === 'github-pages') return isRepositoryStudyRoutePath(path);
+    return STUDY_ROUTE_POLICIES[originKind](path);
+}
+
+function isLoopbackStudyRoutePath(path: string): boolean {
     return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
 }
 

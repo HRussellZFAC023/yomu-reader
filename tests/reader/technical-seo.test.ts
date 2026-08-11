@@ -8,9 +8,11 @@
 // shell (the URL paying supporters are sent) carried no canonical and no og:*,
 // the PDF reader's <title> disagreed with its og:title, and /favicon.ico served
 // the HTML 404 page.
-import { existsSync, readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -49,6 +51,10 @@ const APP_SHELLS = [
 
 function read(file: string): string {
     return readFileSync(path.join(ROOT, file), 'utf8');
+}
+
+function sha256(file: string): string {
+    return createHash('sha256').update(readFileSync(path.join(ROOT, file))).digest('hex');
 }
 
 /** The `content` of a `<meta>` carrying `property="name"` or `name="name"`. */
@@ -98,15 +104,82 @@ describe('app shell social metadata', () => {
         expect(existsSync(path.join(ROOT, 'docs/public/og-image.png'))).toBe(true);
     });
 
-    it('keeps the served OG raster generated from the language-neutral SVG', () => {
+    it('keeps the reviewed OG golden raster linked to the language-neutral SVG', () => {
         const source = read('docs/public/og-image.svg');
         expect(source).toContain('Language-learning');
         expect(source).not.toContain('Free Japanese');
-        expect(() => execFileSync(
+        const checkOutput = execFileSync(
             process.execPath,
             ['scripts/generate-og-image.mjs', '--check'],
-            { cwd: ROOT, stdio: 'pipe' },
-        )).not.toThrow();
+            { cwd: ROOT, encoding: 'utf8' },
+        );
+        expect(checkOutput).toContain('reviewed golden-pair hashes without rendering');
+
+        // A check must not even load Sharp: native libvips encoders differ by
+        // host, which is what made Linux reject the Mac-generated release PNG.
+        // The copied contract has no node_modules, so it can only verify the
+        // reviewed golden pair's integrity rather than rendering again.
+        const fixtureRoot = mkdtempSync(path.join(tmpdir(), 'yomu-og-check-'));
+        try {
+            mkdirSync(path.join(fixtureRoot, 'scripts'), { recursive: true });
+            mkdirSync(path.join(fixtureRoot, 'docs/public'), { recursive: true });
+            for (const file of [
+                'package-lock.json',
+                'scripts/generate-og-image.mjs',
+                'docs/public/og-image.svg',
+                'docs/public/og-image.png',
+                'docs/public/og-image.generated.json',
+            ]) {
+                copyFileSync(path.join(ROOT, file), path.join(fixtureRoot, file));
+            }
+            expect(execFileSync(
+                process.execPath,
+                ['scripts/generate-og-image.mjs', '--check'],
+                { cwd: fixtureRoot, encoding: 'utf8' },
+            )).toContain('reviewed golden-pair hashes without rendering');
+
+            const fixtureSvg = path.join(fixtureRoot, 'docs/public/og-image.svg');
+            const fixturePng = path.join(fixtureRoot, 'docs/public/og-image.png');
+            const fixtureManifest = path.join(fixtureRoot, 'docs/public/og-image.generated.json');
+            const pngBefore = readFileSync(fixturePng);
+            const manifestBefore = readFileSync(fixtureManifest);
+            writeFileSync(fixtureSvg, `${readFileSync(fixtureSvg, 'utf8')}\n<!-- stale-pair test -->\n`);
+            const staleBuild = spawnSync(process.execPath, ['scripts/generate-og-image.mjs'], {
+                cwd: fixtureRoot,
+                encoding: 'utf8',
+            });
+            expect(staleBuild.status).toBe(1);
+            expect(staleBuild.stderr).toContain('Refusing to replace the golden raster');
+            expect(staleBuild.stderr).toContain('--refresh-golden');
+            expect(readFileSync(fixturePng)).toEqual(pngBefore);
+            expect(readFileSync(fixtureManifest)).toEqual(manifestBefore);
+        } finally {
+            rmSync(fixtureRoot, { recursive: true, force: true });
+        }
+
+        const manifest = JSON.parse(read('docs/public/og-image.generated.json')) as {
+            schemaVersion: number;
+            contract: string;
+            verification: string;
+            reviewedSvg: { path: string; sha256: string };
+            goldenRaster: { path: string; sha256: string; width: number; height: number };
+            renderRecipe: { path: string; sha256: string; renderer: string };
+        };
+        expect(manifest).toMatchObject({
+            schemaVersion: 1,
+            contract: 'reviewed-golden-raster-link-v1',
+            verification: 'pair-integrity-only',
+            reviewedSvg: { path: 'docs/public/og-image.svg' },
+            goldenRaster: { path: 'docs/public/og-image.png', width: 1200, height: 630 },
+            renderRecipe: { path: 'scripts/generate-og-image.mjs' },
+        });
+        expect(manifest.reviewedSvg.sha256).toBe(sha256(manifest.reviewedSvg.path));
+        expect(manifest.goldenRaster.sha256).toBe(sha256(manifest.goldenRaster.path));
+        expect(manifest.renderRecipe.sha256).toBe(sha256(manifest.renderRecipe.path));
+        expect(manifest.renderRecipe.renderer).toMatch(/^sharp@\d+\.\d+\.\d+$/u);
+        expect(pngDimensions(readFileSync(path.join(ROOT, manifest.goldenRaster.path))))
+            .toEqual({ width: manifest.goldenRaster.width, height: manifest.goldenRaster.height });
+
         const scripts = JSON.parse(read('package.json')).scripts as Record<string, string>;
         expect(scripts['docs:build']).toContain('npm run docs:og-image');
     });

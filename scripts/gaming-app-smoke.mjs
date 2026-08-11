@@ -85,9 +85,14 @@ try {
     await page.waitForSelector('.yomu-gaming-home', { timeout: 45_000 });
     await page.waitForSelector('.jpdb-reader-settings[data-yomu-gaming-settings]', { state: 'attached', timeout: 45_000 });
     await assertNativeWindowSize(page);
-    step('verify the first run says what this is and what to press');
-    await assertFirstRunClarity(page);
+    step('verify the first run is language-neutral');
+    await assertNeutralFirstRunClarity(page);
     await assertDefaultOcrPath(page);
+    step('verify a pre-choice global capture does not sample the display and routes to the target setting');
+    await assertUnchosenCaptureRoutesToTarget(page, fixtureOcr);
+    step('choose Japanese explicitly for the Japanese OCR fixture');
+    await chooseJapaneseTarget(page);
+    await assertFirstRunClarity(page);
     step('configure and persist capture shortcut');
     await configureCaptureShortcut(page, 'Ctrl+Shift+U');
     const savedShortcut = JSON.parse(readFileSync(captureShortcutPath, 'utf8'));
@@ -397,44 +402,119 @@ function crc32(buffer) {
     return (crc ^ 0xffffffff) >>> 0;
 }
 
-// The first thing on screen must answer two questions and no more: what this is, and what
-// to press. One hero, one primary action, the shortcut once, and Settings behind a click.
+// A compatibility profile still contains Japanese defaults, but fresh Gaming has no
+// learner intent yet. It may name neither Japanese nor a capture path until selection.
+async function assertNeutralFirstRunClarity(page) {
+    const home = page.locator('.yomu-gaming-home[data-target-choice-required="true"]');
+    await home.waitFor({ timeout: 10_000 });
+    const shape = await gamingHomeShape(page);
+    assertSmoke(shape.headings === 1, `Yomu Gaming neutral first run showed ${shape.headings} heroes instead of one.`);
+    assertSmoke(shape.primaries === 1, `Yomu Gaming neutral first run showed ${shape.primaries} primary actions instead of one.`);
+    const actionNames = shape.actions.map(action => action.name);
+    assertSmoke(JSON.stringify(actionNames) === JSON.stringify(['choose-target', 'open-settings']), `Yomu Gaming neutral first run exposed capture actions: ${JSON.stringify(actionNames)}`);
+    assertSmoke(shape.shortcuts === 0, `Yomu Gaming neutral first run advertised ${shape.shortcuts} capture shortcuts before target choice.`);
+    const copy = await home.innerText();
+    const missing = ['Yomu Gaming', 'Choose the language you want to read', 'Choose a language']
+        .filter(expected => !copy.toLowerCase().includes(expected.toLowerCase()));
+    assertSmoke(missing.length === 0, `Yomu Gaming neutral first run is missing ${JSON.stringify(missing)}: ${copy}`);
+    const leaked = ['Japanese', 'Read my screen', 'Read part of the screen'].filter(forbidden => copy.includes(forbidden));
+    assertSmoke(leaked.length === 0, `Yomu Gaming neutral first run still promises ${JSON.stringify(leaked)}: ${copy}`);
+}
+
+// Once the player has chosen the Japanese fixture's target, preserve the established
+// three-action home: one primary capture, one area capture, Settings, and one shortcut.
 async function assertFirstRunClarity(page) {
     const home = page.locator('.yomu-gaming-home');
     await home.waitFor({ timeout: 10_000 });
-    if (await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count()) {
-        throw new Error('Yomu Gaming opened on the settings form instead of its home screen.');
-    }
-    const shape = await page.evaluate(() => {
+    await assertHomeSurfaceVisible(page);
+    const shape = await gamingHomeShape(page);
+    assertChosenHomeShape(shape);
+    const copy = await home.innerText();
+    // The wordmark is styled uppercase, so match it the way it reads, not the way it is cased.
+    assertSmoke(/yomu gaming/i.test(copy), `Yomu Gaming first run does not name the app: ${copy}`);
+    assertCopyIncludes(copy, ['Read Japanese anywhere on your screen', 'Read my screen', 'Read part of the screen', 'Settings']);
+    assertCopyExcludes(copy, ['Google Lens', 'OCR', 'proxy', 'Try now', 'Choose area', 'Done', 'Japanese anywhere on your PC', 'Page scanning', 'Manual scan shortcut', 'Scan modifier key']);
+    assertSmoke(!/endpoint|127\.0\.0\.1/i.test(copy), `Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
+    assertSmoke(!ambiguousScanCopyPattern.test(copy), `Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
+}
+
+async function assertHomeSurfaceVisible(page) {
+    const visibleSettings = await page.locator('.jpdb-reader-settings[data-yomu-gaming-settings]:visible').count();
+    assertSmoke(visibleSettings === 0, 'Yomu Gaming opened on the settings form instead of its home screen.');
+}
+
+function assertChosenHomeShape(shape) {
+    assertSmoke(shape.headings === 1, `Yomu Gaming first run shows ${shape.headings} heroes; it must show exactly one.`);
+    assertSmoke(
+        shape.actions.length === 3 && shape.primaries === 1,
+        `Yomu Gaming first run must offer three actions with one primary: ${JSON.stringify(shape.actions)}`,
+    );
+    assertSmoke(shape.shortcuts === 1, `Yomu Gaming first run shows the capture shortcut ${shape.shortcuts} times; it must show it once.`);
+}
+
+function assertCopyIncludes(copy, required) {
+    const missing = required.filter(expected => !copy.includes(expected));
+    assertSmoke(missing.length === 0, `Yomu Gaming first run is missing ${JSON.stringify(missing)}: ${copy}`);
+}
+
+function assertCopyExcludes(copy, forbidden) {
+    const exposed = forbidden.filter(fragment => copy.includes(fragment));
+    assertSmoke(exposed.length === 0, `Yomu Gaming first run still exposes ${JSON.stringify(exposed)}: ${copy}`);
+}
+
+async function gamingHomeShape(page) {
+    return page.evaluate(() => {
         const surface = document.querySelector('.yomu-gaming-home');
         const actions = Array.from(surface?.querySelectorAll('button[data-action]') ?? []);
         return {
             headings: document.querySelectorAll('.yomu-gaming-shell h1:not([hidden])').length,
-            actions: actions.map(button => `${button.dataset.action}:${(button.textContent || '').trim()}`),
+            actions: actions.map(button => ({
+                name: button.dataset.action ?? '',
+                label: (button.textContent || '').trim(),
+            })),
             primaries: actions.filter(button => button.classList.contains('add')).length,
             shortcuts: surface?.querySelectorAll('kbd[data-hotkey]').length ?? 0,
         };
     });
-    if (shape.headings !== 1) {
-        throw new Error(`Yomu Gaming first run shows ${shape.headings} heroes; it must show exactly one.`);
-    }
-    if (shape.actions.length !== 3 || shape.primaries !== 1) {
-        throw new Error(`Yomu Gaming first run must offer three actions with one primary: ${JSON.stringify(shape.actions)}`);
-    }
-    if (shape.shortcuts !== 1) {
-        throw new Error(`Yomu Gaming first run shows the capture shortcut ${shape.shortcuts} times; it must show it once.`);
-    }
-    const copy = await home.innerText();
-    // The wordmark is styled uppercase, so match it the way it reads, not the way it is cased.
-    if (!/yomu gaming/i.test(copy)) throw new Error(`Yomu Gaming first run does not name the app: ${copy}`);
-    for (const expected of ['Read Japanese anywhere on your screen', 'Read my screen', 'Read part of the screen', 'Settings']) {
-        if (!copy.includes(expected)) throw new Error(`Yomu Gaming first run is missing "${expected}": ${copy}`);
-    }
-    for (const forbidden of ['Google Lens', 'OCR', 'proxy', 'Try now', 'Choose area', 'Done', 'Japanese anywhere on your PC', 'Page scanning', 'Manual scan shortcut', 'Scan modifier key']) {
-        if (copy.includes(forbidden)) throw new Error(`Yomu Gaming first run still exposes "${forbidden}": ${copy}`);
-    }
-    if (/endpoint|127\.0\.0\.1/i.test(copy)) throw new Error(`Yomu Gaming first run still exposes advanced OCR setup: ${copy}`);
-    if (ambiguousScanCopyPattern.test(copy)) throw new Error(`Yomu Gaming first run still uses ambiguous scan copy: ${copy}`);
+}
+
+function assertSmoke(condition, message) {
+    if (!condition) throw new Error(message);
+}
+
+async function assertUnchosenCaptureRoutesToTarget(page, fixtureOcr) {
+    const requestCount = fixtureOcr.requests.length;
+    const overlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
+    await page.evaluate(() => window.yomuGaming?.showOverlay('instant'));
+    await page.bringToFront();
+    await page.waitForFunction(() => {
+        const shell = document.querySelector('.yomu-gaming-shell');
+        const tab = document.querySelector('[data-action="settings-panel"][aria-selected="true"]');
+        return shell?.getAttribute('data-shell-view') === 'settings'
+            && tab?.getAttribute('data-panel') === 'appearance';
+    }, undefined, { timeout: 10_000 });
+    const target = page.locator('select[name="targetLanguage"]');
+    await target.waitFor({ state: 'visible', timeout: 10_000 });
+    const targetValue = await target.inputValue();
+    assertSmoke(targetValue === '', `Yomu Gaming target route exposed an ambient target: ${targetValue}`);
+    const nextOverlayCount = app.windows().filter(window => window.url().includes('#overlay-')).length;
+    assertSmoke(nextOverlayCount === overlayCount, 'Yomu Gaming created an overlay, which means main sampled the display before target choice.');
+    assertSmoke(fixtureOcr.requests.length === requestCount, 'Yomu Gaming sent OCR before the player chose a learning target.');
+}
+
+async function chooseJapaneseTarget(page) {
+    const target = page.locator('select[name="targetLanguage"]');
+    await target.selectOption('ja');
+    await page.locator('.yomu-gaming-home [data-action="instant-capture"]').waitFor({ state: 'visible', timeout: 10_000 });
+    const state = await page.evaluate(() => {
+        const settings = JSON.parse(localStorage.getItem('yomu-gaming-reader-settings-v1') || '{}');
+        return {
+            chosen: settings.learningTargetChosen,
+            heading: document.querySelector('.yomu-gaming-home h1')?.textContent ?? '',
+        };
+    });
+    assertSmoke(state.chosen === true, `Yomu Gaming did not persist explicit target intent: ${JSON.stringify(state)}`);
+    assertSmoke(state.heading === 'Read Japanese anywhere on your screen', `Yomu Gaming did not adopt the explicit Japanese choice: ${JSON.stringify(state)}`);
 }
 
 // The overlay is a second window with its own web preferences, so "Settings" there

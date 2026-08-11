@@ -11,7 +11,7 @@
 // @updateURL https://update.greasyfork.org/scripts/581653/%E3%82%88%E3%82%80.meta.js
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-runtime.d1ff6679b79a.user.js#sha256=0f9mebeaBMum3a2IIgVMFVhIcnp9JK8BzuCGyaFr4u4=
+// @require https://yomureader.com/greasyfork/yomu-runtime.0c7958a11a04.user.js#sha256=DHlYoRoEogWW3jYO9krs1BY2HTHffWKnMLyKVLvS/Nw=
 // @resource yomuCss  https://yomureader.com/yomu.98ece4dc43de.css#sha256=mOzk3EPeHxDtuAU1ik6q9lmdhjIaPbqmPMex3VScNKI=
 // @connect api.jiten.moe
 // @connect api.tatoeba.org
@@ -186,8 +186,19 @@ const ANKI_SOURCE_ID = "__anki__";
 const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
 const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
 const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
-const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+const DOCS_PREVIEW_HOST = "yomureader.localhost";
+const WEB_PROTOCOLS = new Set(["http:", "https:"]);
 const EXTENSION_PROTOCOLS = new Set(["chrome-extension:", "moz-extension:", "safari-web-extension:"]);
+const TRUSTED_HTTPS_ORIGIN_KINDS = new Map([
+[DOCS_ORIGIN, "docs"],
+[GITHUB_PAGES_ORIGIN, "github-pages"]
+]);
+const TRUSTED_WEB_HOST_KINDS = new Map([
+[DOCS_PREVIEW_HOST, "docs-preview"],
+["127.0.0.1", "loopback"],
+["localhost", "loopback"],
+["[::1]", "loopback"]
+]);
 function readTrustedYomuUrl(value) {
 let url;
 try {
@@ -208,16 +219,28 @@ function isYomuRepositoryPath(path) {
 return path === `/${APP_REPOSITORY_NAME}/` || path.startsWith(`/${APP_REPOSITORY_NAME}/`);
 }
 function trustedYomuOriginKind(url, path) {
-if (url.protocol === "https:" && url.origin === DOCS_ORIGIN) return "docs";
-if (url.protocol === "https:" && url.origin === GITHUB_PAGES_ORIGIN && isYomuRepositoryPath(path)) {
-return "github-pages";
+return trustedHttpsOriginKind(url, path) ?? trustedWebHostKind(url) ?? trustedExtensionOriginKind(url);
 }
-if ((url.protocol === "http:" || url.protocol === "https:") && LOOPBACK_HOSTS.has(url.hostname)) {
-return "loopback";
+function trustedHttpsOriginKind(url, path) {
+const originKind = TRUSTED_HTTPS_ORIGIN_KINDS.get(url.origin);
+if (originKind !== "github-pages") return originKind ?? null;
+return isYomuRepositoryPath(path) ? originKind : null;
 }
-if (EXTENSION_PROTOCOLS.has(url.protocol) && Boolean(url.hostname)) return "extension";
-return null;
+function trustedWebHostKind(url) {
+if (!WEB_PROTOCOLS.has(url.protocol)) return null;
+return TRUSTED_WEB_HOST_KINDS.get(url.hostname) ?? null;
 }
+function trustedExtensionOriginKind(url) {
+if (!EXTENSION_PROTOCOLS.has(url.protocol)) return null;
+return url.hostname ? "extension" : null;
+}
+const STUDY_ROUTE_POLICIES = {
+docs: isYomuStudyRoutePath,
+"docs-preview": isYomuStudyRoutePath,
+extension: isYomuStudyRoutePath,
+"github-pages": isRepositoryStudyRoutePath,
+loopback: isLoopbackStudyRoutePath
+};
 function isYomuNewTabUrl(value) {
 const appUrl = readTrustedYomuUrl(value);
 return appUrl ? isTrustedStudyRoute(appUrl) : false;
@@ -228,13 +251,21 @@ return path === "/study/" || path === "/newtab/";
 }
 function isTrustedStudyRoute(appUrl) {
 const { originKind, path } = appUrl;
-if (originKind === "docs" || originKind === "extension") return isYomuStudyRoutePath(path);
-if (originKind === "github-pages") return isRepositoryStudyRoutePath(path);
+return STUDY_ROUTE_POLICIES[originKind](path);
+}
+function isLoopbackStudyRoutePath(path) {
 return isYomuStudyRoutePath(path) || isRepositoryStudyRoutePath(path);
 }
 function isRepositoryStudyRoutePath(path) {
 return path === `/${APP_REPOSITORY_NAME}/study/` || path === `/${APP_REPOSITORY_NAME}/newtab/`;
 }
+const REPOSITORY_APP_POLICIES = {
+docs: () => true,
+"docs-preview": () => true,
+"github-pages": (appUrl) => isYomuRepositoryPath(appUrl.path),
+extension: (appUrl) => isYomuNewTabUrl(appUrl.url.href),
+loopback: (appUrl) => isYomuLocalAppPath(appUrl.path)
+};
 function isYomuHostedAppUrl(value) {
 const appUrl = readTrustedYomuUrl(value);
 return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
@@ -276,10 +307,7 @@ function isYomuActiveAppRoute(value, appUrl) {
 return isYomuNewTabUrl(value) || isExactHostedAppPath(appUrl, "video-player") || isExactHostedAppPath(appUrl, "pdf-reader") || isExactHostedAppPath(appUrl, "academy");
 }
 function isYomuRepositoryAppUrl(appUrl) {
-if (appUrl.originKind === "docs") return true;
-if (appUrl.originKind === "github-pages") return isYomuRepositoryPath(appUrl.path);
-if (appUrl.originKind === "extension") return isYomuNewTabUrl(appUrl.url.href);
-return isYomuLocalAppPath(appUrl.path);
+return REPOSITORY_APP_POLICIES[appUrl.originKind](appUrl);
 }
 function isExactHostedAppPath(appUrl, route) {
 if (appUrl.originKind === "github-pages") {

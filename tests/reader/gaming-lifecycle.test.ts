@@ -1,10 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import { captureShortcutLabel, DEFAULT_CAPTURE_SHORTCUT, normalizeCaptureShortcut } from '../../src/gaming/capture-shortcut';
 import {
+    applyMainRendererTargetChoice,
     createGamingTray,
+    GAMING_OVERLAY_CAPTURE_REQUIRED,
+    GAMING_TARGET_CHOICE_REQUIRED,
+    GAMING_TARGET_CHOICE_SENDER_REQUIRED,
     gamingTrayMenuTemplate,
     gamingTrayTooltip,
     gamingWindowParkingHint,
+    runOverlayCapture,
+    runTargetGatedCapture,
     windowCloseIntent,
     type GamingTrayActions,
     type GamingTrayHost,
@@ -12,6 +18,115 @@ import {
     type GamingTrayItem,
     type GamingTrayMenuItem,
 } from '../../src/gaming/lifecycle';
+
+describe('gaming capture target gate', () => {
+    it('routes an unchosen hotkey without sampling the display', async () => {
+        const capture = vi.fn(async () => undefined);
+        const chooseTarget = vi.fn(async () => undefined);
+
+        await expect(runTargetGatedCapture({ learningTargetChosen: false, capture, chooseTarget }))
+            .resolves.toBe('target-required');
+        expect(chooseTarget).toHaveBeenCalledOnce();
+        expect(capture).not.toHaveBeenCalled();
+    });
+
+    it('samples the display only after a positive target choice', async () => {
+        const capture = vi.fn(async () => undefined);
+        const chooseTarget = vi.fn(async () => undefined);
+
+        await expect(runTargetGatedCapture({ learningTargetChosen: true, capture, chooseTarget }))
+            .resolves.toBe('captured');
+        expect(capture).toHaveBeenCalledOnce();
+        expect(chooseTarget).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unchosen direct capture before it can sample the display', async () => {
+        const capture = vi.fn(async () => 'frame');
+
+        await expect(runOverlayCapture({
+            learningTargetChosen: false,
+            senderId: 7,
+            overlayRendererId: 7,
+            capture,
+        })).rejects.toThrow(GAMING_TARGET_CHOICE_REQUIRED);
+        expect(capture).not.toHaveBeenCalled();
+    });
+
+    it('accepts the main renderer choice and lets the live overlay capture', async () => {
+        let learningTargetChosen = false;
+        const capture = vi.fn(async () => 'frame');
+
+        applyMainRendererTargetChoice({
+            chosen: true,
+            senderId: 3,
+            mainRendererId: 3,
+            apply: chosen => { learningTargetChosen = chosen; },
+        });
+
+        await expect(runOverlayCapture({
+            learningTargetChosen,
+            senderId: 7,
+            overlayRendererId: 7,
+            capture,
+        })).resolves.toBe('frame');
+        expect(capture).toHaveBeenCalledOnce();
+    });
+
+    it('does not let the overlay grant itself capture access', async () => {
+        let learningTargetChosen = false;
+        const apply = vi.fn((chosen: boolean) => { learningTargetChosen = chosen; });
+        const capture = vi.fn(async () => 'frame');
+
+        expect(() => applyMainRendererTargetChoice({
+            chosen: true,
+            senderId: 7,
+            mainRendererId: 3,
+            apply,
+        })).toThrow(GAMING_TARGET_CHOICE_SENDER_REQUIRED);
+        expect(apply).not.toHaveBeenCalled();
+        await expect(runOverlayCapture({
+            learningTargetChosen,
+            senderId: 7,
+            overlayRendererId: 7,
+            capture,
+        })).rejects.toThrow(GAMING_TARGET_CHOICE_REQUIRED);
+        expect(capture).not.toHaveBeenCalled();
+    });
+
+    it('rejects target updates when the settings renderer is unavailable', () => {
+        const apply = vi.fn();
+
+        expect(() => applyMainRendererTargetChoice({
+            chosen: true,
+            senderId: 3,
+            mainRendererId: null,
+            apply,
+        })).toThrow(GAMING_TARGET_CHOICE_SENDER_REQUIRED);
+        expect(apply).not.toHaveBeenCalled();
+    });
+
+    it('rejects capture from the settings renderer and from a missing overlay', async () => {
+        const capture = vi.fn(async () => 'frame');
+        const request = { learningTargetChosen: true, senderId: 3, capture };
+
+        await expect(runOverlayCapture({ ...request, overlayRendererId: 7 }))
+            .rejects.toThrow(GAMING_OVERLAY_CAPTURE_REQUIRED);
+        await expect(runOverlayCapture({ ...request, overlayRendererId: null }))
+            .rejects.toThrow(GAMING_OVERLAY_CAPTURE_REQUIRED);
+        expect(capture).not.toHaveBeenCalled();
+    });
+
+    it('preserves a chosen overlay capture failure for the renderer error contract', async () => {
+        const failure = new Error('Screen capture failed.');
+
+        await expect(runOverlayCapture({
+            learningTargetChosen: true,
+            senderId: 7,
+            overlayRendererId: 7,
+            capture: async () => { throw failure; },
+        })).rejects.toBe(failure);
+    });
+});
 
 function trayActions(): GamingTrayActions & { calls: string[] } {
     const calls: string[] = [];

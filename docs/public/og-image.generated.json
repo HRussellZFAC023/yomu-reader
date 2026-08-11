@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "contract": "reviewed-golden-raster-link-v1",
+  "verification": "pair-integrity-only",
+  "reviewedSvg": {
+    "path": "docs/public/og-image.svg",
+    "sha256": "9c94f5797b54a425edbf1b20b093087363015982316138ec53868df2978e34ba"
+  },
+  "goldenRaster": {
+    "path": "docs/public/og-image.png",
+    "sha256": "37e8a9de00916dce9daa1244b8e437e9c2f472a661b47fc7ee2a2162286be132",
+    "width": 1200,
+    "height": 630
+  },
+  "renderRecipe": {
+    "path": "scripts/generate-og-image.mjs",
+    "sha256": "55604114a3ced31436a8402ecbdb749a5ea841fb94a01da277d4197fba5ed8ec",
+    "renderer": "sharp@0.34.5"
+  }
+}

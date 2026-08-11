@@ -151,9 +151,10 @@ describe('D43 copy tiers are a property of the string', () => {
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
         // The language-neutral chooser added three human-reviewed onboarding
-        // messages. Uchisen retirement deleted its 15 copy entries, and the
-        // now-orphaned generic story empty state was deleted with them.
-        expect(messages).toHaveLength(1254);
+        // messages and Gaming added four capture-language prompts. Uchisen
+        // retirement deleted its 15 copy entries, and the now-orphaned generic
+        // story empty state was deleted with them.
+        expect(messages).toHaveLength(1258);
         expect(humanCritical).toHaveLength(396);
 
         // Split by WHAT classified each one. 390 are human-critical from their ID

@@ -58,6 +58,7 @@ describe('release workflow safety', () => {
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/greasyfork');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/yomu.user.js');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/og-image.png');
+        expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/og-image.generated.json');
     });
 
     it('tracks every standalone hosted wrapper stamped by the Reader sync', () => {
@@ -159,7 +160,6 @@ describe('release workflow safety', () => {
 
     it('browser-checks the rendered locale routes before Pages can upload them', () => {
         const docsBuild = deployPagesWorkflow.indexOf('npm run docs:build');
-        const browserInstall = deployPagesWorkflow.indexOf('name: Install docs locale smoke browser');
         const browserSmoke = deployPagesWorkflow.indexOf('name: Verify rendered docs localization in browser');
         const artifactVerification = deployPagesWorkflow.indexOf('name: Verify published artifacts');
         const artifactUpload = deployPagesWorkflow.indexOf('name: Upload Pages artifact');
@@ -168,8 +168,10 @@ describe('release workflow safety', () => {
         expect(packageJson.scripts['docs:locales:browser'])
             .toBe('node scripts/docs-localization-browser-smoke.mjs');
         expect(deployPagesWorkflow).toContain('- scripts/docs-localization-browser-smoke.mjs');
-        expect(browserInstall).toBeGreaterThan(docsBuild);
-        expect(browserSmoke).toBeGreaterThan(browserInstall);
+        expect(deployPagesWorkflow).not.toContain('playwright install');
+        expect(deployPagesWorkflow).toContain("PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'");
+        expect(deployPagesWorkflow).toContain('YOMU_PLAYWRIGHT_CHANNEL: chrome');
+        expect(browserSmoke).toBeGreaterThan(docsBuild);
         expect(artifactVerification).toBeGreaterThan(browserSmoke);
         expect(artifactUpload).toBeGreaterThan(artifactVerification);
         expect(smokeStep).toContain('timeout-minutes: 3');

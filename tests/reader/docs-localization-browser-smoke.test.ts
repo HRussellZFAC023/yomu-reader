@@ -10,6 +10,7 @@ const THEME_CSS = readFileSync('docs/.vitepress/theme/custom.css', 'utf8');
 const USERSCRIPT_ENTRY_SOURCE = readFileSync('src/reader/userscript/entry.ts', 'utf8');
 const STUDY_ENTRY_SOURCE = readFileSync('src/reader/newtab/entry.ts', 'utf8');
 const ACADEMY_ENTRY_SOURCE = readFileSync('src/academy/entrypoint.ts', 'utf8');
+const TRUSTED_HOSTED_URL_SOURCE = readFileSync('src/reader/app/trusted-hosted-url.ts', 'utf8');
 
 function functionBody(name: string): string {
     const start = SMOKE_SOURCE.indexOf(`async function ${name}(`);
@@ -19,6 +20,17 @@ function functionBody(name: string): string {
 }
 
 describe('docs localization browser smoke readiness', () => {
+    it('keeps bundled local engines while CI may select installed Chrome', () => {
+        expect(SMOKE_SOURCE).toContain("const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium'");
+        expect(SMOKE_SOURCE).toContain([
+            "const BROWSER_CHANNEL = BROWSER_NAME === 'chromium'",
+            '    ? process.env.YOMU_PLAYWRIGHT_CHANNEL?.trim()',
+            '    : undefined;',
+        ].join('\n'));
+        expect(SMOKE_SOURCE).toContain('...(BROWSER_CHANNEL ? { channel: BROWSER_CHANNEL } : {})');
+        expect(SMOKE_SOURCE).not.toContain("channel: 'chrome'");
+    });
+
     it('gates userscript side effects behind installed or hosted ownership', () => {
         const gate = 'if (installedRuntime || (docEl && shouldInstallHostedReaderRuntime())) {';
         const gateStart = USERSCRIPT_ENTRY_SOURCE.indexOf(gate);
@@ -57,6 +69,7 @@ describe('docs localization browser smoke readiness', () => {
     });
 
     it('runs one current hosted-locale contract in Chromium and Firefox', () => {
+        const serverRenderedLocale = functionBody('assertServerRenderedLocale');
         const localeIsolation = functionBody('assertHostedLocaleIsolation');
         const contaminated = functionBody('assertContaminatedHostedContextStaysEnglish');
         const installed = functionBody('assertInstalledRuntimePreservesStoredState');
@@ -67,9 +80,28 @@ describe('docs localization browser smoke readiness', () => {
         expect(SMOKE_SOURCE).toContain("import { chromium, firefox } from 'playwright'");
         expect(SMOKE_SOURCE).toContain("const BROWSER_NAME = process.env.YOMU_DOCS_BROWSER || 'chromium'");
         expect(SMOKE_SOURCE).toContain("url.hostname = 'yomureader.localhost'");
+        // This exact pseudo-loopback origin stays outside the theme's force-local
+        // bypass, but it must still activate the docs page-owned target policy.
+        expect(TRUSTED_HOSTED_URL_SOURCE).toContain(
+            "const DOCS_PREVIEW_HOST = 'yomureader.localhost'",
+        );
+        expect(TRUSTED_HOSTED_URL_SOURCE).toContain("[DOCS_PREVIEW_HOST, 'docs-preview']");
+        expect(TRUSTED_HOSTED_URL_SOURCE).not.toContain("endsWith('.localhost')");
         expect(SMOKE_SOURCE).toContain("locale: 'en-GB'");
+        expect(SMOKE_SOURCE).toContain(
+            'const EN_STATIC_HEADING = "Read the language you\'re learning with Yomu."',
+        );
+        expect(SMOKE_SOURCE).toContain(
+            "const JA_STATIC_HEADING = '学んでいる言語を、よむで読む。'",
+        );
+        expect(HOME_SOURCE).toContain(
+            ">Read the language you're learning with Yomu.</h1>",
+        );
         expect(SMOKE_SOURCE).toContain("assertServerRenderedLocale('/', EN_STATIC_HEADING, JA_STATIC_HEADING, 'English')");
         expect(SMOKE_SOURCE).toContain("assertServerRenderedLocale('/ja/', JA_STATIC_HEADING, EN_STATIC_HEADING, 'Japanese')");
+        expect(serverRenderedLocale).toContain('html.includes(encodeServerHtmlText(expectedHeading))');
+        expect(serverRenderedLocale).toContain('html.includes(encodeServerHtmlText(excludedHeading))');
+        expect(serverRenderedLocale).toContain(`.replaceAll("'", '&#39;')`);
         expect(firstRoot).toBeGreaterThan(-1);
         expect(firstRoot).toBeLessThan(SMOKE_SOURCE.indexOf("chooseLocale(page, 'Change language', '/ja/')"));
         expect(localeIsolation).toContain("page.locator('html[data-yomu-hosted]')");
@@ -89,6 +121,10 @@ describe('docs localization browser smoke readiness', () => {
         expect(installed).toContain('state.settings, expectedSettings');
         expect(studyFirst).toContain("window.__YOMU_READER_RUNTIME__ === 'newtab'");
         expect(studyFirst).toContain('document.documentElement.dataset.yomuHosted !== undefined');
+        expect(studyFirst).toContain('completeStudyTargetChoice(page)');
+        expect(SMOKE_SOURCE).toContain("select[name=\"targetLanguage\"]");
+        expect(SMOKE_SOURCE).toContain("selectOption('es')");
+        expect(SMOKE_SOURCE).toContain('data-onboarding-action="without-api"');
         expect(academyFirst).toContain("'yomu:academy:language:v1': 'ja'");
         expect(academyFirst).toContain("assertEnglishHostedHomepage(page, 'Academy-to-English homepage'");
         expect(SMOKE_SOURCE).not.toContain('jpdb-reader-hosted-application');

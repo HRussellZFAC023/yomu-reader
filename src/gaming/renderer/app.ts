@@ -11,6 +11,7 @@ import './styles.css';
 import '../../reader/companions/register-build-companions';
 import type { InterfaceLanguage, ReaderSettings } from '../../reader/app/types';
 import { bootReaderApp } from '../../reader/app/boot';
+import { uiText } from '../../reader/app/i18n';
 import { escapeHtml } from '../../reader/dom/index';
 import { DEFAULT_SETTINGS, formatShortcutEvent, normalizeReaderSettings } from '../../reader/settings';
 import {
@@ -28,6 +29,7 @@ import {
     updateDictionaryLookupLinkEditor,
 } from '../../reader/settings/form';
 import { adoptLearningTargetFromSettings } from '../../reader/languages/target-selection';
+import { learningTargetRosterIdForTag } from '../../reader/languages/roster';
 import { targetContentLocale, targetLanguageName } from '../../reader/languages/resolve';
 import {
     gamingCaptureOcrProvider,
@@ -63,6 +65,17 @@ const APP_ICON_URL = './yomu-icon-512.png';
 // screen twice with six buttons for three actions.
 type ShellView = 'home' | 'settings';
 
+interface RequestedShellView {
+    view: ShellView;
+    settingsPanel?: string;
+}
+
+interface StoredShellView {
+    view?: unknown;
+    settingsPanel?: unknown;
+    at?: unknown;
+}
+
 interface SettingsShellState {
     environment: YomuGamingEnvironment | null;
     settings: ReaderSettings;
@@ -77,11 +90,16 @@ interface OverlayResult {
     terms: string[];
     lines?: OverlayLineResult[];
     error?: string;
-    errorAction?: 'screen-settings';
+    errorAction?: 'screen-settings' | 'target-settings';
 }
 
 interface OverlayLineResult extends NormalizedGamingOcrLine {
     terms: string[];
+}
+
+interface PreparedGamingCapture {
+    capture: YomuGamingCaptureSource;
+    selection: YomuGamingSelectionRect | null;
 }
 
 const GAMING_SETTINGS_STORAGE_KEY = 'yomu-gaming-reader-settings-v1';
@@ -94,6 +112,7 @@ const PREVIOUS_OCR_ENGINE_STORAGE_KEY = 'yomu-gaming-ocr-engine';
 // Capture is what this app does, so its own shortcut is the first thing Settings shows.
 // Media (audio sources, text-to-speech, proxy URL) is the deepest reader tab there is.
 const DEFAULT_SETTINGS_PANEL = 'shortcuts';
+const TARGET_SETTINGS_PANEL = 'appearance';
 // What the hero says instead of naming a key that the system has not handed over.
 const CAPTURE_SHORTCUT_SETUP_LINE = 'Pick a shortcut in Settings to read from any app.';
 const CAPTURE_SHORTCUT_HELP = 'Focus the field and press the keys to read the screen.';
@@ -138,6 +157,13 @@ const shellState: SettingsShellState = {
     settingsPanel: DEFAULT_SETTINGS_PANEL,
 };
 
+if (!isOverlay) {
+    bridge.onTargetChoiceRequired(() => {
+        if (!shellState.settings.learningTargetChosen) showTargetSettings();
+    });
+    syncMainProcessTargetChoice(shellState.settings);
+}
+
 queueMicrotask(() => void boot());
 
 async function boot(): Promise<void> {
@@ -172,6 +198,7 @@ function renderShell(): void {
     if (!form) return;
     localizeSettingsForm(form, shellState.settings.interfaceLanguage);
     applyGamingSettingsCopy(form);
+    installGamingTargetChoice(form);
     installGamingSettingsHeader(form);
     installGamingCaptureShortcutSection(form);
     installNativeSettingsSyncSection(form);
@@ -192,6 +219,7 @@ function renderShell(): void {
 // it, and the shortcut for the same action shown once. Everything else is a quiet
 // secondary row.
 function renderGamingHome(): string {
+    if (!shellState.settings.learningTargetChosen) return renderGamingTargetChoice();
     return `
         <section class="yomu-gaming-home" aria-label="Yomu Gaming" data-gaming-home>
             <div class="yomu-gaming-home-card">
@@ -206,6 +234,26 @@ function renderGamingHome(): string {
                 <div class="yomu-gaming-home-secondary">
                     <button class="jpdb-reader-btn" type="button" data-action="area-capture">Read part of the screen</button>
                     <button class="jpdb-reader-btn" type="button" data-action="open-settings">Settings</button>
+                </div>
+            </div>
+        </section>
+    `;
+}
+
+function renderGamingTargetChoice(): string {
+    const language = shellState.settings.interfaceLanguage;
+    return `
+        <section class="yomu-gaming-home" aria-label="Yomu Gaming" data-gaming-home data-target-choice-required="true" lang="${escapeHtml(languageAttribute(language))}">
+            <div class="yomu-gaming-home-card">
+                <img class="yomu-gaming-home-icon" src="${escapeHtml(APP_ICON_URL)}" alt="" aria-hidden="true">
+                <p class="yomu-gaming-home-mark">Yomu Gaming</p>
+                <h1 data-gaming-target-title>${escapeHtml(uiText(language, 'gamingChooseTargetTitle'))}</h1>
+                <p class="yomu-gaming-home-lede" data-gaming-target-body>${escapeHtml(uiText(language, 'gamingChooseTargetBody'))}</p>
+                <button class="jpdb-reader-btn add yomu-gaming-home-primary" type="button" data-action="choose-target">${escapeHtml(uiText(language, 'gamingChooseTargetAction'))}</button>
+                <div class="yomu-gaming-shell-status" data-gaming-shell-status data-status-tone="${shellState.statusTone}" role="status" aria-live="polite" hidden></div>
+                <div class="yomu-gaming-session-note" data-gaming-session-note hidden></div>
+                <div class="yomu-gaming-home-secondary">
+                    <button class="jpdb-reader-btn" type="button" data-action="open-settings">${escapeHtml(uiText(language, 'settings'))}</button>
                 </div>
             </div>
         </section>
@@ -244,19 +292,39 @@ function applyShellView(): void {
     });
 }
 
-function showView(view: ShellView): void {
+function showView(view: ShellView, settingsPanel?: string): void {
     shellState.view = view;
+    if (view === 'settings' && settingsPanel) {
+        shellState.settingsPanel = settingsPanel;
+        const form = appRoot.querySelector<HTMLFormElement>('[data-yomu-gaming-settings]');
+        if (form) activateSettingsPanel(form, settingsPanel);
+    }
     applyShellView();
-    const focusSelector = view === 'settings' ? '[data-action="close-settings"]' : '[data-action="instant-capture"]';
-    appRoot.querySelector<HTMLElement>(focusSelector)?.focus();
+    appRoot.querySelector<HTMLElement>(shellViewFocusSelector(view, settingsPanel))?.focus();
+}
+
+function shellViewFocusSelector(view: ShellView, settingsPanel?: string): string {
+    const selector: Record<ShellView, string> = {
+        home: shellState.settings.learningTargetChosen
+            ? '[data-action="instant-capture"]'
+            : '[data-action="choose-target"]',
+        settings: settingsPanel === TARGET_SETTINGS_PANEL
+            ? 'select[name="targetLanguage"]'
+            : '[data-action="close-settings"]',
+    };
+    return selector[view];
+}
+
+function showTargetSettings(): void {
+    showView('settings', TARGET_SETTINGS_PANEL);
 }
 
 // The overlay lives in its own window, so its Settings button leaves the view it wants in
 // shared storage rather than adding a push channel to the hardened preload. If the main
 // window never wakes to read it, the request simply expires and Home stays put.
-function requestView(view: ShellView): void {
+function requestView(view: ShellView, settingsPanel?: string): void {
     try {
-        localStorage.setItem(GAMING_PENDING_VIEW_STORAGE_KEY, JSON.stringify({ view, at: Date.now() }));
+        localStorage.setItem(GAMING_PENDING_VIEW_STORAGE_KEY, JSON.stringify({ view, settingsPanel, at: Date.now() }));
     } catch {
         // A locked storage context just means the app opens on Home.
     }
@@ -265,7 +333,7 @@ function requestView(view: ShellView): void {
 function watchForRequestedView(): void {
     const consume = () => {
         const requested = consumeRequestedView();
-        if (requested && requested !== shellState.view) showView(requested);
+        if (requested) showView(requested.view, requested.settingsPanel);
     };
     // `storage` reaches this window the moment the overlay writes, without waiting on the
     // compositor to hand focus over; focus and visibility stay as the catch-up path for
@@ -280,22 +348,45 @@ function watchForRequestedView(): void {
     consume();
 }
 
-function consumeRequestedView(): ShellView | null {
-    let raw: string | null = null;
+function consumeRequestedView(): RequestedShellView | null {
+    return parseRequestedView(takeRequestedView());
+}
+
+function takeRequestedView(): string | null {
     try {
-        raw = localStorage.getItem(GAMING_PENDING_VIEW_STORAGE_KEY);
-        if (raw) localStorage.removeItem(GAMING_PENDING_VIEW_STORAGE_KEY);
+        const raw = localStorage.getItem(GAMING_PENDING_VIEW_STORAGE_KEY);
+        localStorage.removeItem(GAMING_PENDING_VIEW_STORAGE_KEY);
+        return raw;
     } catch {
         return null;
     }
+}
+
+function parseRequestedView(raw: string | null): RequestedShellView | null {
     if (!raw) return null;
     try {
-        const parsed = JSON.parse(raw) as { view?: unknown; at?: unknown };
-        const fresh = typeof parsed.at === 'number' && Date.now() - parsed.at < GAMING_PENDING_VIEW_MAX_AGE_MS;
-        return fresh && (parsed.view === 'home' || parsed.view === 'settings') ? parsed.view : null;
+        return normalizeRequestedView(JSON.parse(raw) as StoredShellView);
     } catch {
         return null;
     }
+}
+
+function normalizeRequestedView(stored: StoredShellView): RequestedShellView | null {
+    if (!isRecentRequest(stored.at)) return null;
+    if (!isShellView(stored.view)) return null;
+    return {
+        view: stored.view,
+        settingsPanel: typeof stored.settingsPanel === 'string' ? stored.settingsPanel : undefined,
+    };
+}
+
+function isRecentRequest(at: unknown): at is number {
+    if (typeof at !== 'number') return false;
+    return Date.now() - at < GAMING_PENDING_VIEW_MAX_AGE_MS;
+}
+
+function isShellView(value: unknown): value is ShellView {
+    return value === 'home' || value === 'settings';
 }
 
 // The main process detects the platform, display server, and whether this looks
@@ -351,6 +442,32 @@ function installGamingSettingsHeader(form: HTMLFormElement): void {
     status.setAttribute('aria-live', 'polite');
     status.hidden = true;
     head.appendChild(status);
+}
+
+// The shared Settings form has a compatibility profile so an old install can still be
+// normalized, but that profile is not a first-run choice. Gaming adds the same empty,
+// required state as the reader onboarding and only removes it after a real select change.
+function installGamingTargetChoice(form: HTMLFormElement, language = shellState.settings.interfaceLanguage): void {
+    const select = form.querySelector<HTMLSelectElement>('select[name="targetLanguage"]');
+    if (!select) return;
+    if (shellState.settings.learningTargetChosen) return;
+    const placeholder = gamingTargetPlaceholder(select);
+    placeholder.textContent = uiText(language, 'gamingChooseTargetAction');
+    placeholder.selected = true;
+    select.value = '';
+    select.required = true;
+    select.setAttribute('aria-required', 'true');
+}
+
+function gamingTargetPlaceholder(select: HTMLSelectElement): HTMLOptionElement {
+    const existing = select.querySelector<HTMLOptionElement>('[data-gaming-target-placeholder]');
+    if (existing) return existing;
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.dataset.gamingTargetPlaceholder = 'true';
+    select.prepend(placeholder);
+    return placeholder;
 }
 
 function installGamingCaptureShortcutSection(form: HTMLFormElement): void {
@@ -472,36 +589,101 @@ function bindSettingsForm(form: HTMLFormElement): void {
             persistSettingsFromForm(form);
         }
     });
-    form.addEventListener('change', event => {
-        const target = event.target as HTMLElement;
-        if (target.closest('[data-capture-shortcut-input]')) return;
-        const sourceSelect = target.closest<HTMLSelectElement>('select[name^="audioSources."][name$=".type"]');
-        if (sourceSelect) {
-            syncAudioSourceRow(sourceSelect.closest('[data-audio-source-row]'), sourceSelect.value);
-            syncBrowserTtsVoiceOptions(form);
-        }
-        if (target.closest('[name="ocrProvider"]')) syncOcrProviderFields(form);
-        if (target.closest('[name="interfaceLanguage"]')) localizeAfterLanguageChange(form);
-        if (target.closest('[name="theme"], [data-theme-value]')) applyDocumentTheme(readFormSettings(new FormData(form), shellState.settings));
-        persistSettingsFromForm(form);
-    });
+    form.addEventListener('change', event => handleSettingsChange(form, event));
     form.addEventListener('input', event => {
         const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
         if (target.matches('[data-settings-search]')) return;
         if (target.matches('[data-capture-shortcut-input]')) return;
+        // A target select emits `input` immediately before `change`. Its change
+        // handler persists and re-renders the shell, so a delayed write retaining
+        // this detached form would be able to overwrite the fresh settings state.
+        if (target.matches('select[name="targetLanguage"]')) return;
         scheduleSettingsPersist(form);
     });
 }
 
+function handleSettingsChange(form: HTMLFormElement, event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target.closest('[data-capture-shortcut-input]')) return;
+    const targetSelect = target.closest<HTMLSelectElement>('select[name="targetLanguage"]');
+    if (targetSelect) {
+        void persistLearningTargetChoice(form, targetSelect);
+        return;
+    }
+    syncAudioSourceAfterChange(form, target);
+    syncOcrProviderAfterChange(form, target);
+    syncInterfaceLanguageAfterChange(form, target);
+    syncThemeAfterChange(form, target);
+    persistSettingsFromForm(form);
+}
+
+function syncAudioSourceAfterChange(form: HTMLFormElement, target: HTMLElement): void {
+    const sourceSelect = target.closest<HTMLSelectElement>('select[name^="audioSources."][name$=".type"]');
+    if (!sourceSelect) return;
+    syncAudioSourceRow(sourceSelect.closest('[data-audio-source-row]'), sourceSelect.value);
+    syncBrowserTtsVoiceOptions(form);
+}
+
+function syncOcrProviderAfterChange(form: HTMLFormElement, target: HTMLElement): void {
+    if (target.closest('[name="ocrProvider"]')) syncOcrProviderFields(form);
+}
+
+function syncInterfaceLanguageAfterChange(form: HTMLFormElement, target: HTMLElement): void {
+    if (target.closest('[name="interfaceLanguage"]')) localizeAfterLanguageChange(form);
+}
+
+function syncThemeAfterChange(form: HTMLFormElement, target: HTMLElement): void {
+    if (!target.closest('[name="theme"], [data-theme-value]')) return;
+    applyDocumentTheme(readFormSettings(new FormData(form), shellState.settings));
+}
+
 function bindGamingHomeActions(form: HTMLFormElement): void {
-    appRoot.querySelector<HTMLElement>('[data-gaming-home]')?.addEventListener('click', event => {
-        const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
-        if (!action) return;
-        event.preventDefault();
-        if (action === 'instant-capture') startCaptureOverlay(form, 'instant');
-        else if (action === 'area-capture') startCaptureOverlay(form, 'area');
-        else if (action === 'open-settings') showView('settings');
+    appRoot.querySelector<HTMLElement>('[data-gaming-home]')
+        ?.addEventListener('click', event => handleGamingHomeClick(form, event));
+}
+
+function handleGamingHomeClick(form: HTMLFormElement, event: MouseEvent): void {
+    const action = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-action]')?.dataset.action;
+    if (!action) return;
+    event.preventDefault();
+    const actions: Record<string, () => void> = {
+        'choose-target': showTargetSettings,
+        'instant-capture': () => startCaptureOverlay(form, 'instant'),
+        'area-capture': () => startCaptureOverlay(form, 'area'),
+        'open-settings': () => showView('settings', DEFAULT_SETTINGS_PANEL),
+    };
+    actions[action]?.();
+}
+
+async function persistLearningTargetChoice(form: HTMLFormElement, select: HTMLSelectElement): Promise<void> {
+    if (!selectedLearningTarget(select)) return;
+    const firstChoice = !shellState.settings.learningTargetChosen;
+    shellState.settings = normalizeReaderSettings({
+        ...readFormSettings(new FormData(form), shellState.settings),
+        learningTargetChosen: true,
     });
+    persistGamingSettings(shellState.settings);
+    if (!await confirmMainProcessTargetChoice()) return;
+    shellState.view = firstChoice ? 'home' : 'settings';
+    setShellStatus('', 'idle');
+    renderShell();
+}
+
+async function confirmMainProcessTargetChoice(): Promise<boolean> {
+    try {
+        await bridge.setLearningTargetChosen(true);
+        return true;
+    } catch (error) {
+        setShellStatus(error instanceof Error ? error.message : 'Could not enable capture yet.', 'error');
+        return false;
+    }
+}
+
+function selectedLearningTarget(select: HTMLSelectElement): string | null {
+    const selected = learningTargetRosterIdForTag(select.value);
+    if (!selected) return null;
+    if (select.selectedOptions[0]?.disabled) return null;
+    return selected;
 }
 
 function showSettingsPanel(form: HTMLFormElement, panel: string): void {
@@ -581,8 +763,16 @@ function isModifierOnlyShortcut(shortcut: string): boolean {
 
 function startCaptureOverlay(form: HTMLFormElement, mode: YomuGamingCaptureMode): void {
     persistSettingsFromForm(form);
+    if (!shellState.settings.learningTargetChosen) {
+        setShellStatus(uiText(shellState.settings.interfaceLanguage, 'gamingTargetRequired'), 'warning');
+        showTargetSettings();
+        return;
+    }
     setShellStatus(mode === 'instant' ? 'Reading your screen.' : 'Choose an area to read.', 'busy');
-    void bridge.hideApp().then(() => bridge.showOverlay(mode));
+    void bridge.setLearningTargetChosen(true)
+        .then(() => bridge.hideApp())
+        .then(() => bridge.showOverlay(mode))
+        .catch(error => setShellStatus(error instanceof Error ? error.message : 'Could not start capture.', 'error'));
 }
 
 function updateSettingsEditor(form: HTMLFormElement, action: string, control: HTMLElement | null): void {
@@ -664,9 +854,25 @@ function localizeAfterLanguageChange(form: HTMLFormElement): void {
     const language = getFormInterfaceLanguage(form, shellState.settings.interfaceLanguage);
     form.lang = languageAttribute(language);
     localizeSettingsForm(form, language);
+    localizeGamingTargetChoice(language);
     applyGamingSettingsCopy(form);
+    installGamingTargetChoice(form, language);
     hideUnsupportedSettingsActions(form);
     syncOcrProviderFields(form);
+}
+
+function localizeGamingTargetChoice(language: InterfaceLanguage): void {
+    const home = appRoot.querySelector<HTMLElement>('[data-gaming-home][data-target-choice-required="true"]');
+    if (!home) return;
+    home.lang = languageAttribute(language);
+    home.querySelector<HTMLElement>('[data-gaming-target-title]')
+        ?.replaceChildren(uiText(language, 'gamingChooseTargetTitle'));
+    home.querySelector<HTMLElement>('[data-gaming-target-body]')
+        ?.replaceChildren(uiText(language, 'gamingChooseTargetBody'));
+    home.querySelector<HTMLElement>('[data-action="choose-target"]')
+        ?.replaceChildren(uiText(language, 'gamingChooseTargetAction'));
+    home.querySelector<HTMLElement>('[data-action="open-settings"]')
+        ?.replaceChildren(uiText(language, 'settings'));
 }
 
 function applyGamingSettingsCopy(form: HTMLFormElement): void {
@@ -787,35 +993,35 @@ function scrollToInitialSettingsSection(form: HTMLFormElement): void {
 }
 
 function loadGamingSettings(): ReaderSettings {
-    const stored = parseStoredSettings();
-    const ocrProvider = stored?.ocrProvider ?? DEFAULT_GAMING_OCR_PROVIDER;
-    const useLocalOcr = ocrProvider === 'local-service';
-    const settings = normalizeReaderSettings({
+    const stored = parseStoredSettings() ?? {};
+    const initial = {
         ...DEFAULT_SETTINGS,
+        theme: 'light' as const,
+        ocrEnabled: true,
+        ocrProvider: DEFAULT_GAMING_OCR_PROVIDER,
         ...stored,
-        theme: stored?.theme ?? 'light',
-        ocrEnabled: stored?.ocrEnabled ?? true,
-        ocrProvider,
-        ocrEndpointUrl: useLocalOcr
-            ? stored?.ocrEndpointUrl
-                || localStorage.getItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY)
-                || DEFAULT_SETTINGS.ocrEndpointUrl
-            : DEFAULT_GAMING_OCR_ENDPOINT,
-        ocrEngine: useLocalOcr
-            ? stored?.ocrEngine
-                || localStorage.getItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY)
-                || DEFAULT_SETTINGS.ocrEngine
-            : DEFAULT_SETTINGS.ocrEngine,
-        ocrLanguage: stored?.ocrLanguage ?? DEFAULT_SETTINGS.ocrLanguage,
+    };
+    const settings = normalizeReaderSettings({
+        ...initial,
+        ocrEndpointUrl: gamingOcrSetting(initial.ocrProvider, stored.ocrEndpointUrl, PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, DEFAULT_SETTINGS.ocrEndpointUrl, DEFAULT_GAMING_OCR_ENDPOINT),
+        ocrEngine: gamingOcrSetting(initial.ocrProvider, stored.ocrEngine, PREVIOUS_OCR_ENGINE_STORAGE_KEY, DEFAULT_SETTINGS.ocrEngine, DEFAULT_SETTINGS.ocrEngine),
     });
-    // Gaming's settings loader is the one place stored settings become runtime
-    // state here, so it is also where the study target is adopted. Capture runs
-    // long before the inline reader boots, and detection, segmentation, lookup
-    // and the OCR request language all resolve against the active target — so
-    // without this the whole capture path would answer for Japanese whatever
-    // the player chose to study.
-    adoptLearningTargetFromSettings(settings);
+    // The compatibility profile exists even on a fresh install, but it is not
+    // learner intent. Only an explicitly chosen target may become runtime state.
+    adoptChosenGamingTarget(settings);
     return settings;
+}
+
+function gamingOcrSetting(
+    provider: ReaderSettings['ocrProvider'],
+    stored: string | undefined,
+    previousStorageKey: string,
+    fallback: string,
+    nonLocalValue: string,
+): string {
+    if (provider !== 'local-service') return nonLocalValue;
+    return [stored, localStorage.getItem(previousStorageKey), fallback]
+        .find(value => typeof value === 'string' && value.length > 0) ?? fallback;
 }
 
 function parseStoredSettings(): Partial<ReaderSettings> | null {
@@ -830,11 +1036,25 @@ function parseStoredSettings(): Partial<ReaderSettings> | null {
 }
 
 function persistGamingSettings(settings: ReaderSettings): void {
+    // Selection must take effect in this renderer before its next OCR request or
+    // reader boot; waiting for another window or launch leaves the overlay inert.
+    adoptChosenGamingTarget(settings);
     localStorage.setItem(GAMING_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+    syncMainProcessTargetChoice(settings);
     if (settings.ocrProvider === 'local-service' && settings.ocrEndpointUrl.trim()) {
         localStorage.setItem(PREVIOUS_OCR_ENDPOINT_STORAGE_KEY, settings.ocrEndpointUrl);
         localStorage.setItem(PREVIOUS_OCR_ENGINE_STORAGE_KEY, settings.ocrEngine);
     }
+}
+
+function adoptChosenGamingTarget(settings: ReaderSettings): void {
+    if (settings.learningTargetChosen) adoptLearningTargetFromSettings(settings);
+}
+
+function syncMainProcessTargetChoice(settings: ReaderSettings): void {
+    void bridge.setLearningTargetChosen(settings.learningTargetChosen).catch(() => {
+        // The main-process gate stays closed on IPC failure, so capture still fails safe.
+    });
 }
 
 function snapshotSettingsObject(value: unknown): Partial<ReaderSettings> {
@@ -908,30 +1128,77 @@ class OverlaySelectionController {
 
     // "Settings" here must land on Settings, not on the app's home screen.
     private openSettings(): void {
+        if (!this.settings.learningTargetChosen) {
+            this.openTargetSettings();
+            return;
+        }
         requestView('settings');
         void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
     }
 
+    private openTargetSettings(): void {
+        requestView('settings', TARGET_SETTINGS_PANEL);
+        void this.gamingBridge.showApp().then(() => this.gamingBridge.hideOverlay());
+    }
+
     render(): void {
-        const mode = this.overlayMode();
-        const idleArea = this.captureMode === 'area' && !this.busy && !this.result && !this.selection;
-        this.root.innerHTML = `
-            <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${mode}" data-capture-mode="${this.captureMode}" data-overlay-busy="${this.busy}">
-                ${overlayBackdropHtml(this.capture)}
-                ${overlayToolbarHtml()}
-                ${this.busy ? overlayStatusHtml(this.overlayInstruction()) : ''}
-                ${idleArea ? overlayHintHtml() : ''}
-                ${this.selection && !this.result ? overlaySelectionHtml(this.selection) : ''}
-                ${this.result ? overlayResultHtml(this.result, this.selection) : ''}
-            </main>
-        `;
+        const targetChoiceRequired = this.targetChoiceRequired();
+        this.ensureTargetChoiceResult(targetChoiceRequired);
+        this.root.innerHTML = this.overlayShellHtml(targetChoiceRequired);
         this.bind();
         layoutOverlayOcrLines(this.root, this.ocrFrame(), this.settings.ocrFontScale);
         this.gamepad.reconcileFocus();
-        if (!this.started) {
-            this.started = true;
-            void this.begin();
-        }
+        this.startOnce(targetChoiceRequired);
+    }
+
+    private targetChoiceRequired(): boolean {
+        return !this.settings.learningTargetChosen;
+    }
+
+    private ensureTargetChoiceResult(targetChoiceRequired: boolean): void {
+        if (!targetChoiceRequired || this.result) return;
+        this.result = targetChoiceRequiredResult(this.settings.interfaceLanguage);
+    }
+
+    private overlayShellHtml(targetChoiceRequired: boolean): string {
+        return `
+            <main class="overlay-shell" data-yomu-gaming-ready="true" data-yomu-gaming-overlay-ready="true" data-overlay-mode="${this.overlayMode()}" data-capture-mode="${this.captureMode}" data-overlay-busy="${this.busy}">
+                ${overlayBackdropHtml(this.capture)}
+                ${overlayToolbarHtml(!targetChoiceRequired)}
+                ${this.overlayStatusFragment()}
+                ${this.overlayHintFragment(targetChoiceRequired)}
+                ${this.overlaySelectionFragment()}
+                ${this.overlayResultFragment()}
+            </main>
+        `;
+    }
+
+    private overlayStatusFragment(): string {
+        return this.busy ? overlayStatusHtml(this.overlayInstruction()) : '';
+    }
+
+    private overlayHintFragment(targetChoiceRequired: boolean): string {
+        if (targetChoiceRequired) return '';
+        if (this.captureMode !== 'area') return '';
+        return this.overlayMode() === 'idle' ? overlayHintHtml() : '';
+    }
+
+    private overlaySelectionFragment(): string {
+        if (!this.selection) return '';
+        if (this.result) return '';
+        return overlaySelectionHtml(this.selection);
+    }
+
+    private overlayResultFragment(): string {
+        if (!this.result) return '';
+        return overlayResultHtml(this.result, this.selection, this.settings.interfaceLanguage);
+    }
+
+    private startOnce(targetChoiceRequired: boolean): void {
+        if (this.started) return;
+        this.started = true;
+        if (targetChoiceRequired) return;
+        void this.begin();
     }
 
     // The reader re-typesets each line after it is painted — furigana and word chips
@@ -957,6 +1224,11 @@ class OverlaySelectionController {
     }
 
     private async begin(): Promise<void> {
+        this.settings = loadGamingSettings();
+        if (this.blockForTargetChoice()) {
+            this.render();
+            return;
+        }
         try {
             this.capture = await this.gamingBridge.getFrozenCapture();
         } catch (error) {
@@ -1003,6 +1275,9 @@ class OverlaySelectionController {
         this.root.querySelector<HTMLButtonElement>('[data-action="overlay-settings"]')?.addEventListener('click', () => {
             this.openSettings();
         });
+        this.root.querySelector<HTMLButtonElement>('[data-action="overlay-choose-target"]')?.addEventListener('click', () => {
+            this.openTargetSettings();
+        });
         this.root.querySelector<HTMLButtonElement>('[data-action="overlay-open-screen-settings"]')?.addEventListener('click', () => {
             void this.gamingBridge.openScreenSettings();
         });
@@ -1024,6 +1299,11 @@ class OverlaySelectionController {
     }
 
     private async recapture(): Promise<void> {
+        this.settings = loadGamingSettings();
+        if (this.blockForTargetChoice()) {
+            this.render();
+            return;
+        }
         this.selection = null;
         this.result = null;
         this.busy = true;
@@ -1068,48 +1348,89 @@ class OverlaySelectionController {
     }
 
     private async readCapture(selection: YomuGamingSelectionRect | null): Promise<void> {
+        const prepared = await this.prepareCaptureRead(selection);
+        if (!prepared) return;
+        this.beginCaptureRead();
+        const result = await this.recognizeCapture(prepared);
+        this.finishCaptureRead(result);
+    }
+
+    private async prepareCaptureRead(selection: YomuGamingSelectionRect | null): Promise<PreparedGamingCapture | null> {
         this.settings = loadGamingSettings();
-        const setupError = gamingOcrSetupError(this.settings);
-        if (setupError) {
-            this.result = { text: '', terms: [], error: setupError };
+        if (!this.captureSettingsReady()) return null;
+        const capture = await this.captureForRead();
+        if (!capture) return null;
+        return { capture, selection: this.captureSelectionForRead(capture, selection) };
+    }
+
+    private captureSettingsReady(): boolean {
+        if (this.blockForTargetChoice()) {
             this.render();
-            return;
+            return false;
         }
-        if (!this.capture) {
-            try {
-                this.capture = await this.gamingBridge.getFrozenCapture();
-            } catch (error) {
-                this.result = captureErrorResult(error);
-                this.render();
-                return;
-            }
+        const setupError = gamingOcrSetupError(this.settings);
+        if (!setupError) return true;
+        this.result = { text: '', terms: [], error: setupError };
+        this.render();
+        return false;
+    }
+
+    private async captureForRead(): Promise<YomuGamingCaptureSource | null> {
+        if (this.capture) return this.capture;
+        try {
+            this.capture = await this.gamingBridge.getFrozenCapture();
+            return this.capture;
+        } catch (error) {
+            this.result = captureErrorResult(error);
+            this.render();
+            return null;
         }
-        const capture = this.capture;
+    }
+
+    private captureSelectionForRead(
+        capture: YomuGamingCaptureSource,
+        selection: YomuGamingSelectionRect | null,
+    ): YomuGamingSelectionRect | null {
         // Resolve the drag against the frame the player selected, before either
         // rendering or awaiting can move the native window.
-        const captureFrame = this.ocrFrame();
-        const captureSelection = selection
-            ? captureSelectionFromViewport(selection, capture.size, captureFrame)
+        return selection
+            ? captureSelectionFromViewport(selection, capture.size, this.ocrFrame())
             : null;
+    }
+
+    private beginCaptureRead(): void {
         this.busy = true;
         this.result = null;
         this.render();
+    }
+
+    private async recognizeCapture(prepared: PreparedGamingCapture): Promise<OverlayResult> {
         try {
-            const crop = await cropSelection(capture, captureSelection);
+            const crop = await cropSelection(prepared.capture, prepared.selection);
             const response = await this.gamingBridge.requestOcr(gamingOcrRequest(this.settings, crop));
             if (!response.ok) {
-                this.result = captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
-                return;
+                return captureErrorResult(new Error(response.error ?? 'OCR failed. Check the OCR provider in Settings.'));
             }
             const result = normalizeGamingOcrResponse(response.body, crop.width, crop.height);
-            this.result = overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize);
+            return overlayResultFromOcr(result, crop.sourceRect, crop.sourceSize);
         } catch (error) {
-            this.result = captureErrorResult(error);
-        } finally {
-            this.busy = false;
-            this.render();
-            if (this.result?.lines?.length || this.result?.text) ensureOverlayReader();
+            return captureErrorResult(error);
         }
+    }
+
+    private finishCaptureRead(result: OverlayResult): void {
+        this.result = result;
+        this.busy = false;
+        this.render();
+        if (result.lines?.length || result.text) ensureOverlayReader();
+    }
+
+    private blockForTargetChoice(): boolean {
+        if (this.settings.learningTargetChosen) return false;
+        this.busy = false;
+        this.selection = null;
+        this.result = targetChoiceRequiredResult(this.settings.interfaceLanguage);
+        return true;
     }
 }
 
@@ -1136,13 +1457,19 @@ let overlayReaderBooted = false;
 // enough: its mutation observer re-scans later captures.
 function ensureOverlayReader(): void {
     if (overlayReaderBooted) return;
-    overlayReaderBooted = true;
     const gaming = loadGamingSettings();
+    if (!gaming.learningTargetChosen) return;
+    overlayReaderBooted = true;
+    persistOverlayReaderSettings(overlayReaderSettings(gaming));
+    bootOverlayReader();
+}
+
+function overlayReaderSettings(gaming: ReaderSettings): ReaderSettings {
     // Over a game the cursor moves constantly, so default to click-to-read ("invisible
     // till clicked"). Hover lookup only turns on if the player set a hold-key modifier in
     // the gaming onboarding, in which case hover requires that key (never bare hover).
-    const hoverModifier = (gaming.shortcuts?.hoverLookup || '').trim();
-    const readerSettings = normalizeReaderSettings({
+    const hoverModifier = gaming.shortcuts.hoverLookup.trim();
+    return normalizeReaderSettings({
         ...gaming,
         ocrEnabled: false,
         ocrAutoScanImages: false,
@@ -1151,13 +1478,19 @@ function ensureOverlayReader(): void {
         manualScanEnabled: false,
         lookupOnClick: true,
         lookupOnHover: Boolean(hoverModifier),
-        corsProxyUrl: (gaming.corsProxyUrl || '').trim(),
+        corsProxyUrl: gaming.corsProxyUrl.trim(),
     });
+}
+
+function persistOverlayReaderSettings(settings: ReaderSettings): void {
     try {
-        localStorage.setItem(READER_SETTINGS_STORAGE_KEY, JSON.stringify(readerSettings));
+        localStorage.setItem(READER_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
     } catch {
         // A locked storage context just means the reader falls back to its defaults.
     }
+}
+
+function bootOverlayReader(): void {
     try {
         bootReaderApp();
     } catch (error) {
@@ -1178,6 +1511,21 @@ function gamingOcrSetupError(settings: ReaderSettings): string {
     if (settings.ocrProvider !== 'local-service') return '';
     if (!settings.ocrEndpointUrl.trim()) return 'Add an advanced local OCR server URL in Settings.';
     return '';
+}
+
+export function gamingTargetChoiceError(
+    settings: Pick<ReaderSettings, 'learningTargetChosen' | 'interfaceLanguage'>,
+): string {
+    return settings.learningTargetChosen ? '' : uiText(settings.interfaceLanguage, 'gamingTargetRequired');
+}
+
+function targetChoiceRequiredResult(language: InterfaceLanguage): OverlayResult {
+    return {
+        text: '',
+        terms: [],
+        error: uiText(language, 'gamingTargetRequired'),
+        errorAction: 'target-settings',
+    };
 }
 
 function overlayResultFromOcr(
@@ -1239,10 +1587,10 @@ function overlayBackdropHtml(capture: YomuGamingCaptureSource | null): string {
     return `<img class="overlay-backdrop" src="${escapeHtml(capture.thumbnailDataUrl)}" alt="" aria-hidden="true" draggable="false">`;
 }
 
-function overlayToolbarHtml(): string {
+function overlayToolbarHtml(captureReady = true): string {
     return `<div class="overlay-toolbar" role="toolbar" aria-label="Yomu Gaming overlay">
         <strong>よむ</strong>
-        <button type="button" data-action="overlay-recapture" title="Capture the screen again">Re-capture</button>
+        ${captureReady ? '<button type="button" data-action="overlay-recapture" title="Capture the screen again">Re-capture</button>' : ''}
         <button type="button" data-action="overlay-settings" title="Open Yomu Gaming settings">Settings</button>
         <button type="button" data-action="overlay-done" aria-label="Close overlay">Close</button>
     </div>`;
@@ -1266,20 +1614,18 @@ function overlayStatusHtml(label: string): string {
     return `<div class="overlay-status" role="status" aria-live="polite"><strong>よむ</strong><span>${escapeHtml(label)}</span></div>`;
 }
 
-function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelectionRect | null): string {
+function overlayResultHtml(
+    result: OverlayResult,
+    selection: YomuGamingSelectionRect | null,
+    language: InterfaceLanguage,
+): string {
     if (result.lines?.length) return overlayInlineResultHtml(result);
     const style = overlayResultStyle(selection);
     if (result.error) {
         return `<section class="overlay-result" style="${style}" role="alert">
             <strong>${escapeHtml(result.error)}</strong>
-            ${result.text ? `<p lang="${escapeHtml(targetContentLocale())}">${escapeHtml(result.text)}</p>` : ''}
-            <div class="overlay-actions">
-                ${result.errorAction === 'screen-settings'
-                    ? '<button type="button" class="overlay-action-primary" data-action="overlay-open-screen-settings">Open Screen Recording settings</button>'
-                    : '<button type="button" data-action="overlay-settings">Settings</button>'}
-                <button type="button" data-action="overlay-recapture">Try again</button>
-                <button type="button" data-action="overlay-done">Close</button>
-            </div>
+            ${overlayErrorTextHtml(result.text)}
+            ${overlayErrorActionsHtml(result.errorAction, language)}
         </section>`;
     }
     // No per-line geometry (text-only OCR): show the recognized text as one scannable
@@ -1287,6 +1633,23 @@ function overlayResultHtml(result: OverlayResult, selection: YomuGamingSelection
     return `<section class="overlay-result overlay-result-compact" style="${style}" role="status" aria-label="Recognized text">
         <p class="overlay-result-text" data-ocr-line lang="${escapeHtml(targetContentLocale())}">${escapeHtml(result.text)}</p>
     </section>`;
+}
+
+function overlayErrorTextHtml(text: string): string {
+    if (!text) return '';
+    return `<p lang="${escapeHtml(targetContentLocale())}">${escapeHtml(text)}</p>`;
+}
+
+function overlayErrorActionsHtml(action: OverlayResult['errorAction'], language: InterfaceLanguage): string {
+    const primary = action === 'screen-settings'
+        ? '<button type="button" class="overlay-action-primary" data-action="overlay-open-screen-settings">Open Screen Recording settings</button>'
+        : action === 'target-settings'
+            ? `<button type="button" class="overlay-action-primary" data-action="overlay-choose-target">${escapeHtml(uiText(language, 'gamingChooseTargetAction'))}</button>`
+            : '<button type="button" data-action="overlay-settings">Settings</button>';
+    const retry = action === 'target-settings'
+        ? ''
+        : '<button type="button" data-action="overlay-recapture">Try again</button>';
+    return `<div class="overlay-actions">${primary}${retry}<button type="button" data-action="overlay-done">Close</button></div>`;
 }
 
 function overlayInlineResultHtml(result: OverlayResult): string {
@@ -1381,5 +1744,7 @@ function browserFallbackBridge(): YomuGamingBridge {
             const parsed = JSON.parse(raw) as unknown;
             return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as { version: 1; syncedAt: string; settings: unknown } : null;
         },
+        setLearningTargetChosen: async () => undefined,
+        onTargetChoiceRequired: () => () => undefined,
     };
 }

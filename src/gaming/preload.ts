@@ -15,6 +15,12 @@ const bridge: YomuGamingBridge = {
     updateCaptureShortcut: (shortcut: string) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.updateCaptureShortcut, shortcut),
     syncSettingsSnapshot: (settings: unknown) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.syncSettingsSnapshot, settings),
     restoreSettingsSnapshot: () => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.restoreSettingsSnapshot),
+    setLearningTargetChosen: (chosen: boolean) => ipcRenderer.invoke(YOMU_GAMING_CHANNELS.setLearningTargetChosen, chosen),
+    onTargetChoiceRequired: listener => {
+        const handler = () => listener();
+        ipcRenderer.on(YOMU_GAMING_CHANNELS.targetChoiceRequired, handler);
+        return () => ipcRenderer.removeListener(YOMU_GAMING_CHANNELS.targetChoiceRequired, handler);
+    },
 };
 
 contextBridge.exposeInMainWorld('yomuGaming', bridge);

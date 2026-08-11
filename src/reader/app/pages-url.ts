@@ -4,7 +4,18 @@ import {
     isYomuRepositoryPath,
     readTrustedYomuUrl,
     type TrustedYomuUrl,
+    type TrustedYomuOriginKind,
 } from './trusted-hosted-url';
+
+type RepositoryAppPolicy = (appUrl: TrustedYomuUrl) => boolean;
+
+const REPOSITORY_APP_POLICIES: Record<TrustedYomuOriginKind, RepositoryAppPolicy> = {
+    docs: () => true,
+    'docs-preview': () => true,
+    'github-pages': appUrl => isYomuRepositoryPath(appUrl.path),
+    extension: appUrl => isYomuNewTabUrl(appUrl.url.href),
+    loopback: appUrl => isYomuLocalAppPath(appUrl.path),
+};
 
 export function isYomuHostedAppUrl(value: string): boolean {
     const appUrl = readTrustedYomuUrl(value);
@@ -76,10 +87,7 @@ function isYomuActiveAppRoute(value: string, appUrl: TrustedYomuUrl): boolean {
 }
 
 function isYomuRepositoryAppUrl(appUrl: TrustedYomuUrl): boolean {
-    if (appUrl.originKind === 'docs') return true;
-    if (appUrl.originKind === 'github-pages') return isYomuRepositoryPath(appUrl.path);
-    if (appUrl.originKind === 'extension') return isYomuNewTabUrl(appUrl.url.href);
-    return isYomuLocalAppPath(appUrl.path);
+    return REPOSITORY_APP_POLICIES[appUrl.originKind](appUrl);
 }
 
 function isExactHostedAppPath(appUrl: TrustedYomuUrl, route: string): boolean {

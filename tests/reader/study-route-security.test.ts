@@ -64,6 +64,14 @@ describe('trusted Study route', () => {
         expect(isYomuPrivilegedHostedAppUrl('https://yomureader.com/academy/')).toBe(true);
     });
 
+    it('gives the exact docs smoke host route parity without broad storage-bridge trust', () => {
+        expect(isYomuHostedAppUrl('http://yomureader.localhost:4199/ja/learn/reading')).toBe(true);
+        expect(isYomuNewTabUrl('http://yomureader.localhost:4199/study/')).toBe(true);
+        expect(isYomuPrivilegedHostedAppUrl('http://yomureader.localhost:4199/ja/')).toBe(false);
+        expect(isYomuStorageBridgeHostedUrl('http://yomureader.localhost:4199/ja/')).toBe(false);
+        expect(isYomuHostedAppUrl('http://other.yomureader.localhost:4199/ja/')).toBe(false);
+    });
+
     it('does not expose HTTP or GM storage bridges to a hostile Study-looking page', () => {
         vi.stubGlobal('location', new URL('https://evil.example/study/'));
         vi.stubGlobal('GM_xmlhttpRequest', vi.fn());

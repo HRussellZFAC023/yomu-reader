@@ -46,6 +46,10 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # GitHub's Ubuntu image already carries Chrome. Keep browser acquisition out
+  # of the deployment path and let Playwright launch that installed channel.
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+  YOMU_PLAYWRIGHT_CHANNEL: chrome
 
 jobs:
   build:
@@ -94,9 +98,6 @@ jobs:
           YOMU_PATREON_ENABLED: ${{ vars.YOMU_PATREON_ENABLED }}
           YOMU_PATREON_URL: ${{ vars.YOMU_PATREON_URL }}
           YOMU_KOFI_URL: ${{ vars.YOMU_KOFI_URL }}
-      - name: Install docs locale smoke browser
-        timeout-minutes: 15
-        run: npx playwright install --with-deps chromium
       - name: Verify rendered docs localization in browser
         timeout-minutes: 3
         env:

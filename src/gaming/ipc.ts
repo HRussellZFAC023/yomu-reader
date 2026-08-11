@@ -12,6 +12,8 @@ export const YOMU_GAMING_CHANNELS = {
     updateCaptureShortcut: 'yomu-gaming:update-capture-shortcut',
     syncSettingsSnapshot: 'yomu-gaming:sync-settings-snapshot',
     restoreSettingsSnapshot: 'yomu-gaming:restore-settings-snapshot',
+    setLearningTargetChosen: 'yomu-gaming:set-learning-target-chosen',
+    targetChoiceRequired: 'yomu-gaming:target-choice-required',
 } as const;
 
 export type YomuGamingScreenAccess = 'granted' | 'denied' | 'restricted' | 'not-determined' | 'unknown' | 'unsupported';
@@ -114,4 +116,6 @@ export interface YomuGamingBridge {
     updateCaptureShortcut(shortcut: string): Promise<YomuGamingEnvironment>;
     syncSettingsSnapshot(settings: unknown): Promise<YomuGamingSettingsSyncMetadata>;
     restoreSettingsSnapshot(): Promise<YomuGamingSettingsSnapshot | null>;
+    setLearningTargetChosen(chosen: boolean): Promise<void>;
+    onTargetChoiceRequired(listener: () => void): () => void;
 }

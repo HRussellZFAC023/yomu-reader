@@ -1,12 +1,13 @@
 # Changelog
 
-## [1.9.0] - 2026-08-10
+## [1.9.0] - 2026-08-11
 
 ### Fixed
 
 - Study's Translation card now follows the selected learning target instead of silently disappearing outside Japanese. Spanish, Arabic, Korean, and the other provider-supported targets send the correct source language, keep source and translated text marked with their own language and writing direction, and leave Ancient Greek explicitly unavailable rather than inventing a result.
 - Canonically equivalent text no longer becomes a fake reading annotation. Decomposed text such as Spanish año and its NFC dictionary spelling are treated as the same surface, while Japanese furigana and exact parser-owned lookup spans remain unchanged.
 - New Tab's My Cards browser now stays on the selected learning target before provider limits and deduplication. Legacy JPDB, Jiten, and Anki cards remain Japanese instead of being relabelled as Spanish or another active target; rows use their own language, writing direction, and collation defensively.
+- The hosted homepage Try me reader now opens lookups consistently on both English and Japanese routes under the same page-owned language policy used in production. Release preview coverage verifies that behavior without granting the pseudo-loopback preview host broad userscript-storage access.
 
 ### Changed
 
@@ -14,6 +15,7 @@
 - The dictionary catalogue opens on demand instead of eagerly mounting thousands of controls. Its collapsed form renders no dictionary cards, expansion preserves search, focus, update state, and English, Japanese, and right-to-left layout, and only current entries with an installable archive are listed; source-only Guide rows and legacy JMdict builds are no longer offered as if they could be installed.
 - Browser-store and hosted-app descriptions, PWA identities, and stable install links now present よむ as a 33-target language reader instead of a Japanese-only tool. Japanese remains the deepest target, but it is no longer treated as the default product identity.
 - A fresh installation now waits for the learner to choose a learning target instead of silently activating Japanese. Dismissing the chooser keeps the Reader inert and asks again later; completed and non-Japanese profiles from earlier releases remain intact.
+- Yomu Gaming now requires a fresh install to choose the capture language before any screen frame or OCR request can start. The tray, global shortcut, settings window, and overlay all fail closed until that explicit choice, while existing chosen targets remain intact.
 - Release browser evidence now checks exact glyph, span, popup, language, and writing-direction ownership in Chromium and Firefox for Japanese plus representative Spanish, Arabic, Korean, and Cantonese text, with a roster contract covering all 33 learning targets.
 
 ## [1.8.90] - 2026-08-10

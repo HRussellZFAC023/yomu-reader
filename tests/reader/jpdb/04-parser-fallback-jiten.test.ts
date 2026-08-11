@@ -482,6 +482,13 @@ describe('reader helpers', () => {
         expect(isYomuHostedAppUrl('http://127.0.0.1:5175/yomu-reader/')).toBe(true);
         expect(isYomuHostedAppUrl('http://127.0.0.1:5175/')).toBe(true);
         expect(isYomuHostedPassivePage('http://127.0.0.1:5175/')).toBe(true);
+        expect(isYomuHostedPassivePage('https://yomureader.com/ja/learn/reading')).toBe(true);
+        expect(isYomuHostedPassivePage('https://yomureader.com/study/')).toBe(false);
+        expect(isYomuHostedPassivePage('http://yomureader.localhost:4199/')).toBe(true);
+        expect(isYomuHostedPassivePage('http://yomureader.localhost:4199/ja/')).toBe(true);
+        expect(isYomuHostedPassivePage('http://yomureader.localhost:4199/learn/reading')).toBe(true);
+        expect(isYomuHostedPassivePage('http://yomureader.localhost:4199/study/')).toBe(false);
+        expect(isYomuHostedAppUrl('http://other.yomureader.localhost:4199/')).toBe(false);
         expect(isYomuHostedAppUrl('https://example.com/japanese/article')).toBe(false);
     });
 
