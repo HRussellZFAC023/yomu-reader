@@ -4,6 +4,7 @@ import {
     isPersistedLanguageProfile,
     languageProfileHasIndependentState,
 } from './learning-target-choice';
+import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 
 interface LanguageProfileSettingsDefaults {
     interfaceLanguage: ReaderSettings['interfaceLanguage'];
@@ -34,7 +35,24 @@ export function normalizeLanguageProfileSettings(
     );
     const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
     if (!active) return missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences);
+    return normalizedActiveProfileSettings(
+        value,
+        normalized,
+        active,
+        parserProvider,
+        dictionaryPreferences,
+        defaults,
+    );
+}
 
+function normalizedActiveProfileSettings(
+    value: Partial<ReaderSettings> | null,
+    normalized: ReturnType<typeof normalizeLanguageProfiles>,
+    active: ReaderSettings['languageProfiles'][number],
+    parserProvider: ReaderSettings['parserProvider'],
+    dictionaryPreferences: ReaderSettings['dictionaryPreferences'],
+    defaults: LanguageProfileSettingsDefaults,
+): NormalizedLanguageProfileSettings {
     const authoritative = profilesAreAuthoritative(value, normalized.profiles, defaults);
     if (!authoritative) inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults);
     return activeProfileSettings(value, normalized, active, authoritative, dictionaryPreferences, defaults);
@@ -105,17 +123,6 @@ function activeProfileSettings(
         dictionaryPreferences: authoritative
             ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries)
             : dictionaryPreferences,
-    };
-}
-
-function languageProfileDictionariesFromPreferences(
-    preferences: ReaderSettings['dictionaryPreferences'],
-): ReaderSettings['languageProfiles'][number]['dictionaries'] {
-    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-    return {
-        installed: ordered.map(preference => preference.name),
-        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
-        order: ordered.map(preference => preference.name),
     };
 }
 

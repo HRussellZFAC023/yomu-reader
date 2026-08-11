@@ -109,6 +109,10 @@
     // Vite names this companion entry through the Greasy Fork library
     // manifest, so no source import points to it.
     "src/reader/companions/runtime.ts",
+    // Split core builds substitute this settings facade through Vite aliases.
+    // The file is an executable module seam, but the static graph sees only the
+    // original settings/index specifiers rather than the resolved alias target.
+    "src/reader/settings/index-companion.ts",
     // Substituted for the real modules by vite alias in companion builds
     // (vite.config.ts greasyfork aliases) — invisible to the import graph.
     "src/reader/app/i18n-companion.ts",

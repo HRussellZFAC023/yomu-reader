@@ -19,7 +19,7 @@ export interface NewTabProviderContexts {
     anki: string;
 }
 
-export type NewTabAccountProvider = Exclude<keyof NewTabProviderContexts, 'key'>;
+type NewTabAccountProvider = Exclude<keyof NewTabProviderContexts, 'key'>;
 
 const REVIEW_ACCOUNT_PROVIDER: Record<NewTabReviewTarget, NewTabAccountProvider | null> = {
     'jpdb-api': 'jpdb',
@@ -84,7 +84,7 @@ export function newTabReviewProviderContext(contexts: NewTabProviderContexts, ta
 }
 
 /** Fingerprints exactly the provider accounts touched by one review operation. */
-export function newTabReviewProvidersContext(contexts: NewTabProviderContexts, targets: readonly NewTabReviewTarget[]): string {
+function newTabReviewProvidersContext(contexts: NewTabProviderContexts, targets: readonly NewTabReviewTarget[]): string {
     const relevant = targets.map(target => newTabReviewProviderContext(contexts, target)).filter(Boolean);
     return relevant.length ? contextFingerprint(...relevant) : '';
 }

@@ -22,6 +22,7 @@ import {
 } from '../languages';
 import { availableInterfaceLocales, isLearnerLanguageId, type LearnerLanguageId } from '../locales';
 import { readingAnnotationModeForTarget } from './reading-annotation-mode';
+import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 
 
 /**
@@ -279,17 +280,6 @@ function readLanguageProfileFormSettings(
             }
             : profile),
         activeLanguageProfileId: active.id,
-    };
-}
-
-function languageProfileDictionariesFromPreferences(
-    preferences: ReaderSettings['dictionaryPreferences'],
-): ReaderSettings['languageProfiles'][number]['dictionaries'] {
-    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-    return {
-        installed: ordered.map(preference => preference.name),
-        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
-        order: ordered.map(preference => preference.name),
     };
 }
 

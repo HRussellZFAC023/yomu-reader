@@ -5,6 +5,7 @@ import { yomitanDictionaryIdentity } from '../dictionaries/yomitan/zip-normalize
 import { IMMERSION_KIT_SEARCH_URL_TEMPLATE, NADESHIKO_SEARCH_URL_TEMPLATE } from '../immersion/search-links';
 import { hasTargetLookupSites, isTargetLookupLinkId, targetLookupLinks } from './lookup-links';
 import type { DictionaryLookupLink, DictionaryPreference, ReaderSettings } from '../app/types';
+import { languageProfileDictionariesFromPreferences } from './language-profile-dictionaries';
 
 export const MAX_EXTRA_LOOKUP_LINKS = 16;
 
@@ -611,12 +612,7 @@ export function captureActiveLanguageProfileDictionaries(
 ): ReaderSettings {
     const active = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
     if (!active) return { ...settings, dictionaryPreferences };
-    const ordered = [...dictionaryPreferences].sort((left, right) => left.priority - right.priority);
-    const dictionaries = {
-        installed: ordered.map(preference => preference.name),
-        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
-        order: ordered.map(preference => preference.name),
-    };
+    const dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
     return {
         ...settings,
         dictionaryPreferences,

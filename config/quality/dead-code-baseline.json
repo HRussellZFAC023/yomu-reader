@@ -56,8 +56,6 @@
     "unused-export:src/reader/lookup/target-text.ts:targetPointerWordSegments",
     "unused-export:src/reader/ocr/ocr-position-pass.ts:applyOcrSurfacePosition",
     "unused-export:src/reader/ocr/ocr-position-pass.ts:planOcrSurfacePosition",
-    "unused-export:src/reader/settings/index.ts:EXPLICIT_USER_SETTINGS_STORAGE_KEY",
-    "unused-export:src/reader/settings/index.ts:settingsStorageKeysStillPresent",
     "unused-export:src/reader/settings/language-gating.ts:LANGUAGE_FAMILY_CLASSES",
     "unused-export:src/reader/sources/examples/availability-render.ts:reasonText",
     "unused-export:src/reader/sources/examples/licence.ts:allowedMediaLicenceFamilies",

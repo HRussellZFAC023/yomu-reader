@@ -15,6 +15,48 @@ interface NewTabShellOptions {
     readonly showSessionClockControl: boolean;
 }
 
+function renderNewTabBrand(
+    overflowMenu: HTMLElement | null,
+    brand: ReturnType<typeof resolveNewTabBrandAssets>,
+): HTMLElement | null {
+    if (!overflowMenu) return null;
+    return el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand', 'data-v-6aa21345': '', 'data-v-1168a8e4': '' },
+        el('a', {
+            class: 'title',
+            href: brand.homeHref,
+            'aria-label': APP_NAME,
+            'data-v-1168a8e4': '',
+        },
+        el('img', { class: 'VPImage logo', src: brand.iconSrc, alt: '', width: 24, height: 24, 'data-v-8426fc1a': '' }),
+        el('span', { 'data-v-1168a8e4': '' }, NEW_TAB_HEADER_LABEL),
+        ),
+    );
+}
+
+function renderNewTabThemeControls(options: NewTabShellOptions): HTMLElement | null {
+    if (!options.overflowMenu) return null;
+    return el('div', { class: 'jpdb-reader-newtab-theme-controls' },
+        el('span', {
+            class: 'jpdb-reader-newtab-connectivity',
+            dataset: { newtabConnectivity: true },
+            role: 'status',
+            'aria-live': 'polite',
+            hidden: true,
+        }, newTabText(options.language, 'offlineReady')),
+        options.showSessionClockControl ? el('div', {
+            class: 'jpdb-reader-newtab-session-clock-host',
+            dataset: { newtabSessionClockHost: true },
+        }) : null,
+        el('details', { class: 'jpdb-reader-newtab-more' },
+            el('summary', {
+                class: 'jpdb-reader-newtab-overflow',
+                'aria-label': uiText(options.language, 'more'),
+            }, '...'),
+            options.overflowMenu,
+        ),
+    );
+}
+
 /** Renders the stable New Tab shell; controllers only supply optional chrome. */
 export function renderNewTabShell(options: NewTabShellOptions): DocumentFragment {
     const { language, overflowMenu } = options;
@@ -23,42 +65,13 @@ export function renderNewTabShell(options: NewTabShellOptions): DocumentFragment
     return fragment(
         el('div', { class: 'jpdb-reader-newtab-shell' },
             el('header', { class: 'jpdb-reader-newtab-topbar' },
-                overflowMenu ? el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand', 'data-v-6aa21345': '', 'data-v-1168a8e4': '' },
-                    el('a', {
-                        class: 'title',
-                        href: brand.homeHref,
-                        'aria-label': APP_NAME,
-                        'data-v-1168a8e4': '',
-                    },
-                    el('img', { class: 'VPImage logo', src: brand.iconSrc, alt: '', width: 24, height: 24, 'data-v-8426fc1a': '' }),
-                    el('span', { 'data-v-1168a8e4': '' }, NEW_TAB_HEADER_LABEL),
-                    ),
-                ) : null,
+                renderNewTabBrand(overflowMenu, brand),
                 el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': newTabText(language, 'newTabMode') },
                     el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'word' }, lang: contentLanguage }, newTabText(language, 'study')),
                     el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'search' }, lang: contentLanguage }, newTabText(language, 'library')),
                     el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'stats' }, lang: contentLanguage }, newTabText(language, 'stats')),
                 ),
-                overflowMenu ? el('div', { class: 'jpdb-reader-newtab-theme-controls' },
-                    el('span', {
-                        class: 'jpdb-reader-newtab-connectivity',
-                        dataset: { newtabConnectivity: true },
-                        role: 'status',
-                        'aria-live': 'polite',
-                        hidden: true,
-                    }, newTabText(language, 'offlineReady')),
-                    options.showSessionClockControl ? el('div', {
-                        class: 'jpdb-reader-newtab-session-clock-host',
-                        dataset: { newtabSessionClockHost: true },
-                    }) : null,
-                    el('details', { class: 'jpdb-reader-newtab-more' },
-                        el('summary', {
-                            class: 'jpdb-reader-newtab-overflow',
-                            'aria-label': uiText(language, 'more'),
-                        }, '...'),
-                        overflowMenu,
-                    ),
-                ) : null,
+                renderNewTabThemeControls(options),
             ),
             el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
                 el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true }, hidden: true }),
