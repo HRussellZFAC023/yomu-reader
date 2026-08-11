@@ -19,7 +19,7 @@ Choose the language you are reading separately from the language used for defini
 
 ## Bring your audio
 
-Yomu Hosted Audio is the default pronunciation source. You can enable source audio from Jiten, Bunpro and other connected providers, import custom JSON sources, or run Ultimate Yomitan Audio on your computer.
+For Japanese, Yomu Hosted Audio provides the default recorded pronunciation. Other targets use speech synthesis in the selected language by default. Where available, you can enable source audio from Jiten, Bunpro and other connected providers, import custom JSON sources, or run Ultimate Yomitan Audio on your computer.
 
 The [Local Audio guide](/local-audio) covers the server, audio folders and phone access. Each source can be enabled and ordered separately.
 
@@ -31,7 +31,7 @@ Connect only the accounts you use. Tokens stay on your device and talk directly 
 
 Migaku import is in development. Until it ships, use a supported dictionary export or keep Migaku alongside Yomu without claiming that its deck has been imported.
 
-RTK learners can keep RTK keywords and frame data. Vocab-only learners can hide kanji steps. Kanji sources such as KanjiVG, Kanji Alive, Uchisen, WaniKani, Jiten, JPDB and imported dictionaries can be enabled and reordered independently.
+RTK learners can keep RTK keywords and frame data. Vocab-only learners can hide kanji steps. Kanji sources such as KanjiVG, Kanji Alive, WaniKani, Jiten, JPDB and imported dictionaries can be enabled and reordered independently. Uchisen remains available only as an optional outbound lookup link; よむ does not download or display its content.
 
 ## Use desktop Anki from a phone, iPad, or Android
 

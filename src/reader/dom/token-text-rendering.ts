@@ -428,28 +428,61 @@ export function effectiveTokenRubies(
 }
 
 function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
-    if (token.rubies.length) return token.rubies;
-
-    const reading = token.card.reading.trim();
-    if (!surface || !reading || reading === surface) return [];
+    if (token.rubies.length) return explicitTokenRubies(surface, token);
+    const reading = distinctTokenReading(surface, token);
+    if (!reading) return [];
     if (surface.trim() === token.card.spelling.trim()) {
         return [{ text: reading, start: token.start, end: token.end, length: token.length }];
     }
+    return inferredTokenRubies(surface, reading, token);
+}
+
+function explicitTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies'] {
+    return explicitRubyReadingMatchesSurface(surface, token) ? [] : token.rubies;
+}
+
+function distinctTokenReading(surface: string, token: JPDBToken): string | null {
+    if (!surface) return null;
+    const reading = trimmedTokenReading(token);
+    if (!reading) return null;
+    if (reading.normalize('NFC') === surface.normalize('NFC')) return null;
+    return reading;
+}
+
+function trimmedTokenReading(token: JPDBToken): string {
+    return token.card.reading?.trim() ?? '';
+}
+
+function inferredTokenRubies(surface: string, reading: string, token: JPDBToken): JPDBToken['rubies'] {
     // Inflected-surface inference is a Japanese Adapter. Other targets render
     // exact dictionary-owned spans and never guess how a reading maps across a
     // changed surface.
-    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana'
-        || !KANJI_RE.test(surface)
-        || !KANA_RE.test(reading)) return [];
+    if (learningTargetForToken(token).typing.answerNormalizer !== 'japanese-kana') return [];
+    if (!KANJI_RE.test(surface)) return [];
+    if (!KANA_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-    if (inferred.length) {
-        return inferred.map(ruby => ({
-            ...ruby,
-            start: token.start + ruby.start,
-            end: token.start + ruby.end,
-        }));
+    return inferred.map(ruby => ({
+        ...ruby,
+        start: token.start + ruby.start,
+        end: token.start + ruby.end,
+    }));
+}
+
+function explicitRubyReadingMatchesSurface(surface: string, token: JPDBToken): boolean {
+    const ranges = token.rubies.flatMap(ruby => {
+        const range = localRubyRange(surface, token, ruby);
+        return range ? [{ ...range, text: ruby.text }] : [];
+    }).sort((first, second) => first.start - second.start);
+    if (!ranges.length) return false;
+    let cursor = 0;
+    let reconstructed = '';
+    for (const range of ranges) {
+        if (range.start < cursor) return false;
+        reconstructed += surface.slice(cursor, range.start) + range.text;
+        cursor = range.end;
     }
-    return [];
+    reconstructed += surface.slice(cursor);
+    return reconstructed.normalize('NFC') === surface.normalize('NFC');
 }
 
 function learningTargetForToken(token: JPDBToken): LearningTargetModule {

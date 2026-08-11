@@ -6,7 +6,6 @@ import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
 export const KANJI_JPDB_SOURCE_ID = '__kanji_jpdb__';
 export const KANJI_RTK_SOURCE_ID = '__kanji_rtk__';
-export const KANJI_UCHISEN_SOURCE_ID = '__kanji_uchisen__';
 export const KANJI_WANIKANI_SOURCE_ID = '__kanji_wanikani__';
 export const KANJI_DICTIONARIES_SOURCE_ID = '__kanji_dictionaries__';
 export const KANJI_SIMILAR_WORDS_SOURCE_ID = '__kanji_similar_words__';
@@ -198,16 +197,6 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
             prefix: 'kanjiImmersionKit',
             readonly: true,
             help: uiText(language, 'sourceHelpImmersionKit'),
-        },
-        {
-            id: KANJI_UCHISEN_SOURCE_ID,
-            name: 'Uchisen',
-            alias: settings.uchisenAlias,
-            enabled: settings.uchisenEnabled,
-            priority: settings.uchisenPriority,
-            prefix: 'uchisen',
-            readonly: true,
-            help: uiText(language, 'sourceHelpUchisen'),
         },
         {
             id: KANJI_WANIKANI_SOURCE_ID,

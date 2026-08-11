@@ -290,6 +290,31 @@ describe('ReaderParser span authority contract', () => {
         expect(tokens.every(token => token.card.source === 'fallback')).toBe(true);
     });
 
+    it('uses a later deinflected public candidate when the surface form misses', async () => {
+        const text = '読みました';
+        const harness = providerHarness({
+            provider: 'public',
+            text,
+            lexicon: {
+                読む: { spelling: '読む', reading: 'よむ', rules: 'v5m' },
+            },
+        });
+
+        const [tokens] = await harness.parser.parse([text], SPAN_OPTIONS);
+        const candidates = [...(harness.publicLookupMany.mock.calls[0]?.[0] ?? [])];
+
+        expect(candidates).toContain(text);
+        expect(candidates).toContain('読む');
+        expect(candidates.indexOf(text)).toBeLessThan(candidates.indexOf('読む'));
+        expect(tokenSummary(text, tokens)).toContainEqual({
+            surface: text,
+            spelling: '読む',
+            source: 'jiten',
+            start: 0,
+            end: text.length,
+        });
+    });
+
     it('keeps repeated dictionary-confirmed occurrences distinct while querying each term once', async () => {
         const text = '猫と猫';
         const harness = providerHarness({

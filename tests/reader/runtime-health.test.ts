@@ -68,7 +68,7 @@ describe('Reader runtime service health', () => {
         companions.copy = { uiText() {} };
         companions.dictionaries = { YomitanDictionaryStore: class {} };
         companions.study = {
-            translateJapaneseSentence() {},
+            translateTargetSentence() {},
             detectGrammarHints() {},
             listLocalGrammarRules() {},
             normalizeMiningSentence() {},

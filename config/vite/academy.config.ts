@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv, type Plugin, type ProxyOptions } from "vite";
 import { configDefaults } from "vitest/config";
+import pkg from "../../package.json" with { type: "json" };
 import {
   academyCookieForRemote,
   academySetCookieForLocal,
@@ -88,25 +89,59 @@ function academyRootRedirect(): Plugin {
   };
 }
 
+function configuredAcademyPath(
+  name: string,
+  env: Record<string, string>,
+): string | undefined {
+  return process.env[name] ?? env[name];
+}
+
+function academyPublicDirectory(command: string): string | false {
+  return command === "serve" ? path.join(root, "docs/public") : false;
+}
+
+function academyPort(): number {
+  return Number(process.env.ACADEMY_PORT ?? 5174);
+}
+
+function academyTestIsolation(): boolean {
+  return process.env.VITEST_ISOLATE === "1";
+}
+
+function academyTestExclusions(isolate: boolean): string[] {
+  return isolate
+    ? [...configDefaults.exclude]
+    : [...configDefaults.exclude, ...MOCK_ISOLATED_TESTS];
+}
+
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, root, "");
+  const testIsolation = academyTestIsolation();
+  const personaAudioRoot = configuredAcademyPath(
+    "ACADEMY_PERSONA_AUDIO_ROOT",
+    env,
+  );
+  const shindaySfxRoot = configuredAcademyPath(
+    "ACADEMY_SHINDAY_SFX_ROOT",
+    env,
+  );
   return {
+    define: {
+      __YOMU_VERSION__: JSON.stringify(pkg.version),
+    },
     plugins: [
       academyLocalMedia({
-        persona:
-          process.env.ACADEMY_PERSONA_AUDIO_ROOT ??
-          env.ACADEMY_PERSONA_AUDIO_ROOT,
-        shinday:
-          process.env.ACADEMY_SHINDAY_SFX_ROOT ?? env.ACADEMY_SHINDAY_SFX_ROOT,
+        persona: personaAudioRoot,
+        shinday: shindaySfxRoot,
       }),
       academyRootRedirect(),
     ],
     // Dev serves the same hosted Reader + Academy tree as GitHub Pages so the
     // real annotation runtime is exercised during browser acceptance.
-    publicDir: command === "serve" ? path.join(root, "docs/public") : false,
+    publicDir: academyPublicDirectory(command),
     server: {
       host: "127.0.0.1",
-      port: Number(process.env.ACADEMY_PORT ?? 5174),
+      port: academyPort(),
       strictPort: true,
       // Local Academy acceptance uses the deployed access/media boundary so
       // HttpOnly invite sessions and protected range audio behave exactly
@@ -160,10 +195,7 @@ export default defineConfig(({ command, mode }) => {
       // vi.mock-using files are excluded from the shared-fork pass and run in
       // a second isolated invocation (see test:academy in package.json). The
       // vi-mock-isolation-conformance test keeps this list honest.
-      exclude:
-        process.env.VITEST_ISOLATE === "1"
-          ? [...configDefaults.exclude]
-          : [...configDefaults.exclude, ...MOCK_ISOLATED_TESTS],
+      exclude: academyTestExclusions(testIsolation),
       globals: true,
       pool: "forks",
       poolOptions: {
@@ -179,7 +211,7 @@ export default defineConfig(({ command, mode }) => {
           // vi.mock registrations leak across files in a reused fork, so the
           // two vi.mock-using files run in a separate isolated pass (see
           // test:academy in package.json) — any new vi.mock file must join it.
-          isolate: process.env.VITEST_ISOLATE === "1",
+          isolate: testIsolation,
           execArgv: [`--max-old-space-size=${academyForkHeapMb()}`],
         },
       },

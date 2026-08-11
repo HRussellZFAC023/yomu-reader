@@ -26,6 +26,18 @@ function createOnboardingHarness(settings: ReaderSettings): {
     };
 }
 
+function requiredElement<T extends Element>(selector: string): T {
+    const element = document.querySelector<T>(selector);
+    expect(element, `Expected ${selector}`).not.toBeNull();
+    return element!;
+}
+
+function requiredDescendant<T extends Element>(root: ParentNode, selector: string): T {
+    const element = root.querySelector<T>(selector);
+    expect(element, `Expected ${selector}`).not.toBeNull();
+    return element!;
+}
+
 describe('Slice 1 multilingual onboarding and settings', () => {
     afterEach(() => {
         document.body.innerHTML = '';
@@ -42,31 +54,36 @@ describe('Slice 1 multilingual onboarding and settings', () => {
 
         await harness.controller.showIfNeeded();
 
-        const learnerLanguage = document.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
+        const learnerLanguage = requiredElement<HTMLSelectElement>('select[name="learnerLanguage"]');
         expect(Array.from(learnerLanguage.options, option => option.value)).toEqual(LEARNER_LANGUAGE_IDS);
-        const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
-        expect(targetLanguage.options).toHaveLength(33);
-        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="ja"]')).toMatchObject({
+        const targetLanguage = requiredElement<HTMLSelectElement>('select[name="targetLanguage"]');
+        expect(targetLanguage.options).toHaveLength(34);
+        expect(targetLanguage.value).toBe('');
+        expect(targetLanguage.options[0]).toMatchObject({ disabled: true, value: '' });
+        expect(requiredElement<HTMLButtonElement>('[data-onboarding-action="without-api"]').disabled)
+            .toBe(true);
+        expect(requiredDescendant<HTMLOptionElement>(targetLanguage, 'option[value="ja"]')).toMatchObject({
             disabled: false,
             textContent: expect.stringContaining('Full Yomu support'),
         });
-        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')).toMatchObject({
+        expect(requiredDescendant<HTMLOptionElement>(targetLanguage, 'option[value="es"]')).toMatchObject({
             disabled: false,
             textContent: expect.stringContaining('Español'),
             title: 'Reading, lookup, mining and review are ready.',
         });
-        expect(targetLanguage.querySelector<HTMLOptionElement>('option[value="es"]')?.dataset.studyTargetReadiness)
+        expect(requiredDescendant<HTMLOptionElement>(targetLanguage, 'option[value="es"]').dataset.studyTargetReadiness)
             .toBe('reading-only');
-        expect(document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]')?.checked).toBe(true);
-        expect(document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')).not.toBeNull();
+        expect(requiredElement<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]').checked).toBe(true);
+        expect(requiredElement<HTMLFieldSetElement>('.jpdb-reader-onboarding-options').hidden).toBe(true);
 
         learnerLanguage.value = 'ko';
         targetLanguage.value = 'es';
         targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        expect(requiredElement<HTMLFieldSetElement>('.jpdb-reader-onboarding-options').hidden).toBe(false);
         expect(document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')).toBeNull();
-        expect(document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')?.checked)
+        expect(requiredElement<HTMLInputElement>('input[name="youtubeImmersionEnabled"]').checked)
             .toBe(false);
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')?.click();
+        requiredElement<HTMLButtonElement>('[data-onboarding-action="without-api"]').click();
         await new Promise(resolve => setTimeout(resolve, 0));
 
         const settings = harness.state.current;

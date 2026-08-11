@@ -397,7 +397,7 @@ export type JitenVocabularyDeckState = 'mining' | 'blacklist' | 'neverForget' | 
 export type JitenVocabularyStateAction = 'add' | 'remove';
 
 export class JitenApiClient {
-    private readonly parseBatcher: JitenParseBatcher<JPDBToken[]>;
+    private parseBatcher: JitenParseBatcher<JPDBToken[]>;
     private readonly vocabularyInfoCache = new PromiseLruCache<string, JitenVocabularyInfo | null>(PUBLIC_READ_CACHE_LIMIT);
     private readonly vocabularySearchCache = new PromiseLruCache<string, JPDBCard[]>(PUBLIC_READ_CACHE_LIMIT);
     private readonly kanjiCache = new PromiseLruCache<string, JitenKanjiInfo | null>(PUBLIC_READ_CACHE_LIMIT);
@@ -407,10 +407,22 @@ export class JitenApiClient {
         private getApiKey: () => string,
         private options: JitenApiClientOptions = {},
     ) {
-        this.parseBatcher = new JitenParseBatcher({
+        this.parseBatcher = this.createParseBatcher();
+    }
+
+    private createParseBatcher(): JitenParseBatcher<JPDBToken[]> {
+        return new JitenParseBatcher({
             loadBatch: paragraphs => this.fetchParseBatch(paragraphs),
             emptyResult: () => [],
         });
+    }
+
+    clear(): void {
+        this.parseBatcher = this.createParseBatcher();
+        this.vocabularyInfoCache.clear();
+        this.vocabularySearchCache.clear();
+        this.kanjiCache.clear();
+        this.kanjiWordsCache.clear();
     }
 
     async ping(): Promise<boolean> {
@@ -662,7 +674,7 @@ export class JitenApiClient {
             method: 'GET',
             query: { limit: cardLimit },
         });
-        recordJitenDailyStats(response);
+        recordJitenDailyStats(response, new Date(), this.getApiKey());
         return normalizeJitenStudyBatchCards(response).slice(0, cardLimit);
     }
 

@@ -1,7 +1,7 @@
 import { subscribeToCardStateSignals } from '../app/card-state-signal';
 import { AudioPlayer } from '../audio/player';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki';
-import { listNewTabAnkiCards } from '../anki/new-tab';
+import { newTabAnkiClient } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
@@ -79,6 +79,7 @@ import {
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedTextParsePlan, providerExampleTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { isTargetLanguageText } from '../lookup/target-text';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
+import { newTabSettingsWithPageTarget } from './runtime-target-policy';
 import type { StudySessionClock } from './session-clock';
 import { LookupModalAccessibility } from '../popup/modal-accessibility-impl';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
@@ -105,7 +106,7 @@ import {
     saveSettings,
     shouldLookupAnkiStatus,
     subscribeToSettingsStorageChanges,
-} from '../settings';
+} from '../settings/index';
 import {
     effectiveBunproFrontendApiToken,
     effectiveBunproLegacyApiKey,
@@ -123,13 +124,11 @@ import { ReaderAudioActions } from '../audio/actions';
 import { refreshRenderedAnkiStatusAfterMutation as refreshRenderedAnkiStatus, scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from '../app/status-warmup';
 import { SettingsDialogController } from '../settings/dialog-controller';
 import { getUserscriptHttpRequest } from '../userscript';
-import { runningAsBrowserExtension } from '../app/runtime-env';
 import {
     KANJI_DICTIONARIES_SOURCE_ID,
     KANJI_JPDB_SOURCE_ID,
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
-    KANJI_UCHISEN_SOURCE_ID,
     definitionSourceLabel,
 } from '../sources/sections';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
@@ -141,10 +140,9 @@ import {
     syncFixedPopoverHeight,
 } from '../runtime/popover-body-stabilizer';
 import { StudySourceController } from '../study/sources';
-import { outputLanguageOf } from '../languages/selection';
+import { outputLanguageOf, targetLanguageOf } from '../languages/selection';
 import { translateJapaneseSentence } from '../study/tools';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
-import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
 import { addWindowEventListener, removeWindowEventListener } from '../platform/window-events';
 import { renderWordPills, updateHeadingWordPills } from '../sources/word-pills';
 import type { RtkClient, RtkInfo } from '../kanji/rtk';
@@ -228,8 +226,6 @@ interface LookupPopoverScrollState {
     scrollTop: number;
 }
 
-type UchisenData = Awaited<ReturnType<typeof loadUchisenData>>;
-
 export function bootNewTabRuntime(): void { void startNewTabRuntime().catch(error => log.error('New tab initialization failed', error)); }
 async function startNewTabRuntime(): Promise<void> {
     await ensureManagedWebStorageCurrent();
@@ -240,6 +236,8 @@ async function startNewTabRuntime(): Promise<void> {
 
 export interface NewTabRuntimeOptions {
     readonly mountHost?: HTMLElement;
+    /** Deliberate, non-persisted target owned by an embedded hosted lesson. */
+    readonly pageOwnedLearningTarget?: 'ja';
     readonly sessionClock?: StudySessionClock;
     readonly interfaceLanguage?: 'en' | 'ja';
     /** Read-only lesson context. Scheduler writes are owned by Academy learner evidence. */
@@ -266,6 +264,7 @@ export async function mountNewTabStudySurface(
     await ensureManagedWebStorageCurrent();
     const runtime = new NewTabRuntime({
         mountHost: host,
+        pageOwnedLearningTarget: 'ja',
         sessionClock: options.sessionClock,
         interfaceLanguage: options.language,
         sessionVocabulary: options.sessionVocabulary,
@@ -483,9 +482,10 @@ export class NewTabRuntime {
 
     private settingsDialog = new SettingsDialogController({
         getSettings: () => this.settings,
-        setSettings: settings => {
-            this.settings = settings;
-            this.syncLookupTarget(settings);
+        setSettings: (settings, options) => {
+            const nextSettings = this.settingsDialogTargetChoice(settings, options?.transient === true);
+            this.settings = nextSettings;
+            this.syncRuntimeTarget(nextSettings);
         },
         jpdb: this.jpdb,
         dictionaries: this.dictionaries,
@@ -526,15 +526,12 @@ export class NewTabRuntime {
 
     async init(): Promise<void> {
         this.isDestroyed = false;
-        if (!this.options.mountHost) markNewTabRuntime();
+        this.markOwnedRuntime();
         this.installExternalRefreshListener();
         configureLogger({ settingsProvider: () => this.settings });
         this.factoryReset.bind();
         this.settings = await loadSettings();
-        if (this.options.interfaceLanguage) {
-            this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
-        }
-        this.syncLookupTarget(this.settings);
+        this.applyConfiguredInterfaceLanguage();
         configureLogger({ forceEnabled: this.settings.enableLogging });
         // D43: the new tab and the study app are documents Yomu owns outright, so
         // they take `lang`, `dir` and the per-script interface font from the
@@ -542,19 +539,15 @@ export class NewTabRuntime {
         // the mount, never the page's documentElement.
         this.applyInterfaceLocale();
         this.applyTheme();
+        const runtimeTargetSettings = await this.resolveRuntimeTargetSettings();
+        if (!runtimeTargetSettings) return;
+        this.syncLookupTarget(runtimeTargetSettings);
         this.assertSessionVocabularyReadOnly();
         this.newTab = this.createNewTabController();
         await this.newTab.renderPage();
-        if (!this.options.mountHost && runningAsBrowserExtension()) {
-            await this.onboarding.showIfNeeded();
-        }
         this.openRequestedSettingsPanel();
         void this.refreshDictionaryStyles();
-        if (this.settings.localDictionariesEnabled) {
-            window.setTimeout(() => {
-                if (!this.isDestroyed) void this.dictionaries.prepareTermSearchIndex();
-            }, 1500);
-        }
+        this.scheduleDictionaryIndexPreparation();
         this.scheduleAnkiStatusWarmup();
         this.installCardStateSignalSubscription();
         installAcademyReaderSrsSync();
@@ -562,14 +555,30 @@ export class NewTabRuntime {
         void this.settingsDialog.resumePendingCloudSettingsSync();
     }
 
+    private markOwnedRuntime(): void {
+        if (!this.options.mountHost) markNewTabRuntime();
+    }
+
+    private applyConfiguredInterfaceLanguage(): void {
+        if (!this.options.interfaceLanguage) return;
+        this.settings = { ...this.settings, interfaceLanguage: this.options.interfaceLanguage };
+    }
+
+    private scheduleDictionaryIndexPreparation(): void {
+        if (!this.settings.localDictionariesEnabled) return;
+        window.setTimeout(() => {
+            if (!this.isDestroyed) void this.dictionaries.prepareTermSearchIndex();
+        }, 1500);
+    }
+
     private createOnboardingController() {
         const Controller = yomuOnboardingController();
-        if (!Controller) return { showIfNeeded: async () => false };
+        if (!Controller) return undefined;
         return new Controller({
             getSettings: () => this.settings,
             setSettings: settings => {
                 this.settings = settings;
-                this.syncLookupTarget(settings);
+                if (settings.learningTargetChosen) this.syncLookupTarget(settings);
                 this.applyTheme(settings);
                 this.applyWordColors(settings);
             },
@@ -578,7 +587,51 @@ export class NewTabRuntime {
             lookupText: (text, sentence, anchor) => void this.lookupText(text, sentence || text, anchor, { stackOverSettings: true }),
             installOfflineDictionaries: () => void this.installOfflineDictionaries(),
             onComplete: settings => this.applyRemoteSettings(settings),
+            onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
         });
+    }
+
+    private async resolveRuntimeTargetSettings(): Promise<ReaderSettings | null> {
+        const current = this.runtimeTargetSettings(this.settings);
+        if (current) return current;
+        // A generic embedded mount must fail closed. Academy supplies a
+        // page-owned target, while standalone Study can host the chooser.
+        if (this.options.mountHost) return null;
+        await this.runOnboardingIfAvailable();
+        if (this.isDestroyed) return null;
+        return this.runtimeTargetSettings(this.settings);
+    }
+
+    private runtimeTargetSettings(settings: ReaderSettings): ReaderSettings | null {
+        if (settings.learningTargetChosen) return settings;
+        const pageOwnedLearningTarget = this.options.pageOwnedLearningTarget;
+        if (!pageOwnedLearningTarget) return null;
+        return newTabSettingsWithPageTarget(settings, pageOwnedLearningTarget);
+    }
+
+    private settingsDialogTargetChoice(settings: ReaderSettings, transient: boolean): ReaderSettings {
+        if (transient) return settings;
+        if (targetLanguageOf(settings) === targetLanguageOf(this.settings)) return settings;
+        return { ...settings, learningTargetChosen: true };
+    }
+
+    private syncRuntimeTarget(settings: ReaderSettings): void {
+        const runtimeTargetSettings = this.runtimeTargetSettings(settings);
+        if (runtimeTargetSettings) this.syncLookupTarget(runtimeTargetSettings);
+    }
+
+    private async runOnboardingIfAvailable(): Promise<void> {
+        const onboarding = this.onboarding;
+        if (!onboarding) return;
+        await onboarding.showIfNeeded();
+        await onboarding.waitForCompletion();
+    }
+
+    private rollbackOnboardingSettings(previousSettings: ReaderSettings): void {
+        this.settings = previousSettings;
+        this.syncRuntimeTarget(previousSettings);
+        this.applyTheme(previousSettings);
+        this.applyWordColors(previousSettings);
     }
 
     private async installOfflineDictionaries(): Promise<void> {
@@ -650,7 +703,7 @@ export class NewTabRuntime {
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
         this.settings = settings;
-        this.syncLookupTarget(settings);
+        this.syncRuntimeTarget(settings);
         configureLogger({ forceEnabled: settings.enableLogging });
         this.cardRenderData.clear();
         this.parseContentCache.clear();
@@ -748,13 +801,7 @@ export class NewTabRuntime {
         return new NewTabController({
             getSettings: () => this.settings,
             toast: message => showReaderToast(message),
-            anki: {
-                listNewTabCards: (limit, deckScope) => listNewTabAnkiCards(this.anki, this.settings, limit, deckScope),
-                answerCard: (cardId, grade) => this.anki.answerCard(cardId, grade),
-                findExistingCards: card => this.anki.findExistingCards(card),
-                invoke: (action, params) => this.anki.invoke(action, params),
-                requestPermission: () => this.anki.invoke('requestPermission'),
-            },
+            anki: newTabAnkiClient(this.anki, () => this.settings),
             jpdb: this.jpdb,
             jiten: this.jiten,
             jpdbKanji: this.jpdbKanji,
@@ -770,6 +817,7 @@ export class NewTabRuntime {
                 wanikani: this.wanikaniSrs,
                 'yomu-local': this.yomuLocalSrs,
             },
+            clearWanikaniAccountContext: () => this.wanikani.clear(),
             parser: this.parser,
             dictionaries: this.dictionaries,
             onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
@@ -1434,9 +1482,6 @@ export class NewTabRuntime {
         const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo)
             ?? noopKanjiPracticeDoodle();
         const detailPromises = this.kanjiLookupDetailPromises(kanji);
-        if (this.settings.uchisenEnabled) {
-            void this.renderUchisenInto(popover, kanji, requestId);
-        }
         this.wanikaniSources.installKanjiMount(popover, kanji);
         this.installKanjiLookupImmersionExamples(popover, kanji);
 
@@ -1679,74 +1724,6 @@ export class NewTabRuntime {
             promise.catch(() => fallback),
             timeout,
         ]).finally(() => window.clearTimeout(timeoutId));
-    }
-
-    private async renderUchisenInto(popover: HTMLElement, kanji: string, requestId: number): Promise<void> {
-        if (!targetCanLookupCharacter(kanji)) return;
-        const mount = this.kanjiLookupUchisenMount(popover, requestId);
-        if (!mount) return;
-        const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
-        const sourceAttributes = () => this.dictionarySourceState.attributes(sourceStateKey, this.dictionarySourceState.isOpen(sourceStateKey));
-        setInnerHtml(mount, `
-            <details class="jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source" ${sourceAttributes()}>
-                <summary class="jpdb-reader-local-title">Uchisen</summary>
-                <div class="jpdb-reader-local-entry"><div class="jpdb-reader-help">${escapeHtml(this.text('loadingMnemonicImages'))}</div></div>
-            </details>
-        `);
-        const data = await this.loadUchisenLookupData(kanji);
-        if (!targetCanLookupCharacter(kanji) || !this.canRenderKanjiLookupMount(popover, requestId, mount)) return;
-        if (this.shouldRemoveEmptyUchisenData(data)) {
-            mount.remove();
-            this.repositionLookupPopover();
-            return;
-        }
-        await installUchisenCarousel(mount, kanji, data.images, {
-            proxyUrl: this.settings.corsProxyUrl,
-            sourceAttributes: sourceAttributes(),
-            detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
-            summaryClass: 'jpdb-reader-local-title',
-            bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
-            componentGroups: data.componentGroups,
-            kanjiKeyword: data.kanjiKeyword,
-            kanjiId: data.kanjiId,
-            canGenerateImages: data.canGenerateImages,
-            refreshData: () => this.loadUchisenLookupData(kanji),
-            interfaceLanguage: this.settings.interfaceLanguage,
-        });
-        if (this.isCurrentKanjiLookupRender(popover, requestId, kanji)) this.repositionLookupPopover();
-    }
-
-    private kanjiLookupUchisenMount(popover: HTMLElement, requestId: number): HTMLElement | null {
-        if (!this.settings.uchisenEnabled) return null;
-        const mount = popover.querySelector<HTMLElement>('[data-kanji-uchisen-mount]');
-        return mount && this.canRenderKanjiLookupMount(popover, requestId, mount) ? mount : null;
-    }
-
-    private canRenderKanjiLookupMount(popover: HTMLElement, requestId: number, mount: HTMLElement): boolean {
-        return mount.isConnected && this.isCurrentLookupRender(popover, requestId);
-    }
-
-    private loadUchisenLookupData(kanji: string): Promise<UchisenData> {
-        if (!targetCanLookupCharacter(kanji)) {
-            return Promise.resolve({
-                images: [],
-                componentGroups: [],
-                kanjiKeyword: null,
-                kanjiId: '',
-                canGenerateImages: false,
-            });
-        }
-        return loadUchisenData(kanji, this.settings.corsProxyUrl).catch(() => ({
-            images: [],
-            componentGroups: [],
-            kanjiKeyword: null,
-            kanjiId: '',
-            canGenerateImages: false,
-        }));
-    }
-
-    private shouldRemoveEmptyUchisenData(data: Pick<UchisenData, 'images' | 'canGenerateImages'>): boolean {
-        return data.images.length === 0 && !data.canGenerateImages;
     }
 
     private async performJpdbKanjiAction(actionId: string, card: JPDBCard, kanji: string, sentence?: string, anchor?: HTMLElement): Promise<void> {

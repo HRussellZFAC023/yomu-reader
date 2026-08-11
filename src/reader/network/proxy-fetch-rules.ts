@@ -172,8 +172,6 @@ function isSharedPublicProxyAllowlistedTarget(target: URL): boolean {
     if (host === 'assets.languagepod101.com') return path === '/dictionary/japanese/audiomp3.php';
     if (host === 'cdn.innovativelanguage.com') return path.includes('/learningcenter/audio/');
     if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith('/audio/');
-    if (host === 'uchisen.com') return path.startsWith('/kanji/');
-    if (host === 'ik.imagekit.io') return path.startsWith('/uchisen/generated/saved/');
     return IMMERSION_KIT_API_HOSTS.has(host) && path === '/search';
 }
 

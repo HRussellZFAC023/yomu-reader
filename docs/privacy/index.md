@@ -11,7 +11,7 @@ Last updated: 27 July 2026
 
 ## Browser permissions
 
-The extension asks to run on websites because its core purpose is to add Japanese reading, lookup, OCR, subtitle, and mining tools to the page you are viewing. It uses `activeTab` for user-requested visible-tab capture, `scripting` to install the reader, `storage` for settings and local study data, and context-menu access for reader shortcuts. It does not request browsing-history access.
+The extension asks to run on websites because its core purpose is to add reading, target-aware lookup, OCR, subtitle, and mining tools for your selected learning language to the page you are viewing. It uses `activeTab` for user-requested visible-tab capture, `scripting` to install the reader, `storage` for settings and local study data, and context-menu access for reader shortcuts. It does not request browsing-history access.
 
 Firefox describes the text and images Yomu reads on a page as `websiteContent`. Account keys and imported sign-in tokens are `authenticationInfo`. Yomu declares website content as required for its reader, but account information as optional. Firefox can show that optional prompt only on an extension-owned page, so account details are added from **Study → Settings**. If you try from an ordinary webpage, Yomu keeps the details unsaved and points you to Study. The Bunpro page helper does not read its token in the Firefox extension; it opens Study settings so you can paste the token there. If you decline Firefox's prompt, the integration stays off.
 

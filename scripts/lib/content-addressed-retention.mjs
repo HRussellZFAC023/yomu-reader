@@ -4,12 +4,12 @@ import { join } from 'node:path';
 
 export const RELEASE_RETENTION_COUNT = 40;
 // The versions the browser stores actually serve, so their pinned companions are
-// never pruned. Measured 2026-08-04: AMO 1.8.72 (addons.mozilla.org API
-// current_version), Chrome Web Store 1.8.71 (manual publish record). This was
-// pinned to v1.8.2 for months on the belief that only a v*.*.0 tag can publish to
-// a store; release.yml's publish_browser_stores input publishes patch builds too.
-// Update this when a store publish moves, and re-run `npm run assets:prune`.
-export const SUPPORTED_RELEASE_REFS = ['v1.8.71', 'v1.8.72'];
+// never pruned. Measured 2026-08-10: AMO and Chrome Web Store both serve 1.8.88.
+// This was pinned to v1.8.2 for months on the belief that only a v*.*.0 tag can
+// publish to a store; release.yml's publish_browser_stores input publishes patch
+// builds too. Update this only after a store publish is live, then re-run
+// `npm run assets:prune`.
+export const SUPPORTED_RELEASE_REFS = ['v1.8.88'];
 export const RETENTION_MANIFEST_PATH = 'config/ci/content-addressed-retention.json';
 
 const HASHED_COMPANION = /^yomu-[a-z0-9-]+\.[0-9a-f]{12}\.user\.js$/;

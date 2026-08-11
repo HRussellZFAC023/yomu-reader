@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">よむ social preview</title>
-  <desc id="desc">よむ app icon with the text Free Japanese popup reader.</desc>
+  <desc id="desc">よむ app icon with the text Language-learning popup reader.</desc>
   <defs>
     <linearGradient id="page-bg" x1="0" x2="1200" y1="0" y2="630" gradientUnits="userSpaceOnUse">
       <stop stop-color="#121820" />
@@ -61,7 +61,7 @@
 
   <g font-family="Inter, Hiragino Sans, Yu Gothic, Noto Sans JP, Meiryo, system-ui, sans-serif">
     <text x="568" y="215" font-size="118" font-weight="800" fill="#f5f7fb">よむ</text>
-    <text x="572" y="288" font-size="48" font-weight="750" fill="#dce8e1">Free Japanese</text>
+    <text x="572" y="288" font-size="48" font-weight="750" fill="#dce8e1">Language-learning</text>
     <text x="572" y="344" font-size="48" font-weight="750" fill="#dce8e1">popup reader</text>
     <text x="574" y="402" font-size="28" font-weight="500" fill="#b7c5bf">Lookup, mining, OCR, subtitles,</text>
     <text x="574" y="438" font-size="28" font-weight="500" fill="#b7c5bf">dictionaries, Anki, and audio.</text>

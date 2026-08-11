@@ -281,11 +281,8 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
         }
     });
 
-    it('shows JPDB, RTK, and Uchisen kanji keywords on the unrevealed front', async () => {
+    it('shows JPDB, RTK, and imported-dictionary kanji keywords on the unrevealed front', async () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
-        vi.stubGlobal('fetch', vi.fn(async () => new Response(`
-            <div class="kanji_info" id="kanji_keyword_container"><span>柔 - Supple</span></div>
-        `, { status: 200 })));
         const card = newTabTestCard({
             vid: 21,
             sid: 21,
@@ -303,7 +300,7 @@ describe('new tab review — card fronts, pitch/audio & front-sentence parsing',
 
             await waitForExpect(() => {
                 const rows = [...root.querySelectorAll('.jpdb-reader-newtab-kanji-front-keyword')].map(row => row.textContent);
-                expect(rows).toEqual(['JPDBgentle', 'RTKtenderness', 'UchisenSupple']);
+                expect(rows).toEqual(['JPDBgentle', 'RTKtenderness', 'dictsoft']);
             });
         } finally {
             restoreCanvas();

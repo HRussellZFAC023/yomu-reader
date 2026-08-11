@@ -32,9 +32,11 @@ import {
     firstChangedTouch,
     getContainedClosest,
 } from '../popup/handle-drag';
+import * as settings from '../settings';
 import { registerAggregateRuntimeModules } from './aggregate-runtime-modules';
 
 registerAggregateRuntimeModules({
+    settings,
     tokenTextRendering: {
         PITCH_CLASSES,
         effectiveTokenRubies,

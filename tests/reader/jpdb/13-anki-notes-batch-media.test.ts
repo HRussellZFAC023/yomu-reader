@@ -25,6 +25,7 @@ import type {
     TestAnkiConnectResponse,
     TestAnkiQueryRoute,
 } from './fixtures';
+import { ankiStatusIndexSettingsKey } from '../../../src/reader/anki/account-context';
 
 registerReaderHelpersCleanup();
 
@@ -1028,7 +1029,7 @@ describe('reader helpers', () => {
         const now = Date.now();
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
             version: 1,
-            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            settingsKey: ankiStatusIndexSettingsKey(DEFAULT_SETTINGS),
             syncedAt: now - 10 * 60 * 1000,
             checkedAt: now - 6 * 60 * 1000,
             cardCount: 2505,
@@ -1072,7 +1073,7 @@ describe('reader helpers', () => {
         const now = Date.now();
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
             version: 1,
-            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            settingsKey: ankiStatusIndexSettingsKey(DEFAULT_SETTINGS),
             syncedAt: now,
             checkedAt: now,
             cardCount: 1,
@@ -1139,7 +1140,7 @@ describe('reader helpers', () => {
         localStorage.clear();
         await deleteAnkiStatusIndexDatabase();
         const now = Date.now();
-        const settingsKey = JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl });
+        const settingsKey = ankiStatusIndexSettingsKey(DEFAULT_SETTINGS);
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
             version: 1,
             settingsKey,
@@ -1604,7 +1605,7 @@ describe('reader helpers', () => {
         await deleteAnkiStatusIndexDatabase();
         localStorage.setItem('yomu:anki-status-index:v1', JSON.stringify({
             version: 1,
-            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl }),
+            settingsKey: ankiStatusIndexSettingsKey(DEFAULT_SETTINGS),
             syncedAt: 1,
             checkedAt: 1,
             cardCount: 1,

@@ -31,6 +31,7 @@ export const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
 
 export interface AnkiConnectClient {
     destroy(): void;
+    clearAccountContext(): void;
     isConnected(): Promise<boolean>;
     isAvailableForBackground(): Promise<boolean>;
     deckNames(): Promise<string[]>;
@@ -69,6 +70,7 @@ export class AnkiConnectClient {
 
 class DisabledAnkiConnectClient implements AnkiConnectClient {
     destroy(): void {}
+    clearAccountContext(): void {}
     isConnected = ankiFalse;
     isAvailableForBackground = ankiFalse;
     deckNames = ankiEmptyStrings;

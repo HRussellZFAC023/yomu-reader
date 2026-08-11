@@ -42,28 +42,55 @@ export function bindReaderRuntimeEvents(
     }, { signal });
 
     addWindowEventListener(SETTINGS_CHANGE_EVENT, event => {
-        if (handlers.isDestroyed()) return;
-        const detail = (event as CustomEvent<SettingsChangeEventDetail>).detail;
-        const settings = handlers.getSettings();
-        // Every persisted settings write dispatches this, so it is the one
-        // hook that covers the settings dialog, onboarding, and cross-tab
-        // storage sync alike: the active learning target follows the profile
-        // the user actually has, not the one they had at boot. Idempotent, and
-        // ahead of the theme guard below, which returns early on most events.
-        adoptLearningTargetFromSettings(settings);
-        const theme = settingsThemeChangeDetail(detail);
-        if (!theme || settings.theme === theme) return;
-        settings.theme = theme;
-        handlers.setSettings(settings);
-        handlers.applyTheme();
-        // The theme arrived in the event from whichever surface the learner
-        // switched it on; mirroring it here is that same choice, not a guess.
-        if (detail?.preview !== true) void handlers.saveSettings(settings, ['theme']);
+        handleSettingsChangeEvent(handlers, event as CustomEvent<SettingsChangeEventDetail>);
     }, { signal });
 
     addWindowEventListener(USERSCRIPT_HTTP_BRIDGE_READY_EVENT, () => {
         handlers.clearBridgeCaches();
     }, { signal });
+}
+
+function handleSettingsChangeEvent(
+    handlers: ReaderRuntimeEventHandlers,
+    event: CustomEvent<SettingsChangeEventDetail>,
+): void {
+    if (handlers.isDestroyed()) return;
+    const detail = event.detail;
+    const settings = handlers.getSettings();
+    adoptChosenLearningTarget(settings);
+    applyChangedTheme(handlers, settings, detail);
+}
+
+// Every persisted settings write dispatches this, so this hook covers the
+// dialog, onboarding, and cross-tab sync alike. The compatibility profile is
+// not learner intent while the required first-run target chooser is open.
+function adoptChosenLearningTarget(settings: ReaderSettings): void {
+    if (settings.learningTargetChosen) adoptLearningTargetFromSettings(settings);
+}
+
+function applyChangedTheme(
+    handlers: ReaderRuntimeEventHandlers,
+    settings: ReaderSettings,
+    detail: SettingsChangeEventDetail | undefined,
+): void {
+    const theme = settingsThemeChangeDetail(detail);
+    if (!theme) return;
+    if (settings.theme === theme) return;
+    settings.theme = theme;
+    handlers.setSettings(settings);
+    handlers.applyTheme();
+    persistChangedTheme(handlers, settings, detail);
+}
+
+// The event carries the choice made on another surface. Preview events mirror
+// it locally without turning that temporary value into durable intent.
+function persistChangedTheme(
+    handlers: ReaderRuntimeEventHandlers,
+    settings: ReaderSettings,
+    detail: SettingsChangeEventDetail | undefined,
+): void {
+    if (detail?.preview === true) return;
+    void handlers.saveSettings(settings, ['theme']);
 }
 
 function interfaceLanguageChangeDetail(detail: InterfaceLanguageChangeDetail | undefined): InterfaceLanguage | null {

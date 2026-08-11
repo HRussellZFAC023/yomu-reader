@@ -33,11 +33,11 @@ describe('docs localization browser smoke readiness', () => {
         expect(gateEnd).toBeGreaterThan(gateStart);
         expect(guardedBoot).toContain("if (!installedRuntime) docEl.dataset.yomuHosted = '';");
         expect(guardedBoot).toContain('installPreferredJapaneseSiteLanguageFromStoredSettings()');
-        expect(guardedBoot).toContain('applyMokuroReaderOcrDefault()');
+        expect(guardedBoot).toContain('installTargetOwnedDocumentStartActivation(pageOwnedLearningTarget)');
         expect(guardedBoot).toContain('installUserscriptHttpBridgeWhenReady()');
         expect(guardedBoot).toContain('installUserscriptGmStorageBridgeWhenReady()');
         expect(guardedBoot).toContain('promoteStrandedHostedSettingsToGmStorage()');
-        expect(guardedBoot).toContain('installPageOpenShadowRootDiscoveryBridge()');
+        expect(USERSCRIPT_ENTRY_SOURCE).not.toContain('installPageOpenShadowRootDiscoveryBridge');
         expect(guardedBoot).toContain('bootWhenDocumentIsReady()');
         expect(USERSCRIPT_ENTRY_SOURCE).toContain(
             'if (installedRuntime && !yomuNewTab) delete docEl?.dataset.yomuHosted;',

@@ -1,7 +1,7 @@
 {
   "name": "Yomu Video Player",
   "short_name": "Yomu Video",
-  "description": "Open local videos and Japanese subtitles for lookup, furigana, and mining without uploading files.",
+  "description": "Open local videos and subtitles in your selected learning language for target-aware lookup, annotations, and mining without uploading files.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",

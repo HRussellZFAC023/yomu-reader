@@ -93,7 +93,7 @@ function bridgeEventJsonDetail(detail: unknown): string | undefined {
     }
 }
 
-function normalizedBridgeEventDetail(event: Event): unknown {
+export function normalizedBridgeEventDetail(event: Event): unknown {
     const detail = safeEventDetail(event);
     if (typeof detail !== 'string') return detail;
     try {

@@ -247,8 +247,6 @@ function isSharedPublicProxyAllowlistedTarget(target) {
   if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
   if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
   if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-  if (host === "uchisen.com") return path.startsWith("/kanji/");
-  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
   return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
@@ -489,10 +487,10 @@ function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
 }
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -523,7 +521,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -1119,20 +1117,6 @@ function storageBridgeResponseDetail(event) {
   keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
   message: typeof record2.message === "string" ? record2.message : void 0
   };
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
 }
 function addBridgeEventListener(type, listener) {
   const cleanups = [];
@@ -2550,6 +2534,9 @@ const COPY = {
   onboardingLanguage: "Settings language",
   onboardingOutputLanguage: "Definition and translation language (output)",
   onboardingTargetLanguage: "Language you are reading (target)",
+  onboardingChooseTarget: "Choose a learning language…",
+  onboardingTargetRequired: "Choose a learning language before continuing.",
+  onboardingUnselectedTargetName: "your learning language",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -3418,7 +3405,6 @@ const COPY = {
   immersionExampleControls: "Immersion Kit example controls",
   exampleSearchLinks: "Example searches",
   loadingKanjiDetails: "Loading kanji details...",
-  loadingMnemonicImages: "Loading mnemonic images...",
   lookupDialog: `${APP_NAME} lookup`,
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
@@ -3701,22 +3687,7 @@ const COPY = {
   sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
   sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
   sourceHelpRtk: "RTK keywords, elements, and stories.",
-  sourceHelpUchisen: "Uchisen mnemonic image carousel.",
   sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-  uchisenMnemonicImages: "Uchisen mnemonic images",
-  uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-  noUchisenImagesYet: "No Uchisen images yet.",
-  generateUchisenImage: "Generate image",
-  generateUchisenImageToggle: "Generate image +",
-  uchisenMnemonicStory: "Mnemonic story",
-  uchisenImagePrompt: "Image prompt",
-  uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-  uchisenGeneratingImage: "Generating image...",
-  uchisenPublishingMnemonic: "Publishing mnemonic...",
-  uchisenGeneratedImage: "Uchisen image published.",
-  uchisenGenerateFailed: "Could not generate Uchisen image.",
-  uchisenLoginRequired: "Log in to Uchisen to generate images.",
-  noStoryAvailable: "No story available",
   sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
@@ -3805,6 +3776,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -3862,7 +3836,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -4980,22 +4953,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
@@ -5266,7 +5224,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -13854,6 +13814,125 @@ table { max-width: 100%; border-collapse: collapse; }
 td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
 `;
 }
+function sensitiveFingerprint(value) {
+  const secret = value.trim();
+  if (!secret) return "";
+  let first = 2166136261;
+  let second = 2654435769;
+  for (let index = 0; index < secret.length; index += 1) {
+  const code = secret.charCodeAt(index);
+  first = Math.imul(first ^ code, 16777619) >>> 0;
+  second = Math.imul(second ^ code, 2246822507) >>> 0;
+  }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
+}
+const MEDIA_DATA_URL_CACHE_LIMIT = 64;
+class AccountBoundAnkiStatusIndexLoader {
+  constructor(dependencies) {
+  this.dependencies = dependencies;
+  }
+  inflight;
+  clear() {
+  this.inflight = void 0;
+  }
+  load() {
+  const memory = this.fromMemory();
+  if (memory) return memory;
+  const synchronous = this.fromSynchronousStorage();
+  if (synchronous) return synchronous;
+  return this.inflight ?? this.beginLoad();
+  }
+  fromMemory() {
+  const stored = this.dependencies.current();
+  if (stored === void 0) return void 0;
+  const current = this.dependencies.valid(stored);
+  if (current || stored === null) return Promise.resolve(current);
+  this.dependencies.store(void 0);
+  return void 0;
+  }
+  fromSynchronousStorage() {
+  const index = this.dependencies.valid(this.dependencies.synchronous());
+  if (!index || index.entryStore === "indexeddb") return void 0;
+  this.dependencies.store(index);
+  return Promise.resolve(index);
+  }
+  beginLoad() {
+  const settingsKey = this.dependencies.settingsKey();
+  const load = this.dependencies.loadStored().then((index) => this.acceptCurrentAccount(index, settingsKey)).finally(() => {
+    if (this.inflight === load) this.inflight = void 0;
+  });
+  this.inflight = load;
+  return load;
+  }
+  acceptCurrentAccount(index, settingsKey) {
+  if (settingsKey !== this.dependencies.settingsKey()) return null;
+  this.dependencies.store(index);
+  return index;
+  }
+}
+function shouldLoadAnkiFieldTargetPlan(ankiEnabled, mobileHandoff, userscriptBridge) {
+  return ankiEnabled && (!mobileHandoff || userscriptBridge);
+}
+function currentAnkiFieldTargetPlan(cache, key, now) {
+  if (!cache || cache.key !== key || cache.expiresAt <= now) return void 0;
+  return cache.promise;
+}
+function ankiAccountContextKey(settings) {
+  return sensitiveFingerprint(JSON.stringify([
+  settings.ankiConnectUrl.trim(),
+  settings.activeLanguageProfileId
+  ]));
+}
+function ankiStatusIndexSettingsKey(settings) {
+  const fieldMappings = ankiFieldMappingsSettingsKey(settings.ankiFieldMappings);
+  return sensitiveFingerprint(JSON.stringify({
+  account: ankiAccountContextKey(settings),
+  ...Object.keys(fieldMappings).length ? { fieldMappings } : {}
+  }));
+}
+async function resolvedAnkiStatusIds(ids, load) {
+  return ids ?? await load();
+}
+class AnkiMediaDataUrlCache {
+  constructor(accountContext, retrieve) {
+  this.accountContext = accountContext;
+  this.retrieve = retrieve;
+  }
+  values = /* @__PURE__ */ new Map();
+  clear() {
+  this.values.clear();
+  }
+  async load(filename, notFoundMessage) {
+  const cleanFilename = requiredMediaFilename(filename, notFoundMessage);
+  const cacheKey = `${this.accountContext()}:${cleanFilename}`;
+  const cached = this.values.get(cacheKey);
+  if (cached) return cached;
+  return this.loadAndRemember(cacheKey, cleanFilename, notFoundMessage);
+  }
+  loadAndRemember(cacheKey, filename, notFoundMessage) {
+  const promise = this.retrieve(filename).then((data) => mediaDataUrl(filename, data, notFoundMessage)).catch((error) => {
+    this.values.delete(cacheKey);
+    throw error;
+  });
+  this.values.set(cacheKey, promise);
+  this.evictOverflow();
+  return promise;
+  }
+  evictOverflow() {
+  if (this.values.size <= MEDIA_DATA_URL_CACHE_LIMIT) return;
+  const oldest = this.values.keys().next().value;
+  if (oldest !== void 0) this.values.delete(oldest);
+  }
+}
+function requiredMediaFilename(filename, notFoundMessage) {
+  const cleanFilename = filename.trim();
+  if (!cleanFilename) throw new Error(notFoundMessage);
+  return cleanFilename;
+}
+function mediaDataUrl(filename, data, notFoundMessage) {
+  if (!data) throw new Error(notFoundMessage);
+  return `data:${ankiMediaMimeType(filename)};base64,${data}`;
+}
 const ANKI_VERSION = 6;
 const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
 const ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE = 50;
@@ -13871,8 +13950,8 @@ const ANKI_EDITED_SWEEP_MOD_LIMIT = 2e3;
 const ANKI_EDITED_SWEEP_DAY_MS = 24 * 60 * 60 * 1e3;
 const ANKI_STATUS_INDEX_CARD_CONCURRENCY = 3;
 const ANKI_RENDERED_MEDIA_LIMIT = 12;
-const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
 const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
+const STATUS_INDEX_REBUILD_CANCELLED = Symbol("status-index-rebuild-cancelled");
 const log = Logger.scope("Anki");
 const ANKI_EASE_BY_GRADE = {
   nothing: 1,
@@ -13901,17 +13980,28 @@ function isAnkiDuplicateNoteError(error) {
 class AnkiConnectClient {
   constructor(getSettings) {
   this.getSettings = getSettings;
+  this.mediaDataUrls = new AnkiMediaDataUrlCache(
+    () => ankiAccountContextKey(this.getSettings()),
+    (filename) => this.invoke("retrieveMediaFile", { filename })
+  );
+  this.statusIndexLoader = new AccountBoundAnkiStatusIndexLoader({
+    current: () => this.statusIndex,
+    store: (index) => {
+      this.statusIndex = index;
+    },
+    valid: (index) => this.validStatusIndex(index),
+    synchronous: () => gmStorageGetSync(ANKI_STATUS_INDEX_STORAGE_KEY, null),
+    loadStored: () => this.loadStoredStatusIndex(),
+    settingsKey: () => ankiStatusIndexSettingsKey(this.getSettings())
+  });
   this.installFocusStatusRefresh();
   }
   lookupCache = /* @__PURE__ */ new Map();
-  // Media manifest cache (P1): base64 payloads from retrieveMediaFile are
-  // expensive; repeat plays/hydrations reuse the same data URL by sanitized
-  // filename. Failures are evicted so a transient error can retry.
-  mediaDataUrlCache = /* @__PURE__ */ new Map();
+  mediaDataUrls;
   statusLookupCache = /* @__PURE__ */ new Map();
   lookupInflight = /* @__PURE__ */ new Map();
   statusIndex;
-  statusIndexLoad;
+  statusIndexLoader;
   statusIndexRefresh;
   statusIndexRefreshQueued = false;
   availabilityProbe;
@@ -13921,20 +14011,32 @@ class AnkiConnectClient {
   isDestroyed = false;
   focusStatusRefreshListener;
   lastFocusStatusRefreshAt = 0;
+  accountEpoch = 0;
   // Companion lifecycle API consumed by page and newtab runtimes through the structural Anki client.
   // fallow-ignore-next-line unused-class-member
   destroy() {
   this.isDestroyed = true;
-  this.lookupInflight.clear();
-  this.statusIndexLoad = void 0;
-  this.statusIndexRefresh = void 0;
-  this.statusIndexRefreshQueued = false;
-  this.availabilityProbe = void 0;
+  this.clearAccountContext();
   if (this.focusStatusRefreshListener) {
     window.removeEventListener("focus", this.focusStatusRefreshListener);
     document.removeEventListener("visibilitychange", this.focusStatusRefreshListener);
     this.focusStatusRefreshListener = void 0;
   }
+  }
+  clearAccountContext() {
+  this.accountEpoch++;
+  this.lookupCache.clear();
+  this.statusLookupCache.clear();
+  this.lookupInflight.clear();
+  this.mediaDataUrls.clear();
+  this.statusIndex = void 0;
+  this.statusIndexLoader.clear();
+  this.statusIndexRefresh = void 0;
+  this.statusIndexRefreshQueued = false;
+  this.availabilityProbe = void 0;
+  this.availabilityCheckedAt = 0;
+  this.unavailableUntil = 0;
+  this.fieldTargetPlanCache = void 0;
   }
   // The status index is validated by deck card COUNT, which misses reviews
   // done in Anki itself (state changes, same count). Returning to the tab
@@ -13967,31 +14069,33 @@ class AnkiConnectClient {
   }
   }
   async isAvailableForBackground() {
-  if (this.isDestroyed) return false;
-  if (this.isLookupCoolingDown()) return false;
-  const now = Date.now();
-  if (now - this.availabilityCheckedAt < ANKI_BACKGROUND_AVAILABILITY_TTL_MS) return true;
-  if (this.availabilityProbe) return this.availabilityProbe;
-  this.availabilityProbe = this.invokeWithTimeout("version", {}, ANKI_BACKGROUND_REQUEST_TIMEOUT_MS).then(() => {
-    if (this.isDestroyed) return false;
+  const cachedAvailability = this.cachedBackgroundAvailability();
+  if (cachedAvailability !== void 0) return cachedAvailability;
+  const epoch = this.accountEpoch;
+  const probe = this.invokeWithTimeout("version", {}, ANKI_BACKGROUND_REQUEST_TIMEOUT_MS).then(() => {
+    if (this.isDestroyed || epoch !== this.accountEpoch) return false;
     this.markAvailable();
     return true;
   }).catch((error) => {
+    if (epoch !== this.accountEpoch) return false;
     log.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
     this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
     return false;
   }).finally(() => {
-    this.availabilityProbe = void 0;
+    if (this.availabilityProbe === probe) this.availabilityProbe = void 0;
   });
-  return this.availabilityProbe;
+  this.availabilityProbe = probe;
+  return probe;
+  }
+  cachedBackgroundAvailability() {
+  if (this.isDestroyed || this.isLookupCoolingDown()) return false;
+  return Date.now() - this.availabilityCheckedAt < ANKI_BACKGROUND_AVAILABILITY_TTL_MS ? true : this.availabilityProbe;
   }
   async deckNames() {
-  const decks = await this.invoke("deckNames");
-  return decks;
+  return this.invoke("deckNames");
   }
   async modelNames() {
-  const models = await this.invoke("modelNames");
-  return models;
+  return this.invoke("modelNames");
   }
   // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
   // exactly which fields a mining write will target instead of silently
@@ -14000,12 +14104,12 @@ class AnkiConnectClient {
   // fallow-ignore-next-line unused-class-member
   async noteFieldTargetPlan() {
   const settings = this.getSettings();
-  if (!settings.ankiEnabled) return null;
-  if (canUseMobileAnkiHandoff$1(settings) && !hasUserscriptAnkiBridge()) return null;
+  if (!shouldLoadAnkiFieldTargetPlan(settings.ankiEnabled, canUseMobileAnkiHandoff$1(settings), hasUserscriptAnkiBridge())) return null;
   const modelName = resolvedAnkiModelName(settings);
-  const key = `${settings.ankiConnectUrl}|${modelName}`;
+  const key = `${ankiAccountContextKey(settings)}|${modelName}`;
   const now = Date.now();
-  if (this.fieldTargetPlanCache?.key === key && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
+  const cached = currentAnkiFieldTargetPlan(this.fieldTargetPlanCache, key, now);
+  if (cached) return cached;
   const promise = this.loadNoteFieldTargetPlan(modelName, settings).catch(() => null);
   this.fieldTargetPlanCache = { key, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
   return promise;
@@ -14234,36 +14338,15 @@ class AnkiConnectClient {
   }
   }
   lookupCacheKey(card) {
-  return lookupKeyTermsForCard(card).join("|");
+  return `${ankiAccountContextKey(this.getSettings())}:${lookupKeyTermsForCard(card).join("|")}`;
   }
   applyLookupGroupResult(results, indexes, result) {
   indexes.forEach((index) => {
     results[index] = result;
   });
   }
-  statusIndexSettingsKey(settings = this.getSettings()) {
-  const fieldMappings = ankiFieldMappingsSettingsKey(settings.ankiFieldMappings);
-  return JSON.stringify({
-    url: settings.ankiConnectUrl || "http://127.0.0.1:8765",
-    ...Object.keys(fieldMappings).length ? { fieldMappings } : {}
-  });
-  }
   loadStatusIndex() {
-  if (this.statusIndex !== void 0) return Promise.resolve(this.validStatusIndex(this.statusIndex));
-  const syncIndex = this.validStatusIndex(gmStorageGetSync(ANKI_STATUS_INDEX_STORAGE_KEY, null));
-  if (syncIndex && syncIndex.entryStore !== "indexeddb") {
-    this.statusIndex = syncIndex;
-    return Promise.resolve(syncIndex);
-  }
-  if (!this.statusIndexLoad) {
-    this.statusIndexLoad = this.loadStoredStatusIndex().then((index) => {
-      this.statusIndex = index;
-      return this.statusIndex;
-    }).finally(() => {
-      this.statusIndexLoad = void 0;
-    });
-  }
-  return this.statusIndexLoad;
+  return this.statusIndexLoader.load();
   }
   async loadStoredStatusIndex() {
   const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
@@ -14278,7 +14361,7 @@ class AnkiConnectClient {
   }
   validStatusIndex(index) {
   if (!index || index.version !== ANKI_STATUS_INDEX_VERSION) return null;
-  return index.settingsKey === this.statusIndexSettingsKey() ? index : null;
+  return index.settingsKey === ankiStatusIndexSettingsKey(this.getSettings()) ? index : null;
   }
   async loadStatusEntriesForCards(index, cards) {
   if (!index) return null;
@@ -14407,7 +14490,7 @@ class AnkiConnectClient {
   return checked;
   }
   async rebuildStatusIndexWithLease(index, needsReadingKeyRefresh) {
-  const settingsKey = this.statusIndexSettingsKey();
+  const settingsKey = ankiStatusIndexSettingsKey(this.getSettings());
   const rebuildLeaseOwner = claimAnkiStatusIndexRebuildLease(settingsKey);
   if (!rebuildLeaseOwner) return index;
   try {
@@ -14474,20 +14557,29 @@ class AnkiConnectClient {
   return await this.rebuildStatusIndexToValueStorage(rebuild);
   }
   async loadStatusIndexRebuildContext(cardIds, now, rebuildLeaseOwner) {
-  if (this.isDestroyed) return null;
-  const settings = this.getSettings();
-  const settingsKey = this.statusIndexSettingsKey(settings);
+  try {
+    this.assertStatusIndexRebuildActive();
+    const settings = this.getSettings();
+    const settingsKey = ankiStatusIndexSettingsKey(settings);
+    this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+    const allCardIds = await resolvedAnkiStatusIds(cardIds, () => this.invoke("findCards", { query: "deck:*" }));
+    this.statusIndexRebuildCheckpoint(rebuildLeaseOwner, settingsKey);
+    const cardData = await this.loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey);
+    this.statusIndexRebuildCheckpoint(rebuildLeaseOwner, settingsKey);
+    const noteIds = await resolvedAnkiStatusIds(this.statusIndexNoteIdsFromCardData(cardData), () => this.findStatusIndexNoteIds(allCardIds));
+    this.statusIndexRebuildCheckpoint(rebuildLeaseOwner, settingsKey);
+    return { allCardIds, cardData, noteIds, now, rebuildLeaseOwner, settings, settingsKey };
+  } catch (error) {
+    if (error === STATUS_INDEX_REBUILD_CANCELLED) return null;
+    throw error;
+  }
+  }
+  assertStatusIndexRebuildActive() {
+  if (this.isDestroyed) throw STATUS_INDEX_REBUILD_CANCELLED;
+  }
+  statusIndexRebuildCheckpoint(rebuildLeaseOwner, settingsKey) {
+  this.assertStatusIndexRebuildActive();
   this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-  const allCardIds = cardIds ?? await this.invoke("findCards", { query: "deck:*" });
-  if (this.isDestroyed) return null;
-  this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-  const cardData = await this.loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey);
-  if (this.isDestroyed) return null;
-  this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-  const noteIds = this.statusIndexNoteIdsFromCardData(cardData) ?? await this.findStatusIndexNoteIds(allCardIds);
-  if (this.isDestroyed) return null;
-  this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-  return { allCardIds, cardData, noteIds, now, rebuildLeaseOwner, settings, settingsKey };
   }
   touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey) {
   if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
@@ -14762,12 +14854,12 @@ class AnkiConnectClient {
   return results;
   }
   async rememberStatusIndexNotes(notes, cardsByNote) {
-  if (!notes.length || this.isDestroyed) return;
+  if (!this.canRememberStatusIndexItems(notes.length)) return;
   const settings = this.getSettings();
-  const settingsKey = this.statusIndexSettingsKey(settings);
+  const settingsKey = ankiStatusIndexSettingsKey(settings);
   const now = Date.now();
   const entries2 = this.rememberedStatusIndexEntries(notes, cardsByNote, settings, now);
-  if (!entries2.length || this.isDestroyed) return;
+  if (!this.canRememberStatusIndexItems(entries2.length)) return;
   const current = this.validStatusIndex(await this.loadStatusIndex());
   const base = await this.baseStatusIndexForRememberedNotes(current, settingsKey, now, entries2.length);
   const checkedAt = Math.max(base.checkedAt, now);
@@ -14776,6 +14868,9 @@ class AnkiConnectClient {
     return;
   }
   await this.rememberValueStatusIndexEntries(base, checkedAt, entries2);
+  }
+  canRememberStatusIndexItems(count) {
+  return count > 0 && !this.isDestroyed;
   }
   rememberedStatusIndexEntries(notes, cardsByNote, settings, updatedAt) {
   return statusIndexEntriesForNotes(notes, {
@@ -14986,25 +15081,7 @@ class AnkiConnectClient {
   await this.invoke("guiBrowse", { query: `nid:${noteId}` });
   }
   async mediaFileDataUrl(filename) {
-  const cleanFilename = filename.trim();
-  if (!cleanFilename) throw new Error(this.text("ankiAudioFileNotFound"));
-  const cached = this.mediaDataUrlCache.get(cleanFilename);
-  if (cached) return cached;
-  const promise = this.fetchMediaFileDataUrl(cleanFilename).catch((error) => {
-    this.mediaDataUrlCache.delete(cleanFilename);
-    throw error;
-  });
-  this.mediaDataUrlCache.set(cleanFilename, promise);
-  if (this.mediaDataUrlCache.size > ANKI_MEDIA_DATA_URL_CACHE_LIMIT) {
-    const oldest = this.mediaDataUrlCache.keys().next().value;
-    if (oldest !== void 0) this.mediaDataUrlCache.delete(oldest);
-  }
-  return promise;
-  }
-  async fetchMediaFileDataUrl(cleanFilename) {
-  const data = await this.invoke("retrieveMediaFile", { filename: cleanFilename });
-  if (!data) throw new Error(this.text("ankiAudioFileNotFound"));
-  return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
+  return this.mediaDataUrls.load(filename, this.text("ankiAudioFileNotFound"));
   }
   // Used by card action controls to merge mining context into existing Anki notes.
   // fallow-ignore-next-line unused-class-member

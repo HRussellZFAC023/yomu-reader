@@ -26,7 +26,7 @@ function stored(): QueuedNewTabGrade[] {
 function makeQueue(overrides: Partial<NewTabGradeQueueDeps> = {}) {
     const submit = vi.fn(async (_item: QueuedNewTabGrade): Promise<boolean> => true);
     const onSubmitted = vi.fn();
-    const queue = new NewTabGradeQueue({ offlineEnabled: () => true, submit, onSubmitted, storage: memoryStorage, ...overrides });
+    const queue = new NewTabGradeQueue({ offlineEnabled: () => true, providerContextForTarget: () => 'account-a', submit, onSubmitted, storage: memoryStorage, ...overrides });
     return { queue, submit, onSubmitted };
 }
 
@@ -136,6 +136,7 @@ describe('NewTabGradeQueue.flush', () => {
             card: card('単語'),
             grade: 'okay',
             attempts: 0,
+            providerContext: 'account-a',
         } satisfies QueuedNewTabGrade;
         store.set(NEW_TAB_GRADE_QUEUE_KEY, [bunpro, anki]);
         const { queue, submit } = makeQueue();
@@ -146,6 +147,49 @@ describe('NewTabGradeQueue.flush', () => {
 
         expect(submit).toHaveBeenCalledOnce();
         expect(submit).toHaveBeenCalledWith(anki);
+        expect(stored()).toEqual([]);
+    });
+
+    it('retains another account and legacy network grades without submitting them', async () => {
+        const current = { id: 'current', at: 1, target: 'jpdb-api', card: card('今'), grade: 'okay', attempts: 0, providerContext: 'account-a' } satisfies QueuedNewTabGrade;
+        const other = { id: 'other', at: 2, target: 'jpdb-api', card: card('昔'), grade: 'hard', attempts: 0, providerContext: 'account-b' } satisfies QueuedNewTabGrade;
+        const legacy = { id: 'legacy', at: 3, target: 'anki', card: card('旧'), grade: 'easy', attempts: 0 } satisfies QueuedNewTabGrade;
+        store.set(NEW_TAB_GRADE_QUEUE_KEY, [current, other, legacy]);
+        const { queue, submit } = makeQueue();
+
+        expect(await queue.flush()).toBe(2);
+        expect(submit).toHaveBeenCalledOnce();
+        expect(submit).toHaveBeenCalledWith(current);
+        expect(stored()).toEqual([other, legacy]);
+    });
+
+    it('keeps a JPDB obligation current across an unrelated Anki rotation but not a JPDB account switch', async () => {
+        const contexts = { jpdb: 'jpdb-a', anki: 'anki-a' };
+        const providerContextForTarget = (target: QueuedNewTabGrade['target']): string => target === 'anki' ? contexts.anki : contexts.jpdb;
+        const { queue, submit } = makeQueue({ providerContextForTarget });
+        await queue.enqueue(card('継続'), 'okay', ['jpdb-api']);
+
+        contexts.anki = 'anki-b';
+        expect(await queue.flush()).toBe(0);
+        expect(submit).toHaveBeenCalledOnce();
+
+        await queue.enqueue(card('保留'), 'hard', ['jpdb-api']);
+        contexts.jpdb = 'jpdb-b';
+        expect(await queue.flush()).toBe(1);
+        expect(submit).toHaveBeenCalledOnce();
+        expect(stored()).toMatchObject([{ target: 'jpdb-api', providerContext: 'jpdb-a' }]);
+    });
+
+    it('keeps local Yomu grades unscoped across provider account changes', async () => {
+        const { queue, submit } = makeQueue({ providerContextForTarget: () => 'account-a' });
+        await queue.enqueue(card('地域'), 'pass', ['yomu-local']);
+        const [local] = stored();
+        expect(local?.providerContext).toBeUndefined();
+
+        const switched = makeQueue({ providerContextForTarget: () => 'account-b', submit });
+        await switched.queue.flush();
+
+        expect(submit).toHaveBeenCalledWith(local);
         expect(stored()).toEqual([]);
     });
 });

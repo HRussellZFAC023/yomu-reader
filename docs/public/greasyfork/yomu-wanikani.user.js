@@ -209,8 +209,6 @@ function isSharedPublicProxyAllowlistedTarget(target) {
   if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
   if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
   if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-  if (host === "uchisen.com") return path.startsWith("/kanji/");
-  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
   return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
@@ -451,10 +449,10 @@ function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
 }
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -485,7 +483,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -1082,20 +1080,6 @@ function storageBridgeResponseDetail(event) {
   message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
 function addBridgeEventListener(type, listener) {
   const cleanups = [];
   if (addWindowEventListener(type, listener)) {
@@ -1376,6 +1360,18 @@ function httpStatusFromError(error) {
   const status = value.status ?? value.statusCode;
   return typeof status === "number" && Number.isFinite(status) ? status : void 0;
 }
+function sensitiveFingerprint(value) {
+  const secret = value.trim();
+  if (!secret) return "";
+  let first = 2166136261;
+  let second = 2654435769;
+  for (let index = 0; index < secret.length; index += 1) {
+  const code = secret.charCodeAt(index);
+  first = Math.imul(first ^ code, 16777619) >>> 0;
+  second = Math.imul(second ^ code, 2246822507) >>> 0;
+  }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
+}
 const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
 const WANIKANI_REVISION = "20170710";
 const REQUEST_TIMEOUT_MS = 3e4;
@@ -1389,16 +1385,7 @@ class WanikaniApiError extends Error {
 }
 const MIN_REQUEST_INTERVAL_MS = 1100;
 function fingerprintWanikaniToken(value) {
-  const token = value.trim();
-  if (!token) return "";
-  let first = 2166136261;
-  let second = 2654435769;
-  for (let index = 0; index < token.length; index += 1) {
-  const code = token.charCodeAt(index);
-  first = Math.imul(first ^ code, 16777619) >>> 0;
-  second = Math.imul(second ^ code, 2246822507) >>> 0;
-  }
-  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${token.length}`;
+  return sensitiveFingerprint(value);
 }
 class WanikaniClient {
   getToken;
@@ -1413,7 +1400,9 @@ class WanikaniClient {
   pending = /* @__PURE__ */ new Map();
   responseCache = /* @__PURE__ */ new Map();
   verifiedUser = null;
-  verifiedFingerprint = "";
+  verifiedContext = "";
+  activeFingerprint = "";
+  contextGeneration = 0;
   constructor(options = {}) {
   this.getToken = options.getToken ?? (() => "");
   this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
@@ -1429,143 +1418,164 @@ class WanikaniClient {
   tokenFingerprint() {
   return fingerprintWanikaniToken(this.getToken());
   }
+  clear() {
+  this.resetAccountContext("");
+  }
   async getUser(force = false) {
-  const fingerprint = this.currentFingerprint();
-  if (!force && this.verifiedUser && this.verifiedFingerprint === fingerprint) return this.verifiedUser;
-  const raw = await this.request("/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
-  const user = parseWanikaniUser(raw);
-  this.verifiedUser = user;
-  this.verifiedFingerprint = fingerprint;
-  return user;
+  return this.getUserFor(this.accountContext(), force);
   }
   async effectiveMaxLevel() {
-  const user = this.verifiedUser ?? await this.getUser();
-  const subscription = user.subscription;
-  if (!subscription.active) return FREE_TIER_MAX_LEVEL;
-  if (!KNOWN_SUBSCRIPTION_TYPES.has(subscription.type)) return FREE_TIER_MAX_LEVEL;
-  if (subscription.type === "free") return FREE_TIER_MAX_LEVEL;
-  const granted = Number(subscription.max_level_granted);
-  return Number.isFinite(granted) && granted > 0 ? Math.min(60, granted) : FREE_TIER_MAX_LEVEL;
+  const context = this.accountContext();
+  return effectiveMaxLevelForUser(await this.getUserFor(context));
   }
   async getSummary() {
-  await this.ensureUser();
-  return this.request("/summary", {}, { cacheTtlMs: 3e4 });
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.request(context, "/summary", {}, { cacheTtlMs: 3e4 });
   }
   async getAssignments(options = {}) {
-  await this.ensureUser();
-  return this.collect("/assignments", options, 3e4);
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/assignments", options, 3e4);
   }
   async getSubjects(options = {}) {
-  await this.ensureUser();
-  const maxLevel = await this.effectiveMaxLevel();
-  const requestedLevels = options.levels?.filter((level) => level >= 1 && level <= maxLevel);
-  if (options.levels?.length && !requestedLevels?.length) return [];
-  const levels = requestedLevels?.length ? requestedLevels : Array.from({ length: maxLevel }, (_, index) => index + 1);
-  const subjects = await this.collect("/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
+  const context = this.accountContext();
+  const maxLevel = effectiveMaxLevelForUser(await this.ensureUser(context));
+  const levels = permittedSubjectLevels(options.levels, maxLevel);
+  if (!levels) return [];
+  const subjects = await this.collect(context, "/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
   return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
   }
   async getStudyMaterials(options = {}) {
-  await this.ensureUser();
-  return this.collect("/study_materials", options, 6e4);
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/study_materials", options, 6e4);
   }
   async getReviewStatistics(options = {}) {
-  await this.ensureUser();
-  return this.collect("/review_statistics", options, 6e4);
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/review_statistics", options, 6e4);
   }
   async createReview(body) {
-  await this.ensureUser();
-  const response = await this.request("/reviews", {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  const response = await this.request(context, "/reviews", {
     method: "POST",
     body: { review: body }
   });
-  this.invalidateReviewStateCaches();
+  this.invalidateReviewStateCaches(context);
   return response;
   }
-  async ensureUser() {
-  return this.getUser();
-  }
-  async collect(path, options, cacheTtlMs = 0) {
-  const dedupeKey = `${this.currentFingerprint()}:${path}?${stableOptionsKey(options)}`;
-  const cachedResponse = this.responseCache.get(dedupeKey);
-  if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
-  const cached = this.pending.get(dedupeKey);
+  async getUserFor(context, force = false) {
+  const cached = this.cachedUserFor(context, force);
   if (cached) return cached;
-  const promise = this.collectUncached(path, options).then((items) => {
-    if (cacheTtlMs > 0) this.responseCache.set(dedupeKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+  const raw = await this.request(context, "/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
+  const user = parseWanikaniUser(raw);
+  if (this.isCurrentContext(context)) {
+    this.verifiedUser = user;
+    this.verifiedContext = context.cacheNamespace;
+  }
+  return user;
+  }
+  cachedUserFor(context, force) {
+  if (force) return null;
+  if (this.verifiedContext !== context.cacheNamespace) return null;
+  return this.verifiedUser;
+  }
+  async ensureUser(context) {
+  return this.getUserFor(context);
+  }
+  async collect(context, path, options, cacheTtlMs = 0) {
+  const cacheKey = `${context.cacheNamespace}:${path}?${stableOptionsKey(options)}`;
+  const cachedResponse = this.responseCache.get(cacheKey);
+  if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
+  const cached = this.pending.get(cacheKey);
+  if (cached) return cached;
+  const promise = this.collectUncached(context, path, options).then((items) => {
+    if (cacheTtlMs > 0 && this.isCurrentContext(context)) {
+      this.responseCache.set(cacheKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+    }
     return items;
-  }).finally(() => this.pending.delete(dedupeKey));
-  this.pending.set(dedupeKey, promise);
+  }).finally(() => this.pending.delete(cacheKey));
+  this.pending.set(cacheKey, promise);
   return promise;
   }
-  async collectUncached(path, options) {
+  async collectUncached(context, path, options) {
   const items = [];
   let url = `${this.baseUrl}${path}${queryString(options)}`;
   const visited = /* @__PURE__ */ new Set();
   while (url) {
-    if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
-    if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
-    if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+    assertWanikaniPaginationUrl(url, visited, (value) => this.isSafeApiUrl(value));
     visited.add(url);
-    const page = await this.requestUrl(url);
-    if (Array.isArray(page.data)) items.push(...page.data);
-    url = typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+    const page = await this.requestUrl(context, url);
+    url = appendWanikaniCollectionPage(items, page);
   }
   return items;
   }
-  request(path, options = {}, cache = {}) {
+  request(context, path, options = {}, cache = {}) {
   const url = `${this.baseUrl}${path}`;
-  if (!cache.cacheTtlMs || options.method === "POST") return this.requestUrl(url, options);
-  const key = `${this.currentFingerprint()}:${url}`;
-  const cached = this.responseCache.get(key);
-  if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-  const pending = this.pending.get(key);
-  if (pending) return pending;
-  const request = this.requestUrl(url, options).then((value) => {
-    this.responseCache.set(key, { expiresAt: this.now() + (cache.cacheTtlMs ?? 0), value });
+  const cacheTtlMs = wanikaniCacheTtl(cache);
+  if (!isCacheableWanikaniRequest(cacheTtlMs, options.method)) return this.requestUrl(context, url, options);
+  const key = `${context.cacheNamespace}:${url}`;
+  const existing = this.cachedOrPendingResponse(key);
+  if (existing) return existing;
+  const request = this.requestUrl(context, url, options).then((value) => {
+    this.cacheResponseForCurrentContext(context, key, cacheTtlMs, value);
     return value;
   }).finally(() => this.pending.delete(key));
   this.pending.set(key, request);
   return request;
   }
-  async requestUrl(url, options = {}) {
-  const token = this.getToken().trim();
-  if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
-  if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-  let attempt2 = 0;
-  while (true) {
-    await this.throttle();
+  cachedOrPendingResponse(key) {
+  const cached = this.responseCache.get(key);
+  if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
+  return this.pending.get(key) ?? null;
+  }
+  cacheResponseForCurrentContext(context, key, cacheTtlMs, value) {
+  if (!this.isCurrentContext(context)) return;
+  this.responseCache.set(key, { expiresAt: this.now() + cacheTtlMs, value });
+  }
+  async requestUrl(context, url, options = {}) {
+  assertSafeWanikaniRequestUrl(url, (value) => this.isSafeApiUrl(value));
+  return this.requestWithRateLimitRetry(context, url, options);
+  }
+  async requestWithRateLimitRetry(context, url, options) {
+  try {
+    return await this.requestAttempt(context, url, options);
+  } catch (error) {
+    const normalized = normalizeWanikaniError(error);
+    if (!isRateLimitError(normalized)) throw normalized;
+    await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
     try {
-      return await this.requestImpl(url, {
-        method: options.method ?? "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Wanikani-Revision": WANIKANI_REVISION,
-          Accept: "application/json",
-          "Content-Type": "application/json"
-        },
-        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
-        responseType: "json",
-        timeoutMs: this.timeoutMs,
-        preferFetch: true,
-        allowDirectCrossOrigin: true,
-        proxyUrl: "",
-        allowPublicProxies: false,
-        allowConfiguredProxy: false,
-        credentials: "omit",
-        referrerPolicy: "no-referrer",
-        failureLabel: "WaniKani request",
-        statusFailureMessage: (status) => status === 401 ? "WaniKani token expired or was denied (401)." : status === 403 ? "WaniKani token lacks permission for this request (403)." : `WaniKani API request failed (${status}).`
-      });
-    } catch (error) {
-      const normalized = normalizeWanikaniError(error);
-      if (attempt2 === 0 && isRateLimitError(normalized)) {
-        attempt2 += 1;
-        await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
-        continue;
-      }
-      throw normalized;
+      return await this.requestAttempt(context, url, options);
+    } catch (retryError) {
+      throw normalizeWanikaniError(retryError);
     }
   }
+  }
+  async requestAttempt(context, url, options) {
+  await this.throttle();
+  return this.requestImpl(url, {
+    method: options.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${context.token}`,
+      "Wanikani-Revision": WANIKANI_REVISION,
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+    responseType: "json",
+    timeoutMs: this.timeoutMs,
+    preferFetch: true,
+    allowDirectCrossOrigin: true,
+    proxyUrl: "",
+    allowPublicProxies: false,
+    allowConfiguredProxy: false,
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
+    failureLabel: "WaniKani request",
+    statusFailureMessage: wanikaniStatusFailureMessage
+  });
   }
   throttle() {
   const scheduled = this.requestStartQueue.then(async () => {
@@ -1576,25 +1586,34 @@ class WanikaniClient {
   this.requestStartQueue = scheduled.catch(() => void 0);
   return scheduled;
   }
-  currentFingerprint() {
-  const fingerprint = this.tokenFingerprint();
-  if (!fingerprint) throw new WanikaniApiError("WaniKani API token is not set.");
-  if (this.verifiedFingerprint && this.verifiedFingerprint !== fingerprint) {
-    this.verifiedUser = null;
-    this.verifiedFingerprint = "";
-    this.pending.clear();
-    this.responseCache.clear();
+  accountContext() {
+  const token = this.getToken().trim();
+  if (!token) {
+    this.clear();
+    throw new WanikaniApiError("WaniKani API token is not set.");
   }
-  return fingerprint;
+  const fingerprint = fingerprintWanikaniToken(token);
+  if (fingerprint !== this.activeFingerprint) this.resetAccountContext(fingerprint);
+  const generation = this.contextGeneration;
+  return { token, fingerprint, generation, cacheNamespace: `${generation}:${fingerprint}` };
   }
-  invalidateReviewStateCaches() {
-  const fingerprint = this.tokenFingerprint();
-  const summaryKey = `${fingerprint}:${this.baseUrl}/summary`;
-  for (const key of this.responseCache.keys()) {
-    if (key === summaryKey || key.startsWith(`${fingerprint}:/assignments?`) || key.startsWith(`${fingerprint}:/review_statistics?`)) {
-      this.responseCache.delete(key);
-    }
+  resetAccountContext(fingerprint) {
+  this.contextGeneration += 1;
+  this.activeFingerprint = fingerprint;
+  this.verifiedUser = null;
+  this.verifiedContext = "";
+  this.pending.clear();
+  this.responseCache.clear();
   }
+  isCurrentContext(context) {
+  return context.generation === this.contextGeneration && context.fingerprint === this.activeFingerprint && context.token === this.getToken().trim();
+  }
+  invalidateReviewStateCaches(context) {
+  for (const key of this.currentReviewStateCacheKeys(context)) this.responseCache.delete(key);
+  }
+  currentReviewStateCacheKeys(context) {
+  if (!this.isCurrentContext(context)) return [];
+  return [...this.responseCache.keys()].filter((key) => isReviewStateCacheKey(key, context, this.baseUrl));
   }
   isSafeApiUrl(value) {
   try {
@@ -1606,7 +1625,52 @@ class WanikaniClient {
   }
   }
 }
-const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
+function permittedSubjectLevels(requested, maxLevel) {
+  if (!requested?.length) return Array.from({ length: maxLevel }, (_, index) => index + 1);
+  const levels = requested.filter((level) => level >= 1 && level <= maxLevel);
+  return levels.length ? levels : null;
+}
+function assertWanikaniPaginationUrl(url, visited, isSafe) {
+  if (!isSafe(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
+  if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
+  if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+}
+function appendWanikaniCollectionPage(items, page) {
+  if (Array.isArray(page.data)) items.push(...page.data);
+  return typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+}
+function wanikaniStatusFailureMessage(status) {
+  if (status === 401) return "WaniKani token expired or was denied (401).";
+  if (status === 403) return "WaniKani token lacks permission for this request (403).";
+  return `WaniKani API request failed (${status}).`;
+}
+function isReviewStateCacheKey(key, context, baseUrl) {
+  if (key === `${context.cacheNamespace}:${baseUrl}/summary`) return true;
+  const collectionPrefixes = ["/assignments?", "/review_statistics?"];
+  return collectionPrefixes.some((path) => key.startsWith(`${context.cacheNamespace}:${path}`));
+}
+function wanikaniCacheTtl(cache) {
+  return cache.cacheTtlMs ?? 0;
+}
+function isCacheableWanikaniRequest(cacheTtlMs, method) {
+  return cacheTtlMs > 0 && method !== "POST";
+}
+function assertSafeWanikaniRequestUrl(url, isSafe) {
+  if (!isSafe(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
+}
+const PAID_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["recurring", "lifetime"]);
+function effectiveMaxLevelForUser(user) {
+  const subscription = user.subscription;
+  if (!hasPaidSubscription(subscription)) return FREE_TIER_MAX_LEVEL;
+  const granted = Number(subscription.max_level_granted);
+  if (!Number.isFinite(granted)) return FREE_TIER_MAX_LEVEL;
+  if (granted <= 0) return FREE_TIER_MAX_LEVEL;
+  return Math.min(60, granted);
+}
+function hasPaidSubscription(subscription) {
+  if (!subscription.active) return false;
+  return PAID_SUBSCRIPTION_TYPES.has(subscription.type);
+}
 function parseWanikaniUser(raw) {
   const record2 = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
   const subscriptionRaw = isRecord$2(record2.subscription) ? record2.subscription : {};
@@ -2315,7 +2379,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -7565,6 +7631,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -7622,7 +7691,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -8739,22 +8807,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。

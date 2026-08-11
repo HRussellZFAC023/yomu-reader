@@ -61,6 +61,7 @@ export class JpdbClient {
     private parseInFlight = new Map<string, Promise<JPDBToken[][]>>();
     private paragraphParseCache = new LruCache<string, JPDBToken[]>(PARAGRAPH_PARSE_CACHE_SIZE);
     private paragraphParseInFlight = new Map<string, Promise<JPDBToken[]>>();
+    private cacheGeneration = 0;
     private readonly parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
     private userDeckPoolCache?: { key: string; expiresAt: number; promise: Promise<Set<string>> };
 
@@ -83,7 +84,7 @@ export class JpdbClient {
             return inFlight;
         }
 
-        const promise = this.parseParagraphs(text, cacheKey);
+        const promise = this.parseParagraphs(text, cacheKey, this.cacheGeneration);
         this.parseInFlight.set(cacheKey, promise);
         void promise.then(() => {
             if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
@@ -170,6 +171,7 @@ export class JpdbClient {
     }
 
     clear(): void {
+        this.cacheGeneration++;
         this.cardCache.clear();
         this.parseCache.clear();
         this.parseInFlight.clear();
@@ -214,6 +216,7 @@ export class JpdbClient {
     }
 
     private async refreshCard(card: JPDBCard): Promise<void> {
+        const cacheGeneration = this.cacheGeneration;
         const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
             list: [[card.vid, card.sid]],
             fields: VOCABULARY_FIELDS,
@@ -224,11 +227,13 @@ export class JpdbClient {
             return;
         }
 
+        if (cacheGeneration !== this.cacheGeneration) return;
         this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
         Object.assign(card, fresh);
     }
 
-    private cacheCards(cards: JPDBCard[]): void {
+    private cacheCards(cards: JPDBCard[], cacheGeneration = this.cacheGeneration): void {
+        if (cacheGeneration !== this.cacheGeneration) return;
         for (const card of cards) {
             this.cardCache.set(vocabularyPairKey(card.vid, card.sid), card);
         }
@@ -240,6 +245,7 @@ export class JpdbClient {
     }
 
     private async lookupDeckVocabularyCards(pairs: Array<[number, number]>): Promise<JPDBCard[]> {
+        const cacheGeneration = this.cacheGeneration;
         const rawVocabulary: unknown[] = [];
         for (let index = 0; index < pairs.length; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
             const lookup = await this.api.request<JpdbVocabularyLookupResponse>('lookup-vocabulary', {
@@ -249,7 +255,7 @@ export class JpdbClient {
             rawVocabulary.push(...(lookup.vocabulary_info ?? []));
         }
         const cards = jpdbVocabularyToCards(rawVocabulary as JPDBRawVocabulary[]);
-        this.cacheCards(cards);
+        this.cacheCards(cards, cacheGeneration);
         return orderJpdbCardsByPairs(cards, pairs);
     }
 
@@ -338,7 +344,7 @@ export class JpdbClient {
         this.userDeckPoolCache = undefined;
     }
 
-    private async fetchParse(text: string[], cacheKey: string): Promise<JPDBToken[][]> {
+    private async fetchParse(text: string[], cacheKey: string, cacheGeneration: number): Promise<JPDBToken[][]> {
         const done = log.time('parse request', { paragraphs: text.length, chars: cacheKey.length });
         try {
             const raw = await this.api.request<JPDBParseResult>('parse', {
@@ -350,7 +356,8 @@ export class JpdbClient {
             const cards = jpdbVocabularyToCards(raw.vocabulary);
             const tokens = jpdbParseResultToTokens(text, raw.tokens, cards);
 
-            this.cacheCards(cards);
+            if (cacheGeneration !== this.cacheGeneration) return tokens;
+            this.cacheCards(cards, cacheGeneration);
             this.parseCache.set(cacheKey, tokens);
             text.forEach((paragraph, index) => {
                 this.paragraphParseCache.set(paragraph, tokens[index] ?? []);
@@ -361,28 +368,41 @@ export class JpdbClient {
         }
     }
 
-    private parseParagraphs(text: string[], cacheKey: string): Promise<JPDBToken[][]> {
+    private parseParagraphs(text: string[], cacheKey: string, cacheGeneration: number): Promise<JPDBToken[][]> {
+        const missing = this.missingParagraphParses(text);
+        if (missing.length) this.queueMissingParagraphParses(missing, cacheGeneration);
+        return Promise.all(text.map(paragraph => this.paragraphTokens(paragraph)))
+            .then(tokens => this.cacheCombinedParse(cacheKey, cacheGeneration, tokens));
+    }
+
+    private missingParagraphParses(text: string[]): string[] {
         const missing: string[] = [];
         const seenMissing = new Set<string>();
         for (const paragraph of text) {
-            if (this.paragraphParseCache.get(paragraph) || this.paragraphParseInFlight.has(paragraph)) continue;
+            if (this.hasParagraphParse(paragraph)) continue;
             if (seenMissing.has(paragraph)) continue;
             seenMissing.add(paragraph);
             missing.push(paragraph);
         }
-
-        if (missing.length) this.queueMissingParagraphParses(missing);
-
-        return Promise.all(text.map(paragraph => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? []))
-            .then(tokens => {
-                this.parseCache.set(cacheKey, tokens);
-                return tokens;
-            });
+        return missing;
     }
 
-    private queueMissingParagraphParses(missing: string[]): void {
+    private hasParagraphParse(paragraph: string): boolean {
+        return this.paragraphParseCache.get(paragraph) !== undefined || this.paragraphParseInFlight.has(paragraph);
+    }
+
+    private paragraphTokens(paragraph: string): JPDBToken[] | Promise<JPDBToken[]> {
+        return this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? [];
+    }
+
+    private cacheCombinedParse(cacheKey: string, cacheGeneration: number, tokens: JPDBToken[][]): JPDBToken[][] {
+        if (cacheGeneration === this.cacheGeneration) this.parseCache.set(cacheKey, tokens);
+        return tokens;
+    }
+
+    private queueMissingParagraphParses(missing: string[], cacheGeneration: number): void {
         for (const batch of parseParagraphBatches(missing)) {
-            const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join('\n')));
+            const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join('\n'), cacheGeneration));
             batch.forEach((paragraph, index) => {
                 const paragraphPromise = batchRequest.then(parsed => parsed[index] ?? []);
                 this.paragraphParseInFlight.set(paragraph, paragraphPromise);

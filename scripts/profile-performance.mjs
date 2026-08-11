@@ -277,7 +277,7 @@ const PROFILE_ROUTE_HANDLERS = [
     jpdbParseProfileResponse,
     jpdbKanjiProfileResponse,
     githubRawProfileResponseAdapter,
-    uchisenProfileResponse,
+    rtkProfileResponse,
     immersionSearchProfileResponse,
     immersionMediaProfileResponse,
     audioProfileResponseAdapter,
@@ -318,7 +318,7 @@ function githubRawProfileResponseAdapter(_route, url) {
     return null;
 }
 
-function uchisenProfileResponse(_route, url) {
+function rtkProfileResponse(_route, url) {
     if (url.hostname === 'hrussellzfac023.github.io') {
         return { status: 200, contentType: 'text/html; charset=utf-8', body: '<html><body><div class="entry"><h2>read</h2><p>Elements: 言, 売</p></div></body></html>' };
     }

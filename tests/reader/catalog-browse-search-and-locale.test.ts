@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { LEARNER_LANGUAGE_IDS, learnerLanguageById } from '../../src/reader/locales';
+import {
+    LEARNER_LANGUAGE_IDS,
+    learnerLanguageById,
+    type LearnerLanguageId,
+} from '../../src/reader/locales';
 import {
     CATALOG_BROWSE_CATEGORY_ORDER,
     CATALOG_BROWSE_COPY,
@@ -10,6 +14,11 @@ import {
     applyCatalogBrowseFilter,
     installCatalogBrowseFilter,
 } from '../../src/reader/settings/catalog-browse-filter';
+import { catalogBrowseLanguageSectionsForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
+import {
+    CATALOG_BROWSE_PAGE_SIZE,
+    catalogBrowseIndexForLanguageProfile,
+} from '../../src/reader/settings/catalog-browse-window';
 import { localizeSettingsForm, renderSettingsForm } from '../../src/reader/settings/form';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 
@@ -32,12 +41,29 @@ describe('searching the mirrored dictionary catalogue', () => {
         expect(input.getAttribute('aria-controls')).toBe(section.querySelector('[data-catalog-browse-results]')?.id);
     });
 
-    it('narrows a hundred-plus cards to the one dictionary the reader typed', () => {
+    it('reuses only the current language-profile index and evicts the previous profile', () => {
+        const japanese = catalogBrowseLanguageSectionsForLearnerLanguage('en', 'ja');
+        const first = catalogBrowseIndexForLanguageProfile(japanese, 'en', 'ja');
+
+        expect(catalogBrowseIndexForLanguageProfile(japanese, 'en', 'ja')).toBe(first);
+
+        const spanish = catalogBrowseLanguageSectionsForLearnerLanguage('en', 'es');
+        const next = catalogBrowseIndexForLanguageProfile(spanish, 'en', 'es');
+        const reloaded = catalogBrowseIndexForLanguageProfile(japanese, 'en', 'ja');
+
+        expect(next).not.toBe(first);
+        expect(reloaded).not.toBe(first);
+        expect(reloaded.total).toBe(first.total);
+    });
+
+    it('searches the full model while keeping one bounded result window in the DOM', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
 
         const before = visibleCardNames(section);
-        expect(before.length).toBeGreaterThan(100);
+        const total = Number(section.dataset.catalogBrowseCount);
+        expect(before).toHaveLength(CATALOG_BROWSE_PAGE_SIZE);
+        expect(total).toBeGreaterThan(CATALOG_BROWSE_PAGE_SIZE);
 
         const visible = applyCatalogBrowseFilter(section, '新選国語辞典');
 
@@ -47,8 +73,9 @@ describe('searching the mirrored dictionary catalogue', () => {
         // Groups with nothing left must not leave a stranded heading behind.
         expect([...section.querySelectorAll<HTMLElement>('[data-catalog-browse-group]')].filter(group => !group.hidden)).toHaveLength(1);
 
-        expect(applyCatalogBrowseFilter(section, '')).toBe(before.length);
+        expect(applyCatalogBrowseFilter(section, '')).toBe(total);
         expect(visibleCardNames(section)).toEqual(before);
+        expect(section.querySelectorAll('*').length).toBeLessThanOrEqual(450);
     });
 
     it('matches the localized category heading, not only the title', () => {
@@ -126,11 +153,12 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
         const form = renderedForm('vi');
         const section = browseSection(form);
         const copy = catalogBrowseCopy('vi');
+        applyCatalogBrowseFilter(section, 'pronunciation dictionaries');
 
-        expect(section.querySelector('[data-catalog-browse-title]')?.textContent).toBe(copy.title);
-        expect(section.querySelector('[data-catalog-browse-search-label]')?.textContent).toBe(copy.searchLabel);
-        expect(section.querySelector('[data-catalog-browse-category="pronunciation"]')?.textContent).toBe(copy.categories.pronunciation);
-        expect(section.querySelector('[data-catalog-browse-summary]')?.textContent).toContain('từ điển');
+        expect(section.querySelector('[data-catalog-browse-title]')!.textContent).toBe(copy.title);
+        expect(section.querySelector('[data-catalog-browse-search-label]')!.textContent).toBe(copy.searchLabel);
+        expect(section.querySelector('[data-catalog-browse-category="pronunciation"]')!.textContent).toBe(copy.categories.pronunciation);
+        expect(section.querySelector('[data-catalog-browse-summary]')!.textContent).toContain('từ điển');
         expect(section.lang).toBe(learnerLanguageById('vi').runtimeLocale);
     });
 
@@ -141,10 +169,11 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
         for (const language of ['en', 'auto'] as const) {
             localizeSettingsForm(form, language);
             const section = browseSection(form);
+            applyCatalogBrowseFilter(section, copy.categories.grammar);
 
-            expect(section.querySelector('[data-catalog-browse-title]')?.textContent, language).toBe(copy.title);
-            expect(section.querySelector('[data-catalog-browse-category="grammar"]')?.textContent, language).toBe(copy.categories.grammar);
-            expect(section.querySelector('[data-catalog-browse-empty]')?.textContent, language).toBe(copy.noResults);
+            expect(section.querySelector('[data-catalog-browse-title]')!.textContent, language).toBe(copy.title);
+            expect(section.querySelector('[data-catalog-browse-category="grammar"]')!.textContent, language).toBe(copy.categories.grammar);
+            expect(section.querySelector('[data-catalog-browse-empty]')!.textContent, language).toBe(copy.noResults);
         }
     });
 
@@ -171,25 +200,7 @@ describe('mirrored catalogue chrome speaks every learner language', () => {
         expect(Object.keys(CATALOG_BROWSE_COPY)).toEqual([...LEARNER_LANGUAGE_IDS]);
         const titles = new Set<string>();
         for (const language of LEARNER_LANGUAGE_IDS) {
-            const copy = CATALOG_BROWSE_COPY[language];
-            titles.add(copy.title);
-
-            expect(copy.title.trim(), language).not.toBe('');
-            expect(copy.searchLabel.trim(), language).not.toBe('');
-            expect(copy.noResults.trim(), language).not.toBe('');
-            expect(copy.languageNote.trim(), language).not.toBe('');
-            expect(copy.languageNote.match(/\{language\}/gu), language).toHaveLength(1);
-            expect(copy.summary, language).toContain('{count}');
-            expect(copy.summary, language).toContain('{size}');
-            for (const category of CATALOG_BROWSE_CATEGORY_ORDER) {
-                expect(copy.categories[category]?.trim(), `${language}/${category}`).not.toBe('');
-            }
-            if (language === 'en') continue;
-            // A locale that silently reuses the English string is an untranslated
-            // locale wearing a translated locale's tag.
-            expect(copy.title, language).not.toBe(CATALOG_BROWSE_COPY.en.title);
-            expect(copy.searchLabel, language).not.toBe(CATALOG_BROWSE_COPY.en.searchLabel);
-            expect(copy.languageNote, language).not.toBe(CATALOG_BROWSE_COPY.en.languageNote);
+            titles.add(assertCompleteCatalogBrowseCopy(language));
         }
         expect(titles.size).toBe(LEARNER_LANGUAGE_IDS.length);
     });
@@ -222,6 +233,8 @@ function renderedForm(learnerLanguage: string): HTMLFormElement {
             activeLanguageProfileId: profile.id,
         }),
         'https://jpdb.io/settings',
+        undefined,
+        { expandCatalogBrowse: true },
     );
     return form;
 }
@@ -236,4 +249,25 @@ function visibleCardNames(section: HTMLElement): string[] {
     return [...section.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-item')]
         .filter(card => !card.hidden && !card.closest<HTMLElement>('[data-catalog-browse-group]')?.hidden)
         .map(card => card.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() ?? '');
+}
+
+function assertCompleteCatalogBrowseCopy(language: LearnerLanguageId): string {
+    const copy = CATALOG_BROWSE_COPY[language];
+    expect(copy.title.trim(), language).not.toBe('');
+    expect(copy.searchLabel.trim(), language).not.toBe('');
+    expect(copy.noResults.trim(), language).not.toBe('');
+    expect(copy.languageNote.trim(), language).not.toBe('');
+    expect(copy.languageNote.match(/\{language\}/gu), language).toHaveLength(1);
+    expect(copy.summary, language).toContain('{count}');
+    expect(copy.summary, language).toContain('{size}');
+    for (const category of CATALOG_BROWSE_CATEGORY_ORDER) {
+        expect(copy.categories[category].trim(), `${language}/${category}`).not.toBe('');
+    }
+    if (language === 'en') return copy.title;
+    // A locale that silently reuses the English string is an untranslated
+    // locale wearing a translated locale's tag.
+    expect(copy.title, language).not.toBe(CATALOG_BROWSE_COPY.en.title);
+    expect(copy.searchLabel, language).not.toBe(CATALOG_BROWSE_COPY.en.searchLabel);
+    expect(copy.languageNote, language).not.toBe(CATALOG_BROWSE_COPY.en.languageNote);
+    return copy.title;
 }

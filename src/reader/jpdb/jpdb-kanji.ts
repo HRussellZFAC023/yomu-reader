@@ -60,6 +60,7 @@ const log = Logger.scope('JpdbKanji');
 export class JpdbKanjiClient {
     private cache = new Map<string, Promise<JpdbKanjiInfo | null>>();
     private actions = new Map<string, JpdbKanjiAction>();
+    private generation = 0;
 
     constructor(private readonly getCorsProxyUrl: () => string = () => '') {}
 
@@ -68,14 +69,14 @@ export class JpdbKanjiClient {
         if (!key) return Promise.resolve(null);
         let promise = this.cache.get(key);
         if (!promise) {
-            promise = this.fetchInfo(key);
+            promise = this.fetchInfo(key, this.generation);
             this.cache.set(key, promise);
-        } else {
         }
         return promise;
     }
 
     async performAction(actionId: string): Promise<JpdbKanjiInfo | null> {
+        const generation = this.generation;
         const action = this.actions.get(actionId);
         if (!action) throw new Error('JPDB kanji action is no longer available.');
         if (!action.enabled) throw new Error('JPDB kanji action is disabled.');
@@ -87,21 +88,32 @@ export class JpdbKanjiClient {
             allowConfiguredProxy: false,
             credentials: 'same-origin',
         });
+        if (generation !== this.generation) return null;
         this.cache.delete(action.kanji);
         return this.lookup(action.kanji);
     }
 
-    private async fetchInfo(kanji: string): Promise<JpdbKanjiInfo | null> {
+    clear(): void {
+        this.generation++;
+        this.cache.clear();
+        this.actions.clear();
+    }
+
+    private async fetchInfo(kanji: string, generation: number): Promise<JpdbKanjiInfo | null> {
         const html = await requestText(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch(error => {
             log.warn('Kanji page request failed', { kanji }, error);
             return '';
         });
         const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
-        if (info) {
+        if (info && generation === this.generation) {
             visibleJpdbKanjiActions(info).forEach(action => this.actions.set(action.id, action));
         }
         return info;
     }
+}
+
+export function clearJpdbKanjiClient(client: JpdbKanjiClient): void {
+    client.clear?.();
 }
 
 export function parseJpdbKanjiHtml(html: string, kanji: string): JpdbKanjiInfo | null {

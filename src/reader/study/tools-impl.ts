@@ -17,29 +17,23 @@ import {
 } from './grammar-knowledge';
 import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 import { translateText } from '../translation/google';
+import type { GrammarPreferences } from './grammar-knowledge';
+import type {
+    GrammarExample,
+    GrammarHint,
+    GrammarLevel,
+    LocalGrammarRuleExample,
+    LocalGrammarRuleSummary,
+    SentenceTranslationResult,
+} from './tools-contract';
 
-export interface GrammarHint {
-    ruleId: string;
-    name: string;
-    displayNames?: Readonly<{ en: string; ja: string }>;
-    level: GrammarLevel;
-    kind: string;
-    short: string;
-    detail: string;
-    url: string;
-    match: string;
-    confidence: 'high' | 'medium';
-    index: number;
-    examples?: GrammarExample[];
-}
-
-export interface GrammarExample {
-    japanese: string;
-    english: string;
-    note?: string;
-}
-
-export type GrammarLevel = string;
+export type { GrammarPreferences } from './grammar-knowledge';
+export type {
+    GrammarHint,
+    LocalGrammarRuleExample,
+    LocalGrammarRuleSummary,
+    SentenceTranslationResult,
+} from './tools-contract';
 
 interface GrammarRuleData {
     kind: string;
@@ -52,25 +46,6 @@ interface GrammarRuleData {
 interface GroupedGrammarHint {
     hint: GrammarHint;
     count: number;
-}
-
-export interface GrammarPreferences {
-    knownRuleIds: string[];
-    showKnown: boolean;
-}
-
-export interface LocalGrammarRuleExample {
-    ruleId: string;
-    name: string;
-    level: GrammarLevel;
-    example: GrammarExample;
-}
-
-export interface LocalGrammarRuleSummary {
-    ruleId: string;
-    name: string;
-    level: GrammarLevel;
-    exampleCount: number;
 }
 
 const TRANSLATION_TIMEOUT_MS = 5000;
@@ -120,8 +95,8 @@ export function preloadGrammarResources(sentence: string, language: InterfaceLan
     return hints;
 }
 
-export function preloadJapaneseSentenceTranslation(sentence: string, language = 'en'): void {
-    void translateJapaneseSentence(sentence, language).catch(() => undefined);
+export function preloadTargetSentenceTranslation(sentence: string, outputLanguage = 'en'): void {
+    void translateTargetSentence(sentence, outputLanguage).catch(() => undefined);
 }
 
 export function setGrammarRuleKnown(ruleId: string, known: boolean): GrammarPreferences {
@@ -147,27 +122,73 @@ export function isTranslatableJapaneseSentence(sentence: string): boolean {
     return japanese / dense >= 0.15;
 }
 
+const TRANSLATABLE_CONTENT_CHAR = /[\p{L}\p{N}]/u;
+
+/**
+ * Reject empty/punctuation-only page chrome through the target Module instead
+ * of guessing a language from a shared script. Latin text cannot be proven
+ * Spanish rather than English from glyphs alone; the active target remains the
+ * explicit source identity, while this gate only establishes that there is a
+ * meaningful amount of target-script text to send.
+ */
+export function isTranslatableTargetSentence(sentence: string): boolean {
+    const target = activeLearningTarget();
+    if (target.language === 'ja') return isTranslatableJapaneseSentence(sentence);
+    const evidence = targetSentenceEvidence(sentence, target.isLookupableText);
+    return evidence.target >= 2 && evidence.content > 0 && evidence.target / evidence.content >= 0.15;
+}
+
+function targetSentenceEvidence(
+    sentence: string,
+    isTargetText: (character: string) => boolean,
+): { content: number; target: number } {
+    const evidence = { content: 0, target: 0 };
+    for (const character of sentence.trim()) {
+        if (TRANSLATABLE_CONTENT_CHAR.test(character)) evidence.content += 1;
+        if (isTargetText(character)) evidence.target += 1;
+    }
+    return evidence;
+}
+
 /**
  * `outputLanguage` is the OUTPUT axis — where the sentence lands — never the
  * interface locale. Callers resolve it with `outputLanguageOf(settings)`.
  */
-export async function translateJapaneseSentence(sentence: string, outputLanguage = 'en'): Promise<string> {
+export async function translateTargetSentence(
+    sentence: string,
+    requestedOutputLanguage = 'en',
+): Promise<SentenceTranslationResult | null> {
     const trimmed = sentence.trim();
-    if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return '';
+    if (!trimmed || !isTranslatableTargetSentence(trimmed)) return null;
+    const sourceLanguage = activeLearningTarget().language;
+    const outputLanguage = sentenceOutputLanguage(requestedOutputLanguage, sourceLanguage);
+    if (!outputLanguage) return null;
     const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
-    return translateText(requestSentence, {
-        sourceLanguage: 'ja',
-        outputLanguage: sentenceOutputLanguage(outputLanguage),
+    const text = await translateText(requestSentence, {
+        sourceLanguage,
+        outputLanguage,
         timeoutMs: TRANSLATION_TIMEOUT_MS,
         includeDictionaryData: true,
     });
+    return { text, outputLanguage };
 }
 
-function sentenceOutputLanguage(outputLanguage: string): string {
-    // The source is Japanese, so Japanese output is not a translation, and
+function sentenceOutputLanguage(outputLanguage: string, sourceLanguage: string): string | null {
     // `auto` is an interface-locale value that never meant an output language.
-    // Both fall back to English rather than round-tripping the sentence.
-    return outputLanguage === 'auto' || outputLanguage === 'ja' ? 'en' : outputLanguage;
+    // Preserve Japanese's established English fallback. For every other target,
+    // an explicit same-language output is not a translation and must not echo
+    // the source as if work had happened.
+    if (outputLanguage === 'auto') return defaultSentenceOutputLanguage(sourceLanguage);
+    if (outputLanguage.toLowerCase() !== sourceLanguage.toLowerCase()) return outputLanguage;
+    return sameSourceSentenceOutputLanguage(sourceLanguage);
+}
+
+function defaultSentenceOutputLanguage(sourceLanguage: string): string | null {
+    return sourceLanguage === 'en' ? null : 'en';
+}
+
+function sameSourceSentenceOutputLanguage(sourceLanguage: string): string | null {
+    return sourceLanguage === 'ja' ? 'en' : null;
 }
 
 function normalizeSentenceForTranslationRequest(sentence: string): string {
@@ -217,7 +238,10 @@ function grammarSummary(visibleCount: number, hiddenKnownCount: number, language
 }
 
 function renderGrammarSentence(sentence: string, language: InterfaceLanguage, audioEnabled: boolean): string {
-    return renderStudySentenceBlock(sentence, language, { audioEnabled }, 'data-grammar-sentence');
+    return renderStudySentenceBlock(sentence, language, {
+        audioEnabled,
+        attrs: 'data-grammar-sentence',
+    });
 }
 
 function renderGrammarToolbar(visibleCount: number, knownCount: number, showKnown: boolean, language: InterfaceLanguage): string {

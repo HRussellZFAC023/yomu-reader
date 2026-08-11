@@ -43,6 +43,23 @@ afterEach(() => {
 });
 
 describe('extension background dictionary store', () => {
+    it('does not probe the extension transport until the first dictionary operation', async () => {
+        const remoteSummary = vi.fn(async () => dictionarySummary(1));
+        const harness = backgroundHarness(store({ summary: remoteSummary }));
+
+        const proxy = extensionDictionaryStoreProxy(
+            store({ summary: vi.fn(async () => dictionarySummary(99)) }),
+            harness.root as unknown as typeof globalThis,
+        );
+
+        expect(harness.runtime.clientMessages).toEqual([]);
+        expect(harness.runtime.connectedPortNames).toEqual([]);
+
+        await expect(proxy.summary()).resolves.toEqual(dictionarySummary(1));
+        expect(harness.runtime.clientMessages).toHaveLength(1);
+        expect(harness.runtime.clientMessages[0]).toMatchObject({ kind: 'ping' });
+    });
+
     it('probes capability and hydrates background-only settings from the prefixed current slot', async () => {
         const gmGetValue = vi.fn(() => {
             throw new Error('The background must not enter the GM/content storage bridge.');

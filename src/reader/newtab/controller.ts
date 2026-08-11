@@ -24,7 +24,7 @@ import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/pars
 import { ACADEMY_SRS_LABEL, APP_NAME, DISCORD_INVITE_URL, DOCS_BASE_URL, GITHUB_REPOSITORY_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, SUPPORT_STATUS_URL } from '../app/constants';
 import { studyShellNavRoutes, type HostedShellNavLink } from '../app/site-nav';
 import { escapeHtml, htmlToFirstElement, setInnerHtml } from '../dom';
-import { el, fragment, replaceChildrenWith } from '../dom/builder';
+import { el, replaceChildrenWith } from '../dom/builder';
 import { appendComposedOfLine as renderComposedOfLine } from './composed-of';
 import { pointInElementClientRects } from '../dom/pointer-geometry';
 import { renderedWordCardForLookup } from '../main/rendered-word-lookup';
@@ -60,7 +60,7 @@ import {
     type JitenKanjiWordsActionContext,
 } from '../jiten/jiten-kanji-words-actions';
 import type { JpdbClient } from '../jpdb/jpdb';
-import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
+import { clearJpdbKanjiClient, jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiClient, type JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
 import { getPitchClass } from '../jpdb/jpdb-parser';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -76,7 +76,7 @@ import { BUNPRO_FSRS_REVIEW_SHORTCUTS, FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { installReaderControlPointerActivation } from '../ui/pointer-activation';
-import { matchesShortcut } from '../settings';
+import { matchesShortcut } from '../settings/index';
 import {
     activeLearningTarget,
     activeLearningTargetGeneration,
@@ -101,12 +101,9 @@ import { kanjiFactProviderTitle, kanjiSourceStateKey, renderKanjiDefinitions } f
 import { speakerIcon } from '../ui/icons';
 import {
     cardKey,
-    createNewTabStateChannel,
     firstCardMeaning,
     isYomuNewTabUrl,
     kanjiCharacters,
-    loadNewTabUiStateWithLegacyIntent,
-    resolveNewTabBrandAssets,
     saveNewTabUiState,
     type LegacyNewTabStudyIntent,
     type NewTabRoute,
@@ -214,7 +211,6 @@ import {
     randomPublicJpdbSeedKanji,
     randomPublicJpdbSeedWords,
     shouldWaitForMoreDoodleStrokes,
-    stableNegativeNewTabId,
     visibleCardKanji,
 } from './kanji-helpers';
 import {
@@ -228,6 +224,44 @@ import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-ca
 import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
 import { NewTabReviewSubmitter } from './review-submitter';
+import { isSessionBunproCard, newTabUndoableReview } from './review-flow-policy';
+import { renderNewTabShell } from './shell-view';
+import {
+    jpdbDeckMembershipName,
+    newTabAnkiDeckSelection,
+    newTabAnkiDeckSelectorOptions,
+    newTabDeckSelectorMode,
+    newTabJpdbDeckSelectorModel,
+} from './deck-selector-policy';
+import {
+    jitenScopedDeckId,
+    newTabAnkiProviderContext,
+    newTabReviewProviderContext,
+    newTabReviewProvidersAreCurrent,
+    newTabProviderContext,
+    newTabProviderContexts,
+    newTabSourceCacheSignature,
+    type NewTabProviderContexts,
+} from './provider-context-policy';
+import {
+    canBrowseNewTabSrsSource,
+    newTabCardsFromSrsQueue,
+    newTabCardFromSrsReviewable,
+    newTabSrsLoadErrorMessage,
+    newTabSrsSourceHasCredential,
+    newTabSrsSourceLabel,
+    unavailableNewTabSrsLoad,
+    type NewTabSrsAdapterSource,
+} from './srs-card-adapter';
+import {
+    cachedBrowsePool,
+    isCurrentBrowsePool,
+    loadSelectedBrowsePool,
+    matchingBrowsePoolLoad,
+    providerContextDeckResets,
+    reportBrowsePool,
+    selectedScopedBrowsePool,
+} from './browse-pool-policy';
 import { isLocalYomuSrsStorageError } from '../srs/local-yomu';
 import { cancelConnectionLostDialog, showConnectionLostDialog, type ConnectionLostChoice } from './connection-lost-dialog';
 
@@ -261,17 +295,21 @@ import {
     type NewTabSessionProgressSnapshot,
 } from './session-progress';
 import {
-    createStudySessionClock,
     mountStudySessionClockControl,
     type StudySessionClock,
     type StudySessionClockSnapshot,
 } from './session-clock';
+import {
+    currentNewTabRoute,
+    currentNewTabSearchQuery,
+    newTabControllerStartup,
+    newTabControllerStateChannel,
+    type NewTabControllerStateChannel,
+} from './controller-lifecycle';
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import type {
     YomuSrsAdapter,
     YomuSrsQueueSnapshot,
-    YomuSrsReviewable,
-    YomuSrsReviewableKind,
 } from '../srs/types';
 import { jpdbFirstParseOptions, type ReaderParser } from '../lookup/parser';
 import type { CardState, JPDBCard, JPDBDeck, JPDBGrade, JPDBToken, NewTabTypeWordInputMode, ReaderSettings } from '../app/types';
@@ -297,7 +335,6 @@ import {
     NEW_TAB_DICTIONARY_TOP_MAX_MS,
     NEW_TAB_DICTIONARY_TOP_MAX_ROWS,
     NEW_TAB_FALLBACK_SUPPLEMENT_MIN,
-    NEW_TAB_HEADER_LABEL,
     NEW_TAB_KANJI_FRONT_KEYWORD_LIMIT,
     NEW_TAB_LIVE_REVIEW_STALE_MS,
     NEW_TAB_LOCAL_SEARCH_TIMEOUT_MS,
@@ -329,15 +366,12 @@ import {
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
-    KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
     definitionSourceLabel,
     orderedKanjiSourceIds,
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
-import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
-import { fingerprintWanikaniToken } from '../wanikani/wanikani';
-import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
+import { combinedApiCredentialLabel, effectiveJitenApiKey, hasJitenApiCredential, hasJpdbApiCredential, hasWanikaniApiCredential, isBunproFrontendCredentialExpired } from '../settings/api-credential';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import { NewTabTargetResources } from './target-resources';
 import { captureActiveTarget, isCurrentActiveTarget, type ActiveTargetSnapshot } from './target-scope';
@@ -363,7 +397,6 @@ const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 // realistic single session's working set; they only stop unbounded growth over
 // very long sessions (previously freed only by a factory reset).
 const NEW_TAB_STUDY_SENTENCE_CACHE_LIMIT = 320;
-const NEW_TAB_KANJI_DATA_CACHE_LIMIT = 320;
 const NEW_TAB_IMMERSION_CACHE_LIMIT = 160;
 const NEW_TAB_DOODLE_PREVIEW_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
@@ -408,6 +441,7 @@ export interface NewTabControllerDependencies {
     getSettings: () => ReaderSettings;
     toast?: (message: string) => void;
     anki: {
+        clearAccountContext?: () => void;
         listNewTabCards: (limit?: number, deckScope?: string) => Promise<JPDBCard[]>;
         answerCard: (cardId: number, grade: JPDBGrade) => Promise<void>;
         findExistingCards?: (card: JPDBCard) => Promise<AnkiLookupResult>;
@@ -415,7 +449,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'parse' | 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys' | 'listStudyDeckVocabularyCards' | 'listRecentReviews'>>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'clear' | 'parse' | 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys' | 'listStudyDeckVocabularyCards' | 'listRecentReviews'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -425,6 +459,7 @@ export interface NewTabControllerDependencies {
     jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
     jpdbReviewBridge: JpdbReviewBridgeClient;
     srsAdapters?: Partial<Record<NewTabSrsAdapterSource, NewTabSrsQueueAdapter>>;
+    clearWanikaniAccountContext?: () => void;
     parser: ReaderParser;
     dictionaries: YomitanDictionaryStore;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
@@ -508,7 +543,6 @@ interface NewTabLoadOptions {
 }
 
 type ConcreteNewTabWordSource = NewTabConcreteSource;
-type NewTabSrsAdapterSource = Extract<NewTabConcreteSource, 'bunpro' | 'wanikani' | 'yomu-local'>;
 type NewTabSrsQueueAdapter = Pick<YomuSrsAdapter, 'label' | 'hasCredential' | 'stats' | 'queue' | 'review'>;
 type NavigationExpansionSource = 'dictionary' | 'jpdb' | 'public-jpdb' | 'anki';
 type PointerNavigationDirection = 'next' | 'previous';
@@ -612,42 +646,10 @@ interface LegacyStudyTransition {
     stepId: NewTabStudyStepId | null;
     listenMode?: Exclude<ListenInteractionMode, 'shadow'>;
 }
-const NEW_TAB_ROUTE_NAMES = new Set<string>(['study', 'word', 'search', 'stats']);
 const LEGACY_STUDY_STEP_IDS: Readonly<Record<string, NewTabStudyStepId>> = {
     recall: 'recall-cloze',
     kanji: 'kanji-doodle:0',
 };
-function isNewTabRouteName(value: string | undefined | null): value is NewTabRoute | 'word' {
-    return Boolean(value && NEW_TAB_ROUTE_NAMES.has(value));
-}
-
-function newTabRoute(): NewTabRoute | null {
-    try {
-        const url = new URL(location.href);
-        const mode = url.searchParams.get('mode') || url.searchParams.get('view') || url.hash.replace(/^#/u, '');
-        if (isNewTabRouteName(mode)) return mode === 'word' ? 'study' : mode;
-        return newTabRouteSearchQuery(url) ? 'search' : null;
-    } catch {
-        return null;
-    }
-}
-
-function newTabRouteSearchQueryFromLocation(): string {
-    try {
-        return newTabRouteSearchQuery(new URL(location.href));
-    } catch {
-        return '';
-    }
-}
-
-function newTabRouteSearchQuery(url: URL): string {
-    for (const key of ['q', 'query', 'search']) {
-        const value = normalizeSearchQuery(url.searchParams.get(key) ?? '');
-        if (value) return value;
-    }
-    return '';
-}
-
 // Consolidated per-card study-step state (NB-41a). One entry per card key holds
 // every study step's in-progress answer and first-attempt outcome, replacing the
 // former parallel per-mode Maps (recallAnswers/recallOutcomes/pitchOutcomes/
@@ -691,7 +693,7 @@ export class NewTabController {
     private sourceResultCache = new Map<ConcreteNewTabWordSource, NewTabSourceCacheEntry>();
     private sourceCacheVersions = new Map<ConcreteNewTabWordSource, number>();
     private state: NewTabUiState;
-    private readonly stateChannel: ReturnType<typeof createNewTabStateChannel>;
+    private readonly stateChannel: NewTabControllerStateChannel;
     private readonly unsubscribeJpdbBridge: () => void;
     private liveJpdbStatus: JpdbReviewBridgeStatus | null = null;
     private liveCards = new Map<string, JpdbReviewBridgeCard>();
@@ -716,7 +718,6 @@ export class NewTabController {
     // dialog; later drops in the same outage queue silently. Cleared when the
     // browser reports it is back online so the next outage asks again.
     private offlineReviewingAccepted = false;
-    private uchisenDataCache = new BoundedMap<string, Promise<UchisenData | null>>(NEW_TAB_KANJI_DATA_CACHE_LIMIT);
     private immersionCache = new BoundedMap<string, Promise<ImmersionKitExample[]>>(NEW_TAB_IMMERSION_CACHE_LIMIT);
     // Rotation cursor into immersionCache's examples; bounded with the same limit
     // so the two stay aligned (a dropped example set simply restarts at index 0).
@@ -745,6 +746,7 @@ export class NewTabController {
     // the controller decomposition.
     private readonly operations = new OperationTracker();
     private loadGeneration = 0;
+    private providerContexts: NewTabProviderContexts;
     // The study DOM needs a card identity for nested actions and stale async
     // guards, but the canonical card key contains the spelling and reading.
     // Before reveal, expose only this controller-local opaque token and resolve
@@ -779,7 +781,6 @@ export class NewTabController {
         loadKanjiDetails: character => this.loadKanjiDetails(character),
         renderKanjiDetails: (card, kanji, details) => this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null),
         keywordFromDetails: (card, jpdb, jiten, rtk) => this.keywordFromDetails(card, jpdb, jiten, rtk),
-        renderNewTabUchisen: (root, kanji) => this.renderNewTabUchisen(root, kanji),
         renderNewTabKanjiImmersion: (root, kanji) => this.renderNewTabKanjiImmersion(root, kanji),
         sourceAttributes: (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
         dictionaryLabel: name => this.dictionaryLabel(name),
@@ -794,6 +795,7 @@ export class NewTabController {
         syncMode: root => this.syncMode(root),
         syncThemeToggle: root => this.syncThemeToggle(root),
         shortParseOptions: () => newTabShortParseOptions(),
+        providerContext: () => this.providerContexts.key,
         browseScopeActive: () => this.browseScopeActive(),
         getBrowsePool: () => this.browsePool,
         renderBrowseResults: mount => this.renderBrowseResults(mount),
@@ -879,12 +881,16 @@ export class NewTabController {
     private navigationSupplementPromise: Promise<void> | null = null;
     private browsePool?: JPDBCard[];
     private browsePoolKey = '';
+    private browsePoolGeneration = 0;
+    private browsePoolLoad?: { generation: number; key: string; promise: Promise<JPDBCard[]> };
+    private browseFilterGeneration = 0;
     private browseFilters = new Set<CardState>();
     private browseSourceFilters = new Set<BrowseSourceFilter>();
     private browseSort: BrowseSortKey = 'queue';
     private browseSortDescending = false;
     private browseSelectMode = false;
     private browsePage = 0;
+    private deckSelectorGeneration = 0;
     // Trouble-card study bridge: the stats "Study these" button sets this and
     // hands off to the word-load pipeline (consumed in filterStatsStudyCards /
     // applyLoadedWordState). Stays on the controller because it steers word load.
@@ -907,9 +913,16 @@ export class NewTabController {
         private readonly dependencies: NewTabControllerDependencies,
         private readonly options: NewTabControllerOptions = {},
     ) {
-        this.initialStudyStepIdPending = options.initialStudyStepId ?? null;
+        this.providerContexts = newTabProviderContexts(dependencies.getSettings());
+        const startup = newTabControllerStartup({
+            source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings()),
+            sessionClock: options.sessionClock,
+            initialStudyStepId: options.initialStudyStepId,
+        });
+        this.initialStudyStepIdPending = startup.initialStudyStepId;
         this.targetResources = new NewTabTargetResources({
             getSettings: () => this.dependencies.getSettings(),
+            providerContexts: () => this.providerContexts,
             parser: this.dependencies.parser,
             dictionaries: this.dependencies.dictionaries,
             jpdbPublicPitch: this.dependencies.jpdbPublicPitch,
@@ -917,11 +930,12 @@ export class NewTabController {
         });
         this.statsController = new NewTabStatsController({
             getSettings: () => this.dependencies.getSettings(),
+            ankiProviderContext: () => newTabAnkiProviderContext(this.dependencies.getSettings()),
             jpdb: this.dependencies.jpdb,
             jiten: this.dependencies.jiten,
             anki: this.dependencies.anki,
             srsAdapters: this.dependencies.srsAdapters,
-            srsReviewableToNewTabCard: card => this.srsReviewableToNewTabCard(card),
+            srsReviewableToNewTabCard: newTabCardFromSrsReviewable,
             canUseBunproSource: () => this.canUseBunproSource(),
             canUseWanikaniSource: () => this.canUseWanikaniSource(),
             canUseYomuLocalSource: () => this.canUseYomuLocalSource(),
@@ -934,26 +948,14 @@ export class NewTabController {
             hasCoarsePointer: () => this.hasCoarsePointer(),
             studyTroubleCards: root => this.studyStatsTroubleCards(root),
         });
-        this.ownsSessionClock = !options.sessionClock;
-        this.sessionClock = options.sessionClock ?? createStudySessionClock({
-            visibility: typeof document === 'undefined' ? undefined : document,
-        });
+        this.ownsSessionClock = startup.ownsSessionClock;
+        this.sessionClock = startup.sessionClock;
         this.sessionProgress = new NewTabSessionProgressTracker({ clock: this.sessionClock });
         this.lastDailyGoalElapsedMs = this.sessionClock.snapshot().elapsedMs;
-        const loaded = loadNewTabUiStateWithLegacyIntent();
-        const saved = loaded.state;
-        const route = newTabRoute();
-        const routeSearchQuery = route === 'search' ? newTabRouteSearchQueryFromLocation() : '';
-        this.state = {
-            ...saved,
-            ...(route ? { route } : {}),
-            source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings()),
-        };
-        if (!options.initialStudyStepId) this.applyLoadedLegacyStudyIntent(loaded.legacyStudyIntent);
-        if (routeSearchQuery) this.searchController.setInitialQuery(routeSearchQuery);
-        this.stateChannel = options.surface === 'academy'
-            ? { publish: () => {}, close: () => {} }
-            : createNewTabStateChannel(state => { void this.applyExternalState(state); });
+        this.state = startup.state;
+        if (!options.initialStudyStepId) this.applyLoadedLegacyStudyIntent(startup.legacyStudyIntent);
+        if (startup.routeSearchQuery) this.searchController.setInitialQuery(startup.routeSearchQuery);
+        this.stateChannel = newTabControllerStateChannel(options.surface, state => { void this.applyExternalState(state); });
         this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate(status => this.applyJpdbBridgeStatus(status));
         this.kanjiDetailSource = new KanjiDetailSource({
             getSettings: () => this.dependencies.getSettings(),
@@ -967,6 +969,7 @@ export class NewTabController {
         });
         this.reviewSubmitter = new NewTabReviewSubmitter({
             getSettings: () => this.dependencies.getSettings(),
+            providerContextForTarget: target => newTabReviewProviderContext(this.providerContexts, target),
             text: key => this.text(key),
             jpdb: this.dependencies.jpdb,
             jiten: this.dependencies.jiten,
@@ -978,6 +981,7 @@ export class NewTabController {
         });
         this.gradeQueue = new NewTabGradeQueue({
             offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
+            providerContextForTarget: target => newTabReviewProviderContext(this.providerContexts, target),
             submit: item => this.submitQueuedGrade(item),
             onSubmitted: card => this.invalidateReviewSourceCache(card),
         });
@@ -993,12 +997,9 @@ export class NewTabController {
     }
 
     async renderPage(): Promise<void> {
-        if (!this.options.host) {
-            document.title = `${APP_NAME} ${this.text('newTabPage')}`;
-            document.documentElement.lang = this.resolvedLanguage();
-            document.documentElement.classList.add('jpdb-reader-newtab-document');
-        }
+        this.configureStandaloneDocument();
         const settings = this.dependencies.getSettings();
+        const providerContextChanged = this.syncProviderContext(settings);
         this.syncSourceFromSettings(settings);
         this.applyPalette();
 
@@ -1006,32 +1007,56 @@ export class NewTabController {
         this.bindRootEvents(root);
         root.dataset.newtabBound = 'true';
 
-        const shouldRenderContent = this.shouldRenderEnabledContent(root, isNew);
-        if (shouldRenderContent) {
-            this.sessionClockControl?.dispose();
-            this.sessionClockControl = undefined;
-            delete root.dataset.standaloneNewtab;
-            root.dataset.newtabLanguage = this.resolvedLanguage();
-            root.dataset.studySurface = this.options.surface ?? 'standalone';
-            root.replaceChildren(this.renderEnabledContent());
-            this.syncMode(root);
-        }
+        const shouldRenderContent = this.renderContentShell(root, isNew);
         this.ensureSessionClock(root);
         this.syncThemeToggle(root);
         this.syncInstallAppButton(root);
         void this.syncSupportBanner(root);
 
+        this.refreshChangedProviderStudy(root, providerContextChanged, shouldRenderContent);
+        if (this.renderNonStudyRoute(root)) return;
+        await this.renderStudyRoute(root, shouldRenderContent);
+    }
+
+    private configureStandaloneDocument(): void {
+        if (this.options.host) return;
+        document.title = `${APP_NAME} ${this.text('newTabPage')}`;
+        document.documentElement.lang = this.resolvedLanguage();
+        document.documentElement.classList.add('jpdb-reader-newtab-document');
+    }
+
+    private renderContentShell(root: HTMLElement, isNew: boolean): boolean {
+        const shouldRenderContent = this.shouldRenderEnabledContent(root, isNew);
+        if (!shouldRenderContent) return false;
+        this.sessionClockControl?.dispose();
+        this.sessionClockControl = undefined;
+        delete root.dataset.standaloneNewtab;
+        root.dataset.newtabLanguage = this.resolvedLanguage();
+        root.dataset.studySurface = this.options.surface ?? 'standalone';
+        root.replaceChildren(this.renderEnabledContent());
+        this.syncMode(root);
+        return true;
+    }
+
+    private refreshChangedProviderStudy(root: HTMLElement, providerContextChanged: boolean, contentRebuilt: boolean): void {
+        if (providerContextChanged && !contentRebuilt && this.state.route === 'study') this.applyWords(root, false);
+    }
+
+    private renderNonStudyRoute(root: HTMLElement): boolean {
         if (this.state.route === 'search') {
             this.searchController.renderSearch(root);
-            return;
+            return true;
         }
         if (this.state.route === 'stats') {
             this.renderStats(root);
             void this.loadStatsInto(root);
-            return;
+            return true;
         }
+        return false;
+    }
 
-        if (shouldRenderContent || this.allWords.length === 0) await this.loadWordsInto(root, true);
+    private async renderStudyRoute(root: HTMLElement, contentRebuilt: boolean): Promise<void> {
+        if (contentRebuilt || this.allWords.length === 0) await this.loadWordsInto(root, true);
         else this.applyWords(root, true);
     }
 
@@ -1179,13 +1204,69 @@ export class NewTabController {
         return label;
     }
 
+    private syncProviderContext(settings: ReaderSettings): boolean {
+        const previous = this.providerContexts;
+        const next = newTabProviderContexts(settings);
+        if (previous.key === next.key) return false;
+        this.providerContexts = next;
+        this.loadGeneration++;
+        this.navigationGeneration++;
+        this.browseFilterGeneration++;
+        this.deckSelectorGeneration++;
+        this.operations.begin('sourceSwitch');
+        this.resetLoadedSourceState();
+        this.searchController.invalidateProviderContext();
+        this.clearSourceResultCache();
+        this.invalidateBrowsePool();
+        this.statsController.resetProviderContext();
+        this.clearProviderClientCaches();
+        this.clearCardBoundState();
+        this.studyCardDomTokens.clear();
+        this.studyCardsByDomToken.clear();
+        this.deckSelectorDecks = undefined;
+        this.ankiDeckDueCountsCache = undefined;
+        this.lastUndoableReview = undefined;
+        this.pendingLiveJpdbGrade = null;
+        this.studyStepOverride = null;
+        this.pinnedStudyPlan = null;
+        this.statsStudyFilter = null;
+        this.fallbackStudyNotice = false;
+        this.offlineReviewingAccepted = false;
+        this.listenItem = null;
+        this.listenContrastCard = null;
+        this.listenAudioGeneration++;
+        this.clearListenSpeakingScore();
+        this.clearListenRecording();
+        this.state = {
+            ...this.state,
+            revealAnswer: false,
+            ...providerContextDeckResets(previous, next),
+        };
+        this.persistState();
+        return true;
+    }
+
+    private clearProviderClientCaches(): void {
+        [
+            () => this.dependencies.anki.clearAccountContext?.(),
+            () => this.dependencies.jpdb.clear?.(),
+            () => this.dependencies.jiten?.clear?.(),
+            () => this.dependencies.clearWanikaniAccountContext?.(),
+            () => clearJpdbKanjiClient(this.dependencies.jpdbKanji),
+        ].forEach(clear => clear());
+    }
+
     private clearTargetBoundState(): void {
         this.searchController.reset();
-        this.liveCards.clear();
         this.clearSourceResultCache();
+        this.clearCardBoundState();
+        this.statsController.reset();
+    }
+
+    private clearCardBoundState(): void {
+        this.liveCards.clear();
         this.keywordCache.clear();
         this.kanjiDetailSource.clear();
-        this.uchisenDataCache.clear();
         this.immersionCache.clear();
         this.immersionExampleIndex.clear();
         this.frontSentenceCache.clear();
@@ -1199,7 +1280,6 @@ export class NewTabController {
         this.typeHandwritingSelfCheck.clear();
         this.studyHintDepth.clear();
         this.immersionAudioPlayer.reset();
-        this.statsController.reset();
     }
 
     invalidateForFactoryReset(): void {
@@ -1225,18 +1305,16 @@ export class NewTabController {
         this.pendingLiveJpdbGrade = null;
         this.studyStepOverride = null;
         this.pinnedStudyPlan = null;
-        this.browsePool = undefined;
-        this.browsePoolKey = '';
+        this.invalidateBrowsePool();
+        this.browseSourceFilters.clear();
+        this.browsePage = 0;
         this.deckSelectorDecks = undefined;
         this.studyCardDomTokens.clear();
         this.studyCardsByDomToken.clear();
         this.offlineReadyKeys.clear();
         this.offlineWarmSignature = '';
         this.offlineWarmTotal = 0;
-        if (this.offlineWarmRetryTimer !== undefined) {
-            clearTimeout(this.offlineWarmRetryTimer);
-            this.offlineWarmRetryTimer = undefined;
-        }
+        this.clearOfflineWarmRetry();
         this.fallbackStudyNotice = false;
         this.statsStudyFilter = null;
         this.listenItem = null;
@@ -1244,7 +1322,16 @@ export class NewTabController {
         this.listenAudioGeneration++;
         this.clearListenSpeakingScore();
         this.clearListenRecording();
+        this.renderAfterTargetInvalidation();
+    }
 
+    private clearOfflineWarmRetry(): void {
+        if (this.offlineWarmRetryTimer === undefined) return;
+        clearTimeout(this.offlineWarmRetryTimer);
+        this.offlineWarmRetryTimer = undefined;
+    }
+
+    private renderAfterTargetInvalidation(): void {
         const root = this.currentRoot();
         if (!root) return;
         if (this.state.route === 'search') {
@@ -1256,126 +1343,14 @@ export class NewTabController {
     }
 
     private renderEnabledContent(): DocumentFragment {
-        const brand = resolveNewTabBrandAssets(location.href);
         const language = this.language();
-        return fragment(
-            el('div', { class: 'jpdb-reader-newtab-shell' },
-                el('header', { class: 'jpdb-reader-newtab-topbar' },
-                    this.options.surface === 'academy' ? null : el('div', { class: 'VPNavBarTitle jpdb-reader-newtab-brand', 'data-v-6aa21345': '', 'data-v-1168a8e4': '' },
-                        el('a', {
-                            class: 'title',
-                            href: brand.homeHref,
-                            'aria-label': APP_NAME,
-                            'data-v-1168a8e4': '',
-                        },
-                            el('img', { class: 'VPImage logo', src: brand.iconSrc, alt: '', width: 24, height: 24, 'data-v-8426fc1a': '' }),
-                            el('span', { 'data-v-1168a8e4': '' }, NEW_TAB_HEADER_LABEL),
-                        ),
-                    ),
-                    el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': newTabText(language, 'newTabMode') },
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'word' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'study')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'library')),
-                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('mode'), mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
-                    ),
-                    this.options.surface === 'academy' ? null : el('div', { class: 'jpdb-reader-newtab-theme-controls' },
-                        el('span', {
-                            class: 'jpdb-reader-newtab-connectivity',
-                            dataset: { newtabConnectivity: true },
-                            role: 'status',
-                            'aria-live': 'polite',
-                            hidden: true,
-                        }, newTabText(language, 'offlineReady')),
-                        this.options.showSessionClockControl === false ? null : el('div', {
-                            class: 'jpdb-reader-newtab-session-clock-host',
-                            dataset: { newtabSessionClockHost: true },
-                        }),
-                        el('details', { class: 'jpdb-reader-newtab-more' },
-                            el('summary', {
-                                class: 'jpdb-reader-newtab-overflow',
-                                'aria-label': uiText(language, 'more'),
-                            }, '...'),
-                            this.renderOverflowMenu(language),
-                        ),
-                    ),
-                ),
-                el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
-                    el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true }, hidden: true }),
-                    el('div', { class: 'jpdb-reader-newtab-study-steps', dataset: { newtabStudySteps: true }, role: 'list' }),
-                    el('div', { class: 'jpdb-reader-newtab-study-tour', dataset: { newtabStudyTour: true }, hidden: true }),
-                    el('h1', { class: 'jpdb-reader-newtab-prompt jpdb-reader-parseable', dataset: { newtabPrompt: true }, lang: 'ja' }, APP_NAME),
-                    el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
-                        el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
-                        el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
-                    ),
-                    el('button', { class: 'jpdb-reader-newtab-status', type: 'button', dataset: { newtabStatus: true }, disabled: true }, uiText(language, 'loading')),
-                    el('select', {
-                        class: 'jpdb-reader-newtab-source-select',
-                        dataset: { newtabSourceSelect: true },
-                        hidden: true,
-                        'aria-label': newTabText(language, 'switchReviewSource'),
-                    }),
-                    el('select', {
-                        class: 'jpdb-reader-newtab-deck',
-                        dataset: { newtabDeckSelect: true },
-                        hidden: true,
-                        'aria-label': newTabText(language, 'studyDeckSelector'),
-                    }),
-                    el('select', {
-                        class: 'jpdb-reader-newtab-deck jpdb-reader-newtab-state-filter',
-                        dataset: { newtabFilterSelect: true },
-                        hidden: true,
-                        'aria-label': newTabText(language, 'showOnlyFilter'),
-                    }),
-                    el('form', { class: 'jpdb-reader-newtab-search', dataset: { newtabSearch: true }, role: 'search', hidden: true },
-                        el('div', { class: 'jpdb-reader-newtab-searchbox' },
-                            el('input', {
-                                type: 'search',
-                                dataset: { newtabSearchInput: true },
-                                placeholder: newTabText(language, 'searchWordsOrKanji'),
-                                autocomplete: 'on',
-                                autocapitalize: 'none',
-                                autocorrect: 'off',
-                                inputmode: 'text',
-                                spellcheck: false,
-                                enterkeyhint: 'search',
-                                lang: 'ja',
-                                'aria-label': newTabText(language, 'searchWordsOrKanji'),
-                                'aria-autocomplete': 'list',
-                                'aria-controls': 'jpdb-reader-newtab-autocomplete',
-                                'aria-expanded': 'false',
-                            }),
-                            el('button', { class: 'jpdb-reader-parseable', type: 'submit', dataset: { newtabAction: newTabAction('search-submit') }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
-                            el('button', {
-                                class: 'jpdb-reader-parseable',
-                                type: 'button',
-                                dataset: { newtabAction: newTabAction('search-handwriting-toggle') },
-                                lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
-                                'aria-controls': 'jpdb-reader-newtab-handwriting',
-                                'aria-expanded': 'false',
-                                hidden: !usesJapaneseCharacterStudy(),
-                                disabled: !usesJapaneseCharacterStudy(),
-                            }, newTabText(language, 'draw')),
-                            el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: newTabAction('search-clear') }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en', 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
-                        ),
-                        el('div', {
-                            id: 'jpdb-reader-newtab-autocomplete',
-                            class: 'jpdb-reader-newtab-search-suggestions',
-                            dataset: { newtabSearchAutocomplete: true },
-                            role: 'listbox',
-                            'aria-label': newTabText(language, 'searchSuggestions'),
-                        }),
-                        el('div', { class: 'jpdb-reader-newtab-search-results', dataset: { newtabSearchResults: true }, 'aria-live': 'polite' }),
-                    ),
-                ),
-                el('nav', { class: 'jpdb-reader-newtab-controls', dataset: { newtabControls: true }, 'aria-label': newTabText(language, 'studyNavigation') },
-                    el('button', { type: 'button', dataset: { newtabAction: newTabAction('previous') }, 'aria-label': newTabText(language, 'previousWord') }, newTabText(language, 'previousWord')),
-                    el('button', { type: 'button', dataset: { newtabAction: newTabAction('reveal') } }, uiText(language, 'reveal')),
-                    el('button', { type: 'button', dataset: { newtabAction: newTabAction('next') }, 'aria-label': newTabText(language, 'nextWord') }, newTabText(language, 'nextWord')),
-                ),
-                this.options.surface === 'academy' ? null : this.renderAppNavigation(language),
-                el('aside', { class: 'jpdb-reader-newtab-support-banner', dataset: { newtabSupportBanner: true }, hidden: true, 'aria-label': newTabText(language, 'supportBannerLabel') }),
-            ),
-        );
+        const showChrome = this.options.surface !== 'academy';
+        return renderNewTabShell({
+            language,
+            overflowMenu: showChrome ? this.renderOverflowMenu(language) : null,
+            appNavigation: showChrome ? this.renderAppNavigation(language) : null,
+            showSessionClockControl: this.options.showSessionClockControl !== false,
+        });
     }
 
     private renderOverflowMenu(language: ReaderSettings['interfaceLanguage']): HTMLElement {
@@ -1667,6 +1642,7 @@ export class NewTabController {
     }
 
     private applyBrowseFilterChange(root: HTMLElement, value: string): void {
+        const filterGeneration = ++this.browseFilterGeneration;
         const filter = normalizeNewTabUiState({ ...this.state, filter: value as NewTabUiState['filter'] }).filter;
         if (filter === 'study') {
             this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
@@ -1675,10 +1651,39 @@ export class NewTabController {
         // Non-study filters browse the FULL pool (the scheduled-queue
         // loader drops known/blacklisted cards), so merge the browse
         // pool in before applying — same data the My Cards browser uses.
-        void this.loadBrowsePool().then(cards => {
-            this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
-            this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
-        });
+        const browseGeneration = this.browsePoolGeneration;
+        void this.loadBrowsePool().then(cards => this.applyLoadedBrowseFilter(
+            cards,
+            filter,
+            filterGeneration,
+            browseGeneration,
+            root,
+        ));
+    }
+
+    private applyLoadedBrowseFilter(
+        cards: JPDBCard[],
+        filter: NewTabUiState['filter'],
+        filterGeneration: number,
+        browseGeneration: number,
+        root: HTMLElement,
+    ): void {
+        if (!this.canApplyLoadedBrowseFilter(filterGeneration, browseGeneration, root)) return;
+        this.allWords = dedupeWords([...this.allWords, ...cards.map(normalizeNewTabCard)]);
+        this.setState({ filter, revealAnswer: false }, root, { preserveWord: false });
+    }
+
+    private canApplyLoadedBrowseFilter(
+        filterGeneration: number,
+        browseGeneration: number,
+        root: HTMLElement,
+    ): boolean {
+        return [
+            filterGeneration === this.browseFilterGeneration,
+            browseGeneration === this.browsePoolGeneration,
+            this.currentRoot() === root,
+            this.state.route === 'study',
+        ].every(Boolean);
     }
 
     private applyDeckSelectChange(root: HTMLElement, deckSelect: HTMLSelectElement): void {
@@ -3105,26 +3110,35 @@ export class NewTabController {
     // cards. The JPDB card fetch itself is shared with the stats surface, so it
     // lives on the stats controller (this is the browse↔stats seam).
     private browsePoolProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
-        const providers: NewTabStatsApiProvider[] = [];
-        const jiten = this.jitenBrowsePoolProvider(settings);
-        if (jiten) providers.push(jiten);
-        if (hasJpdbApiCredential(settings)) providers.push({
+        const japanese = usesJapaneseProviders();
+        const japaneseProviders = japanese ? [
+            this.jitenBrowsePoolProvider(settings),
+            this.jpdbBrowsePoolProvider(settings),
+            this.srsAdapterBrowsePoolProvider('bunpro'),
+            this.srsAdapterBrowsePoolProvider('wanikani'),
+        ] : [];
+        const yomuLocal = this.srsAdapterBrowsePoolProvider('yomu-local');
+        const anki = japanese ? this.ankiBrowsePoolProvider(settings) : null;
+        return [...japaneseProviders, yomuLocal, anki]
+            .filter((provider): provider is NewTabStatsApiProvider => provider !== null);
+    }
+
+    private jpdbBrowsePoolProvider(settings: ReaderSettings): NewTabStatsApiProvider | null {
+        if (!hasJpdbApiCredential(settings)) return null;
+        return {
             label: 'JPDB',
             load: () => this.statsController.loadJpdbCards(),
-        });
-        const bunpro = this.srsAdapterBrowsePoolProvider('bunpro');
-        if (bunpro) providers.push(bunpro);
-        const wanikani = this.srsAdapterBrowsePoolProvider('wanikani');
-        if (wanikani) providers.push(wanikani);
-        const yomuLocal = this.srsAdapterBrowsePoolProvider('yomu-local');
-        if (yomuLocal) providers.push(yomuLocal);
-        if (settings.ankiEnabled && settings.newTabAnkiEnabled && typeof this.dependencies.anki.listNewTabCards === 'function') {
-            providers.push({
-                label: 'Anki',
-                load: () => this.dependencies.anki.listNewTabCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
-            });
-        }
-        return providers;
+        };
+    }
+
+    private ankiBrowsePoolProvider(settings: ReaderSettings): NewTabStatsApiProvider | null {
+        if (!settings.ankiEnabled
+            || !settings.newTabAnkiEnabled
+            || typeof this.dependencies.anki.listNewTabCards !== 'function') return null;
+        return {
+            label: 'Anki',
+            load: () => this.dependencies.anki.listNewTabCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
+        };
     }
 
     private jitenBrowsePoolProvider(settings: ReaderSettings): NewTabStatsApiProvider | null {
@@ -3144,10 +3158,10 @@ export class NewTabController {
     }
 
     private srsAdapterBrowsePoolProvider(source: NewTabSrsAdapterSource): NewTabStatsApiProvider | null {
-        if (source === 'yomu-local' && !this.canUseYomuLocalSource()) return null;
+        if (!canBrowseNewTabSrsSource(source, this.canUseYomuLocalSource())) return null;
         const adapter = this.dependencies.srsAdapters?.[source];
-        if (!adapter || !adapter.hasCredential()) return null;
-        const label = adapter.label || NEW_TAB_SOURCE_LABELS[source];
+        if (!adapter?.hasCredential()) return null;
+        const label = newTabSrsSourceLabel(source, adapter);
         return {
             label,
             load: async () => {
@@ -3156,7 +3170,7 @@ export class NewTabController {
                 });
                 return snapshot.cards
                     .filter(newTabCardMatchesActiveTarget)
-                    .map(card => this.srsReviewableToNewTabCard(card))
+                    .map(newTabCardFromSrsReviewable)
                     .filter((card): card is JPDBCard => card !== null);
             },
         };
@@ -3491,131 +3505,45 @@ export class NewTabController {
 
     private sourceCacheSignature(source: ConcreteNewTabWordSource): string {
         const settings = this.dependencies.getSettings();
-        return JSON.stringify({
+        return newTabSourceCacheSignature({
             source,
-            language: this.language(),
+            settings,
+            interfaceLanguage: this.language(),
             targetLanguage: activeLearningTarget().language,
             targetGeneration: activeLearningTargetGeneration(),
-            apiKey: hasJpdbApiCredential(settings),
-            jitenApiKey: hasJitenApiCredential(settings),
-            jpdbMiningEnabled: settings.jpdbMiningEnabled,
-            jpdbReviewMode: settings.newTabJpdbReviewMode,
-            jpdbDeck: settings.newTabJpdbDeck,
             activeJpdbDeck: this.state.jpdbDeck,
-            ankiEnabled: settings.ankiEnabled,
-            ankiNewTabEnabled: settings.newTabAnkiEnabled,
-            ankiDeck: settings.ankiDeck,
             activeAnkiDeck: this.normalizedAnkiDeckScope(),
-            ankiModel: settings.ankiModel,
-            ankiDisabledDecks: settings.newTabAnkiDisabledDecks,
-            bunproToken: Boolean(settings.bunproFrontendApiToken),
-            bunproTokenExpiresAt: settings.bunproFrontendApiTokenExpiresAt,
-            bunproMiningEnabled: settings.bunproMiningEnabled,
-            wanikaniTokenFingerprint: fingerprintWanikaniToken(settings.wanikaniApiToken),
-            wanikaniReviewEnabled: settings.wanikaniReviewEnabled,
-            yomuLocalSrsEnabled: settings.yomuLocalSrsEnabled,
-            dictionaries: settings.localDictionariesEnabled,
-            dictionaryPreferences: settings.dictionaryPreferences,
         });
     }
 
     private async loadSrsAdapterWords(source: NewTabSrsAdapterSource, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
         const adapter = this.dependencies.srsAdapters?.[source];
-        const sourceLabel = adapter?.label || NEW_TAB_SOURCE_LABELS[source];
+        const sourceLabel = newTabSrsSourceLabel(source, adapter);
         const settings = this.dependencies.getSettings();
-        if (source === 'yomu-local' && !this.canUseYomuLocalSource()) {
-            return {
-                cards: [],
-                sourceLabel,
-                reviewCountMode: this.state.source === source,
-                emptyMessageKey: 'couldNotLoadWords',
-            };
-        }
-        if (!adapter || !adapter.hasCredential()) {
-            return {
-                cards: [],
-                sourceLabel,
-                reviewCountMode: true,
-                // Say what is actually missing: for Bunpro that is the token
-                // import, not a generic load failure.
-                emptyMessageKey: source === 'bunpro'
-                    ? 'bunproTokenMissing'
-                    : source === 'wanikani'
-                        ? 'wanikaniAddApiKeyRequired'
-                        : 'couldNotLoadWords',
-            };
-        }
-        if (source === 'bunpro' && isBunproFrontendCredentialExpired(settings)) {
-            return {
-                cards: [],
-                sourceLabel,
-                reviewCountMode: true,
-                emptyMessageKey: 'bunproTokenExpired',
-            };
-        }
+        const unavailable = unavailableNewTabSrsLoad({
+            source,
+            sourceLabel,
+            selected: this.state.source === source,
+            localSourceAvailable: this.canUseYomuLocalSource(),
+            hasCredential: newTabSrsSourceHasCredential(adapter),
+            bunproCredentialExpired: isBunproFrontendCredentialExpired(settings),
+        });
+        if (unavailable) return unavailable;
+        const availableAdapter = adapter!;
         const cardLimit = Math.max(1, Math.floor(limit));
         const loaded = await this.remoteSourceResult<YomuSrsQueueSnapshot | null>(
             `${sourceLabel} queue`,
-            adapter.queue(cardLimit, { language: activeLearningTarget().language }),
+            availableAdapter.queue(cardLimit, { language: activeLearningTarget().language }),
             null,
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         );
-        const cards = (loaded.value?.cards ?? [])
-            .filter(newTabCardMatchesActiveTarget)
-            .map(card => this.srsReviewableToNewTabCard(card))
-            .filter((card): card is JPDBCard => card !== null)
-            .slice(0, cardLimit);
+        const cards = newTabCardsFromSrsQueue(loaded.value, cardLimit);
         return {
             cards,
             sourceLabel,
             reviewCountMode: true,
-            emptyMessageKey: loaded.failed ? 'couldNotLoadWords' : undefined,
+            emptyMessageKey: newTabSrsLoadErrorMessage(loaded.failed),
         };
-    }
-
-    private srsReviewableToNewTabCard(card: YomuSrsReviewable): JPDBCard | null {
-        if (card.providerId !== 'bunpro' && card.providerId !== 'wanikani' && card.providerId !== 'yomu-local') return null;
-        const expression = card.expression.trim();
-        if (!expression) return null;
-        const reading = card.reading.trim() || expression;
-        const providerKey = `${card.providerId}:${card.providerCardId}`;
-        return normalizeNewTabCard({
-            vid: stableNegativeNewTabId(`srs-vocab:${providerKey}`),
-            sid: stableNegativeNewTabId(`srs-sentence:${providerKey}`),
-            rid: stableNegativeNewTabId(`srs-review:${card.providerReviewId || card.providerCardId}`),
-            spelling: expression,
-            reading,
-            language: card.language,
-            frequencyRank: null,
-            partOfSpeech: srsReviewablePartOfSpeech(card),
-            meanings: card.meanings,
-            sentence: card.sentence,
-            cardState: card.state,
-            pitchAccent: [],
-            dueAt: card.dueAt ?? null,
-            lastReviewAt: card.lastReviewAt ?? null,
-            wordWithReading: reading && reading !== expression ? `${expression}【${reading}】` : expression,
-            source: card.providerId,
-            reviewSource: card.providerId === 'bunpro'
-                ? 'bunpro-api'
-                : card.providerId === 'wanikani'
-                    ? 'wanikani-api'
-                    : 'yomu-local',
-            sourceDeckName: card.srsLevel,
-            sourceCardKey: card.providerId === 'yomu-local' ? card.providerCardId : providerKey,
-            bunproReviewId: card.providerId === 'bunpro' ? card.providerReviewId : undefined,
-            bunproReviewableId: card.providerId === 'bunpro' ? optionalPositiveNumber(card.providerReviewableId) : undefined,
-            bunproReviewableType: card.providerId === 'bunpro' ? bunproReviewableType(card.kind) : undefined,
-            bunproSrsLevel: card.providerId === 'bunpro' ? card.srsLevel : undefined,
-            bunproReviewSessionId: card.providerId === 'bunpro' ? card.reviewSession?.id : undefined,
-            bunproReviewInputMode: card.providerId === 'bunpro' ? card.reviewSession?.inputMode : undefined,
-            bunproReviewEndpoint: card.providerId === 'bunpro' ? card.reviewSession?.endpoint : undefined,
-            wanikaniAssignmentId: card.providerId === 'wanikani' ? optionalPositiveNumber(card.providerCardId) : undefined,
-            wanikaniSubjectId: card.providerId === 'wanikani' ? optionalPositiveNumber(card.providerReviewableId) : undefined,
-            wanikaniSubjectType: card.providerId === 'wanikani' ? wanikaniSubjectTypeFromReviewable(card) : undefined,
-            wanikaniSrsStage: card.providerId === 'wanikani' ? card.srsLevel : undefined,
-            wanikaniAudioUrls: card.providerId === 'wanikani' ? wanikaniAudioUrlsFromReviewable(card) : undefined,
-        });
     }
 
     private async loadAnkiWords(timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, limit = NEW_TAB_WORD_LIMIT): Promise<NewTabLoadResult> {
@@ -4042,18 +3970,18 @@ export class NewTabController {
     }
 
     private async jpdbDeckNameForMembership(deckId: string): Promise<string> {
-        const normalized = deckId.trim();
-        if (!normalized || normalized === 'all' || normalized === JPDB_ALL_DECKS) return '';
-        const settings = this.dependencies.getSettings();
-        const key = effectiveJpdbApiKey(settings);
-        if (this.deckSelectorDecks?.key !== key) {
-            const listDecks = typeof this.dependencies.jpdb.listDecks === 'function'
-                ? this.dependencies.jpdb.listDecks()
-                : Promise.resolve([] as JPDBDeck[]);
-            this.deckSelectorDecks = { key, promise: listDecks.catch((): JPDBDeck[] => []) };
-        }
-        const decks = await this.deckSelectorDecks.promise;
-        return decks.find(deck => deck.id === normalized)?.name ?? '';
+        return jpdbDeckMembershipName(deckId, () => this.cachedJpdbDecks(this.dependencies.getSettings()));
+    }
+
+    private cachedJpdbDecks(settings: ReaderSettings): Promise<JPDBDeck[]> {
+        const key = newTabProviderContext(settings);
+        if (this.deckSelectorDecks?.key === key) return this.deckSelectorDecks.promise;
+        const request = typeof this.dependencies.jpdb.listDecks === 'function'
+            ? this.dependencies.jpdb.listDecks()
+            : Promise.resolve([] as JPDBDeck[]);
+        const promise = request.catch((): JPDBDeck[] => []);
+        this.deckSelectorDecks = { key, promise };
+        return promise;
     }
 
     private async remoteSourceWithFallback<T>(label: string, promise: Promise<T>, fallback: T, timeoutMs = NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS): Promise<T> {
@@ -7920,13 +7848,11 @@ export class NewTabController {
     private kanjiPromptKeywordsFromDetails(
         card: JPDBCard,
         details: KanjiDetailBundle,
-        uchisenData: UchisenData | null = null,
     ): KanjiPromptKeyword[] {
         return this.dedupeKanjiPromptKeywords([
             { source: 'Jiten', text: details.jiten?.meanings[0] ?? '' },
             { source: 'JPDB', text: details.jpdb?.keyword ?? '' },
             { source: 'RTK', text: details.rtk?.keyword ?? '' },
-            { source: 'Uchisen', text: uchisenData?.kanjiKeyword?.keyword ?? '' },
             { source: this.kanjiPromptCardKeywordSource(card), text: card.kanjiKeyword ?? '' },
             ...details.local.flatMap(entry => entry.meanings.slice(0, 3).map(text => ({ source: uiText(this.language(), 'dict'), text }))),
         ]);
@@ -7961,7 +7887,6 @@ export class NewTabController {
         this.applyEnrichedKanjiKeyword(slots, card, kanji, details);
         this.applyEnrichedKanjiSvg(slots.answer, this.studyStepIdForKanji(card, kanji), details.vg?.svg);
         this.applyEnrichedKanjiMeaning(slots, card, kanji, details);
-        void this.applyEnrichedUchisenKeyword(slots, card, kanji, details);
     }
 
     private canApplyKanjiEnrichment(slots: NewTabStudySlots, card: JPDBCard, kanji?: string): boolean {
@@ -7999,20 +7924,6 @@ export class NewTabController {
         }
     }
 
-    private async applyEnrichedUchisenKeyword(
-        slots: NewTabStudySlots,
-        card: JPDBCard,
-        kanji: string,
-        details: KanjiDetailBundle,
-    ): Promise<void> {
-        if (!targetCanLookupCharacter(kanji) || !slots.prompt || this.state.revealAnswer) return;
-        const uchisenData = await this.loadUchisenDetails(kanji);
-        if (!uchisenData?.kanjiKeyword?.keyword) return;
-        if (!this.canApplyKanjiEnrichment(slots, card, kanji)) return;
-        if (!slots.prompt || this.state.revealAnswer) return;
-        replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(this.kanjiPromptKeywordsFromDetails(card, details, uchisenData), card, kanji));
-    }
-
     private applyEnrichedKanjiSvg(answer: HTMLElement | null, studyStepId: NewTabStudyStepId, svgMarkup: string | undefined): void {
         if (!answer || !svgMarkup) return;
         const mounts = this.enrichedKanjiSvgMounts(answer);
@@ -8045,50 +7956,8 @@ export class NewTabController {
     ): void {
         if (!this.state.revealAnswer || !slots.meaning) return;
         replaceChildrenWith(slots.meaning, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local, details.sourceInfo ?? null));
-        this.renderNewTabUchisen(slots.meaning, kanji);
         this.renderNewTabKanjiImmersion(slots.meaning, kanji);
         void this.dependencies.parseContent?.(slots.meaning);
-    }
-
-    private renderNewTabUchisen(root: HTMLElement, kanji: string): void {
-        if (!targetCanLookupCharacter(kanji)) return;
-        const settings = this.dependencies.getSettings();
-        const mount = root.querySelector<HTMLElement>('[data-newtab-uchisen-mount]');
-        if (!mount || !settings.uchisenEnabled) return;
-        const sourceAttributes = this.sourceAttributes(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
-        void this.loadUchisenDetails(kanji).then(data => {
-            if (!targetCanLookupCharacter(kanji) || !mount.isConnected) return;
-            if (!data || (!data.images.length && !data.canGenerateImages)) {
-                mount.remove();
-                return;
-            }
-            void installUchisenCarousel(mount, kanji, data.images, {
-                sourceAttributes,
-                detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
-                summaryClass: 'jpdb-reader-local-title',
-                bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
-                proxyUrl: settings.corsProxyUrl,
-                componentGroups: data.componentGroups,
-                kanjiKeyword: data.kanjiKeyword,
-                kanjiId: data.kanjiId,
-                canGenerateImages: data.canGenerateImages,
-                refreshData: () => {
-                    this.uchisenDataCache.delete(kanji);
-                    return targetCanLookupCharacter(kanji)
-                        ? loadUchisenData(kanji, this.dependencies.getSettings().corsProxyUrl)
-                        : Promise.resolve({
-                            images: [],
-                            componentGroups: [],
-                            kanjiKeyword: null,
-                            kanjiId: '',
-                            canGenerateImages: false,
-                        });
-                },
-                interfaceLanguage: settings.interfaceLanguage,
-            });
-        }).catch(() => {
-            if (mount.isConnected) mount.remove();
-        });
     }
 
     private renderNewTabKanjiImmersionPlaceholder(settings: ReaderSettings): HTMLElement | null {
@@ -8176,20 +8045,6 @@ export class NewTabController {
 
     private renderNewTabKanjiImmersionCard(card: JPDBCard, example: ImmersionKitExample, index: number, total: number): HTMLElement {
         return this.renderNewTabImmersionCardVariant(card, example, index, total, 'kanji');
-    }
-
-    private loadUchisenDetails(kanji: string): Promise<UchisenData | null> {
-        if (!targetCanLookupCharacter(kanji)) return Promise.resolve(null);
-        const settings = this.dependencies.getSettings();
-        if (!settings.uchisenEnabled) return Promise.resolve(null);
-        const existing = this.uchisenDataCache.get(kanji);
-        if (existing) return existing;
-        const promise = loadUchisenData(kanji, settings.corsProxyUrl).catch(() => {
-            this.uchisenDataCache.delete(kanji);
-            return null;
-        });
-        this.uchisenDataCache.set(kanji, promise);
-        return promise;
     }
 
     private renderKanjiDetails(
@@ -8296,7 +8151,6 @@ export class NewTabController {
         sourceId: string,
         context: NewTabKanjiSourceRenderContext,
     ): HTMLElement | null | undefined {
-        if (sourceId === KANJI_UCHISEN_SOURCE_ID) return this.renderNewTabUchisenPlaceholder(context.settings);
         if (sourceId === IMMERSION_KIT_SOURCE_ID) return this.renderNewTabKanjiImmersionPlaceholder(context.settings);
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return this.renderNewTabKanjiDictionarySection(context.localEntries, sourceId, this.kanjiSourceTitle(sourceId));
         return undefined;
@@ -8324,24 +8178,6 @@ export class NewTabController {
         const section = htmlToFirstElement(renderRtkInfo(rtk, componentSummaries, settings.interfaceLanguage, this.isSourceOpen(sourceStateKey), sourceStateKey));
         section?.classList.add('jpdb-reader-newtab-rtk-source');
         return section;
-    }
-
-    private renderNewTabUchisenPlaceholder(settings: ReaderSettings): HTMLElement | null {
-        if (!usesJapaneseCharacterStudy() || !settings.uchisenEnabled) return null;
-        const sourceStateKey = kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID);
-        const isOpen = this.isSourceOpen(sourceStateKey);
-        return el('div', { dataset: { newtabUchisenMount: true } },
-            el('details', {
-                class: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
-                open: isOpen,
-                dataset: {
-                    sourceStateKey,
-                    sourceInitialOpen: String(isOpen),
-                },
-            },
-            el('summary', { class: 'jpdb-reader-local-title' }, 'Uchisen'),
-            el('div', { class: 'jpdb-reader-local-entry' }, el('div', { class: 'jpdb-reader-help' }, uiText(settings.interfaceLanguage, 'loadingMnemonicImages')))),
-        );
     }
 
     private renderNewTabKanjiDictionarySection(entries: YomitanKanjiEntry[], sourceId: string, title: string): HTMLElement | null {
@@ -8765,8 +8601,10 @@ export class NewTabController {
     }
 
     private invalidateBrowsePool(): void {
+        this.browsePoolGeneration += 1;
         this.browsePool = undefined;
         this.browsePoolKey = '';
+        this.browsePoolLoad = undefined;
         this.browseAnkiDueBuckets = undefined;
         this.browseDueBucketsKey = '';
     }
@@ -8798,9 +8636,10 @@ export class NewTabController {
     // Dictionary lookup stays the Search default; deck/state scope flips the
     // tab into the My Cards browser (2D reviews).
     private browseScopeActive(): boolean {
-        return this.browseFilters.size > 0
-            || this.browseSourceFilters.size > 0
-            || Boolean(this.state.jpdbDeck && this.state.jpdbDeck !== 'all');
+        const japaneseDeckScope = usesJapaneseProviders() && this.state.jpdbDeck !== 'all'
+            ? this.state.jpdbDeck
+            : '';
+        return [this.browseFilters.size, this.browseSourceFilters.size, japaneseDeckScope].some(Boolean);
     }
 
     private renderBrowseResults(mount: HTMLElement): void {
@@ -8908,62 +8747,87 @@ export class NewTabController {
 
     private async loadBrowsePool(onPartial?: (cards: JPDBCard[]) => void): Promise<JPDBCard[]> {
         const settings = this.dependencies.getSettings();
-        // 2D reviews: a selected JPDB deck scopes the browser to that deck's
-        // full word list (queue order via due_at; sort/filter on top).
-        const deck = (this.state.jpdbDeck || '').trim();
-        const jitenDeckId = jitenScopedDeckId(deck);
-        if (this.state.route === 'search' && jitenDeckId !== null) {
-            return this.loadScopedBrowsePool(`jiten-deck:${jitenDeckId}`, async () => this.withJitenReviewHistory(await this.loadJitenDeckBrowseCards(jitenDeckId, NEW_TAB_BROWSE_DECK_LIMIT)));
+        const providerContext = newTabProviderContext(settings);
+        const deck = usesJapaneseProviders() ? (this.state.jpdbDeck || '').trim() : '';
+        const selection = selectedScopedBrowsePool(this.state.route, deck, this.canBrowseJpdbDeck(settings));
+        if (selection) {
+            return this.loadScopedBrowsePool(providerContext, selection.key, () => loadSelectedBrowsePool(selection, {
+                jitenDeck: async deckId => this.withJitenReviewHistory(await this.loadJitenDeckBrowseCards(deckId, NEW_TAB_BROWSE_DECK_LIMIT)),
+                jitenProvider: async () => this.withJitenReviewHistory(await this.loadAllJitenDeckBrowseCards(settings)),
+                jpdb: deckId => this.dependencies.jpdb.listDeckCards(deckId, NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []),
+            }));
         }
-        if (this.state.route === 'search' && deck === 'provider:jiten') {
-            return this.loadScopedBrowsePool('provider:jiten', async () => this.withJitenReviewHistory(await this.loadAllJitenDeckBrowseCards(settings)));
-        }
-        if (this.state.route === 'search' && deck === 'provider:jpdb' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
-            return this.loadScopedBrowsePool('provider:jpdb', () => this.dependencies.jpdb.listDeckCards('all', NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []));
-        }
-        if (this.state.route === 'search' && deck && deck !== 'all' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
-            const deckKey = `jpdb-deck:${deck}`;
-            if (this.browsePool && this.browsePoolKey === deckKey) return this.browsePool;
-            const cards = await this.dependencies.jpdb.listDeckCards(deck, NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []);
-            this.browsePool = dedupeWords(cards.map(normalizeNewTabCard));
-            this.browsePoolKey = deckKey;
-            return this.browsePool;
-        }
+        return this.loadUnscopedBrowsePool(settings, providerContext, onPartial);
+    }
+
+    private canBrowseJpdbDeck(settings: ReaderSettings): boolean {
+        return hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function';
+    }
+
+    private loadUnscopedBrowsePool(settings: ReaderSettings, providerContext: string, onPartial?: (cards: JPDBCard[]) => void): Promise<JPDBCard[]> {
         const providers = this.browsePoolProviders(settings);
         const key = JSON.stringify({
+            target: activeLearningTarget().language,
             providers: providers.map(provider => provider.label),
-            jpdb: effectiveJpdbApiKey(settings),
-            jiten: effectiveJitenApiKey(settings),
-            anki: settings.ankiEnabled && settings.newTabAnkiEnabled,
+            providerContext,
         });
-        if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
+        const browseGeneration = this.browsePoolGeneration;
+        const pending = matchingBrowsePoolLoad(this.browsePoolLoad, key, browseGeneration);
+        if (pending) return pending.promise.then(cards => reportBrowsePool(cards, onPartial));
+        const cached = cachedBrowsePool(this.browsePool, this.browsePoolKey, key);
+        if (cached) return Promise.resolve(cached);
         this.browsePool = [];
         this.browsePoolKey = key;
         this.browseAnkiDueBuckets = undefined;
         this.browseDueBucketsKey = '';
+        const promise = this.loadBrowsePoolProviders(providers, browseGeneration, key, onPartial);
+        const request = { generation: browseGeneration, key, promise };
+        this.browsePoolLoad = request;
+        return promise.finally(() => {
+            if (this.browsePoolLoad === request) this.browsePoolLoad = undefined;
+        });
+    }
+
+    private async loadBrowsePoolProviders(
+        providers: NewTabStatsApiProvider[],
+        browseGeneration: number,
+        key: string,
+        onPartial?: (cards: JPDBCard[]) => void,
+    ): Promise<JPDBCard[]> {
         const collected: JPDBCard[] = [];
         const results = await Promise.all(providers.map(async provider => {
             const result = await loadNewTabStatsApiProvider(provider);
-            if (this.browsePoolKey === key && result.error === null) {
-                collected.push(...result.cards);
+            const currentResult = [
+                browseGeneration === this.browsePoolGeneration,
+                this.browsePoolKey === key,
+                result.error === null,
+            ].every(Boolean);
+            if (currentResult) {
+                collected.push(...result.cards.filter(newTabCardMatchesActiveTarget));
                 this.browsePool = dedupeWords(collected);
                 onPartial?.(this.browsePool);
             }
             return result;
         }));
-        const cards = dedupeWords(results.filter(result => result.error === null).flatMap(result => result.cards));
-        if (this.browsePoolKey !== key) return this.browsePool ?? cards;
+        const cards = dedupeWords(results
+            .filter(result => result.error === null)
+            .flatMap(result => result.cards)
+            .filter(newTabCardMatchesActiveTarget));
+        if (browseGeneration !== this.browsePoolGeneration || this.browsePoolKey !== key) return [];
         this.browsePool = cards;
-        this.browsePoolKey = key;
         onPartial?.(cards);
         return cards;
     }
 
-    private async loadScopedBrowsePool(key: string, load: () => Promise<JPDBCard[]>): Promise<JPDBCard[]> {
-        if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
+    private async loadScopedBrowsePool(providerContext: string, key: string, load: () => Promise<JPDBCard[]>): Promise<JPDBCard[]> {
+        const scopedKey = `${activeLearningTarget().language}:${providerContext}:${key}`;
+        if (this.browsePool && this.browsePoolKey === scopedKey) return this.browsePool;
+        const browseGeneration = this.browsePoolGeneration;
+        this.browsePool = undefined;
+        this.browsePoolKey = scopedKey;
         const cards = await load().catch((): JPDBCard[] => []);
-        this.browsePool = dedupeWords(cards.map(normalizeNewTabCard));
-        this.browsePoolKey = key;
+        if (!isCurrentBrowsePool(browseGeneration, this.browsePoolGeneration, scopedKey, this.browsePoolKey)) return [];
+        this.browsePool = dedupeWords(cards.filter(newTabCardMatchesActiveTarget).map(normalizeNewTabCard));
         return this.browsePool;
     }
 
@@ -9250,14 +9114,14 @@ export class NewTabController {
     }
 
     private async performJpdbKanjiAction(root: HTMLElement, actionId: string): Promise<void> {
-        if (!actionId) return;
         const card = this.visibleWords[this.index];
         const kanji = visibleCardKanji(card);
-        if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
+        const providerContext = this.providerContexts.jpdb;
+        if (!jpdbKanjiActionAvailable(actionId, kanji)) return;
         try {
             this.setStatus(root, this.text('updatingJpdbKanji'));
             await this.dependencies.jpdbKanji.performAction(actionId);
-            if (!targetCanLookupCharacter(kanji) || !usesJapaneseProviders()) return;
+            if (!jpdbKanjiActionIsCurrent(providerContext, this.providerContexts.jpdb, kanji)) return;
             this.finishJpdbKanjiAction(root, card, kanji);
         } catch (error) {
             log.warn('New tab JPDB kanji action failed', { kanji }, error);
@@ -9309,20 +9173,58 @@ export class NewTabController {
     }
 
     private async gradeCurrentCardUnlocked(grade: JPDBGrade, selectedTarget?: NewTabLookupReviewTargetSelection): Promise<boolean> {
-        const target = this.currentGradeTarget();
+        const reviewOp = this.operations.begin('review');
+        const providerContexts = this.providerContexts;
+        const target = this.currentReviewableGradeTarget();
         if (!target) return false;
-        if (!this.canReviewCard(target.card)) return false;
         const isCorrection = this.isReviewHistoryCard(target.card);
         // Offline-first: when the browser is definitely offline, queue the grade
         // straight away instead of attempting a doomed submit. The queue syncs on
         // reconnect (eventually consistent), so no review is ever lost.
-        if (this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false) {
-            return this.gradeOfflineCard(target, grade, selectedTarget, isCorrection);
+        if (this.shouldQueueCurrentGradeOffline()) {
+            return this.gradeOfflineCard(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts);
         }
+        return this.submitOnlineCurrentGrade(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts);
+    }
+
+    private currentReviewableGradeTarget(): NewTabGradeTarget | null {
+        const target = this.currentGradeTarget();
+        if (!target || !this.canReviewCard(target.card)) return null;
+        return target;
+    }
+
+    private shouldQueueCurrentGradeOffline(): boolean {
+        return this.isOfflineSourceLabel(this.sourceLabel) || navigator.onLine === false;
+    }
+
+    private gradeProvidersAreCurrent(
+        expected: NewTabProviderContexts,
+        card: JPDBCard,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+    ): boolean {
+        return newTabReviewProvidersAreCurrent(expected, this.providerContexts, this.gradeReviewTargets(card, selectedTarget));
+    }
+
+    private gradeReviewTargets(card: JPDBCard, selectedTarget: NewTabLookupReviewTargetSelection | undefined): NewTabReviewTarget[] {
+        if (!selectedTarget) return this.reviewTargetsForCard(card);
+        if (selectedTarget.kind === 'anki') return ['anki'];
+        const target = this.reviewTargetForLookupKind(card, selectedTarget.kind);
+        return target ? [target] : [];
+    }
+
+    private async submitOnlineCurrentGrade(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        isCorrection: boolean,
+        reviewOp: ReturnType<OperationTracker['begin']>,
+        providerContexts: NewTabProviderContexts,
+    ): Promise<boolean> {
         try {
-            return await this.submitCurrentGrade(target, grade, selectedTarget, isCorrection);
+            return await this.submitCurrentGrade(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts);
         } catch (error) {
-            return this.handleFailedGrade(target, grade, selectedTarget, isCorrection, error);
+            if (reviewOp.superseded) return false;
+            return this.handleFailedGrade(target, grade, selectedTarget, isCorrection, error, reviewOp, providerContexts);
         }
     }
 
@@ -9331,18 +9233,38 @@ export class NewTabController {
         grade: JPDBGrade,
         selectedTarget: NewTabLookupReviewTargetSelection | undefined,
         isCorrection: boolean,
+        reviewOp: ReturnType<OperationTracker['begin']>,
+        providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
         const queueTargets = this.offlineGradeTargetsForSelection(target.card, selectedTarget);
         // A deliberately opened offline source never prompts, and neither
         // does a local-only grade (Academy/dictionary needs no network); a
         // live provider session that lost the connection asks once per
         // outage (WaniKani-style).
-        if (!this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets)) {
-            const choice = await this.confirmOfflineReviewing(target.root);
-            if (choice === 'stop') return false;
-            if (choice === 'retry') return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        if (this.shouldConfirmOfflineGrade(queueTargets)) {
+            return this.confirmOrQueueOfflineGrade(target, grade, selectedTarget, isCorrection, reviewOp, providerContexts, queueTargets);
         }
-        return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+        return this.queueGradeForLater(target, grade, queueTargets, isCorrection, providerContexts);
+    }
+
+    private shouldConfirmOfflineGrade(queueTargets: QueuedNewTabGradeTarget[]): boolean {
+        return !this.isOfflineSourceLabel(this.sourceLabel) && this.networkGradeTargets(queueTargets);
+    }
+
+    private async confirmOrQueueOfflineGrade(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        isCorrection: boolean,
+        reviewOp: ReturnType<OperationTracker['begin']>,
+        providerContexts: NewTabProviderContexts,
+        queueTargets: QueuedNewTabGradeTarget[],
+    ): Promise<boolean> {
+        const choice = await this.confirmOfflineReviewing(target.root);
+        if (reviewOp.superseded) return false;
+        if (choice === 'stop') return false;
+        if (choice === 'retry') return this.gradeCurrentCardUnlocked(grade, selectedTarget);
+        return this.queueGradeForLater(target, grade, queueTargets, isCorrection, providerContexts);
     }
 
     private async submitCurrentGrade(
@@ -9350,31 +9272,32 @@ export class NewTabController {
         grade: JPDBGrade,
         selectedTarget: NewTabLookupReviewTargetSelection | undefined,
         isCorrection: boolean,
+        reviewOp: ReturnType<OperationTracker['begin']>,
+        providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
         this.setStatus(target.root, this.text('grading'));
         const submittedTarget = await this.submitGrade(target.card, grade, selectedTarget);
+        if (reviewOp.superseded || !this.gradeProvidersAreCurrent(providerContexts, target.card, selectedTarget)) return false;
         // A landed submit proves the connection is back even if no
         // 'online' event fired; the next outage must ask again.
         this.offlineReviewingAccepted = false;
         this.invalidateReviewSourceCache(target.card);
         this.setStatus(target.root, this.gradeSuccessStatus(grade, submittedTarget));
-        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+        this.recordCompletedReview(isCorrection);
         // Bunpro review ids and WaniKani due assignments are consumed server
         // obligations. Neither API supports reversing that review, so a local
         // undo would only resurrect a stale card and allow a duplicate submit.
-        this.lastUndoableReview = target.card.reviewSource === 'bunpro-api'
-            || target.card.source === 'bunpro'
-            || target.card.reviewSource === 'wanikani-api'
-            || target.card.source === 'wanikani'
-            ? undefined
-            : {
-                card: target.card,
-                at: Date.now(),
-                serverUndo: isJitenSrsCard(target.card) && typeof this.dependencies.jiten?.undoReview === 'function',
-                counted: !isCorrection,
-            };
+        this.lastUndoableReview = newTabUndoableReview(target.card, isCorrection, this.canUndoJitenReview());
         await this.advanceAfterGrade(target.root, target.card, grade);
         return true;
+    }
+
+    private recordCompletedReview(isCorrection: boolean): void {
+        if (!isCorrection) this.sessionProgress.recordReviewCompleted();
+    }
+
+    private canUndoJitenReview(): boolean {
+        return typeof this.dependencies.jiten?.undoReview === 'function';
     }
 
     private async handleFailedGrade(
@@ -9383,15 +9306,15 @@ export class NewTabController {
         selectedTarget: NewTabLookupReviewTargetSelection | undefined,
         isCorrection: boolean,
         error: unknown,
+        reviewOp: ReturnType<OperationTracker['begin']>,
+        providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
         log.warn('New tab grade failed', { term: target.card.spelling, source: target.card.source, grade }, error);
         if (this.localYomuStorageFailure(error)) {
-            const message = this.text('yomuLocalSrsStorageFailed');
-            this.setStatus(target.root, message);
-            this.dependencies.toast?.(message);
+            this.reportLocalYomuGradeFailure(target.root);
             return false;
         }
-        if (target.card.source === 'bunpro' || target.card.reviewSource === 'bunpro-api') {
+        if (isSessionBunproCard(target.card)) {
             // A lost response is ambiguous: Bunpro may have accepted the
             // grade and consumed this session review id. Retire the local
             // card and wait for a fresh live queue before accepting input,
@@ -9399,12 +9322,39 @@ export class NewTabController {
             await this.reloadAfterAmbiguousBunproGrade(target.root, target.card);
             return true;
         }
-        const queueTargets = selectedTarget
-            ? this.offlineGradeTargetsForSelection(target.card, selectedTarget)
-            : this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card);
+        const queueTargets = this.failedGradeQueueTargets(target.card, selectedTarget, error);
+        return this.resolveOrQueueFailedGrade(target, grade, selectedTarget, isCorrection, error, reviewOp, providerContexts, queueTargets);
+    }
+
+    private reportLocalYomuGradeFailure(root: HTMLElement): void {
+        const message = this.text('yomuLocalSrsStorageFailed');
+        this.setStatus(root, message);
+        this.dependencies.toast?.(message);
+    }
+
+    private failedGradeQueueTargets(
+        card: JPDBCard,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        error: unknown,
+    ): QueuedNewTabGradeTarget[] {
+        if (selectedTarget) return this.offlineGradeTargetsForSelection(card, selectedTarget);
+        return this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(card);
+    }
+
+    private async resolveOrQueueFailedGrade(
+        target: NewTabGradeTarget,
+        grade: JPDBGrade,
+        selectedTarget: NewTabLookupReviewTargetSelection | undefined,
+        isCorrection: boolean,
+        error: unknown,
+        reviewOp: ReturnType<OperationTracker['begin']>,
+        providerContexts: NewTabProviderContexts,
+        queueTargets: QueuedNewTabGradeTarget[],
+    ): Promise<boolean> {
         const promptResult = await this.resolveFailedGradePrompt(target, grade, selectedTarget, queueTargets, error);
+        if (reviewOp.superseded) return false;
         if (promptResult !== null) return promptResult;
-        return this.queueGradeForLater(target, grade, queueTargets, isCorrection);
+        return this.queueGradeForLater(target, grade, queueTargets, isCorrection, providerContexts);
     }
 
     private localYomuStorageFailure(error: unknown): boolean {
@@ -9443,16 +9393,28 @@ export class NewTabController {
         grade: JPDBGrade,
         queueTargets: QueuedNewTabGradeTarget[],
         isCorrection: boolean,
+        providerContexts: NewTabProviderContexts,
     ): Promise<boolean> {
-        if (!queueTargets.length || !await this.gradeQueue.enqueue(target.card, grade, queueTargets)) {
+        if (!await this.tryQueueGrade(target.card, grade, queueTargets, providerContexts)) {
             this.setStatus(target.root, this.text('couldNotSubmitGrade'));
             return false;
         }
+        if (!newTabReviewProvidersAreCurrent(providerContexts, this.providerContexts, queueTargets)) return true;
         this.syncPendingCount = await this.gradeQueue.pendingCount().catch(() => this.syncPendingCount + 1);
         this.setStatus(target.root, this.text('offlineGradeReconnect'));
         if (!isCorrection) this.sessionProgress.recordReviewCompleted();
         this.advanceAfterGrade(target.root, target.card, grade);
         return true;
+    }
+
+    private tryQueueGrade(
+        card: JPDBCard,
+        grade: JPDBGrade,
+        targets: QueuedNewTabGradeTarget[],
+        providerContexts: NewTabProviderContexts,
+    ): Promise<boolean> {
+        if (!targets.length) return Promise.resolve(false);
+        return this.gradeQueue.enqueue(card, grade, targets, target => newTabReviewProviderContext(providerContexts, target));
     }
 
     // Local grading (Academy SRS) needs no connection, so it never raises the
@@ -9678,24 +9640,40 @@ export class NewTabController {
     }
 
     private async undoLastReview(root: HTMLElement): Promise<void> {
-        const last = this.lastUndoableReview;
-        if (!last || !this.canUndoLastReview()) return;
-        this.lastUndoableReview = undefined;
+        const last = this.takeLastUndoableReview();
+        if (!last) return;
         if (!last.serverUndo) {
             this.restoreLocallyUndoneCard(root, last);
             return;
         }
+        await this.undoServerReview(root, last);
+    }
+
+    private takeLastUndoableReview(): typeof this.lastUndoableReview {
+        if (!this.canUndoLastReview()) return undefined;
+        const last = this.lastUndoableReview;
+        this.lastUndoableReview = undefined;
+        return last;
+    }
+
+    private async undoServerReview(root: HTMLElement, last: NonNullable<typeof this.lastUndoableReview>): Promise<void> {
+        const providerContext = this.providerContexts.jiten;
         try {
             // The provider-side reversal (undoReview + state refresh + broadcast)
             // is the Jiten adapter's undo; the controller keeps the local
             // card-restoration and toast around it.
             await this.reviewSubmitter.undoServerReview(last.card);
-            this.dependencies.toast?.(this.text('reviewUndone'));
+            if (providerContext !== this.providerContexts.jiten) return;
+            this.showToast('reviewUndone');
             this.restoreUndoneCardToFront(root, last.card);
         } catch (error) {
             log.warn('Undo review failed', error);
-            this.dependencies.toast?.(this.text('undoReviewFailed'));
+            this.showToast('undoReviewFailed');
         }
+    }
+
+    private showToast(key: NewTabTextKey): void {
+        this.dependencies.toast?.(this.text(key));
     }
 
     // UT-57: JPDB's API and AnkiConnect cannot reverse a submitted review, so
@@ -9722,20 +9700,33 @@ export class NewTabController {
     }
 
     private async submitAnkiGrade(card: JPDBCard, grade: JPDBGrade, explicitCardId?: number): Promise<AnkiLookupResult | null> {
-        const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
-        if (!cardId) throw new Error(this.text('missingAnkiCardId'));
+        const cardId = this.requiredAnkiCardId(card, explicitCardId);
+        const providerContext = this.providerContexts.anki;
         await this.dependencies.anki.answerCard(cardId, grade);
+        if (providerContext !== this.providerContexts.anki) return null;
         try {
-            return await this.refreshAnkiReviewCardState(card, cardId);
+            return await this.refreshAnkiReviewCardState(card, cardId, providerContext);
         } finally {
-            this.dependencies.onAnkiStatusChanged?.(card);
-            this.publishGradedCardState(card);
+            this.publishAnkiGradeIfCurrent(card, providerContext);
         }
     }
 
-    private async refreshAnkiReviewCardState(card: JPDBCard, preferredCardId?: number): Promise<AnkiLookupResult | null> {
+    private requiredAnkiCardId(card: JPDBCard, explicitCardId?: number): number {
+        const cardId = explicitCardId ?? this.ankiCardIdForReview(card);
+        if (!cardId) throw new Error(this.text('missingAnkiCardId'));
+        return cardId;
+    }
+
+    private publishAnkiGradeIfCurrent(card: JPDBCard, providerContext: string): void {
+        if (providerContext !== this.providerContexts.anki) return;
+        this.dependencies.onAnkiStatusChanged?.(card);
+        this.publishGradedCardState(card);
+    }
+
+    private async refreshAnkiReviewCardState(card: JPDBCard, preferredCardId?: number, providerContext = this.providerContexts.anki): Promise<AnkiLookupResult | null> {
         if (!this.dependencies.anki.findExistingCards) return null;
         const lookup = await this.dependencies.anki.findExistingCards(card);
+        if (providerContext !== this.providerContexts.anki) return null;
         this.applyAnkiLookupToReviewCard(card, lookup, preferredCardId);
         return lookup;
     }
@@ -10218,70 +10209,35 @@ export class NewTabController {
     private syncDeckSelector(root: HTMLElement): void {
         const select = root.querySelector<HTMLSelectElement>('[data-newtab-deck-select]');
         if (!select) return;
+        const requestGeneration = ++this.deckSelectorGeneration;
         const settings = this.dependencies.getSettings();
-        // The Search tab shares the JPDB deck scope (2D reviews: pick a deck,
-        // browse all of its words in queue order, type to narrow).
-        if (this.state.route === 'search') {
-            this.syncSearchDeckSelector(select, settings);
-            return;
-        }
-        if (!this.isVocabularyStudyRoute()) {
-            select.hidden = true;
-            return;
-        }
-        // Anki source gets its own deck scope (SH-6 parity for all providers).
-        if (this.state.source === 'anki') {
-            this.syncAnkiDeckSelector(select, settings);
-            return;
-        }
-        this.syncJpdbDeckSelector(select, settings);
+        const mode = newTabDeckSelectorMode({
+            state: this.state,
+            vocabularyStudy: this.isVocabularyStudyRoute(),
+            settings,
+        });
+        select.hidden = mode === 'hidden';
+        if (mode === 'anki') void this.populateAnkiDeckSelector(select, requestGeneration);
+        if (mode === 'jpdb') void this.populateDeckSelector(select, settings, requestGeneration);
     }
 
-    private syncSearchDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): void {
-        const show = hasJpdbApiCredential(settings);
-        select.hidden = !show;
-        if (show) void this.populateDeckSelector(select, settings);
-    }
-
-    private syncAnkiDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): void {
-        const show = settings.ankiEnabled && settings.newTabAnkiEnabled;
-        select.hidden = !show;
-        if (show) void this.populateAnkiDeckSelector(select);
-    }
-
-    private syncJpdbDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): void {
-        const sourceAllowsJpdb = this.state.source === 'auto' || this.state.source === 'jpdb';
-        // UT-44: the picker also lists Jiten study decks, so Jiten-only
-        // credentials show it too.
-        const show = sourceAllowsJpdb && (hasJpdbApiCredential(settings) || hasJitenApiCredential(settings));
-        select.hidden = !show;
-        if (!show) return;
-        void this.populateDeckSelector(select, settings);
-    }
-
-    private async populateAnkiDeckSelector(select: HTMLSelectElement): Promise<void> {
-        const invoke = this.dependencies.anki.invoke;
-        const selected = this.state.ankiDeck || 'all';
-        this.primeDeckSelector(select, selected, selected === 'all' ? this.text('allVocabularyDeck') : selected);
-        const names = typeof invoke === 'function'
-            ? await invoke<string[]>('deckNames').catch((): string[] => [])
-            : [];
-        if (!select.isConnected) return;
+    private async populateAnkiDeckSelector(select: HTMLSelectElement, requestGeneration: number): Promise<void> {
+        const allVocabularyLabel = this.text('allVocabularyDeck');
+        const selection = newTabAnkiDeckSelection(this.state.ankiDeck, allVocabularyLabel);
+        this.primeDeckSelector(select, selection.id, selection.label);
+        const names = await this.loadAnkiDeckNames();
+        if (!this.canApplyDeckSelector(select, requestGeneration)) return;
         // UT-46: per-deck due counts straight from Anki's own scheduler
         // search — pick a deck knowing what's waiting in it.
         const dueByDeck = await this.ankiDeckDueCounts(names.filter(Boolean));
-        if (!select.isConnected) return;
-        const withDue = (name: string, label: string): string => {
-            const due = dueByDeck.get(name);
-            return typeof due === 'number' && due > 0 ? `${label} · ${due}` : label;
-        };
-        const options = [
-            { id: 'all', name: this.text('allVocabularyDeck') },
-            ...names.filter(Boolean).map(name => ({ id: name, name: withDue(name, name) })),
-        ];
-        if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
-        replaceChildrenWith(select, options.map(option => el('option', { value: option.id, selected: option.id === selected }, option.name)));
-        select.value = selected;
+        if (!this.canApplyDeckSelector(select, requestGeneration)) return;
+        renderDeckSelectorOptions(select, newTabAnkiDeckSelectorOptions(names, dueByDeck, selection, allVocabularyLabel), selection.id);
+    }
+
+    private loadAnkiDeckNames(): Promise<string[]> {
+        const invoke = this.dependencies.anki.invoke;
+        if (typeof invoke !== 'function') return Promise.resolve([]);
+        return invoke<string[]>('deckNames').catch((): string[] => []);
     }
 
     private ankiDeckDueCountsCache?: { at: number; promise: Promise<Map<string, number>> };
@@ -10312,36 +10268,39 @@ export class NewTabController {
         return promise;
     }
 
-    private async populateDeckSelector(select: HTMLSelectElement, settings: ReaderSettings): Promise<void> {
-        const selected = (this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || 'all';
-        this.primeDeckSelector(select, selected, this.deckSelectorFallbackLabel(selected));
-        const key = effectiveJpdbApiKey(settings);
-        if (this.deckSelectorDecks?.key !== key) {
-            const listDecks = typeof this.dependencies.jpdb.listDecks === 'function'
-                ? this.dependencies.jpdb.listDecks()
-                : Promise.resolve([] as JPDBDeck[]);
-            this.deckSelectorDecks = { key, promise: listDecks.catch((): JPDBDeck[] => []) };
+    private async populateDeckSelector(
+        select: HTMLSelectElement,
+        settings: ReaderSettings,
+        requestGeneration = ++this.deckSelectorGeneration,
+    ): Promise<void> {
+        const initial = newTabJpdbDeckSelectorModel({
+            state: this.state,
+            settings,
+            allVocabularyLabel: this.text('allVocabularyDeck'),
+        });
+        this.primeDeckSelector(select, initial.selected, this.deckSelectorFallbackLabel(initial.selected));
+        if (!initial.supportsProviderDecks) {
+            renderDeckSelectorOptions(select, initial.options, initial.selected);
+            return;
         }
-        const decks = await (this.deckSelectorDecks?.promise ?? Promise.resolve([] as JPDBDeck[]));
+        const decks = await this.cachedJpdbDecks(settings);
         const jitenDecks = await this.jitenDeckSelectorOptions(settings);
-        if (!select.isConnected) return;
-        const bothProviders = hasJpdbApiCredential(settings) && hasJitenApiCredential(settings);
-        const options = [
-            { id: 'all', name: this.text('allVocabularyDeck') },
-            // UT-62: one-tap provider scoping when both queues exist.
-            ...(bothProviders ? [
-                { id: 'provider:jiten', name: 'Jiten' },
-                { id: 'provider:jpdb', name: 'JPDB' },
-            ] : []),
-            ...decks.filter(deck => deck.id !== 'all'),
-            ...jitenDecks,
-        ];
-        if (!options.some(option => option.id === selected)) options.push({ id: selected, name: selected });
-        replaceChildrenWith(select, options.map(option => el('option', {
-            value: option.id,
-            selected: option.id === selected,
-        }, deckOptionLabel(option))));
-        select.value = selected;
+        if (!this.canApplyDeckSelector(select, requestGeneration)) return;
+        const model = newTabJpdbDeckSelectorModel({
+            // A newer request owns state changes after the async provider loads.
+            state: { jpdbDeck: initial.selected },
+            settings,
+            jpdbDecks: decks,
+            jitenDecks,
+            allVocabularyLabel: this.text('allVocabularyDeck'),
+        });
+        renderDeckSelectorOptions(select, model.options, model.selected);
+    }
+
+    private canApplyDeckSelector(select: HTMLSelectElement, requestGeneration: number): boolean {
+        return requestGeneration === this.deckSelectorGeneration
+            && select.isConnected
+            && usesJapaneseProviders();
     }
 
     private primeDeckSelector(select: HTMLSelectElement, selected: string, label: string): void {
@@ -10513,7 +10472,7 @@ export class NewTabController {
     }
 
     private handleLocationPopstate(root: HTMLElement): void {
-        if (this.searchController.handleSearchPopstate(root, newTabRoute(), newTabRouteSearchQueryFromLocation())) return;
+        if (this.searchController.handleSearchPopstate(root, currentNewTabRoute(), currentNewTabSearchQuery())) return;
         this.handleCardPopstate(root);
     }
 
@@ -10555,13 +10514,6 @@ function ankiAudioFilenamesFromFields(fields: Record<string, string>): string[] 
     return filenames.length ? filenames : undefined;
 }
 
-// UT-44: deck-picker values of the form jiten:<id> scope to a Jiten study deck.
-function jitenScopedDeckId(pickedDeck: string): number | null {
-    if (!pickedDeck.startsWith('jiten:')) return null;
-    const id = Number(pickedDeck.slice('jiten:'.length));
-    return Number.isFinite(id) && id > 0 ? Math.floor(id) : null;
-}
-
 function uniqueConcreteSources(sources: Array<ConcreteNewTabWordSource | null>): ConcreteNewTabWordSource[] {
     return sources.filter((source, index): source is ConcreteNewTabWordSource => Boolean(source) && sources.indexOf(source) === index);
 }
@@ -10575,45 +10527,6 @@ function concreteNewTabSourceFromValue(value: string | undefined): ConcreteNewTa
         || value === 'dictionary'
         ? value
         : null;
-}
-
-function wanikaniSubjectTypeFromReviewable(card: YomuSrsReviewable): JPDBCard['wanikaniSubjectType'] {
-    const raw = card.raw as { subject?: { type?: unknown } } | undefined;
-    const type = raw?.subject?.type;
-    return type === 'radical' || type === 'kanji' || type === 'vocabulary' || type === 'kana_vocabulary'
-        ? type
-        : card.kind === 'kanji'
-            ? 'kanji'
-            : card.kind === 'unknown'
-                ? 'radical'
-                : 'vocabulary';
-}
-
-function wanikaniAudioUrlsFromReviewable(card: YomuSrsReviewable): string[] | undefined {
-    const raw = card.raw as { subject?: { audio?: Array<{ url?: unknown }> } } | undefined;
-    const urls = raw?.subject?.audio
-        ?.map(item => typeof item.url === 'string' ? item.url : '')
-        .filter(Boolean);
-    return urls?.length ? urls : undefined;
-}
-
-function srsReviewablePartOfSpeech(card: YomuSrsReviewable): string[] {
-    const existing = uniqueStrings([
-        card.partOfSpeech ?? '',
-        ...card.meanings.flatMap(meaning => meaning.partOfSpeech ?? []),
-    ]);
-    if (existing.length) return existing;
-    return card.kind === 'grammar' ? ['grammar'] : [];
-}
-
-function optionalPositiveNumber(value: string | undefined): number | undefined {
-    const number = Number(value);
-    return Number.isFinite(number) && number > 0 ? Math.floor(number) : undefined;
-}
-
-function bunproReviewableType(kind: YomuSrsReviewableKind): JPDBCard['bunproReviewableType'] {
-    if (kind === 'grammar' || kind === 'vocabulary' || kind === 'sentence') return kind;
-    return 'unknown';
 }
 
 function isNewTabRevealKey(key: string): boolean {
@@ -10688,13 +10601,24 @@ function normalizedPromptSentenceText(value: string): string {
     return value.replace(/\s+/g, '').trim();
 }
 
-// jpdb.io Learn parity: deck entries show progress ("961 / 2302 · 40%" known
-// coverage) when the API provides it.
-function deckOptionLabel(deck: { name: string; vocabularyCount?: number; knownCoverage?: number }): string {
-    const parts: string[] = [];
-    if (typeof deck.vocabularyCount === 'number') parts.push(`${deck.vocabularyCount}`);
-    if (typeof deck.knownCoverage === 'number') parts.push(`${Math.round(deck.knownCoverage)}%`);
-    return parts.length ? `${deck.name} · ${parts.join(' · ')}` : deck.name;
+function renderDeckSelectorOptions(
+    select: HTMLSelectElement,
+    options: readonly { id: string; label: string }[],
+    selected: string,
+): void {
+    replaceChildrenWith(select, options.map(option => el('option', {
+        value: option.id,
+        selected: option.id === selected,
+    }, option.label)));
+    select.value = selected;
+}
+
+function jpdbKanjiActionAvailable(actionId: string, kanji: string): boolean {
+    return Boolean(actionId) && targetCanLookupCharacter(kanji) && usesJapaneseProviders();
+}
+
+function jpdbKanjiActionIsCurrent(previousContext: string, currentContext: string, kanji: string): boolean {
+    return previousContext === currentContext && targetCanLookupCharacter(kanji) && usesJapaneseProviders();
 }
 
 function jpdbExampleSentenceForPrompt(info: JpdbVocabularyInfo | null, card: JPDBCard): string {

@@ -232,43 +232,6 @@ export class ReaderCardLookupSession {
         return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
     }
 
-    async publicJitenLookupCandidateCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
-        const scope = this.captureTarget();
-        if (!scope.isCurrent() || !usesJapaneseProviders()) return new Map<string, JPDBCard>();
-        const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
-        if (!uniqueTerms.length) return new Map<string, JPDBCard>();
-        const resolved = await this.dependencies.jitenPublicVocabulary().lookupMany(uniqueTerms).catch(error => {
-            this.dependencies.log.warn('Jiten candidate failed', { terms: uniqueTerms.length }, error);
-            return new Map<string, JPDBCard>();
-        });
-        return scope.isCurrent() && usesJapaneseProviders() ? resolved : new Map<string, JPDBCard>();
-    }
-
-    // Production stopped calling this in 1.8.79: the span authority's
-    // rendered-word path replaced the public-JPDB kana-expansion stage it
-    // implemented. Kept until the later-candidate-after-Jiten-miss fallback
-    // it encodes is verified preserved (or ported) in the authority path -
-    // two tests pin that contract meanwhile.
-    // fallow-ignore-next-line unused-class-member
-    async publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined> {
-        const scope = this.captureTarget();
-        if (!scope.isCurrent() || !usesJapaneseProviders()) return undefined;
-        const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
-        if (!uniqueTerms.length) return undefined;
-        const jitenCards = await this.publicJitenLookupCandidateCards(uniqueTerms);
-        if (!scope.isCurrent()) return undefined;
-        for (const term of uniqueTerms) {
-            const card = jitenCards.get(normalizedJitenLookupKey(term));
-            if (card && usesJapaneseProviders()) return card;
-        }
-        for (const term of uniqueTerms) {
-            const card = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
-            if (!scope.isCurrent()) return undefined;
-            if (card && usesJapaneseProviders()) return card;
-        }
-        return undefined;
-    }
-
     async lookupFallbackApiCard(
         card: JPDBCard,
         options: PublicLookupOptions = {},

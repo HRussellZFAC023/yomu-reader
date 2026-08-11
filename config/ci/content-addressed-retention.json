@@ -2,8 +2,7 @@
   "schemaVersion": 1,
   "releaseRetentionCount": 40,
   "supportedReleaseRefs": [
-    "v1.8.71",
-    "v1.8.72"
+    "v1.8.88"
   ],
   "retainedPaths": [
     "docs/public/greasyfork/yomu-anki.1d291cb40c3a.user.js",
@@ -91,6 +90,7 @@
     "docs/public/greasyfork/yomu-runtime.f2370e366b08.user.js",
     "docs/public/greasyfork/yomu-runtime.f77ec7185f4c.user.js",
     "docs/public/greasyfork/yomu-runtime.f80d45cdea24.user.js",
+    "docs/public/greasyfork/yomu-runtime.fa6595fe3a19.user.js",
     "docs/public/greasyfork/yomu-settings-surface.62847667e7cb.user.js",
     "docs/public/greasyfork/yomu-settings-surface.77a160927487.user.js",
     "docs/public/greasyfork/yomu-settings-surface.a362e255a166.user.js",
@@ -117,6 +117,7 @@
     "docs/public/yomu.88868683e4f2.css",
     "docs/public/yomu.93a84fd2a360.css",
     "docs/public/yomu.9643433aba2a.css",
+    "docs/public/yomu.98ece4dc43de.css",
     "docs/public/yomu.ea1f28208a04.css"
   ]
 }

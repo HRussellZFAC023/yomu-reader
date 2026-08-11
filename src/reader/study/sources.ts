@@ -9,13 +9,14 @@ import { renderStudyMeaningBlock, renderStudySentenceBlock } from './section-ren
 import {
     detectGrammarHints as detectLocalGrammarHints,
     preloadGrammarResources,
-    preloadJapaneseSentenceTranslation,
+    preloadTargetSentenceTranslation,
     renderGrammarHints,
-    translateJapaneseSentence,
+    translateTargetSentence,
     type GrammarHint,
+    type SentenceTranslationResult,
 } from './tools';
 import type { JPDBToken, ReaderSettings } from '../app/types';
-import { activeLearningTarget, outputLanguageOf } from '../languages';
+import { activeLearningTarget, localeDirection, outputLanguageOf } from '../languages';
 import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
 
 const log = Logger.scope('StudySources');
@@ -28,8 +29,12 @@ interface StudyTranslationResult {
     // stall (iPad WebKit IndexedDB), so it is applied opportunistically and
     // never gates the translation.
     tokens: Promise<JPDBToken[]>;
-    translated: string;
+    translation: SentenceTranslationResult | null;
 }
+
+type StudyTranslationAttempt =
+    | { status: 'translated'; result: StudyTranslationResult }
+    | { status: 'failed'; error: unknown };
 
 interface StudyParseOptions {
     jpdbTimeoutMs?: number;
@@ -89,32 +94,62 @@ export class StudySourceController {
     private preloadStudySources(popover: HTMLElement, sentence?: string): void {
         if (!sentence) return;
         const settings = this.settings();
+        this.preloadGrammarSource(popover, sentence, settings);
+        this.preloadTranslationSource(popover, sentence, settings);
+    }
+
+    private preloadGrammarSource(popover: HTMLElement, sentence: string, settings: ReaderSettings): void {
+        if (!settings.studyGrammarEnabled) return;
         const grammar = popover.querySelector<HTMLElement>('[data-study-grammar]');
-        if (settings.studyGrammarEnabled && grammar) {
-            // Detection is local and cheap. Warm its target-scoped cache, but
-            // keep the row mounted: the loader replaces the pending copy with
-            // a visible match, no-match, or no-rules answer.
-            void this.cachedGrammarHints(sentence).catch(() => undefined);
-            preloadGrammarResources(sentence, settings.interfaceLanguage);
-        }
+        if (!grammar) return;
+        // Detection is local and cheap. Warm its target-scoped cache, but keep
+        // the row mounted for a visible match, no-match, or no-rules answer.
+        void this.cachedGrammarHints(sentence).catch(() => undefined);
+        preloadGrammarResources(sentence, settings.interfaceLanguage);
+    }
+
+    private preloadTranslationSource(popover: HTMLElement, sentence: string, settings: ReaderSettings): void {
+        if (!settings.studyTranslationEnabled) return;
         const translation = popover.querySelector<HTMLElement>('[data-study-translation]');
-        if (settings.studyTranslationEnabled && translation) {
-            preloadJapaneseSentenceTranslation(sentence, outputLanguageOf(settings));
-            // Same async-empty rule as grammar: an untranslatable sentence
-            // hides the whole section instead of leaving a header shell.
-            void this.cachedTranslationContent(sentence).then(result => {
-                if (!result.translated && translation.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation.hidden = true;
-            }).catch(() => undefined);
-        }
+        if (!translation) return;
+        const requestKey = this.studyCacheKey(sentence);
+        preloadTargetSentenceTranslation(sentence, outputLanguageOf(settings));
+        // Same async-empty rule as grammar: an untranslatable sentence hides
+        // the whole section instead of leaving a header shell.
+        void this.cachedTranslationContent(sentence, requestKey)
+            .then(result => this.hideEmptyPreloadedTranslation(popover, translation, sentence, requestKey, result))
+            .catch(() => undefined);
+    }
+
+    private hideEmptyPreloadedTranslation(
+        popover: HTMLElement,
+        container: HTMLElement,
+        sentence: string,
+        requestKey: string,
+        result: StudyTranslationResult,
+    ): void {
+        if (result.translation) return;
+        if (requestKey !== this.studyCacheKey(sentence)) return;
+        if (!this.canApplyTranslation(popover, container)) return;
+        container.hidden = true;
     }
 
     private renderTranslationPanel(sentence: string): string {
         const settings = this.settings();
         const language = settings.interfaceLanguage;
+        const target = activeLearningTarget();
         return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
-                ${renderStudySentenceBlock(sentence, language, { audioEnabled: settings.audioEnabled })}
-                ${renderStudyMeaningBlock(uiText(language, 'openSectionToTranslate'), language, 'data-study-translation-result')}
+                ${renderStudySentenceBlock(sentence, language, {
+                    audioEnabled: settings.audioEnabled,
+                    content: {
+                        lang: target.typography.contentLocale,
+                        dir: target.direction,
+                    },
+                })}
+                ${renderStudyMeaningBlock(uiText(language, 'openSectionToTranslate'), language, {
+                    resultAttrs: 'data-study-translation-result',
+                })}
             </div>
         `;
     }
@@ -168,7 +203,7 @@ export class StudySourceController {
         this.installLazyStudyLoader(popover, sentence, '[data-study-translation]', container => {
             const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
             if (result) result.textContent = uiText(this.settings().interfaceLanguage, 'translating');
-            return this.loadTranslation(popover, sentence, container);
+            return this.loadTranslation(popover, sentence!, container);
         });
     }
 
@@ -196,15 +231,37 @@ export class StudySourceController {
         }
     }
 
-    private async loadTranslation(popover: HTMLElement, sentence: string | undefined, container: HTMLElement): Promise<void> {
-        if (!sentence) return;
-        try {
-            const translation = await this.cachedTranslationContent(sentence);
+    private async loadTranslation(popover: HTMLElement, sentence: string, container: HTMLElement): Promise<void> {
+        while (this.canApplyTranslation(popover, container)) {
+            const requestKey = this.studyCacheKey(sentence);
+            const attempt = await this.requestTranslation(sentence, requestKey);
             if (!this.canApplyTranslation(popover, container)) return;
-            this.applyTranslation(popover, sentence, container, translation);
-        } catch (error) {
-            this.renderTranslationError(sentence, container, error);
+            if (requestKey !== this.studyCacheKey(sentence)) continue;
+            this.finishTranslationAttempt(popover, sentence, container, requestKey, attempt);
+            return;
         }
+    }
+
+    private async requestTranslation(sentence: string, requestKey: string): Promise<StudyTranslationAttempt> {
+        try {
+            return { status: 'translated', result: await this.cachedTranslationContent(sentence, requestKey) };
+        } catch (error) {
+            return { status: 'failed', error };
+        }
+    }
+
+    private finishTranslationAttempt(
+        popover: HTMLElement,
+        sentence: string,
+        container: HTMLElement,
+        requestKey: string,
+        attempt: StudyTranslationAttempt,
+    ): void {
+        if (attempt.status === 'failed') {
+            this.renderTranslationError(sentence, container, attempt.error);
+            return;
+        }
+        this.applyTranslation(popover, sentence, container, attempt.result, requestKey);
     }
 
     private canApplyTranslation(popover: HTMLElement, container: HTMLElement): boolean {
@@ -218,9 +275,9 @@ export class StudySourceController {
         // "Translating..." forever and the empty-translation hide never ran.
         // Parse now runs only when there is a translation to enrich, and its
         // tokens are handed back as a promise applied without blocking.
-        const translated = await translateJapaneseSentence(sentence, outputLanguageOf(this.settings()));
-        const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve<JPDBToken[]>([]);
-        return { tokens, translated };
+        const translation = await translateTargetSentence(sentence, outputLanguageOf(this.settings()));
+        const tokens = translation ? this.parseTranslationTokens(sentence) : Promise.resolve<JPDBToken[]>([]);
+        return { tokens, translation };
     }
 
     private parseTranslationTokens(sentence: string): Promise<JPDBToken[]> {
@@ -240,8 +297,10 @@ export class StudySourceController {
         return promise;
     }
 
-    private cachedTranslationContent(sentence: string): Promise<StudyTranslationResult> {
-        const key = this.studyCacheKey(sentence);
+    private cachedTranslationContent(
+        sentence: string,
+        key = this.studyCacheKey(sentence),
+    ): Promise<StudyTranslationResult> {
         const cached = this.translationContentCache.get(key);
         if (cached) return cached;
         const promise = this.loadTranslationContent(sentence).catch(error => {
@@ -262,21 +321,27 @@ export class StudySourceController {
         sentence: string,
         container: HTMLElement,
         translation: StudyTranslationResult,
+        requestKey: string,
     ): void {
-        if (!translation.translated) {
-            // Not a translatable Japanese sentence (OCR/page noise) — showing
+        if (!translation.translation) {
+            // Not meaningful target-language text (OCR/page noise) — showing
             // the raw text plus an empty result reads as a broken translation.
             container.hidden = true;
             return;
         }
         const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-        if (result) result.textContent = translation.translated;
+        if (result) {
+            result.textContent = translation.translation.text;
+            result.lang = translation.translation.outputLanguage;
+            result.dir = localeDirection(translation.translation.outputLanguage);
+        }
         // Upgrade the original line to ruby and annotate the popover once tokens
         // land; never block the MEANING on it, so a stalled parse can't strand
         // the card. Parse is bounded upstream, so tokens always resolves — this
         // runs the same work the old synchronous path did, just deferred.
         void translation.tokens.then(tokens => {
             if (!this.canApplyTranslation(popover, container)) return;
+            if (requestKey !== this.studyCacheKey(sentence)) return;
             const original = container.querySelector<HTMLElement>('[data-study-original-render]');
             if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings()));
             void this.dependencies.parsePopoverJapanese(popover);
@@ -289,7 +354,11 @@ export class StudySourceController {
         log.warn('Automatic sentence translation failed', { sentenceLength: sentence.length }, error);
         if (!container.isConnected) return;
         const result = container.querySelector<HTMLElement>('[data-study-translation-result]');
-        if (result) result.textContent = uiText(this.settings().interfaceLanguage, 'translationUnavailable');
+        if (result) {
+            result.textContent = uiText(this.settings().interfaceLanguage, 'translationUnavailable');
+            result.removeAttribute('lang');
+            result.removeAttribute('dir');
+        }
     }
 
     private sourceAttributes(sourceId: string): string {

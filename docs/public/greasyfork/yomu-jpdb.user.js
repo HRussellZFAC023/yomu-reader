@@ -105,10 +105,10 @@ const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, d
 const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -139,7 +139,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -510,20 +510,6 @@ function storageBridgeResponseDetail(event) {
   message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
 function addBridgeEventListener$1(type, listener) {
   const cleanups = [];
   if (addWindowEventListener(type, listener)) {
@@ -749,7 +735,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -1840,8 +1828,6 @@ function isSharedPublicProxyAllowlistedTarget(target) {
   if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
   if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
   if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-  if (host === "uchisen.com") return path.startsWith("/kanji/");
-  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
   return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
@@ -2949,6 +2935,7 @@ class JpdbClient {
   parseInFlight = /* @__PURE__ */ new Map();
   paragraphParseCache = new LruCache(PARAGRAPH_PARSE_CACHE_SIZE);
   paragraphParseInFlight = /* @__PURE__ */ new Map();
+  cacheGeneration = 0;
   parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
   userDeckPoolCache;
   // Used by ReaderParser as the live JPDB parse backend.
@@ -2964,7 +2951,7 @@ class JpdbClient {
   if (inFlight) {
     return inFlight;
   }
-  const promise = this.parseParagraphs(text, cacheKey);
+  const promise = this.parseParagraphs(text, cacheKey, this.cacheGeneration);
   this.parseInFlight.set(cacheKey, promise);
   void promise.then(() => {
     if (this.parseInFlight.get(cacheKey) === promise) this.parseInFlight.delete(cacheKey);
@@ -3037,6 +3024,7 @@ class JpdbClient {
   return this.cardCache.get(vocabularyPairKey(vid, sid));
   }
   clear() {
+  this.cacheGeneration++;
   this.cardCache.clear();
   this.parseCache.clear();
   this.parseInFlight.clear();
@@ -3076,6 +3064,7 @@ class JpdbClient {
   await this.refreshCard(card);
   }
   async refreshCard(card) {
+  const cacheGeneration = this.cacheGeneration;
   const lookup = await this.api.request("lookup-vocabulary", {
     list: [[card.vid, card.sid]],
     fields: VOCABULARY_FIELDS
@@ -3085,10 +3074,12 @@ class JpdbClient {
     log$2.warn("Card refresh missed", { term: card.spelling, vid: card.vid, sid: card.sid });
     return;
   }
+  if (cacheGeneration !== this.cacheGeneration) return;
   this.cardCache.set(vocabularyPairKey(card.vid, card.sid), fresh);
   Object.assign(card, fresh);
   }
-  cacheCards(cards) {
+  cacheCards(cards, cacheGeneration = this.cacheGeneration) {
+  if (cacheGeneration !== this.cacheGeneration) return;
   for (const card of cards) {
     this.cardCache.set(vocabularyPairKey(card.vid, card.sid), card);
   }
@@ -3098,6 +3089,7 @@ class JpdbClient {
   return orderScheduledJpdbCards(cards).slice(0, limit);
   }
   async lookupDeckVocabularyCards(pairs) {
+  const cacheGeneration = this.cacheGeneration;
   const rawVocabulary = [];
   for (let index = 0; index < pairs.length; index += VOCABULARY_LOOKUP_CHUNK_SIZE) {
     const lookup = await this.api.request("lookup-vocabulary", {
@@ -3107,7 +3099,7 @@ class JpdbClient {
     rawVocabulary.push(...lookup.vocabulary_info ?? []);
   }
   const cards = jpdbVocabularyToCards(rawVocabulary);
-  this.cacheCards(cards);
+  this.cacheCards(cards, cacheGeneration);
   return orderJpdbCardsByPairs(cards, pairs);
   }
   cachedUserDeckPool() {
@@ -3179,7 +3171,7 @@ class JpdbClient {
   clearUserDeckPoolCache() {
   this.userDeckPoolCache = void 0;
   }
-  async fetchParse(text, cacheKey) {
+  async fetchParse(text, cacheKey, cacheGeneration) {
   const done = log$2.time("parse request", { paragraphs: text.length, chars: cacheKey.length });
   try {
     const raw = await this.api.request("parse", {
@@ -3190,7 +3182,8 @@ class JpdbClient {
     });
     const cards = jpdbVocabularyToCards(raw.vocabulary);
     const tokens = jpdbParseResultToTokens(text, raw.tokens, cards);
-    this.cacheCards(cards);
+    if (cacheGeneration !== this.cacheGeneration) return tokens;
+    this.cacheCards(cards, cacheGeneration);
     this.parseCache.set(cacheKey, tokens);
     text.forEach((paragraph, index) => {
       this.paragraphParseCache.set(paragraph, tokens[index] ?? []);
@@ -3200,24 +3193,35 @@ class JpdbClient {
     done();
   }
   }
-  parseParagraphs(text, cacheKey) {
+  parseParagraphs(text, cacheKey, cacheGeneration) {
+  const missing = this.missingParagraphParses(text);
+  if (missing.length) this.queueMissingParagraphParses(missing, cacheGeneration);
+  return Promise.all(text.map((paragraph) => this.paragraphTokens(paragraph))).then((tokens) => this.cacheCombinedParse(cacheKey, cacheGeneration, tokens));
+  }
+  missingParagraphParses(text) {
   const missing = [];
   const seenMissing = /* @__PURE__ */ new Set();
   for (const paragraph of text) {
-    if (this.paragraphParseCache.get(paragraph) || this.paragraphParseInFlight.has(paragraph)) continue;
+    if (this.hasParagraphParse(paragraph)) continue;
     if (seenMissing.has(paragraph)) continue;
     seenMissing.add(paragraph);
     missing.push(paragraph);
   }
-  if (missing.length) this.queueMissingParagraphParses(missing);
-  return Promise.all(text.map((paragraph) => this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? [])).then((tokens) => {
-    this.parseCache.set(cacheKey, tokens);
-    return tokens;
-  });
+  return missing;
   }
-  queueMissingParagraphParses(missing) {
+  hasParagraphParse(paragraph) {
+  return this.paragraphParseCache.get(paragraph) !== void 0 || this.paragraphParseInFlight.has(paragraph);
+  }
+  paragraphTokens(paragraph) {
+  return this.paragraphParseCache.get(paragraph) ?? this.paragraphParseInFlight.get(paragraph) ?? [];
+  }
+  cacheCombinedParse(cacheKey, cacheGeneration, tokens) {
+  if (cacheGeneration === this.cacheGeneration) this.parseCache.set(cacheKey, tokens);
+  return tokens;
+  }
+  queueMissingParagraphParses(missing, cacheGeneration) {
   for (const batch of parseParagraphBatches(missing)) {
-    const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join("\n")));
+    const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join("\n"), cacheGeneration));
     batch.forEach((paragraph, index) => {
       const paragraphPromise = batchRequest.then((parsed) => parsed[index] ?? []);
       this.paragraphParseInFlight.set(paragraph, paragraphPromise);
@@ -8281,6 +8285,9 @@ const COPY = {
   onboardingLanguage: "Settings language",
   onboardingOutputLanguage: "Definition and translation language (output)",
   onboardingTargetLanguage: "Language you are reading (target)",
+  onboardingChooseTarget: "Choose a learning language…",
+  onboardingTargetRequired: "Choose a learning language before continuing.",
+  onboardingUnselectedTargetName: "your learning language",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -9149,7 +9156,6 @@ const COPY = {
   immersionExampleControls: "Immersion Kit example controls",
   exampleSearchLinks: "Example searches",
   loadingKanjiDetails: "Loading kanji details...",
-  loadingMnemonicImages: "Loading mnemonic images...",
   lookupDialog: `${APP_NAME} lookup`,
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
@@ -9432,22 +9438,7 @@ const COPY = {
   sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
   sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
   sourceHelpRtk: "RTK keywords, elements, and stories.",
-  sourceHelpUchisen: "Uchisen mnemonic image carousel.",
   sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-  uchisenMnemonicImages: "Uchisen mnemonic images",
-  uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-  noUchisenImagesYet: "No Uchisen images yet.",
-  generateUchisenImage: "Generate image",
-  generateUchisenImageToggle: "Generate image +",
-  uchisenMnemonicStory: "Mnemonic story",
-  uchisenImagePrompt: "Image prompt",
-  uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-  uchisenGeneratingImage: "Generating image...",
-  uchisenPublishingMnemonic: "Publishing mnemonic...",
-  uchisenGeneratedImage: "Uchisen image published.",
-  uchisenGenerateFailed: "Could not generate Uchisen image.",
-  uchisenLoginRequired: "Log in to Uchisen to generate images.",
-  noStoryAvailable: "No story available",
   sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
@@ -9517,6 +9508,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -9574,7 +9568,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -10692,22 +10685,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。

@@ -1521,8 +1521,79 @@
   display: grid;
   gap: 10px;
 }
+.jpdb-reader-catalog-browse-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 54px;
+  padding: 11px 12px;
+  border: 1px solid var(--jpdb-reader-border);
+  border-radius: 9px;
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
+  text-align: start;
+  cursor: pointer;
+}
+.jpdb-reader-catalog-browse-toggle:hover {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 54%, var(--jpdb-reader-border));
+}
+.jpdb-reader-catalog-browse-toggle:focus-visible {
+  outline: 2px solid var(--jpdb-reader-accent-readable);
+  outline-offset: 2px;
+}
+.jpdb-reader-catalog-browse-toggle-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.jpdb-reader-catalog-browse-toggle .jpdb-reader-catalog-browse-summary {
+  margin: 0;
+}
+.jpdb-reader-catalog-browse-chevron {
+  width: 9px;
+  height: 9px;
+  justify-self: center;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  color: var(--jpdb-reader-muted);
+  transform: rotate(45deg);
+  transition: transform 140ms ease;
+}
+.jpdb-reader-catalog-browse[data-catalog-browse-expanded="true"] .jpdb-reader-catalog-browse-chevron {
+  transform: rotate(225deg);
+}
 .jpdb-reader-catalog-browse-summary {
   margin: -4px 0 2px;
+}
+.jpdb-reader-catalog-browse-search {
+  position: sticky;
+  top: -1px;
+  z-index: 2;
+  padding: 7px 0;
+  background: var(--jpdb-reader-bg);
+}
+.jpdb-reader-catalog-browse-search label {
+  display: grid;
+  gap: 5px;
+}
+.jpdb-reader-catalog-browse-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 4px;
+}
+.jpdb-reader-catalog-browse-navigation .jpdb-reader-btn {
+  width: auto;
+  max-width: min(100%, 320px);
+  white-space: normal;
+}
+.jpdb-reader-catalog-browse-navigation [data-catalog-browse-progress] {
+  margin-inline: auto;
+  font-variant-numeric: tabular-nums;
 }
 .jpdb-reader-recommended-group-title {
   color: var(--jpdb-reader-faint);
@@ -2717,8 +2788,6 @@
 .jpdb-reader-icon-mini[data-immersion-action="next"],
 .jpdb-reader-icon-mini[data-yomu-immersion-action="previous"],
 .jpdb-reader-icon-mini[data-yomu-immersion-action="next"],
-.jpdb-reader-icon-mini[data-uchisen-action="previous"],
-.jpdb-reader-icon-mini[data-uchisen-action="next"],
 .jpdb-reader-icon-mini[data-action="kanji-prev"],
 .jpdb-reader-icon-mini[data-action="kanji-next"] {
   font-size: 19px;

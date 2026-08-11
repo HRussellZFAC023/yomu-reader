@@ -5,4 +5,5 @@ export {
     isYomuHostedPassivePage,
     isYomuHostedVideoPlayerPage,
     isYomuHostedPdfReaderPage,
+    isYomuHostedAcademyPage,
 } from './pages-url';

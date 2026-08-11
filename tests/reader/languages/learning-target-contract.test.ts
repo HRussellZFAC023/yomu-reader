@@ -40,8 +40,8 @@ import {
 } from '../../../src/reader/languages/resolve';
 import type { JPDBCard } from '../../../src/reader/app/types';
 
-function card(spelling: string, reading: string): JPDBCard {
-    return { spelling, reading } as JPDBCard;
+function card(spelling: string, reading: string, language?: string): JPDBCard {
+    return { spelling, reading, ...(language ? { language } : {}) } as JPDBCard;
 }
 
 afterEach(() => {
@@ -276,20 +276,20 @@ describe('a second target needs registration and nothing else', () => {
         expect(targetOcrLanguageHint('')).toBe('ko');
         // audio + TTS
         expect(targetSpeechSynthesisLocale()).toBe('ko-KR');
-        expect(formatAudioUrl('https://tts.test/{language}/{term}', card('책', '')))
+        expect(formatAudioUrl('https://tts.test/{language}/{term}', card('책', '', 'ko')))
             .toBe('https://tts.test/ko/%EC%B1%85');
         // typography
         expect(targetContentLocale()).toBe('ko');
         // mining collation
         expect(targetCollationLocale()).toBe('ko');
+        // SRS / mining reading normalization. The Japanese rule would discard
+        // this reading (it holds no Japanese script) and fall back to the
+        // spelling; the Korean target keeps it when the card owns that target.
+        expect(newTabCardReading(card('한국', '하나', 'ko'))).toBe('하나');
         // subtitles, including the aliases the thin module declared
         expect(isTargetLanguageSubtitleTrack({ label: 'Korean', kind: 'youtube', language: 'ko' })).toBe(true);
         expect(isTargetLanguageSubtitleTrack({ label: 'Korean', kind: 'youtube', language: 'ko-KR' })).toBe(true);
         expect(isTargetLanguageSubtitleTrack({ label: 'Japanese', kind: 'youtube', language: 'ja' })).toBe(false);
-        // SRS / mining reading normalization. The Japanese rule would discard
-        // this reading (it holds no Japanese script) and fall back to the
-        // spelling; the Korean target keeps it.
-        expect(newTabCardReading(card('한국', '하나'))).toBe('하나');
     });
 
     it('accepts an out-of-tree target registered at runtime', () => {
@@ -313,7 +313,7 @@ describe('a second target needs registration and nothing else', () => {
         expect(targetOcrLanguageTag('')).toBe('sw-TZ');
         expect(targetSpeechSynthesisLocale()).toBe('sw-TZ');
         expect(targetContentLocale()).toBe('sw');
-        expect(formatAudioUrl('https://tts.test/{language}/{term}', card('habari', '')))
+        expect(formatAudioUrl('https://tts.test/{language}/{term}', card('habari', '', 'sw')))
             .toBe('https://tts.test/sw/habari');
     });
 

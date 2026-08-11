@@ -2,11 +2,12 @@ import { setInnerHtml } from '../dom';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from '../popup/shell';
-import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateJapaneseSentence } from './tools-impl';
+import { detectGrammarHints, renderGrammarHints, setGrammarRuleKnown, setKnownGrammarVisible, translateTargetSentence } from './tools-impl';
 import type { GrammarHint } from './tools';
 import { renderStudyEmpty, renderStudyMeaningBlock } from './section-render';
 import type { InterfaceLanguage } from '../app/types';
 import { currentGrammarAvailability, renderGrammarAvailability } from './grammar-availability';
+import { localeDirection } from '../languages/locale';
 
 const log = Logger.scope('StudyRender');
 
@@ -16,24 +17,46 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
     const done = log.time('studyTool', { action, sentenceLength: sentence.length });
-    if (action === 'study-translate') {
-        try {
-            const translated = await translateJapaneseSentence(sentence, options.outputLanguage ?? 'en');
-            if (!translated) {
-                panel.hidden = true;
-                panel.textContent = '';
-                return;
-            }
-            replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
-            return;
-        } catch (error) {
-            log.warn('Study translation failed', { sentenceLength: sentence.length }, error);
-            replaceStudyPanelHtml(panel, renderStudyEmpty(uiText(language, 'translationUnavailable')));
-            return;
-        } finally {
-            done();
-        }
+    try {
+        if (action === 'study-translate') await renderTranslationResult(panel, sentence, language, options.outputLanguage);
+        else await renderGrammarResult(panel, sentence, grammarHints, language, options.audioEnabled);
+    } finally {
+        done();
     }
+}
+
+async function renderTranslationResult(
+    panel: HTMLElement,
+    sentence: string,
+    language: InterfaceLanguage,
+    outputLanguage: string | undefined,
+): Promise<void> {
+    try {
+        const translation = await translateTargetSentence(sentence, outputLanguage ?? 'en');
+        if (!translation) {
+            panel.hidden = true;
+            panel.textContent = '';
+            return;
+        }
+        replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translation.text, language, {
+            content: {
+                lang: translation.outputLanguage,
+                dir: localeDirection(translation.outputLanguage),
+            },
+        }));
+    } catch (error) {
+        log.warn('Study translation failed', { sentenceLength: sentence.length }, error);
+        replaceStudyPanelHtml(panel, renderStudyEmpty(uiText(language, 'translationUnavailable')));
+    }
+}
+
+async function renderGrammarResult(
+    panel: HTMLElement,
+    sentence: string,
+    grammarHints: GrammarHint[] | undefined,
+    language: InterfaceLanguage,
+    audioEnabled: boolean | undefined,
+): Promise<void> {
     try {
         const hints = resolvedGrammarHints(sentence, grammarHints);
         if (!hints.length) {
@@ -43,14 +66,12 @@ export async function renderStudyToolResult(button: HTMLButtonElement, action: s
             return;
         }
         panel.dataset.grammarAvailability = 'loaded';
-        replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled: options.audioEnabled }));
+        replaceStudyPanelHtml(panel, await renderGrammarHints(hints, sentence, undefined, language, { audioEnabled }));
     } catch (error) {
         log.warn('Study grammar check failed', { sentenceLength: sentence.length }, error);
         const availability = currentGrammarAvailability(language, true);
         panel.dataset.grammarAvailability = availability.state;
         replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language));
-    } finally {
-        done();
     }
 }
 

@@ -3,7 +3,11 @@ import { userFacingError } from '../../src/reader/app/user-facing-errors';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
-import { recommendedDictionariesForLearnerLanguage } from '../../src/reader/dictionaries/recommended';
+import {
+    catalogBrowseLanguageSectionsForLearnerLanguage,
+    recommendedDictionariesForLearnerLanguage,
+} from '../../src/reader/dictionaries/recommended';
+import { catalogBrowseDictionaries } from '../../src/reader/dictionaries/catalog-browse';
 import { listDictionaryArchives, persistDictionaryArchive } from '../../src/reader/dictionaries/archive-cache';
 import {
     defaultDictionaryLookupLinks,
@@ -2415,6 +2419,80 @@ describe('settings dialog dictionary imports', () => {
         await dialog.refreshDictionaryStatus(dialog.form);
         expect(recommendedButton(dialog.form, 'jitendex').textContent?.trim()).toBe('Update');
         expect(dialog.form.querySelector<HTMLElement>('[data-dictionary-status]')?.textContent).toContain('terms 42');
+    });
+
+    it('routes the catalogue disclosure through a live status refresh and recovers after failure', async () => {
+        const dictionary = catalogBrowseDictionaries().find(candidate => candidate.name.includes('大辞林') && candidate.downloadUrl)!;
+        const sections = vi.mocked(catalogBrowseLanguageSectionsForLearnerLanguage);
+        sections.mockReturnValue([{
+            headwordLanguage: 'ja',
+            isTargetLanguage: true,
+            groups: [{
+                category: dictionary.catalogCategory ?? 'terms',
+                dictionaries: [dictionary],
+            }],
+        }]);
+        const summary = vi.fn().mockResolvedValue({
+            dictionaries: [{
+                title: dictionary.name,
+                alias: dictionary.name,
+                enabled: true,
+                priority: 0,
+                type: 'terms',
+                downloadUrl: dictionary.downloadUrl,
+            }],
+            terms: 1,
+            kanji: 0,
+            termMeta: 0,
+            kanjiMeta: 0,
+        });
+
+        try {
+            const dialog = createSettingsDialog({
+                dictionaries: {
+                    summary,
+                    // Defer the helper's automatic open-time refresh so the
+                    // disclosure click owns the first materialization.
+                    importFromUrl: vi.fn(),
+                },
+            });
+            const initialSection = dialog.form.querySelector<HTMLElement>('[data-catalog-browse]')!;
+            const settingsSearch = dialog.form.querySelector<HTMLInputElement>('[data-settings-search]')!;
+            settingsSearch.value = dictionary.name;
+            settingsSearch.dispatchEvent(new Event('input', { bubbles: true }));
+
+            expect(initialSection.dataset.catalogBrowseExpanded).toBe('false');
+            expect(initialSection.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(0);
+            initialSection.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]')!.click();
+
+            await waitForCondition(() => dialog.form.querySelector('[data-catalog-browse-filter]') !== null);
+            let section = dialog.form.querySelector<HTMLElement>('[data-catalog-browse]')!;
+            const filter = section.querySelector<HTMLInputElement>('[data-catalog-browse-filter]')!;
+            const installed = section.querySelector<HTMLButtonElement>(`[data-dictionary-id="${dictionary.id}"]`)!;
+            expect(section.dataset.catalogBrowseExpanded).toBe('true');
+            expect(section.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(1);
+            expect(filter.value).toBe(dictionary.name);
+            expect(document.activeElement).toBe(filter);
+            expect(installed.dataset.installed).toBe('true');
+
+            section.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]')!.click();
+            await waitForCondition(() => section.dataset.catalogBrowseExpanded === 'false');
+            expect(section.querySelector('[data-catalog-browse-results]')).toBeNull();
+
+            summary.mockRejectedValue(new Error('IndexedDB unavailable'));
+            const callsBeforeFailure = summary.mock.calls.length;
+            section.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]')!.click();
+            await waitForCondition(() => summary.mock.calls.length > callsBeforeFailure);
+            await waitForCondition(() => {
+                section = dialog.form.querySelector<HTMLElement>('[data-catalog-browse]')!;
+                const toggle = section.querySelector<HTMLButtonElement>('[data-action="toggle-catalog-browse"]');
+                return section.dataset.catalogBrowseExpanded === 'false'
+                    && toggle?.disabled === false
+                    && !toggle.hasAttribute('aria-busy');
+            });
+        } finally {
+            sections.mockReturnValue([]);
+        }
     });
 
     it('keeps a lookup-pill reorder made while the dictionary summary is in flight', async () => {

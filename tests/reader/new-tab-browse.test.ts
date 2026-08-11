@@ -1,4 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
 
 import { browseSourceForCard, browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, renderBrowseSourceChips, sortBrowseCards } from '../../src/reader/newtab/browse-view';
 import { renderSearchKanjiResults, renderSearchWordResults } from '../../src/reader/newtab/search-view';
@@ -100,6 +104,38 @@ describe('study-page card browser (SH-3)', () => {
         expect(sortBrowseCards(sortable, 'history', true).map(c => c.spelling)).toEqual(['一', '二', '三']);
     });
 
+    it('sorts target-language cards with their own collation rules', () => {
+        const spanish = [
+            card('zorro', ['known'], { language: 'es' }),
+            card('ñandú', ['known'], { language: 'es' }),
+            card('nube', ['known'], { language: 'es' }),
+        ];
+
+        expect(sortBrowseCards(spanish, 'alpha', false).map(c => c.spelling))
+            .toEqual(['nube', 'ñandú', 'zorro']);
+    });
+
+    it('keeps mixed defensive sorting independent of input order and treats missing identity as Japanese', () => {
+        setActiveLearningTargetLanguage('es');
+        try {
+            const mixed = [
+                card('読む', ['known']),
+                card('zorro', ['known'], { language: 'es' }),
+                card('ñandú', ['known'], { language: 'es' }),
+            ];
+            const expected = ['ñandú', 'zorro', '読む'];
+
+            expect(sortBrowseCards(mixed, 'alpha', false).map(value => value.spelling)).toEqual(expected);
+            expect(sortBrowseCards([...mixed].reverse(), 'alpha', false).map(value => value.spelling)).toEqual(expected);
+            const list = renderBrowseList([mixed[0]!], 0, 'en', {
+                empty: 'none', previous: 'p', next: 'n', showing: () => '',
+            });
+            expect(list.querySelector<HTMLElement>('.jpdb-reader-newtab-browse-term')?.lang).toBe('ja');
+        } finally {
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
     it('renders compact sort/direction/select controls', () => {
         const controls = renderBrowseControls('queue', false, false, {
             sortLabel: 'Sort', sortQueue: 'Queue order', sortAlpha: 'A→Z', sortFrequency: 'Frequency', sortHistory: 'History',
@@ -145,6 +181,21 @@ describe('study-page card browser (SH-3)', () => {
         expect(row.dataset.reading).toBe('よむ');
         expect(row.textContent).toContain('Top 590');
         expect(row.querySelector('.jpdb-reader-state-dot.jpdb-known')).not.toBeNull();
+    });
+
+    it('marks browse terms with the card target language and direction', () => {
+        const list = renderBrowseList([
+            card('libro', ['known'], { language: 'es' }),
+            card('كتاب', ['known'], { language: 'ar' }),
+        ], 0, 'en', {
+            empty: 'none', previous: 'p', next: 'n', showing: () => '',
+        });
+        const terms = [...list.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-term')];
+
+        expect(terms.map(term => [term.lang, term.dir])).toEqual([
+            ['es', 'ltr'],
+            ['ar', 'rtl'],
+        ]);
     });
 
     it('shows the empty message when the filter matches nothing', () => {

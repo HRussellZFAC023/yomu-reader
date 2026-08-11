@@ -5,7 +5,7 @@ import { ANKI_EXPRESSION_FIELD_NAMES, ANKI_MEANING_FIELD_NAMES, ANKI_READING_FIE
 import { quoteAnkiSearch } from './search-escape';
 import { Logger } from '../app/logger';
 import { stablePositiveHashId } from '../core/stable-hash';
-import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, ReaderSettings } from '../app/types';
+import type { AnkiCardKind, AnkiFieldMapping, JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import { codePointSafePrefix } from '../languages/lookup-spans';
 import { HAS_JAPANESE } from '../lookup/japanese-script';
 
@@ -119,6 +119,18 @@ const ANKI_WORD_FIELD_NAME_PATTERN = /vocab|vocabulary|expression|word|term|head
 const ANKI_KANA_FIELD_NAME_PATTERN = /^(?:katakana|hiragana|kana|mnemonic)$/;
 const ANKI_SENTENCE_FIELD_NAME_PATTERN = /^(?:sentence|sentkanji|sentencetext|japanesesentence|selectiontext|contextsentence)$/;
 const ANKI_KANJI_MODEL_PATTERN = /(?:rtk|heisig|kanji)/;
+
+/** The narrow account-aware Anki capability exposed to New Tab. */
+export function newTabAnkiClient(client: AnkiConnectClient, getSettings: () => ReaderSettings) {
+    return {
+        clearAccountContext: () => client.clearAccountContext(),
+        listNewTabCards: (limit?: number, deckScope?: string) => listNewTabAnkiCards(client, getSettings(), limit, deckScope),
+        answerCard: (cardId: number, grade: JPDBGrade) => client.answerCard(cardId, grade),
+        findExistingCards: (card: JPDBCard) => client.findExistingCards(card),
+        invoke: <T>(action: string, params?: Record<string, unknown>) => client.invoke<T>(action, params),
+        requestPermission: () => client.invoke('requestPermission'),
+    };
+}
 
 export async function listNewTabAnkiCards(client: AnkiConnectClient, settings: ReaderSettings, limit = 80, deckScope = ''): Promise<JPDBCard[]> {
     if (!settings.newTabAnkiEnabled) return [];

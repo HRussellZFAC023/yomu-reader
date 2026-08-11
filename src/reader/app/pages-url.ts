@@ -55,6 +55,11 @@ export function isYomuHostedPdfReaderPage(value: string): boolean {
     return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, 'pdf-reader') : false;
 }
 
+export function isYomuHostedAcademyPage(value: string): boolean {
+    const appUrl = readTrustedYomuUrl(value);
+    return appUrl ? isYomuRepositoryAppUrl(appUrl) && isExactHostedAppPath(appUrl, 'academy') : false;
+}
+
 function isYomuHostedAppRoute(value: string, appUrl: TrustedYomuUrl): boolean {
     return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
 }

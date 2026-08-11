@@ -29,9 +29,7 @@ export function newTabCardHighlightTargets(card: JPDBCard): string[] {
 
 /** Resolve morphology and typography from the card identity, not ambient UI state. */
 export function newTabCardTarget(card: Pick<JPDBCard, 'language'>): LearningTargetModule {
-    return card.language
-        ? learningTargetModuleFor(card.language) ?? defaultLearningTargetModule()
-        : activeLearningTarget();
+    return learningTargetModuleFor(newTabCardIdentityLanguage(card)) ?? defaultLearningTargetModule();
 }
 
 export function newTabCardMatchesActiveTarget(card: Pick<JPDBCard, 'language'>): boolean {

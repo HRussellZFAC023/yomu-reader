@@ -30,6 +30,7 @@ import type {
     JPDBCard,
     JPDBGrade,
 } from './fixtures';
+import { newTabReviewProviderContext } from '../../../src/reader/newtab/provider-context-policy';
 
 describe('new tab review — offline grades, Bunpro & dual-source grading', () => {
     registerNewTabReviewCleanup();
@@ -88,6 +89,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }), {
             jpdb: { reviewCard } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
@@ -124,6 +126,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             jiten: { listStudyBatchCards: vi.fn(), reviewCard } as never,
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
@@ -143,6 +146,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }), {
             jpdb: { reviewCard } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
@@ -162,6 +166,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }), {
             jpdb: { reviewCard } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
@@ -183,6 +188,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
             anki: { answerCard } as never,
             jpdb: { reviewCard } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
@@ -205,6 +211,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true }), {
             anki: { answerCard } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
 
         await (controller as unknown as { flushQueuedGrades(): Promise<void> }).flushQueuedGrades();
 
@@ -227,6 +234,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, ankiEnabled: true, newTabAnkiEnabled: true }), {
             anki: { answerCard, listNewTabCards } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
         const internals = controller as unknown as {
             loadWordsFromSource(source: 'anki'): Promise<{ cards: JPDBCard[] }>;
             flushQueuedGrades(): Promise<void>;
@@ -257,6 +265,7 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         const controller = newTabFlushController(() => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jpdbMiningEnabled: true }), {
             jpdb: { reviewCard } as never,
         });
+        scopeQueuedNetworkGradesTo(controller);
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
         (controller as unknown as { bindRootEvents(root: HTMLElement): void }).bindRootEvents(root);
 
@@ -1581,3 +1590,19 @@ describe('new tab review — offline grades, Bunpro & dual-source grading', () =
         expect((controller as unknown as { visibleWords: JPDBCard[] }).visibleWords.map(card => card.spelling)).toEqual(['前', '次']);
     });
 });
+
+function scopeQueuedNetworkGradesTo(controller: NewTabController): void {
+    const contexts = (controller as unknown as {
+        providerContexts: Parameters<typeof newTabReviewProviderContext>[0];
+    }).providerContexts;
+    const queue = readNewTabGradeQueue().map(item => item.target === 'yomu-local'
+        ? item
+        : {
+            ...item,
+            providerContext: newTabReviewProviderContext(
+                contexts,
+                item.target as Parameters<typeof newTabReviewProviderContext>[1],
+            ),
+        });
+    localStorage.setItem(NEW_TAB_GRADE_QUEUE_KEY, JSON.stringify(queue));
+}

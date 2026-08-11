@@ -1746,36 +1746,6 @@ describe('reader helpers', () => {
         }
     });
 
-    it('tries later JPDB candidates for explicit lookup after the Jiten batch misses', async () => {
-        const app = new ReaderApp();
-        const publicCard = testPublicCard({
-            vid: 1775000,
-            spelling: '当たり',
-            reading: 'あたり',
-        });
-        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
-        const publicLookupCard = vi.fn(async (term: string) => term === '当たり' ? publicCard : undefined);
-        const internals = app as unknown as {
-            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
-            cardLookup: {
-                publicLookupCard: typeof publicLookupCard;
-                publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined>;
-            };
-        };
-        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
-        internals.cardLookup.publicLookupCard = publicLookupCard;
-
-        try {
-            await expect(internals.cardLookup.publicLookupFirstCandidateTerm(['外れ', '当たり'])).resolves.toBe(publicCard);
-
-            expect(jitenLookupMany).toHaveBeenCalledWith(['外れ', '当たり']);
-            expect(publicLookupCard).toHaveBeenCalledWith('外れ', true, expect.objectContaining({ allowCandidateLookup: true }));
-            expect(publicLookupCard).toHaveBeenCalledWith('当たり', true, expect.objectContaining({ allowCandidateLookup: true }));
-        } finally {
-            app.destroy();
-        }
-    });
-
     it('uses one Jiten reader parse request for fallback candidate spellings', async () => {
         const app = new ReaderApp();
         const fallbackCard = testFallbackCard({

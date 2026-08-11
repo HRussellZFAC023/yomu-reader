@@ -56,10 +56,28 @@ const publicNewtabServiceWorker = path.join(publicNewtab, 'sw.js');
 const publicIcon = path.join(root, 'public', 'yomu-icon.svg');
 const publicFaviconFiles = ['favicon-16x16.png', 'favicon-32x32.png', 'apple-touch-icon.png'];
 const publicExtensionIcons = path.join(root, 'public', 'extension-icons');
+const newTabManifestAssets = [
+    ['public/pwa-icon-192.png', 'pwa-icon-192.png'],
+    ['public/pwa-icon-512.png', 'pwa-icon-512.png'],
+    ['public/pwa-icon-maskable-512.png', 'pwa-icon-maskable-512.png'],
+    ['docs/public/screenshots/study-pwa-narrow.png', 'screenshots/study-pwa-narrow.png'],
+    ['docs/public/screenshots/study-pwa-wide.png', 'screenshots/study-pwa-wide.png'],
+];
 const thirdPartyNotices = path.join(root, 'public', 'THIRD_PARTY_NOTICES.txt');
 const runtimeDictionaryCatalog = path.join(root, 'config', 'dictionaries', 'published', 'v1', 'runtime-catalog.json');
 const out = path.join(root, 'dist', 'extension');
 const UNSAFE_HTML_ASSIGNMENT = /\.(?:inner|outer)HTML\s*(?:\+=|\|\|=|&&=|\?\?=|=(?!=))/;
+// Store packages are self-contained builds and therefore cannot rely on the
+// hosted-artifact verifier. Ban only executable/provider seams: the disabled
+// outbound lookup link, ignored legacy settings, and colour token are allowed.
+const RETIRED_UCHISEN_EXECUTABLE_SEAMS = [
+    ['live kanji source identity', /\b(?:KANJI_UCHISEN_SOURCE_ID|__kanji_uchisen__)\b/u],
+    ['extractor, renderer, or publisher implementation', /\b(?:absolute|attachRendered|canStart|canonical|default|empty|find|fit|format|generate|install|is|load|localized|main|mount|no|ordered|parse|plain|post|preferred|render|request|safe|storyBacked|unique|valid)[A-Za-z0-9]*Uchisen[A-Za-z0-9]*\b/u],
+    ['Uchisen-owned DOM state', /data-(?:newtab-)?uchisen\b/u],
+    ['provider write or image-proxy endpoint', /save_mnemonic\.php|(?:^|\/)generateimage(?:[/?#'"`]|$)|ik\.imagekit\.io\/uchisen/iu],
+    ['provider scrape proxy rule', /host\s*===?\s*['"]uchisen\.com['"]/u],
+    ['retired prompt corpus', /uchisen-image-prompt-replacements/iu],
+];
 const generatedAt = await extensionGeneratedAt();
 
 for (const required of [userscript, readerCss, newtabApp, hostedNewtabStyles, publicNewtabIndex, thirdPartyNotices, runtimeDictionaryCatalog]) {
@@ -121,6 +139,7 @@ async function stageNewTabShell() {
     await writeFile(path.join(newtab, 'version.json'), `${JSON.stringify({ appHash, buildId }, null, 2)}\n`);
     await copyFile(hostedNewtabStyles, path.join(newtab, 'styles.css'));
     await stageNewTabWebManifest();
+    await stageNewTabManifestAssets();
     await stageNewTabServiceWorker(appHash);
     await copyFileIfExists(publicIcon, path.join(newtab, 'yomu-icon.svg'));
     await stagePublicFavicons();
@@ -171,6 +190,16 @@ async function stageNewTabWebManifest() {
     if (!existsSync(publicNewtabManifest)) return;
     const manifest = await readFile(publicNewtabManifest, 'utf8');
     await writeFile(path.join(newtab, 'manifest.webmanifest'), manifest.replaceAll('../', './'));
+}
+
+async function stageNewTabManifestAssets() {
+    for (const [source, destination] of newTabManifestAssets) {
+        const sourcePath = path.join(root, source);
+        if (!existsSync(sourcePath)) throw new Error(`Study manifest asset is missing: ${source}`);
+        const destinationPath = path.join(newtab, destination);
+        await mkdir(path.dirname(destinationPath), { recursive: true });
+        await copyFile(sourcePath, destinationPath);
+    }
 }
 
 async function stagePublicFavicons() {
@@ -371,105 +400,261 @@ function verifyStorePackage(entries, target) {
     const decode = file => new TextDecoder().decode(entries[file]);
     const manifest = JSON.parse(decode('manifest.json'));
     verifyDictionaryBackgroundService(entries, target);
+    verifyStoreManifestPolicy(manifest, target);
+    verifyRequiredStoreAssets(entries, target, decode);
+    verifyPackagedStudyBundle(entries, target, decode);
+    verifyPackagedStudyManifest(entries, target, decode);
+    verifyReaderStylesheet(entries, target, decode);
+    verifyExposedStoreResources(manifest, target);
+    verifyFirefoxStoreManifest(entries, manifest, target);
+    const executableSource = storeExecutableSource(entries);
+    verifyNoRetiredUchisenExecutableSeams(executableSource, target);
+    verifyStoreExecutableSource(executableSource, target);
+    verifyStorePopup(storePopupSource(entries), target);
+}
+
+function verifyStoreManifestPolicy(manifest, target) {
+    const { permissions, hostPermissions } = storePermissionContext(manifest);
+    rejectInvalidStorePackage(
+        permissions.includes('tabs'),
+        `${target} store package requests the unnecessary tabs browsing-history permission.`,
+    );
+    rejectInvalidStorePackage(
+        hostPermissions.includes('<all_urls>') && hostPermissions.includes('file:///*'),
+        `${target} store package has redundant <all_urls> and file:///* host access.`,
+    );
+    rejectInvalidStorePackage(
+        String(manifest.description ?? '').length > 132,
+        `${target} manifest description exceeds Chrome Web Store's 132-character limit.`,
+    );
+    rejectInvalidStorePackage(
+        hasBrowserPageOverride(manifest),
+        `${target} store package must not override browser pages, search, or home settings.`,
+    );
+    verifySafariContentScriptMatches(manifest, target);
+}
+
+function storePermissionContext(manifest) {
     const permissions = manifest.permissions ?? [];
-    const hostPermissions = manifest.manifest_version >= 3
-        ? manifest.host_permissions ?? []
-        : permissions;
-    if (permissions.includes('tabs')) {
-        throw new Error(`${target} store package requests the unnecessary tabs browsing-history permission.`);
-    }
-    if (hostPermissions.includes('<all_urls>') && hostPermissions.includes('file:///*')) {
-        throw new Error(`${target} store package has redundant <all_urls> and file:///* host access.`);
-    }
-    if (String(manifest.description ?? '').length > 132) {
-        throw new Error(`${target} manifest description exceeds Chrome Web Store's 132-character limit.`);
-    }
-    if (manifest.chrome_url_overrides || manifest.browser_url_overrides || manifest.chrome_settings_overrides) {
-        throw new Error(`${target} store package must not override browser pages, search, or home settings.`);
-    }
-    if (target === 'safari') {
-        const contentScriptMatches = (manifest.content_scripts ?? [])
-            .flatMap(contentScript => contentScript.matches ?? []);
-        if (contentScriptMatches.some(match => /^file:/i.test(String(match)))) {
-            throw new Error('Safari store package still advertises unsupported file-page content-script injection.');
-        }
-    }
-    if (!entries['yomu.css']) {
-        throw new Error(`${target} store package is missing the local reader stylesheet.`);
-    }
-    if (!entries['THIRD_PARTY_NOTICES.txt'] || !decode('THIRD_PARTY_NOTICES.txt').includes('fflate')) {
-        throw new Error(`${target} store package is missing the bundled fflate license notice.`);
-    }
-    if (!entries['runtime-catalog.json']) {
-        throw new Error(`${target} store package is missing its local dictionary catalog.`);
-    }
+    return {
+        permissions,
+        hostPermissions: manifest.manifest_version >= 3
+            ? manifest.host_permissions ?? []
+            : permissions,
+    };
+}
+
+function hasBrowserPageOverride(manifest) {
+    return manifest.chrome_url_overrides
+        || manifest.browser_url_overrides
+        || manifest.chrome_settings_overrides;
+}
+
+function verifySafariContentScriptMatches(manifest, target) {
+    if (target !== 'safari') return;
+    const contentScriptMatches = (manifest.content_scripts ?? [])
+        .flatMap(contentScript => contentScript.matches ?? []);
+    rejectInvalidStorePackage(
+        contentScriptMatches.some(match => /^file:/i.test(String(match))),
+        'Safari store package still advertises unsupported file-page content-script injection.',
+    );
+}
+
+function verifyRequiredStoreAssets(entries, target, decode) {
+    rejectInvalidStorePackage(
+        !entries['yomu.css'],
+        `${target} store package is missing the local reader stylesheet.`,
+    );
+    rejectInvalidStorePackage(
+        !entries['THIRD_PARTY_NOTICES.txt'] || !decode('THIRD_PARTY_NOTICES.txt').includes('fflate'),
+        `${target} store package is missing the bundled fflate license notice.`,
+    );
+    rejectInvalidStorePackage(
+        !entries['runtime-catalog.json'],
+        `${target} store package is missing its local dictionary catalog.`,
+    );
+}
+
+function verifyPackagedStudyBundle(entries, target, decode) {
     const studyIndex = decode('newtab/index.html');
-    if (!/<script\s+type="module"\s+src="\.\/app\.js\?v=[a-f0-9]+"><\/script>/.test(studyIndex)) {
-        throw new Error(`${target} packaged Study page must load its readable split bundle as a local module.`);
-    }
+    rejectInvalidStorePackage(
+        !/<script\s+type="module"\s+src="\.\/app\.js\?v=[a-f0-9]+"><\/script>/.test(studyIndex),
+        `${target} packaged Study page must load its readable split bundle as a local module.`,
+    );
     const studyApp = decode('newtab/app.js');
     const studyChunkReferences = [...studyApp.matchAll(/["']\.\/chunks\/([^"']+\.m?js)["']/g)]
         .map(match => `newtab/chunks/${match[1]}`);
-    if (!studyChunkReferences.length || studyChunkReferences.some(file => !entries[file])) {
-        throw new Error(`${target} packaged Study page is missing one or more local module chunks.`);
-    }
+    rejectInvalidStorePackage(
+        !studyChunkReferences.length || studyChunkReferences.some(file => !entries[file]),
+        `${target} packaged Study page is missing one or more local module chunks.`,
+    );
+}
+
+function verifyReaderStylesheet(entries, target, decode) {
     const readerCssSource = decode('yomu.css');
-    if (!readerCssSource.includes('.jpdb-reader-popover') || !readerCssSource.includes('.jpdb-subtitle-player')) {
-        throw new Error(`${target} store package does not contain the full built reader stylesheet.`);
-    }
+    rejectInvalidStorePackage(
+        !readerCssSource.includes('.jpdb-reader-popover')
+            || !readerCssSource.includes('.jpdb-subtitle-player'),
+        `${target} store package does not contain the full built reader stylesheet.`,
+    );
+}
+
+function verifyExposedStoreResources(manifest, target) {
     const exposedResources = (manifest.web_accessible_resources ?? []).flatMap(resource => (
         typeof resource === 'string' ? [resource] : resource.resources ?? []
     ));
-    if (!exposedResources.includes('yomu.css')) {
-        throw new Error(`${target} store package does not expose its local reader stylesheet to the content script.`);
+    rejectInvalidStorePackage(
+        !exposedResources.includes('yomu.css'),
+        `${target} store package does not expose its local reader stylesheet to the content script.`,
+    );
+    rejectInvalidStorePackage(
+        !exposedResources.includes('runtime-catalog.json'),
+        `${target} store package does not expose its local dictionary catalog to the content script.`,
+    );
+}
+
+function verifyFirefoxStoreManifest(entries, manifest, target) {
+    if (target !== 'firefox') return;
+    assertAmoJavaScriptFiles(entries);
+    verifyFirefoxGeckoId(manifest);
+    verifyFirefoxMinimumVersions(manifest);
+    verifyFirefoxDataPermissions(manifest);
+}
+
+function verifyFirefoxGeckoId(manifest) {
+    const geckoId = nestedManifestValue(manifest, 'browser_specific_settings', 'gecko', 'id')
+        ?? nestedManifestValue(manifest, 'applications', 'gecko', 'id');
+    rejectInvalidStorePackage(
+        geckoId !== 'yomu@yomureader.com',
+        'Firefox store package must use the stable yomu@yomureader.com add-on ID.',
+    );
+}
+
+function verifyFirefoxMinimumVersions(manifest) {
+    const desktopMinimum = nestedManifestValue(
+        manifest,
+        'browser_specific_settings',
+        'gecko',
+        'strict_min_version',
+    );
+    const androidMinimum = nestedManifestValue(
+        manifest,
+        'browser_specific_settings',
+        'gecko_android',
+        'strict_min_version',
+    );
+    rejectInvalidStorePackage(
+        desktopMinimum !== '140.0' || androidMinimum !== '142.0',
+        'Firefox store package must declare the minimum versions required for built-in data consent.',
+    );
+}
+
+function verifyFirefoxDataPermissions(manifest) {
+    const dataPermissions = nestedManifestValue(
+        manifest,
+        'browser_specific_settings',
+        'gecko',
+        'data_collection_permissions',
+    );
+    const required = nestedManifestValue(dataPermissions, 'required');
+    const optional = nestedManifestValue(dataPermissions, 'optional');
+    rejectInvalidStorePackage(
+        !optionalIncludes(required, 'websiteContent')
+            || !optionalIncludes(optional, 'authenticationInfo'),
+        'Firefox store package must disclose website content and request optional account credential consent.',
+    );
+}
+
+function nestedManifestValue(value, ...keys) {
+    for (const key of keys) {
+        if (value == null) return undefined;
+        value = value[key];
     }
-    if (!exposedResources.includes('runtime-catalog.json')) {
-        throw new Error(`${target} store package does not expose its local dictionary catalog to the content script.`);
-    }
-    if (target === 'firefox') {
-        assertAmoJavaScriptFiles(entries);
-        const gecko = manifest.browser_specific_settings?.gecko;
-        const geckoId = gecko?.id ?? manifest.applications?.gecko?.id;
-        if (geckoId !== 'yomu@yomureader.com') {
-            throw new Error(`Firefox store package must use the stable yomu@yomureader.com add-on ID.`);
-        }
-        if (gecko?.strict_min_version !== '140.0'
-            || manifest.browser_specific_settings?.gecko_android?.strict_min_version !== '142.0') {
-            throw new Error('Firefox store package must declare the minimum versions required for built-in data consent.');
-        }
-        const dataPermissions = gecko?.data_collection_permissions;
-        if (!dataPermissions?.required?.includes('websiteContent')
-            || !dataPermissions?.optional?.includes('authenticationInfo')) {
-            throw new Error('Firefox store package must disclose website content and request optional account credential consent.');
-        }
-    }
-    const executableSource = Object.entries(entries)
-        .filter(([file]) => file.endsWith('.js') || file.endsWith('.html'))
+    return value;
+}
+
+function optionalIncludes(values, expected) {
+    return values == null ? undefined : values.includes(expected);
+}
+
+function storeExecutableSource(entries) {
+    return Object.entries(entries)
+        .filter(([file]) => file.endsWith('.js') || file.endsWith('.mjs') || file.endsWith('.html'))
         .map(([file, bytes]) => `${file}\n${new TextDecoder().decode(bytes)}`)
         .join('\n');
-    if (target === 'firefox' && UNSAFE_HTML_ASSIGNMENT.test(executableSource)) {
-        throw new Error('Firefox store package contains an innerHTML or outerHTML assignment that AMO will warn about.');
-    }
-    if (!executableSource.includes('yomu-extension-packaged-reader-css')) {
-        throw new Error(`${target} store package does not route reader CSS loading to its packaged asset.`);
-    }
-    if (/https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/[^\s"'`]*yomu\.css/i.test(executableSource)
-        || /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css/i.test(executableSource)) {
-        throw new Error(`${target} store package still contains a hosted reader stylesheet fetch path.`);
-    }
-    if (executableSource.includes('https://accounts.google.com/gsi/client')) {
-        throw new Error(`${target} store package contains the hosted Google Identity Services script URL.`);
-    }
-    const popupSource = Object.entries(entries)
+}
+
+function verifyStoreExecutableSource(executableSource, target) {
+    rejectInvalidStorePackage(
+        target === 'firefox' && UNSAFE_HTML_ASSIGNMENT.test(executableSource),
+        'Firefox store package contains an innerHTML or outerHTML assignment that AMO will warn about.',
+    );
+    rejectInvalidStorePackage(
+        !executableSource.includes('yomu-extension-packaged-reader-css'),
+        `${target} store package does not route reader CSS loading to its packaged asset.`,
+    );
+    rejectInvalidStorePackage(
+        hasHostedReaderStylesheetPath(executableSource),
+        `${target} store package still contains a hosted reader stylesheet fetch path.`,
+    );
+    rejectInvalidStorePackage(
+        executableSource.includes('https://accounts.google.com/gsi/client'),
+        `${target} store package contains the hosted Google Identity Services script URL.`,
+    );
+}
+
+function hasHostedReaderStylesheetPath(executableSource) {
+    return /https:\/\/raw\.githubusercontent\.com\/HRussellZFAC023\/yomu-reader\/[^\s"'`]*yomu\.css/i.test(executableSource)
+        || /https:\/\/yomureader\.com\/yomu(?:\.[a-f0-9]+)?\.css/i.test(executableSource);
+}
+
+function storePopupSource(entries) {
+    return Object.entries(entries)
         .filter(([file]) => file === 'popup.html' || file === 'popup.js')
         .map(([, bytes]) => new TextDecoder().decode(bytes))
         .join('\n');
-    if (popupSource.includes('video-player/')) {
-        throw new Error(`${target} store popup references a video-player page that is not packaged.`);
+}
+
+function verifyStorePopup(popupSource, target) {
+    rejectInvalidStorePackage(
+        popupSource.includes('video-player/'),
+        `${target} store popup references a video-player page that is not packaged.`,
+    );
+    rejectInvalidStorePackage(
+        target === 'safari' && /\^file:/.test(popupSource),
+        'Safari store popup still offers unsupported file-page injection.',
+    );
+}
+
+function rejectInvalidStorePackage(invalid, message) {
+    if (invalid) throw new Error(message);
+}
+
+function verifyNoRetiredUchisenExecutableSeams(executableSource, target) {
+    for (const [label, pattern] of RETIRED_UCHISEN_EXECUTABLE_SEAMS) {
+        const match = pattern.exec(executableSource);
+        if (match) {
+            throw new Error(`${target} store package contains retired Uchisen ${label}: ${JSON.stringify(match[0])}.`);
+        }
     }
-    if (target === 'safari' && /\^file:/.test(popupSource)) {
-        throw new Error('Safari store popup still offers unsupported file-page injection.');
+}
+
+function verifyPackagedStudyManifest(entries, target, decode) {
+    const manifestPath = 'newtab/manifest.webmanifest';
+    if (!entries[manifestPath]) throw new Error(`${target} packaged Study page is missing its web manifest.`);
+    const manifest = JSON.parse(decode(manifestPath));
+    const referencedAssets = [...manifest.icons, ...manifest.screenshots]
+        .map(reference => packagedStudyAssetPath(manifestPath, reference.src));
+    const missing = referencedAssets.filter(asset => !asset || !entries[asset]);
+    if (missing.length) {
+        throw new Error(`${target} packaged Study manifest references missing asset(s): ${missing.join(', ') || '<empty>'}.`);
     }
+}
+
+function packagedStudyAssetPath(manifestPath, sourceValue) {
+    const source = String(sourceValue);
+    const resolved = path.posix.normalize(path.posix.join(path.posix.dirname(manifestPath), source));
+    return source && resolved.startsWith('newtab/') ? resolved : '';
 }
 
 function verifyDictionaryBackgroundService(entries, target) {

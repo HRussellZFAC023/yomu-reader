@@ -26,6 +26,9 @@ const yomuPublicFiles = [
     'public/apple-touch-icon.png',
     'public/favicon-16x16.png',
     'public/favicon-32x32.png',
+    'public/pwa-icon-192.png',
+    'public/pwa-icon-512.png',
+    'public/pwa-icon-maskable-512.png',
     'public/newtab/index.html',
     'public/newtab/manifest.webmanifest',
     'public/newtab/redirect.html',
@@ -35,6 +38,8 @@ const yomuPublicFiles = [
     'public/extension-icons/icon32.png',
     'public/extension-icons/icon48.png',
     'public/extension-icons/icon128.png',
+    'docs/public/screenshots/study-pwa-narrow.png',
+    'docs/public/screenshots/study-pwa-wide.png',
 ];
 const compilerRootFiles = ['LICENSE', 'README.md', 'package-lock.json', 'package.json'];
 

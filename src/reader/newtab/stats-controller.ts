@@ -10,7 +10,7 @@ import { Logger } from '../app/logger';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { OperationTracker } from '../core/operation-token';
 import { nearestElementByPoint, pointerPointFromEvent } from '../dom/pointer-geometry';
-import { hasJpdbApiCredential, hasJitenApiCredential } from '../settings/api-credential';
+import { effectiveJitenApiKey, hasJpdbApiCredential, hasJitenApiCredential } from '../settings/api-credential';
 import { loadJitenDailyStats } from '../dictionaries/jiten-stats-cache';
 import { ACADEMY_SRS_LABEL } from '../app/constants';
 import { dedupeWords } from './card-selection';
@@ -107,6 +107,11 @@ interface StatsClickRequest {
     target: HTMLElement;
 }
 
+interface StoredAnkiDeckPreferences {
+    version: 2;
+    accounts: Record<string, string[]>;
+}
+
 type StatsClickHandler = (root: HTMLElement, target: HTMLElement, request: StatsClickRequest) => void;
 
 // Everything the stats surface reads off the controller, made explicit. This
@@ -117,6 +122,7 @@ type StatsClickHandler = (root: HTMLElement, target: HTMLElement, request: Stats
 // one bridge back into the study surface ("study my trouble cards").
 export interface NewTabStatsControllerDeps {
     getSettings(): ReaderSettings;
+    ankiProviderContext(): string;
     jpdb: Pick<JpdbClient, 'listDeckCards' | 'listDecks'>;
     jiten?: Pick<JitenApiClient, 'listStudyBatchCards'> & Partial<Pick<JitenApiClient, 'listRecentReviews'>>;
     anki: {
@@ -153,6 +159,7 @@ export class NewTabStatsController {
     private loaded = false;
     private deckPrefsLoaded = false;
     private disabledAnkiDecks = new Set<string>();
+    private deckPrefsContext = '';
     // Latest-wins guard for in-flight loads (the 1.6.173 'stats' scope).
     private readonly operations = new OperationTracker();
 
@@ -180,6 +187,13 @@ export class NewTabStatsController {
         this.loaded = false;
         this.selectedDate = '';
         this.operations.begin('stats'); // invalidate any in-flight stats load
+    }
+
+    resetProviderContext(): void {
+        this.reset();
+        this.deckPrefsLoaded = false;
+        this.deckPrefsContext = '';
+        this.disabledAnkiDecks.clear();
     }
 
     // The study source matching the selected stats source (for "study these").
@@ -210,19 +224,11 @@ export class NewTabStatsController {
     }
 
     async loadInto(root: HTMLElement, force = false): Promise<void> {
-        if (this.loaded && !force) return;
+        if (this.shouldSkipLoad(force)) return;
         await this.loadDeckPrefs();
         const settings = this.deps.getSettings();
         const statsOp = this.operations.begin('stats');
-        this.snapshot = {
-            jpdb: hasJpdbApiCredential(settings) ? this.loadingSource(this.snapshot.jpdb) : emptyStatsSource('jpdb', 'JPDB', this.deps.text('statsApiKeyMissing'), 'setup'),
-            jiten: hasJitenApiCredential(settings) ? this.loadingSource(this.snapshot.jiten) : emptyStatsSource('jiten', 'Jiten', this.deps.text('statsApiKeyMissing'), 'setup'),
-            bunpro: this.deps.canUseBunproSource() ? this.loadingSource(this.snapshot.bunpro) : emptyStatsSource('bunpro', 'Bunpro', this.deps.text('statsApiKeyMissing'), 'setup'),
-            wanikani: this.deps.canUseWanikaniSource() ? this.loadingSource(this.snapshot.wanikani) : emptyStatsSource('wanikani', 'WaniKani', this.deps.text('statsApiKeyMissing'), 'setup'),
-            yomuLocal: this.deps.canUseYomuLocalSource() ? this.loadingSource(this.snapshot.yomuLocal) : emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, this.deps.text('statsNoData'), 'setup'),
-            anki: this.shouldLoadAnki(settings) ? this.loadingSource(this.snapshot.anki) : emptyStatsSource('anki', 'Anki', this.deps.text('statsConnectAnki'), 'setup'),
-            combined: this.loadingSource(this.snapshot.combined),
-        };
+        this.snapshot = this.loadingSnapshot(settings);
         this.render(root);
         const [history, jpdb, jiten, bunpro, wanikani, yomuLocal, anki] = await Promise.all([
             this.readJpdbHistory(),
@@ -233,9 +239,9 @@ export class NewTabStatsController {
             this.loadSrsAdapterSource('yomu-local'),
             this.loadAnkiSource(),
         ]);
-        if (statsOp.superseded || !root.isConnected) return;
+        if (!this.isCurrentLoad(statsOp.superseded, root)) return;
         const jpdbWithHistory = applyJpdbReviewImport(jpdb, history);
-        const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats());
+        const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats(effectiveJitenApiKey(this.deps.getSettings())));
         this.snapshot = {
             jpdb: jpdbWithHistory,
             jiten: jitenWithHistory,
@@ -247,6 +253,30 @@ export class NewTabStatsController {
         };
         this.loaded = true;
         this.render(root);
+    }
+
+    private shouldSkipLoad(force: boolean): boolean {
+        return this.loaded && !force;
+    }
+
+    private isCurrentLoad(superseded: boolean, root: HTMLElement): boolean {
+        return !superseded && root.isConnected;
+    }
+
+    private loadingSnapshot(settings: ReaderSettings): StatsDashboardSnapshot {
+        return {
+            jpdb: this.loadingOrUnavailable(hasJpdbApiCredential(settings), this.snapshot.jpdb, emptyStatsSource('jpdb', 'JPDB', this.deps.text('statsApiKeyMissing'), 'setup')),
+            jiten: this.loadingOrUnavailable(hasJitenApiCredential(settings), this.snapshot.jiten, emptyStatsSource('jiten', 'Jiten', this.deps.text('statsApiKeyMissing'), 'setup')),
+            bunpro: this.loadingOrUnavailable(this.deps.canUseBunproSource(), this.snapshot.bunpro, emptyStatsSource('bunpro', 'Bunpro', this.deps.text('statsApiKeyMissing'), 'setup')),
+            wanikani: this.loadingOrUnavailable(this.deps.canUseWanikaniSource(), this.snapshot.wanikani, emptyStatsSource('wanikani', 'WaniKani', this.deps.text('statsApiKeyMissing'), 'setup')),
+            yomuLocal: this.loadingOrUnavailable(this.deps.canUseYomuLocalSource(), this.snapshot.yomuLocal, emptyStatsSource('yomu-local', ACADEMY_SRS_LABEL, this.deps.text('statsNoData'), 'setup')),
+            anki: this.loadingOrUnavailable(this.shouldLoadAnki(settings), this.snapshot.anki, emptyStatsSource('anki', 'Anki', this.deps.text('statsConnectAnki'), 'setup')),
+            combined: this.loadingSource(this.snapshot.combined),
+        };
+    }
+
+    private loadingOrUnavailable<T extends StatsSourceSnapshot>(available: boolean, source: T, unavailable: T): T {
+        return available ? this.loadingSource(source) : unavailable;
     }
 
     // --- click handling ---
@@ -467,14 +497,13 @@ export class NewTabStatsController {
     private toggleAnkiDeck(root: HTMLElement, target: HTMLElement): void {
         const deck = target.closest<HTMLElement>('[data-stats-anki-deck]')?.dataset.statsAnkiDeck;
         if (!deck) return;
-        if (!this.deckPrefsLoaded) {
+        if (!this.hasDeckPrefsFor(this.deps.ankiProviderContext())) {
             void this.loadDeckPrefs().then(() => this.toggleAnkiDeck(root, target));
             return;
         }
-        if (this.disabledAnkiDecks.has(deck)) this.disabledAnkiDecks.delete(deck);
-        else this.disabledAnkiDecks.add(deck);
+        this.disabledAnkiDecks = setWithToggledValue(this.disabledAnkiDecks, deck);
         this.applyAnkiDeckToggles(root);
-        void gmStorageSet(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, [...this.disabledAnkiDecks]).catch(error => {
+        void this.saveDeckPrefs().catch(error => {
             log.warn('Anki stats deck preference save failed', error);
         });
         this.loaded = false;
@@ -561,13 +590,54 @@ export class NewTabStatsController {
     }
 
     private async loadDeckPrefs(): Promise<void> {
-        if (this.deckPrefsLoaded) return;
-        try {
-            const disabled = await gmStorageGet<string[]>(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, []);
-            this.disabledAnkiDecks = new Set(Array.isArray(disabled) ? disabled.filter(deck => typeof deck === 'string') : []);
-        } catch {
-            this.disabledAnkiDecks = new Set();
-        }
+        const context = this.deps.ankiProviderContext();
+        if (this.hasDeckPrefsFor(context)) return;
+        const disabled = await this.readDeckPrefs(context);
+        if (!this.isCurrentDeckPrefsContext(context)) return;
+        this.disabledAnkiDecks = disabled;
+        this.deckPrefsContext = context;
         this.deckPrefsLoaded = true;
     }
+
+    private async readDeckPrefs(context: string): Promise<Set<string>> {
+        try {
+            const stored = await gmStorageGet<StoredAnkiDeckPreferences | string[]>(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, []);
+            return new Set(storedAnkiDecksForContext(stored, context));
+        } catch {
+            return new Set();
+        }
+    }
+
+    private hasDeckPrefsFor(context: string): boolean {
+        return this.deckPrefsLoaded && this.deckPrefsContext === context;
+    }
+
+    private isCurrentDeckPrefsContext(context: string): boolean {
+        return context === this.deps.ankiProviderContext();
+    }
+
+    private async saveDeckPrefs(): Promise<void> {
+        const context = this.deps.ankiProviderContext();
+        const disabledDecks = [...this.disabledAnkiDecks];
+        const stored = await gmStorageGet<StoredAnkiDeckPreferences | string[]>(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, []);
+        const accounts = !Array.isArray(stored) && stored?.version === 2 ? { ...stored.accounts } : {};
+        accounts[context] = disabledDecks;
+        await gmStorageSet(NEW_TAB_STATS_DISABLED_ANKI_DECKS_KEY, { version: 2, accounts } satisfies StoredAnkiDeckPreferences);
+    }
+}
+
+function storedAnkiDecksForContext(stored: StoredAnkiDeckPreferences | string[], context: string): string[] {
+    if (Array.isArray(stored)) return [];
+    const disabled = stored.version === 2 ? stored.accounts[context] : [];
+    return Array.isArray(disabled) ? disabled.filter(isString) : [];
+}
+
+function setWithToggledValue(values: ReadonlySet<string>, value: string): Set<string> {
+    const next = new Set(values);
+    if (!next.delete(value)) next.add(value);
+    return next;
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === 'string';
 }

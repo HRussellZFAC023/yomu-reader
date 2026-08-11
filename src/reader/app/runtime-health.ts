@@ -27,6 +27,14 @@ const READER_RUNTIME_SERVICES = [
     'nested-lookup',
 ] as const;
 
+const CORE_RUNTIME_SERVICES = [
+    'jiten',
+    'yomu-srs',
+    'jpdb',
+    'audio',
+    'nested-lookup',
+] as const satisfies readonly ReaderRuntimeService[];
+
 export type ReaderRuntimeService = typeof READER_RUNTIME_SERVICES[number];
 
 export interface ReaderRuntimeHealth {
@@ -36,29 +44,26 @@ export interface ReaderRuntimeHealth {
     readonly missing: readonly ReaderRuntimeService[];
 }
 
+const OPTIONAL_RUNTIME_SERVICE_PROBES: ReadonlyArray<readonly [
+    ReaderRuntimeService,
+    () => boolean,
+]> = [
+    ['annotation-layout', hasAnnotationLayoutRuntime],
+    ['pitch', hasAnnotationLayoutRuntime],
+    ['localization', () => typeof yomuI18nCompanion()?.uiText === 'function'],
+    ['local-dictionary', () => typeof yomuLocalDictionaries()?.YomitanDictionaryStore === 'function'],
+    ['translation', () => typeof yomuKanjiStudyCompanion()?.translateTargetSentence === 'function'],
+    ['grammar', hasGrammarRuntime],
+    ['mining', hasMiningRuntime],
+    ['anki', () => typeof yomuAnkiCompanion()?.AnkiConnectClient === 'function'],
+    ['bunpro', () => typeof yomuBunproCompanion()?.BunproClient === 'function'],
+];
+
 export function currentReaderRuntimeHealth(): ReaderRuntimeHealth {
-    const available = new Set<ReaderRuntimeService>([
-        'jiten',
-        'yomu-srs',
-        'jpdb',
-        'audio',
-        'nested-lookup',
-    ]);
-    const annotations = yomuAnnotationsCompanion();
-    if (typeof annotations?.syncProjectedReadings === 'function'
-        && typeof annotations?.clearProjectedReadings === 'function') {
-        available.add('annotation-layout');
-        available.add('pitch');
+    const available = new Set<ReaderRuntimeService>(CORE_RUNTIME_SERVICES);
+    for (const [service, isAvailable] of OPTIONAL_RUNTIME_SERVICE_PROBES) {
+        if (isAvailable()) available.add(service);
     }
-    const copy = yomuI18nCompanion();
-    if (typeof copy?.uiText === 'function') available.add('localization');
-    if (typeof yomuLocalDictionaries()?.YomitanDictionaryStore === 'function') available.add('local-dictionary');
-    const study = yomuKanjiStudyCompanion();
-    if (typeof study?.translateJapaneseSentence === 'function') available.add('translation');
-    if (typeof study?.detectGrammarHints === 'function' && typeof study?.listLocalGrammarRules === 'function') available.add('grammar');
-    if (typeof study?.normalizeMiningSentence === 'function' && typeof study?.StudySourceController === 'function') available.add('mining');
-    if (typeof yomuAnkiCompanion()?.AnkiConnectClient === 'function') available.add('anki');
-    if (typeof yomuBunproCompanion()?.BunproClient === 'function') available.add('bunpro');
     const services = READER_RUNTIME_SERVICES.filter(service => available.has(service));
     const missing = READER_RUNTIME_SERVICES.filter(service => !available.has(service));
     return {
@@ -67,6 +72,24 @@ export function currentReaderRuntimeHealth(): ReaderRuntimeHealth {
         services,
         missing,
     };
+}
+
+function hasAnnotationLayoutRuntime(): boolean {
+    const annotations = yomuAnnotationsCompanion();
+    return typeof annotations?.syncProjectedReadings === 'function'
+        && typeof annotations?.clearProjectedReadings === 'function';
+}
+
+function hasGrammarRuntime(): boolean {
+    const study = yomuKanjiStudyCompanion();
+    return typeof study?.detectGrammarHints === 'function'
+        && typeof study?.listLocalGrammarRules === 'function';
+}
+
+function hasMiningRuntime(): boolean {
+    const study = yomuKanjiStudyCompanion();
+    return typeof study?.normalizeMiningSentence === 'function'
+        && typeof study?.StudySourceController === 'function';
 }
 
 export function publishReaderRuntimeHealth(ownerId: string, root: ParentNode = document): ReaderRuntimeHealth | null {

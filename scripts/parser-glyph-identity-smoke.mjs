@@ -16,6 +16,7 @@ import {
     addScriptTagWithCspFallback,
     installUserscriptCssResource,
 } from './lib/smoke-test-helpers.mjs';
+import { TARGET_AUDIT_FIXTURES } from './lib/multilingual-capability-audit-fixtures.ts';
 import { yomitanZipBuffer } from './lib/yomitan-zip.mjs';
 
 const {
@@ -37,7 +38,10 @@ const ENGINES = requestedEngineNames.size
     : ENGINE_MATRIX;
 const FURIGANA_MODES = ['all', 'off'];
 const INTERACTIONS = ['hover', 'click'];
+const MULTILINGUAL_TARGET_IDS = Object.freeze(['es', 'ar', 'ko', 'yue']);
 const SENTENCES = fixtureSentences();
+const MULTILINGUAL_SENTENCES = multilingualFixtureSentences();
+const PAGE_SENTENCES = [...SENTENCES, ...MULTILINGUAL_SENTENCES];
 const EXPECTED_TOKENS = SENTENCES.flatMap(sentence => sentence.tokens.map(token => ({
     sentenceId: sentence.id,
     selector: `[data-parser-sentence="${sentence.id}"]`,
@@ -88,6 +92,11 @@ assert(ENGINES.length > 0 && ENGINES.length === (requestedEngineNames.size || EN
 assert(GLYPH_PROBES.length === 36, 'Fixture no longer covers the expected 36 Japanese glyphs.', {
     glyphCount: GLYPH_PROBES.length,
 });
+assert(Object.keys(TARGET_AUDIT_FIXTURES).length === 33,
+    'Target audit fixture roster no longer covers all 33 learning targets.', {
+        fixtureIds: Object.keys(TARGET_AUDIT_FIXTURES),
+    });
+assertMultilingualFixtureContract();
 
 const server = await startLoopbackServer((request, response) => {
     const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
@@ -105,7 +114,7 @@ const server = await startLoopbackServer((request, response) => {
 </head>
 <body>
     <main style="max-width: 900px; margin: 48px auto; padding: 24px; font: 28px/2.4 system-ui, sans-serif;">
-        ${SENTENCES.map(sentence => `<p data-parser-sentence="${sentence.id}">${sentence.text}</p>`).join('\n        ')}
+        ${PAGE_SENTENCES.map(sentence => `<p data-parser-sentence="${sentence.id}" data-parser-target="${sentence.targetId}" lang="${sentence.lang}" dir="${sentence.dir}">${sentence.text}</p>`).join('\n        ')}
     </main>
 </body>
 </html>`);
@@ -114,8 +123,9 @@ const server = await startLoopbackServer((request, response) => {
 const reportPath = path.join(ARTIFACTS, 'parser-glyph-identity-smoke.json');
 const report = {
     ok: false,
-    fixture: SENTENCES.map(({ id, text, tokens }) => ({ id, text, tokens })),
+    fixture: PAGE_SENTENCES.map(({ id, targetId, text, tokens }) => ({ id, targetId, text, tokens })),
     expectedGlyphsPerScenario: GLYPH_PROBES.length,
+    representativeTargets: MULTILINGUAL_TARGET_IDS,
     scenarios: [],
 };
 
@@ -148,48 +158,68 @@ try {
 async function runEngine(engine, scenarios) {
     const browser = await launchSmokeBrowser(engine.browserType, engine.name, { headless: true });
     try {
-        const context = await browser.newContext({
-            bypassCSP: true,
-            viewport: { width: 1280, height: 900 },
-            locale: 'ja-JP',
-        });
-        const page = await context.newPage();
-        if (process.env.SMOKE_DEBUG) {
-            page.on('console', message => console.error(`[${engine.name}:console]`, message.type(), message.text().slice(0, 400)));
-            page.on('pageerror', error => console.error(`[${engine.name}:pageerror]`, error.message.slice(0, 400)));
-        }
-        await page.exposeFunction('__yomuParserGlyphRequest', () => ({
-            status: 503,
-            statusText: 'Deterministic parser glyph identity fixture',
-            responseText: '',
-            responseHeaders: '',
-        }));
-        await addGmStorageBridgeInitScript(page, {
-            key: YOMU_SETTINGS_KEY,
-            value: BASE_SETTINGS,
-            requestBridgeName: '__yomuParserGlyphRequest',
-            initialize: 'ifMissing',
-        });
-
-        await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
-        await injectReader(page);
-        await importFixtureDictionary(page);
-        await waitForImportedDictionaryStore(page);
-
-        for (const furiganaMode of FURIGANA_MODES) {
-            for (const interaction of INTERACTIONS) {
-                await configureScenario(page, furiganaMode, interaction);
-                const scenario = await exerciseScenario(page, {
-                    engine: engine.name,
-                    furiganaMode,
-                    interaction,
-                });
-                scenarios.push(scenario);
-            }
-        }
-        await context.close();
+        const page = await preparedEnginePage(browser, engine);
+        await runJapaneseScenarioMatrix(page, engine.name, scenarios);
+        await runMultilingualScenarioMatrix(page, engine.name, scenarios);
     } finally {
         await browser.close();
+    }
+}
+
+async function preparedEnginePage(browser, engine) {
+    const context = await browser.newContext({
+        bypassCSP: true,
+        viewport: { width: 1280, height: 900 },
+        locale: 'ja-JP',
+    });
+    const page = await context.newPage();
+    attachSmokeDebugLogging(page, engine.name);
+    await page.exposeFunction('__yomuParserGlyphRequest', () => ({
+        status: 503,
+        statusText: 'Deterministic parser glyph identity fixture',
+        responseText: '',
+        responseHeaders: '',
+    }));
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: BASE_SETTINGS,
+        requestBridgeName: '__yomuParserGlyphRequest',
+        initialize: 'ifMissing',
+    });
+    await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
+    await injectReader(page);
+    await importFixtureDictionary(page);
+    await waitForImportedDictionaryStore(page);
+    return page;
+}
+
+function attachSmokeDebugLogging(page, engineName) {
+    if (!process.env.SMOKE_DEBUG) return;
+    page.on('console', message => console.error(`[${engineName}:console]`, message.type(), message.text().slice(0, 400)));
+    page.on('pageerror', error => console.error(`[${engineName}:pageerror]`, error.message.slice(0, 400)));
+}
+
+async function runJapaneseScenarioMatrix(page, engineName, scenarios) {
+    for (const furiganaMode of FURIGANA_MODES) {
+        for (const interaction of INTERACTIONS) {
+            await configureScenario(page, furiganaMode, interaction);
+            scenarios.push(await exerciseScenario(page, {
+                engine: engineName,
+                furiganaMode,
+                interaction,
+            }));
+        }
+    }
+}
+
+async function runMultilingualScenarioMatrix(page, engineName, scenarios) {
+    for (const fixture of MULTILINGUAL_SENTENCES) {
+        await configureMultilingualScenario(page, fixture);
+        scenarios.push(await exerciseMultilingualScenario(page, {
+            engine: engineName,
+            targetId: fixture.targetId,
+            interaction: 'click',
+        }, fixture));
     }
 }
 
@@ -289,6 +319,54 @@ async function configureScenario(page, furiganaMode, interaction) {
     await waitForFixtureReady(page, furiganaMode);
 }
 
+async function configureMultilingualScenario(page, fixture) {
+    const configured = await page.evaluate(({ settingsKey, targetLanguage }) => {
+        const current = window.GM_getValue(settingsKey, {});
+        const languageProfiles = Array.from(current.languageProfiles ?? []);
+        const activeIndex = languageProfiles.findIndex(profile => profile.id === current.activeLanguageProfileId);
+        if (activeIndex < 0) return false;
+        languageProfiles[activeIndex] = { ...languageProfiles[activeIndex], targetLanguage };
+        window.GM_setValue(settingsKey, {
+            ...current,
+            languageProfiles,
+            showFurigana: true,
+            furiganaMode: 'all',
+            lookupOnHover: false,
+            lookupOnClick: true,
+            popupActivationMode: 'click',
+        });
+        return true;
+    }, {
+        settingsKey: YOMU_SETTINGS_KEY,
+        targetLanguage: fixture.targetId,
+    });
+    assert(configured, 'Could not switch the active language profile for a multilingual parser scenario.', {
+        targetId: fixture.targetId,
+    });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await injectReader(page);
+    await page.keyboard.press('Shift+J');
+    await waitForMultilingualFixtureReady(page, fixture);
+}
+
+async function waitForMultilingualFixtureReady(page, fixture) {
+    try {
+        await page.waitForFunction(sentenceId =>
+            [...document.querySelectorAll(`[data-parser-sentence="${sentenceId}"] .jpdb-reader-word`)]
+                .some(word => word.getAttribute('data-card-source') === 'local'),
+        fixture.id, {
+            timeout: 45_000,
+            polling: 250,
+        });
+    } catch (error) {
+        const diagnostics = await collectParserDiagnostics(page);
+        throw new Error(`Multilingual local dictionary fixture never became the paint source.\n${JSON.stringify(diagnostics, null, 2)}`, {
+            cause: error,
+        });
+    }
+    await page.waitForTimeout(250);
+}
+
 async function waitForFixtureReady(page, furiganaMode) {
     if (furiganaMode === 'off') {
         await page.waitForFunction(sentenceIds => sentenceIds.every(id => {
@@ -307,40 +385,7 @@ async function waitForFixtureReady(page, furiganaMode) {
             polling: 250,
         });
     } catch (error) {
-        const diagnostics = await page.evaluate(async settingsKey => {
-            const settings = window.GM_getValue?.(settingsKey, null) ?? null;
-            return {
-                settings: settings ? {
-                    parserProvider: settings.parserProvider,
-                    localDictionariesEnabled: settings.localDictionariesEnabled,
-                    manualScanEnabled: settings.manualScanEnabled,
-                    annotationsPaused: settings.annotationsPaused,
-                    furiganaMode: settings.furiganaMode,
-                    lookupOnHover: settings.lookupOnHover,
-                    lookupOnClick: settings.lookupOnClick,
-                    dictionaryPreferences: settings.dictionaryPreferences,
-                    activeLanguageProfile: settings.languageProfiles?.find(
-                        profile => profile.id === settings.activeLanguageProfileId,
-                    ),
-                } : null,
-                storedSettingsLength: localStorage.getItem(settingsKey)?.length ?? 0,
-                databases: (await indexedDB.databases?.() ?? []).map(database => ({
-                    name: database.name ?? '',
-                    version: database.version ?? 0,
-                })),
-                sentences: [...document.querySelectorAll('[data-parser-sentence]')].map(container => ({
-                    id: container.getAttribute('data-parser-sentence') ?? '',
-                    text: container.textContent?.replace(/\s+/gu, '') ?? '',
-                    words: [...container.querySelectorAll('.jpdb-reader-word')].map(word => ({
-                        surface: word.getAttribute('data-surface') ?? '',
-                        expression: word.getAttribute('data-expression') ?? '',
-                        source: word.getAttribute('data-card-source') ?? '',
-                        start: word.getAttribute('data-token-start') ?? '',
-                        end: word.getAttribute('data-token-end') ?? '',
-                    })),
-                })),
-            };
-        }, YOMU_SETTINGS_KEY);
+        const diagnostics = await collectParserDiagnostics(page);
         throw new Error(`Local dictionary never became the fixture's paint source.\n${JSON.stringify(diagnostics, null, 2)}`, {
             cause: error,
         });
@@ -351,67 +396,175 @@ async function waitForFixtureReady(page, furiganaMode) {
     await page.waitForTimeout(250);
 }
 
+async function collectParserDiagnostics(page) {
+    const [storage, databases, sentences] = await Promise.all([
+        parserStorageSnapshot(page),
+        parserDatabaseSnapshot(page),
+        parserSentenceSnapshots(page),
+    ]);
+    return { ...storage, databases, sentences };
+}
+
+async function parserStorageSnapshot(page) {
+    return await page.evaluate(settingsKey => ({
+        settings: window.GM_getValue(settingsKey, null),
+        storedSettingsLength: localStorage.getItem(settingsKey)?.length ?? 0,
+    }), YOMU_SETTINGS_KEY);
+}
+
+async function parserDatabaseSnapshot(page) {
+    return await page.evaluate(async () => (await indexedDB.databases()).map(database => ({
+        name: database.name ?? '',
+        version: database.version ?? 0,
+    })));
+}
+
+async function parserSentenceSnapshots(page) {
+    return await page.evaluate(() => [...document.querySelectorAll('[data-parser-sentence]')].map(container => ({
+        sentenceId: container.dataset.parserSentence,
+        text: container.textContent,
+        lang: container.lang,
+        dir: container.dir,
+        words: [...container.querySelectorAll('.jpdb-reader-word')].map(word => ({
+            surface: word.dataset.surface,
+            expression: word.dataset.expression,
+            start: Number(word.dataset.tokenStart),
+            end: Number(word.dataset.tokenEnd),
+            source: word.dataset.cardSource,
+        })),
+    })));
+}
+
 async function exerciseScenario(page, scenario) {
     const rubyCount = await page.locator('[data-parser-sentence] rt.jpdb-reader-furi').count();
+    const painted = await parserSentenceSnapshots(page);
+    assertJapaneseScenarioPaint(rubyCount, painted, scenario);
+    const probes = await exerciseGlyphProbes(
+        page,
+        scenario,
+        GLYPH_PROBES,
+        'Popover headword did not match the glyph under the pointer.',
+    );
+    const screenshot = await captureScenarioScreenshot(
+        page,
+        `${scenario.engine}-${scenario.furiganaMode}-${scenario.interaction}`,
+    );
+    return { ...scenario, rubyCount, painted, probes, screenshot };
+}
+
+async function exerciseMultilingualScenario(page, scenario, fixture) {
+    const selector = `[data-parser-sentence="${fixture.id}"]`;
+    const content = await multilingualContentSnapshot(page, selector);
+    assertMultilingualContent(content, fixture, scenario);
+    const rubyCount = content.readingAnnotations.length;
+    assert(rubyCount === 0, 'Non-Japanese target painted Japanese ruby annotations.', {
+        ...scenario,
+        sentenceId: fixture.id,
+        rubyCount,
+        content,
+    });
+
+    const painted = await parserSentenceSnapshots(page);
+    const expectedTokens = fixture.tokens.map(token => ({
+        sentenceId: fixture.id,
+        selector,
+        ...token,
+    }));
+    assertPaintedTokens(painted, scenario, expectedTokens);
+    const probes = await exerciseGlyphProbes(
+        page,
+        scenario,
+        glyphProbes([fixture]),
+        'Multilingual popover headword did not match the grapheme under the pointer.',
+    );
+    const screenshot = await captureScenarioScreenshot(page, `${scenario.engine}-${fixture.targetId}-click`);
+    return { ...scenario, rubyCount, content, painted, probes, screenshot };
+}
+
+function assertJapaneseScenarioPaint(rubyCount, painted, scenario) {
     if (scenario.furiganaMode === 'all') {
         assert(rubyCount > 0, 'furiganaMode=all painted no ruby annotations.', { ...scenario, rubyCount });
-    } else {
-        assert(rubyCount === 0, 'furiganaMode=off still painted ruby annotations.', { ...scenario, rubyCount });
+        assertPaintedTokens(painted, scenario);
+        return;
     }
+    assert(rubyCount === 0, 'furiganaMode=off still painted ruby annotations.', { ...scenario, rubyCount });
+}
 
-    const painted = await paintedTokenSnapshot(page);
-    if (scenario.furiganaMode === 'all') assertPaintedTokens(painted, scenario);
-    const probes = [];
-    for (const probe of GLYPH_PROBES) {
+async function multilingualContentSnapshot(page, selector) {
+    return await page.locator(selector).evaluate((element, settingsKey) => {
+        const settings = window.GM_getValue(settingsKey, {});
+        const activeTargetLanguage = settings.languageProfiles
+            .find(profile => profile.id === settings.activeLanguageProfileId)?.targetLanguage ?? '';
+        return {
+            lang: element.lang,
+            dir: element.dir,
+            computedDirection: getComputedStyle(element).direction,
+            activeTargetLanguage,
+            readingAnnotations: [...element.querySelectorAll('rt, .jpdb-reader-furi')].map(annotation => ({
+                text: annotation.textContent,
+                html: annotation.parentElement.outerHTML,
+            })),
+        };
+    }, YOMU_SETTINGS_KEY);
+}
+
+function assertMultilingualContent(content, fixture, scenario) {
+    assert(content.activeTargetLanguage === fixture.targetId
+        && content.lang === fixture.lang
+        && content.dir === fixture.dir
+        && content.computedDirection === fixture.dir,
+    'Multilingual fixture did not preserve its active target and content direction.', {
+        ...scenario,
+        fixture: { id: fixture.id, targetId: fixture.targetId, lang: fixture.lang, dir: fixture.dir },
+        content,
+    });
+}
+
+async function exerciseGlyphProbes(page, scenario, glyphs, headwordFailureMessage) {
+    const evidence = [];
+    for (const probe of glyphs) {
         await dismissPopover(page);
         await page.locator(probe.selector).scrollIntoViewIfNeeded();
         const point = await glyphPointAndPaint(page, probe);
         assertGlyphPaint(point, probe, scenario);
-
-        if (scenario.interaction === 'hover') await page.mouse.move(point.x, point.y);
-        else await page.mouse.click(point.x, point.y);
-
+        await activateGlyphProbe(page, scenario.interaction, point);
         const popover = await visiblePopoverSnapshot(page);
-        assert(popover.headword === probe.headword, 'Popover headword did not match the glyph under the pointer.', {
+        assert(popover.headword === probe.headword, headwordFailureMessage, {
             ...scenario,
             probe,
             point,
             popover,
         });
-        probes.push({
-            sentenceId: probe.sentenceId,
-            offset: probe.offset,
-            glyph: probe.glyph,
-            expectedSurface: probe.surface,
-            expectedHeadword: probe.headword,
-            paintedSurface: point.paintedSurface,
-            headword: popover.headword,
-        });
+        evidence.push(glyphProbeEvidence(probe, point, popover));
     }
+    return evidence;
+}
 
-    const screenshot = path.join(
-        ARTIFACTS,
-        `parser-glyph-identity-${scenario.engine}-${scenario.furiganaMode}-${scenario.interaction}.png`,
-    );
+async function activateGlyphProbe(page, interaction, point) {
+    if (interaction === 'hover') await page.mouse.move(point.x, point.y);
+    else await page.mouse.click(point.x, point.y);
+}
+
+function glyphProbeEvidence(probe, point, popover) {
+    return {
+        sentenceId: probe.sentenceId,
+        offset: probe.offset,
+        glyph: probe.glyph,
+        expectedSurface: probe.surface,
+        expectedHeadword: probe.headword,
+        paintedSurface: point.paintedSurface,
+        headword: popover.headword,
+    };
+}
+
+async function captureScenarioScreenshot(page, scenarioId) {
+    const screenshot = path.join(ARTIFACTS, `parser-glyph-identity-${scenarioId}.png`);
     await page.screenshot({ path: screenshot, fullPage: false });
-    return { ...scenario, rubyCount, painted, probes, screenshot };
+    return screenshot;
 }
 
-async function paintedTokenSnapshot(page) {
-    return await page.evaluate(() => [...document.querySelectorAll('[data-parser-sentence]')].map(container => ({
-        sentenceId: container.getAttribute('data-parser-sentence') ?? '',
-        words: [...container.querySelectorAll('.jpdb-reader-word')].map(word => ({
-            surface: word.getAttribute('data-surface') ?? '',
-            expression: word.getAttribute('data-expression') ?? '',
-            start: Number(word.getAttribute('data-token-start')),
-            end: Number(word.getAttribute('data-token-end')),
-            source: word.getAttribute('data-card-source') ?? '',
-        })),
-    })));
-}
-
-function assertPaintedTokens(painted, scenario) {
-    for (const expected of EXPECTED_TOKENS) {
+function assertPaintedTokens(painted, scenario, expectedTokens = EXPECTED_TOKENS) {
+    for (const expected of expectedTokens) {
         const sentence = painted.find(row => row.sentenceId === expected.sentenceId);
         const matches = sentence?.words.filter(word => word.start === expected.start && word.end === expected.end) ?? [];
         assert(matches.length === 1, 'Expected source range was not painted by exactly one word span.', {
@@ -438,51 +591,84 @@ function assertPaintedTokens(painted, scenario) {
 }
 
 async function glyphPointAndPaint(page, probe) {
-    return await page.evaluate(({ selector, sourceOffset }) => {
-        const container = document.querySelector(selector);
-        if (!container) return null;
-        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    return await page.evaluate(browserGlyphPointAndPaint, {
+        selector: probe.selector,
+        sourceOffset: probe.offset,
+        sourceLength: probe.glyph.length,
+    });
+}
+
+function browserGlyphPointAndPaint({ selector, sourceOffset, sourceLength }) {
+    const container = document.querySelector(selector);
+    if (!container) return null;
+    const sourceNode = sourceTextNode(container, sourceOffset, sourceLength);
+    return sourceNode ? glyphPaintSnapshot(sourceNode, sourceOffset, sourceLength) : null;
+
+    function sourceTextNode(root, offset, length) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         let logicalOffset = 0;
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            if (node.parentElement?.closest('rt, rp, .jpdb-reader-furi')) continue;
-            const text = node.nodeValue ?? '';
-            if (sourceOffset < logicalOffset + text.length) {
-                const nodeOffset = sourceOffset - logicalOffset;
-                const codePoint = text.codePointAt(nodeOffset);
-                if (codePoint === undefined) return null;
-                const glyph = String.fromCodePoint(codePoint);
-                const range = document.createRange();
-                range.setStart(node, nodeOffset);
-                range.setEnd(node, nodeOffset + glyph.length);
-                const rect = range.getBoundingClientRect();
-                const word = node.parentElement?.closest('.jpdb-reader-word');
-                return {
-                    x: rect.left + rect.width / 2,
-                    y: rect.top + rect.height / 2,
-                    width: rect.width,
-                    height: rect.height,
-                    glyph,
-                    paintedSurface: word?.getAttribute('data-surface') ?? '',
-                    paintedExpression: word?.getAttribute('data-expression') ?? '',
-                    paintedStart: Number(word?.getAttribute('data-token-start')),
-                    paintedEnd: Number(word?.getAttribute('data-token-end')),
-                    paintedBaseText: word ? baseText(word) : '',
-                };
+            if (isReadingAnnotationText(node)) continue;
+            const text = textValue(node);
+            if (sourceRangeFitsTextNode(offset, length, logicalOffset, text.length)) {
+                return { node, text, logicalOffset };
             }
             logicalOffset += text.length;
         }
         return null;
+    }
 
-        function baseText(root) {
-            const textWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-            let value = '';
-            for (let textNode = textWalker.nextNode(); textNode; textNode = textWalker.nextNode()) {
-                if (textNode.parentElement?.closest('rt, rp, .jpdb-reader-furi')) continue;
-                value += textNode.nodeValue ?? '';
-            }
-            return value;
+    function sourceRangeFitsTextNode(offset, length, logicalOffset, textLength) {
+        const nodeEnd = logicalOffset + textLength;
+        return offset < nodeEnd && offset + length <= nodeEnd;
+    }
+
+    function glyphPaintSnapshot(source, offset, length) {
+        const nodeOffset = offset - source.logicalOffset;
+        const range = document.createRange();
+        range.setStart(source.node, nodeOffset);
+        range.setEnd(source.node, nodeOffset + length);
+        const rect = range.getBoundingClientRect();
+        const word = source.node.parentElement?.closest('.jpdb-reader-word');
+        return {
+            x: rect.left + rect.width / 2,
+            y: rect.top + rect.height / 2,
+            width: rect.width,
+            height: rect.height,
+            glyph: source.text.slice(nodeOffset, nodeOffset + length),
+            paintedSurface: attributeOrEmpty(word, 'data-surface'),
+            paintedExpression: attributeOrEmpty(word, 'data-expression'),
+            paintedStart: numericAttribute(word, 'data-token-start'),
+            paintedEnd: numericAttribute(word, 'data-token-end'),
+            paintedBaseText: word ? baseText(word) : '',
+        };
+    }
+
+    function attributeOrEmpty(element, name) {
+        return element?.getAttribute(name) ?? '';
+    }
+
+    function numericAttribute(element, name) {
+        return Number(element?.getAttribute(name));
+    }
+
+    function isReadingAnnotationText(node) {
+        return Boolean(node.parentElement?.closest('rt, rp, .jpdb-reader-furi'));
+    }
+
+    function textValue(node) {
+        return node.nodeValue ?? '';
+    }
+
+    function baseText(root) {
+        const textWalker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let value = '';
+        for (let textNode = textWalker.nextNode(); textNode; textNode = textWalker.nextNode()) {
+            if (isReadingAnnotationText(textNode)) continue;
+            value += textValue(textNode);
         }
-    }, { selector: probe.selector, sourceOffset: probe.offset });
+        return value;
+    }
 }
 
 function assertGlyphPaint(point, probe, scenario) {
@@ -583,6 +769,16 @@ function fixtureDictionaryArchive() {
             ['被害', 'ひがい', '', 'n', 100, ['damage'], 13, ''],
             ['が', 'が', '', 'prt', 100, ['subject marker'], 14, ''],
             ['出る', 'でる', '', 'v1', 100, ['to come out'], 15, ''],
+            ...MULTILINGUAL_SENTENCES.flatMap((sentence, sentenceIndex) => sentence.tokens.map((token, tokenIndex) => [
+                token.headword,
+                '',
+                '',
+                '',
+                100,
+                [`${sentence.targetId} parser identity fixture`],
+                100 + sentenceIndex * 10 + tokenIndex,
+                '',
+            ])),
         ],
     });
 }
@@ -613,9 +809,115 @@ function fixtureSentences() {
     ];
 }
 
-function sentenceFixture(id, text, tokenDefinitions) {
+function multilingualFixtureSentences() {
+    const spanishHeadword = TARGET_AUDIT_FIXTURES.es.probe;
+    const spanishDecomposed = spanishHeadword.normalize('NFD');
+    const arabic = TARGET_AUDIT_FIXTURES.ar.probe;
+    const korean = TARGET_AUDIT_FIXTURES.ko.probe;
+    const cantonese = TARGET_AUDIT_FIXTURES.yue.probe;
+    const cantoneseSupplementary = '\u{282e2}';
+    return [
+        sentenceFixture('target-es', spanishDecomposed, [[spanishDecomposed, spanishHeadword]], {
+            targetId: 'es',
+            lang: 'es',
+            dir: 'ltr',
+        }),
+        sentenceFixture('target-ar', arabic, [[arabic, arabic]], {
+            targetId: 'ar',
+            lang: 'ar',
+            dir: 'rtl',
+        }),
+        sentenceFixture('target-ko', korean, [[korean, korean]], {
+            targetId: 'ko',
+            lang: 'ko',
+            dir: 'ltr',
+        }),
+        sentenceFixture('target-yue', `${cantonese}${cantoneseSupplementary}`, [
+            [cantonese, cantonese],
+            [cantoneseSupplementary, cantoneseSupplementary],
+        ], {
+            targetId: 'yue',
+            lang: 'yue-Hant',
+            dir: 'ltr',
+        }),
+    ];
+}
+
+function assertMultilingualFixtureContract() {
+    assertRepresentativeTargetOrder();
+    for (const sentence of MULTILINGUAL_SENTENCES) assertAuditFixtureSource(sentence);
+    assertDecomposedSpanishFixture();
+    assertSupplementaryCantoneseFixture();
+    assertArabicDirectionFixture();
+}
+
+function assertRepresentativeTargetOrder() {
+    assert(MULTILINGUAL_SENTENCES.map(sentence => sentence.targetId).join('\u0000')
+        === MULTILINGUAL_TARGET_IDS.join('\u0000'),
+    'Compact multilingual parser matrix drifted from its representative target IDs.', {
+        expected: MULTILINGUAL_TARGET_IDS,
+        actual: MULTILINGUAL_SENTENCES.map(sentence => sentence.targetId),
+    });
+}
+
+function assertAuditFixtureSource(sentence) {
+    const auditFixture = TARGET_AUDIT_FIXTURES[sentence.targetId];
+    assert(auditFixture, 'Representative parser target is absent from TARGET_AUDIT_FIXTURES.', {
+        targetId: sentence.targetId,
+    });
+    assert(sentence.text.normalize('NFC').includes(auditFixture.probe.normalize('NFC')),
+        'Multilingual parser fixture stopped deriving from TARGET_AUDIT_FIXTURES.', {
+            targetId: sentence.targetId,
+            sentence: sentence.text,
+            auditProbe: auditFixture.probe,
+        });
+}
+
+function assertDecomposedSpanishFixture() {
+    const spanish = multilingualSentence('es');
+    assert(spanish.text !== spanish.text.normalize('NFC'),
+        'Spanish parser fixture must retain a decomposed Latin grapheme.', {
+            text: spanish.text,
+        });
+}
+
+function assertSupplementaryCantoneseFixture() {
+    const cantonese = multilingualSentence('yue');
+    assert([...cantonese.text].some(glyph => glyph.codePointAt(0) > 0xffff),
+        'Cantonese parser fixture must retain a supplementary-plane Han glyph.', {
+            text: cantonese.text,
+        });
+}
+
+function assertArabicDirectionFixture() {
+    const arabic = multilingualSentence('ar');
+    assert(arabic.dir === 'rtl', 'Arabic parser fixture must exercise RTL geometry.', {
+        fixture: arabic,
+    });
+}
+
+function multilingualSentence(targetId) {
+    const sentence = MULTILINGUAL_SENTENCES.find(candidate => candidate.targetId === targetId);
+    assert(sentence, 'Compact multilingual parser matrix omitted a representative target.', { targetId });
+    return sentence;
+}
+
+function sentenceFixture(id, text, tokenDefinitions, options = {}) {
+    const tokens = fixtureTokens(id, text, tokenDefinitions);
+    assertLookupGlyphCoverage(id, text, tokens);
+    return {
+        id,
+        text,
+        tokens,
+        targetId: options.targetId ?? 'ja',
+        lang: options.lang ?? 'ja',
+        dir: options.dir ?? 'ltr',
+    };
+}
+
+function fixtureTokens(id, text, tokenDefinitions) {
     let cursor = 0;
-    const tokens = tokenDefinitions.map(([surface, headword]) => {
+    return tokenDefinitions.map(([surface, headword]) => {
         const start = text.indexOf(surface, cursor);
         assert(start === cursor, 'Fixture token definitions must cover the sentence in source order.', {
             id,
@@ -627,9 +929,11 @@ function sentenceFixture(id, text, tokenDefinitions) {
         cursor = end;
         return { surface, headword, start, end };
     });
-    for (let offset = 0; offset < text.length;) {
-        const codePoint = text.codePointAt(offset);
-        const glyph = String.fromCodePoint(codePoint);
+}
+
+function assertLookupGlyphCoverage(id, text, tokens) {
+    let offset = 0;
+    for (const glyph of text) {
         if (LOOKUP_GLYPH.test(glyph)) {
             assert(tokens.some(token => token.start <= offset && offset < token.end),
                 'Every Japanese fixture glyph must belong to an expected token.', {
@@ -641,25 +945,18 @@ function sentenceFixture(id, text, tokenDefinitions) {
         }
         offset += glyph.length;
     }
-    return { id, text, tokens };
 }
 
 function glyphProbes(sentences) {
     return sentences.flatMap(sentence => sentence.tokens.flatMap(token => {
-        const probes = [];
-        for (let offset = token.start; offset < token.end;) {
-            const codePoint = sentence.text.codePointAt(offset);
-            const glyph = String.fromCodePoint(codePoint);
-            probes.push({
+        const segmenter = new Intl.Segmenter(sentence.lang, { granularity: 'grapheme' });
+        return [...segmenter.segment(token.surface)].map(({ segment, index }) => ({
                 sentenceId: sentence.id,
                 selector: `[data-parser-sentence="${sentence.id}"]`,
-                offset,
-                glyph,
+                offset: token.start + index,
+                glyph: segment,
                 ...token,
-            });
-            offset += glyph.length;
-        }
-        return probes;
+            }));
     }));
 }
 

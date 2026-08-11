@@ -1,7 +1,7 @@
 {
   "name": "Yomu PDF Reader",
   "short_name": "Yomu PDF",
-  "description": "Read local PDFs with Yomu popup lookup, mining, and OCR without uploading files.",
+  "description": "Read local PDFs in your selected learning language with Yomu popup lookup, mining, and OCR without uploading files.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",

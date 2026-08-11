@@ -1,6 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ReaderApp } from '../../src/reader/app/main';
+import type { ReaderSettings } from '../../src/reader/app/types';
+import {
+    activeLearningTargetLanguage,
+    resetActiveLearningTargetLanguage,
+} from '../../src/reader/languages/active';
+import {
+    endSettingsResetGuard,
+} from '../../src/reader/settings';
+import { rejectOnboardingTargetPersistence } from './helpers/rejected-onboarding-target';
 
 interface StartupInternals {
     dictionaryStyles: {
@@ -12,6 +21,15 @@ interface StartupInternals {
     loadInitialSettings: () => Promise<boolean>;
     applyReaderThemeClasses: (theme: 'dark' | 'light') => void;
     installFab: () => void;
+    setupAutoScan: () => void;
+    installSettingsStorageSubscription: () => void;
+    installTargetOwnedCoreSurfaces: () => void;
+    registerMenuCommands: () => void;
+    bindEvents: () => void;
+    installOfflineParsingDictionaries: () => Promise<void>;
+    parser: { parse: (...args: unknown[]) => Promise<unknown> };
+    settings: ReaderSettings;
+    onboarding: { complete(openSettings: boolean | 'dictionaries'): Promise<void> };
 }
 
 type CompanionHost = typeof globalThis & { __yomuCompanions?: Record<string, unknown> };
@@ -20,6 +38,8 @@ describe('ReaderApp core startup', () => {
     let app: ReaderApp | undefined;
 
     afterEach(() => {
+        endSettingsResetGuard();
+        resetActiveLearningTargetLanguage();
         app?.destroy();
         app = undefined;
         vi.restoreAllMocks();
@@ -73,6 +93,81 @@ describe('ReaderApp core startup', () => {
         expect(internals.installCoreSurfaces).not.toHaveBeenCalled();
         expect(document.querySelector('.jpdb-reader-fab')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-player')).toBeNull();
+    });
+
+    it('keeps a fresh ordinary page usable and target-owned work inert when setup is dismissed', async () => {
+        vi.stubGlobal('location', new URL('https://example.com/article'));
+        const hostAction = document.createElement('button');
+        hostAction.textContent = '日本語の本文を開く';
+        const hostClick = vi.fn();
+        hostAction.addEventListener('click', hostClick);
+        document.body.append(hostAction);
+
+        app = new ReaderApp();
+        const internals = app as unknown as StartupInternals;
+        internals.installStyles = vi.fn();
+        const dictionaryRefresh = vi.spyOn(internals.dictionaryStyles, 'refresh');
+        const parse = vi.spyOn(internals.parser, 'parse');
+        internals.installFab = vi.fn();
+        internals.setupAutoScan = vi.fn();
+        internals.installSettingsStorageSubscription = vi.fn();
+        internals.registerMenuCommands = vi.fn();
+        internals.bindEvents = vi.fn();
+        internals.installOfflineParsingDictionaries = vi.fn(async () => undefined);
+
+        const initializing = app.init({ showWelcome: true });
+        await vi.waitFor(() => {
+            expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
+        });
+
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
+        await initializing;
+        hostAction.click();
+
+        expect(hostClick).toHaveBeenCalledOnce();
+        expect(dictionaryRefresh).not.toHaveBeenCalled();
+        expect(parse).not.toHaveBeenCalled();
+        expect(internals.installOfflineParsingDictionaries).not.toHaveBeenCalled();
+        expect(internals.installFab).not.toHaveBeenCalled();
+        expect(internals.setupAutoScan).not.toHaveBeenCalled();
+        expect(internals.installSettingsStorageSubscription).not.toHaveBeenCalled();
+        expect(internals.registerMenuCommands).not.toHaveBeenCalled();
+        expect(internals.bindEvents).not.toHaveBeenCalled();
+    });
+
+    it('keeps a rejected target choice inert and asks again on the next ordinary-page boot', async () => {
+        vi.stubGlobal('location', new URL('https://example.com/article'));
+        resetActiveLearningTargetLanguage();
+        app = new ReaderApp();
+        let internals = app as unknown as StartupInternals;
+        internals.installStyles = vi.fn();
+        internals.installTargetOwnedCoreSurfaces = vi.fn();
+
+        const initializing = app.init({ showWelcome: true });
+        await vi.waitFor(() => {
+            expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
+        });
+        await rejectOnboardingTargetPersistence(internals.onboarding);
+        expect(document.querySelector('.jpdb-reader-onboarding')).not.toBeNull();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
+        await initializing;
+
+        expect(internals.settings.learningTargetChosen).toBe(false);
+        expect(internals.settings.languageProfiles[0]?.targetLanguage).toBe('ja');
+        expect(activeLearningTargetLanguage()).toBe('ja');
+        expect(internals.installTargetOwnedCoreSurfaces).not.toHaveBeenCalled();
+
+        endSettingsResetGuard();
+        app.destroy();
+        app = new ReaderApp();
+        internals = app as unknown as StartupInternals;
+        internals.installStyles = vi.fn();
+        const reloading = app.init({ showWelcome: true });
+        await vi.waitFor(() => {
+            expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('');
+        });
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')?.click();
+        await reloading;
     });
 
     it('does not apply theme classes after page teardown removes the document root', () => {

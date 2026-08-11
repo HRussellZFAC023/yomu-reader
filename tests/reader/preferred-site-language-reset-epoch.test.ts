@@ -5,6 +5,7 @@ import { installFreshManagedStateEpochSessionForTests } from '../../src/reader/a
 const EPOCH_KEY = 'yomu:state-epoch';
 const PREFERENCE_KEY = 'yomu:prefer-japanese-site-language:v1';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
+const SETTINGS_KEY = 'jpdb-popup-reader-settings';
 
 interface EpochRecord {
     readonly version: 1;
@@ -34,7 +35,10 @@ afterEach(() => {
 
 describe('preferred-site-language cache reset epoch', () => {
     it('does not let a pre-reset cache override the factory default on another origin after reboot', async () => {
-        const values = new Map<string, unknown>([[PREFERENCE_KEY, true]]);
+        const values = new Map<string, unknown>([
+            [PREFERENCE_KEY, true],
+            [SETTINGS_KEY, { learningTargetChosen: true, preferJapaneseSiteLanguage: true }],
+        ]);
         installGmStore(values);
         vi.stubGlobal('browser', { runtime: { id: 'epoch-cache-proof' } });
 
@@ -46,10 +50,11 @@ describe('preferred-site-language cache reset epoch', () => {
         // Reset ran on a different origin: shared GM state advanced, but this
         // origin's pre-reset local cache and an unrelated host key remain.
         values.delete(PREFERENCE_KEY);
+        values.delete(SETTINGS_KEY);
         values.set(EPOCH_KEY, epoch(1, 'factory-reset'));
         localStorage.setItem('foreign-site-token', 'keep');
 
-        expect(await rebootPreferenceCache()).toBe('false');
+        expect(await rebootPreferenceCache()).toBeNull();
         expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toMatchObject({
             generation: 1,
             resetId: 'factory-reset',
@@ -57,7 +62,7 @@ describe('preferred-site-language cache reset epoch', () => {
         expect(localStorage.getItem('foreign-site-token')).toBe('keep');
     });
 
-    it('preserves the per-origin cached choice across reboots within one epoch', async () => {
+    it('keeps an authoritative opt-out shared-only across reboots within one epoch', async () => {
         const currentEpoch = epoch(1, 'factory-reset');
         const values = new Map<string, unknown>([
             [EPOCH_KEY, currentEpoch],
@@ -74,11 +79,11 @@ describe('preferred-site-language cache reset epoch', () => {
         await firstRealm.installPreferredJapaneseSiteLanguageFromStoredSettings();
         await settleAsyncHandlers();
         const firstStorage = await import('../../src/reader/app/storage');
-        expect(firstStorage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)).toBe('false');
+        expect(firstStorage.managedLocalStorage.getItem(PREFERENCE_CACHE_KEY)).toBeNull();
         expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(currentEpoch);
 
         values.delete(PREFERENCE_KEY);
-        expect(await rebootPreferenceCache()).toBe('false');
+        expect(await rebootPreferenceCache()).toBeNull();
         expect(JSON.parse(localStorage.getItem(EPOCH_KEY) ?? 'null')).toEqual(currentEpoch);
     });
 });

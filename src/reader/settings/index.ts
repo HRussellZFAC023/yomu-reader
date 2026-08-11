@@ -19,8 +19,10 @@ import {
 } from './intent-ledger';
 import { createDefaultSubtitleSettings } from './subtitle-defaults';
 import { hasOwn, stringValue, trimmedText } from './values';
+import { normalizeLearningTargetChosen } from './learning-target-choice';
+import { normalizeLanguageProfileSettings } from './language-profile-settings-normalization';
 import { cacheManagedValueForHostedStartup, gmStorageDelete, gmStorageGet, gmStorageSet, hasAsyncGmStorageBackend, isHostedYomuOrigin, localFallbackStoredValue, storedValueExists, subscribeToStoredValueChanges, withGmStorageLease } from '../app/storage';
-import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguage, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
+import { authoritativePreferredJapaneseSiteLanguage, persistPreferredJapaneseSiteLanguageWithSettings, PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY } from './site-language-intent';
 export { changedSettingsKeys } from './store-reconciliation';
 import { recoverLegacySettings, recoverStrandedHostedSettings } from './store-reconciliation';
 import { beginManagedStateReset, endManagedStateReset } from '../app/managed-state-registry';
@@ -29,11 +31,9 @@ import {
     activeLanguageProfile,
     createDefaultLanguageProfile,
     DEFAULT_LANGUAGE_PROFILE_ID,
-    normalizeLanguageProfiles,
 } from '../languages/profiles';
 import { learningTargetRosterIdForTag, SLICE1_TARGET_LANGUAGE } from '../languages/roster';
 import { isTargetDefaultOcrLanguageTag } from '../languages/resolve';
-import { isSupportedLanguageProfileSchemaVersion } from '../languages/types';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioSubSourceSetting, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, NewTabStudyChallengeStep, OcrOverlayTheme, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { accentToRgba, accessibleOcrBackgroundColor, accessibleOcrBackgroundOpacity, sanitizeAccentColor } from './color-settings';
@@ -314,6 +314,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     bunproFrontendApiTokenExpiresAt: '',
     wanikaniApiToken: '',
     onboardingSeen: false,
+    learningTargetChosen: false,
     interfaceLanguage: 'en',
     languageProfiles: [createDefaultLanguageProfile()],
     activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
@@ -351,7 +352,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     kanjiImmersionKitEnabled: true,
     kanjiImmersionKitAlias: '',
     kanjiImmersionKitPriority: 60,
-    uchisenEnabled: true,
+    uchisenEnabled: false, // Ignored legacy field; only the outbound link remains.
     uchisenAlias: '',
     uchisenPriority: 50,
     wanikaniKanjiEnabled: true,
@@ -629,6 +630,10 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         settingsValue,
         parserProvider,
         dictionaryPreferences,
+        {
+            interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
+            parserProvider: DEFAULT_SETTINGS.parserProvider,
+        },
     );
     return {
         ...DEFAULT_SETTINGS,
@@ -654,6 +659,10 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
             activeTargetRosterId(languageProfileSettings),
         ),
         ...languageProfileSettings,
+        learningTargetChosen: normalizeLearningTargetChosen(settingsValue, {
+            interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
+            parserProvider: DEFAULT_SETTINGS.parserProvider,
+        }),
         preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
     };
@@ -681,62 +690,6 @@ export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | 
     return mergeSettings(value as LegacyReaderSettings | null);
 }
 
-function normalizeLanguageProfileSettings(
-    value: LegacyReaderSettings | null,
-    parserProvider: ReaderSettings['parserProvider'],
-    dictionaryPreferences: ReaderSettings['dictionaryPreferences'],
-): Pick<
-    ReaderSettings,
-    'languageProfiles' | 'activeLanguageProfileId' | 'parserProvider' | 'interfaceLanguage' | 'dictionaryPreferences'
-> {
-    const hasPersistedProfiles = Array.isArray(value?.languageProfiles)
-        && value.languageProfiles.some(profile => (
-            profile
-            && typeof profile === 'object'
-            && 'schemaVersion' in profile
-            && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion)
-        ));
-    const normalized = normalizeLanguageProfiles(
-        value?.languageProfiles,
-        value?.activeLanguageProfileId,
-        {
-            // INTERFACE is not OUTPUT: existing Japanese-UI users are not
-            // necessarily native Japanese speakers. Preserve their UI choice
-            // and default the OUTPUT axis independently to English until
-            // onboarding asks.
-            outputLanguage: 'en',
-            uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
-            parserProvider,
-        },
-    );
-    const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
-    if (!active) {
-        return {
-            languageProfiles: normalized.profiles,
-            activeLanguageProfileId: normalized.activeProfileId,
-            parserProvider,
-            interfaceLanguage: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
-            dictionaryPreferences,
-        };
-    }
-    const profilesAreAuthoritative = hasPersistedProfiles
-        && normalized.profiles.some(languageProfileHasIndependentState);
-    if (!profilesAreAuthoritative) {
-        active.parserProvider = parserProvider;
-        active.uiLocale = normalizeInterfaceLanguage(value?.interfaceLanguage);
-        active.dictionaries = languageProfileDictionariesFromPreferences(dictionaryPreferences);
-    }
-    return {
-        languageProfiles: normalized.profiles,
-        activeLanguageProfileId: normalized.activeProfileId,
-        parserProvider: active.parserProvider,
-        interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
-        dictionaryPreferences: profilesAreAuthoritative
-            ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries)
-            : dictionaryPreferences,
-    };
-}
-
 /**
  * The roster ID of the target the normalized profiles point at.
  *
@@ -750,75 +703,6 @@ function activeTargetRosterId(
 ): string {
     const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
     return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
-}
-
-// Independence means "differs from the profile Yomu would create", so every
-// clause compares against that profile's own defaults. The target clause is
-// live: normalizeLanguageProfile preserves any target a registered module can
-// serve, so a stored profile that says Korean reaches here and is judged
-// independent, exactly as a changed parser or an installed dictionary is.
-function languageProfileHasIndependentState(
-    profile: ReaderSettings['languageProfiles'][number],
-): boolean {
-    return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID
-        || profile.outputLanguage !== 'en'
-        || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE
-        || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage
-        || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider
-        || profile.dictionaries.installed.length > 0
-        || profile.definitionTranslationProviderIds.length > 0;
-}
-
-function languageProfileDictionariesFromPreferences(
-    preferences: ReaderSettings['dictionaryPreferences'],
-): ReaderSettings['languageProfiles'][number]['dictionaries'] {
-    const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-    return {
-        installed: ordered.map(preference => preference.name),
-        enabled: ordered.filter(preference => preference.enabled).map(preference => preference.name),
-        order: ordered.map(preference => preference.name),
-    };
-}
-
-function dictionaryPreferencesForLanguageProfile(
-    preferences: ReaderSettings['dictionaryPreferences'],
-    dictionaries: ReaderSettings['languageProfiles'][number]['dictionaries'],
-): ReaderSettings['dictionaryPreferences'] {
-    // Empty is the migration/uninitialized state. A profile becomes
-    // authoritative as soon as it has captured at least one installed
-    // dictionary; this avoids disabling a dictionary imported by an older
-    // client before profile-aware persistence existed.
-    if (!dictionaries.installed.length) return preferences;
-    const installed = new Set(dictionaries.installed.map(normalizedProfileDictionaryId));
-    const enabled = new Set(dictionaries.enabled.map(normalizedProfileDictionaryId));
-    const order = new Map(
-        dictionaries.order.map((id, index) => [normalizedProfileDictionaryId(id), index]),
-    );
-    return preferences
-        .map((preference, index) => {
-            const key = normalizedProfileDictionaryId(preference.name);
-            return {
-                ...preference,
-                enabled: installed.has(key) && enabled.has(key),
-                priority: order.get(key) ?? dictionaries.order.length + index,
-            };
-        })
-        .sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
-}
-
-function normalizedProfileDictionaryId(value: string): string {
-    return value.normalize('NFKC').trim().toLocaleLowerCase('en-US');
-}
-
-function profileInterfaceLanguage(
-    value: ReaderSettings['languageProfiles'][number]['uiLocale'],
-    fallback: ReaderSettings['interfaceLanguage'] | undefined,
-): ReaderSettings['interfaceLanguage'] {
-    return value === 'auto' || value === 'en' || value === 'ja'
-        ? value
-        : fallback === 'auto' || fallback === 'en' || fallback === 'ja'
-            ? fallback
-            : DEFAULT_SETTINGS.interfaceLanguage;
 }
 
 function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey' | 'bunproApiKey' | 'bunproFrontendApiToken' | 'bunproFrontendApiTokenExpiresAt' | 'wanikaniApiToken'> {
@@ -2085,18 +1969,27 @@ export async function saveSettings(
     }
     try {
         const normalizedSettings = mergeSettings(settings as LegacyReaderSettings);
-        if (intent.persistPreferredJapaneseSiteLanguage) {
-            await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
-        }
-        await persistSettings(
-            normalizedSettings,
-            intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
-            intent.clearExplicitUserChoiceKeys,
-        );
+        await persistSettingsWithIntent(normalizedSettings, intent);
     } catch (error) {
         log.warn('Settings save failed', { error });
         throw error;
     }
+}
+
+async function persistSettingsWithIntent(
+    settings: ReaderSettings,
+    intent: SaveSettingsOptions,
+): Promise<void> {
+    const persist = (): Promise<void> => persistSettings(
+        settings,
+        intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+        intent.clearExplicitUserChoiceKeys,
+    );
+    if (!intent.persistPreferredJapaneseSiteLanguage) return persist();
+    return persistPreferredJapaneseSiteLanguageWithSettings(
+        settings.preferJapaneseSiteLanguage,
+        persist,
+    );
 }
 
 /**

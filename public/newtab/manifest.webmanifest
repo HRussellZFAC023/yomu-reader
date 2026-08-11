@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "よむ — Japanese Reader & Study",
+  "name": "よむ — Language Reader & Study",
   "short_name": "よむ",
-  "description": "An offline-first Japanese study, dictionary, and SRS companion for Anki, Bunpro, Jiten, JPDB, WaniKani, and local cards.",
+  "description": "An offline-first dictionary and Study companion for 33 learning targets, local cards, and supported connected services.",
   "lang": "en",
   "start_url": "./index.html",
   "scope": "./",
@@ -21,7 +21,7 @@
     {
       "name": "Library",
       "short_name": "Library",
-      "description": "Search and browse your Japanese cards.",
+      "description": "Search and browse cards in your selected learning target.",
       "url": "./?mode=search"
     },
     {

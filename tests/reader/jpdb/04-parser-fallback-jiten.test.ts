@@ -625,6 +625,7 @@ describe('reader helpers', () => {
         const rectSpy = mockElementBoundingClientRect();
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
             ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
             interfaceLanguage: 'ja',
             autoScanJapanese: false,
             scanVisiblePage: false,
@@ -788,6 +789,10 @@ describe('reader helpers', () => {
     });
 
     it('scans Japanese that hydrates after init inside an otherwise shadow-only generic page', async () => {
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
+        }));
         const { app, scanVisiblePage } = testReaderAppWithPageScanner('<main>Loading</main><div id="late-shadow"></div>');
         vi.stubGlobal('location', {
             href: 'https://example.com/reader',
@@ -807,6 +812,7 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
             document.body.replaceChildren();
         }
     });
@@ -847,6 +853,10 @@ describe('reader helpers', () => {
 
     it('scans Japanese hydrating in an open root inside a scoped Reader Surface', async () => {
         document.documentElement.setAttribute('data-yomu-annotation-scope', 'surface');
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
+        }));
         const { app, scanVisiblePage } = testReaderAppWithPageScanner(`
             <main>Loading docs</main>
             <section data-yomu-runtime-surface><div id="surface-shadow"></div></section>
@@ -869,6 +879,7 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
             document.documentElement.removeAttribute('data-yomu-annotation-scope');
             document.body.replaceChildren();
         }

@@ -1,4 +1,5 @@
 export interface AggregateRuntimeModules {
+    readonly settings: typeof import('../settings');
     readonly tokenTextRendering: Pick<
         typeof import('../dom/token-text-rendering'),
         | 'PITCH_CLASSES'
@@ -66,6 +67,7 @@ export function aggregateRuntimeModules(): AggregateRuntimeModules {
 function isAggregateRuntimeModules(value: unknown): value is AggregateRuntimeModules {
     if (!value || typeof value !== 'object') return false;
     return [
+        aggregateRuntimeMember(value, 'settings', 'normalizeReaderSettings'),
         aggregateRuntimeMember(value, 'tokenTextRendering', 'renderRuby'),
         aggregateRuntimeMember(value, 'localYomuDeck', 'normalizeStoredYomuSrsDeck'),
         aggregateRuntimeMember(value, 'handleDrag', 'createHandleDragController'),

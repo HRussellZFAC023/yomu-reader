@@ -33,11 +33,9 @@ import {
 import { uniqueStrings } from '../core/string-utils';
 import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, NewTabStudyChallengeStep, ReaderSettings } from '../app/types';
 import { WANIKANI_TOKEN_SETTINGS_URL } from '../wanikani/wanikani';
-import { RECOMMENDED_JAPANESE_DICTIONARIES, catalogBrowseLanguageSectionsForLearnerLanguage, findRecommendedDictionary, recommendedDictionariesForLanguageProfile, type RecommendedDictionary, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
-import { catalogBrowseDescription, catalogBrowseSectionGroups, catalogBrowseTotalBytes, formatDictionaryBytes, headwordLanguageEndonym, headwordLanguageName, type CatalogBrowseLanguageSection } from '../dictionaries/catalog-browse';
-import { catalogBrowseCopy, catalogBrowseLanguageNote, type CatalogBrowseCopy } from '../dictionaries/catalog-browse-copy';
-import { applyCatalogBrowseFilter, normalizeSearchQuery } from './catalog-browse-filter';
-import { FROZEN_DICTIONARY_CATALOG, type DictionaryCategory } from '../dictionaries/catalog';
+import { RECOMMENDED_JAPANESE_DICTIONARIES, type RecommendedDictionaryCategory } from '../dictionaries/recommended';
+import { catalogBrowseMatchesQuery, normalizeSearchQuery } from './catalog-browse-filter';
+import { FROZEN_DICTIONARY_CATALOG } from '../dictionaries/catalog';
 import { definitionSourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
 import { settingsText, type SettingsText } from './settings-text';
@@ -51,7 +49,6 @@ import {
 import {
     INTERFACE_LOCALES,
     LEARNER_LANGUAGES,
-    LOCALE_CATALOGS,
     isolate,
     learnerLanguageById,
     resolveMessage,
@@ -66,6 +63,8 @@ import { STUDY_TARGET_READINESS_ATTRIBUTE, studyTargetOptions } from '../app/stu
 import { nativeSubtitleDisplayMode, type NativeSubtitleDisplayMode } from '../subtitles/native-subtitle-display';
 import { renderLocalDictionaryStorageControls } from './local-dictionary-storage-form';
 import { renderReadingAnnotationControls, syncReadingAnnotationControls } from './reading-annotation-controls';
+import { localizeCatalogBrowse } from './catalog-browse-localization';
+import { renderRecommendedDictionaries } from './dictionary-recommendations-view';
 
 export { lookupLinkRows, readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { syncSubtitlePreview } from './subtitle-preview';
@@ -73,6 +72,7 @@ export { lookupPillEditorRows, mergeAudioSubSources, renderAudioSourceEditor, re
 export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, bunproStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml, wanikaniStatusLineForSettings } from './status-lines';
+export { renderRecommendedDictionaries } from './dictionary-recommendations-view';
 export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './status-lines';
 
 const DEFAULT_JITEN_SETTINGS_URL = 'https://jiten.moe/settings';
@@ -469,7 +469,10 @@ export function renderSettingsForm(
     settings: ReaderSettings,
     jpdbSettingsUrl: string,
     jitenSettingsUrl = DEFAULT_JITEN_SETTINGS_URL,
-    options: Readonly<{ includeCatalogBrowse?: boolean }> = {},
+    options: Readonly<{
+        includeCatalogBrowse?: boolean;
+        expandCatalogBrowse?: boolean;
+    }> = {},
 ): string {
     return `
             ${renderAutofillTrap()}
@@ -486,7 +489,11 @@ export function renderSettingsForm(
             ${renderAudioSettingsPanel(settings)}
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
-            ${renderDictionariesSettingsPanel(settings, options.includeCatalogBrowse !== false)}
+            ${renderDictionariesSettingsPanel(
+                settings,
+                options.includeCatalogBrowse !== false,
+                options.expandCatalogBrowse !== false,
+            )}
             ${renderBackupSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
@@ -1280,7 +1287,11 @@ function renderMiningSettingsPanel(settings: ReaderSettings): string {
     });
 }
 
-function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalogBrowse: boolean): string {
+function renderDictionariesSettingsPanel(
+    settings: ReaderSettings,
+    includeCatalogBrowse: boolean,
+    expandCatalogBrowse: boolean,
+): string {
     const language = settings.interfaceLanguage; const text = settingsText(language);
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
@@ -1304,7 +1315,13 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings, includeCatalo
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse, activeTargetLanguageId(settings))}
+                    ${renderRecommendedDictionaries(
+                        [],
+                        activeLearnerLanguageId(settings),
+                        includeCatalogBrowse,
+                        activeTargetLanguageId(settings),
+                        expandCatalogBrowse,
+                    )}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language, 'backupMovedHelp')}</div>
@@ -2145,7 +2162,6 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
     replaceSourceHelp(form, /JPDB meanings shown/, text('sourceHelpJpdb'));
     replaceSourceHelp(form, /Example sentences, images, and audio/, text('sourceHelpImmersionKit'));
     replaceSourceHelp(form, /Remembering the Kanji/, text('sourceHelpRtk'));
-    replaceSourceHelp(form, /Uchisen mnemonic/, text('sourceHelpUchisen'));
     replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text('sourceHelpImportedKanjiDictionary'));
     form.querySelectorAll<HTMLInputElement>('[data-source-enable-toggle]').forEach(input => {
         const row = input.closest<HTMLElement>('[data-dictionary-source-row]');
@@ -2228,59 +2244,7 @@ function localizeRecommendedDictionaryGroups(form: HTMLFormElement, text: Settin
 function localizeCatalogBrowseSection(form: HTMLFormElement, text: SettingsText): void {
     const section = form.querySelector<HTMLElement>('[data-catalog-browse]');
     if (!section) return;
-    const interfaceLanguage = resolveUiLanguageFromText(text);
-    const learnerLanguageId = learnerLanguageByIdOrNull(section.dataset.catalogBrowseLearnerLanguage ?? '')?.id ?? 'en';
-    const japaneseInterface = interfaceLanguage === 'ja';
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const locale = japaneseInterface ? interfaceLanguage : learnerLanguage.runtimeLocale;
-    const copy: CatalogBrowseCopy | undefined = japaneseInterface ? undefined : catalogBrowseCopy(learnerLanguageId);
-    // The wrapper's lang/dir must describe the text actually rendered, or a
-    // right-to-left learner keeps an RTL box around Japanese chrome.
-    section.lang = locale;
-    section.dir = japaneseInterface ? 'ltr' : learnerLanguage.direction;
-
-    section.querySelector<HTMLElement>('[data-catalog-browse-title]')
-        ?.replaceChildren(copy?.title ?? text('mirroredDictionaries'));
-    section.querySelector<HTMLElement>('[data-catalog-browse-search-label]')
-        ?.replaceChildren(copy?.searchLabel ?? text('mirroredDictionarySearch'));
-    section.querySelector<HTMLElement>('[data-catalog-browse-empty]')
-        ?.replaceChildren(copy?.noResults ?? text('mirroredDictionarySearchNoResults'));
-    section.querySelectorAll<HTMLElement>('[data-catalog-browse-category]').forEach((title) => {
-        const category = title.dataset.catalogBrowseCategory as DictionaryCategory | undefined;
-        if (!category) return;
-        const label = copy
-            ? copy.categories[category]
-            : text(CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]);
-        if (label) title.replaceChildren(label);
-    });
-    // The shelf headings name languages, so they follow the panel's locale like
-    // every other string here — a Vietnamese reader must not meet "Cantonese".
-    section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]').forEach((shelf) => {
-        const language = shelf.dataset.catalogBrowseLanguage;
-        if (!language) return;
-        const languageName = headwordLanguageName(language, locale);
-        shelf.querySelector<HTMLElement>('[data-catalog-browse-language-title]')
-            ?.replaceChildren(languageName);
-        shelf.querySelector<HTMLElement>('[data-catalog-browse-language-note]')
-            ?.replaceChildren(
-                copy
-                    ? catalogBrowseLanguageNote(copy, languageName)
-                    : formatUiText(interfaceLanguage, 'mirroredDictionaryLanguageNote', { language: languageName }),
-            );
-    });
-    let count = 0;
-    let bytes = 0;
-    section.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-item').forEach((item) => {
-        const dictionary = findRecommendedDictionary(item.querySelector<HTMLElement>('[data-dictionary-id]')?.dataset.dictionaryId ?? '');
-        if (!dictionary) return;
-        count += 1;
-        bytes += dictionary.bytes ?? 0;
-        item.querySelector<HTMLElement>('.jpdb-reader-help')?.replaceChildren(catalogBrowseDescription(dictionary, locale));
-    });
-    const summaryTemplate = copy?.summary ?? uiText('ja', 'mirroredDictionariesSummary');
-    section.querySelector<HTMLElement>('[data-catalog-browse-summary]')
-        ?.replaceChildren(catalogBrowseSummaryText(summaryTemplate, locale, count, bytes));
-    applyCatalogBrowseFilter(section, section.querySelector<HTMLInputElement>('[data-catalog-browse-filter]')?.value ?? '');
+    localizeCatalogBrowse(section, text, resolveUiLanguageFromText(text));
 }
 
 function localizeRecommendedDictionaryDescriptions(form: HTMLFormElement, text: SettingsText): void {
@@ -2717,25 +2681,52 @@ export function activateSettingsPanel(form: HTMLFormElement, panel: string): voi
 }
 
 export function applySettingsSearch(form: HTMLFormElement, query: string): void {
-    const searchInput = form.querySelector<HTMLInputElement>('[data-settings-search]');
-    const empty = form.querySelector<HTMLElement>('[data-settings-search-empty]');
     const normalizedQuery = normalizeSearchQuery(query);
-    if (searchInput && searchInput.value !== query) searchInput.value = query;
-    form.dataset.settingsSearching = normalizedQuery ? 'true' : 'false';
-
+    syncSettingsSearchInput(form, query);
+    form.dataset.settingsSearching = String(Boolean(normalizedQuery));
     if (!normalizedQuery) {
-        if (empty) empty.hidden = true;
+        setSettingsSearchEmptyVisibility(form, true);
         activateSettingsPanelWithoutClearingSearch(form, activeSettingsPanel(form));
         return;
     }
-
+    const visibleCount = filterSettingsSearchFieldsets(form, normalizedQuery);
+    setSettingsSearchEmptyVisibility(form, visibleCount > 0);
+}
+function syncSettingsSearchInput(form: HTMLFormElement, query: string): void {
+    const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
+    if (input && input.value !== query) input.value = query;
+}
+function filterSettingsSearchFieldsets(form: HTMLFormElement, normalizedQuery: string): number {
     let visibleCount = 0;
     getSettingsPanelFieldsets(form).forEach(fieldset => {
-        const matches = normalizeSearchQuery(fieldset.textContent ?? '').includes(normalizedQuery);
+        const matches = settingsFieldsetMatchesQuery(fieldset, normalizedQuery);
         fieldset.hidden = !matches;
         if (matches) visibleCount += 1;
     });
-    if (empty) empty.hidden = visibleCount > 0;
+    return visibleCount;
+}
+
+function settingsFieldsetMatchesQuery(fieldset: HTMLFieldSetElement, normalizedQuery: string): boolean {
+    if (settingsFieldsetSearchText(fieldset).includes(normalizedQuery)) return true;
+    return settingsFieldsetCatalogMatchesQuery(fieldset, normalizedQuery);
+}
+
+function settingsFieldsetSearchText(fieldset: HTMLFieldSetElement): string {
+    const indexedText = Array.from(
+        fieldset.querySelectorAll<HTMLElement>('[data-settings-search-index]'),
+        element => element.dataset.settingsSearchIndex ?? '',
+    ).join(' ');
+    return normalizeSearchQuery(`${fieldset.textContent ?? ''} ${indexedText}`);
+}
+
+function settingsFieldsetCatalogMatchesQuery(fieldset: HTMLFieldSetElement, normalizedQuery: string): boolean {
+    const catalogue = fieldset.querySelector<HTMLElement>('[data-catalog-browse]');
+    return catalogue !== null && catalogBrowseMatchesQuery(catalogue, normalizedQuery);
+}
+
+function setSettingsSearchEmptyVisibility(form: HTMLFormElement, hasMatches: boolean): void {
+    const empty = form.querySelector<HTMLElement>('[data-settings-search-empty]');
+    if (empty) empty.hidden = hasMatches;
 }
 
 function activateSettingsPanelWithoutClearingSearch(form: HTMLFormElement, panel: string): void {
@@ -2989,228 +2980,6 @@ function installedFrequencyDictionaryPreferences(settings: ReaderSettings, insta
     return settings.dictionaryPreferences.filter(preference => preference.type === 'frequency' && installedFrequencyNames.has(preference.name));
 }
 
-export function renderRecommendedDictionaries(
-    installed: YomitanDictionaryInfo[],
-    learnerLanguage: LearnerLanguageId = 'en',
-    includeCatalogBrowse = true,
-    targetLanguage: LearningTargetRosterId = 'ja',
-): string {
-    const groups: Array<[RecommendedDictionary['category'], string]> = [
-        ['terms', 'Term dictionaries'],
-        ['kanji', 'Kanji dictionaries'],
-        ['pitch', 'Pitch dictionaries'],
-        ['pronunciation', 'Pronunciation dictionaries'],
-        ['frequency', 'Frequency dictionaries'],
-    ];
-    const catalogRecommendations = recommendedDictionariesForLanguageProfile(learnerLanguage, targetLanguage);
-
-    return `
-        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage, targetLanguage)}
-        ${targetLanguage === 'ja' ? `
-        <div class="jpdb-reader-recommended-title">Recommended Japanese dictionaries</div>
-        <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText('en', 'dictionaryInstallQueueHelp')}</div>
-        ${groups
-            .map(([category, label]) => {
-                const dictionaries = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
-                if (!dictionaries.length) return '';
-                return `
-                <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml(label)}</div>
-                    ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
-                </div>
-            `;
-            })
-            .join('')}` : ''}
-        ${includeCatalogBrowse
-            ? renderCatalogBrowseSection(
-                catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage, targetLanguage),
-                installed,
-                learnerLanguage,
-            )
-            : ''}
-    `;
-}
-
-// Recommendations are the preselected starting point; the mirror holds far more.
-// Everything else Yomu hosts is listed here so no dictionary is reachable only
-// by knowing its URL. Over a hundred cards is a list nobody scrolls, so the
-// panel carries its own filter — grouping alone does not make it searchable.
-function renderCatalogBrowseSection(
-    sections: readonly CatalogBrowseLanguageSection[],
-    installed: YomitanDictionaryInfo[],
-    learnerLanguageId: LearnerLanguageId,
-): string {
-    const groups = catalogBrowseSectionGroups(sections);
-    const count = groups.reduce((total, group) => total + group.dictionaries.length, 0);
-    if (!count) return '';
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const copy = catalogBrowseCopy(learnerLanguageId);
-    const locale = learnerLanguage.runtimeLocale;
-    return `
-        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-learner-language="${escapeHtml(learnerLanguageId)}" lang="${escapeHtml(locale)}" dir="${learnerLanguage.direction}">
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml(copy.title)}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml(catalogBrowseSummaryText(copy.summary, locale, count, catalogBrowseTotalBytes(groups)))}</div>
-            <div class="jpdb-reader-catalog-browse-search">
-                <label>
-                    <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml(copy.searchLabel)}</span>
-                    <input type="search" data-catalog-browse-filter autocomplete="off" aria-controls="jpdb-reader-catalog-browse-results"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
-                </label>
-            </div>
-            <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
-                ${sections.map(section => renderCatalogBrowseLanguage(section, copy, locale, installed)).join('')}
-            </div>
-            <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml(copy.noResults)}</div>
-        </section>
-    `;
-}
-
-// A dictionary for a language the reader is not studying stays one scroll away
-// instead of one URL away, but it is never mixed into the studied language's
-// groups: it sits under its own language heading, with a line saying so.
-function renderCatalogBrowseLanguage(
-    section: CatalogBrowseLanguageSection,
-    copy: CatalogBrowseCopy,
-    locale: string,
-    installed: YomitanDictionaryInfo[],
-): string {
-    const language = section.headwordLanguage;
-    return `
-        <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml(language)}" data-catalog-browse-language-endonym="${escapeHtml(headwordLanguageEndonym(language))}"${section.isTargetLanguage ? ' data-catalog-browse-language-target' : ''}>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml(headwordLanguageName(language, locale))}</div>
-            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml(catalogBrowseLanguageNote(copy, headwordLanguageName(language, locale)))}</div>
-            ${section.groups
-                .map(group => `
-                    <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml(group.category)}">
-                        <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml(group.category)}">${escapeHtml(copy.categories[group.category])}</div>
-                        ${group.dictionaries.map(dictionary => renderRecommendedDictionary(dictionary, installed)).join('')}
-                    </div>
-                `)
-                .join('')}
-        </div>
-    `;
-}
-
-const CATALOG_BROWSE_CATEGORY_TEXT_KEYS: Readonly<Record<DictionaryCategory, SettingsTextKey>> = {
-    terms: 'termDictionaries',
-    names: 'nameDictionaries',
-    grammar: 'grammarDictionaries',
-    kanji: 'kanjiDictionaries',
-    frequency: 'frequencyDictionaries',
-    pronunciation: 'pronunciationDictionaries',
-    examples: 'exampleDictionaries',
-    thesaurus: 'thesaurusDictionaries',
-    encyclopedia: 'encyclopediaDictionaries',
-    utility: 'utilityDictionaries',
-};
-
-function catalogBrowseSummaryText(template: string, locale: string, count: number, bytes: number): string {
-    return template
-        .replaceAll('{count}', localizedNumber(count, locale))
-        .replaceAll('{size}', formatDictionaryBytes(bytes, locale));
-}
-
-function renderCatalogRecommendationSeed(
-    dictionaries: readonly RecommendedDictionary[],
-    installed: YomitanDictionaryInfo[],
-    learnerLanguageId: LearnerLanguageId,
-    targetLanguage: LearningTargetRosterId,
-): string {
-    if (!dictionaries.length) return '';
-    const learnerLanguage = learnerLanguageById(learnerLanguageId);
-    const messages = LOCALE_CATALOGS[learnerLanguageId].messages;
-    const title = targetLanguage === 'ja'
-        ? messages.recommendedDictionariesTitle
-        : headwordLanguageName(targetLanguage, learnerLanguage.runtimeLocale);
-    const size = completeDictionarySeedSize(dictionaries, learnerLanguage.runtimeLocale);
-    const countAndSize = formatDictionaryCountAndSize(messages.dictionaryCountAndSize, dictionaries.length, size, learnerLanguage.runtimeLocale);
-    return `
-        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" data-catalog-recommendation-target="${escapeHtml(targetLanguage)}" lang="${escapeHtml(learnerLanguage.runtimeLocale)}" dir="${learnerLanguage.direction}">
-            <div class="jpdb-reader-catalog-seed-title">${escapeHtml(title)}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml(countAndSize)}</div>
-            ${dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join('')}
-        </section>
-    `;
-}
-
-function renderRecommendedDictionary(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): string {
-    const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
-    const action = dictionary.downloadUrl
-        ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? 'Update' : 'Install'}
-            </button>`
-        : dictionary.helpUrl
-          ? `<a class="jpdb-reader-btn" href="${escapeHtml(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel('Guide')}</a>`
-          : '';
-    const description = dictionary.description ?? (dictionary.descriptionKey ? uiText('en', dictionary.descriptionKey) : '');
-    const catalogAttributes = dictionary.origin === 'catalog' ? ` data-catalog-recommendation="${escapeHtml(dictionary.catalogDictionaryId ?? '')}" data-learner-language="${escapeHtml(dictionary.learnerLanguage ?? '')}" data-target-language="${escapeHtml(dictionary.targetLanguage ?? '')}" data-headword-language="${escapeHtml(dictionary.headwordLanguage ?? '')}" data-definition-language="${escapeHtml(dictionary.definitionLanguage ?? '')}" data-translation-mode="${escapeHtml(dictionary.translationMode ?? '')}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ''}` : '';
-    return `
-        <div class="jpdb-reader-recommended-item"${catalogAttributes}>
-            <div>
-                <div class="jpdb-reader-recommended-name">
-                    <span>${escapeHtml(dictionary.name)}</span>
-                </div>
-                <div class="jpdb-reader-help">${escapeHtml(description)}</div>
-                <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
-            </div>
-            ${action}
-        </div>
-    `;
-}
-
-function completeDictionarySeedSize(dictionaries: readonly RecommendedDictionary[], locale: string): string | undefined {
-    if (dictionaries.some((dictionary) => dictionary.bytes === undefined)) return undefined;
-    const bytes = dictionaries.reduce((total, dictionary) => total + (dictionary.bytes ?? 0), 0);
-    if (!bytes) return undefined;
-    const megabytes = bytes / (1024 * 1024);
-    const value = megabytes >= 1 ? megabytes : bytes / 1024;
-    const unit = megabytes >= 1 ? 'MB' : 'KB';
-    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unit}`;
-}
-
-function formatDictionaryCountAndSize(template: string, count: number, size: string | undefined, locale: string): string {
-    const pluralStart = template.indexOf('{count, plural,');
-    if (pluralStart < 0) {
-        return size ? template.replace('{count}', localizedNumber(count, locale)).replace('{size}', size) : localizedNumber(count, locale);
-    }
-    const pluralEnd = matchingBraceIndex(template, pluralStart);
-    if (pluralEnd < 0) return localizedNumber(count, locale);
-    const branchSource = template.slice(pluralStart + '{count, plural,'.length, pluralEnd);
-    const branches = new Map(Array.from(branchSource.matchAll(/(=?[a-z0-9]+)\s*\{([^{}]*)\}/giu), (match) => [match[1], match[2]]));
-    const exact = branches.get(`=${count}`);
-    const pluralCategory = pluralCategoryForCount(count, locale);
-    const branch = exact ?? branches.get(pluralCategory) ?? branches.get('other') ?? String(count);
-    const countText = branch.replaceAll('#', localizedNumber(count, locale));
-    if (!size) return `${template.slice(0, pluralStart)}${countText}`.trim();
-    return `${template.slice(0, pluralStart)}${countText}${template.slice(pluralEnd + 1)}`.replace('{size}', size).trim();
-}
-
-function matchingBraceIndex(value: string, start: number): number {
-    let depth = 0;
-    for (let index = start; index < value.length; index += 1) {
-        if (value[index] === '{') depth += 1;
-        if (value[index] !== '}') continue;
-        depth -= 1;
-        if (depth === 0) return index;
-    }
-    return -1;
-}
-
-function pluralCategoryForCount(count: number, locale: string): Intl.LDMLPluralRule {
-    try {
-        return new Intl.PluralRules(locale).select(count);
-    } catch {
-        return new Intl.PluralRules('en').select(count);
-    }
-}
-
-function localizedNumber(value: number, locale: string): string {
-    try {
-        return new Intl.NumberFormat(locale).format(value);
-    } catch {
-        return new Intl.NumberFormat('en').format(value);
-    }
-}
-
 function installedDictionariesFromPreferences(preferences: DictionaryPreference[]): YomitanDictionaryInfo[] {
     return preferences.map(preference => ({
         title: preference.name,
@@ -3219,38 +2988,4 @@ function installedDictionariesFromPreferences(preferences: DictionaryPreference[
         priority: preference.priority,
         type: preference.type,
     }));
-}
-
-function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
-    return installed.some(item => recommendedDictionaryMatchesInstalled(dictionary, item));
-}
-
-function recommendedDictionaryMatchesInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo): boolean {
-    if (dictionary.downloadUrl && installed.downloadUrl === dictionary.downloadUrl) return true;
-    const tokenSets = recommendedDictionaryMatchTokenSets(dictionary);
-    return [installed.title, installed.alias]
-        .map(dictionaryTitleTokens)
-        .some(tokens => tokenSets.some(required => required.every(token => tokens.has(token))));
-}
-
-const RECOMMENDED_DICTIONARY_MATCH_TOKENS: Record<string, string[][]> = {
-    jitendex: [['jitendex']],
-    jmdict: [['jmdict']],
-    jmnedict: [['jmnedict']],
-    'wty-ja-ja': [['wty', 'ja']],
-    'pixiv-light': [['pixiv', 'light']],
-    kanjidic: [['kanjidic']],
-    'jpdb-kanji': [['jpdb', 'kanji']],
-    'kanjium-pitch': [['kanjium', 'pitch'], ['kanjium'], ['pitch', 'accents']],
-    jiten: [['jiten']],
-    'jpdbv2-kana': [['jpdb', 'v2'], ['jpdbv2']],
-    bccwj: [['bccwj']],
-};
-
-function recommendedDictionaryMatchTokenSets(dictionary: RecommendedDictionary): string[][] {
-    return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
-}
-
-function dictionaryTitleTokens(value: string): Set<string> {
-    return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
 }

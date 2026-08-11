@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as tokenTextRendering from '../../src/reader/dom/token-text-rendering';
 import * as localYomuDeck from '../../src/reader/srs/local-yomu-deck';
 import * as handleDrag from '../../src/reader/popup/handle-drag';
+import * as settings from '../../src/reader/settings';
 import type { JPDBToken } from '../../src/reader/app/types';
 import {
     aggregateRuntimeModules,
@@ -24,7 +25,7 @@ function importRuntimeFacade<T>(directory: string, moduleName: string): Promise<
 
 describe('aggregate runtime implementation sharing', () => {
     beforeEach(() => {
-        registerAggregateRuntimeModules({ tokenTextRendering, localYomuDeck, handleDrag });
+        registerAggregateRuntimeModules({ settings, tokenTextRendering, localYomuDeck, handleDrag });
     });
 
     afterEach(() => {
@@ -35,9 +36,10 @@ describe('aggregate runtime implementation sharing', () => {
         }
     });
 
-    it('publishes the exact three implementations through one sandbox-only Module interface', () => {
+    it('publishes the exact implementations through one sandbox-only Module interface', () => {
         const modules = aggregateRuntimeModules();
 
+        expect(modules.settings).toBe(settings);
         expect(modules.tokenTextRendering).toBe(tokenTextRendering);
         expect(modules.localYomuDeck).toBe(localYomuDeck);
         expect(modules.handleDrag).toBe(handleDrag);
@@ -79,6 +81,7 @@ describe('aggregate runtime implementation sharing', () => {
 
         expect(aggregateEntry.trimEnd()).toMatch(/import '.\/register-aggregate-runtime-modules';$/u);
         for (const facade of [
+            'index-companion.ts',
             'token-text-rendering-companion.ts',
             'local-yomu-deck-companion.ts',
             'handle-drag-companion.ts',
@@ -88,9 +91,14 @@ describe('aggregate runtime implementation sharing', () => {
         expect(viteConfig).toContain("alias['./local-yomu-deck']");
         expect(viteConfig).toContain("alias['./handle-drag']");
         expect(viteConfig).toContain("alias['../popup/handle-drag']");
+        expect(viteConfig).toContain("alias['../settings/index']");
     });
 
     it('keeps every facade bound to the runtime implementation, not a second copy', async () => {
+        const settingsFacade = await importRuntimeFacade<typeof settings>(
+            'settings',
+            'index-companion',
+        );
         const tokenFacade = await importRuntimeFacade<typeof tokenTextRendering>(
             'dom',
             'token-text-rendering-companion',
@@ -104,6 +112,8 @@ describe('aggregate runtime implementation sharing', () => {
             'handle-drag-companion',
         );
 
+        expect(settingsFacade.normalizeReaderSettings).toBe(settings.normalizeReaderSettings);
+        expect(settingsFacade.saveSettings).toBe(settings.saveSettings);
         expect(tokenFacade.renderRuby).toBe(tokenTextRendering.renderRuby);
         expect(tokenFacade.inferredInflectedSurfaceRubies)
             .toBe(tokenTextRendering.inferredInflectedSurfaceRubies);

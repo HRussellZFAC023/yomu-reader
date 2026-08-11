@@ -13,10 +13,12 @@ Interfaces, tests, and docs.
 
 - Reader Surface: Any page area Yomu can scan, annotate, or use as lookup context.
 - Website Locale: One human-reviewed public-site route tree with its own prose, navigation, metadata, links, `lang`, and `dir`. It is independent of Learning Target, Definition Language, and Reader Interface Language; a machine draft is not a publishable Website Locale.
+- Chosen Learning Target: The learner-confirmed language that may activate target-owned parsing, lookup, OCR, subtitles, mining, and Study behavior. A compatibility default in a stored profile is not a choice; first-run Reader work remains inert until the learner confirms one.
+- Page-owned Learning Target: A transient target declared by a Yomu-owned reading surface such as the Japanese docs demo or Academy. It may activate that surface's Reader behavior but must never be persisted or promoted as the learner's Chosen Learning Target.
 - Managed State Epoch: The durable reset generation captured once by a JavaScript realm and shared by every Yomu bundle in that realm. Managed values, database markers, and page-cache certificates from another generation are unreadable; an old realm must reload rather than advance its capture.
 - Annotation Scope: A page-owned boundary that restricts Yomu's generic scan to explicitly declared Reader Surfaces; pages that do not declare one retain whole-document scanning.
 - Annotation Pass: One lossless, coalescing scan of a Reader Surface. Ordinary page mutations and lookups may queue another pass but never discard the active pass; only an explicit reader shutdown or annotations-off transition cancels it. Each parse batch preserves one result per input and isolates fallback from later batches.
-- Lookup: Turning Japanese text at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.
+- Lookup: Turning text in the selected Learning Target at a point, selection, subtitle row, OCR line, or dictionary link into cards and popup content.
 - Mining Context: The sentence, source title, source URL, and optional image captured with a card for JPDB or Anki.
 - Card: A JPDB, local dictionary, or Anki-shaped vocabulary item shown by Yomu.
 - Study Card Identity: The canonical local and synced vocabulary identity `[expression, reading, partOfSpeech, language]`. Empty trailing fields are elided and Japanese is the default language, so legacy Japanese keys remain byte-identical while non-Japanese cards retain an explicit language slot.
@@ -35,7 +37,7 @@ Interfaces, tests, and docs.
 - Subtitle Track: A detected, native, file-loaded, or YouTube subtitle source that can become overlay or transcript cues.
 - Subtitle Cue: A timed subtitle line, optionally with exact word timings for karaoke rendering.
 - Transcript Panel: The subtitle drawer view that renders cue rows, parsing, track selection, and navigation.
-- Shadowing Panel: The subtitle drawer view for current-line speaking practice with replay, cue looping, hide/reveal text controls, parsed Japanese, and optional secondary-subtitle support.
+- Shadowing Panel: The subtitle drawer view for current-line speaking practice with replay, cue looping, hide/reveal controls, parsed target-language text, and optional secondary-subtitle support.
 - Batch Mining Panel: The subtitle drawer view that parses a loaded transcript into deduplicated vocabulary candidates, ranks i+1 lines first, and sends a reviewed batch to the configured study target.
 - OCR Region: A user-selected screen area sent to a configured OCR provider and normalized into lookup lines.
 - Gaming Text Bridge: A local-first Reader Surface for game dialogue that receives user-provided, OCR-helper, clipboard, texthooker, or future Decky/Electron helper text without owning native capture itself.

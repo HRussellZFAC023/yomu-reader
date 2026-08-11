@@ -13,7 +13,6 @@ import {
     deferred,
     expectKanjiRelatedWordBackNavigation,
     findAudioUrl,
-    hostedNewTabLocationStub,
     kanjiRelatedWordNavigationFixture,
     mockAppleMobileBrowser,
     mockAudioPlaybackEnvironment,
@@ -445,43 +444,36 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses data URLs for page media on jpdb pages to avoid cross-principal blob loads', async () => {
+    it.each([
+        {
+            label: 'uses data URLs for page media on jpdb pages to avoid cross-principal blob loads',
+            blobType: 'audio/mpeg',
+            sourceUrl: undefined,
+            objectUrl: 'blob:https://jpdb.io/audio.mp3',
+            expectedDataUrl: /^data:audio\/mpeg;base64,/,
+        },
+        {
+            label: 'keeps image MIME types when page media blobs arrive as octet-stream',
+            blobType: 'application/octet-stream',
+            sourceUrl: 'https://media.example/reference.jpg',
+            objectUrl: 'blob:https://jpdb.io/reference.jpg',
+            expectedDataUrl: /^data:image\/jpeg;base64,/,
+        },
+    ])('$label', async ({ blobType, sourceUrl, objectUrl, expectedDataUrl }) => {
         const originalCreateObjectUrl = URL.createObjectURL;
         Object.defineProperty(URL, 'createObjectURL', {
             configurable: true,
-            value: vi.fn(() => 'blob:https://jpdb.io/audio.mp3'),
-        });
-        vi.stubGlobal('location', { hostname: 'jpdb.io' });
-
-        try {
-            const url = await createPageMediaUrl(new Blob(['audio'], { type: 'audio/mpeg' }));
-
-            expect(url).toMatch(/^data:audio\/mpeg;base64,/);
-            expect(URL.createObjectURL).not.toHaveBeenCalled();
-        } finally {
-            Object.defineProperty(URL, 'createObjectURL', {
-                configurable: true,
-                value: originalCreateObjectUrl,
-            });
-            vi.unstubAllGlobals();
-        }
-    });
-
-    it('keeps image MIME types when page media blobs arrive as octet-stream', async () => {
-        const originalCreateObjectUrl = URL.createObjectURL;
-        Object.defineProperty(URL, 'createObjectURL', {
-            configurable: true,
-            value: vi.fn(() => 'blob:https://jpdb.io/uchisen.jpg'),
+            value: vi.fn(() => objectUrl),
         });
         vi.stubGlobal('location', { hostname: 'jpdb.io' });
 
         try {
             const url = await createPageMediaUrl(
-                new Blob(['image'], { type: 'application/octet-stream' }),
-                'https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg',
+                new Blob(['media'], { type: blobType }),
+                sourceUrl,
             );
 
-            expect(url).toMatch(/^data:image\/jpeg;base64,/);
+            expect(url).toMatch(expectedDataUrl);
             expect(URL.createObjectURL).not.toHaveBeenCalled();
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
@@ -1681,73 +1673,6 @@ describe('reader helpers', () => {
 
             expect(detached.textContent).not.toContain('Kanji Alive');
             expect(detached.textContent).not.toContain('life');
-        } finally {
-            restoreAnimationFrame();
-            vi.unstubAllGlobals();
-            app.destroy();
-            document.body.replaceChildren();
-        }
-    });
-
-    it('renders enabled Uchisen in page-reader kanji drilldown popovers', async () => {
-        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
-        const proxyUrl = 'https://yomu-proxy.example/fetch';
-        const uchisenTarget = 'https://uchisen.com/kanji/%E9%9D%92';
-        const imageUrl = 'https://ik.imagekit.io/uchisen/generated/saved/generated_blue.jpg';
-        const fetchMock = vi.fn((input: RequestInfo | URL) => {
-            const url = String(input);
-            const target = new URL(url).searchParams.get('url');
-            if (target === uchisenTarget) {
-                return Promise.resolve(new Response(`
-                    <div class="kanji_image_loader" data-large="${imageUrl}"></div>
-                    <div id="mnemonic_story">Blue story.</div>
-                    <input id="kanji_id" value="118">
-                    <button disabled class="generate_image_button disabled_button" type="button">Generate Image</button>
-                    <div id="kanji_keyword_container"><span>青 - Blue</span></div>
-                `, { status: 200 }));
-            }
-            if (target === imageUrl) {
-                return Promise.resolve(new Response(new Blob(['image'], { type: 'image/jpeg' }), { status: 200 }));
-            }
-            return Promise.reject(new Error(`unexpected fetch: ${url}`));
-        });
-
-        try {
-            vi.stubGlobal('location', hostedNewTabLocationStub());
-            vi.stubGlobal('fetch', fetchMock);
-            const internals = app as unknown as {
-                settings: typeof DEFAULT_SETTINGS;
-                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
-                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
-            };
-            internals.settings = {
-                ...DEFAULT_SETTINGS,
-                apiKey: '',
-                ankiEnabled: false,
-                enableReviews: false,
-                jpdbKanjiEnabled: false,
-                localDictionariesEnabled: false,
-                localDictionaryShowKanji: false,
-                uchisenEnabled: true,
-                uchisenPriority: 1,
-                rtkEnabled: false,
-                kanjivgEnabled: false,
-                kanjiOriginsEnabled: false,
-                similarKanjiWords: false,
-                immersionKitEnabled: false,
-                corsProxyUrl: proxyUrl,
-            };
-            internals.parsePopoverJapanese = vi.fn(async () => undefined);
-
-            await internals.showKanjiCard({ ...card, spelling: '青空', reading: 'あおぞら' }, '青', '青空です。');
-
-            await waitForExpect(() => {
-                const source = document.querySelector<HTMLElement>('.yomu-jpdb-uchisen-source');
-                expect(source?.textContent).toContain('Uchisen');
-                expect(source?.textContent).toContain('Blue story.');
-                expect(source?.textContent).toContain('View on Uchisen');
-            });
-            expect(fetchMock.mock.calls.map(call => String(call[0]))).toContain(`${proxyUrl}?url=${encodeURIComponent(uchisenTarget)}`);
         } finally {
             restoreAnimationFrame();
             vi.unstubAllGlobals();

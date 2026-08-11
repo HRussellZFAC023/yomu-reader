@@ -537,10 +537,18 @@ describe('generic reader layout overflow guards', () => {
         expect(kanjiTargets.every(candidate => candidate.suppressRuby === true)).toBe(true);
         expect(kanjiTargets.every(candidate => candidate.passiveInteraction === true)).toBe(true);
 
+        const readings: Record<string, string> = {
+            '新着': 'しんちゃく',
+            '注目': 'ちゅうもく',
+            '社会': 'しゃかい',
+            '気象': 'きしょう',
+            '災害': 'さいがい',
+            '政治': 'せいじ',
+        };
         for (const target of kanjiTargets) {
             const match = target.text.match(/[一-龯々]+/u)!;
             applyTokensToScanTarget(target, [
-                token(match[0], target.text.indexOf(match[0]), target.text, match[0]),
+                token(match[0], target.text.indexOf(match[0]), target.text, readings[match[0]]),
             ], {
                 ...DEFAULT_SETTINGS,
                 showFurigana: true,

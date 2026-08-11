@@ -68,7 +68,14 @@ export function extensionDictionaryStoreProxy(
     const extension = extensionRuntime(root);
     if (!extension) return directStore;
 
-    const capability = probeDictionaryBackground(extension);
+    // Constructing ReaderApp/NewTabRuntime also constructs this proxy, before a
+    // fresh learner has chosen a target. Keep transport discovery lazy so that
+    // construction/dismissal sends no extension message; the first dictionary
+    // operation owns the one memoized capability probe and its normal fallback.
+    let capability: Promise<boolean> | undefined;
+    const dictionaryBackgroundAvailable = () => (
+        capability ??= probeDictionaryBackground(extension)
+    );
     const wrappers = new Map<PropertyKey, (...args: unknown[]) => unknown>();
     return new Proxy(directStore, {
         get(target, property, receiver) {
@@ -83,7 +90,7 @@ export function extensionDictionaryStoreProxy(
             if (property === 'invalidateCaches') {
                 const invalidate = (...args: unknown[]) => {
                     const result = Reflect.apply(direct as (...values: unknown[]) => unknown, target, args);
-                    void capability.then(available => {
+                    void dictionaryBackgroundAvailable().then(available => {
                         if (available) return invokeRemote(extension, String(property), args);
                         return undefined;
                     }).catch(() => undefined);
@@ -92,7 +99,7 @@ export function extensionDictionaryStoreProxy(
                 wrappers.set(property, invalidate);
                 return invalidate;
             }
-            const invoke = (...args: unknown[]) => capability.then(available => (
+            const invoke = (...args: unknown[]) => dictionaryBackgroundAvailable().then(available => (
                 available
                     ? invokeRemote(extension, String(property), args)
                     : Reflect.apply(direct as (...values: unknown[]) => unknown, target, args)

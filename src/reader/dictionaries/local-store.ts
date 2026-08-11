@@ -22,6 +22,8 @@ export function createLocalDictionaryStore(
     const direct = companion
         ? new companion.YomitanDictionaryStore(getCorsProxyUrl, getInterfaceLanguage)
         : inertLocalDictionaryStore();
+    // The proxy itself is transport-inert; capability discovery begins only
+    // when target-owned runtime work invokes a dictionary operation.
     return extensionDictionaryStoreProxy(direct) as YomitanDictionaryStore;
 }
 

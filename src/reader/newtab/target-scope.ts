@@ -5,7 +5,7 @@ import {
     activeLearningTarget,
     activeLearningTargetGeneration,
 } from '../languages/target-runtime';
-import { DEFAULT_SETTINGS } from '../settings';
+import { DEFAULT_SETTINGS } from '../settings/index';
 
 export interface ActiveTargetSnapshot {
     readonly generation: number;

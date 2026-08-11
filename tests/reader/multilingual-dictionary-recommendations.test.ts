@@ -73,18 +73,19 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
 
     it('derives a usable native-headword starter for every reading-ready learner-target pair', () => {
         const ids = new Set<string>();
-        for (const target of LEARNING_TARGET_ROSTER.filter(item => item.studyTargetReadiness !== 'planned')) {
-            for (const learner of SLICE1_LEARNER_LANGUAGES) {
-                const dictionaries = recommendedDictionariesForLanguageProfile(learner, target.id);
-                const defaults = dictionaries.filter(dictionary => dictionary.selectedByDefault !== false);
-                expect(defaults.length, `${learner}-${target.id}`).toBeGreaterThan(0);
-                expect(defaults.every(dictionary => dictionary.headwordLanguage === target.id), `${learner}-${target.id}`)
-                    .toBe(true);
-                for (const dictionary of dictionaries) {
-                    expect(dictionary.headwordLanguage, dictionary.id).toBe(target.id);
-                    expect(ids.has(dictionary.id), dictionary.id).toBe(false);
-                    ids.add(dictionary.id);
-                }
+        const pairs = LEARNING_TARGET_ROSTER
+            .filter(target => target.studyTargetReadiness !== 'planned')
+            .flatMap(target => SLICE1_LEARNER_LANGUAGES.map(learner => ({ learner, target })));
+        for (const { learner, target } of pairs) {
+            const dictionaries = recommendedDictionariesForLanguageProfile(learner, target.id);
+            const defaults = dictionaries.filter(dictionary => dictionary.selectedByDefault !== false);
+            expect(defaults.length, `${learner}-${target.id}`).toBeGreaterThan(0);
+            expect(defaults.every(dictionary => dictionary.headwordLanguage === target.id), `${learner}-${target.id}`)
+                .toBe(true);
+            for (const dictionary of dictionaries) {
+                expect(dictionary.headwordLanguage, dictionary.id).toBe(target.id);
+                expect(ids.has(dictionary.id), dictionary.id).toBe(false);
+                ids.add(dictionary.id);
             }
         }
     });
@@ -145,22 +146,24 @@ describe('Slice 1 multilingual dictionary recommendations', () => {
         form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
         const seed = form.querySelector<HTMLElement>('[data-catalog-recommendation-seed="ko"]');
 
-        expect(seed?.lang).toBe('ko');
-        expect(seed?.querySelector('.jpdb-reader-catalog-seed-title')?.textContent).toBe('추천 일본어 사전');
-        expect(seed?.querySelector('.jpdb-reader-catalog-seed-summary')?.textContent).toContain('사전 8개');
-        expect(seed?.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(8);
-        expect(seed?.querySelector('[data-catalog-recommendation="jmdict-en"]')?.getAttribute('data-translation-mode')).toBe('offer');
+        expect(seed!.lang).toBe('ko');
+        expect(seed!.querySelector('.jpdb-reader-catalog-seed-title')!.textContent).toBe('추천 일본어 사전');
+        expect(seed!.querySelector('.jpdb-reader-catalog-seed-summary')!.textContent).toContain('사전 8개');
+        expect(seed!.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(8);
+        expect(seed!.querySelector('[data-catalog-recommendation="jmdict-en"]')!.getAttribute('data-translation-mode')).toBe('offer');
 
         for (const curated of RECOMMENDED_JAPANESE_DICTIONARIES) {
             expect(form.querySelector(`[data-dictionary-id="${curated.id}"]`)).not.toBeNull();
         }
-        expect(findRecommendedDictionary('jitendex')?.downloadUrl).toBe('https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip');
+        expect(findRecommendedDictionary('jitendex')!.downloadUrl).toBe('https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip');
     });
 
     it('renders the selected target seed without offering curated Japanese defaults', () => {
         const settings = settingsForLearnerLanguage('en', 'es');
         const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
+        form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings', undefined, {
+            expandCatalogBrowse: true,
+        });
 
         const seed = form.querySelector<HTMLElement>('[data-catalog-recommendation-target="es"]')!;
         expect(seed.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(2);

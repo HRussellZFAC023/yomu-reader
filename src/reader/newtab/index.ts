@@ -1,7 +1,7 @@
 import { NEW_TAB_COLOR_TOKENS } from '../theme/color-tokens';
 import { hexToRgba, mixHex, readableOn } from '../theme/color-utils';
 import { learnerGlossaryWithoutExamples, summarizeLearnerGlossaryTexts } from '../dictionaries/learner-glossary';
-import { sanitizeAccentColor } from '../settings';
+import { sanitizeAccentColor } from '../settings/index';
 import type { JPDBCard } from '../app/types';
 import { isJapaneseKanjiCharacter } from '../lookup/japanese-script';
 export { cardKey } from '../cards/utils';

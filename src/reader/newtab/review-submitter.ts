@@ -8,7 +8,7 @@ import type { QueuedNewTabGrade } from './grade-queue';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JitenApiClient } from '../dictionaries/jiten';
-import type { YomuSrsAdapter, YomuSrsReviewable, YomuSrsReviewableKind } from '../srs/types';
+import type { YomuSrsAdapter, YomuSrsReviewable, YomuSrsReviewableKind, YomuSrsReviewResult } from '../srs/types';
 
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 type NewTabSrsAdapterSource = 'bunpro' | 'wanikani' | 'yomu-local';
@@ -42,6 +42,7 @@ interface NewTabReviewProviderAdapter {
 // flows through NewTabReviewSubmitterDeps.
 export interface NewTabReviewSubmitterDeps {
     getSettings(): ReaderSettings;
+    providerContextForTarget(target: NewTabReviewTarget): string;
     text(key: NewTabTextKey): string;
     jpdb: Pick<JpdbClient, 'reviewCard'>;
     jiten?: Pick<JitenApiClient, 'reviewCard'> & Partial<Pick<JitenApiClient, 'refreshCardState' | 'undoReview'>>;
@@ -53,6 +54,11 @@ export interface NewTabReviewSubmitterDeps {
 }
 
 const NOT_SERVER_REVERSIBLE = 'review is not server-reversible';
+const SRS_REVIEW_TARGET: Record<NewTabSrsAdapterSource, NewTabReviewTarget> = {
+    bunpro: 'bunpro-api',
+    wanikani: 'wanikani-api',
+    'yomu-local': 'yomu-local',
+};
 
 export class NewTabReviewSubmitter {
     private readonly adapters: Record<NewTabReviewTarget, NewTabReviewProviderAdapter>;
@@ -139,27 +145,37 @@ export class NewTabReviewSubmitter {
     }
 
     private async reviewJpdbApi(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        if (card.source !== 'jpdb' && card.reviewSource !== 'jpdb-api') throw new Error(this.deps.text('couldNotSubmitGrade'));
         const settings = this.deps.getSettings();
-        if (!settings.jpdbMiningEnabled) throw new Error(this.deps.text('apiSrsActionsDisabled'));
-        if (!hasJpdbApiCredential(settings)) throw new Error(this.deps.text('addJpdbApiKeyReview'));
+        assertReviewAccess(this.deps, [
+            [card.source === 'jpdb' || card.reviewSource === 'jpdb-api', 'couldNotSubmitGrade'],
+            [settings.jpdbMiningEnabled, 'apiSrsActionsDisabled'],
+            [hasJpdbApiCredential(settings), 'addJpdbApiKeyReview'],
+        ]);
+        const providerContext = this.deps.providerContextForTarget('jpdb-api');
         await this.deps.jpdb.reviewCard(card, grade);
+        if (providerContext !== this.deps.providerContextForTarget('jpdb-api')) return;
         this.deps.publishGradedCardState(card);
     }
 
     private async reviewJitenApi(card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        if (!isJitenSrsCard(card)) throw new Error(this.deps.text('couldNotSubmitGrade'));
         const settings = this.deps.getSettings();
-        if (!settings.jpdbMiningEnabled) throw new Error(this.deps.text('apiSrsActionsDisabled'));
-        if (!hasJitenApiCredential(settings)) throw new Error(this.deps.text('addJitenApiKeyReview'));
-        if (typeof this.deps.jiten?.reviewCard !== 'function') throw new Error(this.deps.text('couldNotSubmitGrade'));
-        await this.deps.jiten.reviewCard(card, grade);
+        const reviewCard = this.deps.jiten?.reviewCard;
+        assertReviewAccess(this.deps, [
+            [isJitenSrsCard(card), 'couldNotSubmitGrade'],
+            [settings.jpdbMiningEnabled, 'apiSrsActionsDisabled'],
+            [hasJitenApiCredential(settings), 'addJitenApiKeyReview'],
+            [typeof reviewCard === 'function', 'couldNotSubmitGrade'],
+        ]);
+        const providerContext = this.deps.providerContextForTarget('jiten-api');
+        await reviewCard!.call(this.deps.jiten, card, grade);
+        if (providerContext !== this.deps.providerContextForTarget('jiten-api')) return;
         // Jiten reviews are server-reversible — record the undo here too so every
         // submit path (not only gradeCurrentCard) arms the affordance.
         this.deps.armJitenUndo(card);
         // Parity with the JPDB path (jpdb.reviewCard refreshes internally): pull
         // the post-review state so the review summary reflects reality.
         await this.refreshJitenState(card);
+        if (providerContext !== this.deps.providerContextForTarget('jiten-api')) return;
         this.deps.publishGradedCardState(card);
     }
 
@@ -170,20 +186,21 @@ export class NewTabReviewSubmitter {
     }
 
     private async undoJitenReview(card: JPDBCard): Promise<void> {
+        const providerContext = this.deps.providerContextForTarget('jiten-api');
         await this.deps.jiten?.undoReview?.(card);
+        if (providerContext !== this.deps.providerContextForTarget('jiten-api')) return;
         await this.refreshJitenState(card);
+        if (providerContext !== this.deps.providerContextForTarget('jiten-api')) return;
         this.deps.publishGradedCardState(card);
     }
 
     private async reviewSrsAdapter(source: NewTabSrsAdapterSource, card: JPDBCard, grade: JPDBGrade): Promise<void> {
-        const adapter = this.deps.srsAdapters?.[source];
-        if (!adapter || !adapter.hasCredential()) throw new Error(this.deps.text('couldNotSubmitGrade'));
+        const adapter = credentialedSrsAdapter(this.deps.srsAdapters?.[source], this.deps.text('couldNotSubmitGrade'));
+        const target = SRS_REVIEW_TARGET[source];
+        const providerContext = this.deps.providerContextForTarget(target);
         const result = await adapter.review({ card: this.newTabCardToSrsReviewable(card, source), grade, sentence: sentenceForCard(card) });
-        if (result.card) {
-            card.cardState = result.card.state;
-            card.dueAt = result.card.dueAt;
-            if (source === 'wanikani') card.wanikaniSrsStage = result.card.srsLevel;
-        }
+        if (providerContext !== this.deps.providerContextForTarget(target)) return;
+        applySrsReviewResult(card, source, result);
         this.deps.publishGradedCardState(card);
     }
 
@@ -229,6 +246,25 @@ export class NewTabReviewSubmitter {
             raw: source === 'wanikani' ? { card, subject: { type: card.wanikaniSubjectType } } : card,
         };
     }
+}
+
+type ReviewAccessRule = readonly [allowed: boolean, error: NewTabTextKey];
+
+function assertReviewAccess(deps: Pick<NewTabReviewSubmitterDeps, 'text'>, rules: ReviewAccessRule[]): void {
+    const failed = rules.find(([allowed]) => !allowed);
+    if (failed) throw new Error(deps.text(failed[1]));
+}
+
+function credentialedSrsAdapter(adapter: NewTabSrsQueueAdapter | undefined, errorMessage: string): NewTabSrsQueueAdapter {
+    if (!adapter?.hasCredential()) throw new Error(errorMessage);
+    return adapter;
+}
+
+function applySrsReviewResult(card: JPDBCard, source: NewTabSrsAdapterSource, result: YomuSrsReviewResult): void {
+    if (!result.card) return;
+    card.cardState = result.card.state;
+    card.dueAt = result.card.dueAt;
+    if (source === 'wanikani') card.wanikaniSrsStage = result.card.srsLevel;
 }
 
 function stringifyPositiveNumber(value: number | undefined): string | undefined {

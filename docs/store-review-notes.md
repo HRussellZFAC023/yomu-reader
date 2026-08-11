@@ -9,17 +9,17 @@ These notes describe the Chrome, Firefox, and Safari packages built from this re
 
 ## Single purpose
 
-Yomu is a Japanese reading assistant. It annotates Japanese text with furigana and pitch, opens dictionary popups, supports image OCR and subtitles, and lets the user save or grade vocabulary through services they configure. The bundled Study page is another surface for the same reading and vocabulary-review purpose.
+Yomu is a language-learning reader. It opens target-aware dictionary popups, supports image OCR and subtitles, and lets the user save or grade vocabulary through services they configure. Japanese additionally supports furigana, pitch accent, kanji cards, and deeper grammar. The bundled Study page is another surface for the same reading and vocabulary-review purpose.
 
 ## Study and browser new tabs
 
 Yomu does not replace or redirect the browser's new-tab page. Its manifests do not declare `chrome_url_overrides`, so a new tab continues to show the browser's own page.
 
-Study is a normal bundled extension page. The user opens it deliberately from the Yomu toolbar menu, or can use the hosted Study page on yomureader.com. When a fresh standalone Study session has a card ready, it starts at **Word** so the learner can first ask, “What is that word?” This is only the opening step of the study flow; it does not change browser tabs or run a queue in the background.
+Study is a normal bundled extension page. The user opens it deliberately from the Yomu toolbar menu, or can use the hosted Study page on yomureader.com. A fresh install first requires an explicit learning-target choice; Japanese is not preselected. When a fresh standalone Study session has a card ready, it starts at the first enabled learning step for that target: **Kanji 1** for Japanese and **Word** for non-Japanese targets (or the next enabled target-compatible step after a custom configuration). This does not change browser tabs or run a queue in the background.
 
 ## Permissions
 
-- Site access is required to annotate Japanese on the page the user is reading. It is the extension's main function.
+- Site access is required to annotate the selected learning language on the page the user is reading. It is the extension's main function.
 - `activeTab` supports visible-tab capture only after a user action for OCR.
 - `scripting` installs and coordinates the reader content script.
 - `storage` holds settings, imported dictionaries, caches, local review state, and—only after the user pairs an optional Yomu account—the Reader device credential and client-side encryption key. Those secrets stay in extension-owned storage and are not exposed to page scripts.
@@ -41,9 +41,9 @@ Mozilla's linter may identify the centralized assignment inside `src/reader/dom/
 ## Reviewer test
 
 1. Install the package, then open a new browser tab and confirm the browser's own new-tab page is unchanged.
-2. Select the Yomu toolbar icon and choose **Open Study**. Confirm that Study opens as a separate extension page. When a card is available in a fresh session, the opening step is **Word**.
-3. During first-run setup, note that **Japanese text on webpages** clearly offers three choices: leave pages unchanged, scan Japanese automatically, or scan only when requested.
-4. Open a page containing Japanese, select a word, and confirm the bundled dictionary popup opens. Optional account-backed actions require the reviewer's own credentials and are not necessary for core lookup.
+2. Select the Yomu toolbar icon and choose **Open Study**. Confirm that Study opens as a separate extension page and asks for a learning target with no language preselected.
+3. Select Spanish and note that **Spanish text on webpages** offers three choices: leave pages unchanged, scan Spanish automatically, or scan only when requested. Complete setup. When a card is available in a fresh session, confirm the opening step is **Word**. If the target is changed to Japanese, the corresponding fresh-session default is **Kanji 1**.
+4. Open a page containing Spanish, select a word, and confirm the bundled dictionary popup opens. Japanese can also be selected to inspect furigana and pitch accent. Optional account-backed actions require the reviewer's own credentials and are not necessary for core lookup.
 5. Optional Firefox consent check: from **Open Study → Settings**, add a temporary service key and select **Save**. Firefox asks for the optional `authenticationInfo` category. Decline it and confirm the settings dialog remains open and the key is not saved.
 6. Optional account-sync check: create/sign in to a Yomu account on the website, open **Profile & sync**, create a one-time pairing code, and paste it into **Open Study → Settings → Backup & sync**. Firefox requests `authenticationInfo` before Connect stores the device credential. Decline and confirm no request is sent; grant it, connect, and confirm the account name and last-sync state appear.
 

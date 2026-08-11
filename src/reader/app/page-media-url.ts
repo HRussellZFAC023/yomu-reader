@@ -33,8 +33,8 @@ const IMAGE_EXTENSION_TYPES: Record<string, string> = {
 // (chatgpt.com, claude.ai, jpdb.io) block re-fetching a blob:/data: URL through
 // connect-src, so the Web Audio fallback cannot recover the bytes with fetch();
 // reading them straight from the retained Blob is not a network request and is
-// exempt from CSP. Only audio is registered — keeping image media (ImmersionKit
-// thumbnails, uchisen art) out stops it from evicting an audio blob before its
+// exempt from CSP. Only audio is registered — keeping image media (such as
+// Immersion Kit thumbnails) out stops it from evicting an audio blob before its
 // fallback runs. Bounded as a backstop — entries normally drop when revoked.
 const PAGE_MEDIA_BLOB_LIMIT = 64;
 const pageMediaBlobs = new Map<string, Blob>();

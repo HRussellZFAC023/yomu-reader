@@ -180,21 +180,11 @@ describe('published product claims', () => {
         const theme = readProjectFile('docs/.vitepress/theme/index.ts');
         const heroLanguages = heroStudyLanguages();
 
-        // OWNER DECISION 2026-07-31, still standing: Yomu becomes a complete system
-        // for every language — "it will become a complete system for all languages,
-        // that's your task". That is an ENGINEERING goal, and a rotator cycling all
-        // 33 targets through the h1 was the wrong way to state it: on any given tick
-        // the product's first line read "A complete system for learning Shqip.", and
-        // screenshots and social unfurls froze whichever word was showing. Owner
-        // 2026-08-02: "I am not happy with how the homepage has turned out", against
-        // an earlier verbatim instruction for this exact sentence.
-        //
-        // So the two claims are separated by strength, and BOTH stay measured:
-        //   - the headline names Japanese, the one target that measures `full`;
-        //   - the reading-and-lookup claim for the other 32 keeps its own line,
-        //     counted from the same asserted roster the rotator read.
-        expect(homepage).toContain('>A complete system for learning 日本語.</h1>');
-        expect(catalogue).toContain("'A complete system for learning 日本語.': '日本語を学ぶための、すべてがそろう。'");
+        // Static markup and the booted rotator state one measured reading claim.
+        // Neither surface may turn Japanese's deeper feature set into default
+        // learner identity before the visitor has made a target choice.
+        expect(homepage).toContain(">Read the language you're learning with Yomu.</h1>");
+        expect(catalogue).toContain("\"Read the language you're learning with Yomu.\": '学んでいる言語を、よむで読む。'");
         expect(theme).toContain("en: ['Read ', ' with Yomu.']");
         expect(theme).toContain("ja: ['よむで', 'を読む。']");
         expect(config).toContain('const hostedHeroStudyLanguages = heroStudyLanguages();');
@@ -205,23 +195,13 @@ describe('published product claims', () => {
             expect(target, `homepage names unknown target ${language.id}`).toBeDefined();
             expect(target?.studyTargetReadiness).not.toBe('planned');
         }
-        // COUNTED MEMBERSHIP: every language behind the count must genuinely reach
-        // reading and lookup. This is the assertion that stops a `planned` language
-        // being counted, and it is unchanged by the headline demotion.
+        // COUNTED MEMBERSHIP: every named language must genuinely reach reading
+        // and lookup. This stops a `planned` language entering the rotator.
         expect(() => assertStudyTargetClaimReadiness(
             heroLanguages.map(language => language.id),
             HOMEPAGE_STUDY_TARGET_CLAIM_READINESS,
             'Homepage hero',
         )).not.toThrow();
-
-        // HEADLINE CLAIM: what the h1 asserts as a complete system. Japanese only,
-        // until a wave lifts another target's readiness to full — at which point this
-        // list grows and the headline becomes true for it without a copy change.
-        const claimedFull = LEARNING_TARGET_ROSTER
-            .filter(target => target.studyTargetReadiness === 'full')
-            .map(target => target.id);
-        expect(claimedFull, 'the headline claims a complete system, so something must be full').toContain('ja');
-        expect(() => assertStudyTargetClaimReadiness(claimedFull, 'full', 'Homepage headline')).not.toThrow();
     });
 
     it('fails if an unknown target is claimed as full', () => {

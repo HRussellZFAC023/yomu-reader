@@ -3,6 +3,7 @@ import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEYS,
 } from '../settings/index';
+import { normalizeLearningTargetChosen } from '../settings/learning-target-choice';
 import {
     ensureManagedWebStorageCurrent,
     ensureManagedWebStorageCurrentSync,
@@ -43,10 +44,7 @@ const LOCALHOST_NAME_RE = /(?:^|\.)localhost$/u;
 const IPV4_LOOPBACK_HOST_RE = /^127(?:\.\d{1,3}){3}$/u;
 const IPV4_MAPPED_LOOPBACK_HOST_RE = /^\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\]$/u;
 
-type StoredSettings = Partial<Pick<
-    ReaderSettings,
-    'preferJapaneseSiteLanguage' | 'languageProfiles' | 'activeLanguageProfileId'
->> | null;
+type StoredSettings = Partial<ReaderSettings> | null;
 interface StoredPreference {
     enabled: boolean;
     targetLanguage: string;
@@ -86,6 +84,7 @@ function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision: numbe
     // startup and cannot be repaired after the authoritative opt-out arrives.
     void readStoredPreferenceAsync().then(preference => {
         if (revision !== preferenceRevision) return;
+        if (!preference) return;
         applyPreferredJapaneseSiteLanguageAtRevision(
             preference.enabled,
             false,
@@ -121,23 +120,66 @@ function applyPreferredJapaneseSiteLanguageAtRevision(
     deferCookieResponseReloadUntilPersisted = false,
     targetLanguage = 'ja',
 ): void {
-    if (typeof window === 'undefined') return;
-    if (revision !== preferenceRevision) return;
-    const effectiveEnabled = enabled && languageFamilyIncludes('jp-only', targetLanguage);
+    if (!canApplyPreferenceRevision(revision)) return;
+    const effectiveEnabled = japaneseSitePreferenceEnabled(enabled, targetLanguage);
+    // A default-off value is not evidence that Yomu ever changed this site.
+    // Leave native locale cookies and the page realm completely untouched
+    // unless this realm is turning an active preference off, the UI requested
+    // rollback, or this origin still carries Yomu's earlier enabled cache.
+    if (shouldIgnoreInactivePreference(effectiveEnabled, revertOnDisable)) {
+        cancelPreferredJapaneseSiteRedirectWatcher();
+        forgetSessionRedirectState();
+        return;
+    }
     // A stored opt-out does not prove this realm caused the current URL. Only
     // an active on -> off transition or the settings UI's explicit rollback may
     // navigate away; a stale per-origin cache must remain reconciliation-only.
-    const shouldRevert = !effectiveEnabled
-        && (currentPreferenceEnabled || revertOnDisable);
+    const shouldRevert = shouldRevertSitePreference(effectiveEnabled, revertOnDisable);
     currentPreferenceEnabled = effectiveEnabled;
     writeCachedPreferenceEnabled(effectiveEnabled);
     applyPageContextJapanesePreferences(effectiveEnabled, revision);
     if (effectiveEnabled) {
-        deferredCookieResponseReload = false;
-        applySitePreferenceCookies();
-        schedulePreferredJapaneseSiteRedirect(revision);
+        enablePreferredJapaneseSiteLanguage(revision);
         return;
     }
+    disablePreferredJapaneseSiteLanguage(shouldRevert, deferCookieResponseReloadUntilPersisted);
+}
+
+function canApplyPreferenceRevision(revision: number): boolean {
+    return typeof window !== 'undefined' && revision === preferenceRevision;
+}
+
+function japaneseSitePreferenceEnabled(enabled: boolean, targetLanguage: string): boolean {
+    return enabled && languageFamilyIncludes('jp-only', targetLanguage);
+}
+
+function shouldRevertSitePreference(effectiveEnabled: boolean, revertOnDisable: boolean): boolean {
+    if (effectiveEnabled) return false;
+    return currentPreferenceEnabled || revertOnDisable;
+}
+
+function shouldIgnoreInactivePreference(effectiveEnabled: boolean, revertOnDisable: boolean): boolean {
+    if (effectiveEnabled) return false;
+    return !hasJapaneseSitePreferenceProvenance(revertOnDisable);
+}
+
+function hasJapaneseSitePreferenceProvenance(revertOnDisable: boolean): boolean {
+    if (currentPreferenceEnabled) return true;
+    if (revertOnDisable) return true;
+    if (readCachedPreferenceEnabled() === true) return true;
+    return deferredCookieResponseReload;
+}
+
+function enablePreferredJapaneseSiteLanguage(revision: number): void {
+    deferredCookieResponseReload = false;
+    applySitePreferenceCookies();
+    schedulePreferredJapaneseSiteRedirect(revision);
+}
+
+function disablePreferredJapaneseSiteLanguage(
+    shouldRevert: boolean,
+    deferCookieResponseReloadUntilPersisted: boolean,
+): void {
     const clearedSiteCookie = clearSitePreferenceCookies();
     const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
     deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted
@@ -147,15 +189,21 @@ function applyPreferredJapaneseSiteLanguageAtRevision(
     // Disabling also retires this tab's loop-suppression provenance. A cold
     // authoritative opt-out must not navigate, but a later explicit opt-in in
     // the same tab still needs permission to redirect the host once.
-    if (!shouldRevert) forgetSessionRedirectState();
+    finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse);
+}
+
+function finishDisabledSiteNavigation(shouldRevert: boolean, shouldReloadCookieShapedResponse: boolean): void {
+    if (!shouldRevert) {
+        forgetSessionRedirectState();
+        return;
+    }
     // A deliberate opt-out also has to undo the navigation the preference caused;
     // leaving the site on its Japanese URL reads as the toggle having done nothing.
-    if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
-        // The Japanese preference cookie shaped the response before a document-
-        // start script could remove it. Reload once after clearing it; the cache
-        // is already false, so the next load cannot repeat this branch.
-        reloadCurrentLocation();
-    }
+    if (attemptPreferredDefaultSiteRedirect()) return;
+    if (!shouldReloadCookieShapedResponse) return;
+    // The Japanese preference cookie shaped the response before document-start
+    // could remove it. The false cache makes this a one-shot reload.
+    reloadCurrentLocation();
 }
 
 export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): string | null {
@@ -206,11 +254,16 @@ function readStoredPreferenceSync(): StoredPreference | undefined {
     return sitePreference(preferredLanguage, storedSettings);
 }
 
-async function readStoredPreferenceAsync(): Promise<StoredPreference> {
+async function readStoredPreferenceAsync(): Promise<StoredPreference | undefined> {
     const preferredLanguage = await gmStorageGet<unknown>(
         PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
         undefined,
     );
+    const storedSettings = await readStoredSettingsAsync();
+    return sitePreference(preferredLanguage, storedSettings, cachedPreferenceFallback());
+}
+
+async function readStoredSettingsAsync(): Promise<StoredSettings | undefined> {
     let storedSettings: StoredSettings | undefined;
     for (const key of SETTINGS_STORAGE_KEYS) {
         const stored = await gmStorageGet<StoredSettings | undefined>(key, undefined);
@@ -218,14 +271,14 @@ async function readStoredPreferenceAsync(): Promise<StoredPreference> {
         storedSettings = stored;
         break;
     }
-    // No stored settings at all (a fresh install): a local cache remains below
-    // any real setting and otherwise falls back to the opt-in product default.
+    return storedSettings;
+}
+
+// No stored settings at all is a genuinely fresh install. Only a cache written
+// by an earlier Yomu visit is provenance worth reconciling.
+function cachedPreferenceFallback(): boolean | undefined {
     const cached = readCachedPreferenceEnabled();
-    return sitePreference(
-        preferredLanguage,
-        storedSettings,
-        typeof cached === 'boolean' ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage,
-    )!;
+    return typeof cached === 'boolean' ? cached : undefined;
 }
 
 function sitePreference(
@@ -233,14 +286,29 @@ function sitePreference(
     settings: StoredSettings | undefined,
     fallback?: boolean,
 ): StoredPreference | undefined {
-    const enabled = typeof dedicated === 'boolean'
-        ? dedicated
-        : typeof settings?.preferJapaneseSiteLanguage === 'boolean'
-            ? settings.preferJapaneseSiteLanguage
-            : fallback;
-    return typeof enabled === 'boolean'
-        ? { enabled, targetLanguage: targetLanguageOf(settings) }
-        : undefined;
+    const enabled = storedSitePreferenceEnabled(dedicated, settings, fallback);
+    if (typeof enabled !== 'boolean') return undefined;
+    if (enabled === true && !storedSettingsChooseLearningTarget(settings)) return undefined;
+    return { enabled, targetLanguage: targetLanguageOf(settings) };
+}
+
+function storedSitePreferenceEnabled(
+    dedicated: unknown,
+    settings: StoredSettings | undefined,
+    fallback: boolean | undefined,
+): boolean | undefined {
+    if (typeof dedicated === 'boolean') return dedicated;
+    if (typeof settings?.preferJapaneseSiteLanguage === 'boolean') {
+        return settings.preferJapaneseSiteLanguage;
+    }
+    return fallback;
+}
+
+function storedSettingsChooseLearningTarget(settings: StoredSettings | undefined): boolean {
+    return normalizeLearningTargetChosen(settings ?? null, {
+        interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
+        parserProvider: DEFAULT_SETTINGS.parserProvider,
+    });
 }
 
 function readCachedPreferenceEnabled(): boolean | undefined {

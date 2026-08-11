@@ -27,6 +27,9 @@ describe('OnboardingController furigana parse wiring', () => {
         const panel = document.querySelector<HTMLElement>('.jpdb-reader-onboarding');
         expect(panel).toBeTruthy();
         expect(panel!.classList.contains('jpdb-reader-parseable')).toBe(true);
+        expect(parseJapanese).not.toHaveBeenCalled();
+
+        chooseTarget('ja');
         expect(parseJapanese).toHaveBeenCalledWith(panel);
 
         // The same nested-parse collection used for popovers/settings chrome
@@ -57,6 +60,7 @@ describe('OnboardingController furigana parse wiring', () => {
         });
 
         await controller.showIfNeeded();
+        chooseTarget('ja');
 
         const panel = document.querySelector<HTMLElement>('.jpdb-reader-onboarding')!;
         const word = document.createElement('span');
@@ -83,3 +87,9 @@ describe('OnboardingController furigana parse wiring', () => {
         expect(settings.onboardingSeen).toBe(true);
     });
 });
+
+function chooseTarget(target: string): void {
+    const select = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+    select.value = target;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+}

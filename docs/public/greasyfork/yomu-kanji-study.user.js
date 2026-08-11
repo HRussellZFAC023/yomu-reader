@@ -98,10 +98,10 @@ const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
 const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
 const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -132,7 +132,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -503,20 +503,6 @@ function storageBridgeResponseDetail(event) {
   message: typeof record2.message === "string" ? record2.message : void 0
   };
 }
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
-}
 function addBridgeEventListener$1(type, listener) {
   const cleanups = [];
   if (addWindowEventListener(type, listener)) {
@@ -745,7 +731,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -915,22 +903,6 @@ function managedStateStorageKey(key, epoch) {
   if (epoch.generation === 0) return key;
   return `${MANAGED_STATE_SLOT_KEY_PREFIX}${encodeURIComponent(managedStateEpochToken(epoch))}:${encodeURIComponent(key)}`;
 }
-async function readManagedGmValue(getValue, key, epoch) {
-  const storageKey = managedStateStorageKey(key, epoch);
-  const scoped = await getValue(storageKey, MISSING);
-  const readFromCurrentSlot = !isMissingSentinel(scoped);
-  const stored = readFromCurrentSlot || storageKey === key ? scoped : await getValue(key, MISSING);
-  if (isMissingSentinel(stored)) return { kind: "missing" };
-  const unreadable = Symbol("unreadable-managed-state");
-  const logical = managedStateLogicalValue(stored, epoch, unreadable);
-  if (logical === unreadable) return readFromCurrentSlot ? { kind: "deleted" } : { kind: "missing" };
-  if (isMissingSentinel(logical)) return { kind: "deleted" };
-  return { kind: "found", value: logical };
-}
-async function managedGmValue(getValue, key, fallback, epoch) {
-  const read = await readManagedGmValue(getValue, key, epoch);
-  return read.kind === "found" ? read.value : fallback;
-}
 const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
 const LOCAL_MIRROR_PROVENANCE_KEY = "yomu:local-storage-provenance:v1";
 const managedStateEpochSession = managedStateEpochSessionForRealm();
@@ -995,53 +967,6 @@ function managedStateEpochForSynchronousLocalRead() {
   return null;
   }
 }
-async function gmStorageGet(key, fallback) {
-  const getValue = asyncGmGetValue();
-  if (!getValue) return localOnlyManagedValue(key, fallback, await assertRealmManagedStateEpoch(null));
-  let epoch;
-  try {
-  epoch = await assertRealmManagedStateEpoch(getValue);
-  return await sharedManagedValue(getValue, key, fallback, epoch);
-  } catch (error) {
-  return failedManagedReadValue(error, key, fallback, epoch);
-  }
-}
-async function sharedManagedValue(getValue, key, fallback, epoch) {
-  const pendingPatch = pendingHostedLocalPatch(key, epoch);
-  if (pendingPatch) {
-  const shared2 = await managedGmValue(getValue, key, void 0, epoch);
-  const sharedRecord = isPlainRecord(shared2) ? shared2 : {};
-  const reconciled = { ...sharedRecord, ...pendingPatch };
-  await gmStorageSet(key, reconciled);
-  return reconciled;
-  }
-  const read = await readManagedGmValue(getValue, key, epoch);
-  if (read.kind === "found") return read.value;
-  if (read.kind === "deleted") return fallback;
-  const migrated = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
-  if (!isMissingSentinel(migrated)) {
-  const promoted = sanitizedStrandedLocalValue(key, migrated);
-  await gmStorageSet(key, promoted);
-  return promoted;
-  }
-  return fallback;
-}
-function failedManagedReadValue(error, key, fallback, epoch) {
-  if (isStaleManagedStateEpochError(error)) throw error;
-  debugStorageError("GM storage read failed", key, error);
-  if (epoch && localMirrorBelongsToEpoch(key, epoch)) {
-  return localStorageGet(key, fallback);
-  }
-  return fallback;
-}
-function localOnlyManagedValue(key, fallback, epoch) {
-  const local = localMirrorBelongsToEpoch(key, epoch) ? localStorageGet(key, MISSING) : MISSING;
-  if (!isMissingSentinel(local)) return local;
-  if (key === HOSTED_SETTINGS_BLOB_KEY && isHostedYomuOrigin() && isPlainRecord(fallback)) {
-  mirrorManagedValueToHostedStorage(key, fallback, epoch);
-  }
-  return fallback;
-}
 function gmStorageGetSync(key, fallback) {
   const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
   let epoch = null;
@@ -1101,14 +1026,6 @@ function sanitizedStrandedLocalValue(key, value) {
   delete policy[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
   HOSTED_LOCAL_SETTINGS_KEYS.forEach((hostedKey) => delete policy[hostedKey]);
   return record2;
-}
-function pendingHostedLocalPatch(key, epoch) {
-  if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return void 0;
-  if (!localMirrorBelongsToEpoch(key, epoch)) return void 0;
-  const value = localStorageGet(key, void 0);
-  if (!value || typeof value !== "object" || Array.isArray(value)) return void 0;
-  const patch = value[HOSTED_SETTINGS_PENDING_GM_PATCH_FIELD];
-  return isPlainRecord(patch) ? sanitizedStrandedLocalValue(key, patch) : void 0;
 }
 function localFallbackValueForWrite(key, value) {
   if (key !== HOSTED_SETTINGS_BLOB_KEY || !isHostedYomuOrigin()) return value;
@@ -1867,8 +1784,6 @@ function isSharedPublicProxyAllowlistedTarget(target) {
   if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
   if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
   if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-  if (host === "uchisen.com") return path.startsWith("/kanji/");
-  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
   return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
@@ -2538,11 +2453,11 @@ function recordHeaders(headers) {
   if (Array.isArray(headers)) return Object.fromEntries(headers);
   return headers;
 }
-async function requestText$5(url, options = {}) {
+async function requestText$4(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "text" });
   return typeof value === "string" ? value : String(value ?? "");
 }
-async function requestBlob$2(url, options = {}) {
+async function requestBlob$1(url, options = {}) {
   const value = await requestHttp(url, { ...options, responseType: "blob" });
   if (value instanceof Blob) return value;
   if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
@@ -2809,7 +2724,7 @@ function kanjiOriginCacheKey(kanji, settings) {
 async function fetchKanjiMapInfo(kanji) {
   const done = log$a.time("Fetch Kanji Map info", { kanji });
   const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
-  const raw = parseJson(await requestText$4(sourceUrl));
+  const raw = parseJson(await requestText$3(sourceUrl));
   const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
   done();
   return info;
@@ -3218,13 +3133,13 @@ function parseJson(value) {
   }
 }
 async function fetchKanjiAlivePrimaryGlosses() {
-  const payload = asRecord(parseJson(await requestText$4(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
+  const payload = asRecord(parseJson(await requestText$3(KANJI_ALIVE_PRIMARY_GLOSSES_URL)));
   const meanings = asRecord(payload?.meanings);
   if (!meanings) return {};
   return Object.fromEntries(Object.entries(meanings).map(([kanji, meaning]) => [kanji, stringValue(meaning)]).filter((entry) => Boolean(entry[1])));
 }
-function requestText$4(url) {
-  return requestText$5(url, {
+function requestText$3(url) {
+  return requestText$4(url, {
   timeoutMs: 1e4,
   failureLabel: "Kanji origin request",
   timeoutLabel: "Kanji origin request timed out."
@@ -8499,6 +8414,9 @@ const COPY = {
   onboardingLanguage: "Settings language",
   onboardingOutputLanguage: "Definition and translation language (output)",
   onboardingTargetLanguage: "Language you are reading (target)",
+  onboardingChooseTarget: "Choose a learning language…",
+  onboardingTargetRequired: "Choose a learning language before continuing.",
+  onboardingUnselectedTargetName: "your learning language",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -9367,7 +9285,6 @@ const COPY = {
   immersionExampleControls: "Immersion Kit example controls",
   exampleSearchLinks: "Example searches",
   loadingKanjiDetails: "Loading kanji details...",
-  loadingMnemonicImages: "Loading mnemonic images...",
   lookupDialog: `${APP_NAME} lookup`,
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
@@ -9650,22 +9567,7 @@ const COPY = {
   sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
   sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
   sourceHelpRtk: "RTK keywords, elements, and stories.",
-  sourceHelpUchisen: "Uchisen mnemonic image carousel.",
   sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-  uchisenMnemonicImages: "Uchisen mnemonic images",
-  uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-  noUchisenImagesYet: "No Uchisen images yet.",
-  generateUchisenImage: "Generate image",
-  generateUchisenImageToggle: "Generate image +",
-  uchisenMnemonicStory: "Mnemonic story",
-  uchisenImagePrompt: "Image prompt",
-  uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-  uchisenGeneratingImage: "Generating image...",
-  uchisenPublishingMnemonic: "Publishing mnemonic...",
-  uchisenGeneratedImage: "Uchisen image published.",
-  uchisenGenerateFailed: "Could not generate Uchisen image.",
-  uchisenLoginRequired: "Log in to Uchisen to generate images.",
-  noStoryAvailable: "No story available",
   sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
@@ -9754,6 +9656,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -9811,7 +9716,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -10929,22 +10833,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
@@ -12675,22 +12564,53 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
 }
 function sourceTokenRubies(surface, token) {
-  if (token.rubies.length) return token.rubies;
-  const reading = token.card.reading.trim();
-  if (!surface || !reading || reading === surface) return [];
+  if (token.rubies.length) return explicitTokenRubies(surface, token);
+  const reading = distinctTokenReading(surface, token);
+  if (!reading) return [];
   if (surface.trim() === token.card.spelling.trim()) {
   return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
-  if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
+  return inferredTokenRubies(surface, reading, token);
+}
+function explicitTokenRubies(surface, token) {
+  return explicitRubyReadingMatchesSurface(surface, token) ? [] : token.rubies;
+}
+function distinctTokenReading(surface, token) {
+  if (!surface) return null;
+  const reading = trimmedTokenReading(token);
+  if (!reading) return null;
+  if (reading.normalize("NFC") === surface.normalize("NFC")) return null;
+  return reading;
+}
+function trimmedTokenReading(token) {
+  return token.card.reading?.trim() ?? "";
+}
+function inferredTokenRubies(surface, reading, token) {
+  if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana") return [];
+  if (!KANJI_RE.test(surface)) return [];
+  if (!READING_KANA_ONLY_RE.test(reading)) return [];
   const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-  if (inferred.length) {
   return inferred.map((ruby) => ({
-    ...ruby,
-    start: token.start + ruby.start,
-    end: token.start + ruby.end
+  ...ruby,
+  start: token.start + ruby.start,
+  end: token.start + ruby.end
   }));
+}
+function explicitRubyReadingMatchesSurface(surface, token) {
+  const ranges = token.rubies.flatMap((ruby) => {
+  const range = localRubyRange(surface, token, ruby);
+  return range ? [{ ...range, text: ruby.text }] : [];
+  }).sort((first2, second) => first2.start - second.start);
+  if (!ranges.length) return false;
+  let cursor = 0;
+  let reconstructed = "";
+  for (const range of ranges) {
+  if (range.start < cursor) return false;
+  reconstructed += surface.slice(cursor, range.start) + range.text;
+  cursor = range.end;
   }
-  return [];
+  reconstructed += surface.slice(cursor);
+  return reconstructed.normalize("NFC") === surface.normalize("NFC");
 }
 function learningTargetForToken(token) {
   return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
@@ -13093,1105 +13013,6 @@ function renderRtkStories(info, language) {
   info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml(story)}</p>`).join("")}</details>` : ""
   ].join("");
 }
-const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
-const JPDB_BASE_URL = "https://jpdb.io";
-function cleanText$1(value) {
-  return value.replace(/\s+/g, " ").trim();
-}
-function decodePathPart(value) {
-  try {
-  return decodeURIComponent(value);
-  } catch {
-  return value;
-  }
-}
-function absoluteJpdbUrl(value, fallback = "") {
-  try {
-  return new URL(value || "/", JPDB_BASE_URL).toString();
-  } catch {
-  return fallback;
-  }
-}
-function parseJpdbVocabularyUrl(value) {
-  if (!value) return null;
-  try {
-  return parseJpdbVocabularyPath(new URL(value, JPDB_BASE_URL).pathname);
-  } catch {
-  return null;
-  }
-}
-function parseJpdbVocabularyPath(pathname) {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] !== "vocabulary") return null;
-  const vid = Number.parseInt(parts[1] ?? "", 10);
-  const reading = decodePathPart(parts[3] ?? "");
-  return {
-  vid: Number.isFinite(vid) ? vid : 0,
-  expression: decodePathPart(parts[2] ?? ""),
-  reading: JAPANESE_RE.test(reading) ? reading : ""
-  };
-}
-function decodeEntities(value) {
-  return value.replace(/&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]+);/gi, (entity) => {
-  const parsed = new DOMParser().parseFromString(`<!doctype html><body>${entity}`, "text/html");
-  return parsed.body.textContent || entity;
-  });
-}
-function canonicalUchisenUrl(value) {
-  let url = value.trim();
-  if (!/^https?:\/\//i.test(url)) {
-  if (url.startsWith("/")) url = `https://ik.imagekit.io/uchisen${url}`;
-  else if (url.startsWith("generated_")) url = `https://ik.imagekit.io/uchisen/generated/saved/${url}`;
-  else url = `https://ik.imagekit.io/uchisen/${url}`;
-  }
-  try {
-  const parsed = new URL(url);
-  parsed.pathname = parsed.pathname.replace(/\/{2,}/g, "/");
-  parsed.search = "";
-  parsed.hash = "";
-  return `${parsed.origin}${parsed.pathname}`;
-  } catch {
-  return url.replace(/\/{2,}/g, "/").split(/[?#]/)[0];
-  }
-}
-const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
-const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
-function orderedUchisenImages(images) {
-  const seen = /* @__PURE__ */ new Set();
-  const deduped = images.filter((item) => {
-  const key = uchisenImageDedupeKey(item);
-  if (!item.url || seen.has(key)) return false;
-  seen.add(key);
-  return true;
-  });
-  return [
-  ...deduped.filter((item) => !item.paywall),
-  ...deduped.filter((item) => item.paywall)
-  ].map(({ url, story }) => ({ url, story }));
-}
-function uchisenImageDedupeKey(item) {
-  return item.paywall && isUchisenPaywallImage(item.url) ? "paywall:enrollment" : `url:${item.url}`;
-}
-function isUchisenPaywallImage(url) {
-  try {
-  return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
-  } catch {
-  return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
-  }
-}
-function isUchisenPaywallStory(story) {
-  return UCHISEN_PAYWALL_STORY_RE.test(cleanText$1(story));
-}
-function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
-  return new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(String(reader.result || ""));
-  reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
-  reader.readAsDataURL(blob);
-  });
-}
-const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
-const AUDIO_EXTENSION_TYPES = {
-  aac: "audio/aac",
-  flac: "audio/flac",
-  m4a: "audio/mp4",
-  mp3: "audio/mpeg",
-  oga: "audio/ogg",
-  ogg: "audio/ogg",
-  opus: "audio/ogg",
-  wav: "audio/wav",
-  weba: "audio/webm",
-  webm: "audio/webm"
-};
-const IMAGE_EXTENSION_TYPES = {
-  apng: "image/apng",
-  avif: "image/avif",
-  gif: "image/gif",
-  jpeg: "image/jpeg",
-  jpg: "image/jpeg",
-  png: "image/png",
-  svg: "image/svg+xml",
-  webp: "image/webp"
-};
-const PAGE_MEDIA_BLOB_LIMIT = 64;
-const pageMediaBlobs = /* @__PURE__ */ new Map();
-async function createPageMediaUrl(blob, sourceUrl = "") {
-  const typed = withUsableMediaType(blob, sourceUrl);
-  const url = shouldUseDataUrlForPageMedia() ? await readBlobAsDataUrl(typed) : URL.createObjectURL(typed);
-  if (typed.type.startsWith("audio/")) registerPageMediaBlob(url, typed);
-  return url;
-}
-function registerPageMediaBlob(url, blob) {
-  pageMediaBlobs.delete(url);
-  pageMediaBlobs.set(url, blob);
-  while (pageMediaBlobs.size > PAGE_MEDIA_BLOB_LIMIT) {
-  const oldest = pageMediaBlobs.keys().next().value;
-  if (oldest === void 0) break;
-  pageMediaBlobs.delete(oldest);
-  }
-}
-function withUsableMediaType(blob, sourceUrl) {
-  const type = (blob.type || "").toLowerCase();
-  if (type && type !== "application/octet-stream" && type !== "binary/octet-stream") return blob;
-  const extension = sourceUrl.split(/[?#]/)[0]?.split(".").pop()?.toLowerCase() ?? "";
-  return new Blob([blob], { type: IMAGE_EXTENSION_TYPES[extension] ?? AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
-}
-function revokePageMediaUrl(url) {
-  pageMediaBlobs.delete(url);
-  if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
-}
-function shouldUseDataUrlForPageMedia() {
-  if (typeof location === "undefined") return false;
-  return JPDB_HOST_RE.test(location.hostname);
-}
-const imagePromptReplacementDefs = [
-  [
-  "\\bblood(y|ied|ing)?\\b",
-  "red festival paint"
-  ],
-  [
-  "\\bbleed(ing)?\\b",
-  "red festival paint"
-  ],
-  [
-  "\\bwounds?\\b",
-  "patched cloth"
-  ],
-  [
-  "\\binjur(y|ies|ed)?\\b",
-  "tired mishap"
-  ],
-  [
-  "\\bsick(ness)?\\b",
-  "restful"
-  ],
-  [
-  "\\bill(ness)?\\b",
-  "restful"
-  ],
-  [
-  "\\bmedicine\\b",
-  "helpful bundle"
-  ],
-  [
-  "\\bmedical\\b",
-  "helpful"
-  ],
-  [
-  "\\bdoctor\\b",
-  "kind helper"
-  ],
-  [
-  "\\bpatient\\b",
-  "visitor"
-  ],
-  [
-  "\\bdisease\\b",
-  "gloomy cloud"
-  ],
-  [
-  "\\bhospital\\b",
-  "quiet rest house"
-  ],
-  [
-  "\\bweapons?\\b",
-  "ceremonial props"
-  ],
-  [
-  "\\bswords?\\b",
-  "ceremonial wooden practice sword"
-  ],
-  [
-  "\\bknives?\\b",
-  "small wooden craft tool"
-  ],
-  [
-  "\\bdaggers?\\b",
-  "small wooden craft tool"
-  ],
-  [
-  "\\bblades?\\b",
-  "shiny craft edge"
-  ],
-  [
-  "\\bspears?\\b",
-  "slender festival pole"
-  ],
-  [
-  "\\barrows?\\b",
-  "paper arrow charm"
-  ],
-  [
-  "\\bguns?\\b",
-  "toy popper"
-  ],
-  [
-  "\\brifles?\\b",
-  "toy popper"
-  ],
-  [
-  "\\bcannons?\\b",
-  "festival drum"
-  ],
-  [
-  "\\bbombs?\\b",
-  "round festival lantern"
-  ],
-  [
-  "\\bdynamite\\b",
-  "firecracker bundle"
-  ],
-  [
-  "\\bexplos(ive|ion)s?\\b",
-  "bursting confetti"
-  ],
-  [
-  "\\bbattles?\\b",
-  "festival contest"
-  ],
-  [
-  "\\bfight(ing|s)?\\b",
-  "tugging contest"
-  ],
-  [
-  "\\bwars?\\b",
-  "old tale"
-  ],
-  [
-  "\\battack(s|ing)?\\b",
-  "surprising pounce"
-  ],
-  [
-  "\\bstab(s|bing|bed)?\\b",
-  "poke"
-  ],
-  [
-  "\\bkill(s|ing|ed)?\\b",
-  "stop"
-  ],
-  [
-  "\\bdead\\b",
-  "still"
-  ],
-  [
-  "\\bdeath\\b",
-  "quiet ending"
-  ],
-  [
-  "\\bcorpse\\b",
-  "old puppet"
-  ],
-  [
-  "\\bpoison\\b",
-  "mysterious purple dye"
-  ],
-  [
-  "\\bcriminals?\\b",
-  "mischief maker"
-  ],
-  [
-  "\\bcrimes?\\b",
-  "mischief"
-  ],
-  [
-  "\\bprison\\b",
-  "locked toy box"
-  ],
-  [
-  "\\bjail\\b",
-  "locked toy box"
-  ],
-  [
-  "\\bpunish(ment|ed|ing)?\\b",
-  "scold"
-  ],
-  [
-  "\\btorture\\b",
-  "awkward training"
-  ],
-  [
-  "\\bexecution\\b",
-  "ceremony"
-  ],
-  [
-  "\\bnoose\\b",
-  "rope loop"
-  ],
-  [
-  "\\bdemons?\\b",
-  "festival mask"
-  ],
-  [
-  "\\bdevils?\\b",
-  "festival mask"
-  ],
-  [
-  "\\bhell\\b",
-  "smoky folk-tale cave"
-  ],
-  [
-  "\\bghosts?\\b",
-  "paper lantern spirit"
-  ],
-  [
-  "\\bspirits?\\b",
-  "paper lantern spirit"
-  ],
-  [
-  "\\bskulls?\\b",
-  "round white mask"
-  ],
-  [
-  "\\bbones?\\b",
-  "ivory-colored toy sticks"
-  ]
-];
-const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
-async function installUchisenCarousel(container, kanji, images, options = {}) {
-  let currentImages = images.slice();
-  let currentComponentGroups = options.componentGroups ?? [];
-  let currentKanjiKeyword = options.kanjiKeyword ?? null;
-  let currentKanjiId = options.kanjiId ?? "";
-  let canGenerateImages = Boolean(currentKanjiId && options.canGenerateImages);
-  const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
-  let index = preferredUchisenIndex(storedIndex, currentImages);
-  if (!isValidUchisenIndex(index, currentImages)) index = 0;
-  const proxyUrl = options.proxyUrl ?? "";
-  const language = options.interfaceLanguage ?? "en";
-  let generateOpen = false;
-  let generateBusy = false;
-  let generateStatus = null;
-  let generateFields = defaultUchisenGenerateFields(kanji, currentKanjiKeyword, currentComponentGroups);
-  let currentImageUrl = "";
-  const cleanup = () => {
-  if (!currentImageUrl) return;
-  revokePageMediaUrl(currentImageUrl);
-  currentImageUrl = "";
-  };
-  const render = () => {
-  index = validUchisenRenderIndex(index, currentImages);
-  const model = uchisenCarouselRenderModel(kanji, index, currentImages, {
-    options,
-    canGenerateImages,
-    generateOpen,
-    generateBusy,
-    generateStatus,
-    generateFields,
-    currentComponentGroups,
-    currentKanjiKeyword
-  });
-  setInnerHtml(container, renderUchisenCarouselHtml(model));
-  attachRenderedUchisenImage(container, model.item, index, currentImages, proxyUrl, cleanup, (url) => {
-    currentImageUrl = url;
-  });
-  };
-  const syncGenerateFields = () => {
-  generateFields = {
-    mnemonic: container.querySelector('[data-uchisen-generate-field="mnemonic"]')?.value ?? generateFields.mnemonic,
-    imagePrompt: container.querySelector('[data-uchisen-generate-field="imagePrompt"]')?.value ?? generateFields.imagePrompt
-  };
-  };
-  const refreshAfterGenerate = async (result) => {
-  const fresh = await options.refreshData?.().catch(() => null);
-  if (fresh) {
-    currentImages = fresh.images;
-    currentComponentGroups = fresh.componentGroups;
-    currentKanjiKeyword = fresh.kanjiKeyword;
-    currentKanjiId = fresh.kanjiId || currentKanjiId;
-    canGenerateImages = Boolean(currentKanjiId && fresh.canGenerateImages);
-  } else {
-    currentImages = orderedUchisenImages([
-      ...currentImages.map((item) => ({ ...item, paywall: isUchisenPaywallItem(item) })),
-      { url: result.imageUrl, story: result.story, paywall: false }
-    ]);
-  }
-  const generatedIndex = findUchisenImageIndex(currentImages, result.imageUrl);
-  index = generatedIndex >= 0 ? generatedIndex : Math.max(0, currentImages.length - 1);
-  void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
-  };
-  const generateAndRefresh = async () => {
-  if (!canStartUchisenGeneration(generateBusy, canGenerateImages, currentKanjiId)) return;
-  syncGenerateFields();
-  generateBusy = true;
-  generateStatus = uchisenGenerateStatus("neutral", uiText(language, "uchisenGeneratingImage"));
-  render();
-  try {
-    const result = await generateAndPublishUchisenMnemonic(kanji, {
-      kanjiId: currentKanjiId,
-      mnemonic: generateFields.mnemonic,
-      imagePrompt: generateFields.imagePrompt
-    }, proxyUrl, (message) => {
-      generateStatus = uchisenGenerateStatus("neutral", message);
-      render();
-    }, language);
-    await refreshAfterGenerate(result);
-    generateStatus = uchisenGenerateStatus("success", uiText(language, "uchisenGeneratedImage"));
-    generateOpen = false;
-  } catch (error) {
-    generateStatus = uchisenGenerateErrorStatus(error, language);
-  } finally {
-    generateBusy = false;
-    render();
-  }
-  };
-  const toggleGeneratePanel = () => {
-  generateOpen = !generateOpen;
-  generateStatus = uchisenGenerateToggleStatus(canGenerateImages, language);
-  render();
-  };
-  const updateCarouselIndex = (nextIndex) => {
-  index = nextIndex;
-  void gmStorageSet(`${UCHISEN_INDEX_PREFIX}${kanji}`, index);
-  render();
-  };
-  const handleAction = (action) => {
-  if (action === "generate-toggle") {
-    toggleGeneratePanel();
-    return;
-  }
-  if (action === "generate-submit") {
-    void generateAndRefresh();
-    return;
-  }
-  const nextIndex = nextUchisenCarouselIndex(action, index, currentImages.length);
-  if (nextIndex !== null) updateCarouselIndex(nextIndex);
-  };
-  container.addEventListener("click", (event) => {
-  const action = uchisenActionFromClick(event);
-  if (!action) return;
-  event.preventDefault();
-  event.stopPropagation();
-  handleAction(action);
-  });
-  container.addEventListener("input", (event) => {
-  const field = event.target.closest("[data-uchisen-generate-field]");
-  if (!field) return;
-  syncGenerateFields();
-  });
-  render();
-  return cleanup;
-}
-function validUchisenRenderIndex(index, images) {
-  return isValidUchisenIndex(index, images) ? index : 0;
-}
-function canStartUchisenGeneration(generateBusy, canGenerateImages, kanjiId) {
-  return !generateBusy && canGenerateImages && Boolean(kanjiId);
-}
-function uchisenGenerateStatus(tone, text2) {
-  return { tone, text: text2 };
-}
-function uchisenGenerateErrorStatus(error, language) {
-  return uchisenGenerateStatus("error", uchisenGenerateErrorMessage(error, language));
-}
-function uchisenGenerateErrorMessage(error, language) {
-  if (error instanceof Error) {
-  const message = error.message.trim();
-  if (message) return message;
-  }
-  return uiText(language, "uchisenGenerateFailed");
-}
-function uchisenGenerateToggleStatus(canGenerateImages, language) {
-  return canGenerateImages ? null : uchisenGenerateStatus("error", uiText(language, "uchisenLoginRequired"));
-}
-function uchisenActionFromClick(event) {
-  return event.target.closest("[data-uchisen-action]")?.dataset.uchisenAction ?? "";
-}
-function nextUchisenCarouselIndex(action, currentIndex, total) {
-  if (!total) return null;
-  if (action === "previous") return (currentIndex - 1 + total) % total;
-  if (action === "next") return (currentIndex + 1) % total;
-  return null;
-}
-function uchisenCarouselRenderModel(kanji, index, images, inputs) {
-  const total = images.length;
-  const language = inputs.options.interfaceLanguage ?? "en";
-  return {
-  kanji,
-  item: images[index] ?? null,
-  index,
-  total,
-  language,
-  canGenerateImages: inputs.canGenerateImages,
-  generateOpen: inputs.generateOpen,
-  generateBusy: inputs.generateBusy,
-  generateStatus: inputs.generateStatus,
-  generateFields: inputs.generateFields,
-  componentGroups: inputs.currentComponentGroups,
-  kanjiKeyword: inputs.currentKanjiKeyword,
-  sourceAttributes: inputs.options.sourceAttributes ?? "open",
-  detailsClass: inputs.options.detailsClass ?? "jpdb-reader-local-entry jpdb-reader-dictionary-group yomu-jpdb-uchisen-source",
-  summaryClass: inputs.options.summaryClass ?? "jpdb-reader-local-head",
-  bodyClass: inputs.options.bodyClass ?? "jpdb-reader-local-glossary yomu-jpdb-uchisen-body",
-  summaryHtml: uchisenSummaryHtml(inputs.options, index, total),
-  bodyMeta: uchisenBodyMetaHtml(inputs.options, index, total)
-  };
-}
-function uchisenSummaryHtml(options, index, total) {
-  return options.summaryHtml?.(total ? index + 1 : 0, total) ?? `
-    <span class="yomu-jpdb-uchisen-summary-main">
-        <span>Uchisen</span>
-        <span class="yomu-jpdb-counter">${total ? `${index + 1}/${total}` : "0"}</span>
-    </span>
-  `;
-}
-function uchisenBodyMetaHtml(options, index, total) {
-  return options.summaryHtml && total ? `<span class="yomu-jpdb-source-meta">${index + 1}/${total}</span>` : "";
-}
-function renderUchisenCarouselHtml(model) {
-  return `
-    <details class="${model.detailsClass}" ${model.sourceAttributes}>
-        <summary class="${model.summaryClass}">
-            ${model.summaryHtml}
-        </summary>
-        <div class="${model.bodyClass}">
-            ${renderUchisenToolbar(model)}
-            ${model.generateOpen ? renderUchisenGeneratePanel(model.generateFields, model.generateStatus, model.generateBusy, model.language) : ""}
-            ${renderUchisenComponentGroups(model.kanjiKeyword, model.componentGroups, model.language)}
-            ${renderUchisenImageOrEmpty(model)}
-        </div>
-    </details>
-  `;
-}
-function renderUchisenToolbar(model) {
-  return `
-    <div class="yomu-jpdb-uchisen-toolbar">
-        ${model.bodyMeta}
-        ${renderUchisenLinkRow(model)}
-        ${renderUchisenNavigationControls(model)}
-    </div>
-  `;
-}
-function renderUchisenLinkRow(model) {
-  return `
-    <span class="yomu-jpdb-uchisen-link-row">
-        <a class="yomu-jpdb-uchisen-summary-link" href="https://uchisen.com/kanji/${encodeURIComponent(model.kanji)}" target="_blank" rel="noopener">${escapeHtml(uchisenExternalLinkLabel(model.language))} ${externalLinkIcon()}</a>
-        ${model.canGenerateImages ? renderUchisenGenerateToggle(model) : ""}
-    </span>
-  `;
-}
-function renderUchisenGenerateToggle(model) {
-  return `<button class="yomu-jpdb-uchisen-summary-link yomu-jpdb-uchisen-generate-link" type="button" data-uchisen-action="generate-toggle" aria-expanded="${model.generateOpen}" title="${escapeHtml(uiText(model.language, "generateUchisenImage"))}">${escapeHtml(uiText(model.language, "generateUchisenImageToggle"))}</button>`;
-}
-function renderUchisenNavigationControls(model) {
-  if (!model.total) return "";
-  const previousLabel = uiText(model.language, "previousExample");
-  const nextLabel = uiText(model.language, "nextExample");
-  return `<span class="yomu-jpdb-uchisen-summary-controls" role="toolbar" aria-label="${escapeHtml(uiText(model.language, "uchisenMnemonicImages"))}">
-    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">&lsaquo;</button>
-    <button class="jpdb-reader-icon-mini" type="button" data-uchisen-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">&rsaquo;</button>
-  </span>`;
-}
-function renderUchisenImageOrEmpty(model) {
-  if (!model.item) return `<div class="jpdb-reader-help">${escapeHtml(uiText(model.language, "noUchisenImagesYet"))}</div>`;
-  const story = model.item.story && model.item.story !== "No story available" ? model.item.story : uiText(model.language, "noStoryAvailable");
-  const alt = formatUchisenTemplate(uiText(model.language, "uchisenMnemonicFor"), { kanji: model.kanji });
-  return `<div class="yomu-jpdb-image-shell"><img alt="${escapeHtml(alt)}" data-uchisen-image src="${escapeHtml(model.item.url)}" loading="eager" decoding="async" referrerpolicy="no-referrer"></div>
-    <div class="yomu-jpdb-story">${escapeHtml(story)}</div>`;
-}
-function attachRenderedUchisenImage(container, item, index, currentImages, proxyUrl, cleanup, setCurrentImageUrl) {
-  const image = container.querySelector("[data-uchisen-image]");
-  if (!image || !item) return;
-  const srcUrl = item.url;
-  let blobSettled = false;
-  let directFailed = false;
-  const removeBrokenDirectImage = () => {
-  directFailed = true;
-  if (blobSettled && image.isConnected) image.remove();
-  };
-  image.addEventListener("error", removeBrokenDirectImage);
-  requestBlobUrl(srcUrl, 9e3, proxyUrl).then((url) => {
-  if (!image.isConnected || currentImages[index]?.url !== srcUrl) {
-    revokePageMediaUrl(url);
-    return;
-  }
-  blobSettled = true;
-  image.removeEventListener("error", removeBrokenDirectImage);
-  cleanup();
-  setCurrentImageUrl(url);
-  image.addEventListener("error", () => {
-    if (image.isConnected) image.remove();
-  }, { once: true });
-  image.src = url;
-  }).catch(() => {
-  if (!image.isConnected || currentImages[index]?.url !== srcUrl) return;
-  blobSettled = true;
-  if (directFailed) image.remove();
-  else if (image.getAttribute("src") !== srcUrl) image.src = srcUrl;
-  });
-}
-async function generateAndPublishUchisenMnemonic(kanji, request, proxyUrl = "", onStatus, language = "en") {
-  const kanjiId = request.kanjiId.trim();
-  const mnemonic = request.mnemonic.trim();
-  const imagePrompt = request.imagePrompt.trim();
-  const storyBackedPrompt = storyBackedUchisenImagePrompt(mnemonic, imagePrompt);
-  const safeImagePrompt = safeUchisenImagePrompt(storyBackedPrompt);
-  if (!kanjiId || !mnemonic || !imagePrompt) throw new Error("Missing Uchisen generation fields.");
-  const referrer = `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`;
-  onStatus?.(uiText(language, "uchisenGeneratingImage"));
-  const { generation, imagePrompt: publishedImagePrompt } = await generateUchisenImageWithRetry(
-  kanjiId,
-  imagePrompt,
-  storyBackedPrompt,
-  safeImagePrompt,
-  referrer,
-  proxyUrl
-  );
-  onStatus?.(uiText(language, "uchisenPublishingMnemonic"));
-  await postUchisenForm("https://uchisen.com/save_mnemonic.php", {
-  img_src: generation.imageFilename,
-  kanji_id: kanjiId,
-  formatted_mnemonic: formatUchisenMnemonicHtml(mnemonic),
-  current_image_prompt: publishedImagePrompt,
-  redirect: `/kanji/${encodeURIComponent(kanji)}`,
-  mnemonic,
-  image_prompt: publishedImagePrompt,
-  start_blurred: "no"
-  }, referrer, proxyUrl, "Uchisen mnemonic publish", 12e4);
-  return {
-  imageFilename: generation.imageFilename,
-  imageUrl: generation.imageUrl,
-  story: plainUchisenMnemonic(mnemonic)
-  };
-}
-async function generateUchisenImageWithRetry(kanjiId, imagePrompt, storyBackedPrompt, safeImagePrompt, referrer, proxyUrl) {
-  const attempts = uniqueUchisenPrompts([imagePrompt, storyBackedPrompt, safeImagePrompt]);
-  let lastError;
-  for (const prompt of attempts) {
-  try {
-    const generationText = await postUchisenForm("https://uchisen.com/generateimage", {
-      prompt: uchisenPromptFieldValue(prompt),
-      kanji_id: kanjiId
-    }, referrer, proxyUrl, "Uchisen image generation", 12e4);
-    return { generation: parseUchisenGenerationResponse(generationText), imagePrompt: prompt };
-  } catch (error) {
-    lastError = error;
-  }
-  }
-  throw lastError instanceof Error ? lastError : new Error("Uchisen image generation failed.");
-}
-function storyBackedUchisenImagePrompt(mnemonic, imagePrompt) {
-  const story = plainUchisenMnemonic(mnemonic).replace(/\s+/g, " ").trim();
-  if (!story) return imagePrompt;
-  return fitUchisenImagePrompt(`${imagePrompt}; scene follows this mnemonic story: ${story}`);
-}
-function uniqueUchisenPrompts(prompts) {
-  const seen = /* @__PURE__ */ new Set();
-  const unique = [];
-  for (const prompt of prompts) {
-  const trimmed = prompt.trim();
-  if (!trimmed || seen.has(trimmed)) continue;
-  seen.add(trimmed);
-  unique.push(trimmed);
-  }
-  return unique;
-}
-function fitUchisenImagePrompt(prompt) {
-  const maxLength = 400;
-  if (prompt.length <= maxLength) return prompt;
-  const noTextSuffix = /;\s*no text or signage$/i.test(prompt) ? "; no text or signage" : "";
-  const targetLength = noTextSuffix ? maxLength - noTextSuffix.length : maxLength;
-  return `${prompt.slice(0, targetLength).replace(/[;,\s]+$/, "")}${noTextSuffix}`;
-}
-function renderUchisenGeneratePanel(fields, status, busy, language) {
-  const statusHtml = status ? `<div class="yomu-jpdb-uchisen-generate-status" data-tone="${escapeHtml(status.tone)}">${escapeHtml(status.text)}</div>` : `<div class="jpdb-reader-help">${escapeHtml(uiText(language, "uchisenGenerateHint"))}</div>`;
-  return `
-    <div class="yomu-jpdb-uchisen-generator">
-        <label class="yomu-jpdb-uchisen-field">
-            <span>${escapeHtml(uiText(language, "uchisenMnemonicStory"))}</span>
-            <textarea rows="3" data-uchisen-generate-field="mnemonic" ${busy ? "disabled" : ""}>${escapeHtml(fields.mnemonic)}</textarea>
-        </label>
-        <label class="yomu-jpdb-uchisen-field">
-            <span>${escapeHtml(uiText(language, "uchisenImagePrompt"))}</span>
-            <textarea rows="4" data-uchisen-generate-field="imagePrompt" ${busy ? "disabled" : ""}>${escapeHtml(fields.imagePrompt)}</textarea>
-        </label>
-        <div class="yomu-jpdb-uchisen-generator-footer">
-            ${statusHtml}
-            <button class="jpdb-reader-btn" type="button" data-uchisen-action="generate-submit" ${busy ? "disabled" : ""}>${escapeHtml(uiText(language, "generateUchisenImage"))}</button>
-        </div>
-    </div>
-  `;
-}
-function defaultUchisenGenerateFields(kanji, keyword, groups) {
-  const keywordText = keyword?.keyword || kanji;
-  const components2 = uniqueUchisenComponents(groups);
-  const componentStory = components2.length ? components2.map((component) => `#${component.name}#`).join(" and ") : "#component#";
-  const componentPrompt = components2.length ? components2.map((component) => `${component.name}${component.symbol ? ` (${component.symbol})` : ""}`).join(", ") : "simple component props";
-  return {
-  mnemonic: `##${keywordText}## A warm, clear scene brings ${componentStory} together so ${keywordText.toLowerCase()} feels easy to picture.`,
-  imagePrompt: safeUchisenImagePrompt(`Japanese children's storybook illustration of a friendly ${keywordText.toLowerCase()} scene; include distinct props for ${componentPrompt}; pastel colors, vintage textures; warm light; clear silhouettes; no text or signage`)
-    };
-  }
-  function uniqueUchisenComponents(groups) {
-    const seen = /* @__PURE__ */ new Set();
-    const components2 = [];
-    for (const group of groups) {
-      for (const component of group.components) {
-        const key = component.name || component.symbol;
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        components2.push(component);
-      }
-    }
-    return components2;
-  }
-  function findUchisenImageIndex(images, imageUrl) {
-    const canonical = canonicalUchisenUrl(imageUrl);
-    return images.findIndex((item) => canonicalUchisenUrl(item.url) === canonical);
-  }
-  function parseUchisenGenerationResponse(text2) {
-    const json = parseJsonObjectFromText(text2);
-    if (!json || isUchisenGenerationFailure(json)) {
-      throw new Error(uchisenGenerationErrorMessage(json, text2));
-    }
-    const rawFilename = firstString(json.url, json.filename, json.file, json.img_src, json.image_url, json.imageUrl);
-    const rawFullUrl = firstString(json.full_url, json.image_url, json.imageUrl);
-    const imageFilename = normalizeUchisenImageFilename(rawFilename);
-    if (!imageFilename) throw new Error(`Image generation did not return a filename: ${snippet(text2)}`);
-    return {
-      imageFilename,
-      imageUrl: rawFullUrl ? canonicalUchisenUrl(rawFullUrl) : canonicalUchisenUrl(imageFilename)
-    };
-  }
-  function uchisenPromptFieldValue(value) {
-    return escapeHtml(value).replace(/'/g, "&#039;");
-  }
-  function safeUchisenImagePrompt(value) {
-    let prompt = value;
-    for (const [pattern, replacement] of UCHISEN_IMAGE_PROMPT_REPLACEMENTS) {
-      prompt = prompt.replace(pattern, replacement);
-    }
-    prompt = prompt.replace(/no text,\s*letters,\s*numbers,\s*logos,\s*or signage/gi, "no text or signage").replace(/no text,\s*letters,\s*numbers,\s*logos,\s*labels,\s*or signage/gi, "no text or signage").replace(/\s+/g, " ").trim();
-    if (!/no text|without text/i.test(prompt)) prompt = `${prompt}; no text or signage`;
-    return prompt;
-  }
-  const UCHISEN_IMAGE_PROMPT_REPLACEMENTS = imagePromptReplacementDefs.map(([pattern, replacement]) => [new RegExp(pattern, "gi"), replacement]);
-  function parseJsonObjectFromText(text2) {
-    try {
-      return JSON.parse(text2);
-    } catch {
-      const match = /\{[\s\S]*\}/.exec(text2);
-      if (!match) return null;
-      try {
-        return JSON.parse(match[0]);
-      } catch {
-        return null;
-      }
-    }
-  }
-  function isUchisenGenerationFailure(json) {
-    if (json.success === false || json.success === 0 || json.success === "0") return true;
-    if (typeof json.error_message === "string" && json.error_message.trim()) return true;
-    if (typeof json.error === "string" && json.error.trim()) return true;
-    return false;
-  }
-  function uchisenGenerationErrorMessage(json, text2) {
-    const message = firstString(json?.error_message, json?.error);
-    if (/must be logged|not logged|login required/i.test(message)) return message;
-    if (message) return `Uchisen image backend rejected generation: ${message}`;
-    return `Uchisen image backend rejected generation: ${snippet(text2)}`;
-  }
-  function firstString(...values) {
-    for (const value of values) {
-      if (typeof value === "string" && value.trim()) return value.trim();
-    }
-    return "";
-  }
-  function normalizeUchisenImageFilename(value) {
-    if (!value) return "";
-    try {
-      const url = new URL(value);
-      return url.pathname.split("/").filter(Boolean).pop() ?? value;
-    } catch {
-      return value.split("/").filter(Boolean).pop() ?? value;
-    }
-  }
-  function snippet(text2) {
-    return String(text2).replace(/\s+/g, " ").trim().slice(0, 500);
-  }
-  function formatUchisenMnemonicHtml(value) {
-    return String(value).replace(/[<>]/g, "").replace(/#nl#/g, "<br>").replace(/##([^#]+)##/g, "<b>$1</b>").replace(/#([^#]+)#/g, "<i>$1</i>");
-  }
-  function plainUchisenMnemonic(value) {
-    return cleanText$1(String(value).replace(/#nl#/g, " ").replace(/##([^#]+)##/g, "$1").replace(/#([^#]+)#/g, "$1"));
-  }
-  function renderUchisenComponentGroups(kanjiKeyword, groups, language) {
-    const keywordGroup = uchisenKanjiKeywordGroup(kanjiKeyword);
-    const visibleGroups = [
-      ...keywordGroup ? [keywordGroup] : [],
-      ...groups.filter((group) => group.components.length)
-    ];
-    if (!visibleGroups.length) return "";
-    return `<div class="yomu-jpdb-component-breakdown" aria-label="${escapeHtml(uiText(language, "readingsComponents"))}">
-    ${visibleGroups.map((group) => `<div class="yomu-jpdb-component-group">
-            <span class="yomu-jpdb-component-group-label">${escapeHtml(localizedUchisenComponentGroupTitle(group.title, language))}</span>
-            <div class="yomu-jpdb-component-list">
-                ${group.components.map((component) => renderUchisenComponentChip(component)).join("")}
-            </div>
-        </div>`).join("")}
-  </div>`;
-  }
-  function uchisenKanjiKeywordGroup(keyword) {
-    if (!keyword || !keyword.kanji && !keyword.keyword) return null;
-    return {
-      title: "Kanji Keyword",
-      components: [{
-        name: keyword.keyword,
-        symbol: keyword.kanji,
-        url: keyword.url
-      }]
-    };
-  }
-  function localizedUchisenComponentGroupTitle(title, language) {
-    if (resolveUiLanguage(language) !== "ja") return title;
-    if (title === "Kanji Keyword") return "漢字キーワード";
-    if (title === "Kanji Primes") return "漢字パーツ";
-    if (title === "Compound Kanji") return "複合漢字";
-    if (title === "Components") return "部品";
-    return title;
-  }
-  function uchisenExternalLinkLabel(language) {
-    return resolveUiLanguage(language) === "ja" ? "Uchisenで見る" : "View on Uchisen";
-  }
-  function formatUchisenTemplate(template, values) {
-    return template.replace(/\{(\w+)\}/g, (_match, key) => values[key] ?? "");
-  }
-  function renderUchisenComponentChip(component) {
-    const label = [component.name, component.symbol].filter(Boolean).join(": ");
-    const content = `
-    ${component.symbol ? `<strong>${escapeHtml(component.symbol)}</strong>` : ""}
-    ${component.name ? `<span>${escapeHtml(component.name)}</span>` : ""}
-  `;
-    return component.url ? `<a class="yomu-jpdb-component-chip" href="${escapeHtml(component.url)}" target="_blank" rel="noopener" title="${escapeHtml(label)}">${content}</a>` : `<span class="yomu-jpdb-component-chip" title="${escapeHtml(label)}">${content}</span>`;
-  }
-  function preferredUchisenIndex(storedIndex, images) {
-    if (isValidUchisenIndex(storedIndex, images)) return storedIndex;
-    const firstNonPaywall = images.findIndex((item) => !isUchisenPaywallItem(item));
-    return firstNonPaywall >= 0 ? firstNonPaywall : storedIndex;
-  }
-  function isValidUchisenIndex(index, images) {
-    return Number.isInteger(index) && index >= 0 && index < images.length;
-  }
-  function isUchisenPaywallItem(item) {
-    return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
-  }
-  function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
-    return requestText$5(url, {
-      method: "POST",
-      data: encodedForm(fields),
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "text/html, */*; q=0.01",
-        Origin: "https://uchisen.com",
-        Referer: referrer
-      },
-      proxyUrl,
-      timeoutMs: timeout,
-      failureLabel,
-      timeoutLabel: `${failureLabel} timed out.`,
-      credentials: "include",
-      anonymous: false,
-      withCredentials: true,
-      allowPublicProxies: false,
-      allowConfiguredProxy: false,
-      allowDirectCrossOrigin: true
-    }).then((text2) => {
-      const json = parseJsonObjectFromText(text2);
-      const message = firstString(json?.error_message, json?.error);
-      if (message && !/generateimage$/i.test(url)) throw new Error(message);
-      if (isUchisenAuthFailure(text2)) {
-        throw new Error(`${failureLabel} failed because Uchisen did not accept the current login.`);
-      }
-      return text2;
-    });
-  }
-  function isUchisenAuthFailure(text2) {
-    return /not logged|login required|account is needed/i.test(text2) && !/success/i.test(text2);
-  }
-  function encodedForm(fields) {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(fields)) params.set(key, value);
-    return params.toString();
-  }
-  function requestBlobUrl(url, timeout, proxyUrl) {
-    return requestBlob$1(url, timeout, proxyUrl).then((blob) => createPageMediaUrl(blob, url));
-  }
-  function requestBlob$1(url, timeout, proxyUrl) {
-    return requestBlob$2(url, {
-      proxyUrl,
-      timeoutMs: timeout,
-      failureLabel: "Uchisen image request",
-      timeoutLabel: "Uchisen image request timed out."
-    });
-  }
-  function parseUchisenData(html) {
-    if (!html.trim()) return emptyUchisenData();
-    const doc = parseHtmlDocument(html);
-    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
-    return {
-      images: parseUchisenImagesFromDocument(doc),
-      componentGroups: parseUchisenComponentGroupsFromDocument(doc),
-      kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
-      kanjiId,
-      canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
-    };
-  }
-  function emptyUchisenData() {
-    return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
-  }
-  function parseUchisenImagesFromDocument(doc) {
-    const images = [];
-    const mainImage = mainUchisenImageUrl(doc);
-    const mainStory = cleanText$1(doc.querySelector("#mnemonic_story")?.textContent ?? "");
-    if (mainImage) {
-      const url = canonicalUchisenUrl(mainImage);
-      images.push({
-        url,
-        story: mainStory || "No story available",
-        paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
-      });
-    }
-    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
-      const image = uchisenCardImage(card, mainStory);
-      if (image) images.push(image);
-    });
-    return orderedUchisenImages(images);
-  }
-  function parseUchisenComponentGroupsFromDocument(doc) {
-    const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
-    if (!root) return [];
-    return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
-  }
-  function parseUchisenKanjiKeywordFromDocument(doc) {
-    const candidates = [
-      doc.querySelector("#kanji_keyword_container > span")?.textContent,
-      doc.querySelector("#kanji_keyword_container")?.textContent,
-      doc.querySelector(".kanji_name > span")?.textContent,
-      doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
-    ];
-    for (const candidate of candidates) {
-      const keyword = uchisenKanjiKeyword(candidate ?? "");
-      if (keyword) return keyword;
-    }
-    return null;
-  }
-  function parseUchisenKanjiIdFromDocument(doc) {
-    const candidates = [
-      doc.querySelector("input#kanji_id")?.value,
-      doc.querySelector("input#showing_kanji_id")?.value,
-      doc.querySelector('input[name="kanji_id"]')?.value
-    ];
-    return cleanText$1(candidates.find(Boolean) ?? "");
-  }
-  function parseUchisenCanGenerateFromDocument(doc) {
-    const userId = cleanText$1(doc.querySelector("input#user_id")?.value ?? "");
-    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
-    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
-    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
-    const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
-    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
-  }
-  function uchisenKanjiKeyword(value) {
-    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText$1(value));
-    if (!match) return null;
-    const kanji = cleanText$1(match[1].replace(/[「」]/g, ""));
-    const keyword = cleanText$1(match[2]);
-    if (!kanji || !keyword) return null;
-    return {
-      kanji,
-      keyword,
-      url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
-  };
-}
-function uchisenComponentGroup(group) {
-  const components2 = Array.from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter((component) => Boolean(component?.symbol || component?.name)).slice(0, 8);
-  if (!components2.length) return null;
-  return {
-  title: uchisenComponentGroupTitle(group),
-  components: components2
-  };
-}
-function uchisenComponentGroupTitle(group) {
-  if (group.querySelector(".prime_label")) return "Kanji Primes";
-  if (group.querySelector(".compound_label")) return "Compound Kanji";
-  return cleanText$1(group.querySelector(".prime_label, .compound_label")?.textContent ?? "") || "Components";
-}
-function uchisenComponent(item) {
-  const link = item.querySelector("a[href]");
-  if (!link) return null;
-  const symbol = cleanText$1(link.querySelector(".component_symbol")?.textContent ?? "");
-  const name = uchisenComponentName(link, symbol);
-  return {
-  name,
-  symbol,
-  url: absoluteUchisenUrl(link.getAttribute("href") ?? "")
-  };
-}
-function uchisenComponentName(link, symbol) {
-  const text2 = cleanText$1((link.textContent ?? "").replace(/\u00a0/g, " "));
-  const withoutSymbol = symbol ? cleanText$1(text2.replace(symbol, "")) : text2;
-  return cleanText$1(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
-}
-function absoluteUchisenUrl(value) {
-  try {
-  return new URL(value, "https://uchisen.com").href;
-  } catch {
-  return value;
-  }
-}
-function mainUchisenImageUrl(doc) {
-  const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
-  return mainLoader?.getAttribute("data-large") || doc.querySelector("#full_kanji_image")?.getAttribute("src") || "";
-}
-function uchisenCardImage(card, mainStory) {
-  const rawUrl = card.querySelector("input.image_url")?.value.trim() ?? "";
-  if (!rawUrl) return null;
-  const url = canonicalUchisenUrl(rawUrl);
-  const story = uchisenCardStory(card, mainStory);
-  return {
-  url,
-  story,
-  paywall: isUchisenPaywallCard(card, url, story)
-  };
-}
-function uchisenCardStory(card, mainStory) {
-  const rawStory = card.querySelector("input.story")?.value ?? "";
-  const story = cleanText$1(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
-  return story || mainStory || "No story available";
-}
-function isUchisenPaywallCard(card, url, story) {
-  const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
-  return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
-}
-async function loadUchisenData(kanji, proxyUrl = "") {
-  const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
-  return parseUchisenData(html);
-}
-async function requestUchisenPageText(url, timeout, proxyUrl) {
-  try {
-  return await requestText$5(url, {
-    timeoutMs: timeout,
-    failureLabel: "Uchisen request",
-    timeoutLabel: "Uchisen request timed out.",
-    credentials: "include",
-    anonymous: false,
-    withCredentials: true,
-    allowPublicProxies: false,
-    allowConfiguredProxy: false,
-    allowDirectCrossOrigin: false
-  });
-  } catch {
-  return requestText$3(url, timeout, proxyUrl);
-  }
-}
-function requestText$3(url, timeout, proxyUrl) {
-  return requestText$5(url, {
-  proxyUrl,
-  timeoutMs: timeout,
-  failureLabel: "Uchisen request",
-  timeoutLabel: "Uchisen request timed out."
-  });
-}
 function graphEllipseOffset(dx, dy, rx, ry) {
   const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
   return denominator > 0 ? Math.min(0.48, 1 / denominator) : 0;
@@ -14542,6 +13363,44 @@ function originGraphTargetZone(value) {
 function clampGraphPercent(value, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Number(value.toFixed(2))));
 }
+const JAPANESE_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}ー]/u;
+const JPDB_BASE_URL = "https://jpdb.io";
+function cleanText$1(value) {
+  return value.replace(/\s+/g, " ").trim();
+}
+function decodePathPart(value) {
+  try {
+  return decodeURIComponent(value);
+  } catch {
+  return value;
+  }
+}
+function absoluteJpdbUrl(value, fallback = "") {
+  try {
+  return new URL(value || "/", JPDB_BASE_URL).toString();
+  } catch {
+  return fallback;
+  }
+}
+function parseJpdbVocabularyUrl(value) {
+  if (!value) return null;
+  try {
+  return parseJpdbVocabularyPath(new URL(value, JPDB_BASE_URL).pathname);
+  } catch {
+  return null;
+  }
+}
+function parseJpdbVocabularyPath(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  if (parts[0] !== "vocabulary") return null;
+  const vid = Number.parseInt(parts[1] ?? "", 10);
+  const reading = decodePathPart(parts[3] ?? "");
+  return {
+  vid: Number.isFinite(vid) ? vid : 0,
+  expression: decodePathPart(parts[2] ?? ""),
+  reading: JAPANESE_RE.test(reading) ? reading : ""
+  };
+}
 const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
 const log$9 = Logger.scope("JpdbKanji");
 class JpdbKanjiClient {
@@ -14550,17 +13409,19 @@ class JpdbKanjiClient {
   }
   cache = /* @__PURE__ */ new Map();
   actions = /* @__PURE__ */ new Map();
+  generation = 0;
   lookup(kanji) {
   const key = Array.from(kanji)[0] ?? kanji;
   if (!key) return Promise.resolve(null);
   let promise = this.cache.get(key);
   if (!promise) {
-    promise = this.fetchInfo(key);
+    promise = this.fetchInfo(key, this.generation);
     this.cache.set(key, promise);
   }
   return promise;
   }
   async performAction(actionId) {
+  const generation = this.generation;
   const action = this.actions.get(actionId);
   if (!action) throw new Error("JPDB kanji action is no longer available.");
   if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
@@ -14572,16 +13433,22 @@ class JpdbKanjiClient {
     allowConfiguredProxy: false,
     credentials: "same-origin"
   });
+  if (generation !== this.generation) return null;
   this.cache.delete(action.kanji);
   return this.lookup(action.kanji);
   }
-  async fetchInfo(kanji) {
+  clear() {
+  this.generation++;
+  this.cache.clear();
+  this.actions.clear();
+  }
+  async fetchInfo(kanji, generation) {
   const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
     log$9.warn("Kanji page request failed", { kanji }, error);
     return "";
   });
   const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
-  if (info) {
+  if (info && generation === this.generation) {
     visibleJpdbKanjiActions(info).forEach((action) => this.actions.set(action.id, action));
   }
   return info;
@@ -14855,7 +13722,7 @@ function requestText$2(url, proxyUrl = "", options = {}) {
   const body = requestTextBody(options.payload);
   const requestUrl = requestTextUrl(url, method, body);
   const headers = requestTextHeaders(method);
-  return requestText$5(requestUrl, {
+  return requestText$4(requestUrl, {
   method,
   headers,
   data: method === "POST" ? body : void 0,
@@ -15114,9 +13981,9 @@ function parseKanjiVGSvg(svgText, kanji) {
   const strokeShapes = parsedPaths.map((path) => path.shape);
   const numbers = readKanjiVGStrokeNumbers(sourceSvg);
   const svg = `<svg class="jpdb-reader-kanjivg-svg" viewBox="${escapeHtml(viewBox)}" role="img" aria-label="Stroke order for ${escapeHtml(kanji)}">
-        <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
-        <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
-    </svg>`;
+    <g class="jpdb-reader-kanjivg-strokes">${paths.join("")}</g>
+    <g class="jpdb-reader-kanjivg-numbers">${numbers.join("")}</g>
+  </svg>`;
   return {
   kanji,
   svg,
@@ -15380,7 +14247,7 @@ function cleanComponent(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 function requestText$1(url) {
-  return requestText$5(url, {
+  return requestText$4(url, {
   timeoutMs: 8e3,
   failureLabel: "Stroke-order request",
   timeoutLabel: "Stroke-order request timed out."
@@ -15398,6 +14265,14 @@ function pruneOldestCacheEntries(cache, limit) {
   if (oldest.done) break;
   cache.delete(oldest.value);
   }
+}
+function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
+  return new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ""));
+  reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
+  reader.readAsDataURL(blob);
+  });
 }
 function revokeBlobObjectUrl(url) {
   if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
@@ -15447,6 +14322,56 @@ class ObjectUrlCache {
   this.entries.delete(key);
   if (entry.url !== void 0) this.revoke(entry.url);
   }
+}
+const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
+const AUDIO_EXTENSION_TYPES = {
+  aac: "audio/aac",
+  flac: "audio/flac",
+  m4a: "audio/mp4",
+  mp3: "audio/mpeg",
+  oga: "audio/ogg",
+  ogg: "audio/ogg",
+  opus: "audio/ogg",
+  wav: "audio/wav",
+  weba: "audio/webm",
+  webm: "audio/webm"
+};
+const IMAGE_EXTENSION_TYPES = {
+  apng: "image/apng",
+  avif: "image/avif",
+  gif: "image/gif",
+  jpeg: "image/jpeg",
+  jpg: "image/jpeg",
+  png: "image/png",
+  svg: "image/svg+xml",
+  webp: "image/webp"
+};
+const PAGE_MEDIA_BLOB_LIMIT = 64;
+const pageMediaBlobs = /* @__PURE__ */ new Map();
+async function createPageMediaUrl(blob, sourceUrl = "") {
+  const typed = withUsableMediaType(blob, sourceUrl);
+  const url = shouldUseDataUrlForPageMedia() ? await readBlobAsDataUrl(typed) : URL.createObjectURL(typed);
+  if (typed.type.startsWith("audio/")) registerPageMediaBlob(url, typed);
+  return url;
+}
+function registerPageMediaBlob(url, blob) {
+  pageMediaBlobs.delete(url);
+  pageMediaBlobs.set(url, blob);
+  while (pageMediaBlobs.size > PAGE_MEDIA_BLOB_LIMIT) {
+  const oldest = pageMediaBlobs.keys().next().value;
+  if (oldest === void 0) break;
+  pageMediaBlobs.delete(oldest);
+  }
+}
+function withUsableMediaType(blob, sourceUrl) {
+  const type = (blob.type || "").toLowerCase();
+  if (type && type !== "application/octet-stream" && type !== "binary/octet-stream") return blob;
+  const extension = sourceUrl.split(/[?#]/)[0]?.split(".").pop()?.toLowerCase() ?? "";
+  return new Blob([blob], { type: IMAGE_EXTENSION_TYPES[extension] ?? AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
+}
+function shouldUseDataUrlForPageMedia() {
+  if (typeof location === "undefined") return false;
+  return JPDB_HOST_RE.test(location.hostname);
 }
 const API_BASE = "https://apiv2express.immersionkit.com";
 const LEGACY_API_BASE = "https://apiv2.immersionkit.com";
@@ -16092,7 +15017,7 @@ function isImmersionKitRateLimitError(error) {
   return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b/i.test(error.message);
 }
 function requestBlob(url, timeoutMs, proxyUrl = "", language = "en") {
-  return requestBlob$2(url, {
+  return requestBlob$1(url, {
   proxyUrl,
   timeoutMs,
   allowDirectCrossOrigin: true,
@@ -16334,12 +15259,12 @@ function renderImmersionExampleActionsHtml(hasAudio, language) {
   const next = uiText(language, "nextExample");
   const audio = uiText(language, "playExampleAudio");
   return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
-            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
-            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
-            ${renderImmersionActionButtonHtml("next", next, "›")}
-        </div>
-    `;
+    <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, "immersionExampleControls"))}">
+        ${renderImmersionActionButtonHtml("previous", previous, "‹")}
+        ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
+        ${renderImmersionActionButtonHtml("next", next, "›")}
+    </div>
+  `;
 }
 function renderImmersionActionButtonHtml(action, label, content) {
   return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${content}</button>`;
@@ -19378,7 +18303,7 @@ function cleanText(value) {
   return value.replace(/\s+/g, " ").trim();
 }
 function requestText(url) {
-  return requestText$5(url, {
+  return requestText$4(url, {
   timeoutMs: 8e3,
   failureLabel: "RTK request",
   timeoutLabel: "RTK request timed out."
@@ -19387,17 +18312,17 @@ function requestText(url) {
 function renderStudyBlock(className, content, attrs = "") {
   return `<div class="${studyBlockClassName(className)}"${studyAttrs(attrs)}>${content}</div>`;
 }
-function renderStudySentenceBlock(sentence, language, options, attrs = "") {
+function renderStudySentenceBlock(sentence, language, options) {
   return renderStudyBlock("jpdb-reader-study-sentence-block", `
         <div class="jpdb-reader-study-label-row jpdb-reader-study-sentence-row">
-            <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>${escapeHtml(sentence)}</div>
+            <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render${studyTextAttrs(options.content)}>${escapeHtml(sentence)}</div>
             ${renderStudySentenceAudioButton(language, options)}
-        </div>`, attrs);
+        </div>`, options.attrs);
 }
-function renderStudyMeaningBlock(text2, language, resultAttrs = "") {
+function renderStudyMeaningBlock(text2, language, options = {}) {
   return renderStudyBlock("jpdb-reader-study-meaning-block", `
         <div class="jpdb-reader-study-label">${escapeHtml(uiText(language, "meaning"))}</div>
-        <div class="jpdb-reader-study-translation"${studyAttrs(resultAttrs)}>${escapeHtml(text2)}</div>`);
+        <div class="jpdb-reader-study-translation"${studyAttrs(options.resultAttrs)}${studyTextAttrs(options.content)}>${escapeHtml(text2)}</div>`);
 }
 function renderStudyEmpty(text2) {
   return `<div class="jpdb-reader-study-empty">${escapeHtml(text2)}</div>`;
@@ -19416,8 +18341,12 @@ function studyBlockClassName(className) {
   return ["jpdb-reader-study-block", className.trim()].filter(Boolean).join(" ");
 }
 function studyAttrs(attrs) {
-  const trimmed = attrs.trim();
+  const trimmed = attrs?.trim() ?? "";
   return trimmed ? ` ${trimmed}` : "";
+}
+function studyTextAttrs(content) {
+  if (!content) return "";
+  return ` lang="${escapeHtml(content.lang)}" dir="${content.dir}"`;
 }
 const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
 const KNOWLEDGE_VALUES = /* @__PURE__ */ new Set(["unknown", "learning", "known", "mastered"]);
@@ -19821,8 +18750,8 @@ function preloadGrammarResources$1(sentence, language = "en") {
   }
   return hints;
 }
-function preloadJapaneseSentenceTranslation$1(sentence, language = "en") {
-  void translateJapaneseSentence$1(sentence, language).catch(() => void 0);
+function preloadTargetSentenceTranslation$1(sentence, outputLanguage = "en") {
+  void translateTargetSentence$1(sentence, outputLanguage).catch(() => void 0);
 }
 function setGrammarRuleKnown(ruleId, known) {
   return setTargetGrammarRuleKnown(activeLearningTarget(), ruleId, known);
@@ -19839,19 +18768,46 @@ function isTranslatableJapaneseSentence(sentence) {
   const dense = trimmed.replace(/\s+/g, "").length;
   return japanese / dense >= 0.15;
 }
-async function translateJapaneseSentence$1(sentence, outputLanguage = "en") {
+const TRANSLATABLE_CONTENT_CHAR = /[\p{L}\p{N}]/u;
+function isTranslatableTargetSentence(sentence) {
+  const target = activeLearningTarget();
+  if (target.language === "ja") return isTranslatableJapaneseSentence(sentence);
+  const evidence = targetSentenceEvidence(sentence, target.isLookupableText);
+  return evidence.target >= 2 && evidence.content > 0 && evidence.target / evidence.content >= 0.15;
+}
+function targetSentenceEvidence(sentence, isTargetText) {
+  const evidence = { content: 0, target: 0 };
+  for (const character of sentence.trim()) {
+  if (TRANSLATABLE_CONTENT_CHAR.test(character)) evidence.content += 1;
+  if (isTargetText(character)) evidence.target += 1;
+  }
+  return evidence;
+}
+async function translateTargetSentence$1(sentence, requestedOutputLanguage = "en") {
   const trimmed = sentence.trim();
-  if (!trimmed || !isTranslatableJapaneseSentence(trimmed)) return "";
+  if (!trimmed || !isTranslatableTargetSentence(trimmed)) return null;
+  const sourceLanguage = activeLearningTarget().language;
+  const outputLanguage = sentenceOutputLanguage(requestedOutputLanguage, sourceLanguage);
+  if (!outputLanguage) return null;
   const requestSentence = normalizeSentenceForTranslationRequest(trimmed);
-  return translateText(requestSentence, {
-  sourceLanguage: "ja",
-  outputLanguage: sentenceOutputLanguage(outputLanguage),
+  const text2 = await translateText(requestSentence, {
+  sourceLanguage,
+  outputLanguage,
   timeoutMs: TRANSLATION_TIMEOUT_MS,
   includeDictionaryData: true
   });
+  return { text: text2, outputLanguage };
 }
-function sentenceOutputLanguage(outputLanguage) {
-  return outputLanguage === "auto" || outputLanguage === "ja" ? "en" : outputLanguage;
+function sentenceOutputLanguage(outputLanguage, sourceLanguage) {
+  if (outputLanguage === "auto") return defaultSentenceOutputLanguage(sourceLanguage);
+  if (outputLanguage.toLowerCase() !== sourceLanguage.toLowerCase()) return outputLanguage;
+  return sameSourceSentenceOutputLanguage(sourceLanguage);
+}
+function defaultSentenceOutputLanguage(sourceLanguage) {
+  return sourceLanguage === "en" ? null : "en";
+}
+function sameSourceSentenceOutputLanguage(sourceLanguage) {
+  return sourceLanguage === "ja" ? "en" : null;
 }
 function normalizeSentenceForTranslationRequest(sentence) {
   return sentence.replace(/[「『]/g, '"').replace(/[」』]/g, '"');
@@ -19892,7 +18848,10 @@ function grammarSummary(visibleCount, hiddenKnownCount, language) {
   return shown;
 }
 function renderGrammarSentence(sentence, language, audioEnabled) {
-  return renderStudySentenceBlock(sentence, language, { audioEnabled }, "data-grammar-sentence");
+  return renderStudySentenceBlock(sentence, language, {
+  audioEnabled,
+  attrs: "data-grammar-sentence"
+  });
 }
 function renderGrammarToolbar(visibleCount, knownCount, showKnown, language) {
   const hiddenKnownCount = showKnown ? 0 : knownCount;
@@ -20091,24 +19050,33 @@ async function renderStudyToolResult(button, action, sentence, grammarHints, lan
   panel.hidden = false;
   panel.textContent = studyToolPendingText(action, language);
   const done = log$1.time("studyTool", { action, sentenceLength: sentence.length });
-  if (action === "study-translate") {
   try {
-    const translated = await translateJapaneseSentence$1(sentence, options.outputLanguage ?? "en");
-    if (!translated) {
-      panel.hidden = true;
-      panel.textContent = "";
-      return;
-    }
-    replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translated, language));
-    return;
-  } catch (error) {
-    log$1.warn("Study translation failed", { sentenceLength: sentence.length }, error);
-    replaceStudyPanelHtml(panel, renderStudyEmpty(uiText(language, "translationUnavailable")));
-    return;
+  if (action === "study-translate") await renderTranslationResult(panel, sentence, language, options.outputLanguage);
+  else await renderGrammarResult(panel, sentence, grammarHints, language, options.audioEnabled);
   } finally {
-    done();
+  done();
   }
+}
+async function renderTranslationResult(panel, sentence, language, outputLanguage) {
+  try {
+  const translation = await translateTargetSentence$1(sentence, outputLanguage ?? "en");
+  if (!translation) {
+    panel.hidden = true;
+    panel.textContent = "";
+    return;
   }
+  replaceStudyPanelHtml(panel, renderStudyMeaningBlock(translation.text, language, {
+    content: {
+      lang: translation.outputLanguage,
+      dir: localeDirection(translation.outputLanguage)
+    }
+  }));
+  } catch (error) {
+  log$1.warn("Study translation failed", { sentenceLength: sentence.length }, error);
+  replaceStudyPanelHtml(panel, renderStudyEmpty(uiText(language, "translationUnavailable")));
+  }
+}
+async function renderGrammarResult(panel, sentence, grammarHints, language, audioEnabled) {
   try {
   const hints = resolvedGrammarHints(sentence, grammarHints);
   if (!hints.length) {
@@ -20118,14 +19086,12 @@ async function renderStudyToolResult(button, action, sentence, grammarHints, lan
     return;
   }
   panel.dataset.grammarAvailability = "loaded";
-  replaceStudyPanelHtml(panel, await renderGrammarHints$1(hints, sentence, void 0, language, { audioEnabled: options.audioEnabled }));
+  replaceStudyPanelHtml(panel, await renderGrammarHints$1(hints, sentence, void 0, language, { audioEnabled }));
   } catch (error) {
   log$1.warn("Study grammar check failed", { sentenceLength: sentence.length }, error);
   const availability = currentGrammarAvailability(language, true);
   panel.dataset.grammarAvailability = availability.state;
   replaceStudyPanelHtml(panel, renderGrammarAvailability(availability, language));
-  } finally {
-  done();
   }
 }
 function studyToolPendingText(action, language) {
@@ -20418,11 +19384,11 @@ function detectGrammarHints(sentence) {
 function preloadGrammarResources(sentence, language = "en") {
   return yomuKanjiStudyCompanion()?.preloadGrammarResources?.(sentence, language) ?? [];
 }
-function preloadJapaneseSentenceTranslation(sentence, language = "en") {
-  yomuKanjiStudyCompanion()?.preloadJapaneseSentenceTranslation?.(sentence, language);
+function preloadTargetSentenceTranslation(sentence, outputLanguage = "en") {
+  yomuKanjiStudyCompanion()?.preloadTargetSentenceTranslation?.(sentence, outputLanguage);
 }
-async function translateJapaneseSentence(sentence, language = "en") {
-  return await (yomuKanjiStudyCompanion()?.translateJapaneseSentence?.(sentence, language) ?? Promise.resolve(""));
+async function translateTargetSentence(sentence, outputLanguage = "en") {
+  return await (yomuKanjiStudyCompanion()?.translateTargetSentence?.(sentence, outputLanguage) ?? Promise.resolve(null));
 }
 async function renderGrammarHints(hints, sentence, preferences, language = "en", options = {}) {
   return await (yomuKanjiStudyCompanion()?.renderGrammarHints?.(hints, sentence, preferences, language, options) ?? Promise.resolve(""));
@@ -20469,26 +19435,46 @@ class StudySourceController {
   preloadStudySources(popover, sentence) {
   if (!sentence) return;
   const settings = this.settings();
+  this.preloadGrammarSource(popover, sentence, settings);
+  this.preloadTranslationSource(popover, sentence, settings);
+  }
+  preloadGrammarSource(popover, sentence, settings) {
+  if (!settings.studyGrammarEnabled) return;
   const grammar = popover.querySelector("[data-study-grammar]");
-  if (settings.studyGrammarEnabled && grammar) {
-    void this.cachedGrammarHints(sentence).catch(() => void 0);
-    preloadGrammarResources(sentence, settings.interfaceLanguage);
+  if (!grammar) return;
+  void this.cachedGrammarHints(sentence).catch(() => void 0);
+  preloadGrammarResources(sentence, settings.interfaceLanguage);
   }
+  preloadTranslationSource(popover, sentence, settings) {
+  if (!settings.studyTranslationEnabled) return;
   const translation = popover.querySelector("[data-study-translation]");
-  if (settings.studyTranslationEnabled && translation) {
-    preloadJapaneseSentenceTranslation(sentence, outputLanguageOf(settings));
-    void this.cachedTranslationContent(sentence).then((result) => {
-      if (!result.translated && translation.isConnected && this.dependencies.isCurrentPopoverRoot(popover)) translation.hidden = true;
-    }).catch(() => void 0);
+  if (!translation) return;
+  const requestKey = this.studyCacheKey(sentence);
+  preloadTargetSentenceTranslation(sentence, outputLanguageOf(settings));
+  void this.cachedTranslationContent(sentence, requestKey).then((result) => this.hideEmptyPreloadedTranslation(popover, translation, sentence, requestKey, result)).catch(() => void 0);
   }
+  hideEmptyPreloadedTranslation(popover, container, sentence, requestKey, result) {
+  if (result.translation) return;
+  if (requestKey !== this.studyCacheKey(sentence)) return;
+  if (!this.canApplyTranslation(popover, container)) return;
+  container.hidden = true;
   }
   renderTranslationPanel(sentence) {
   const settings = this.settings();
   const language = settings.interfaceLanguage;
+  const target = activeLearningTarget();
   return `
             <div class="jpdb-reader-study-panel jpdb-reader-study-translation-panel">
-                ${renderStudySentenceBlock(sentence, language, { audioEnabled: settings.audioEnabled })}
-                ${renderStudyMeaningBlock(uiText(language, "openSectionToTranslate"), language, "data-study-translation-result")}
+                ${renderStudySentenceBlock(sentence, language, {
+        audioEnabled: settings.audioEnabled,
+        content: {
+          lang: target.typography.contentLocale,
+          dir: target.direction
+        }
+      })}
+                ${renderStudyMeaningBlock(uiText(language, "openSectionToTranslate"), language, {
+        resultAttrs: "data-study-translation-result"
+      })}
             </div>
         `;
   }
@@ -20559,22 +19545,36 @@ class StudySourceController {
   }
   }
   async loadTranslation(popover, sentence, container) {
-  if (!sentence) return;
-  try {
-    const translation = await this.cachedTranslationContent(sentence);
+  while (this.canApplyTranslation(popover, container)) {
+    const requestKey = this.studyCacheKey(sentence);
+    const attempt2 = await this.requestTranslation(sentence, requestKey);
     if (!this.canApplyTranslation(popover, container)) return;
-    this.applyTranslation(popover, sentence, container, translation);
-  } catch (error) {
-    this.renderTranslationError(sentence, container, error);
+    if (requestKey !== this.studyCacheKey(sentence)) continue;
+    this.finishTranslationAttempt(popover, sentence, container, requestKey, attempt2);
+    return;
   }
+  }
+  async requestTranslation(sentence, requestKey) {
+  try {
+    return { status: "translated", result: await this.cachedTranslationContent(sentence, requestKey) };
+  } catch (error) {
+    return { status: "failed", error };
+  }
+  }
+  finishTranslationAttempt(popover, sentence, container, requestKey, attempt2) {
+  if (attempt2.status === "failed") {
+    this.renderTranslationError(sentence, container, attempt2.error);
+    return;
+  }
+  this.applyTranslation(popover, sentence, container, attempt2.result, requestKey);
   }
   canApplyTranslation(popover, container) {
   return this.dependencies.isCurrentPopoverRoot(popover) && container.isConnected;
   }
   async loadTranslationContent(sentence) {
-  const translated = await translateJapaneseSentence(sentence, outputLanguageOf(this.settings()));
-  const tokens = translated ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
-  return { tokens, translated };
+  const translation = await translateTargetSentence(sentence, outputLanguageOf(this.settings()));
+  const tokens = translation ? this.parseTranslationTokens(sentence) : Promise.resolve([]);
+  return { tokens, translation };
   }
   parseTranslationTokens(sentence) {
   return this.dependencies.parseJapanese([sentence], { jpdbTimeoutMs: 1200, allowJpdbTimeoutFallback: true }).then(([parsed]) => parsed ?? []).catch(() => []);
@@ -20588,8 +19588,7 @@ class StudySourceController {
   pruneOldestCacheEntries(this.grammarHintCache, STUDY_GRAMMAR_CACHE_LIMIT);
   return promise;
   }
-  cachedTranslationContent(sentence) {
-  const key = this.studyCacheKey(sentence);
+  cachedTranslationContent(sentence, key = this.studyCacheKey(sentence)) {
   const cached = this.translationContentCache.get(key);
   if (cached) return cached;
   const promise = this.loadTranslationContent(sentence).catch((error) => {
@@ -20603,15 +19602,20 @@ class StudySourceController {
   studyCacheKey(sentence) {
   return `${activeLearningTarget().id}${this.settings().interfaceLanguage}${outputLanguageOf(this.settings())}${sentence.trim()}`;
   }
-  applyTranslation(popover, sentence, container, translation) {
-  if (!translation.translated) {
+  applyTranslation(popover, sentence, container, translation, requestKey) {
+  if (!translation.translation) {
     container.hidden = true;
     return;
   }
   const result = container.querySelector("[data-study-translation-result]");
-  if (result) result.textContent = translation.translated;
+  if (result) {
+    result.textContent = translation.translation.text;
+    result.lang = translation.translation.outputLanguage;
+    result.dir = localeDirection(translation.translation.outputLanguage);
+  }
   void translation.tokens.then((tokens) => {
     if (!this.canApplyTranslation(popover, container)) return;
+    if (requestKey !== this.studyCacheKey(sentence)) return;
     const original = container.querySelector("[data-study-original-render]");
     if (original) setInnerHtml(original, renderTokensToHtml(sentence, tokens, this.settings()));
     void this.dependencies.parsePopoverJapanese(popover);
@@ -20623,7 +19627,11 @@ class StudySourceController {
   log.warn("Automatic sentence translation failed", { sentenceLength: sentence.length }, error);
   if (!container.isConnected) return;
   const result = container.querySelector("[data-study-translation-result]");
-  if (result) result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
+  if (result) {
+    result.textContent = uiText(this.settings().interfaceLanguage, "translationUnavailable");
+    result.removeAttribute("lang");
+    result.removeAttribute("dir");
+  }
   }
   sourceAttributes(sourceId) {
   return this.dependencies.dictionarySourceAttributes(definitionSourceStateKey(sourceId));
@@ -21017,17 +20025,15 @@ registerYomuCompanion("kanjiStudy", {
   installOriginGraphInteractions,
   buildKanjiFacts,
   buildKanjiOriginGraph,
-  installUchisenCarousel,
-  loadUchisenData,
   resetGrammarRuleDataCacheForTests,
   listLocalGrammarRuleExamples,
   listLocalGrammarRules,
   detectGrammarHints: detectGrammarHints$1,
   preloadGrammarResources: preloadGrammarResources$1,
-  preloadJapaneseSentenceTranslation: preloadJapaneseSentenceTranslation$1,
+  preloadTargetSentenceTranslation: preloadTargetSentenceTranslation$1,
   setGrammarRuleKnown,
   setKnownGrammarVisible,
-  translateJapaneseSentence: translateJapaneseSentence$1,
+  translateTargetSentence: translateTargetSentence$1,
   renderGrammarHints: renderGrammarHints$1,
   renderStudyToolResult,
   handleStudyGrammarAction,

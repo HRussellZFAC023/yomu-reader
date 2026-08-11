@@ -105,7 +105,6 @@
     "docs/public/hosted-reader-worker.js",
     "scripts/fixtures/jiten-fixtures.mjs",
     "scripts/lib/extension-runtime-hardening.mjs",
-    "scripts/uchisen-bulk-publish.mjs",
     "src/reader/companions/register-empty.ts",
     // Vite names this companion entry through the Greasy Fork library
     // manifest, so no source import points to it.

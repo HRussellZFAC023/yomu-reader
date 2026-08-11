@@ -1,6 +1,6 @@
 import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
-import { DEFAULT_SETTINGS } from '../settings';
+import { DEFAULT_SETTINGS } from '../settings/index';
 import {
     applyNativeSubtitleDisplayMode,
     isNativeSubtitleDisplayMode,

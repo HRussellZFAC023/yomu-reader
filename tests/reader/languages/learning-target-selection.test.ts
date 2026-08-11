@@ -34,8 +34,13 @@ import {
 } from '../../../src/reader/languages/profiles';
 
 import { OnboardingController } from '../../../src/reader/app/onboarding';
+import { ReaderApp } from '../../../src/reader/app/main';
 import { bindReaderRuntimeEvents } from '../../../src/reader/app/runtime-events';
-import { loadReaderStartupSettings } from '../../../src/reader/app/startup';
+import {
+    hostedPageOwnedLearningTarget,
+    loadReaderStartupSettings,
+    shouldShowReaderOnboarding,
+} from '../../../src/reader/app/startup';
 import { SETTINGS_CHANGE_EVENT } from '../../../src/reader/app/constants';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../../src/reader/settings/index';
 import type { JPDBCard, ReaderSettings } from '../../../src/reader/app/types';
@@ -49,8 +54,8 @@ vi.mock('../../../src/reader/settings/index', async importOriginal => {
     return { ...actual, loadSettings: async () => storedSettings };
 });
 
-function card(spelling: string, reading: string): JPDBCard {
-    return { spelling, reading } as JPDBCard;
+function card(spelling: string, reading: string, language?: string): JPDBCard {
+    return { spelling, reading, ...(language ? { language } : {}) } as JPDBCard;
 }
 
 /** Settings exactly as they would come back from storage for a chosen target. */
@@ -58,6 +63,7 @@ function settingsStoringTarget(targetLanguage: string): ReaderSettings {
     const base = DEFAULT_SETTINGS.languageProfiles[0]!;
     return normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
+        learningTargetChosen: true,
         activeLanguageProfileId: base.id,
         languageProfiles: [{ ...base, targetLanguage }],
     } as Partial<ReaderSettings>);
@@ -107,6 +113,46 @@ describe('a stored learning target survives normalization', () => {
         expect(targetLanguage).toBe('ja');
         const normalized = normalizeLanguageProfiles([withoutTarget], withoutTarget.id);
         expect(normalized.profiles[0]?.targetLanguage).toBe('ja');
+    });
+
+    it('requires positive legacy evidence before treating a stored payload as a target choice', () => {
+        const legacyDefaultProfile = createDefaultLanguageProfile();
+        expect(normalizeReaderSettings({}).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ theme: 'dark' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ interfaceLanguage: 'ja' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ parserProvider: 'auto' }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({
+            onboardingSeen: false,
+            activeLanguageProfileId: legacyDefaultProfile.id,
+            languageProfiles: [legacyDefaultProfile],
+        }).learningTargetChosen).toBe(false);
+        const {
+            uiLocale: _uiLocale,
+            parserProvider: _parserProvider,
+            ...profileWithoutInheritedAxes
+        } = legacyDefaultProfile;
+        expect(normalizeReaderSettings({
+            interfaceLanguage: 'ja',
+            parserProvider: 'auto',
+            activeLanguageProfileId: profileWithoutInheritedAxes.id,
+            languageProfiles: [profileWithoutInheritedAxes as unknown as ReaderSettings['languageProfiles'][number]],
+        }).learningTargetChosen).toBe(false);
+        expect(normalizeReaderSettings({ onboardingSeen: true }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({
+            languageProfiles: [{ ...createDefaultLanguageProfile(), targetLanguage: 'ko' }],
+        }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({
+            languageProfiles: [{
+                ...createDefaultLanguageProfile(),
+                outputLanguage: 'fr',
+                learnerLanguage: 'fr',
+            }],
+        }).learningTargetChosen).toBe(true);
+        expect(normalizeReaderSettings({
+            learningTargetChosen: false,
+            onboardingSeen: true,
+            languageProfiles: [{ ...createDefaultLanguageProfile(), targetLanguage: 'ko' }],
+        }).learningTargetChosen).toBe(false);
     });
 
     it('carries the target into a profile created for a new definition language', () => {
@@ -167,7 +213,7 @@ describe('core behaviour follows the stored profile', () => {
         expect(isTargetLanguageSubtitleTrack({ label: 'Japanese', kind: 'youtube', language: 'ja' })).toBe(false);
         // SRS/mining reading normalization: the Japanese rule discards a
         // reading holding no Japanese script and falls back to the spelling.
-        expect(newTabCardReading(card('한국', '하나'))).toBe('하나');
+        expect(newTabCardReading(card('한국', '하나', 'ko'))).toBe('하나');
     });
 
     it('reaches a target registered out of tree, from storage alone', () => {
@@ -226,12 +272,54 @@ describe('the active target is wired to the profile at boot', () => {
         expect(isLookupableTargetLanguageText('한국어')).toBe(true);
     });
 
-    it('leaves a default install on Japanese', async () => {
+    it('does not promote the compatibility Japanese profile before a fresh learner chooses', async () => {
+        adoptLearningTargetFromSettings(settingsStoringTarget('ko'));
+        expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
         storedSettings = DEFAULT_SETTINGS;
+        vi.stubGlobal('location', { href: 'https://example.com/article' });
         await loadReaderStartupSettings({ showWelcome: false });
 
+        expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
+    });
+});
+
+describe('hosted surfaces own only their deliberate demo target', () => {
+    it('gives docs and Academy a transient policy, but not Study, PDF, or Video', () => {
+        expect(hostedPageOwnedLearningTarget('https://yomureader.com/')).toBe('ja');
+        expect(hostedPageOwnedLearningTarget('https://yomureader.com/academy/')).toBe('ja');
+        expect(hostedPageOwnedLearningTarget('https://yomureader.com/newtab/')).toBeNull();
+        expect(hostedPageOwnedLearningTarget('https://yomureader.com/pdf-reader/')).toBeNull();
+        expect(hostedPageOwnedLearningTarget('https://yomureader.com/video-player/')).toBeNull();
+    });
+
+    it('requires the Reader chooser on fresh PDF and Video surfaces', () => {
+        expect(shouldShowReaderOnboarding(false, 'https://yomureader.com/pdf-reader/')).toBe(true);
+        expect(shouldShowReaderOnboarding(false, 'https://yomureader.com/video-player/')).toBe(true);
+    });
+
+    it.each([
+        'https://yomureader.com/',
+        'https://yomureader.com/academy/',
+    ])('activates %s without persisting learner intent', async href => {
+        adoptLearningTargetFromSettings(settingsStoringTarget('ko'));
+        storedSettings = DEFAULT_SETTINGS;
+        vi.stubGlobal('location', { href });
+
+        const startup = await loadReaderStartupSettings({ showWelcome: false });
+
+        expect(startup.pageOwnedLearningTarget).toBe('ja');
+        expect(startup.settings.learningTargetChosen).toBe(false);
         expect(activeLearningTarget()).toBe(JAPANESE_LEARNING_TARGET);
-        expect(isLookupableTargetLanguageText('I read 日本語')).toBe(true);
+    });
+
+    it('lets an existing stored target override the docs demo policy', async () => {
+        storedSettings = settingsStoringTarget('ko');
+        vi.stubGlobal('location', { href: 'https://yomureader.com/' });
+
+        const startup = await loadReaderStartupSettings({ showWelcome: false });
+
+        expect(startup.pageOwnedLearningTarget).toBeNull();
+        expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
     });
 });
 
@@ -295,13 +383,31 @@ describe('the active target follows a profile change while running', () => {
         expect(targetSpeechSynthesisLocale()).toBe('ko-KR');
         expect(isLookupableTargetLanguageText('한국어')).toBe(true);
 
-        // ...and back again, so this is a live subscription rather than a
-        // one-way latch.
+        // A fresh/partial record is not an instruction to switch back to the
+        // compatibility Japanese profile.
         settings = DEFAULT_SETTINGS;
         window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, { detail: { settings } }));
 
-        expect(activeLearningTarget()).toBe(JAPANESE_LEARNING_TARGET);
-        expect(isLookupableTargetLanguageText('I read 日本語')).toBe(true);
+        expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
+        expect(isLookupableTargetLanguageText('한국어')).toBe(true);
         controller.abort();
+    });
+
+    it('does not let ReaderApp\'s settings-change UI mirror adopt an unchosen compatibility target', () => {
+        adoptLearningTargetFromSettings(settingsStoringTarget('ko'));
+        const app = new ReaderApp();
+        const internals = app as unknown as { bindEvents(): void };
+        internals.bindEvents();
+
+        try {
+            window.dispatchEvent(new CustomEvent(SETTINGS_CHANGE_EVENT, {
+                detail: { settings: DEFAULT_SETTINGS, remote: true },
+            }));
+
+            expect(activeLearningTarget()).toBe(KOREAN_LEARNING_TARGET);
+            expect(isLookupableTargetLanguageText('한국어')).toBe(true);
+        } finally {
+            app.destroy();
+        }
     });
 });

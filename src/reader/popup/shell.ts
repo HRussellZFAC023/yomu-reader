@@ -53,7 +53,6 @@ const POPOVER_BODY_ACTION_SELECTOR = [
     '[data-action]',
     '[data-immersion-action]',
     '[data-yomu-immersion-action]',
-    '[data-uchisen-action]',
 ].join(',');
 
 export interface PopoverScrollFrame {

@@ -1,79 +1,112 @@
-/**
- * Filtering for the mirrored-catalogue panel.
- *
- * The panel lists every archive Yomu hosts — over a hundred cards in nine
- * category groups. Grouping alone is not "searchable": finding 大辞林 or a pitch
- * dictionary by name means scrolling past everything else. This narrows the
- * rendered cards in place, entirely from text already in the DOM, so typing in
- * Settings never touches the network.
- */
+import { setInnerHtml } from '../dom';
+import { catalogBrowseLanguageSectionsForLearnerLanguage } from '../dictionaries/recommended';
+import { isLearningTargetRosterId, type LearningTargetRosterId } from '../languages';
+import {
+    isLearnerLanguageId,
+    learnerLanguageById,
+    type LearnerLanguageId,
+} from '../locales';
+import {
+    CATALOG_BROWSE_PAGE_SIZE,
+    catalogBrowseIndexForLanguageProfile,
+    normalizeSearchQuery,
+    type CatalogBrowseIndex,
+} from './catalog-browse-window';
+import { renderCatalogBrowseResultWindow } from './dictionary-recommendations-view';
 
-const CARD_SELECTOR = '.jpdb-reader-recommended-item';
+export { normalizeSearchQuery } from './catalog-browse-window';
 
-export function normalizeSearchQuery(value: string): string {
-    return value.normalize('NFKC').toLocaleLowerCase().replace(/\s+/gu, ' ').trim();
+interface CatalogBrowseSession {
+    readonly index: CatalogBrowseIndex;
+    readonly learnerLanguage: LearnerLanguageId;
+    readonly installedIds: ReadonlySet<string>;
+    normalizedQuery: string;
+    offset: number;
 }
 
-/** Returns how many cards remain visible. */
-export function applyCatalogBrowseFilter(section: HTMLElement, query: string): number {
+type CatalogBrowsePageDirection = 'previous' | 'next';
+
+const CATALOG_BROWSE_PAGE_DELTAS: Readonly<Record<CatalogBrowsePageDirection, number>> = {
+    previous: -CATALOG_BROWSE_PAGE_SIZE,
+    next: CATALOG_BROWSE_PAGE_SIZE,
+};
+
+const catalogBrowseSessions = new WeakMap<HTMLElement, CatalogBrowseSession>();
+
+/**
+ * Searches the pre-indexed catalogue model and replaces one bounded result
+ * window. Returns the total match count, including archives outside the DOM.
+ */
+export function applyCatalogBrowseFilter(
+    section: HTMLElement,
+    query: string,
+    requestedOffset?: number,
+): number {
+    const session = catalogBrowseSession(section);
+    const window = selectCatalogBrowseWindow(session, query, requestedOffset);
+    renderCatalogBrowseWindow(section, session, window);
+    recordCatalogBrowseWindow(section, session, query, window);
+    return window.matchingCount;
+}
+
+/** Lets Settings search the full catalogue without serializing it into the DOM. */
+export function catalogBrowseMatchesQuery(section: HTMLElement, query: string): boolean {
+    return catalogBrowseSession(section).index.select(query).matchingCount > 0;
+}
+
+function selectCatalogBrowseWindow(
+    session: CatalogBrowseSession,
+    query: string,
+    requestedOffset: number | undefined,
+) {
     const normalized = normalizeSearchQuery(query);
-    let visible = 0;
-    section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]').forEach(shelf => {
-        const language = shelfSearchText(shelf);
-        let shelfMatches = 0;
-        shelf.querySelectorAll<HTMLElement>('[data-catalog-browse-group]').forEach(group => {
-            const heading = normalizeSearchQuery(group.querySelector('[data-catalog-browse-category]')?.textContent ?? '');
-            let matched = 0;
-            group.querySelectorAll<HTMLElement>(CARD_SELECTOR).forEach(card => {
-                const matches = !normalized || cardMatches(card, `${heading} ${language}`, normalized);
-                card.hidden = !matches;
-                if (matches) matched += 1;
-            });
-            group.hidden = matched === 0;
-            shelfMatches += matched;
-        });
-        // A shelf whose every group emptied out must not leave its language
-        // heading floating above nothing.
-        shelf.hidden = shelfMatches === 0;
-        visible += shelfMatches;
-    });
-    const empty = section.querySelector<HTMLElement>('[data-catalog-browse-empty]');
-    if (empty) empty.hidden = visible > 0;
+    const retainedOffset = normalized === session.normalizedQuery ? session.offset : 0;
+    return session.index.select(query, requestedOffset ?? retainedOffset);
+}
+
+function renderCatalogBrowseWindow(
+    section: HTMLElement,
+    session: CatalogBrowseSession,
+    window: ReturnType<CatalogBrowseIndex['select']>,
+): void {
+    const results = section.querySelector<HTMLElement>('[data-catalog-browse-results]');
+    if (!results) return;
+    setInnerHtml(results, renderCatalogBrowseResultWindow(
+        window,
+        session.learnerLanguage,
+        catalogBrowseLocale(section, session.learnerLanguage),
+        session.installedIds,
+    ));
+}
+
+function recordCatalogBrowseWindow(
+    section: HTMLElement,
+    session: CatalogBrowseSession,
+    query: string,
+    window: ReturnType<CatalogBrowseIndex['select']>,
+): void {
+    const normalized = normalizeSearchQuery(query);
+    session.normalizedQuery = normalized;
+    session.offset = window.offset;
+    section.dataset.catalogBrowseOffset = String(window.offset);
+    section.dataset.catalogBrowseMatches = String(window.matchingCount);
+    section.dataset.catalogBrowseRendered = String(window.last - window.first + (window.last ? 1 : 0));
     section.dataset.catalogBrowseFiltering = normalized ? 'true' : 'false';
-    return visible;
+    const empty = section.querySelector<HTMLElement>('[data-catalog-browse-empty]');
+    if (empty) empty.hidden = window.matchingCount > 0;
+    section.dispatchEvent(new CustomEvent('yomu-catalog-browse-rendered', { bubbles: true }));
 }
 
-/**
- * A shelf matches by its localized language name, by the language's own name,
- * and by its BCP-47 tag, so "cantonese", "粵語" and "yue" all narrow the panel
- * to that shelf. This is the language filter: one more thing the search box
- * already does, rather than a second control with a mode to get stuck in.
- *
- * The "not for reading Japanese" note is deliberately left out of the haystack —
- * it names Japanese, so including it would make a search for "japanese" match
- * every dictionary that is explicitly not Japanese.
- */
-function shelfSearchText(shelf: HTMLElement): string {
-    return normalizeSearchQuery([
-        shelf.querySelector('[data-catalog-browse-language-title]')?.textContent ?? '',
-        shelf.dataset.catalogBrowseLanguageEndonym ?? '',
-        shelf.dataset.catalogBrowseLanguage ?? '',
-    ].join(' '));
+function catalogBrowseLocale(section: HTMLElement, learnerLanguage: LearnerLanguageId): string {
+    return section.lang || learnerLanguageById(learnerLanguage).runtimeLocale;
 }
 
-function catalogBrowseSection(root: ParentNode): HTMLElement | null {
-    return root.querySelector<HTMLElement>('[data-catalog-browse]');
-}
-
-/**
- * Wires the panel's own input. Kept separate from rendering so a re-rendered
- * Sources panel can rebind without the dialog knowing the panel's internals.
- */
+/** Wires indexed search and bounded previous/next result windows once. */
 export function installCatalogBrowseFilter(root: ParentNode): void {
-    const section = catalogBrowseSection(root);
+    const section = root.querySelector<HTMLElement>('[data-catalog-browse]');
     const input = section?.querySelector<HTMLInputElement>('[data-catalog-browse-filter]');
-    if (!section || !input || input.dataset.catalogBrowseFilterBound === 'true') return;
-    input.dataset.catalogBrowseFilterBound = 'true';
+    if (!section || !input || section.dataset.catalogBrowseBound === 'true') return;
+    section.dataset.catalogBrowseBound = 'true';
     input.addEventListener('input', () => applyCatalogBrowseFilter(section, input.value));
     // A search input's native clear button fires `search`, not `input`, in
     // WebKit, and Enter must never submit the settings dialog from here.
@@ -83,20 +116,70 @@ export function installCatalogBrowseFilter(root: ParentNode): void {
         event.preventDefault();
         applyCatalogBrowseFilter(section, input.value);
     });
+    section.addEventListener('click', event => pageCatalogBrowse(section, input, event));
+    applyCatalogBrowseFilter(section, input.value, numericData(section.dataset.catalogBrowseOffset));
 }
 
-/**
- * The card's own text carries the title, the definition language and the
- * download size; `context` carries the localized category heading and the
- * shelf's language, so "pitch"/"ピッチ" finds pitch dictionaries and
- * "cantonese"/"粵語"/"yue" finds the Cantonese shelf. The catalogue id is
- * matched too so a shared link or a bug report id resolves to a row.
- */
-function cardMatches(card: HTMLElement, context: string, query: string): boolean {
-    const haystack = normalizeSearchQuery([
-        card.textContent ?? '',
-        card.dataset.catalogRecommendation ?? '',
-        card.dataset.definitionLanguage ?? '',
-    ].join(' '));
-    return haystack.includes(query) || context.includes(query);
+function pageCatalogBrowse(section: HTMLElement, input: HTMLInputElement, event: Event): void {
+    const direction = catalogBrowsePageDirection(event);
+    if (!direction) return;
+    const session = catalogBrowseSession(section);
+    applyCatalogBrowseFilter(section, input.value, session.offset + CATALOG_BROWSE_PAGE_DELTAS[direction]);
+    focusCatalogBrowsePageControl(section, input, direction);
+}
+
+function catalogBrowsePageDirection(event: Event): CatalogBrowsePageDirection | undefined {
+    if (!(event.target instanceof Element)) return undefined;
+    const direction = event.target.closest<HTMLElement>('[data-catalog-browse-page]')?.dataset.catalogBrowsePage;
+    if (direction === 'previous' || direction === 'next') return direction;
+    return undefined;
+}
+
+function focusCatalogBrowsePageControl(
+    section: HTMLElement,
+    input: HTMLInputElement,
+    direction: CatalogBrowsePageDirection,
+): void {
+    const preferred = section.querySelector<HTMLButtonElement>(`[data-catalog-browse-page="${direction}"]`);
+    const fallback = section.querySelector<HTMLButtonElement>('[data-catalog-browse-page]');
+    (preferred ?? fallback ?? input).focus();
+}
+
+function catalogBrowseSession(section: HTMLElement): CatalogBrowseSession {
+    const active = catalogBrowseSessions.get(section);
+    if (active) return active;
+    const learnerLanguage = learnerLanguageId(section.dataset.catalogBrowseLearnerLanguage);
+    const targetLanguage = targetLanguageId(section.dataset.catalogBrowseTargetLanguage);
+    const sections = catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage, targetLanguage);
+    const session = {
+        index: catalogBrowseIndexForLanguageProfile(sections, learnerLanguage, targetLanguage),
+        learnerLanguage,
+        installedIds: installedCatalogIds(section.dataset.catalogBrowseInstalledIds),
+        normalizedQuery: '',
+        offset: numericData(section.dataset.catalogBrowseOffset),
+    };
+    catalogBrowseSessions.set(section, session);
+    return session;
+}
+
+function learnerLanguageId(value = ''): LearnerLanguageId {
+    return isLearnerLanguageId(value) ? value : 'en';
+}
+
+function targetLanguageId(value = ''): LearningTargetRosterId {
+    return isLearningTargetRosterId(value) ? value : 'ja';
+}
+
+function installedCatalogIds(value = ''): ReadonlySet<string> {
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []);
+    } catch {
+        return new Set();
+    }
+}
+
+function numericData(value = '0'): number {
+    const number = Number(value);
+    return Number.isFinite(number) && number > 0 ? number : 0;
 }

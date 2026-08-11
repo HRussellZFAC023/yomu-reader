@@ -20,8 +20,8 @@ export interface WebsiteRoutePublication {
  */
 export const WEBSITE_ROUTE_CATALOG: readonly WebsiteRouteDefinition[] = Object.freeze([
     route('', 'index.md',
-        ['よむ — A complete system for learning 日本語', 'よむ — 日本語学習のための一式'],
-        ['Read Japanese web pages, subtitles, manga and PDFs, save the words you meet, and review them with their original context. Free on computers, phones and tablets.', '日本語のウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。パソコン、スマートフォン、タブレットで無料で使えます。']),
+        ['よむ — Read your learning language', 'よむ — 学習している言語を読む'],
+        ['Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.', '33の学習言語のどれでも、ウェブページ、字幕、漫画、PDFを読み、出会った単語を元の文脈と一緒に保存して復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習も使えます。']),
     englishOnlyRoute('api/', 'api/index.md',
         'Yomu API reference',
         'Interactive OpenAPI reference for Yomu Academy, audio, support, and public edge services.',

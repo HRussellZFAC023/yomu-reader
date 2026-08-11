@@ -105,7 +105,7 @@ describe('content-addressed artifact retention', () => {
         expect(SUPPORTED_RELEASE_REFS.length).toBeGreaterThan(0);
         for (const ref of SUPPORTED_RELEASE_REFS) expect(ref).toMatch(/^v\d+\.\d+\.\d+$/);
         expect(SUPPORTED_RELEASE_REFS).not.toContain('v1.8.2');
-        expect(SUPPORTED_RELEASE_REFS).toContain('v1.8.71');
+        expect(SUPPORTED_RELEASE_REFS).toEqual(['v1.8.88']);
     });
 
     // The gate used to demand byte equality with a freshly computed manifest, so every

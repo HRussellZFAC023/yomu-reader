@@ -8,6 +8,7 @@ import { WanikaniLookupClient } from '../../src/reader/wanikani/wanikani-lookup'
 import { renderWanikaniMarkup } from '../../src/reader/wanikani/wanikani-render';
 import { renderWanikaniDefinitionMount, renderWanikaniSource } from '../../src/reader/wanikani/wanikani-source';
 import type { JPDBCard } from '../../src/reader/app/types';
+import type { ReaderHttpOptions } from '../../src/reader/network/http-options';
 import type { YomuSrsReviewable } from '../../src/reader/srs/types';
 
 const TOKEN = 'wk_live_secret_for_tests';
@@ -161,6 +162,81 @@ describe('WaniKani API boundary', () => {
         expect(fingerprint).not.toContain(TOKEN);
         expect(fingerprint).toMatch(/^[0-9a-f]{16}:\d+$/);
         expect(fingerprintWanikaniToken(`${TOKEN}2`)).not.toBe(fingerprint);
+    });
+
+    it('keeps every page on the account that started the collection and isolates the current cache', async () => {
+        const accountAToken = 'wk_account_a_for_tests';
+        const accountBToken = 'wk_account_b_for_tests';
+        let token = accountAToken;
+        const accountAFirstPage = deferred<unknown>();
+        const assignmentCalls: Array<{ authorization: string; page: string }> = [];
+        const accountRaceFixture = { accountAToken, accountAFirstPage, assignmentCalls };
+        const client = new WanikaniClient({
+            getToken: () => token,
+            minRequestIntervalMs: 0,
+            requestImpl: (url, options) => accountRaceResponse(url, options, accountRaceFixture),
+        });
+
+        const accountA = client.getAssignments();
+        await vi.waitFor(() => expect(assignmentCalls).toHaveLength(1));
+
+        token = accountBToken;
+        await expect(client.getAssignments()).resolves.toEqual([{ id: 'b-1' }]);
+
+        accountAFirstPage.resolve({
+            data: [{ id: 'a-1' }],
+            pages: { next_url: 'https://api.wanikani.com/v2/assignments?page=2' },
+        });
+        await expect(accountA).resolves.toEqual([{ id: 'a-1' }, { id: 'a-2' }]);
+
+        expect(assignmentCalls).toEqual([
+            { authorization: `Bearer ${accountAToken}`, page: '1' },
+            { authorization: `Bearer ${accountBToken}`, page: '1' },
+            { authorization: `Bearer ${accountAToken}`, page: '2' },
+        ]);
+        await expect(client.getAssignments()).resolves.toEqual([{ id: 'b-1' }]);
+        expect(assignmentCalls).toHaveLength(3);
+        const cacheKeys = [...(client as unknown as { responseCache: Map<string, unknown> }).responseCache.keys()];
+        expect(cacheKeys.join('\n')).not.toContain(accountAToken);
+        expect(cacheKeys.join('\n')).not.toContain(accountBToken);
+    });
+
+    it('does not let a stale user response replace the current account and clear invalidates it', async () => {
+        const accountAToken = 'wk_user_a_for_tests';
+        const accountBToken = 'wk_user_b_for_tests';
+        let token = accountAToken;
+        const accountAUser = deferred<unknown>();
+        const userCalls: string[] = [];
+        const client = new WanikaniClient({
+            getToken: () => token,
+            minRequestIntervalMs: 0,
+            requestImpl: async (_url, options) => {
+                const authorization = String((options?.headers as Record<string, string>).Authorization);
+                userCalls.push(authorization);
+                return authorization === `Bearer ${accountAToken}`
+                    ? accountAUser.promise
+                    : userForAccount(authorization);
+            },
+        });
+
+        const staleAccountA = client.getUser();
+        await vi.waitFor(() => expect(userCalls).toEqual([`Bearer ${accountAToken}`]));
+
+        token = accountBToken;
+        await expect(client.getUser()).resolves.toMatchObject({ id: accountBToken });
+        accountAUser.resolve(userForAccount(`Bearer ${accountAToken}`));
+        await expect(staleAccountA).resolves.toMatchObject({ id: accountAToken });
+
+        await expect(client.getUser()).resolves.toMatchObject({ id: accountBToken });
+        expect(userCalls).toEqual([`Bearer ${accountAToken}`, `Bearer ${accountBToken}`]);
+
+        client.clear();
+        await expect(client.getUser()).resolves.toMatchObject({ id: accountBToken });
+        expect(userCalls).toEqual([
+            `Bearer ${accountAToken}`,
+            `Bearer ${accountBToken}`,
+            `Bearer ${accountBToken}`,
+        ]);
     });
 
     it('reports expired and under-scoped credentials without echoing the token', async () => {
@@ -403,4 +479,76 @@ function routedClient(posts: unknown[] = []): WanikaniClient {
             throw new Error(`Unexpected WaniKani test request: ${url}`);
         },
     });
+}
+
+interface AccountRaceFixture {
+    accountAToken: string;
+    accountAFirstPage: { promise: Promise<unknown> };
+    assignmentCalls: Array<{ authorization: string; page: string }>;
+}
+
+async function accountRaceResponse(
+    url: string,
+    options: ReaderHttpOptions | undefined,
+    fixture: AccountRaceFixture,
+): Promise<unknown> {
+    const parsed = new URL(url);
+    const authorization = accountRaceAuthorization(options);
+    if (parsed.pathname.endsWith('/user')) return userForAccount(authorization);
+    return accountRaceAssignmentsResponse(url, parsed, authorization, fixture);
+}
+
+function accountRaceAuthorization(options: ReaderHttpOptions | undefined): string {
+    const headers = options?.headers as Record<string, string> | undefined;
+    return String(headers?.Authorization ?? '');
+}
+
+function accountRaceAssignmentsResponse(
+    rawUrl: string,
+    url: URL,
+    authorization: string,
+    fixture: AccountRaceFixture,
+): unknown {
+    assertAccountRaceAssignmentUrl(rawUrl, url);
+    fixture.assignmentCalls.push({ authorization, page: accountRacePageNumber(url) });
+    return accountRaceAssignmentPage(authorization, url, fixture);
+}
+
+function assertAccountRaceAssignmentUrl(rawUrl: string, url: URL): void {
+    if (!url.pathname.endsWith('/assignments')) throw new Error(`Unexpected account-race request: ${rawUrl}`);
+}
+
+function accountRacePageNumber(url: URL): string {
+    return url.searchParams.get('page') ?? '1';
+}
+
+function accountRaceAssignmentPage(
+    authorization: string,
+    url: URL,
+    fixture: AccountRaceFixture,
+): unknown {
+    if (authorization !== `Bearer ${fixture.accountAToken}`) {
+        return { data: [{ id: 'b-1' }], pages: { next_url: null } };
+    }
+    if (url.searchParams.has('page')) return { data: [{ id: 'a-2' }], pages: { next_url: null } };
+    return fixture.accountAFirstPage.promise;
+}
+
+function userForAccount(authorization: string): unknown {
+    const id = authorization.replace(/^Bearer /u, '');
+    return {
+        data: {
+            id,
+            level: 8,
+            subscription: { active: true, type: 'recurring', max_level_granted: 8, period_ends_at: null },
+        },
+    };
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>(done => {
+        resolve = done;
+    });
+    return { promise, resolve };
 }

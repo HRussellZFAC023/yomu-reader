@@ -6,12 +6,15 @@ import { USER_SCRIPT_COMPILER_COMMIT } from '../../scripts/build-amo-source-pack
 import { GENERATED_ARTIFACT_PATHS } from '../../scripts/lib/generated-artifacts.mjs';
 
 const buildUserscriptWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-userscript.yml'), 'utf8');
+const buildExtensionWorkflow = readFileSync(join(process.cwd(), '.github/workflows/build-extension.yml'), 'utf8');
 const ciWorkflow = readFileSync(join(process.cwd(), '.github/workflows/ci.yml'), 'utf8');
 const releaseWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release.yml'), 'utf8');
 const releaseGamingWorkflow = readFileSync(join(process.cwd(), '.github/workflows/release-gaming.yml'), 'utf8');
 const deployPagesWorkflow = readFileSync(join(process.cwd(), '.github/workflows/deploy-pages.yml'), 'utf8');
 const docsLocaleBrowserSmoke = readFileSync(join(process.cwd(), 'scripts/docs-localization-browser-smoke.mjs'), 'utf8');
 const readerSyncScript = readFileSync(join(process.cwd(), 'scripts/sync-docs-userscript.cjs'), 'utf8');
+const extensionBuildScript = readFileSync(join(process.cwd(), 'scripts/build-extension.mjs'), 'utf8');
+const amoSourceBuildScript = readFileSync(join(process.cwd(), 'scripts/build-amo-source-package.mjs'), 'utf8');
 const packageJson = JSON.parse(readFileSync(join(process.cwd(), 'package.json'), 'utf8')) as {
     scripts: Record<string, string>;
 };
@@ -54,6 +57,7 @@ describe('release workflow safety', () => {
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/api');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/greasyfork');
         expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/yomu.user.js');
+        expect(GENERATED_ARTIFACT_PATHS).toContain('docs/public/og-image.png');
     });
 
     it('tracks every standalone hosted wrapper stamped by the Reader sync', () => {
@@ -268,6 +272,31 @@ describe('release workflow safety', () => {
         expect(releaseWorkflow).toContain('--pattern yomureader.com-firefox.xpi');
         expect(releaseWorkflow).toContain('--source-dir=browser-store-artifacts/firefox');
         expect(releaseWorkflow).toContain('--upload-source-code=browser-store-artifacts/yomureader.com-firefox-source.zip');
+    });
+
+    it('uses the audited Node, npm, and compiler revisions in every artifact-producing workflow', () => {
+        for (const workflow of [buildUserscriptWorkflow, deployPagesWorkflow]) {
+            expect(workflow).toContain("node-version-file: '.nvmrc'");
+            expect(workflow).toContain('npm install --global npm@11.9.0');
+            expect(workflow).not.toContain('node-version: 24\n');
+        }
+        expect(buildExtensionWorkflow).toContain("node-version-file: 'yomu-reader/.nvmrc'");
+        expect(buildExtensionWorkflow).toContain('npm install --global npm@11.9.0');
+        expect(buildExtensionWorkflow).toContain(`ref: ${USER_SCRIPT_COMPILER_COMMIT}`);
+    });
+
+    it('packages every Study web-manifest image in store builds and the AMO source archive', () => {
+        for (const path of [
+            'public/pwa-icon-192.png',
+            'public/pwa-icon-512.png',
+            'public/pwa-icon-maskable-512.png',
+            'docs/public/screenshots/study-pwa-narrow.png',
+            'docs/public/screenshots/study-pwa-wide.png',
+        ]) {
+            expect(extensionBuildScript).toContain(path);
+            expect(amoSourceBuildScript).toContain(path);
+        }
+        expect(extensionBuildScript).toContain('verifyPackagedStudyManifest(entries, target, decode)');
     });
 
     it('fails closed on Firefox lint warnings before publishing the GitHub release', () => {

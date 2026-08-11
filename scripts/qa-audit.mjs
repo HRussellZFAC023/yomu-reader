@@ -640,12 +640,6 @@ const qaRequestMocks = [
     url => url.hostname === 'hrussellzfac023.github.io' && url.pathname.startsWith('/rtk/')
         ? textQaResponse(mockRtkHtml(pathKanji(url)))
         : null,
-    url => url.hostname === 'uchisen.com' && url.pathname.startsWith('/kanji/')
-        ? textQaResponse(mockUchisenHtml(pathKanji(url)))
-        : null,
-    url => url.hostname === 'ik.imagekit.io' && url.pathname.startsWith('/uchisen/')
-        ? textQaResponse(mockImageSvg('Uchisen'), 'image/svg+xml; charset=utf-8')
-        : null,
     url => url.hostname === 'raw.githubusercontent.com' && url.pathname.includes('/KanjiVG/kanjivg/')
         ? textQaResponse(mockKanjiVgSvg(), 'image/svg+xml; charset=utf-8')
         : null,
@@ -1450,21 +1444,6 @@ function mockRtkKeyword(kanji) {
 
 function mockRtkElements(kanji) {
     return kanji === '読' ? '言、売' : '人、一';
-}
-
-function mockUchisenHtml(kanji) {
-    return `<!doctype html><html><body>
-        <div class="kanji_image_loader" data-large="/kanji/${encodeURIComponent(kanji)}/main.svg"></div>
-        <div id="mnemonic_story">QA Uchisen story for ${htmlEscape(kanji)}.</div>
-        <div class="mnemonic_card">
-            <input class="image_url" value="/kanji/${encodeURIComponent(kanji)}/main.svg?tr=w-300">
-            <input class="story" value="Duplicate image">
-        </div>
-        <div class="mnemonic_card">
-            <input class="image_url" value="generated_${encodeURIComponent(kanji)}.svg">
-            <input class="story" value="Second &lt;b&gt;Uchisen&lt;/b&gt; story">
-        </div>
-    </body></html>`;
 }
 
 function mockKanjiVgSvg() {

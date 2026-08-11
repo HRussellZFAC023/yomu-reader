@@ -50,31 +50,6 @@ function parseJpdbVocabularyPath(pathname: string): JpdbVocabularyUrlIdentity | 
     };
 }
 
-export function decodeEntities(value: string): string {
-    return value.replace(/&(?:#\d+|#x[\da-f]+|[a-z][a-z\d]+);/gi, entity => {
-        const parsed = new DOMParser().parseFromString(`<!doctype html><body>${entity}`, 'text/html');
-        return parsed.body.textContent || entity;
-    });
-}
-
-export function canonicalUchisenUrl(value: string): string {
-    let url = value.trim();
-    if (!/^https?:\/\//i.test(url)) {
-        if (url.startsWith('/')) url = `https://ik.imagekit.io/uchisen${url}`;
-        else if (url.startsWith('generated_')) url = `https://ik.imagekit.io/uchisen/generated/saved/${url}`;
-        else url = `https://ik.imagekit.io/uchisen/${url}`;
-    }
-    try {
-        const parsed = new URL(url);
-        parsed.pathname = parsed.pathname.replace(/\/{2,}/g, '/');
-        parsed.search = '';
-        parsed.hash = '';
-        return `${parsed.origin}${parsed.pathname}`;
-    } catch {
-        return url.replace(/\/{2,}/g, '/').split(/[?#]/)[0];
-    }
-}
-
 export function firstJapaneseRunOrEmpty(value: string): string {
     return cleanText(value.match(JAPANESE_RUN_RE)?.[0] ?? '');
 }

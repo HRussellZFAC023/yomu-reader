@@ -3,6 +3,25 @@ import PublicProxyWorker, {
   resetProxyWorkerCacheForTests,
 } from "../../workers/jpdb-public-proxy/src/index";
 
+function expectNoCacheOrUpstream(
+  backend: { match: unknown; put: unknown },
+  upstream: unknown,
+): void {
+  expect(backend.match).not.toHaveBeenCalled();
+  expect(backend.put).not.toHaveBeenCalled();
+  expect(upstream).not.toHaveBeenCalled();
+}
+
+async function expectSensitiveRequestRejected(request: Request): Promise<void> {
+  const response = await PublicProxyWorker.fetch(
+    request,
+    {},
+    { waitUntil: vi.fn() },
+  );
+  expect(response.status).toBe(400);
+  expect(response.headers.get("x-yomu-proxy-error")).toBe("sensitive-request");
+}
+
 describe("Yomu public proxy Worker", () => {
   afterEach(() => {
     resetProxyWorkerCacheForTests();
@@ -235,21 +254,15 @@ describe("Yomu public proxy Worker", () => {
       encodeURIComponent("https://api.jiten.moe/api/vocabulary/123/0/info");
 
     try {
-      const response = await PublicProxyWorker.fetch(
+      await expectSensitiveRequestRejected(
         new Request(proxyUrl, {
           headers: {
             authorization: "ApiKey secret",
             origin: "https://hrussellzfac023.github.io",
           },
         }),
-        {},
-        { waitUntil: vi.fn() },
       );
-      expect(response.status).toBe(400);
-      expect(response.headers.get("x-yomu-proxy-error")).toBe("sensitive-request");
-      expect(backend.match).not.toHaveBeenCalled();
-      expect(backend.put).not.toHaveBeenCalled();
-      expect(upstream).not.toHaveBeenCalled();
+      expectNoCacheOrUpstream(backend, upstream);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -424,8 +437,31 @@ describe("Yomu public proxy Worker", () => {
       const second = await call();
       expect(first.status).toBe(400);
       expect(second.status).toBe(400);
-      expect(backend.match).not.toHaveBeenCalled();
-      expect(backend.put).not.toHaveBeenCalled();
+      expectNoCacheOrUpstream(backend, upstream);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it.each([
+    ["Uchisen pages", "https://uchisen.com/kanji/%E5%9B%B3"],
+    ["Uchisen ImageKit media", "https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg"],
+  ])("rejects retired %s before upstream fetch", async (_label, target) => {
+    const upstream = vi.fn(async () => new Response("unexpected"));
+    vi.stubGlobal("fetch", upstream);
+
+    try {
+      const response = await PublicProxyWorker.fetch(
+        new Request(
+          `https://yomu-jpdb-public-proxy.example/?url=${encodeURIComponent(target)}`,
+          { headers: { origin: "https://yomureader.com" } },
+        ),
+        {},
+        { waitUntil: vi.fn() },
+      );
+
+      expect(response.status).toBe(400);
+      expect(response.headers.get("x-yomu-proxy-error")).toBe("target-not-allowlisted");
       expect(upstream).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
@@ -440,13 +476,9 @@ describe("Yomu public proxy Worker", () => {
       encodeURIComponent("https://jpdb.io/search?q=%E5%9B%B3&token=secret");
 
     try {
-      const response = await PublicProxyWorker.fetch(
+      await expectSensitiveRequestRejected(
         new Request(proxyUrl, { headers: { origin: "https://hrussellzfac023.github.io" } }),
-        {},
-        { waitUntil: vi.fn() },
       );
-      expect(response.status).toBe(400);
-      expect(response.headers.get("x-yomu-proxy-error")).toBe("sensitive-request");
       expect(upstream).not.toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
@@ -473,8 +505,10 @@ describe("Yomu public proxy Worker", () => {
       budget: { limit: number; count: number; remaining: number };
     };
     expect(body.status).toBe("ok");
-    expect(body.allowlistVersion).toBe("2026-07-19");
+    expect(body.allowlistVersion).toBe("2026-08-10-uchisen-retired");
     expect(body.allowedHosts).toContain("dk3kgylsgq3k1.cloudfront.net");
+    expect(body.allowedHosts).not.toContain("uchisen.com");
+    expect(body.allowedHosts).not.toContain("ik.imagekit.io");
     expect(body.policy).toMatchObject({ anonymousOnly: true, arbitraryTargets: false });
     expect(body.analytics).toMatchObject({ structuredLogs: true, logsTargetQueries: false, logsRequestHeaders: false });
     expect(body.budget).toMatchObject({ limit: 10, count: 0, remaining: 10 });

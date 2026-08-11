@@ -17,6 +17,10 @@ import {
     isCurrentActiveTarget,
     type ActiveTargetSnapshot,
 } from './target-scope';
+import {
+    newTabCardProviderContext,
+    type NewTabProviderContexts,
+} from './provider-context-policy';
 
 const WORD_PITCH_CACHE_LIMIT = 320;
 const WORD_PITCH_LOCAL_GRACE_MS = 120;
@@ -29,10 +33,18 @@ interface PortableCardIdentity {
 
 interface TargetResourceDependencies {
     readonly getSettings: () => ReaderSettings;
+    readonly providerContexts: () => NewTabProviderContexts;
     readonly parser: Pick<ReaderParser, 'fallbackCardFromText' | 'localCardFromEntry'>;
     readonly dictionaries: Pick<YomitanDictionaryStore, 'lookup' | 'lookupTermMeta'>;
     readonly jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
     readonly localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => Promise<T>;
+}
+
+interface StoredOfflineCards {
+    cards?: JPDBCard[];
+    sourceLabel?: string;
+    targetLanguage?: string;
+    cardProviderContexts?: string[];
 }
 
 export interface TargetOfflineCards {
@@ -93,13 +105,16 @@ export class NewTabTargetResources {
 
     async writeOffline(cards: JPDBCard[], sourceLabel: string): Promise<void> {
         const settings = this.dependencies.getSettings();
-        const limit = Math.max(0, settings.newTabOfflineLimit || 0);
-        if (!settings.newTabOfflineEnabled || !limit) return;
+        const limit = enabledOfflineCardLimit(settings);
+        if (!limit) return;
+        const storedCards = cards.slice(0, limit);
+        const providerContexts = this.dependencies.providerContexts();
         await gmStorageSet(NEW_TAB_CACHE_KEY, {
             at: Date.now(),
             targetLanguage: captureActiveTarget().target.language,
+            cardProviderContexts: storedCards.map(card => newTabCardProviderContext(providerContexts, card)),
             sourceLabel,
-            cards: cards.slice(0, limit),
+            cards: storedCards,
         }).catch(() => undefined);
     }
 
@@ -107,23 +122,10 @@ export class NewTabTargetResources {
         const settings = this.dependencies.getSettings();
         if (!settings.newTabOfflineEnabled) return { cards: [], sourceLabel: '' };
         const target = captureActiveTarget();
-        const cached = await gmStorageGet<{
-            cards?: JPDBCard[];
-            sourceLabel?: string;
-            targetLanguage?: string;
-        } | null>(NEW_TAB_CACHE_KEY, null).catch(() => null);
-        if (!isCurrentActiveTarget(target) || (cached?.targetLanguage ?? 'ja') !== target.target.language) {
-            return { cards: [], sourceLabel: '' };
-        }
-        return {
-            cards: Array.isArray(cached?.cards)
-                ? cached.cards
-                    .filter(newTabCardMatchesActiveTarget)
-                    .map(normalizeNewTabCard)
-                    .slice(0, Math.max(0, settings.newTabOfflineLimit || 0))
-                : [],
-            sourceLabel: cached?.sourceLabel ?? '',
-        };
+        const cached = await gmStorageGet<StoredOfflineCards | null>(NEW_TAB_CACHE_KEY, null).catch(() => null);
+        if (!offlineCardsMatchTarget(cached, target)) return { cards: [], sourceLabel: '' };
+        const cards = offlineCardsForProvider(cached, this.dependencies.providerContexts());
+        return availableOfflineCards(cards, cached, settings.newTabOfflineLimit);
     }
 
     loadWordPitch(card: JPDBCard): Promise<string[]> {
@@ -193,6 +195,42 @@ export class NewTabTargetResources {
             dictionaries: settings.dictionaryPreferences.map(({ name, enabled, priority }) => ({ name, enabled, priority })),
         });
     }
+}
+
+function offlineCardsMatchTarget(cached: StoredOfflineCards | null, target: ActiveTargetSnapshot): cached is StoredOfflineCards {
+    return cached !== null
+        && isCurrentActiveTarget(target)
+        && (cached.targetLanguage ?? 'ja') === target.target.language;
+}
+
+function offlineCardsForProvider(cached: StoredOfflineCards, providerContexts: NewTabProviderContexts): JPDBCard[] {
+    const cards = Array.isArray(cached.cards) ? cached.cards : [];
+    return cards.filter((card, index) => offlineCardMatchesProvider(
+        card,
+        cached.cardProviderContexts?.[index],
+        providerContexts,
+    ));
+}
+
+function offlineCardMatchesProvider(card: JPDBCard, storedContext: string | undefined, providerContexts: NewTabProviderContexts): boolean {
+    const currentContext = newTabCardProviderContext(providerContexts, card);
+    return !currentContext || storedContext === currentContext;
+}
+
+function availableOfflineCards(cards: JPDBCard[], cached: StoredOfflineCards, configuredLimit: number): TargetOfflineCards {
+    if (!cards.length) return { cards: [], sourceLabel: '' };
+    return {
+        cards: cards
+            .filter(newTabCardMatchesActiveTarget)
+            .map(normalizeNewTabCard)
+            .slice(0, Math.max(0, configuredLimit || 0)),
+        sourceLabel: cached.sourceLabel ?? '',
+    };
+}
+
+function enabledOfflineCardLimit(settings: ReaderSettings): number {
+    if (!settings.newTabOfflineEnabled) return 0;
+    return Math.max(0, settings.newTabOfflineLimit || 0);
 }
 
 function firstNonEmptyPitch(promises: Promise<string[]>[]): Promise<string[]> {

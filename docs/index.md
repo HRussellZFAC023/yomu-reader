@@ -3,9 +3,9 @@ layout: page
 pageClass: yomu-home
 sidebar: false
 aside: false
-title: よむ — A complete system for learning 日本語
+title: よむ — Read your learning language
 titleTemplate: false
-description: Read Japanese web pages, subtitles, manga and PDFs, save the words you meet, and review them with their original context. Free on computers, phones and tablets.
+description: Read web pages, subtitles, manga and PDFs in any of 33 learning languages, save the words you meet, and review them with their original context. Japanese adds furigana, pitch accent and kanji study.
 ---
 
 <section class="yomu-fold" aria-labelledby="yomu-home-title">
@@ -14,7 +14,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
     <!-- The rotating product claim is interface chrome, not a reading surface.
          Reader annotation would add ruby while this text changes and reflow the
          genuine Try me target underneath a stationary pointer. -->
-    <h1 class="yomu-fold-h1" id="yomu-home-title" data-jpdb-reader-surface-ignore="true">A complete system for learning 日本語.</h1>
+    <h1 class="yomu-fold-h1" id="yomu-home-title" data-jpdb-reader-surface-ignore="true">Read the language you're learning with Yomu.</h1>
     <div class="yomu-fold-live">
       <p class="yomu-fold-prompt" data-yomu-fold-prompt data-jpdb-reader-surface-ignore="true"><span class="yomu-fold-prompt-live">Try me</span><a class="yomu-fold-prompt-fallback" href="#read">See it working below</a><svg class="yomu-fold-arrow" viewBox="0 0 72 48" aria-hidden="true" focusable="false"><path d="M4 6 C 28 7, 47 19, 58 37" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M48 31 L 59 40 L 62 26" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
       <div class="yomu-try-me-text yomu-fold-try" data-yomu-furigana-mode="all" data-yomu-runtime-surface>
@@ -42,11 +42,10 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
       <p class="yomu-fold-micro">Free, on your computer and your phone.</p>
       <p class="yomu-install-routes-note">Also available:</p>
     </div>
-    <!-- The client rotator cycles the reading-ready target roster through an
-         explicitly reading-strength sentence. The SSR text above stays 日本語 so
-         crawlers, social unfurls and the no-JS page get the deeper claim that is
-         true only for Japanese; a booted client must never turn "complete" into
-         a claim about one of the other 32 targets. -->
+    <!-- The client rotator cycles the reading-ready target roster through the
+         same reading-strength promise. The SSR text is language-neutral too, so
+         crawlers, social unfurls and the no-JS page receive the product contract
+         rather than an implicit Japanese default. -->
   </div>
   <figure class="yomu-fold-card" data-yomu-ocr="ignore">
     <img src="/home/popover.webp" width="840" height="864" fetchpriority="high" decoding="async" alt="The よむ lookup popover for 季語, showing pitch accent, audio, a dictionary definition and example sentences." />
@@ -134,7 +133,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   <div class="yomu-band-copy">
     <p class="yomu-band-kicker">Manga</p>
     <h2 id="yomu-band-manga">Press a word inside the picture.</h2>
-    <p class="yomu-band-lead">Tap a panel and よむ finds the Japanese in it, on a laptop or with a thumb on an iPad.</p>
+    <p class="yomu-band-lead">Tap a panel and よむ finds text in your selected learning language, on a laptop or with a thumb on an iPad.</p>
     <p class="yomu-band-lead">This panel is live. よむ is reading the words in it.</p>
   </div>
   <!-- The ONE live OCR surface on this page, on purpose. No data-yomu-ocr="ignore"
@@ -180,7 +179,7 @@ description: Read Japanese web pages, subtitles, manga and PDFs, save the words 
   <div class="yomu-band-copy">
     <p class="yomu-band-kicker">Yomu Gaming</p>
     <h2 id="yomu-band-gaming">Press one shortcut in a PC game.</h2>
-    <p class="yomu-band-lead">The desktop app reads the Japanese on screen with OCR and hands it back as words you can press. Separate download for Windows, macOS, Linux and Steam Deck.</p>
+    <p class="yomu-band-lead">The desktop app reads your selected learning language on screen with OCR and hands it back as words you can press. Separate download for Windows, macOS, Linux and Steam Deck.</p>
     <a class="yomu-band-action" href="/learn/manga-and-games#read-a-game-frame">See Yomu Gaming</a>
   </div>
 </section>

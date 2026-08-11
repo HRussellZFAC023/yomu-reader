@@ -224,15 +224,15 @@ function localizedWebsitePath(pathname: string): string {
 }
 
 const WEBSITE_MESSAGES = Object.freeze({
-    'docs.site.title': { en: 'よむ - Japanese popup reader', ja: 'よむ - 日本語ポップアップリーダー' },
+    'docs.site.title': { en: 'よむ - Read your learning language', ja: 'よむ - 学習している言語を読む' },
     'docs.site.description': {
-        en: 'Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, game text, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.',
-        ja: 'よむは、ブラウザーで本物の日本語を読むためのツールです。ウェブページ、漫画、ゲーム、PDF、字幕の単語を調べ、役立つ文を保存し、SRSにつなげ、日本語版サイトや日本語のYouTube動画を見つけられます。',
+        en: 'Yomu helps you read in any of 33 learning languages. Look up words on web pages, images, game text, PDFs, and subtitles, save useful sentences, and review them in context. Japanese adds furigana, pitch accent, kanji study, and deeper grammar.',
+        ja: 'よむは、33の学習言語のどれでも読むためのツールです。ウェブページ、画像、ゲーム、PDF、字幕の単語を調べ、役立つ文を保存し、文脈と一緒に復習できます。日本語では、ふりがな、ピッチアクセント、漢字学習、より深い文法も使えます。',
     },
     'docs.site.logoAlt': { en: 'よむ app icon', ja: 'よむのアプリアイコン' },
     'docs.site.imageAlt': {
-        en: 'よむ app icon and Japanese reader preview card',
-        ja: 'よむのアプリアイコンと日本語リーダーのプレビューカード',
+        en: 'よむ app icon and reader preview card with a Japanese example',
+        ja: 'よむのアプリアイコンと日本語例を使ったリーダーのプレビューカード',
     },
     'docs.nav.learningPath': { en: 'Learning path', ja: '学習の道筋' },
     'docs.nav.apps': { en: 'Apps', ja: 'アプリ' },

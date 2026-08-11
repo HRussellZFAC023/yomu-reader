@@ -9,9 +9,9 @@ Plain answers, grouped by what you came here to find out. If yours is missing, [
 
 ## What is Yomu?
 
-A reader that turns what you already read into Japanese study.
+A reader that turns what you already read into language study.
 
-- **Press a word, anywhere.** Any Japanese page, YouTube subtitles, manga pictures, PDFs — one press gives the reading, the meaning, the pitch accent and the sound.
+- **Press a word, anywhere.** Web pages, YouTube subtitles, manga pictures, PDFs — one press gives the meaning and the target-appropriate reading or pronunciation. Japanese additionally provides furigana, pitch accent and recorded audio.
 - **Keep the words you meet.** One more press saves the word with its sentence, audio and picture, ready to review. Reviews are built in.
 - **It runs on your phone.** Android installs from the Firefox store; iPhone and iPad run it in Safari. Most tools like this are desktop-only.
 - **It joins your tools instead of replacing them.** Anki, jpdb, Bunpro, WaniKani and jiten all connect: Yomu shows their word statuses on every page and sends your grades back.
@@ -22,13 +22,13 @@ A reader that turns what you already read into Japanese study.
 
 Against Migaku: Yomu is free, and that includes Anki export and mobile. Install is one click from the Chrome or Firefox store, with no account before your first lookup. On a phone it runs in the browser you already have. Add any Yomitan dictionary, keep your RTK keywords, or study vocabulary only. Subtitles draw over the site's own player, and switching Yomu off hands the page back untouched. Migaku import is in development.
 
-Against Duolingo: you pick the words, straight from the shows and manga you were already going to watch and read. Review sentences are the ones you found each word in, so practice sounds like real Japanese rather than a course script. There is no path and no energy meter. Study when you want, as much as you want. Mark a word known once and it stops turning up.
+Against Duolingo: you pick the words, straight from the shows and manga you were already going to watch and read. Review sentences are the ones you found each word in, so practice comes from the language you chose rather than a course script. There is no path and no energy meter. Study when you want, as much as you want. Mark a word known once and it stops turning up.
 
 ## Getting started
 
 ### Do I need an account?
 
-No. Install Yomu, open a Japanese page, press a word — that is the whole setup. Connecting Anki, jpdb, Bunpro or WaniKani is optional and only for people who already use them.
+No. Install Yomu, choose the language you are learning, open a page in that language, and press a word — that is the whole setup. Connecting Anki, jpdb, Bunpro or WaniKani is optional and only for people who already use them.
 
 ### Is Yomu free?
 
@@ -40,7 +40,7 @@ On Chrome, Edge or Brave: press **Add よむ to Chrome** on the [homepage](/). O
 
 ### Does it work on my phone?
 
-Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — furigana, the popover, reviews, and manga reading all work by touch. [Study](/study/) installs to your home screen from your browser's menu. Once it is there it opens like any other app and works offline, so reviews still work on the train.
+Yes. On Android, install Firefox and add Yomu from its store. On iPhone and iPad, Yomu runs inside Safari — lookup, reviews, and manga reading all work by touch; Japanese also gets furigana and pitch accent. [Study](/study/) installs to your home screen from your browser's menu. Once it is there it opens like any other app and works offline, so reviews still work on the train.
 
 ### Do I need to know kana or grammar first?
 
@@ -58,7 +58,7 @@ Check that Yomu is allowed on that site — in your browser's extensions menu, o
 
 ### Which sites does it work on?
 
-Any page with Japanese text on it. On top of that, YouTube gets its own subtitle reader with the video, image-based manga readers work through picture reading, and there is a [PDF reader](/pdf-reader/) and a [video player](/video-player/) for your own files.
+Any page with text in your selected learning language. On top of that, YouTube gets its own subtitle reader with the video, image-based manga readers work through picture reading, and there is a [PDF reader](/pdf-reader/) and a [video player](/video-player/) for your own files.
 
 ### How does it read manga and pictures?
 
@@ -70,7 +70,7 @@ Yes. [Yomu Gaming](/learn/manga-and-games#read-a-game-frame) is a small desktop 
 
 ### What do the colours and lines under words mean?
 
-Underline colours are pitch accent patterns. When a review system is connected, words are also tinted by how well you know them, so a page shows you at a glance what is new and what is due. All of it can be turned off in Settings.
+Word colours show how well you know them when a review system is connected, so a page shows you at a glance what is new and what is due. For Japanese, underline colours can also show pitch-accent patterns. All of it can be turned off in Settings.
 
 ## Keeping and reviewing words
 
@@ -117,7 +117,7 @@ Yes. A free Yomu account pairs devices so local cards can follow you. Cards are 
 
 ### Is it only for Japanese?
 
-No — all 33 targets can be read, mined and reviewed. You look a word up, keep it with the sentence you found it in, and review it on a schedule, in any of them. First-run setup and Settings label the other 32 **Read, mine and review**, and the dictionary catalogue carries headwords across all of them.
+No — all 33 targets can be read, mined and reviewed. First-run setup requires you to choose one rather than assuming Japanese. You can look a word up, keep it with the sentence where you found it, and review it on a schedule in any target; the dictionary catalogue carries headwords across all of them.
 
 Japanese is labelled **Full Yomu support** because it is the deepest, not because it is the only one that works: it adds mature deinflection, pitch accent, kanji cards, stroke feedback, recorded audio, and 307 grammar points. The other targets have much narrower target/data depth; only Arabic, German, Korean, Russian, and Spanish currently add bounded morphology beyond literal dictionary-form lookup. Your recommended starter follows the selected target and definition language; for English plus Spanish, that means Spanish terms with English definitions and Spanish IPA in the pronunciation row where Japanese shows pitch accent. The interface itself still speaks only English and 日本語.
 

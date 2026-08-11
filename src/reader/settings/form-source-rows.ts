@@ -19,7 +19,6 @@ const SOURCE_ROW_COPY_KEYS_BY_ID: Record<string, SourceRowCopyKeys> = {
     __immersion_kit__: { nameKey: 'sourceNameImmersionKit', helpKey: 'sourceHelpImmersionKit' },
     __kanji_stroke__: { nameKey: 'sourceNameStrokePractice', helpKey: 'sourceHelpStrokePractice' },
     __kanji_rtk__: { helpKey: 'sourceHelpRtk' },
-    __kanji_uchisen__: { helpKey: 'sourceHelpUchisen' },
     __kanji_wanikani__: { helpKey: 'sourceHelpWanikaniKanji' },
     __kanji_dictionaries__: { nameKey: 'sourceNameImportedKanjiDictionaries', helpKey: 'sourceHelpImportedKanjiDictionaries' },
     __kanji_similar_words__: { nameKey: 'sourceNameWordsUsingKanji', helpKey: 'sourceHelpWordsUsingKanji' },

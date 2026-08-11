@@ -20,13 +20,12 @@ describe('A28 homepage contract', () => {
         expect(homepage).not.toContain('<figcaption');
     });
 
-    it('ships 日本語 in the SSR headline whatever the client rotator shows', () => {
-        // The owner restored the headline rotator (2026-08-04), but the SSR
-        // sentence must stay 日本語 verbatim: crawlers, social unfurls and the
-        // no-JS page all read the static markup, and a first line naming a
-        // language chosen by a timer is the failure mode that got the previous
-        // rotator removed. Rotation happens only in the booted client.
-        expect(homepage).toContain('>A complete system for learning 日本語.</h1>');
+    it('ships a language-neutral SSR headline before the client rotator starts', () => {
+        // Crawlers, social unfurls and the no-JS page all read this static
+        // markup, so it must state the same any-language reading contract as
+        // the booted rotator without preselecting Japanese learner intent.
+        expect(homepage).toContain(">Read the language you're learning with Yomu.</h1>");
+        expect(homepage).not.toContain('A complete system for learning 日本語.</h1>');
         expect(homepage).not.toContain('YomuLanguageRotator');
         expect(homepageStyles).not.toContain('.yomu-language-cycle');
     });

@@ -80,7 +80,11 @@ describe('preferred Japanese site language', () => {
         vi.stubGlobal('fetch', fetchMock);
         vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
             if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
-            if (key === SETTINGS_STORAGE_KEY) return { ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true };
+            if (key === SETTINGS_STORAGE_KEY) return {
+                ...DEFAULT_SETTINGS,
+                learningTargetChosen: true,
+                preferJapaneseSiteLanguage: true,
+            };
             return fallback;
         });
         vi.stubGlobal('unsafeWindow', window);
@@ -377,15 +381,52 @@ describe('preferred Japanese site language', () => {
         expect(replace).not.toHaveBeenCalled();
     });
 
-    it('leaves a fresh install on the current site language', async () => {
+    it('leaves a fresh install and the host site locale state completely untouched', async () => {
         const language = navigator.language;
+        const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
+        delete pageWindow.__yomuJapaneseSiteLanguagePreference;
+        const nativePreference = 'PREF=hl=en&gl=GB&tz=Europe%2FLondon&keep=1';
+        const cookieWrite = vi.fn();
+        vi.spyOn(document, 'cookie', 'get').mockReturnValue(nativePreference);
+        vi.spyOn(document, 'cookie', 'set').mockImplementation(cookieWrite);
         vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=fresh',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace: vi.fn(),
+        });
 
-        installPreferredJapaneseSiteLanguageFromStoredSettings();
+        await installPreferredJapaneseSiteLanguageFromStoredSettings();
         await settleAsyncHandlers();
 
         expect(navigator.language).toBe(language);
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expect(document.cookie).toBe(nativePreference);
+        expect(cookieWrite).not.toHaveBeenCalled();
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBeNull();
+        expect(pageWindow.__yomuJapaneseSiteLanguagePreference).toBeUndefined();
+    });
+
+    it('ignores an orphaned opt-in scalar without a durable target choice', async () => {
+        const language = navigator.language;
+        const pageWindow = window as typeof window & { __yomuJapaneseSiteLanguagePreference?: unknown };
+        delete pageWindow.__yomuJapaneseSiteLanguagePreference;
+        const cookieWrite = vi.fn();
+        vi.spyOn(document, 'cookie', 'set').mockImplementation(cookieWrite);
+        vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => {
+            if (key === PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY) return true;
+            if (key === SETTINGS_STORAGE_KEY) return { ...DEFAULT_SETTINGS, preferJapaneseSiteLanguage: true };
+            return fallback;
+        });
+        vi.stubGlobal('unsafeWindow', window);
+
+        await installPreferredJapaneseSiteLanguageFromStoredSettings();
+        await settleAsyncHandlers();
+
+        expect(navigator.language).toBe(language);
+        expect(cookieWrite).not.toHaveBeenCalled();
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBeNull();
+        expect(pageWindow.__yomuJapaneseSiteLanguagePreference).toBeUndefined();
     });
 
     // The reported bug: the cache is per origin, so every site opened while the
@@ -484,7 +525,7 @@ describe('preferred Japanese site language', () => {
 
         expect(navigator.language).toBe(language);
         expect(replace).not.toHaveBeenCalled();
-        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+        expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBeNull();
     });
 
     it('ignores an obsolete async enabled read after a newer opt-out', async () => {
@@ -521,7 +562,9 @@ describe('preferred Japanese site language', () => {
 
     it('still applies a stored preference synchronously so an enabled site never flashes English', () => {
         vi.stubGlobal('GM_getValue', (key: string, fallback: unknown) => (
-            key === SETTINGS_STORAGE_KEY ? { preferJapaneseSiteLanguage: true } : fallback
+            key === SETTINGS_STORAGE_KEY
+                ? { learningTargetChosen: true, preferJapaneseSiteLanguage: true }
+                : fallback
         ));
         vi.stubGlobal('unsafeWindow', window);
 

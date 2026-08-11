@@ -1,6 +1,5 @@
 import { buildKanjiFacts, buildKanjiOriginGraph, KanjiOriginClient } from '../kanji/origin';
 import { buildRtkComponentSummaries, renderKanjiKeywordLine, renderRtkInfo } from '../popup/rtk-info';
-import { installUchisenCarousel, loadUchisenData } from '../dictionaries/uchisen';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { JpdbKanjiClient } from '../jpdb/jpdb-kanji';
 import { KanjiVGClient } from '../kanji/vg';
@@ -18,12 +17,12 @@ import {
     listLocalGrammarRuleExamples,
     listLocalGrammarRules,
     preloadGrammarResources,
-    preloadJapaneseSentenceTranslation,
+    preloadTargetSentenceTranslation,
     renderGrammarHints,
     resetGrammarRuleDataCacheForTests,
     setGrammarRuleKnown,
     setKnownGrammarVisible,
-    translateJapaneseSentence,
+    translateTargetSentence,
 } from '../study/tools-impl';
 import { handleStudyGrammarAction, renderStudyToolResult } from '../study/render-impl';
 import { openDeckPickerForCardAdd, setMiningControlsExpanded, toggleMiningControls } from '../study/mining-controls-impl';
@@ -67,17 +66,15 @@ registerYomuCompanion('kanjiStudy', {
     installOriginGraphInteractions,
     buildKanjiFacts,
     buildKanjiOriginGraph,
-    installUchisenCarousel,
-    loadUchisenData,
     resetGrammarRuleDataCacheForTests,
     listLocalGrammarRuleExamples,
     listLocalGrammarRules,
     detectGrammarHints,
     preloadGrammarResources,
-    preloadJapaneseSentenceTranslation,
+    preloadTargetSentenceTranslation,
     setGrammarRuleKnown,
     setKnownGrammarVisible,
-    translateJapaneseSentence,
+    translateTargetSentence,
     renderGrammarHints,
     renderStudyToolResult,
     handleStudyGrammarAction,

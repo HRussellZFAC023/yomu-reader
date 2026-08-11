@@ -887,11 +887,10 @@ function installHostedHomepageInteractions(): void {
     installHostedHeroLanguageRotator();
 }
 
-// The headline rotator names all reading-ready targets. Its sentence must stay
-// at reading strength: Japanese is the only full target, so putting every target
-// after "A complete system for learning" turned a measured roster into 32 false
-// full-product claims. The static/no-JS headline can keep the deeper Japanese
-// claim; the booted multilingual rotation says only what all 33 targets execute.
+// The headline rotator names all reading-ready targets. Both its frames and the
+// static/no-JS headline stay at the reading strength all 33 targets execute;
+// target-specific depth belongs in the feature copy, never in an implicit
+// Japanese default for the product identity.
 const HOSTED_HERO_HEADLINES: Record<InterfaceLanguage, readonly [string, string]> = {
     en: ['Read ', ' with Yomu.'],
     ja: ['よむで', 'を読む。'],

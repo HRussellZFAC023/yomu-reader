@@ -9,6 +9,7 @@
 // the PDF reader's <title> disagreed with its og:title, and /favicon.ico served
 // the HTML 404 page.
 import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -95,6 +96,72 @@ describe('app shell social metadata', () => {
 
     it('ships the og:image every shell points at', () => {
         expect(existsSync(path.join(ROOT, 'docs/public/og-image.png'))).toBe(true);
+    });
+
+    it('keeps the served OG raster generated from the language-neutral SVG', () => {
+        const source = read('docs/public/og-image.svg');
+        expect(source).toContain('Language-learning');
+        expect(source).not.toContain('Free Japanese');
+        expect(() => execFileSync(
+            process.execPath,
+            ['scripts/generate-og-image.mjs', '--check'],
+            { cwd: ROOT, stdio: 'pipe' },
+        )).not.toThrow();
+        const scripts = JSON.parse(read('package.json')).scripts as Record<string, string>;
+        expect(scripts['docs:build']).toContain('npm run docs:og-image');
+    });
+
+    it('describes general-purpose reader shells without a Japanese-only identity', () => {
+        const sources = [
+            'public/newtab/index.html',
+            'public/newtab/manifest.webmanifest',
+            'docs/public/manifest.webmanifest',
+            'docs/public/pdf-reader/index.html',
+            'docs/public/pdf-reader/manifest.webmanifest',
+            'docs/public/video-player/index.html',
+            'docs/public/video-player/manifest.webmanifest',
+        ];
+        for (const file of sources) {
+            expect(read(file), `${file} still presents よむ as Japanese-only`)
+                .not.toMatch(/Japanese Reader|Japanese study|Japanese cards|Japanese PDFs|Japanese subtitles/iu);
+        }
+        for (const file of ['docs/public/pdf-reader/index.html', 'docs/public/video-player/index.html']) {
+            expect(read(file).match(/<meta name="description"/gu), `${file} must have one description`)
+                .toHaveLength(1);
+        }
+    });
+});
+
+describe('language-neutral public product identity', () => {
+    it('keeps root metadata, H1, machine copy, FAQ, README, and reviewer flow aligned', () => {
+        const homepage = read('docs/index.md');
+        const config = read('docs/.vitepress/config.mts');
+        const llms = read('docs/public/llms.txt');
+        const faq = read('docs/faq.md');
+        const readme = read('README.md');
+        const reviewNotes = read('docs/store-review-notes.md');
+        const privacy = read('docs/privacy/index.md');
+        const storeMetadata = JSON.parse(read('config/amo-metadata.json')) as {
+            version: { approval_notes: string };
+        };
+
+        expect(homepage).toContain("Read the language you're learning with Yomu.</h1>");
+        expect(homepage).not.toContain('A complete system for learning 日本語.</h1>');
+        expect(config).toContain("alternateName: 'Yomu Language Reader'");
+        expect(config).toContain('Target-aware popup lookup for 33 learning languages');
+        expect(llms).toContain('reader for 33 learning languages');
+        expect(llms).not.toContain('Japanese immersion reader');
+        expect(faq).toContain('First-run setup requires you to choose one rather than assuming Japanese.');
+        expect(faq).not.toContain('turns what you already read into Japanese study');
+        expect(readme).toContain('first-run setup requires an explicit target, with no Japanese preselection');
+        expect(readme).not.toContain('other 32 targets are labelled for reading and lookup');
+        expect(privacy).toContain('tools for your selected learning language');
+        expect(privacy).not.toContain('core purpose is to add Japanese reading');
+        expect(reviewNotes).toContain('Japanese is not preselected');
+        expect(reviewNotes).toContain('**Kanji 1** for Japanese and **Word** for non-Japanese targets');
+        expect(reviewNotes).not.toContain('**Kanji 1** by default');
+        expect(storeMetadata.version.approval_notes).toContain('Japanese is not preselected');
+        expect(storeMetadata.version.approval_notes).toContain('Kanji 1 for Japanese and Word for non-Japanese targets');
     });
 });
 

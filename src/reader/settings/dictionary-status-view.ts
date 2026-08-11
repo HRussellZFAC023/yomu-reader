@@ -22,6 +22,12 @@ export interface DictionaryStatusElements {
     recommended: HTMLElement | null;
 }
 
+export interface DictionaryPanelRenderContext {
+    settings: ReaderSettings;
+    learnerLanguage: LearnerLanguageId;
+    targetLanguage: LearningTargetRosterId;
+}
+
 export function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElements {
     return {
         status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
@@ -31,7 +37,7 @@ export function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatu
     };
 }
 
-export function liveDictionarySettings(
+function liveDictionarySettings(
     form: HTMLFormElement,
     settings: ReaderSettings,
 ): ReaderSettings {
@@ -42,36 +48,89 @@ export function liveDictionarySettings(
     return live;
 }
 
+export function liveDictionaryPanelContext(
+    form: HTMLFormElement,
+    settings: ReaderSettings,
+): DictionaryPanelRenderContext {
+    return {
+        settings: liveDictionarySettings(form, settings),
+        learnerLanguage: selectedLearnerLanguage(form, settings),
+        targetLanguage: selectedTargetLanguage(form, settings),
+    };
+}
+
 export function renderDictionaryStatusElements(
     elements: DictionaryStatusElements,
     summary: DictionaryStatusSummary,
     settings: ReaderSettings,
     learnerLanguage: LearnerLanguageId,
     targetLanguage: LearningTargetRosterId,
+    expandCatalogBrowse?: boolean,
 ): void {
-    if (elements.status) {
-        elements.status.textContent = summary.dictionaries.length
-            ? formatUiText(settings.interfaceLanguage, 'dictionaryStatusSummary', {
-                dictionaries: summary.dictionaries.length.toLocaleString(),
-                terms: summary.terms.toLocaleString(),
-                kanji: summary.kanji.toLocaleString(),
-                metadata: summary.termMeta.toLocaleString(),
-            })
-            : uiText(settings.interfaceLanguage, 'noLocalDictionariesImported');
-    }
-    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.lookupPills) {
-        setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage));
-    }
-    if (elements.recommended) {
-        setInnerHtml(
-            elements.recommended,
-            renderRecommendedDictionaries(summary.dictionaries, learnerLanguage, true, targetLanguage),
-        );
-    }
+    renderDictionaryStatusLine(elements.status, summary, settings);
+    renderDictionaryPriorities(elements.priorities, settings);
+    renderDictionaryLookupPills(elements.lookupPills, summary, settings, targetLanguage);
+    renderDictionaryRecommendations(
+        elements.recommended,
+        summary,
+        learnerLanguage,
+        targetLanguage,
+        expandCatalogBrowse,
+    );
 }
 
-export function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings): LearnerLanguageId {
+function renderDictionaryStatusLine(
+    element: HTMLElement | null,
+    summary: DictionaryStatusSummary,
+    settings: ReaderSettings,
+): void {
+    if (!element) return;
+    element.textContent = summary.dictionaries.length
+        ? formatUiText(settings.interfaceLanguage, 'dictionaryStatusSummary', {
+            dictionaries: summary.dictionaries.length.toLocaleString(),
+            terms: summary.terms.toLocaleString(),
+            kanji: summary.kanji.toLocaleString(),
+            metadata: summary.termMeta.toLocaleString(),
+        })
+        : uiText(settings.interfaceLanguage, 'noLocalDictionariesImported');
+}
+
+function renderDictionaryPriorities(element: HTMLElement | null, settings: ReaderSettings): void {
+    if (!element) return;
+    setInnerHtml(element, renderDictionarySourceRows(settings));
+}
+
+function renderDictionaryLookupPills(
+    element: HTMLElement | null,
+    summary: DictionaryStatusSummary,
+    settings: ReaderSettings,
+    targetLanguage: LearningTargetRosterId,
+): void {
+    if (!element) return;
+    setInnerHtml(element, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage));
+}
+
+function renderDictionaryRecommendations(
+    element: HTMLElement | null,
+    summary: DictionaryStatusSummary,
+    learnerLanguage: LearnerLanguageId,
+    targetLanguage: LearningTargetRosterId,
+    expandCatalogBrowse?: boolean,
+): void {
+    if (!element) return;
+    setInnerHtml(
+        element,
+        renderRecommendedDictionaries(
+            summary.dictionaries,
+            learnerLanguage,
+            true,
+            targetLanguage,
+            expandCatalogBrowse,
+        ),
+    );
+}
+
+function selectedLearnerLanguage(form: HTMLFormElement, settings: ReaderSettings): LearnerLanguageId {
     const value = form.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')?.value;
     return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
 }

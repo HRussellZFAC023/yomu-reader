@@ -5,6 +5,20 @@ const appMocks = vi.hoisted(() => ({
     init: vi.fn(),
 }));
 
+const settingsMocks = vi.hoisted(() => {
+    const mocks = {
+        loadSettings: vi.fn(),
+        onSettingsChange: undefined as ((settings: unknown) => void) | undefined,
+        subscribeToSettingsStorageChanges: vi.fn(),
+        unsubscribe: vi.fn(),
+    };
+    mocks.subscribeToSettingsStorageChanges.mockImplementation((listener: (settings: unknown) => void) => {
+        mocks.onSettingsChange = listener;
+        return mocks.unsubscribe;
+    });
+    return mocks;
+});
+
 vi.mock('../../src/reader/app/main', () => ({
     ReaderApp: vi.fn(() => ({
         destroy: appMocks.destroy,
@@ -12,8 +26,15 @@ vi.mock('../../src/reader/app/main', () => ({
     })),
 }));
 
-import { bootReaderApp } from '../../src/reader/app/boot';
+vi.mock('../../src/reader/settings/index', async importOriginal => ({
+    ...await importOriginal<typeof import('../../src/reader/settings/index')>(),
+    loadSettings: settingsMocks.loadSettings,
+    subscribeToSettingsStorageChanges: settingsMocks.subscribeToSettingsStorageChanges,
+}));
+
+import { bootReaderApp, resetReaderBootStateForTests } from '../../src/reader/app/boot';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, normalizedPropertyDescriptor, pageCompartmentDescriptor, removeWindowEventListener, safeWindowPropertyDescriptor, shouldTemporarilyUnshadowWindowProperty } from '../../src/reader/platform/window-events';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 type BootWindow = Window & {
     __yomuReaderAppInitialized?: boolean;
@@ -24,6 +45,16 @@ type BootWindow = Window & {
 };
 
 const bootWindow = window as BootWindow;
+
+function settingsForStoredTarget(targetLanguage: string | null) {
+    return {
+        ...DEFAULT_SETTINGS,
+        learningTargetChosen: targetLanguage !== null,
+        languageProfiles: DEFAULT_SETTINGS.languageProfiles.map((profile, index) => index === 0 && targetLanguage
+            ? { ...profile, targetLanguage }
+            : { ...profile }),
+    };
+}
 
 function reinjectAfterRuntimeMarkerMutation(
     mutateMarker: (marker: HTMLElement) => void,
@@ -42,11 +73,34 @@ function reinjectAfterRuntimeMarkerMutation(
     return replacement!;
 }
 
+async function startDormantEmbeddedFrame(): Promise<void> {
+    bootReaderApp();
+    await vi.waitFor(() => expect(settingsMocks.loadSettings).toHaveBeenCalledOnce());
+    expect(appMocks.init).not.toHaveBeenCalled();
+}
+
+async function bootEmbeddedFrameAndWait(): Promise<void> {
+    bootReaderApp();
+    await vi.waitFor(() => {
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+    });
+}
+
 describe('reader boot', () => {
     beforeEach(() => {
+        resetReaderBootStateForTests();
         appMocks.destroy.mockReset();
         appMocks.init.mockReset();
         appMocks.init.mockResolvedValue(undefined);
+        settingsMocks.loadSettings.mockReset();
+        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget(null));
+        settingsMocks.onSettingsChange = undefined;
+        settingsMocks.subscribeToSettingsStorageChanges.mockReset();
+        settingsMocks.subscribeToSettingsStorageChanges.mockImplementation((listener: (settings: unknown) => void) => {
+            settingsMocks.onSettingsChange = listener;
+            return settingsMocks.unsubscribe;
+        });
+        settingsMocks.unsubscribe.mockClear();
         document.head.innerHTML = '';
         document.body.innerHTML = '';
         vi.stubGlobal('GM_getValue', vi.fn());
@@ -165,20 +219,44 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')).toBeNull();
     });
 
-    it('boots embedded frames that already contain Japanese in restricted mode', () => {
+    it('does not probe or watch target text in a fresh embedded frame', async () => {
         document.body.textContent = 'Google で続ける';
 
-        withWindowProperty('top', {} as Window, () => {
-            bootReaderApp();
-        });
+        await withWindowPropertyAsync('top', {} as Window, async () => {
+            await startDormantEmbeddedFrame();
 
-        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+            document.body.textContent = '日本語に変わりました';
+            await new Promise(resolve => window.setTimeout(resolve, 0));
+            expect(appMocks.init).not.toHaveBeenCalled();
+        });
+    });
+
+    it('wakes an existing Korean frame when another frame persists the first target choice', async () => {
+        document.body.textContent = '한국어로 계속';
+
+        await withWindowPropertyAsync('top', {} as Window, async () => {
+            await startDormantEmbeddedFrame();
+
+            settingsMocks.onSettingsChange?.(settingsForStoredTarget('ko'));
+
+            await vi.waitFor(() => {
+                expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+            });
+        });
+    });
+
+    it('boots embedded frames that already contain the stored Japanese target in restricted mode', async () => {
+        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget('ja'));
+        document.body.textContent = 'Google で続ける';
+
+        await withWindowPropertyAsync('top', {} as Window, async () => {
+            await bootEmbeddedFrameAndWait();
+        });
     });
 
     it('boots an embedded frame when a Latin control localises to Japanese', async () => {
-        const descriptor = Object.getOwnPropertyDescriptor(window, 'top');
-        Object.defineProperty(window, 'top', { configurable: true, value: {} as Window });
-        try {
+        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget('ja'));
+        await withWindowPropertyAsync('top', {} as Window, async () => {
             const button = document.createElement('button');
             button.textContent = 'Continue with Google';
             document.body.append(button);
@@ -189,10 +267,16 @@ describe('reader boot', () => {
             await vi.waitFor(() => {
                 expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
             });
-        } finally {
-            if (descriptor) Object.defineProperty(window, 'top', descriptor);
-            else delete (window as unknown as Record<string, unknown>).top;
-        }
+        });
+    });
+
+    it('boots a Korean-only embedded frame for a stored Korean target', async () => {
+        settingsMocks.loadSettings.mockResolvedValue(settingsForStoredTarget('ko'));
+        document.body.textContent = '한국어로 계속';
+
+        await withWindowPropertyAsync('top', {} as Window, async () => {
+            await bootEmbeddedFrameAndWait();
+        });
     });
 
     it('boots embedded frames that already contain a video in restricted mode', () => {
@@ -205,10 +289,23 @@ describe('reader boot', () => {
         expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
     });
 
+    it('restarts an already-open fresh video frame when the first target choice is persisted', async () => {
+        document.body.append(document.createElement('video'));
+
+        await withWindowPropertyAsync('top', {} as Window, async () => {
+            bootReaderApp();
+            expect(appMocks.init).toHaveBeenCalledTimes(1);
+            await vi.waitFor(() => expect(settingsMocks.loadSettings).toHaveBeenCalledOnce());
+
+            settingsMocks.onSettingsChange?.(settingsForStoredTarget('ko'));
+
+            await vi.waitFor(() => expect(appMocks.init).toHaveBeenCalledTimes(2));
+            expect(appMocks.destroy).toHaveBeenCalledWith({ preservePageWords: true });
+        });
+    });
+
     it('boots an embedded frame once a video appears after document-start', async () => {
-        const descriptor = Object.getOwnPropertyDescriptor(window, 'top');
-        Object.defineProperty(window, 'top', { configurable: true, value: {} as Window });
-        try {
+        await withWindowPropertyAsync('top', {} as Window, async () => {
             bootReaderApp();
             expect(appMocks.init).not.toHaveBeenCalled();
 
@@ -216,10 +313,7 @@ describe('reader boot', () => {
             await vi.waitFor(() => {
                 expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
             });
-        } finally {
-            if (descriptor) Object.defineProperty(window, 'top', descriptor);
-            else delete (window as unknown as Record<string, unknown>).top;
-        }
+        });
     });
 
     it('boots YouTube embedded frames in restricted mode', () => {
@@ -504,6 +598,20 @@ function withWindowProperty(key: keyof Window, value: unknown, callback: () => v
     });
     try {
         callback();
+    } finally {
+        if (descriptor) Object.defineProperty(window, key, descriptor);
+        else delete (window as unknown as Record<string, unknown>)[key as string];
+    }
+}
+
+async function withWindowPropertyAsync(key: keyof Window, value: unknown, callback: () => Promise<void>): Promise<void> {
+    const descriptor = Object.getOwnPropertyDescriptor(window, key);
+    Object.defineProperty(window, key, {
+        configurable: true,
+        value,
+    });
+    try {
+        await callback();
     } finally {
         if (descriptor) Object.defineProperty(window, key, descriptor);
         else delete (window as unknown as Record<string, unknown>)[key as string];

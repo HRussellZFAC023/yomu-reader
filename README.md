@@ -7,8 +7,8 @@
 <p><b>Read the language you are learning without leaving the page. Understand it and save it for study.</b></p>
 
 <p>
-  よむ is a popup reader for Japanese plus 32 reading targets across websites,
-  manga, game text, PDFs, and subtitles. Japanese remains the deepest target.
+  よむ is a popup reader for 33 learning targets across websites, manga, game
+  text, PDFs, and subtitles. Japanese remains the deepest target.
   It runs as a userscript, works on desktop and mobile, and connects to Yomitan
   dictionaries, Anki, Jiten, Bunpro, JPDB, and WaniKani where those sources apply.
 </p>
@@ -52,8 +52,8 @@
 ## Why よむ
 
 - **Lookup anywhere:** choose text in the selected target on normal pages, OCR results, subtitles, and PDFs.
-- **Choose what you read:** first-run setup and Settings name every study target and show its readiness. Japanese has the full よむ path; the other 32 targets are labelled for reading and lookup. Choose any of the 32 definition languages separately, with opt-in translation that keeps the original definition underneath.
-- **Study the selected language:** local Study queues stay on the target in your profile, and a complete example sentence gets the same Recall gap in Spanish or Japanese. Audio-dependent Listen and Speak modes show when target audio is not yet available instead of silently disappearing.
+- **Choose what you read:** first-run setup requires an explicit target, with no Japanese preselection. All 33 targets support reading, mining, and review; Japanese adds the deepest furigana, pitch-accent, kanji, and grammar path. Choose any of the 32 definition languages separately, with opt-in translation that keeps the original definition underneath.
+- **Study the selected language:** local Study queues stay on the target in your profile, and a complete example sentence gets the same Recall gap in Spanish or Japanese. The Translation card follows that target and labels both source and result correctly; a provider-unavailable target says so instead of echoing or inventing a translation. Audio-dependent Listen and Speak modes show when target audio is not yet available instead of silently disappearing.
 - **Inspect grammar in context:** Japanese keeps its 307-rule local detector. Spanish, French, German, and Russian have bounded starter sets; every other target has one narrow, cited foundation construction. These are not equivalent inventories: the [coverage table](https://yomureader.com/reference/grammar) names each scope and source.
 - **Local-first parsing:** with imported dictionaries (offered during onboarding), text parsing runs entirely in your browser — no Jiten/JPDB calls, works offline. Switchable in Settings → Sources → Parsing.
 - **Mine and review while reading:** create Anki cards or add words to Academy, Jiten, Bunpro, or JPDB with source context; review Bunpro and currently due WaniKani assignments safely from their live queues.
@@ -61,7 +61,7 @@
 - **Keep connected sources consistent:** WaniKani definitions, mnemonics, account state, personal notes, pronunciation, kanji components, review queue, and stats sit alongside Jiten, Bunpro, and JPDB instead of becoming a separate workflow.
 - **Enhance the sites you study in:** on jpdb, Jiten, and Bunpro detail, lesson, and revealed review pages, よむ adds Immersion Kit examples and your other enabled dictionary sources directly to the native page. Jiten review cards prefetch one exact current-card search without exposing it on the question side or fanning out fallback traffic; every supported review surface mounts a centred, height-bounded video area immediately while dictionaries hydrate independently at full width.
 - **Read examples consistently:** Bunpro, Jiten, and JPDB use the same compact example rows, annotate the full Japanese sentence with furigana, and blur translations until you reveal them. Missing provider translations are filled with よむ's cached sentence translator. Bunpro also exposes labelled per-corpus frequency and pitch evidence, with pronunciation recordings available as an audio source that stays off until you enable it.
-- **Bring your dictionaries:** the starter follows both languages in your profile. For example, an English-speaking learner who chooses Spanish gets Spanish-headword terms with English definitions plus Spanish IPA in the popup's pronunciation row. Japanese uses that same row for pitch accent. Japanese-target profiles keep the Japanese starter. Install more from Yomu's immutable catalogue, or import your own Yomitan ZIPs, JMdict, kanji, pronunciation, pitch, and frequency dictionaries.
+- **Bring your dictionaries:** the starter follows both languages in your profile. For example, an English-speaking learner who chooses Spanish gets Spanish-headword terms with English definitions plus Spanish IPA in the popup's pronunciation row. Japanese uses that same row for pitch accent. Japanese-target profiles keep the Japanese starter. Install more from Yomu's immutable catalogue, which expands only when you ask and lists current downloadable archives rather than source-only guides or legacy builds, or import your own Yomitan ZIPs, JMdict, kanji, pronunciation, pitch, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, PC game capture through Yomu Gaming, YouTube subtitle mining, a local video reader, and a PDF reader. Dual subtitles can keep the native translation blurred until you reveal it, show it continuously, or hide it completely; concealment strength lives beside subtitle size in the player controls.
 - **Mobile-friendly:** works on iPhone/iPad through userscript apps, with touch-first lookup, 44px review controls, one-tap blurred-translation reveal, and mobile Anki handoff.
 - **Free and open source:** MIT-licensed, no account needed to start.
@@ -87,7 +87,7 @@ https://yomureader.com/yomu.user.js
 
 To update on Chrome or Edge, use **Tampermonkey Dashboard → Utilities → Check for userscript updates**. A browser warning that userscripts cannot be added is a disabled Tampermonkey permission, not a bad download host; the setup guide covers **Allow User Scripts** and Developer mode.
 
-Both browser stores are live and current: the Chrome Web Store serves 1.8.71 and Firefox Add-ons serves 1.8.72 (measured 2026-08-04). Safari is not published yet; `npm run build:extension` produces its package. The userscript and versioned extension packages on GitHub Releases remain available as direct install and testing paths, and the userscript channel usually leads the stores by a few patch releases.
+Chrome Web Store and Firefox Add-ons are supported release channels, but their review queues can lag the current GitHub release; each store listing shows the version it has approved. Safari is not published yet, while each GitHub release includes its Safari package alongside the userscript and versioned Chrome and Firefox packages.
 
 ## What It Does
 
@@ -105,7 +105,7 @@ Both browser stores are live and current: the Chrome Web Store serves 1.8.71 and
 
 - [Homepage PWA](https://yomureader.com/) installs as one Yomu shell with offline docs fallback and shortcuts to Study, Video, PDF, and setup.
 - [Video reader](https://yomureader.com/video-player/) for local video files and subtitles.
-- [PDF reader](https://yomureader.com/pdf-reader/) for Japanese PDFs and scanned pages.
+- [PDF reader](https://yomureader.com/pdf-reader/) for PDFs and scanned pages in the selected learning target.
 - [Yomu app](https://yomureader.com/study/) for an installable offline-first review queue, local dictionary and card Library, combined Stats, and Connections for Anki, Bunpro, Jiten, JPDB, and WaniKani. The local source is called **Academy**, and JPDB appears only after its key is configured. On iPhone/iPad use **Share → Add to Home Screen**; on Android use the browser's **Install app** action. The old `/newtab/` URL remains a compatibility route.
 - [Yomu Gaming](https://yomureader.com/learn/manga-and-games#read-a-game-frame) for first-party PC game capture and lookup.
 - [Learning path](https://yomureader.com/learn/) for the approach, real-product screenshots and detailed behavior.
@@ -184,6 +184,8 @@ GreasyFork does not provide a general write API for unattended publishing. After
 https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.user.js
 ```
 
+That sync updates the userscript and its metadata header, but not the listing's **Additional info** prose. When a feature release changes product scope or positioning, update that field in the signed-in GreasyFork editor and verify both the public `.meta.js` and `.user.js` after the main-branch sync.
+
 </details>
 
 <details>
@@ -221,7 +223,7 @@ creating a code. A code is sent to the email in the provider's verified payment
 notice; card payments also keep the same-browser claim page as a fallback.
 Enter it within 30 days with the Google account you choose.
 
-If よむ helps you read more Japanese, a star makes it easier for other learners to find.
+If よむ helps you read more in the language you are learning, a star makes it easier for other learners to find.
 
 <a href="https://star-history.com/#HRussellZFAC023/yomu-reader&Date">
   <img src="https://api.star-history.com/svg?repos=HRussellZFAC023/yomu-reader&type=Date" alt="Star history chart for yomu-reader" width="600" />
@@ -241,7 +243,8 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [Kanjium](https://github.com/mifunetoshiro/kanjium) for documented pitch-accent source data and licensing research around local pitch dictionaries.
 - [Kuuuube's Yomitan dictionaries](https://github.com/Kuuuube/yomitan-dictionaries) for the recommended JPDBv2㋕ local frequency package.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
-- [KanjiVG](https://github.com/KanjiVG/kanjivg), [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas), [Kanji Alive](https://github.com/kanjialive/kanji-data-media), [The Kanji Map](https://thekanjimap.com/), and [Uchisen](https://uchisen.com/) for kanji data, presentation, and study references.
+- [KanjiVG](https://github.com/KanjiVG/kanjivg), [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas), [Kanji Alive](https://github.com/kanjialive/kanji-data-media), and [The Kanji Map](https://thekanjimap.com/) for kanji data, presentation, and study references.
+- [Uchisen](https://uchisen.com/) is available only as an optional outbound study link; よむ does not download or display Uchisen content.
 - [NihongoTube](https://www.nihongotube.app/) for the Japanese-only YouTube immersion idea as reference only.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), and [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for optional JPDB-side behavior references.
 - [Yomikiri](https://github.com/BlueGreenMagick/yomikiri), [Tofugu grammar guides](https://www.tofugu.com/japanese-grammar/), Ultimate Yomitan Audio, and local audio server references for workflow inspiration.

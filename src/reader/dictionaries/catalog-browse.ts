@@ -14,8 +14,9 @@ export { headwordLanguageEndonym, headwordLanguageName } from '../languages/disp
 /**
  * Every archive Yomu mirrors is installable from Settings, not only the small
  * per-language recommendation seed. The seed answers "what should I install?";
- * this module answers "what else is there?" from the same frozen catalogue, so
- * neither list is a hand-maintained copy of the mirror.
+ * this module answers "what else can I install?" from the same frozen catalogue,
+ * so neither list is a hand-maintained copy of the mirror. Provenance-only rows
+ * remain in the catalogue ledger, but never become dead-end Guide cards here.
  */
 
 export interface CatalogBrowseGroup {
@@ -208,7 +209,7 @@ function groupShelfByCategory(
  */
 function buildCatalogBrowseShelves(catalog: DictionaryCatalogManifest): readonly CatalogBrowseShelf[] {
     const entriesByLanguage = new Map<string, DictionaryCatalogEntry[]>();
-    for (const entry of catalog.entries) {
+    for (const entry of catalog.entries.filter(entry => catalogBrowseEntryIsInstallable(catalog, entry))) {
         for (const language of entry.headwordLanguages) {
             const bucket = entriesByLanguage.get(language);
             if (bucket) bucket.push(entry);
@@ -224,6 +225,20 @@ function buildCatalogBrowseShelves(catalog: DictionaryCatalogManifest): readonly
         ),
     }));
     return Object.freeze(shelves.sort(compareCatalogBrowseShelves(catalog.targetLanguage)));
+}
+
+/**
+ * Source-only catalogue rows are release and licensing evidence, not a learner
+ * action. Legacy variants remain in that evidence even if a future mirror
+ * refresh publishes their bytes, so they are rejected independently of the
+ * download check instead of being allowed to reappear as install cards.
+ */
+function catalogBrowseEntryIsInstallable(
+    catalog: DictionaryCatalogManifest,
+    entry: DictionaryCatalogEntry,
+): boolean {
+    const legacy = /(?:^|-)legacy(?:-|$)/iu.test(entry.id) || /\blegacy\b/iu.test(entry.title);
+    return !legacy && dictionaryEntryDownload(entry, catalog.objectsBaseUrl) !== undefined;
 }
 
 function compareCatalogBrowseShelves(targetLanguage: string) {

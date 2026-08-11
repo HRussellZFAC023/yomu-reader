@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AnkiConnectClient, buildYomuAnkiPreviewFields, canDirectFetchAnkiConnectFrom, canUseMobileAnkiHandoff, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
+import { ankiStatusIndexSettingsKey } from '../../src/reader/anki/account-context';
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { applyComputedAnkiNextReviews, reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
 import { applyNewCardStepPreviews } from '../../src/reader/anki/new-tab';
@@ -1101,7 +1102,7 @@ describe('Anki status-only lookup cache', () => {
         };
         internals.statusIndex = {
             version: 1,
-            settingsKey: JSON.stringify({ url: DEFAULT_SETTINGS.ankiConnectUrl || 'http://127.0.0.1:8765' }),
+            settingsKey: ankiStatusIndexSettingsKey(DEFAULT_SETTINGS),
             syncedAt: Date.now(),
             checkedAt: Date.now(),
             cardCount: 1,
@@ -1117,10 +1118,12 @@ describe('Anki status-only lookup cache', () => {
 
         const results = await client.findCachedStatusBatch([first, duplicate, missing]);
 
-        expect(results.map(result => result.state)).toEqual(['known', 'known', 'not-in-deck']);
-        expect(results[0]?.primary?.noteId).toBe(55);
-        expect(results[1]?.primary?.noteId).toBe(55);
-        expect(results[2]?.trusted).toBeUndefined();
+        expect(results).toMatchObject([
+            { state: 'known', primary: { noteId: 55 } },
+            { state: 'known', primary: { noteId: 55 } },
+            { state: 'not-in-deck' },
+        ]);
+        expect(results[2]).toEqual({ state: 'not-in-deck', notes: [], primary: null });
         expect(loadStatusEntriesForCards).toHaveBeenCalledTimes(1);
         expect(loadStatusEntriesForCards.mock.calls[0]?.[1]).toEqual([first, missing]);
     });
@@ -1184,7 +1187,7 @@ describe('Anki status-only lookup cache', () => {
         localStorage.clear();
         const actions: string[] = [];
         const ankiConnectUrl = `${window.location.origin}/anki-dirty-rebuild`;
-        const settingsKey = JSON.stringify({ url: ankiConnectUrl });
+        const settingsKey = ankiStatusIndexSettingsKey({ ...DEFAULT_SETTINGS, ankiConnectUrl });
         const now = Date.now();
         storeDirtyStatusIndex({
             settingsKey,

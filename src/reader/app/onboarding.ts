@@ -1,19 +1,15 @@
 import { APP_NAME } from './constants';
 import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
-import { uiText, type UiCopyKey } from '../app/i18n';
+import { formatUiText, uiText, type UiCopyKey } from '../app/i18n';
 import { Logger } from './logger';
-import { jpOnlyOn, languageFamilyIncludes, syncLanguageFamilyDom } from '../settings/language-gating';
+import { jpOnlyOn, languageFamilyIncludes } from '../settings/language-gating';
 import { settingsText } from '../settings/settings-text';
 import { changedSettingsKeys, defaultDictionaryLookupLinks, defaultLookupLinkMode, formatShortcutEvent, normalizeInterfaceLanguage, sanitizeAccentColor, saveSettings } from '../settings/index';
 import type { InterfaceLanguage, ReaderSettings } from './types';
 import { ocrInteractionModeFromSettings } from '../ocr/mode';
 import { applyOverlayPageScale } from '../ui/page-scale';
 import {
-    activateLanguageProfileForOutputLanguage,
     activeLanguageProfile,
-    canonicalTagForLearningTarget,
-    canonicalTagForSlice1Language,
-    learningTargetRosterIdForTag,
     slice1LanguageIdForTag,
     type LearningTargetRosterId,
 } from '../languages';
@@ -24,9 +20,9 @@ import {
     type LearnerLanguageId,
 } from '../locales';
 import {
-    isSelectableStudyTarget,
-    populateStudyTargetSelect,
-} from './study-target-picker';
+    OnboardingTargetChoice,
+    updateOnboardingLanguageProfile,
+} from './onboarding-target-choice';
 
 const log = Logger.scope('Onboarding');
 const ONBOARDING_ACCENT_SWATCHES = ['#5ea780', '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#0891b2'] as const;
@@ -68,7 +64,8 @@ export class OnboardingController {
     private backdrop?: HTMLElement;
     private languageSelect?: HTMLSelectElement;
     private learnerLanguageSelect?: HTMLSelectElement;
-    private targetLanguageSelect?: HTMLSelectElement;
+    private targetChoice?: OnboardingTargetChoice;
+    private targetOwnedOptions?: HTMLFieldSetElement;
     private themeSwitch?: HTMLButtonElement;
     private accentColorInput?: HTMLInputElement;
     private pendingAccentPreviewColor?: string;
@@ -85,7 +82,13 @@ export class OnboardingController {
      * "{language} text on webpages" (b20).
      */
     private text(key: Parameters<typeof uiText>[1]): string {
-        return settingsText(this.options.getSettings().interfaceLanguage)(key);
+        const language = this.options.getSettings().interfaceLanguage;
+        const selectedTarget = this.targetChoice?.selectedTarget();
+        if (selectedTarget) return settingsText(language, selectedTarget)(key);
+        const message = uiText(language, key);
+        return message.includes('{language}')
+            ? formatUiText(language, key, { language: uiText(language, 'onboardingUnselectedTargetName') })
+            : message;
     }
 
     private pageScanModeInputs: HTMLInputElement[] = [];
@@ -93,20 +96,38 @@ export class OnboardingController {
     private manualPageScanShortcutInput?: HTMLInputElement;
     private manualPageScanShortcutLabel?: HTMLElement;
     private hoverLookupShortcutInput?: HTMLInputElement;
+    private completionPromise: Promise<void> = Promise.resolve();
+    private resolveCompletion?: () => void;
+    private onboardingEntrySettings?: ReaderSettings;
 
     constructor(private readonly options: OnboardingOptions) {}
 
     async showIfNeeded(): Promise<boolean> {
-        if (this.options.getSettings().onboardingSeen) {
+        const settings = this.options.getSettings();
+        if (settings.onboardingSeen && settings.learningTargetChosen) {
             return false;
         }
         this.show();
         return true;
     }
 
+    async waitForCompletion(): Promise<void> {
+        const settings = this.options.getSettings();
+        if (settings.onboardingSeen && settings.learningTargetChosen) return;
+        await this.completionPromise;
+    }
+
     private show(): void {
-        log.info('Showing onboarding', { language: this.options.getSettings().interfaceLanguage });
+        const entrySettings = this.onboardingEntrySettings ?? this.options.getSettings();
+        log.info('Showing onboarding', { language: entrySettings.interfaceLanguage });
         this.close();
+        // Interface language, theme, and accent previews publish immutable
+        // settings snapshots before completion. Keep the pre-preview snapshot
+        // for the eventual intent diff, including across an accidental re-show.
+        this.onboardingEntrySettings = entrySettings;
+        this.completionPromise = new Promise(resolve => {
+            this.resolveCompletion = resolve;
+        });
         this.backdrop = document.createElement('div');
         this.backdrop.className = 'jpdb-reader-backdrop jpdb-reader-onboarding-backdrop';
         this.backdrop.dataset.jpdbReaderRoot = 'true';
@@ -127,7 +148,7 @@ export class OnboardingController {
         closeButton.title = this.text( 'closeOnboarding');
         closeButton.setAttribute('aria-label', this.text( 'closeOnboarding'));
         setInnerHtml(closeButton, closeIcon());
-        closeButton.addEventListener('click', () => void this.complete(false));
+        closeButton.addEventListener('click', () => this.dismiss());
 
         const eyebrow = element('div', 'jpdb-reader-onboarding-eyebrow', this.text( 'onboardingEyebrow'));
         const title = element('h2', '', APP_NAME);
@@ -170,23 +191,13 @@ export class OnboardingController {
         });
         learnerLanguage.append(learnerLanguageText, this.learnerLanguageSelect);
 
-        const targetLanguage = document.createElement('label');
-        targetLanguage.className = 'jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language';
-        const targetLanguageText = element(
-            'span',
-            '',
-            onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage,
-        );
-        targetLanguageText.dataset.onboardingMultilingualCopy = 'targetLanguage';
-        this.targetLanguageSelect = document.createElement('select');
-        this.targetLanguageSelect.name = 'targetLanguage';
-        this.targetLanguageSelect.setAttribute('autocomplete', 'language');
-        populateStudyTargetSelect(
-            this.targetLanguageSelect,
+        this.targetChoice = new OnboardingTargetChoice(
+            this.options.getSettings(),
             this.options.getSettings().interfaceLanguage,
-            onboardingTargetLanguage(this.options.getSettings()),
+            onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage,
+            this.text('onboardingTargetRequired'),
         );
-        targetLanguage.append(targetLanguageText, this.targetLanguageSelect);
+        const initialTarget = this.targetChoice.selectedTarget();
 
         const language = document.createElement('label');
         language.className = 'jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language';
@@ -208,7 +219,7 @@ export class OnboardingController {
 
         const preferences = document.createElement('div');
         preferences.className = 'jpdb-reader-onboarding-preferences';
-        preferences.append(learnerLanguage, targetLanguage, language, this.createThemeToggle());
+        preferences.append(learnerLanguage, this.targetChoice.element, language, this.createThemeToggle());
 
         const accentPicker = document.createElement('fieldset');
         accentPicker.className = 'jpdb-reader-onboarding-accent';
@@ -247,6 +258,7 @@ export class OnboardingController {
 
         const immersionOptions = document.createElement('fieldset');
         immersionOptions.className = 'jpdb-reader-onboarding-options';
+        this.targetOwnedOptions = immersionOptions;
         const immersionLegend = document.createElement('legend');
         immersionLegend.textContent = this.text( 'onboardingImmersionOptions');
         this.hoverLookupShortcutInput = shortcutTextInput(
@@ -357,12 +369,12 @@ export class OnboardingController {
             const selected = learnerLanguageById(learnerLanguage);
             log.info('Onboarding learner language changed', {
                 learnerLanguage,
-                targetLanguage: this.targetLanguageSelect?.value,
+                targetLanguage: this.targetChoice?.select.value,
             });
             this.learnerLanguageSelect?.setAttribute('lang', selected.runtimeLocale);
             this.learnerLanguageSelect?.setAttribute('dir', selected.direction);
         });
-        this.targetLanguageSelect.addEventListener('change', () => this.syncTargetLanguageSelection());
+        this.targetChoice.select.addEventListener('change', () => this.syncTargetLanguageSelection());
         this.panel.addEventListener('click', event => {
             this.handleWordLookup(event);
         });
@@ -372,14 +384,20 @@ export class OnboardingController {
         });
 
         this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
-        syncLanguageFamilyDom(this.panel, this.targetLanguageSelect.value);
+        this.targetChoice.syncAvailability(
+            this.panel,
+            this.targetOwnedOptions,
+            this.text('onboardingTargetRequired'),
+            initialTarget,
+        );
+        this.targetChoice.syncLanguageFamily(this.panel, initialTarget);
         this.syncThemeSwitch();
         this.syncAccentPicker(this.accentColorInput.value);
         this.syncManualPageScanShortcut();
         applyOverlayPageScale(this.panel);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
-        this.annotateJapanese();
+        if (initialTarget === 'ja') this.annotateJapanese();
     }
 
     private annotateJapanese(): void {
@@ -403,18 +421,29 @@ export class OnboardingController {
     }
 
     private syncTargetLanguageSelection(): void {
-        const select = this.targetLanguageSelect;
-        if (!select) return;
-        const selected = select.selectedOptions[0];
-        if (!selected) return;
-        select.lang = selected.lang;
-        select.dir = selected.dir;
-        this.syncYoutubeImmersionChoice(selected.value);
-        syncLanguageFamilyDom(this.panel!, selected.value);
+        const choice = this.targetChoice;
+        const panel = this.panel;
+        if (!choice || !panel) return;
+        const selectedTarget = choice.selectedTarget();
+        choice.syncAvailability(
+            panel,
+            this.targetOwnedOptions,
+            this.text('onboardingTargetRequired'),
+            selectedTarget,
+        );
+        choice.syncLanguageFamily(panel, selectedTarget);
+        this.syncYoutubeImmersionChoice(selectedTarget);
         this.localize(this.options.getSettings().interfaceLanguage);
     }
 
-    private syncYoutubeImmersionChoice(targetLanguage: string): void {
+    private dismiss(): void {
+        this.close();
+        this.resolveCompletion?.();
+        this.resolveCompletion = undefined;
+    }
+
+    private syncYoutubeImmersionChoice(targetLanguage: string | null): void {
+        if (!targetLanguage) return;
         const input = this.youtubeImmersionInput;
         if (!input) return;
         if (this.youtubeImmersionChoiceTouched) return;
@@ -424,7 +453,7 @@ export class OnboardingController {
     private localize(language: InterfaceLanguage): void {
         // Same factory as first paint, or a `{language}` label relabels into its raw
         // token on a live interface-language switch (b20).
-        const text = settingsText(language, this.targetLanguageSelect?.value);
+        const text = (key: Parameters<typeof uiText>[1]): string => this.text(key);
         const panel = this.panel;
         if (!panel) return;
         panel.setAttribute('aria-label', text('welcomeLabel'));
@@ -473,16 +502,7 @@ export class OnboardingController {
             const option = this.languageSelect?.querySelector<HTMLOptionElement>(`option[value="${value}"]`);
             if (option) option.textContent = text;
         });
-        if (this.targetLanguageSelect) {
-            populateStudyTargetSelect(
-                this.targetLanguageSelect,
-                language,
-                selectedTargetId(
-                    this.targetLanguageSelect,
-                    onboardingTargetLanguage(this.options.getSettings()),
-                ),
-            );
-        }
+        this.targetChoice?.localize(language);
         const features = Array.from(panel.querySelectorAll('.jpdb-reader-onboarding-features > li'));
         features.forEach((feature, index) => {
             const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
@@ -494,33 +514,62 @@ export class OnboardingController {
         const closeButton = panel.querySelector('[data-onboarding-action="close"]');
         closeButton?.setAttribute('aria-label', text('closeOnboarding'));
         closeButton?.setAttribute('title', text('closeOnboarding'));
+        this.targetChoice?.syncAvailability(
+            panel,
+            this.targetOwnedOptions,
+            this.text('onboardingTargetRequired'),
+        );
         this.syncThemeSwitch();
         // Re-annotate: replaceChildren above reset every label to plain text.
-        this.annotateJapanese();
+        if (this.targetChoice?.selectedTarget() === 'ja') this.annotateJapanese();
     }
 
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {
+        const targetLanguage = this.targetChoice?.selectedTarget();
+        if (!targetLanguage) {
+            this.reportMissingTarget();
+            return;
+        }
+        await this.persistCompletedOnboarding(openSettings, targetLanguage);
+    }
+
+    private reportMissingTarget(): void {
+        this.targetChoice?.syncAvailability(
+            this.panel,
+            this.targetOwnedOptions,
+            this.text('onboardingTargetRequired'),
+            null,
+        );
+        this.targetChoice?.reportValidity();
+    }
+
+    private async persistCompletedOnboarding(
+        openSettings: boolean | 'dictionaries',
+        targetLanguage: LearningTargetRosterId,
+    ): Promise<void> {
         const done = log.time('Onboarding complete', { openSettings });
-        const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
+        const installOfflineDictionaries = this.shouldInstallOfflineDictionaries();
         const previousSettings = this.options.getSettings();
-        const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
+        const intentBaseline = this.onboardingIntentBaseline(previousSettings);
+        const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage);
         try {
-            this.options.setSettings(settings);
             await saveSettings(settings, {
                 persistPreferredJapaneseSiteLanguage:
                     previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
                 // Every field the onboarding panel's own controls moved. It used to
                 // declare only the 17 allowlisted keys, so a theme or hotkey chosen
                 // here was not intent and a legacy store could replay the old one.
-                explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings),
+                explicitUserChoiceKeys: changedSettingsKeys(intentBaseline, settings),
             });
-            this.close();
-            await this.options.onComplete?.(settings);
-            if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
-            this.openPostOnboardingSettings(openSettings);
+            // The learner's target becomes runtime truth only after its durable
+            // write succeeds. Publishing it first lets a rejected write start
+            // target-owned work and makes dismissing the still-open chooser
+            // look like a completed setup until reload.
+            this.options.setSettings(settings);
+            await this.commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries);
             log.info('Onboarding completed', { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
         } catch (error) {
-            this.options.onPersistenceFailed?.(previousSettings);
+            this.notifyPersistenceFailed(previousSettings);
             log.warn('Onboarding completion failed', { openSettings, error });
             throw error;
         } finally {
@@ -528,7 +577,41 @@ export class OnboardingController {
         }
     }
 
-    private completedOnboardingSettings(openSettings: boolean | 'dictionaries', installOfflineDictionaries: boolean): ReaderSettings {
+    private shouldInstallOfflineDictionaries(): boolean {
+        return this.offlineDictionariesInput?.checked === true;
+    }
+
+    private onboardingIntentBaseline(previousSettings: ReaderSettings): ReaderSettings {
+        return this.onboardingEntrySettings ?? previousSettings;
+    }
+
+    private notifyPersistenceFailed(previousSettings: ReaderSettings): void {
+        this.options.onPersistenceFailed?.(previousSettings);
+    }
+
+    private async commitCompletedOnboarding(
+        settings: ReaderSettings,
+        openSettings: boolean | 'dictionaries',
+        installOfflineDictionaries: boolean,
+    ): Promise<void> {
+        this.close();
+        await this.options.onComplete?.(settings);
+        if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
+        this.openPostOnboardingSettings(openSettings);
+        this.finishCompletionWaiter();
+    }
+
+    private finishCompletionWaiter(): void {
+        const resolve = this.resolveCompletion;
+        this.resolveCompletion = undefined;
+        resolve?.();
+    }
+
+    private completedOnboardingSettings(
+        openSettings: boolean | 'dictionaries',
+        installOfflineDictionaries: boolean,
+        targetLanguage: LearningTargetRosterId,
+    ): ReaderSettings {
         const current = this.options.getSettings();
         const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
         const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
@@ -537,11 +620,7 @@ export class OnboardingController {
             this.learnerLanguageSelect,
             onboardingLearnerLanguage(current),
         );
-        const targetLanguage = selectedTargetId(
-            this.targetLanguageSelect,
-            onboardingTargetLanguage(current),
-        );
-        const languageProfileSelection = updateActiveOnboardingLanguageProfile(
+        const languageProfileSelection = updateOnboardingLanguageProfile(
             current,
             learnerLanguage,
             targetLanguage,
@@ -550,6 +629,7 @@ export class OnboardingController {
         return {
             ...current,
             onboardingSeen: true,
+            learningTargetChosen: true,
             jpdbDefinitionsEnabled: true,
             localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
             youtubeImmersionEnabled: checkboxValue(
@@ -595,7 +675,8 @@ export class OnboardingController {
         this.backdrop = undefined;
         this.languageSelect = undefined;
         this.learnerLanguageSelect = undefined;
-        this.targetLanguageSelect = undefined;
+        this.targetChoice = undefined;
+        this.targetOwnedOptions = undefined;
         this.themeSwitch = undefined;
         this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
@@ -607,6 +688,7 @@ export class OnboardingController {
         this.manualPageScanShortcutInput = undefined;
         this.manualPageScanShortcutLabel = undefined;
         this.hoverLookupShortcutInput = undefined;
+        this.onboardingEntrySettings = undefined;
     }
 
     private createThemeToggle(): HTMLElement {
@@ -771,52 +853,6 @@ function selectedLearnerLanguage(
 ): LearnerLanguageId {
     const value = select?.value;
     return value && isLearnerLanguageId(value) ? value : fallback;
-}
-
-function onboardingTargetLanguage(settings: ReaderSettings): LearningTargetRosterId {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? 'ja';
-}
-
-function selectedTargetId(
-    select: HTMLSelectElement | undefined,
-    fallback: LearningTargetRosterId,
-): LearningTargetRosterId {
-    const selected = learningTargetRosterIdForTag(select?.value);
-    return selected && isSelectableStudyTarget(selected) ? selected : fallback;
-}
-
-function updateActiveOnboardingLanguageProfile(
-    settings: ReaderSettings,
-    learnerLanguage: LearnerLanguageId,
-    targetLanguage: LearningTargetRosterId,
-    interfaceLanguage: InterfaceLanguage,
-): Pick<ReaderSettings, 'languageProfiles' | 'activeLanguageProfileId'> {
-    const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage);
-    const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage);
-    const activated = activateLanguageProfileForOutputLanguage(
-        settings.languageProfiles,
-        settings.activeLanguageProfileId,
-        learnerLanguageTag,
-        {
-            targetLanguage: targetLanguageTag,
-            uiLocale: interfaceLanguage,
-            parserProvider: settings.parserProvider,
-        },
-    );
-    return {
-        activeLanguageProfileId: activated.activeProfileId,
-        languageProfiles: activated.profiles.map(profile => profile.id === activated.activeProfileId
-        ? {
-            ...profile,
-            outputLanguage: learnerLanguageTag,
-            learnerLanguage: learnerLanguageTag,
-            targetLanguage: targetLanguageTag,
-            uiLocale: interfaceLanguage,
-            parserProvider: settings.parserProvider,
-        }
-        : profile),
-    };
 }
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className: string, text: string): HTMLElementTagNameMap[K] {

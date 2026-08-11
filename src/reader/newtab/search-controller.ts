@@ -112,6 +112,30 @@ interface SearchTargetSnapshot {
     generation: number;
 }
 
+interface SearchCurrentness {
+    rootConnected: boolean;
+    route: 'study' | 'search' | 'stats';
+    generation: number;
+    targetLanguage: ReturnType<typeof activeLearningTargetLanguage>;
+    targetGeneration: number;
+    providerContext: string;
+    query: string;
+}
+
+const SEARCH_CURRENTNESS_POLICY_FIELDS = [
+    'rootConnected',
+    'route',
+    'generation',
+    'targetLanguage',
+    'targetGeneration',
+    'providerContext',
+    'query',
+] as const satisfies readonly (keyof SearchCurrentness)[];
+
+function searchCurrentnessMatches(current: SearchCurrentness, expected: SearchCurrentness): boolean {
+    return SEARCH_CURRENTNESS_POLICY_FIELDS.every(field => current[field] === expected[field]);
+}
+
 // The slots the search surface actually touches (subset of the controller's
 // NewTabStudySlots) — kept structural so the controller's private slot shape
 // need not be exported.
@@ -144,7 +168,6 @@ export interface NewTabSearchControllerDeps {
         details: KanjiDetailBundle,
     ): HTMLElement;
     keywordFromDetails(card: JPDBCard, jpdb: JpdbKanjiInfo | null, jiten: JitenKanjiInfo | null, rtk: RtkInfo | null): string;
-    renderNewTabUchisen(root: HTMLElement, kanji: string): void;
     renderNewTabKanjiImmersion(root: HTMLElement, kanji: string): void;
     sourceAttributes(sourceStateKey: string, initiallyExpanded?: boolean): string;
     dictionaryLabel(name: string): string;
@@ -159,6 +182,7 @@ export interface NewTabSearchControllerDeps {
     syncMode(root: HTMLElement): void;
     syncThemeToggle(root: HTMLElement): void;
     shortParseOptions(): Parameters<NonNullable<NewTabControllerDependencies['parseContent']>>[1];
+    providerContext(): string;
     // Browse seam: the idle Search tab / scoped search hands off to the My Cards
     // browser, which stays owned by the controller.
     browseScopeActive(): boolean;
@@ -181,6 +205,7 @@ export class NewTabSearchController {
     private searchGeneration = 0;
     private searchTargetLanguage = activeLearningTargetLanguage();
     private searchTargetGeneration = activeLearningTargetGeneration();
+    private searchProviderContext = '';
     private searchDebounce: ReturnType<typeof setTimeout> | undefined;
     private searchQuery = '';
     private handlingSearchPopstate = false;
@@ -216,6 +241,7 @@ export class NewTabSearchController {
         this.searchGeneration++;
         this.searchTargetLanguage = activeLearningTargetLanguage();
         this.searchTargetGeneration = activeLearningTargetGeneration();
+        this.searchProviderContext = this.deps.providerContext();
         this.clearSearchDebounce();
         this.searchQuery = '';
         this.searchWordCardCache.clear();
@@ -223,6 +249,15 @@ export class NewTabSearchController {
         this.clearSearchHandwritingDebounce();
         this.searchHandwritingStrokes = [];
         this.searchHandwritingShapeCandidateCache.clear();
+    }
+
+    // Account/config changes invalidate remote results without discarding the
+    // learner's query; renderSearch will immediately rerun that same query.
+    invalidateProviderContext(): void {
+        this.searchGeneration++;
+        this.searchProviderContext = this.deps.providerContext();
+        this.clearSearchDebounce();
+        this.searchWordCardCache.clear();
     }
 
     destroy(): void {
@@ -709,6 +744,7 @@ export class NewTabSearchController {
         const target = activeLearningTarget();
         this.searchTargetLanguage = target.language;
         this.searchTargetGeneration = activeLearningTargetGeneration();
+        this.searchProviderContext = this.deps.providerContext();
         const targetGeneration = this.searchTargetGeneration;
         const query = normalizeSearchQuery(rawQuery);
         this.setSearchQuery(root, query);
@@ -731,12 +767,23 @@ export class NewTabSearchController {
     }
 
     private isCurrentSearch(root: HTMLElement, generation: number, query: string): boolean {
-        return root.isConnected
-            && this.currentRoute() === 'search'
-            && this.searchGeneration === generation
-            && activeLearningTargetLanguage() === this.searchTargetLanguage
-            && activeLearningTargetGeneration() === this.searchTargetGeneration
-            && normalizeSearchQuery(this.searchQuery) === query;
+        return searchCurrentnessMatches({
+            rootConnected: root.isConnected,
+            route: this.currentRoute(),
+            generation: this.searchGeneration,
+            targetLanguage: activeLearningTargetLanguage(),
+            targetGeneration: activeLearningTargetGeneration(),
+            providerContext: this.deps.providerContext(),
+            query: normalizeSearchQuery(this.searchQuery),
+        }, {
+            rootConnected: true,
+            route: 'search',
+            generation,
+            targetLanguage: this.searchTargetLanguage,
+            targetGeneration: this.searchTargetGeneration,
+            providerContext: this.searchProviderContext,
+            query,
+        });
     }
 
     private captureTargetSnapshot(): SearchTargetSnapshot {
@@ -752,7 +799,7 @@ export class NewTabSearchController {
     }
 
     private targetSnapshotSignature(snapshot: SearchTargetSnapshot): string {
-        return `${snapshot.target.id}:${snapshot.generation}`;
+        return `${snapshot.target.id}:${snapshot.generation}:${this.deps.providerContext()}`;
     }
 
     private async loadSearchResults(
@@ -1285,7 +1332,6 @@ export class NewTabSearchController {
             kanjiCard.kanjiKeyword ? el('span', { class: 'jpdb-reader-newtab-search-kanji-item-keyword' }, kanjiCard.kanjiKeyword) : null,
         ),
         kanjiDetail);
-        this.deps.renderNewTabUchisen(kanjiDetail, item.kanji);
         this.deps.renderNewTabKanjiImmersion(kanjiDetail, item.kanji);
         return itemRoot;
     }
@@ -1306,7 +1352,6 @@ export class NewTabSearchController {
             const localMeanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
             card.kanjiKeyword = this.deps.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || '';
             replaceChildrenWith(existing, this.deps.renderKanjiDetails(card, kanji, details));
-            this.deps.renderNewTabUchisen(existing, kanji);
             this.deps.renderNewTabKanjiImmersion(existing, kanji);
             void this.deps.getDependencies().parseContent?.(existing);
         }).catch(error => {

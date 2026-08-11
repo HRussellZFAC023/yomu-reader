@@ -1,6 +1,6 @@
 # よむ (Yomu)
 
-> よむ is a free, open-source Japanese immersion reader. It turns Japanese text, manga images, PC game captures, PDFs, and video subtitles into tappable lookup surfaces with readings, meanings, kanji details, audio, example sentences, and Anki/Jiten/JPDB study actions.
+> よむ is a free, open-source reader for 33 learning languages. It turns web text, images, PC game captures, PDFs, and video subtitles into tappable lookup surfaces with target-aware readings or pronunciation, meanings, audio, example sentences, and study actions. Japanese adds furigana, pitch accent, kanji detail, and deeper grammar.
 
 ## Primary Links
 
@@ -18,7 +18,7 @@
 - [Yomu Gaming](https://yomureader.com/tools/yomu-gaming): First-party desktop app for PC game capture and lookup.
 - [Furigana reader](https://yomureader.com/tools/furigana-reader): Furigana and reading assistance.
 - [Kanji stroke order](https://yomureader.com/tools/kanji-stroke-order): Kanji drilldown and stroke diagrams.
-- [Study page](https://yomureader.com/tools/study-page): Browser new-tab study surface.
+- [Study page](https://yomureader.com/tools/study-page): Standalone vocabulary Study surface.
 - [YouTube Japanese](https://yomureader.com/tools/youtube-japanese): Japanese-focused YouTube filtering and subtitle support.
 
 ## Guides

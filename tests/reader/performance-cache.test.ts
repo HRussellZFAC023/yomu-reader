@@ -885,7 +885,10 @@ describe('performance cache bounds', () => {
             cachedTranslationContent(sentence: string): Promise<unknown>;
             loadTranslationContent(sentence: string): Promise<unknown>;
         };
-        testable.loadTranslationContent = vi.fn(async sentence => ({ tokens: [], translated: sentence }));
+        testable.loadTranslationContent = vi.fn(async sentence => ({
+            tokens: Promise.resolve([]),
+            translation: { text: sentence, outputLanguage: 'en' },
+        }));
 
         for (let index = 0; index < 161; index++) {
             await testable.cachedGrammarHints(`これは${index}です。`);
@@ -929,13 +932,27 @@ describe('performance cache bounds', () => {
         popover.append(container);
         document.body.append(popover);
         const testable = controller as unknown as {
-            applyTranslation(popover: HTMLElement, sentence: string, container: HTMLElement, translation: { tokens: Promise<JPDBToken[]>; translated: string }): void;
+            studyCacheKey(sentence: string): string;
+            applyTranslation(
+                popover: HTMLElement,
+                sentence: string,
+                container: HTMLElement,
+                translation: {
+                    tokens: Promise<JPDBToken[]>;
+                    translation: { text: string; outputLanguage: string };
+                },
+                requestKey: string,
+            ): void;
         };
 
         try {
             // tokens now arrive as a promise (parsing never gates the MEANING),
             // so the container-scoped Anki enrichment runs once tokens resolve.
-            testable.applyTranslation(popover, '単語2です。', container, { tokens: Promise.resolve([token]), translated: 'word two' });
+            const sentence = '単語2です。';
+            testable.applyTranslation(popover, sentence, container, {
+                tokens: Promise.resolve([token]),
+                translation: { text: 'word two', outputLanguage: 'en' },
+            }, testable.studyCacheKey(sentence));
             await Promise.resolve();
             await Promise.resolve();
 

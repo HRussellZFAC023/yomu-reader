@@ -16,7 +16,7 @@ const PUBLIC_PROXY_ALLOWED_REQUEST_HEADERS = new Set([
   "range",
   "x-forcecaf",
 ]);
-const PUBLIC_PROXY_ALLOWLIST_VERSION = "2026-07-19";
+const PUBLIC_PROXY_ALLOWLIST_VERSION = "2026-08-10-uchisen-retired";
 // Transient gateway / connection / TLS failures where a single retry helps.
 // Deliberately EXCLUDES 500 (the app itself errored) and 503 (the server is
 // explicitly overloaded / rate-limiting) — retrying those just piles more load
@@ -314,9 +314,7 @@ type PublicProxyTargetKind =
   | "jpdb-kanji"
   | "jpdb-search"
   | "jpdb-vocabulary"
-  | "known-public-audio"
-  | "uchisen-image"
-  | "uchisen-kanji";
+  | "known-public-audio";
 
 interface PublicProxyPolicy {
   allowed: boolean;
@@ -365,10 +363,8 @@ function statusResponse(request: Request, env: Env): Response {
       "apiv2express.immersionkit.com",
       "assets.languagepod101.com",
       "cdn.innovativelanguage.com",
-      "ik.imagekit.io",
       "jisho.org",
       "jpdb.io",
-      "uchisen.com",
       "d1pra95f92lrn3.cloudfront.net",
       "d1vjc5dkcd3yh2.cloudfront.net",
       BUNPRO_AUDIO_CDN_HOST,
@@ -541,8 +537,6 @@ function publicProxyTargetKind(target: URL): PublicProxyTargetKind | null {
     path.startsWith("/audio/")
   ) return "known-public-audio";
   if (target.hostname === BUNPRO_AUDIO_CDN_HOST && path.startsWith("/audio/")) return "bunpro-audio";
-  if (target.hostname === "uchisen.com" && path.startsWith("/kanji/")) return "uchisen-kanji";
-  if (target.hostname === "ik.imagekit.io" && path.startsWith("/uchisen/generated/saved/")) return "uchisen-image";
   if (
     (target.hostname === "apiv2express.immersionkit.com" ||
       target.hostname === "apiv2.immersionkit.com") &&

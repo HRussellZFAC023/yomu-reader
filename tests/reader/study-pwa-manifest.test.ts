@@ -26,7 +26,7 @@ interface StudyManifest {
     display?: string;
     theme_color?: string;
     background_color?: string;
-    shortcuts?: Array<{ name?: string; url?: string }>;
+    shortcuts?: Array<{ name?: string; description?: string; url?: string }>;
     icons?: StudyManifestIcon[];
     screenshots?: StudyManifestScreenshot[];
 }
@@ -34,7 +34,7 @@ interface StudyManifest {
 const manifest = JSON.parse(readFileSync('public/newtab/manifest.webmanifest', 'utf8')) as StudyManifest;
 const serviceWorker = readFileSync('public/newtab/sw.js', 'utf8');
 const appHtml = readFileSync('public/newtab/index.html', 'utf8').replace(/\s+/gu, ' ');
-const controllerSource = readFileSync('src/reader/newtab/controller.ts', 'utf8');
+const controllerLifecycleSource = readFileSync('src/reader/newtab/controller-lifecycle.ts', 'utf8');
 
 // Manifest paths are relative to /study/, and every hosted asset the manifest
 // can reach lives in docs/public (VitePress copies that directory to the site
@@ -51,17 +51,25 @@ function pngSize(path: string): string {
     return `${header.readUInt32BE(16)}x${header.readUInt32BE(20)}`;
 }
 
+function acceptedStudyRoutes(): string[] {
+    const routeNames = controllerLifecycleSource.match(/NEW_TAB_ROUTE_NAMES = new Set<string>\(\[([^\]]+)\]\)/u);
+    expect(routeNames).not.toBeNull();
+    return [...routeNames![1].matchAll(/'([^']+)'/gu)].map(match => match[1]);
+}
+
 describe('Study offline app contract', () => {
     it('has a stable standalone identity for iOS and Android installation', () => {
         expect(manifest).toMatchObject({
             id: './',
-            name: 'よむ — Japanese Reader & Study',
+            name: 'よむ — Language Reader & Study',
             short_name: 'よむ',
             start_url: './index.html',
             scope: './',
             display: 'standalone',
         });
         expect(manifest.description).toContain('offline-first');
+        expect(`${manifest.name} ${manifest.description}`).not.toMatch(/Japanese Reader|Japanese study/iu);
+        expect(appHtml).not.toMatch(/Offline Japanese Reader|Japanese study, dictionary/iu);
     });
 
     it('offers direct app shortcuts to the core client sections', () => {
@@ -70,6 +78,8 @@ describe('Study offline app contract', () => {
             expect.objectContaining({ name: 'Library', url: './?mode=search' }),
             expect.objectContaining({ name: 'Stats', url: './?mode=stats' }),
         ]);
+        expect(manifest.shortcuts?.find(shortcut => shortcut.name === 'Library')?.description)
+            .toContain('selected learning target');
     });
 
     // A shortcut that lands on an unknown route drops the learner on the
@@ -77,14 +87,11 @@ describe('Study offline app contract', () => {
     // are checked against the set the shipped route parser actually accepts
     // rather than against a second copy of the same list.
     it('points every shortcut at a route the client resolves', () => {
-        const routeNames = controllerSource.match(/NEW_TAB_ROUTE_NAMES = new Set<string>\(\[([^\]]+)\]\)/u);
-        expect(routeNames).not.toBeNull();
-        const accepted = [...(routeNames?.[1] ?? '').matchAll(/'([^']+)'/gu)].map(match => match[1]);
+        const accepted = acceptedStudyRoutes();
         expect(accepted.length).toBeGreaterThan(2);
-        for (const shortcut of manifest.shortcuts ?? []) {
-            const mode = new URL(shortcut.url ?? '', 'https://yomureader.com/study/').searchParams.get('mode');
-            expect(accepted, `shortcut ${shortcut.name} mode=${mode}`).toContain(mode);
-        }
+        const shortcutModes = manifest.shortcuts?.map(shortcut =>
+            new URL(shortcut.url ?? '', 'https://yomureader.com/study/').searchParams.get('mode')) ?? [];
+        expect(accepted).toEqual(expect.arrayContaining(shortcutModes));
     });
 
     // Android refuses to treat a web app as installable without a raster icon

@@ -1,16 +1,26 @@
 import { describe, expect, it, vi } from 'vitest';
-import { FROZEN_DICTIONARY_CATALOG, SLICE1_LEARNER_LANGUAGES } from '../../src/reader/dictionaries/catalog';
+import {
+    FROZEN_DICTIONARY_CATALOG,
+    SLICE1_LEARNER_LANGUAGES,
+    type DictionaryCatalogEntry,
+    type DictionaryCatalogManifest,
+} from '../../src/reader/dictionaries/catalog';
 import {
     catalogBrowseCopy,
     catalogBrowseLanguageNote,
 } from '../../src/reader/dictionaries/catalog-browse-copy';
-import { applyCatalogBrowseFilter } from '../../src/reader/settings/catalog-browse-filter';
+import {
+    applyCatalogBrowseFilter,
+    installCatalogBrowseFilter,
+} from '../../src/reader/settings/catalog-browse-filter';
+import { CATALOG_BROWSE_PAGE_SIZE } from '../../src/reader/settings/catalog-browse-window';
 import {
     catalogBrowseCardId,
     catalogBrowseDictionaries,
     catalogBrowseGroups,
     catalogBrowseLanguageSections,
     headwordLanguageName,
+    type CatalogBrowseLanguageSection,
 } from '../../src/reader/dictionaries/catalog-browse';
 import {
     RECOMMENDED_JAPANESE_DICTIONARIES,
@@ -31,6 +41,10 @@ const uniqueTargetObjects = new Set(
     publishedTargetEntries.map(entry => (entry.distribution.state === 'published' ? entry.distribution.object.sha256 : '')),
 );
 const otherLanguageEntries = publishedEntries.filter(entry => !entry.headwordLanguages.includes(TARGET));
+
+function isCurrentCatalogEntry(entry: DictionaryCatalogEntry): boolean {
+    return !/(?:^|-)legacy(?:-|$)/iu.test(entry.id) && !/\blegacy\b/iu.test(entry.title);
+}
 
 describe('mirrored dictionary catalogue browsing', () => {
     it('can omit the exhaustive shelf without removing learner recommendations', () => {
@@ -112,14 +126,13 @@ describe('mirrored dictionary catalogue browsing', () => {
         browse.forEach(dictionary => {
             expect(dictionary.id).toBe(catalogBrowseCardId(dictionary.headwordLanguage!, dictionary.catalogDictionaryId!));
             expect(findRecommendedDictionary(dictionary.id)).toBe(dictionary);
-            // A row without a content address is served by its own publishing
-            // project, which is how a language gets a shelf before anything has
-            // been mirrored for it. It may still install, but it must never
-            // look like a mirror download and must not claim integrity terms
-            // nobody can keep against a URL that names the project's current
-            // build.
+            expect(dictionary.downloadUrl, dictionary.id).toBeTruthy();
+            expect(dictionary.catalogDictionaryId, dictionary.id).not.toMatch(/(?:^|-)legacy(?:-|$)/iu);
+            expect(dictionary.name, dictionary.id).not.toMatch(/\blegacy\b/iu);
+            // Installable upstream archives remain valid browse rows, but only
+            // Yomu's content-addressed mirror can promise digest verification.
             if (!dictionary.sha256) {
-                expect(dictionary.downloadUrl ?? '', dictionary.id).not.toContain('dictionaries.yomureader.com');
+                expect(dictionary.downloadUrl, dictionary.id).not.toContain('dictionaries.yomureader.com');
                 expect(recommendedDictionaryImportOptions(dictionary), dictionary.id).toBeUndefined();
                 return;
             }
@@ -131,37 +144,67 @@ describe('mirrored dictionary catalogue browsing', () => {
         });
     });
 
+    it('keeps direct upstream installs while excluding source-only and legacy rows', () => {
+        const template = FROZEN_DICTIONARY_CATALOG.entries[0]!;
+        const upstreamEntry = {
+            ...template,
+            id: 'synthetic-upstream',
+            title: 'Synthetic upstream dictionary',
+            headwordLanguages: ['ja'],
+            distribution: {
+                state: 'upstream',
+                archive: { url: 'https://example.test/current.zip' },
+            },
+        } satisfies DictionaryCatalogEntry;
+        const catalog = {
+            ...FROZEN_DICTIONARY_CATALOG,
+            entries: [upstreamEntry],
+        } satisfies DictionaryCatalogManifest;
+
+        expect(catalogBrowseDictionaries(catalog)).toMatchObject([{
+            catalogDictionaryId: 'synthetic-upstream',
+            downloadUrl: 'https://example.test/current.zip',
+        }]);
+        expect(catalogBrowseDictionaries({
+            ...catalog,
+            entries: [{ ...upstreamEntry, distribution: { state: 'source-only' } }],
+        })).toEqual([]);
+        expect(catalogBrowseDictionaries({
+            ...catalog,
+            entries: [{ ...upstreamEntry, id: 'synthetic-legacy' }],
+        })).toEqual([]);
+    });
+
     /**
      * The whole point of the panel. Every archive the mirror publishes has to be
      * reachable from Settings — as its own card, or as the byte-identical twin
      * already offered on the same shelf.
      */
-    it('reaches every published catalogue entry from the Sources panel', () => {
+    it('reaches every current published catalogue entry from the Sources panel', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(settingsForLearnerLanguage('en'), 'https://jpdb.io/settings');
-        const cards = [...form.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')];
-        const renderedIds = new Set(cards.map(card => card.dataset.catalogRecommendation));
+        const browsedCards = catalogCardsAcrossPages(form);
+        const seededCards = [...form.querySelectorAll<HTMLElement>(
+            '[data-catalog-recommendation-seed] [data-catalog-recommendation]',
+        )].map(catalogCardSnapshot);
+        const cards = [...browsedCards, ...seededCards];
+        const renderedIds = new Set(cards.map(card => card.catalogId));
         // Keyed by the card's own headword language, so a byte-identical twin
         // only excuses an entry when the reader meets it on the right shelf —
         // and so a preselected seed card counts as reached, like any other.
-        const shelfDigests = new Map<string, Set<string>>();
-        for (const card of cards) {
-            const shelf = card.dataset.headwordLanguage;
-            const sha256 = card.dataset.sha256;
-            if (!shelf || !sha256) continue;
-            const digests = shelfDigests.get(shelf) ?? new Set<string>();
-            digests.add(sha256);
-            shelfDigests.set(shelf, digests);
-        }
+        const shelfDigests = catalogShelfDigests(cards);
 
-        expect(publishedEntries.length).toBeGreaterThan(150);
-        const unreachable = publishedEntries.filter(entry => {
-            if (renderedIds.has(entry.id)) return false;
-            const sha256 = entry.distribution.state === 'published' ? entry.distribution.object.sha256 : '';
-            return !entry.headwordLanguages.some(language => shelfDigests.get(language)?.has(sha256));
-        });
+        const supportedPublishedEntries = publishedEntries.filter(isCurrentCatalogEntry);
+        expect(supportedPublishedEntries.length).toBeGreaterThan(150);
+        const unreachable = unreachableCatalogEntries(supportedPublishedEntries, renderedIds, shelfDigests);
 
         expect(unreachable.map(entry => `${entry.headwordLanguages.join('+')} ${entry.id}`)).toEqual([]);
+        expect(new Set(browsedCards.map(card => card.catalogId))).toEqual(new Set(
+            catalogBrowseLanguageSectionsForLearnerLanguage('en')
+                .flatMap(section => section.groups)
+                .flatMap(group => group.dictionaries)
+                .map(dictionary => dictionary.catalogDictionaryId!),
+        ));
     });
 
     it('never shows the same object twice on one shelf', () => {
@@ -218,22 +261,26 @@ describe('mirrored dictionary catalogue browsing', () => {
         expect(pronunciation.some(dictionary => dictionary.category === 'pitch')).toBe(false);
     });
 
-    it('lists the whole mirror in the Sources panel, not just the recommended handful', () => {
+    it('keeps the whole mirror reachable without rendering it all at once', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(settingsForLearnerLanguage('en'), 'https://jpdb.io/settings');
-        const browse = form.querySelector<HTMLElement>('[data-catalog-browse]');
-        const rendered = browse!.querySelectorAll('[data-catalog-recommendation]');
+        const browse = form.querySelector<HTMLElement>('[data-catalog-browse]')!;
         const expected = catalogBrowseLanguageSectionsForLearnerLanguage('en')
             .flatMap(section => section.groups)
             .flatMap(group => group.dictionaries);
 
-        expect(rendered).toHaveLength(expected.length);
-        expect(rendered.length).toBeGreaterThan(100);
-        expect(browse!.querySelector('[data-catalog-browse-summary]')?.textContent)
+        expect(browse.dataset.catalogBrowseCount).toBe(String(expected.length));
+        expect(browse.querySelectorAll('[data-catalog-recommendation]')).toHaveLength(CATALOG_BROWSE_PAGE_SIZE);
+        expect(browse.querySelectorAll('*').length).toBeLessThanOrEqual(450);
+        expect(browse.querySelectorAll('[data-recommended-dictionary-guide]')).toHaveLength(0);
+        expect(browse.textContent).not.toMatch(/\bJMdict Legacy\b/iu);
+        expect(browse.querySelector('[data-catalog-browse-summary]')?.textContent)
             .toContain(`${new Intl.NumberFormat('en').format(expected.length)} more dictionaries`);
         // Titles the panel could not reach before: monolingual, pitch and grammar.
         for (const title of ['[JA-JA] 大辞林　第四版', '[Pitch] NHK2016', '[JA-JA Grammar] 日本語NET(nihongo_kyoushi)_v1_03']) {
-            const card = [...rendered].find(item => item.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() === title);
+            applyCatalogBrowseFilter(browse, title);
+            const card = [...browse.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')]
+                .find(item => item.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() === title);
             expect(card, title).toBeDefined();
             expect(card!.querySelector('button[data-action="download-recommended-dictionary"]')).not.toBeNull();
         }
@@ -245,11 +292,14 @@ describe('mirrored dictionary catalogue browsing', () => {
         localizeSettingsForm(form, 'ja');
         const section = form.querySelector<HTMLElement>('[data-catalog-browse]')!;
 
-        expect(section.querySelector('[data-catalog-browse-title]')?.textContent).toBe('配信中のすべての辞書');
-        expect(section.querySelector('[data-catalog-browse-category="pronunciation"]')?.textContent).toBe('発音辞書');
-        expect(section.querySelector('[data-catalog-browse-category="encyclopedia"]')?.textContent).toBe('百科事典');
-        expect(section.querySelector('[data-catalog-browse-summary]')?.textContent).toMatch(/^他[\d,]+件の辞書 · 合計/u);
+        expect(section.querySelector('[data-catalog-browse-title]')!.textContent).toBe('配信中のすべての辞書');
+        applyCatalogBrowseFilter(section, '発音');
+        expect(section.querySelector('[data-catalog-browse-category="pronunciation"]')!.textContent).toBe('発音辞書');
+        applyCatalogBrowseFilter(section, '百科事典');
+        expect(section.querySelector('[data-catalog-browse-category="encyclopedia"]')!.textContent).toBe('百科事典');
+        expect(section.querySelector('[data-catalog-browse-summary]')!.textContent).toMatch(/^他[\d,]+件の辞書 · 合計/u);
 
+        applyCatalogBrowseFilter(section, 'NHK2016');
         const nhk = [...section.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-item')].find(
             item => item.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() === '[Pitch] NHK2016',
         );
@@ -262,7 +312,8 @@ describe('mirrored dictionary catalogue browsing', () => {
         form.innerHTML = renderSettingsForm(settingsForLearnerLanguage('ko'), 'https://jpdb.io/settings');
         const buttons = form.querySelectorAll<HTMLElement>('[data-catalog-browse] button[data-action="download-recommended-dictionary"]');
 
-        expect(buttons.length).toBeGreaterThan(100);
+        expect(buttons.length).toBeGreaterThan(0);
+        expect(buttons.length).toBeLessThanOrEqual(CATALOG_BROWSE_PAGE_SIZE);
         buttons.forEach(button => {
             expect(findRecommendedDictionary(button.dataset.dictionaryId ?? '')).toBeDefined();
         });
@@ -284,8 +335,8 @@ describe('shelving mirrored dictionaries by selected target', () => {
 
     it('gives every other headword language its own labelled shelf, Japanese first', () => {
         const section = browseSection(renderedForm('en'));
-        const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
-        const languages = shelves.map(shelf => shelf.dataset.catalogBrowseLanguage);
+        const modelSections = catalogBrowseLanguageSectionsForLearnerLanguage('en');
+        const languages = modelSections.map(model => model.headwordLanguage);
 
         expect(languages[0]).toBe(TARGET);
         expect(languages).toContain('zh');
@@ -294,22 +345,28 @@ describe('shelving mirrored dictionaries by selected target', () => {
         // The Wiktionary-derived shelves: a learner of one of these can install
         // a dictionary for it without anything having been mirrored.
         for (const language of ['es', 'fr', 'de', 'ru', 'ko', 'vi']) expect(languages).toContain(language);
-        expect(shelves[0]!.hasAttribute('data-catalog-browse-language-target')).toBe(true);
-        expect(shelves.slice(1).some(shelf => shelf.hasAttribute('data-catalog-browse-language-target'))).toBe(false);
-        expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
-            .toEqual(languages.map(language => headwordLanguageName(language!, 'en')));
+        for (const model of modelSections) {
+            const shelf = renderModelShelf(section, model);
+            expect(shelf.hasAttribute('data-catalog-browse-language-target'), model.headwordLanguage)
+                .toBe(model.isTargetLanguage);
+            expect(shelf.querySelector('[data-catalog-browse-language-title]')?.textContent)
+                .toBe(headwordLanguageName(model.headwordLanguage, 'en'));
+        }
     });
 
     it('describes every shelf positively by the language it can read', () => {
         const section = browseSection(renderedForm('en'));
-        const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
-        const notes = shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent ?? null);
         const copy = catalogBrowseCopy('en');
 
-        expect(notes).toEqual(shelves.map(shelf => catalogBrowseLanguageNote(
-            copy,
-            headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'en'),
-        )));
+        const notes = catalogBrowseLanguageSectionsForLearnerLanguage('en').map(model => {
+            const shelf = renderModelShelf(section, model);
+            const note = shelf.querySelector('[data-catalog-browse-language-note]')?.textContent ?? null;
+            expect(note, model.headwordLanguage).toBe(catalogBrowseLanguageNote(
+                copy,
+                headwordLanguageName(model.headwordLanguage, 'en'),
+            ));
+            return note;
+        });
         expect(notes[0]).toBe('Dictionaries for reading Japanese.');
         expect(notes.join(' ')).not.toContain('not for reading');
     });
@@ -318,13 +375,13 @@ describe('shelving mirrored dictionaries by selected target', () => {
         const section = browseSection(renderedForm('en'));
 
         for (const group of section.querySelectorAll<HTMLElement>('[data-catalog-browse-group]')) {
-            const shelf = group.closest<HTMLElement>('[data-catalog-browse-language]')?.dataset.catalogBrowseLanguage;
+            const shelf = group.closest<HTMLElement>('[data-catalog-browse-language]')!.dataset.catalogBrowseLanguage;
             expect(shelf, group.dataset.catalogBrowseGroup).toBeTruthy();
             for (const card of group.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')) {
                 const dictionary = findRecommendedDictionary(
-                    card.querySelector<HTMLElement>('[data-dictionary-id]')?.dataset.dictionaryId ?? '',
+                    card.querySelector<HTMLElement>('[data-dictionary-id]')!.dataset.dictionaryId!,
                 );
-                expect(dictionary?.headwordLanguage, card.dataset.catalogRecommendation).toBe(shelf);
+                expect(dictionary!.headwordLanguage, card.dataset.catalogRecommendation).toBe(shelf);
             }
         }
     });
@@ -333,6 +390,7 @@ describe('shelving mirrored dictionaries by selected target', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
 
+        expect(visibleCardNames(section)).not.toContain('[ZH-JA] 中日大辞典　第二版');
         expect(applyCatalogBrowseFilter(section, '中日大辞典')).toBe(1);
         expect(visibleCardNames(section)).toEqual(['[ZH-JA] 中日大辞典　第二版']);
         expect(section.querySelector<HTMLElement>('[data-catalog-browse-empty]')?.hidden).toBe(true);
@@ -341,19 +399,21 @@ describe('shelving mirrored dictionaries by selected target', () => {
     it('uses the search box as the language filter, by name and by endonym', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
-        const cantonese = section
-            .querySelectorAll('[data-catalog-browse-language="yue"] .jpdb-reader-recommended-item')
-            .length;
+        const cantonese = catalogBrowseDictionaries().filter(dictionary => dictionary.headwordLanguage === 'yue').length;
 
         expect(cantonese).toBeGreaterThan(0);
         for (const query of ['Cantonese', '粵語']) {
             expect(applyCatalogBrowseFilter(section, query), query).toBeGreaterThanOrEqual(cantonese);
             expect(visibleShelfLanguages(section), query).toContain('yue');
-            expect([
+            const renderedCantonese = [
                 ...section.querySelectorAll<HTMLElement>(
                     '[data-catalog-browse-language="yue"] .jpdb-reader-recommended-item',
                 ),
-            ].every(card => !card.hidden), query).toBe(true);
+            ];
+            expect(renderedCantonese.length, query).toBeGreaterThan(0);
+            expect(renderedCantonese.every(card => !card.hidden), query).toBe(true);
+            expect(section.querySelectorAll('[data-catalog-recommendation]').length, query)
+                .toBeLessThanOrEqual(CATALOG_BROWSE_PAGE_SIZE);
         }
     });
 
@@ -375,18 +435,18 @@ describe('shelving mirrored dictionaries by selected target', () => {
     it('keeps the shelf note out of the search haystack', () => {
         const form = renderedForm('en');
         const section = browseSection(form);
-        const chineseShelf = section.querySelector<HTMLElement>('[data-catalog-browse-language="zh"]')!;
-        const chineseCards = chineseShelf.querySelectorAll<HTMLElement>('[data-catalog-recommendation]');
-
-        applyCatalogBrowseFilter(section, 'japanese');
-        const stillShown = [...chineseCards].filter(card => !card.hidden);
+        const chineseCards = catalogBrowseDictionaries().filter(dictionary => dictionary.headwordLanguage === 'zh');
+        const matchingChinese = catalogCardsForQuery(section, 'japanese')
+            .filter(card => card.headwordLanguage === 'zh')
+            .map(card => findRecommendedDictionary(card.dictionaryId)!);
 
         expect(chineseCards.length).toBeGreaterThan(30);
         // Only the Chinese-Japanese dictionaries, which really do have Japanese
         // definitions printed on the card.
-        expect(stillShown.length).toBeLessThan(chineseCards.length);
-        expect(stillShown.every(card => card.dataset.definitionLanguage === 'ja')).toBe(true);
-        expect(stillShown.length).toBe([...chineseCards].filter(card => card.dataset.definitionLanguage === 'ja').length);
+        expect(matchingChinese.length).toBeLessThan(chineseCards.length);
+        expect(matchingChinese.length).toBeGreaterThan(0);
+        expect(matchingChinese.every(dictionary => dictionary.definitionLanguage === 'ja')).toBe(true);
+        expect(matchingChinese.length).toBe(chineseCards.filter(dictionary => dictionary.definitionLanguage === 'ja').length);
     });
 
     it('hides a shelf heading once its last card is filtered away', () => {
@@ -405,28 +465,42 @@ describe('shelving mirrored dictionaries by selected target', () => {
         const form = renderedForm('en');
         localizeSettingsForm(form, 'ja');
         const section = browseSection(form);
-        const shelves = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')];
 
-        expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-title]')?.textContent))
-            .toEqual(shelves.map(shelf => headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'ja')));
-        expect(shelves.map(shelf => shelf.querySelector('[data-catalog-browse-language-note]')?.textContent))
-            .toEqual(shelves.map(shelf =>
-                `${headwordLanguageName(shelf.dataset.catalogBrowseLanguage!, 'ja')}を読むための辞書です。`,
-            ));
+        for (const model of catalogBrowseLanguageSectionsForLearnerLanguage('en')) {
+            const shelf = renderModelShelf(section, model);
+            expect(shelf.querySelector('[data-catalog-browse-language-title]')!.textContent, model.headwordLanguage)
+                .toBe(headwordLanguageName(model.headwordLanguage, 'ja'));
+            expect(shelf.querySelector('[data-catalog-browse-language-note]')!.textContent, model.headwordLanguage)
+                .toBe(`${headwordLanguageName(model.headwordLanguage, 'ja')}を読むための辞書です。`);
+        }
     });
 
     it('localizes the shelf headings for a learner language ICU cannot fully name', () => {
         const section = browseSection(renderedForm('vi'));
-        const titles = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language-title]')]
-            .map(title => title.textContent);
+        const models = new Map(
+            catalogBrowseLanguageSectionsForLearnerLanguage('vi')
+                .map(model => [model.headwordLanguage, model]),
+        );
+        const japanese = renderModelShelf(
+            section,
+            models.get('ja')!,
+        );
+        const cantonese = renderModelShelf(
+            section,
+            models.get('yue')!,
+        );
+        const literaryChinese = renderModelShelf(
+            section,
+            models.get('lzh')!,
+        );
 
-        expect(titles[0]).toBe('Tiếng Nhật');
-        expect(titles).toContain('Tiếng Quảng Đông');
+        expect(japanese.querySelector('[data-catalog-browse-language-title]')!.textContent).toBe('Tiếng Nhật');
+        expect(cantonese.querySelector('[data-catalog-browse-language-title]')!.textContent).toBe('Tiếng Quảng Đông');
         // ICU has no Vietnamese name for Literary Chinese; the language's own
         // name is still chrome a reader can use, and 'lzh' is not.
-        expect(titles).toContain('文言');
-        expect(titles).not.toContain('lzh');
-        expect(section.querySelector('[data-catalog-browse-language-note]')?.textContent)
+        expect(literaryChinese.querySelector('[data-catalog-browse-language-title]')!.textContent).toBe('文言');
+        expect(literaryChinese.textContent).not.toContain('lzh');
+        expect(japanese.querySelector('[data-catalog-browse-language-note]')!.textContent)
             .toBe(catalogBrowseLanguageNote(catalogBrowseCopy('vi'), headwordLanguageName(TARGET, 'vi')));
     });
 
@@ -472,6 +546,122 @@ function visibleCardNames(section: HTMLElement): string[] {
     return [...section.querySelectorAll<HTMLElement>('.jpdb-reader-recommended-item')]
         .filter(card => !card.hidden && !card.closest<HTMLElement>('[data-catalog-browse-group]')?.hidden)
         .map(card => card.querySelector('.jpdb-reader-recommended-name')?.textContent?.trim() ?? '');
+}
+
+interface RenderedCatalogCard {
+    catalogId: string;
+    dictionaryId: string;
+    headwordLanguage: string;
+    sha256: string | undefined;
+}
+
+function catalogCardsAcrossPages(form: HTMLFormElement): RenderedCatalogCard[] {
+    installCatalogBrowseFilter(form);
+    const section = browseSection(form);
+    const total = Number(section.dataset.catalogBrowseCount);
+    const pages = Math.ceil(total / CATALOG_BROWSE_PAGE_SIZE);
+    const cards = new Map<string, RenderedCatalogCard>();
+
+    for (let page = 0; page < pages; page++) {
+        collectCatalogPage(section, cards, page);
+
+        const next = section.querySelector<HTMLButtonElement>('[data-catalog-browse-page="next"]');
+        if (page === pages - 1) {
+            expect(next).toBeNull();
+            continue;
+        }
+        expect(next, `page ${page + 1}`).not.toBeNull();
+        next!.click();
+        expect(section.dataset.catalogBrowseOffset).toBe(String((page + 1) * CATALOG_BROWSE_PAGE_SIZE));
+    }
+
+    expect(cards.size).toBe(total);
+    return [...cards.values()];
+}
+
+function collectCatalogPage(
+    section: HTMLElement,
+    cards: Map<string, RenderedCatalogCard>,
+    page: number,
+): void {
+    const rendered = [...section.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')];
+    expect(rendered.length, `page ${page + 1}`).toBeGreaterThan(0);
+    expect(rendered.length, `page ${page + 1}`).toBeLessThanOrEqual(CATALOG_BROWSE_PAGE_SIZE);
+    expect(section.querySelectorAll('*').length, `page ${page + 1}`).toBeLessThanOrEqual(450);
+    for (const element of rendered) {
+        const card = catalogCardSnapshot(element);
+        cards.set(card.catalogId, card);
+        const dictionary = findRecommendedDictionary(card.dictionaryId);
+        expect(dictionary, card.catalogId).toBeDefined();
+        expect(dictionary!.headwordLanguage, card.catalogId).toBe(card.headwordLanguage);
+    }
+}
+
+function catalogCardsForQuery(section: HTMLElement, query: string): RenderedCatalogCard[] {
+    const total = applyCatalogBrowseFilter(section, query, 0);
+    const cards: RenderedCatalogCard[] = [];
+    for (let offset = 0; offset < total; offset += CATALOG_BROWSE_PAGE_SIZE) {
+        applyCatalogBrowseFilter(section, query, offset);
+        const rendered = [...section.querySelectorAll<HTMLElement>('[data-catalog-recommendation]')];
+        expect(rendered.length).toBeLessThanOrEqual(CATALOG_BROWSE_PAGE_SIZE);
+        expect(section.querySelectorAll('*').length).toBeLessThanOrEqual(450);
+        cards.push(...rendered.map(catalogCardSnapshot));
+    }
+    return cards;
+}
+
+function catalogCardSnapshot(element: HTMLElement): RenderedCatalogCard {
+    return {
+        catalogId: element.dataset.catalogRecommendation ?? '',
+        dictionaryId: element.querySelector<HTMLElement>('[data-dictionary-id]')?.dataset.dictionaryId ?? '',
+        headwordLanguage: element.dataset.headwordLanguage ?? '',
+        sha256: element.dataset.sha256,
+    };
+}
+
+function catalogShelfDigests(cards: readonly RenderedCatalogCard[]): Map<string, Set<string>> {
+    const digests = new Map<string, Set<string>>();
+    for (const card of cards) addCatalogCardDigest(digests, card);
+    return digests;
+}
+
+function addCatalogCardDigest(digests: Map<string, Set<string>>, card: RenderedCatalogCard): void {
+    if (!card.headwordLanguage || !card.sha256) return;
+    const shelf = digests.get(card.headwordLanguage) ?? new Set<string>();
+    shelf.add(card.sha256);
+    digests.set(card.headwordLanguage, shelf);
+}
+
+function unreachableCatalogEntries(
+    entries: readonly DictionaryCatalogEntry[],
+    renderedIds: ReadonlySet<string>,
+    shelfDigests: ReadonlyMap<string, ReadonlySet<string>>,
+): DictionaryCatalogEntry[] {
+    return entries.filter(entry => !catalogEntryReached(entry, renderedIds, shelfDigests));
+}
+
+function catalogEntryReached(
+    entry: DictionaryCatalogEntry,
+    renderedIds: ReadonlySet<string>,
+    shelfDigests: ReadonlyMap<string, ReadonlySet<string>>,
+): boolean {
+    if (renderedIds.has(entry.id)) return true;
+    const sha256 = publishedCatalogEntrySha(entry);
+    return entry.headwordLanguages.some(language => shelfDigests.get(language)?.has(sha256) === true);
+}
+
+function publishedCatalogEntrySha(entry: DictionaryCatalogEntry): string {
+    return entry.distribution.state === 'published' ? entry.distribution.object.sha256 : '';
+}
+
+function renderModelShelf(section: HTMLElement, model: CatalogBrowseLanguageSection): HTMLElement {
+    const dictionaryId = model.groups[0]?.dictionaries[0]?.catalogDictionaryId;
+    expect(dictionaryId, model.headwordLanguage).toBeTruthy();
+    expect(applyCatalogBrowseFilter(section, dictionaryId!), model.headwordLanguage).toBeGreaterThan(0);
+    const shelf = [...section.querySelectorAll<HTMLElement>('[data-catalog-browse-language]')]
+        .find(candidate => candidate.dataset.catalogBrowseLanguage === model.headwordLanguage);
+    expect(shelf, model.headwordLanguage).toBeDefined();
+    return shelf!;
 }
 
 function settingsForLearnerLanguage(learnerLanguage: string, targetLanguage = 'ja') {

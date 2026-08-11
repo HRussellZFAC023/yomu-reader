@@ -1839,7 +1839,6 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
             settings: {
                 kanjiOriginGraphEnabled: true,
                 rtkEnabled: true,
-                uchisenEnabled: true,
             },
             card: newTabTestCard({ spelling: '付', source: 'jpdb' }),
             kanji: '付',
@@ -1895,7 +1894,6 @@ describe('new tab review — dictionary fallbacks, refresh & shared-URL history'
         expect(jpdbFacts).toContain('HeisigJPDB #1000');
         expect(jpdbFacts).not.toContain('Frame number');
         expect(rtkSection?.textContent).toContain('Attach the person to the inch.');
-        expect(details.querySelector('[data-newtab-uchisen-mount]')).not.toBeNull();
     });
 
     it('does not repeat the displayed Jiten kanji meaning as a keyword pill', () => {

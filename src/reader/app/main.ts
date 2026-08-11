@@ -85,7 +85,6 @@ import { mutationContainsOnlyReaderPaint } from '../dom/mutation';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
 import { JitenPublicVocabularyClient, publicJitenBackoffRemainingMs } from '../dictionaries/jiten-public-vocabulary';
-import type { UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import { JpdbClient } from '../jpdb/jpdb';
@@ -361,7 +360,6 @@ import {
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
-    KANJI_UCHISEN_SOURCE_ID,
     definitionSourceLabel,
     kanjiSourceLabel,
 } from '../sources/sections';
@@ -467,6 +465,9 @@ export class ReaderApp {
     private abortController = new AbortController();
     private isDestroyed = false;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
+    /** Non-persisted policy owned by a deliberate hosted reading surface. */
+    private pageOwnedLearningTargetActive = false;
+    private targetOwnedCoreInstalled = false;
     private disposeHostThemeObserver?: () => void;
     private hostThemeEnforceTimer?: number;
     private themeContrastRefreshFrame?: number;
@@ -928,7 +929,6 @@ export class ReaderApp {
     private publicVocabularyMissRetries = new Map<string, number>();
     private misalignedPublicFuriganaRecoveries = new Set<string>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
-    private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private renderedWords = new RenderedWordIndex({
         isDestroyed: () => this.isDestroyed,
         annotationRoots: roots => this.renderedAnnotationRoots(roots),
@@ -1014,22 +1014,22 @@ export class ReaderApp {
 
     private createOnboardingController() {
         const Controller = yomuOnboardingController();
-        if (!Controller) return { showIfNeeded: async () => false };
+        if (!Controller) return undefined;
         return new Controller({
             getSettings: () => this.settings,
             setSettings: settings => {
                 const previous = this.settings;
                 this.settings = settings;
-                this.syncCardLookupTarget(settings);
+                if (settings.learningTargetChosen) this.syncCardLookupTarget(settings);
                 this.applyTheme();
-                this.stagePreferredJapaneseSiteLanguage(previous, settings);
+                if (settings.learningTargetChosen) this.stagePreferredJapaneseSiteLanguage(previous, settings);
             },
             showSettings: panel => this.showSettings(panel),
             parseJapanese: panel => void this.parseOnboardingJapanese(panel),
             lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
             installOfflineDictionaries: () => void this.installOfflineParsingDictionaries(),
             onComplete: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
-            onPersistenceFailed: settings => this.failPreferredJapaneseSiteLanguageSave(settings),
+            onPersistenceFailed: settings => this.rollbackOnboardingSettings(settings),
         });
     }
 
@@ -1171,10 +1171,15 @@ export class ReaderApp {
         if (this.isDestroyed) return null;
         this.factoryReset.bind();
         this.settings = startup.settings;
-        this.syncCardLookupTarget(startup.settings);
-        this.applyPreferredJapaneseSiteLanguage();
+        this.pageOwnedLearningTargetActive = startup.pageOwnedLearningTarget !== null;
+        if (startup.settings.learningTargetChosen) {
+            this.syncCardLookupTarget(startup.settings);
+            this.applyPreferredJapaneseSiteLanguage();
+        }
         configureLogger({ forceEnabled: this.settings.enableLogging });
-        this.pageHasJapaneseText = detectReaderStartupJapaneseText();
+        this.pageHasJapaneseText = this.hasLearningTargetRuntimePolicy()
+            ? detectReaderStartupJapaneseText()
+            : false;
         log.info('Settings loaded', startup.settingsSummary);
         return startup.shouldShowWelcome;
     }
@@ -1192,6 +1197,12 @@ export class ReaderApp {
         // browser storage startup (notably in userscript page contexts), and
         // awaiting it here used to hold back the FAB and subtitle rail with no
         // visible sign that Yomu had loaded.
+        if (this.hasLearningTargetRuntimePolicy()) this.installTargetOwnedCoreSurfaces();
+    }
+
+    private installTargetOwnedCoreSurfaces(): void {
+        if (this.targetOwnedCoreInstalled) return;
+        this.targetOwnedCoreInstalled = true;
         void this.refreshDictionaryStyles();
         this.installSettingsStorageSubscription();
         if (this.embeddedFrame) return;
@@ -1204,16 +1215,11 @@ export class ReaderApp {
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
         await this.waitForDocumentBody();
         if (!this.canInitializeReaderPage()) return;
-        // Settings may finish loading before document-start has produced a
-        // body. Re-evaluate here, including bounded open-shadow discovery, so
-        // a shadow-only Japanese page receives its initial scan.
-        const startupJapaneseProbe = documentJapaneseTextProbe(200000, scanScopeRoots());
-        if (!this.pageHasJapaneseText) this.pageHasJapaneseText = startupJapaneseProbe.hasJapanese;
         if (this.embeddedFrame) {
             this.initEmbeddedReaderPage();
             return;
         }
-        await this.initTopLevelReaderPage(shouldShowWelcome, startupJapaneseProbe.shadowDiscoveryExhausted);
+        await this.initTopLevelReaderPage(shouldShowWelcome);
     }
 
     private canInitializeReaderPage(): boolean {
@@ -1221,6 +1227,10 @@ export class ReaderApp {
     }
 
     private initEmbeddedReaderPage(): void {
+        // Embedded frames cannot host the required first-run chooser. Until the
+        // top-level realm records a target, they must remain entirely inert.
+        if (!this.hasLearningTargetRuntimePolicy()) return;
+        this.captureStartupTargetProbe();
         this.subtitles.init();
         // Player iframes need OCR too: the subtitle rail's OCR button and
         // paused-frame OCR dispatch/listen inside this frame's document.
@@ -1235,7 +1245,13 @@ export class ReaderApp {
         if (this.shouldScanEmbeddedFrame() || this.pageHasJapaneseText) this.scheduleVisiblePageRescan();
     }
 
-    private async initTopLevelReaderPage(shouldShowWelcome: boolean, shadowDiscoveryUncertain: boolean): Promise<void> {
+    private async initTopLevelReaderPage(shouldShowWelcome: boolean): Promise<void> {
+        if (!await this.ensureTopLevelLearningTarget(shouldShowWelcome)) return;
+        this.installTargetOwnedCoreSurfaces();
+        // The chosen target owns this bounded composed-DOM probe. Running it
+        // before onboarding used to scan 200k characters for the compatibility
+        // Japanese fallback even though the learner had selected nothing.
+        const startupTargetProbe = this.captureStartupTargetProbe();
         this.installFab();
         void this.installBunproTokenImporter();
         this.subtitles.init();
@@ -1251,9 +1267,26 @@ export class ReaderApp {
         this.installCardStateSignalSubscription();
         installAcademyReaderSrsSync();
         this.resumePendingCloudSettingsSync();
-        if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.onboarding.showIfNeeded();
-        if (this.isDestroyed) return;
-        this.scheduleInitialReaderWork(shadowDiscoveryUncertain);
+        this.scheduleInitialReaderWork(startupTargetProbe.shadowDiscoveryExhausted);
+    }
+
+    private async ensureTopLevelLearningTarget(shouldShowWelcome: boolean): Promise<boolean> {
+        if (this.hasLearningTargetRuntimePolicy()) return true;
+        if (shouldShowReaderOnboarding(shouldShowWelcome)) await this.runOnboardingIfAvailable();
+        return !this.isDestroyed && this.hasLearningTargetRuntimePolicy();
+    }
+
+    private async runOnboardingIfAvailable(): Promise<void> {
+        const onboarding = this.onboarding;
+        if (!onboarding) return;
+        await onboarding.showIfNeeded();
+        await onboarding.waitForCompletion();
+    }
+
+    private captureStartupTargetProbe(): ReturnType<typeof documentJapaneseTextProbe> {
+        const probe = documentJapaneseTextProbe(200000, scanScopeRoots());
+        if (!this.pageHasJapaneseText) this.pageHasJapaneseText = probe.hasJapanese;
+        return probe;
     }
 
     private scheduleInitialReaderWork(shadowDiscoveryUncertain: boolean): void {
@@ -1319,7 +1352,7 @@ export class ReaderApp {
         const japaneseSiteOptOut = japaneseSiteLanguageDisabled(this.settings, settings);
         this.pendingPreferredJapaneseSiteLanguage = undefined;
         this.settings = settings;
-        this.syncCardLookupTarget(settings);
+        if (settings.learningTargetChosen) this.syncCardLookupTarget(settings);
         configureLogger({ forceEnabled: settings.enableLogging });
         this.applyPreferredJapaneseSiteLanguage(settings, japaneseSiteOptOut);
         this.applyTheme(settings);
@@ -1338,6 +1371,10 @@ export class ReaderApp {
     private syncCardLookupTarget(settings: ReaderSettings): void {
         adoptLearningTargetFromSettings(settings);
         this.cardLookup.syncTarget(settings);
+    }
+
+    private hasLearningTargetRuntimePolicy(): boolean {
+        return this.settings.learningTargetChosen || this.pageOwnedLearningTargetActive;
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -1771,6 +1808,17 @@ export class ReaderApp {
             preferJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage,
         };
         this.applyPreferredJapaneseSiteLanguage(this.settings, false);
+    }
+
+    private rollbackOnboardingSettings(previousSettings: ReaderSettings): void {
+        this.failPreferredJapaneseSiteLanguageSave(previousSettings);
+        this.settings = previousSettings;
+        // An unchosen compatibility profile is not an instruction to replace a
+        // previously active target. Chosen settings, however, are durable user
+        // intent and can safely restore their target too.
+        if (previousSettings.learningTargetChosen) this.syncCardLookupTarget(previousSettings);
+        this.applyTheme(previousSettings);
+        this.applyWordColors(previousSettings);
     }
 
     private publishThemeSettingsChange(): void {
@@ -3147,7 +3195,6 @@ export class ReaderApp {
         }, this.abortController.signal);
         addWindowEventListener(SETTINGS_CHANGE_EVENT, () => {
             if (!this.isDestroyed) {
-                this.syncCardLookupTarget(this.settings);
                 this.syncReaderRootLanguages();
             }
         }, { signal: abortSignal });
@@ -7474,9 +7521,7 @@ export class ReaderApp {
         const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
         const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
         const rtkMount = popover.querySelector<HTMLElement>('[data-kanji-rtk-mount]');
-        const uchisenMount = popover.querySelector<HTMLElement>('[data-kanji-uchisen-mount]');
         const definitionsMounts = Array.from(popover.querySelectorAll<HTMLElement>('[data-kanji-definitions-mount]'));
-        this.renderKanjiUchisenInto(popover, uchisenMount, kanji, language);
         this.wanikaniSources.installKanjiMount(popover, kanji);
 
         const renderKeyword = () => {
@@ -7584,64 +7629,6 @@ export class ReaderApp {
     private renderKanjiKeywordLine(jpdbInfo: JpdbKanjiInfo | null, rtkInfo: RtkInfo | null, entries: YomitanKanjiEntry[], language: InterfaceLanguage, sourceInfo: KanjiSourceInfo | null): string {
         return this.kanjiCompanion?.renderKanjiKeywordLine(jpdbInfo, rtkInfo, entries, language, sourceInfo)
             ?? `<div class="jpdb-reader-help">${escapeHtml(uiText(language, 'kanjiDetailsUnavailable'))}</div>`;
-    }
-
-    private renderKanjiUchisenInto(popover: HTMLElement, mount: HTMLElement | null, kanji: string, language: InterfaceLanguage): void {
-        if (!mount) return;
-        const companion = this.kanjiCompanion;
-        if (!this.settings.uchisenEnabled || !companion) {
-            mount.remove();
-            return;
-        }
-        const sourceAttributes = this.dictionarySourceState.attributes(kanjiSourceStateKey(KANJI_UCHISEN_SOURCE_ID));
-        void this.loadUchisenDetails(kanji).then(data => {
-            if (!popover.isConnected || !mount.isConnected) return;
-            if (!data || (!data.images.length && !data.canGenerateImages)) {
-                mount.remove();
-                this.repositionActivePopover();
-                return;
-            }
-            void companion.installUchisenCarousel(mount, kanji, data.images, {
-                sourceAttributes,
-                detailsClass: 'jpdb-reader-local jpdb-reader-source-card yomu-jpdb-uchisen-source',
-                summaryClass: 'jpdb-reader-local-title',
-                bodyClass: 'jpdb-reader-local-entry yomu-jpdb-uchisen-body',
-                proxyUrl: this.settings.corsProxyUrl,
-                componentGroups: data.componentGroups,
-                kanjiKeyword: data.kanjiKeyword,
-                kanjiId: data.kanjiId,
-                canGenerateImages: data.canGenerateImages,
-                refreshData: () => {
-                    this.uchisenDataCache.delete(kanji);
-                    return companion.loadUchisenData(kanji, this.settings.corsProxyUrl);
-                },
-                interfaceLanguage: language,
-            }).then(() => {
-                if (!popover.isConnected) return;
-                void (this.isJpdbPageAddonRoot(popover) ? this.parseJpdbPageAddonJapanese(popover) : this.parsePopoverJapanese(popover));
-                this.repositionActivePopover();
-            });
-        }).catch(error => {
-            log.warn('Uchisen kanji lookup failed', { kanji }, error);
-            if (mount.isConnected) {
-                mount.remove();
-                this.repositionActivePopover();
-            }
-        });
-    }
-
-    private loadUchisenDetails(kanji: string): Promise<UchisenData | null> {
-        const companion = this.kanjiCompanion;
-        if (!this.settings.uchisenEnabled || !companion) return Promise.resolve(null);
-        const existing = this.uchisenDataCache.get(kanji);
-        if (existing) return existing;
-        const promise = companion.loadUchisenData(kanji, this.settings.corsProxyUrl).catch(error => {
-            this.uchisenDataCache.delete(kanji);
-            log.warn('Uchisen kanji lookup failed', { kanji }, error);
-            return null;
-        });
-        this.uchisenDataCache.set(kanji, promise);
-        return promise;
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
@@ -9189,7 +9176,6 @@ export class ReaderApp {
         if (sourceId === KANJI_RTK_SOURCE_ID) return 'RTK';
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'kanjiDictionaries');
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'originStructure');
-        if (sourceId === KANJI_UCHISEN_SOURCE_ID) return 'Uchisen';
         return '';
     }
 
@@ -9698,6 +9684,25 @@ export class ReaderApp {
         if (dialog) void dialog.resumePendingCloudSettingsSync();
     }
 
+    private settingsAfterDialogTargetChange(
+        previous: ReaderSettings,
+        settings: ReaderSettings,
+        transient: boolean,
+    ): ReaderSettings {
+        if (transient) return settings;
+        if (targetLanguageOf(settings) === targetLanguageOf(previous)) return settings;
+        return { ...settings, learningTargetChosen: true };
+    }
+    private applyDialogSettingsTransitions(
+        previous: ReaderSettings,
+        settings: ReaderSettings,
+        pauseChanged: boolean,
+    ): void {
+        this.syncCardLookupTarget(settings);
+        this.stagePreferredJapaneseSiteLanguage(previous, settings);
+        if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
+        if (pauseChanged) this.applyAnnotationsPausedState();
+    }
     private getSettingsDialog(): SettingsDialogControllerInstance | undefined {
         const Controller = yomuSettingsDialogController();
         if (!Controller) {
@@ -9708,27 +9713,13 @@ export class ReaderApp {
         this.settingsDialog ??= new Controller({
             getSettings: () => this.settings,
             setSettings: (settings, options) => {
-                // Class G: the settings dialog's OFF radio (pageScanMode='off')
-                // persisted annotationsPaused but stripped nothing until a
-                // reload. Diff the pause flag here so EVERY dialog-driven
-                // settings write (submit, import, cloud restore) routes the
-                // transition through the same instant path as the puck and
-                // remote-tab toggles: pause clears all annotations + mirrors +
-                // ruby-room growth, resume rescans. Transient probe swaps
-                // (Anki tests, audio previews with unsaved form values) apply
-                // the values but never the transition.
+                const transient = options?.transient === true;
                 const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
-                // Unticking the Japanese-site-language box is the same opt-out as
-                // the puck's 日, so it has to leave the site's Japanese URL too;
-                // only the transition reverts, or saving any unrelated setting
-                // would navigate away from a Japanese page the user chose.
                 const previous = this.settings;
-                this.settings = settings;
-                if (options?.transient) return;
-                this.syncCardLookupTarget(settings);
-                this.stagePreferredJapaneseSiteLanguage(previous, settings);
-                if (!settings.ankiEnabled) this.clearRenderedAnkiWordStates();
-                if (pauseChanged) this.applyAnnotationsPausedState();
+                const nextSettings = this.settingsAfterDialogTargetChange(previous, settings, transient);
+                this.settings = nextSettings;
+                if (transient) return;
+                this.applyDialogSettingsTransitions(previous, nextSettings, pauseChanged);
             },
             onSettingsPersisted: settings => this.completePreferredJapaneseSiteLanguageSave(settings),
             onSettingsPersistenceFailed: settings => this.failPreferredJapaneseSiteLanguageSave(settings),

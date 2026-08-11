@@ -97,8 +97,8 @@ export function readerScrollBodyForEvent(event: Event): HTMLElement | null {
 
 // A gesture on an editable / form control inside an overlay body must keep its native
 // behaviour (text caret + selection, a textarea's own scroll, native option lists) —
-// the uchisen image-generation panel renders multi-line <textarea>s into the popover
-// body — so the manual scroll driver leaves those alone.
+// embedded editors can render multi-line <textarea>s into an overlay body — so
+// the manual scroll driver leaves those controls alone.
 const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
 
 export function eventTargetsInteractiveControl(event: Event): boolean {
@@ -311,7 +311,6 @@ const READER_SURFACE_INTERACTIVE_SELECTOR = [
     '[data-action]',
     '[data-immersion-action]',
     '[data-yomu-immersion-action]',
-    '[data-uchisen-action]',
     '.jpdb-reader-word',
     '.jpdb-reader-popover',
 ].join(',');

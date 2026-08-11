@@ -150,14 +150,13 @@ describe('D43 copy tiers are a property of the string', () => {
 
         const messages = registerChromeMessages(chromeMessageSource());
         const humanCritical = messages.filter((message) => message.tier === 'human-critical');
-        // Target-aware controls added 12 messages and retired three fixed-language
-        // predecessors. The two new onboarding language-axis labels belong to
-        // the human-reviewed first-run tier; the other seven net additions are
-        // supplementary copy.
-        expect(messages).toHaveLength(1267);
-        expect(humanCritical).toHaveLength(397);
+        // The language-neutral chooser added three human-reviewed onboarding
+        // messages. Uchisen retirement deleted its 15 copy entries, and the
+        // now-orphaned generic story empty state was deleted with them.
+        expect(messages).toHaveLength(1254);
+        expect(humanCritical).toHaveLength(396);
 
-        // Split by WHAT classified each one. 391 are human-critical from their ID
+        // Split by WHAT classified each one. 390 are human-critical from their ID
         // alone, so deleting the rule table collapses that number while the
         // source-text check above stays green. The other 6 reach the tier only
         // through text escalation, which is exactly the case that rule exists for
@@ -165,7 +164,7 @@ describe('D43 copy tiers are a property of the string', () => {
         // it discusses credentials). Both counts are pinned because a change in
         // either direction is a policy change.
         const byIdAlone = humanCritical.filter((message) => copyTierOf(message.id).tier === 'human-critical');
-        expect(byIdAlone).toHaveLength(391);
+        expect(byIdAlone).toHaveLength(390);
         expect(humanCritical.length - byIdAlone.length).toBe(6);
     });
 

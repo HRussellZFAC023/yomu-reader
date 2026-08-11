@@ -21,6 +21,10 @@ export class PromiseLruCache<Key, Value> {
         return promise;
     }
 
+    clear(): void {
+        this.entries.clear();
+    }
+
     private prune(): void {
         while (this.entries.size > Math.max(1, this.maxSize)) {
             const oldest = this.entries.keys().next().value;

@@ -212,8 +212,6 @@ function isSharedPublicProxyAllowlistedTarget(target) {
   if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
   if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
   if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-  if (host === "uchisen.com") return path.startsWith("/kanji/");
-  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
   return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
@@ -454,10 +452,10 @@ function throwIfFetchAborted(signal, fallback) {
   if (signal.aborted) throw signal.reason ?? fallback;
 }
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -488,7 +486,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -1084,20 +1082,6 @@ function storageBridgeResponseDetail(event) {
   keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
   message: typeof record2.message === "string" ? record2.message : void 0
   };
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
 }
 function addBridgeEventListener(type, listener) {
   const cleanups = [];
@@ -1826,7 +1810,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -4210,6 +4196,9 @@ const COPY = {
   onboardingLanguage: "Settings language",
   onboardingOutputLanguage: "Definition and translation language (output)",
   onboardingTargetLanguage: "Language you are reading (target)",
+  onboardingChooseTarget: "Choose a learning language…",
+  onboardingTargetRequired: "Choose a learning language before continuing.",
+  onboardingUnselectedTargetName: "your learning language",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -5078,7 +5067,6 @@ const COPY = {
   immersionExampleControls: "Immersion Kit example controls",
   exampleSearchLinks: "Example searches",
   loadingKanjiDetails: "Loading kanji details...",
-  loadingMnemonicImages: "Loading mnemonic images...",
   lookupDialog: `${APP_NAME} lookup`,
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
@@ -5361,22 +5349,7 @@ const COPY = {
   sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
   sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
   sourceHelpRtk: "RTK keywords, elements, and stories.",
-  sourceHelpUchisen: "Uchisen mnemonic image carousel.",
   sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-  uchisenMnemonicImages: "Uchisen mnemonic images",
-  uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-  noUchisenImagesYet: "No Uchisen images yet.",
-  generateUchisenImage: "Generate image",
-  generateUchisenImageToggle: "Generate image +",
-  uchisenMnemonicStory: "Mnemonic story",
-  uchisenImagePrompt: "Image prompt",
-  uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-  uchisenGeneratingImage: "Generating image...",
-  uchisenPublishingMnemonic: "Publishing mnemonic...",
-  uchisenGeneratedImage: "Uchisen image published.",
-  uchisenGenerateFailed: "Could not generate Uchisen image.",
-  uchisenLoginRequired: "Log in to Uchisen to generate images.",
-  noStoryAvailable: "No story available",
   sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
@@ -5446,6 +5419,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -5503,7 +5479,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -6621,22 +6596,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
@@ -12094,22 +12054,53 @@ function effectiveTokenRubies(surface, token, preserveTokenRubies = false) {
   return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
 }
 function sourceTokenRubies(surface, token) {
-  if (token.rubies.length) return token.rubies;
-  const reading = token.card.reading.trim();
-  if (!surface || !reading || reading === surface) return [];
+  if (token.rubies.length) return explicitTokenRubies(surface, token);
+  const reading = distinctTokenReading(surface, token);
+  if (!reading) return [];
   if (surface.trim() === token.card.spelling.trim()) {
   return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
-  if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
+  return inferredTokenRubies(surface, reading, token);
+}
+function explicitTokenRubies(surface, token) {
+  return explicitRubyReadingMatchesSurface(surface, token) ? [] : token.rubies;
+}
+function distinctTokenReading(surface, token) {
+  if (!surface) return null;
+  const reading = trimmedTokenReading(token);
+  if (!reading) return null;
+  if (reading.normalize("NFC") === surface.normalize("NFC")) return null;
+  return reading;
+}
+function trimmedTokenReading(token) {
+  return token.card.reading?.trim() ?? "";
+}
+function inferredTokenRubies(surface, reading, token) {
+  if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana") return [];
+  if (!KANJI_RE.test(surface)) return [];
+  if (!READING_KANA_ONLY_RE.test(reading)) return [];
   const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-  if (inferred.length) {
   return inferred.map((ruby) => ({
-    ...ruby,
-    start: token.start + ruby.start,
-    end: token.start + ruby.end
+  ...ruby,
+  start: token.start + ruby.start,
+  end: token.start + ruby.end
   }));
+}
+function explicitRubyReadingMatchesSurface(surface, token) {
+  const ranges = token.rubies.flatMap((ruby) => {
+  const range = localRubyRange(surface, token, ruby);
+  return range ? [{ ...range, text: ruby.text }] : [];
+  }).sort((first, second) => first.start - second.start);
+  if (!ranges.length) return false;
+  let cursor = 0;
+  let reconstructed = "";
+  for (const range of ranges) {
+  if (range.start < cursor) return false;
+  reconstructed += surface.slice(cursor, range.start) + range.text;
+  cursor = range.end;
   }
-  return [];
+  reconstructed += surface.slice(cursor);
+  return reconstructed.normalize("NFC") === surface.normalize("NFC");
 }
 function learningTargetForToken(token) {
   return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();

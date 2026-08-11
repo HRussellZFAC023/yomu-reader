@@ -1,6 +1,7 @@
 import { requestHttp } from '../network/http-request';
 import type { ReaderHttpOptions } from '../network/http-options';
 import { httpStatusFromError } from '../network/error-status';
+import { sensitiveFingerprint } from '../core/sensitive-fingerprint';
 
 const WANIKANI_API_BASE_URL = 'https://api.wanikani.com/v2';
 const WANIKANI_REVISION = '20170710';
@@ -67,18 +68,14 @@ export interface WanikaniListOptions {
 const MIN_REQUEST_INTERVAL_MS = 1100;
 
 export function fingerprintWanikaniToken(value: string): string {
-    const token = value.trim();
-    if (!token) return '';
-    // A compact, non-reversible cache partition. The token itself never
-    // appears in URLs, logs, cache keys, or storage outside the setting.
-    let first = 0x811c9dc5;
-    let second = 0x9e3779b9;
-    for (let index = 0; index < token.length; index += 1) {
-        const code = token.charCodeAt(index);
-        first = Math.imul(first ^ code, 0x01000193) >>> 0;
-        second = Math.imul(second ^ code, 0x85ebca6b) >>> 0;
-    }
-    return `${first.toString(16).padStart(8, '0')}${second.toString(16).padStart(8, '0')}:${token.length}`;
+    return sensitiveFingerprint(value);
+}
+
+interface WanikaniAccountContext {
+    readonly token: string;
+    readonly fingerprint: string;
+    readonly generation: number;
+    readonly cacheNamespace: string;
 }
 
 export class WanikaniClient {
@@ -94,7 +91,9 @@ export class WanikaniClient {
     private readonly pending = new Map<string, Promise<unknown>>();
     private readonly responseCache = new Map<string, { expiresAt: number; value: unknown }>();
     private verifiedUser: WanikaniUserData | null = null;
-    private verifiedFingerprint = '';
+    private verifiedContext = '';
+    private activeFingerprint = '';
+    private contextGeneration = 0;
 
     constructor(options: WanikaniClientOptions = {}) {
         this.getToken = options.getToken ?? (() => '');
@@ -114,56 +113,50 @@ export class WanikaniClient {
         return fingerprintWanikaniToken(this.getToken());
     }
 
+    clear(): void {
+        this.resetAccountContext('');
+    }
+
     async getUser(force = false): Promise<WanikaniUserData> {
-        const fingerprint = this.currentFingerprint();
-        if (!force && this.verifiedUser && this.verifiedFingerprint === fingerprint) return this.verifiedUser;
-        const raw = await this.request('/user', {}, { cacheTtlMs: force ? 0 : 60_000 });
-        const user = parseWanikaniUser(raw);
-        this.verifiedUser = user;
-        this.verifiedFingerprint = fingerprint;
-        return user;
+        return this.getUserFor(this.accountContext(), force);
     }
 
     async effectiveMaxLevel(): Promise<number> {
-        const user = this.verifiedUser ?? await this.getUser();
-        const subscription = user.subscription;
-        if (!subscription.active) return FREE_TIER_MAX_LEVEL;
-        if (!KNOWN_SUBSCRIPTION_TYPES.has(subscription.type)) return FREE_TIER_MAX_LEVEL;
-        if (subscription.type === 'free') return FREE_TIER_MAX_LEVEL;
-        const granted = Number(subscription.max_level_granted);
-        return Number.isFinite(granted) && granted > 0 ? Math.min(60, granted) : FREE_TIER_MAX_LEVEL;
+        const context = this.accountContext();
+        return effectiveMaxLevelForUser(await this.getUserFor(context));
     }
 
     async getSummary(): Promise<unknown> {
-        await this.ensureUser();
-        return this.request('/summary', {}, { cacheTtlMs: 30_000 });
+        const context = this.accountContext();
+        await this.ensureUser(context);
+        return this.request(context, '/summary', {}, { cacheTtlMs: 30_000 });
     }
 
     async getAssignments(options: WanikaniListOptions = {}): Promise<unknown[]> {
-        await this.ensureUser();
-        return this.collect('/assignments', options, 30_000);
+        const context = this.accountContext();
+        await this.ensureUser(context);
+        return this.collect(context, '/assignments', options, 30_000);
     }
 
     async getSubjects(options: WanikaniListOptions = {}): Promise<unknown[]> {
-        await this.ensureUser();
-        const maxLevel = await this.effectiveMaxLevel();
-        const requestedLevels = options.levels?.filter(level => level >= 1 && level <= maxLevel);
-        if (options.levels?.length && !requestedLevels?.length) return [];
-        const levels = requestedLevels?.length
-            ? requestedLevels
-            : Array.from({ length: maxLevel }, (_, index) => index + 1);
-        const subjects = await this.collect('/subjects', { ...options, levels }, 24 * 60 * 60 * 1000);
+        const context = this.accountContext();
+        const maxLevel = effectiveMaxLevelForUser(await this.ensureUser(context));
+        const levels = permittedSubjectLevels(options.levels, maxLevel);
+        if (!levels) return [];
+        const subjects = await this.collect(context, '/subjects', { ...options, levels }, 24 * 60 * 60 * 1000);
         return subjects.filter(subject => rawSubjectLevel(subject) <= maxLevel);
     }
 
     async getStudyMaterials(options: WanikaniListOptions = {}): Promise<unknown[]> {
-        await this.ensureUser();
-        return this.collect('/study_materials', options, 60_000);
+        const context = this.accountContext();
+        await this.ensureUser(context);
+        return this.collect(context, '/study_materials', options, 60_000);
     }
 
     async getReviewStatistics(options: WanikaniListOptions = {}): Promise<unknown[]> {
-        await this.ensureUser();
-        return this.collect('/review_statistics', options, 60_000);
+        const context = this.accountContext();
+        await this.ensureUser(context);
+        return this.collect(context, '/review_statistics', options, 60_000);
     }
 
     async createReview(body: {
@@ -171,108 +164,140 @@ export class WanikaniClient {
         incorrect_meaning_answers: number;
         incorrect_reading_answers: number;
     }): Promise<unknown> {
-        await this.ensureUser();
-        const response = await this.request('/reviews', {
+        const context = this.accountContext();
+        await this.ensureUser(context);
+        const response = await this.request(context, '/reviews', {
             method: 'POST',
             body: { review: body },
         });
-        this.invalidateReviewStateCaches();
+        this.invalidateReviewStateCaches(context);
         return response;
     }
 
-    private async ensureUser(): Promise<WanikaniUserData> {
-        return this.getUser();
+    private async getUserFor(context: WanikaniAccountContext, force = false): Promise<WanikaniUserData> {
+        const cached = this.cachedUserFor(context, force);
+        if (cached) return cached;
+        const raw = await this.request(context, '/user', {}, { cacheTtlMs: force ? 0 : 60_000 });
+        const user = parseWanikaniUser(raw);
+        if (this.isCurrentContext(context)) {
+            this.verifiedUser = user;
+            this.verifiedContext = context.cacheNamespace;
+        }
+        return user;
     }
 
-    private async collect(path: string, options: WanikaniListOptions, cacheTtlMs = 0): Promise<unknown[]> {
-        const dedupeKey = `${this.currentFingerprint()}:${path}?${stableOptionsKey(options)}`;
-        const cachedResponse = this.responseCache.get(dedupeKey);
+    private cachedUserFor(context: WanikaniAccountContext, force: boolean): WanikaniUserData | null {
+        if (force) return null;
+        if (this.verifiedContext !== context.cacheNamespace) return null;
+        return this.verifiedUser;
+    }
+
+    private async ensureUser(context: WanikaniAccountContext): Promise<WanikaniUserData> {
+        return this.getUserFor(context);
+    }
+
+    private async collect(context: WanikaniAccountContext, path: string, options: WanikaniListOptions, cacheTtlMs = 0): Promise<unknown[]> {
+        const cacheKey = `${context.cacheNamespace}:${path}?${stableOptionsKey(options)}`;
+        const cachedResponse = this.responseCache.get(cacheKey);
         if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value as unknown[];
-        const cached = this.pending.get(dedupeKey);
+        const cached = this.pending.get(cacheKey);
         if (cached) return cached as Promise<unknown[]>;
-        const promise = this.collectUncached(path, options).then(items => {
-            if (cacheTtlMs > 0) this.responseCache.set(dedupeKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+        const promise = this.collectUncached(context, path, options).then(items => {
+            if (cacheTtlMs > 0 && this.isCurrentContext(context)) {
+                this.responseCache.set(cacheKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+            }
             return items;
-        }).finally(() => this.pending.delete(dedupeKey));
-        this.pending.set(dedupeKey, promise);
+        }).finally(() => this.pending.delete(cacheKey));
+        this.pending.set(cacheKey, promise);
         return promise;
     }
 
-    private async collectUncached(path: string, options: WanikaniListOptions): Promise<unknown[]> {
+    private async collectUncached(context: WanikaniAccountContext, path: string, options: WanikaniListOptions): Promise<unknown[]> {
         const items: unknown[] = [];
         let url: string | null = `${this.baseUrl}${path}${queryString(options)}`;
         const visited = new Set<string>();
         while (url) {
-            if (!this.isSafeApiUrl(url)) throw new WanikaniApiError('WaniKani returned an unsafe pagination URL.');
-            if (visited.has(url)) throw new WanikaniApiError('WaniKani pagination repeated a page URL.');
-            if (visited.size >= 1000) throw new WanikaniApiError('WaniKani pagination exceeded the safety limit.');
+            assertWanikaniPaginationUrl(url, visited, value => this.isSafeApiUrl(value));
             visited.add(url);
-            const page: WanikaniCollection<unknown> = await this.requestUrl(url) as WanikaniCollection<unknown>;
-            if (Array.isArray(page.data)) items.push(...page.data);
-            url = typeof page.pages?.next_url === 'string' ? page.pages.next_url : null;
+            const page: WanikaniCollection<unknown> = await this.requestUrl(context, url) as WanikaniCollection<unknown>;
+            url = appendWanikaniCollectionPage(items, page);
         }
         return items;
     }
 
-    private request(path: string, options: WanikaniRequestOptions = {}, cache: { cacheTtlMs?: number } = {}): Promise<unknown> {
+    private request(context: WanikaniAccountContext, path: string, options: WanikaniRequestOptions = {}, cache: { cacheTtlMs?: number } = {}): Promise<unknown> {
         const url = `${this.baseUrl}${path}`;
-        if (!cache.cacheTtlMs || options.method === 'POST') return this.requestUrl(url, options);
-        const key = `${this.currentFingerprint()}:${url}`;
-        const cached = this.responseCache.get(key);
-        if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-        const pending = this.pending.get(key);
-        if (pending) return pending;
-        const request = this.requestUrl(url, options).then(value => {
-            this.responseCache.set(key, { expiresAt: this.now() + (cache.cacheTtlMs ?? 0), value });
+        const cacheTtlMs = wanikaniCacheTtl(cache);
+        if (!isCacheableWanikaniRequest(cacheTtlMs, options.method)) return this.requestUrl(context, url, options);
+        const key = `${context.cacheNamespace}:${url}`;
+        const existing = this.cachedOrPendingResponse(key);
+        if (existing) return existing;
+        const request = this.requestUrl(context, url, options).then(value => {
+            this.cacheResponseForCurrentContext(context, key, cacheTtlMs, value);
             return value;
         }).finally(() => this.pending.delete(key));
         this.pending.set(key, request);
         return request;
     }
 
-    private async requestUrl(url: string, options: WanikaniRequestOptions = {}): Promise<unknown> {
-        const token = this.getToken().trim();
-        if (!token) throw new WanikaniApiError('WaniKani API token is not set.');
-        if (!this.isSafeApiUrl(url)) throw new WanikaniApiError('Blocked a WaniKani request outside the official API origin.');
-        let attempt = 0;
-        while (true) {
-            await this.throttle();
+    private cachedOrPendingResponse(key: string): Promise<unknown> | null {
+        const cached = this.responseCache.get(key);
+        if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
+        return this.pending.get(key) ?? null;
+    }
+
+    private cacheResponseForCurrentContext(context: WanikaniAccountContext, key: string, cacheTtlMs: number, value: unknown): void {
+        if (!this.isCurrentContext(context)) return;
+        this.responseCache.set(key, { expiresAt: this.now() + cacheTtlMs, value });
+    }
+
+    private async requestUrl(context: WanikaniAccountContext, url: string, options: WanikaniRequestOptions = {}): Promise<unknown> {
+        assertSafeWanikaniRequestUrl(url, value => this.isSafeApiUrl(value));
+        return this.requestWithRateLimitRetry(context, url, options);
+    }
+
+    private async requestWithRateLimitRetry(
+        context: WanikaniAccountContext,
+        url: string,
+        options: WanikaniRequestOptions,
+    ): Promise<unknown> {
+        try {
+            return await this.requestAttempt(context, url, options);
+        } catch (error) {
+            const normalized = normalizeWanikaniError(error);
+            if (!isRateLimitError(normalized)) throw normalized;
+            await this.sleep(Math.max(2_000, this.minRequestIntervalMs * 2));
             try {
-                return await this.requestImpl(url, {
-                method: options.method ?? 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Wanikani-Revision': WANIKANI_REVISION,
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                data: options.body === undefined ? undefined : JSON.stringify(options.body),
-                responseType: 'json',
-                timeoutMs: this.timeoutMs,
-                preferFetch: true,
-                allowDirectCrossOrigin: true,
-                proxyUrl: '',
-                allowPublicProxies: false,
-                allowConfiguredProxy: false,
-                credentials: 'omit',
-                referrerPolicy: 'no-referrer',
-                failureLabel: 'WaniKani request',
-                statusFailureMessage: status => status === 401
-                    ? 'WaniKani token expired or was denied (401).'
-                    : status === 403
-                        ? 'WaniKani token lacks permission for this request (403).'
-                    : `WaniKani API request failed (${status}).`,
-                });
-            } catch (error) {
-                const normalized = normalizeWanikaniError(error);
-                if (attempt === 0 && isRateLimitError(normalized)) {
-                    attempt += 1;
-                    await this.sleep(Math.max(2_000, this.minRequestIntervalMs * 2));
-                    continue;
-                }
-                throw normalized;
+                return await this.requestAttempt(context, url, options);
+            } catch (retryError) {
+                throw normalizeWanikaniError(retryError);
             }
         }
+    }
+
+    private async requestAttempt(context: WanikaniAccountContext, url: string, options: WanikaniRequestOptions): Promise<unknown> {
+        await this.throttle();
+        return this.requestImpl(url, {
+            method: options.method ?? 'GET',
+            headers: {
+                Authorization: `Bearer ${context.token}`,
+                'Wanikani-Revision': WANIKANI_REVISION,
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+            },
+            data: options.body === undefined ? undefined : JSON.stringify(options.body),
+            responseType: 'json',
+            timeoutMs: this.timeoutMs,
+            preferFetch: true,
+            allowDirectCrossOrigin: true,
+            proxyUrl: '',
+            allowPublicProxies: false,
+            allowConfiguredProxy: false,
+            credentials: 'omit',
+            referrerPolicy: 'no-referrer',
+            failureLabel: 'WaniKani request',
+            statusFailureMessage: wanikaniStatusFailureMessage,
+        });
     }
 
     private throttle(): Promise<void> {
@@ -285,28 +310,40 @@ export class WanikaniClient {
         return scheduled;
     }
 
-    private currentFingerprint(): string {
-        const fingerprint = this.tokenFingerprint();
-        if (!fingerprint) throw new WanikaniApiError('WaniKani API token is not set.');
-        if (this.verifiedFingerprint && this.verifiedFingerprint !== fingerprint) {
-            this.verifiedUser = null;
-            this.verifiedFingerprint = '';
-            this.pending.clear();
-            this.responseCache.clear();
+    private accountContext(): WanikaniAccountContext {
+        const token = this.getToken().trim();
+        if (!token) {
+            this.clear();
+            throw new WanikaniApiError('WaniKani API token is not set.');
         }
-        return fingerprint;
+        const fingerprint = fingerprintWanikaniToken(token);
+        if (fingerprint !== this.activeFingerprint) this.resetAccountContext(fingerprint);
+        const generation = this.contextGeneration;
+        return { token, fingerprint, generation, cacheNamespace: `${generation}:${fingerprint}` };
     }
 
-    private invalidateReviewStateCaches(): void {
-        const fingerprint = this.tokenFingerprint();
-        const summaryKey = `${fingerprint}:${this.baseUrl}/summary`;
-        for (const key of this.responseCache.keys()) {
-            if (key === summaryKey
-                || key.startsWith(`${fingerprint}:/assignments?`)
-                || key.startsWith(`${fingerprint}:/review_statistics?`)) {
-                this.responseCache.delete(key);
-            }
-        }
+    private resetAccountContext(fingerprint: string): void {
+        this.contextGeneration += 1;
+        this.activeFingerprint = fingerprint;
+        this.verifiedUser = null;
+        this.verifiedContext = '';
+        this.pending.clear();
+        this.responseCache.clear();
+    }
+
+    private isCurrentContext(context: WanikaniAccountContext): boolean {
+        return context.generation === this.contextGeneration
+            && context.fingerprint === this.activeFingerprint
+            && context.token === this.getToken().trim();
+    }
+
+    private invalidateReviewStateCaches(context: WanikaniAccountContext): void {
+        for (const key of this.currentReviewStateCacheKeys(context)) this.responseCache.delete(key);
+    }
+
+    private currentReviewStateCacheKeys(context: WanikaniAccountContext): string[] {
+        if (!this.isCurrentContext(context)) return [];
+        return [...this.responseCache.keys()].filter(key => isReviewStateCacheKey(key, context, this.baseUrl));
     }
 
     private isSafeApiUrl(value: string): boolean {
@@ -327,7 +364,66 @@ interface WanikaniRequestOptions {
     body?: unknown;
 }
 
-const KNOWN_SUBSCRIPTION_TYPES = new Set(['free', 'recurring', 'lifetime']);
+function permittedSubjectLevels(requested: number[] | undefined, maxLevel: number): number[] | null {
+    if (!requested?.length) return Array.from({ length: maxLevel }, (_, index) => index + 1);
+    const levels = requested.filter(level => level >= 1 && level <= maxLevel);
+    return levels.length ? levels : null;
+}
+
+function assertWanikaniPaginationUrl(
+    url: string,
+    visited: ReadonlySet<string>,
+    isSafe: (value: string) => boolean,
+): void {
+    if (!isSafe(url)) throw new WanikaniApiError('WaniKani returned an unsafe pagination URL.');
+    if (visited.has(url)) throw new WanikaniApiError('WaniKani pagination repeated a page URL.');
+    if (visited.size >= 1000) throw new WanikaniApiError('WaniKani pagination exceeded the safety limit.');
+}
+
+function appendWanikaniCollectionPage(items: unknown[], page: WanikaniCollection<unknown>): string | null {
+    if (Array.isArray(page.data)) items.push(...page.data);
+    return typeof page.pages?.next_url === 'string' ? page.pages.next_url : null;
+}
+
+function wanikaniStatusFailureMessage(status: number): string {
+    if (status === 401) return 'WaniKani token expired or was denied (401).';
+    if (status === 403) return 'WaniKani token lacks permission for this request (403).';
+    return `WaniKani API request failed (${status}).`;
+}
+
+function isReviewStateCacheKey(key: string, context: WanikaniAccountContext, baseUrl: string): boolean {
+    if (key === `${context.cacheNamespace}:${baseUrl}/summary`) return true;
+    const collectionPrefixes = ['/assignments?', '/review_statistics?'];
+    return collectionPrefixes.some(path => key.startsWith(`${context.cacheNamespace}:${path}`));
+}
+
+function wanikaniCacheTtl(cache: { cacheTtlMs?: number }): number {
+    return cache.cacheTtlMs ?? 0;
+}
+
+function isCacheableWanikaniRequest(cacheTtlMs: number, method: WanikaniRequestOptions['method']): boolean {
+    return cacheTtlMs > 0 && method !== 'POST';
+}
+
+function assertSafeWanikaniRequestUrl(url: string, isSafe: (value: string) => boolean): void {
+    if (!isSafe(url)) throw new WanikaniApiError('Blocked a WaniKani request outside the official API origin.');
+}
+
+const PAID_SUBSCRIPTION_TYPES = new Set(['recurring', 'lifetime']);
+
+function effectiveMaxLevelForUser(user: WanikaniUserData): number {
+    const subscription = user.subscription;
+    if (!hasPaidSubscription(subscription)) return FREE_TIER_MAX_LEVEL;
+    const granted = Number(subscription.max_level_granted);
+    if (!Number.isFinite(granted)) return FREE_TIER_MAX_LEVEL;
+    if (granted <= 0) return FREE_TIER_MAX_LEVEL;
+    return Math.min(60, granted);
+}
+
+function hasPaidSubscription(subscription: WanikaniUserData['subscription']): boolean {
+    if (!subscription.active) return false;
+    return PAID_SUBSCRIPTION_TYPES.has(subscription.type);
+}
 
 function parseWanikaniUser(raw: unknown): WanikaniUserData {
     const record = isRecord(raw) ? (isRecord(raw.data) ? raw.data as Record<string, unknown> : raw) : {};

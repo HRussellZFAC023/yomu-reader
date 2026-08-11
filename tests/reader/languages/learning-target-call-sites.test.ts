@@ -73,6 +73,7 @@ describe('onboarding target-language picker', () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             onboardingSeen: false,
+            learningTargetChosen: true,
             interfaceLanguage: 'en',
             languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
                 ...profile,

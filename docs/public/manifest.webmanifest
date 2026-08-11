@@ -1,7 +1,7 @@
 {
-  "name": "よむ Japanese Reader",
+  "name": "よむ Language Reader",
   "short_name": "よむ",
-  "description": "Read Japanese web pages, manga, PDFs, subtitles, and study cards with one よむ reader shell.",
+  "description": "Read web pages, manga, PDFs, subtitles, and study cards in your selected learning language with one よむ reader shell.",
   "id": "/",
   "start_url": "/",
   "scope": "/",

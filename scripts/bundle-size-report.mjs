@@ -16,7 +16,7 @@ const FEATURE_BUCKETS = [
     ['audio', /(^|\/)(audio|reader-audio-actions|page-media-url)\.ts$/],
     ['subtitles', /(^|\/)(subtitles|subtitle-|subtitle-.*|subtitle-player-.*|site-parsers)\.ts$/],
     ['ocr', /(^|\/)(ocr|reader-words-ocr)\.(ts|css)$/],
-    ['kanji', /(^|\/)(kanji|kanjivg|rtk|uchisen|origin-graph|kanji-.*|rtk-elements|jpdb-kanji)\.(ts|css)$/],
+    ['kanji', /(^|\/)(kanji|kanjivg|rtk|origin-graph|kanji-.*|rtk-elements|jpdb-kanji)\.(ts|css)$/],
     ['local-dictionaries', /(^|\/)(yomitan|yomitan-.*|local-dictionary-.*|definition-source-render|dictionary-.*|source-sections|zip)\.(ts|css)$/],
     ['newtab', /(^|\/)(new-tab|newtab|anki-new-tab|new-tab-.*|newtab-.*)\.(ts|css)$/],
     ['immersion-kit', /(^|\/)(immersion-.*|study-.*)\.(ts|css)$/],

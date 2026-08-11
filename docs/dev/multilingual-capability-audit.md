@@ -67,6 +67,14 @@ breadth, or full UI localization. `grc` has no Google translation destination;
 that is surfaced rather than force-enabled. Published-dictionary parity remains
 the separate `quality:multilingual-parity` gate.
 
+Study sentence translation follows the active target Module independently of
+that offline capability count. Japanese retains its Japanese-text noise gate;
+other targets use their own script-neutral text gate and provider source code.
+The rendered source and result carry independent `lang` and writing direction,
+including right-to-left targets, while `grc` takes the explicit unavailable
+path. Focused production-path tests cover Spanish, Arabic, Korean, same-text
+responses, and the unavailable boundary.
+
 ## Fail-closed rules
 
 The audit fails when the roster is not exactly 33 unique targets, behavior

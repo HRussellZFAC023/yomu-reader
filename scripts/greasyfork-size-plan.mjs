@@ -76,7 +76,7 @@ const surfaces = [
             /^src\/reader\/kanji\//,
             /^src\/reader\/popup\/origin-graph\.ts$/,
             /^src\/reader\/study\//,
-            /(^|\/)(kanjivg|rtk|uchisen|origin-graph|jpdb-kanji)[^/]*\.(ts|css)$/,
+            /(^|\/)(kanjivg|rtk|origin-graph|jpdb-kanji)[^/]*\.(ts|css)$/,
         ],
     },
     {

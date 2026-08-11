@@ -56,8 +56,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: '.nvmrc'
           cache: npm
+      - run: npm install --global npm@11.9.0
       # configure-pages performs a GitHub API preflight that can fail on a
       # transient 5xx before any build work starts. Retry it twice, but keep
       # the final attempt required so persistent configuration/auth failures

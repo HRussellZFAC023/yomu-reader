@@ -5361,10 +5361,10 @@ const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
 const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
 const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -5395,7 +5395,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -6022,20 +6022,6 @@ function storageBridgeResponseDetail(event) {
   keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
   message: typeof record2.message === "string" ? record2.message : void 0
   };
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
 }
 function addBridgeEventListener(type, listener) {
   const cleanups = [];
@@ -6814,7 +6800,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -9398,8 +9386,6 @@ function isSharedPublicProxyAllowlistedTarget(target) {
   if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
   if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
   if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-  if (host === "uchisen.com") return path.startsWith("/kanji/");
-  if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
   return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
 }
 function isJpdbPublicLookupTarget(target, method) {
@@ -9970,6 +9956,9 @@ const COPY = {
   onboardingLanguage: "Settings language",
   onboardingOutputLanguage: "Definition and translation language (output)",
   onboardingTargetLanguage: "Language you are reading (target)",
+  onboardingChooseTarget: "Choose a learning language…",
+  onboardingTargetRequired: "Choose a learning language before continuing.",
+  onboardingUnselectedTargetName: "your learning language",
   onboardingAccentColor: "Accent color",
   customAccentColor: "Custom color",
   onboardingImmersionOptions: "Immersion defaults",
@@ -10838,7 +10827,6 @@ const COPY = {
   immersionExampleControls: "Immersion Kit example controls",
   exampleSearchLinks: "Example searches",
   loadingKanjiDetails: "Loading kanji details...",
-  loadingMnemonicImages: "Loading mnemonic images...",
   lookupDialog: `${APP_NAME} lookup`,
   resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
   showMiningActions: "Show mining actions",
@@ -11121,22 +11109,7 @@ const COPY = {
   sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
   sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
   sourceHelpRtk: "RTK keywords, elements, and stories.",
-  sourceHelpUchisen: "Uchisen mnemonic image carousel.",
   sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-  uchisenMnemonicImages: "Uchisen mnemonic images",
-  uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-  noUchisenImagesYet: "No Uchisen images yet.",
-  generateUchisenImage: "Generate image",
-  generateUchisenImageToggle: "Generate image +",
-  uchisenMnemonicStory: "Mnemonic story",
-  uchisenImagePrompt: "Image prompt",
-  uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-  uchisenGeneratingImage: "Generating image...",
-  uchisenPublishingMnemonic: "Publishing mnemonic...",
-  uchisenGeneratedImage: "Uchisen image published.",
-  uchisenGenerateFailed: "Could not generate Uchisen image.",
-  uchisenLoginRequired: "Log in to Uchisen to generate images.",
-  noStoryAvailable: "No story available",
   sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
   sourceHelpWordsUsingKanji: "Related vocabulary.",
   sourceHelpComponentGraph: "Kanji facts, components, radical images.",
@@ -11225,6 +11198,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -11282,7 +11258,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -12400,22 +12375,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
@@ -14210,15 +14170,150 @@ function createDefaultSubtitleSettings(fontFamily) {
   subtitleSeekPadding: 0.08
   };
 }
+function normalizeLearningTargetChosen(value, defaults) {
+  if (!value) return false;
+  if (hasOwn(value, "learningTargetChosen")) return value.learningTargetChosen === true;
+  if (value.onboardingSeen === true) return true;
+  return persistedProfilesChooseLearningTarget(value, defaults);
+}
+function persistedProfilesChooseLearningTarget(value, defaults) {
+  const profiles = value.languageProfiles;
+  if (!Array.isArray(profiles)) return false;
+  if (!profiles.some(isPersistedLanguageProfile)) return false;
+  const normalized = normalizeLanguageProfiles(
+  profiles,
+  value.activeLanguageProfileId,
+  {
+    outputLanguage: "en",
+    uiLocale: defaults.interfaceLanguage,
+    parserProvider: defaults.parserProvider
+  }
+  );
+  return normalized.profiles.some((profile) => languageProfileHasIndependentState(profile, defaults));
+}
+function isPersistedLanguageProfile(profile) {
+  return Boolean(
+  profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion)
+  );
+}
+function languageProfileHasIndependentState(profile, defaults) {
+  return [
+  profile.id !== DEFAULT_LANGUAGE_PROFILE_ID,
+  profile.outputLanguage !== "en",
+  profile.targetLanguage !== SLICE1_TARGET_LANGUAGE,
+  profile.uiLocale !== defaults.interfaceLanguage,
+  profile.parserProvider !== defaults.parserProvider,
+  profile.dictionaries.installed.length > 0,
+  profile.definitionTranslationProviderIds.length > 0
+  ].includes(true);
+}
+function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences, defaults) {
+  const interfaceLanguage = storedInterfaceLanguage(value, defaults.interfaceLanguage);
+  const normalized = normalizeLanguageProfiles(
+  value?.languageProfiles,
+  value?.activeLanguageProfileId,
+  { outputLanguage: "en", uiLocale: interfaceLanguage, parserProvider }
+  );
+  const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
+  if (!active) return missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences);
+  const authoritative = profilesAreAuthoritative(value, normalized.profiles, defaults);
+  if (!authoritative) inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults);
+  return activeProfileSettings(value, normalized, active, authoritative, dictionaryPreferences, defaults);
+}
+function storedInterfaceLanguage(value, fallback) {
+  if (!value) return fallback;
+  return value.interfaceLanguage ?? fallback;
+}
+function profilesAreAuthoritative(value, profiles, defaults) {
+  if (!hasPersistedProfiles(value)) return false;
+  return profiles.some((profile) => languageProfileHasIndependentState(profile, defaults));
+}
+function hasPersistedProfiles(value) {
+  const profiles = value?.languageProfiles;
+  return Array.isArray(profiles) && profiles.some(isPersistedLanguageProfile);
+}
+function inheritLegacyProfileSettings(active, value, parserProvider, dictionaryPreferences, defaults) {
+  active.parserProvider = parserProvider;
+  active.uiLocale = normalizedInterfaceLanguage(value?.interfaceLanguage, defaults.interfaceLanguage);
+  active.dictionaries = languageProfileDictionariesFromPreferences$1(dictionaryPreferences);
+}
+function missingActiveProfileSettings(normalized, parserProvider, interfaceLanguage, dictionaryPreferences) {
+  return {
+  languageProfiles: normalized.profiles,
+  activeLanguageProfileId: normalized.activeProfileId,
+  parserProvider,
+  interfaceLanguage,
+  dictionaryPreferences
+  };
+}
+function activeProfileSettings(value, normalized, active, authoritative, dictionaryPreferences, defaults) {
+  return {
+  languageProfiles: normalized.profiles,
+  activeLanguageProfileId: normalized.activeProfileId,
+  parserProvider: active.parserProvider,
+  interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage, defaults.interfaceLanguage),
+  dictionaryPreferences: authoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
+  };
+}
+function languageProfileDictionariesFromPreferences$1(preferences) {
+  const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
+  return {
+  installed: ordered.map((preference) => preference.name),
+  enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
+  order: ordered.map((preference) => preference.name)
+  };
+}
+function dictionaryPreferencesForLanguageProfile(preferences, dictionaries2) {
+  if (!dictionaries2.installed.length) return preferences;
+  const installed = new Set(dictionaries2.installed.map(normalizedProfileDictionaryId));
+  const enabled = new Set(dictionaries2.enabled.map(normalizedProfileDictionaryId));
+  const order = new Map(dictionaries2.order.map((id, index) => [normalizedProfileDictionaryId(id), index]));
+  return preferences.map((preference, index) => {
+  const key = normalizedProfileDictionaryId(preference.name);
+  return {
+    ...preference,
+    enabled: installed.has(key) && enabled.has(key),
+    priority: order.get(key) ?? dictionaries2.order.length + index
+  };
+  }).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
+}
+function normalizedProfileDictionaryId(value) {
+  return value.normalize("NFKC").trim().toLocaleLowerCase("en-US");
+}
+function profileInterfaceLanguage(value, fallback, defaultLanguage) {
+  if (isInterfaceLanguage(value)) return value;
+  if (isInterfaceLanguage(fallback)) return fallback;
+  return defaultLanguage;
+}
+function normalizedInterfaceLanguage(value, fallback) {
+  return isInterfaceLanguage(value) ? value : fallback;
+}
+function isInterfaceLanguage(value) {
+  return value === "auto" || value === "en" || value === "ja";
+}
 function isHostedReaderRuntime() {
   return document.documentElement?.dataset.yomuHosted !== void 0;
 }
 const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
 const PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE = "prefer-japanese-site-language-setting";
-async function persistPreferredJapaneseSiteLanguage(value) {
-  if (isHostedReaderRuntime()) return;
+async function persistPreferredJapaneseSiteLanguageWithSettings(value, persistSettings2) {
+  if (isHostedReaderRuntime()) return persistSettings2();
   await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+  const previous = await gmStorageGet(
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    void 0
+  );
   await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+  try {
+    await persistSettings2();
+  } catch (error) {
+    if (typeof previous === "boolean") {
+      await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, previous);
+    } else {
+      await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+    }
+    throw error;
+  }
   });
 }
 function settingsValueEquals(left, right) {
@@ -14506,6 +14601,7 @@ const DEFAULT_SETTINGS = {
   bunproFrontendApiTokenExpiresAt: "",
   wanikaniApiToken: "",
   onboardingSeen: false,
+  learningTargetChosen: false,
   interfaceLanguage: "en",
   languageProfiles: [createDefaultLanguageProfile()],
   activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
@@ -14543,7 +14639,8 @@ const DEFAULT_SETTINGS = {
   kanjiImmersionKitEnabled: true,
   kanjiImmersionKitAlias: "",
   kanjiImmersionKitPriority: 60,
-  uchisenEnabled: true,
+  uchisenEnabled: false,
+  // Ignored legacy field; only the outbound link remains.
   uchisenAlias: "",
   uchisenPriority: 50,
   wanikaniKanjiEnabled: true,
@@ -14818,7 +14915,11 @@ function mergeSettings(value) {
   const languageProfileSettings = normalizeLanguageProfileSettings(
   settingsValue,
   parserProvider,
-  dictionaryPreferences
+  dictionaryPreferences,
+  {
+    interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
+    parserProvider: DEFAULT_SETTINGS.parserProvider
+  }
   );
   return {
   ...DEFAULT_SETTINGS,
@@ -14844,6 +14945,10 @@ function mergeSettings(value) {
     activeTargetRosterId(languageProfileSettings)
   ),
   ...languageProfileSettings,
+  learningTargetChosen: normalizeLearningTargetChosen(settingsValue, {
+    interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
+    parserProvider: DEFAULT_SETTINGS.parserProvider
+  }),
   preferJapaneseSiteLanguage: normalizePreferredJapaneseSiteLanguage(settingsValue),
   shortcuts: normalizeShortcutSettings(settingsValue)
   };
@@ -14862,81 +14967,9 @@ function normalizeParserProvider(value) {
 function normalizeReaderSettings(value) {
   return mergeSettings(value);
 }
-function normalizeLanguageProfileSettings(value, parserProvider, dictionaryPreferences) {
-  const hasPersistedProfiles = Array.isArray(value?.languageProfiles) && value.languageProfiles.some((profile) => profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion));
-  const normalized = normalizeLanguageProfiles(
-  value?.languageProfiles,
-  value?.activeLanguageProfileId,
-  {
-    // INTERFACE is not OUTPUT: existing Japanese-UI users are not
-    // necessarily native Japanese speakers. Preserve their UI choice
-    // and default the OUTPUT axis independently to English until
-    // onboarding asks.
-    outputLanguage: "en",
-    uiLocale: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
-    parserProvider
-  }
-  );
-  const active = activeLanguageProfile(normalized.profiles, normalized.activeProfileId);
-  if (!active) {
-  return {
-    languageProfiles: normalized.profiles,
-    activeLanguageProfileId: normalized.activeProfileId,
-    parserProvider,
-    interfaceLanguage: value?.interfaceLanguage ?? DEFAULT_SETTINGS.interfaceLanguage,
-    dictionaryPreferences
-  };
-  }
-  const profilesAreAuthoritative = hasPersistedProfiles && normalized.profiles.some(languageProfileHasIndependentState);
-  if (!profilesAreAuthoritative) {
-  active.parserProvider = parserProvider;
-  active.uiLocale = normalizeInterfaceLanguage(value?.interfaceLanguage);
-  active.dictionaries = languageProfileDictionariesFromPreferences$1(dictionaryPreferences);
-  }
-  return {
-  languageProfiles: normalized.profiles,
-  activeLanguageProfileId: normalized.activeProfileId,
-  parserProvider: active.parserProvider,
-  interfaceLanguage: profileInterfaceLanguage(active.uiLocale, value?.interfaceLanguage),
-  dictionaryPreferences: profilesAreAuthoritative ? dictionaryPreferencesForLanguageProfile(dictionaryPreferences, active.dictionaries) : dictionaryPreferences
-  };
-}
 function activeTargetRosterId(profileSettings) {
   const active = activeLanguageProfile(profileSettings.languageProfiles, profileSettings.activeLanguageProfileId);
   return learningTargetRosterIdForTag(active?.targetLanguage) ?? SLICE1_TARGET_LANGUAGE;
-}
-function languageProfileHasIndependentState(profile) {
-  return profile.id !== DEFAULT_LANGUAGE_PROFILE_ID || profile.outputLanguage !== "en" || profile.targetLanguage !== SLICE1_TARGET_LANGUAGE || profile.uiLocale !== DEFAULT_SETTINGS.interfaceLanguage || profile.parserProvider !== DEFAULT_SETTINGS.parserProvider || profile.dictionaries.installed.length > 0 || profile.definitionTranslationProviderIds.length > 0;
-}
-function languageProfileDictionariesFromPreferences$1(preferences) {
-  const ordered = [...preferences].sort((left, right) => left.priority - right.priority);
-  return {
-  installed: ordered.map((preference) => preference.name),
-  enabled: ordered.filter((preference) => preference.enabled).map((preference) => preference.name),
-  order: ordered.map((preference) => preference.name)
-  };
-}
-function dictionaryPreferencesForLanguageProfile(preferences, dictionaries2) {
-  if (!dictionaries2.installed.length) return preferences;
-  const installed = new Set(dictionaries2.installed.map(normalizedProfileDictionaryId));
-  const enabled = new Set(dictionaries2.enabled.map(normalizedProfileDictionaryId));
-  const order = new Map(
-  dictionaries2.order.map((id, index) => [normalizedProfileDictionaryId(id), index])
-  );
-  return preferences.map((preference, index) => {
-  const key = normalizedProfileDictionaryId(preference.name);
-  return {
-    ...preference,
-    enabled: installed.has(key) && enabled.has(key),
-    priority: order.get(key) ?? dictionaries2.order.length + index
-  };
-  }).sort((left, right) => left.priority - right.priority || left.name.localeCompare(right.name));
-}
-function normalizedProfileDictionaryId(value) {
-  return value.normalize("NFKC").trim().toLocaleLowerCase("en-US");
-}
-function profileInterfaceLanguage(value, fallback) {
-  return value === "auto" || value === "en" || value === "ja" ? value : fallback === "auto" || fallback === "en" || fallback === "ja" ? fallback : DEFAULT_SETTINGS.interfaceLanguage;
 }
 function normalizeApiCredentialSettings(value) {
   const apiKey = trimmedStringSetting(value, "apiKey", DEFAULT_SETTINGS.apiKey);
@@ -15635,18 +15668,23 @@ async function saveSettings(settings, options) {
   const intent = options ?? { explicitUserChoiceKeys: NO_EXPLICIT_USER_CHOICE };
   try {
   const normalizedSettings = mergeSettings(settings);
-  if (intent.persistPreferredJapaneseSiteLanguage) {
-    await persistPreferredJapaneseSiteLanguage(normalizedSettings.preferJapaneseSiteLanguage);
-  }
-  await persistSettings(
-    normalizedSettings,
-    intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
-    intent.clearExplicitUserChoiceKeys
-  );
+  await persistSettingsWithIntent(normalizedSettings, intent);
   } catch (error) {
   log$c.warn("Settings save failed", { error });
   throw error;
   }
+}
+async function persistSettingsWithIntent(settings, intent) {
+  const persist = () => persistSettings(
+  settings,
+  intent.explicitUserChoiceKeys ?? NO_EXPLICIT_USER_CHOICE,
+  intent.clearExplicitUserChoiceKeys
+  );
+  if (!intent.persistPreferredJapaneseSiteLanguage) return persist();
+  return persistPreferredJapaneseSiteLanguageWithSettings(
+  settings.preferJapaneseSiteLanguage,
+  persist
+  );
 }
 function coupledSettingsIntentKeys(keys) {
   return coupledIntentKeys(keys, (key) => hasOwn(DEFAULT_SETTINGS, key));
@@ -16566,7 +16604,7 @@ const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
 function clearNewTabOfflineCache() {
   return gmStorageDelete(NEW_TAB_CACHE_KEY);
 }
-const CURRENT_YOMU_VERSION = "1.8.90".trim() ? "1.8.90".trim() : "dev";
+const CURRENT_YOMU_VERSION = "1.9.0".trim() ? "1.9.0".trim() : "dev";
 function latestYomuVersionFromVersionJson(value) {
   if (!value || typeof value !== "object") return null;
   const record2 = value;
@@ -51811,7 +51849,7 @@ function groupShelfByCategory(shelf, options) {
 }
 function buildCatalogBrowseShelves(catalog) {
   const entriesByLanguage = /* @__PURE__ */ new Map();
-  for (const entry of catalog.entries) {
+  for (const entry of catalog.entries.filter((entry2) => catalogBrowseEntryIsInstallable(catalog, entry2))) {
   for (const language2 of entry.headwordLanguages) {
     const bucket = entriesByLanguage.get(language2);
     if (bucket) bucket.push(entry);
@@ -51825,6 +51863,10 @@ function buildCatalogBrowseShelves(catalog) {
   )
   }));
   return Object.freeze(shelves.sort(compareCatalogBrowseShelves(catalog.targetLanguage)));
+}
+function catalogBrowseEntryIsInstallable(catalog, entry) {
+  const legacy = /(?:^|-)legacy(?:-|$)/iu.test(entry.id) || /\blegacy\b/iu.test(entry.title);
+  return !legacy && dictionaryEntryDownload(entry, catalog.objectsBaseUrl) !== void 0;
 }
 function compareCatalogBrowseShelves(targetLanguage2) {
   return (left, right) => {
@@ -52634,7 +52676,6 @@ const SHORTCUT_SETTING_NAMES = [
 const KANJI_ADDON_SOURCE_ROWS = [
   ["jpdbKanji", "jpdbKanjiEnabled", "jpdbKanjiPriority", "jpdbKanjiAlias"],
   ["kanjiImmersionKit", "kanjiImmersionKitEnabled", "kanjiImmersionKitPriority", "kanjiImmersionKitAlias"],
-  ["uchisen", "uchisenEnabled", "uchisenPriority", "uchisenAlias"],
   ["wanikaniKanji", "wanikaniKanjiEnabled", "wanikaniKanjiPriority", "wanikaniKanjiAlias"],
   ["rtk", "rtkEnabled", "rtkPriority", "rtkAlias"],
   ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
@@ -52727,8 +52768,8 @@ function readLanguageProfileFormSettings(data, current, interfaceLanguage, dicti
   const outputLanguage = readOutputLanguage(data, fallbackOutputLanguage);
   const outputLanguageTag = outputLanguage === fallbackOutputLanguage ? active.outputLanguage : canonicalTagForSlice1Language(outputLanguage);
   const fallbackTargetLanguage = learningTargetRosterIdForTag(active.targetLanguage) ?? "ja";
-  const targetLanguageId = readTargetLanguage(data, fallbackTargetLanguage);
-  const targetLanguage2 = canonicalTagForLearningTarget(targetLanguageId);
+  const targetLanguageId2 = readTargetLanguage(data, fallbackTargetLanguage);
+  const targetLanguage2 = canonicalTagForLearningTarget(targetLanguageId2);
   const parserProvider = readOption(
   String(data.get("parserProvider") ?? ""),
   ["local", "jiten", "jpdb", "auto"],
@@ -53510,6 +53551,18 @@ function httpStatusFromError(error) {
   const status = value.status ?? value.statusCode;
   return typeof status === "number" && Number.isFinite(status) ? status : void 0;
 }
+function sensitiveFingerprint(value) {
+  const secret = value.trim();
+  if (!secret) return "";
+  let first = 2166136261;
+  let second = 2654435769;
+  for (let index = 0; index < secret.length; index += 1) {
+  const code = secret.charCodeAt(index);
+  first = Math.imul(first ^ code, 16777619) >>> 0;
+  second = Math.imul(second ^ code, 2246822507) >>> 0;
+  }
+  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${secret.length}`;
+}
 const WANIKANI_API_BASE_URL = "https://api.wanikani.com/v2";
 const WANIKANI_REVISION = "20170710";
 const WANIKANI_TOKEN_SETTINGS_URL = "https://www.wanikani.com/settings/personal_access_tokens";
@@ -53524,16 +53577,7 @@ class WanikaniApiError extends Error {
 }
 const MIN_REQUEST_INTERVAL_MS = 1100;
 function fingerprintWanikaniToken(value) {
-  const token = value.trim();
-  if (!token) return "";
-  let first = 2166136261;
-  let second = 2654435769;
-  for (let index = 0; index < token.length; index += 1) {
-  const code = token.charCodeAt(index);
-  first = Math.imul(first ^ code, 16777619) >>> 0;
-  second = Math.imul(second ^ code, 2246822507) >>> 0;
-  }
-  return `${first.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}:${token.length}`;
+  return sensitiveFingerprint(value);
 }
 class WanikaniClient {
   getToken;
@@ -53548,7 +53592,9 @@ class WanikaniClient {
   pending = /* @__PURE__ */ new Map();
   responseCache = /* @__PURE__ */ new Map();
   verifiedUser = null;
-  verifiedFingerprint = "";
+  verifiedContext = "";
+  activeFingerprint = "";
+  contextGeneration = 0;
   constructor(options = {}) {
   this.getToken = options.getToken ?? (() => "");
   this.baseUrl = trimBaseUrl(options.baseUrl ?? WANIKANI_API_BASE_URL);
@@ -53564,143 +53610,164 @@ class WanikaniClient {
   tokenFingerprint() {
   return fingerprintWanikaniToken(this.getToken());
   }
+  clear() {
+  this.resetAccountContext("");
+  }
   async getUser(force = false) {
-  const fingerprint = this.currentFingerprint();
-  if (!force && this.verifiedUser && this.verifiedFingerprint === fingerprint) return this.verifiedUser;
-  const raw = await this.request("/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
-  const user = parseWanikaniUser(raw);
-  this.verifiedUser = user;
-  this.verifiedFingerprint = fingerprint;
-  return user;
+  return this.getUserFor(this.accountContext(), force);
   }
   async effectiveMaxLevel() {
-  const user = this.verifiedUser ?? await this.getUser();
-  const subscription = user.subscription;
-  if (!subscription.active) return FREE_TIER_MAX_LEVEL;
-  if (!KNOWN_SUBSCRIPTION_TYPES.has(subscription.type)) return FREE_TIER_MAX_LEVEL;
-  if (subscription.type === "free") return FREE_TIER_MAX_LEVEL;
-  const granted = Number(subscription.max_level_granted);
-  return Number.isFinite(granted) && granted > 0 ? Math.min(60, granted) : FREE_TIER_MAX_LEVEL;
+  const context = this.accountContext();
+  return effectiveMaxLevelForUser(await this.getUserFor(context));
   }
   async getSummary() {
-  await this.ensureUser();
-  return this.request("/summary", {}, { cacheTtlMs: 3e4 });
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.request(context, "/summary", {}, { cacheTtlMs: 3e4 });
   }
   async getAssignments(options = {}) {
-  await this.ensureUser();
-  return this.collect("/assignments", options, 3e4);
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/assignments", options, 3e4);
   }
   async getSubjects(options = {}) {
-  await this.ensureUser();
-  const maxLevel = await this.effectiveMaxLevel();
-  const requestedLevels = options.levels?.filter((level) => level >= 1 && level <= maxLevel);
-  if (options.levels?.length && !requestedLevels?.length) return [];
-  const levels = requestedLevels?.length ? requestedLevels : Array.from({ length: maxLevel }, (_, index) => index + 1);
-  const subjects = await this.collect("/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
+  const context = this.accountContext();
+  const maxLevel = effectiveMaxLevelForUser(await this.ensureUser(context));
+  const levels = permittedSubjectLevels(options.levels, maxLevel);
+  if (!levels) return [];
+  const subjects = await this.collect(context, "/subjects", { ...options, levels }, 24 * 60 * 60 * 1e3);
   return subjects.filter((subject) => rawSubjectLevel(subject) <= maxLevel);
   }
   async getStudyMaterials(options = {}) {
-  await this.ensureUser();
-  return this.collect("/study_materials", options, 6e4);
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/study_materials", options, 6e4);
   }
   async getReviewStatistics(options = {}) {
-  await this.ensureUser();
-  return this.collect("/review_statistics", options, 6e4);
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  return this.collect(context, "/review_statistics", options, 6e4);
   }
   async createReview(body) {
-  await this.ensureUser();
-  const response = await this.request("/reviews", {
+  const context = this.accountContext();
+  await this.ensureUser(context);
+  const response = await this.request(context, "/reviews", {
     method: "POST",
     body: { review: body }
   });
-  this.invalidateReviewStateCaches();
+  this.invalidateReviewStateCaches(context);
   return response;
   }
-  async ensureUser() {
-  return this.getUser();
-  }
-  async collect(path, options, cacheTtlMs = 0) {
-  const dedupeKey = `${this.currentFingerprint()}:${path}?${stableOptionsKey(options)}`;
-  const cachedResponse = this.responseCache.get(dedupeKey);
-  if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
-  const cached = this.pending.get(dedupeKey);
+  async getUserFor(context, force = false) {
+  const cached = this.cachedUserFor(context, force);
   if (cached) return cached;
-  const promise = this.collectUncached(path, options).then((items) => {
-    if (cacheTtlMs > 0) this.responseCache.set(dedupeKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+  const raw = await this.request(context, "/user", {}, { cacheTtlMs: force ? 0 : 6e4 });
+  const user = parseWanikaniUser(raw);
+  if (this.isCurrentContext(context)) {
+    this.verifiedUser = user;
+    this.verifiedContext = context.cacheNamespace;
+  }
+  return user;
+  }
+  cachedUserFor(context, force) {
+  if (force) return null;
+  if (this.verifiedContext !== context.cacheNamespace) return null;
+  return this.verifiedUser;
+  }
+  async ensureUser(context) {
+  return this.getUserFor(context);
+  }
+  async collect(context, path, options, cacheTtlMs = 0) {
+  const cacheKey = `${context.cacheNamespace}:${path}?${stableOptionsKey(options)}`;
+  const cachedResponse = this.responseCache.get(cacheKey);
+  if (cachedResponse && cachedResponse.expiresAt > this.now()) return cachedResponse.value;
+  const cached = this.pending.get(cacheKey);
+  if (cached) return cached;
+  const promise = this.collectUncached(context, path, options).then((items) => {
+    if (cacheTtlMs > 0 && this.isCurrentContext(context)) {
+      this.responseCache.set(cacheKey, { expiresAt: this.now() + cacheTtlMs, value: items });
+    }
     return items;
-  }).finally(() => this.pending.delete(dedupeKey));
-  this.pending.set(dedupeKey, promise);
+  }).finally(() => this.pending.delete(cacheKey));
+  this.pending.set(cacheKey, promise);
   return promise;
   }
-  async collectUncached(path, options) {
+  async collectUncached(context, path, options) {
   const items = [];
   let url = `${this.baseUrl}${path}${queryString(options)}`;
   const visited = /* @__PURE__ */ new Set();
   while (url) {
-    if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
-    if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
-    if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+    assertWanikaniPaginationUrl(url, visited, (value) => this.isSafeApiUrl(value));
     visited.add(url);
-    const page = await this.requestUrl(url);
-    if (Array.isArray(page.data)) items.push(...page.data);
-    url = typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+    const page = await this.requestUrl(context, url);
+    url = appendWanikaniCollectionPage(items, page);
   }
   return items;
   }
-  request(path, options = {}, cache = {}) {
+  request(context, path, options = {}, cache = {}) {
   const url = `${this.baseUrl}${path}`;
-  if (!cache.cacheTtlMs || options.method === "POST") return this.requestUrl(url, options);
-  const key = `${this.currentFingerprint()}:${url}`;
-  const cached = this.responseCache.get(key);
-  if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
-  const pending2 = this.pending.get(key);
-  if (pending2) return pending2;
-  const request = this.requestUrl(url, options).then((value) => {
-    this.responseCache.set(key, { expiresAt: this.now() + (cache.cacheTtlMs ?? 0), value });
+  const cacheTtlMs = wanikaniCacheTtl(cache);
+  if (!isCacheableWanikaniRequest(cacheTtlMs, options.method)) return this.requestUrl(context, url, options);
+  const key = `${context.cacheNamespace}:${url}`;
+  const existing = this.cachedOrPendingResponse(key);
+  if (existing) return existing;
+  const request = this.requestUrl(context, url, options).then((value) => {
+    this.cacheResponseForCurrentContext(context, key, cacheTtlMs, value);
     return value;
   }).finally(() => this.pending.delete(key));
   this.pending.set(key, request);
   return request;
   }
-  async requestUrl(url, options = {}) {
-  const token = this.getToken().trim();
-  if (!token) throw new WanikaniApiError("WaniKani API token is not set.");
-  if (!this.isSafeApiUrl(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
-  let attempt2 = 0;
-  while (true) {
-    await this.throttle();
+  cachedOrPendingResponse(key) {
+  const cached = this.responseCache.get(key);
+  if (cached && cached.expiresAt > this.now()) return Promise.resolve(cached.value);
+  return this.pending.get(key) ?? null;
+  }
+  cacheResponseForCurrentContext(context, key, cacheTtlMs, value) {
+  if (!this.isCurrentContext(context)) return;
+  this.responseCache.set(key, { expiresAt: this.now() + cacheTtlMs, value });
+  }
+  async requestUrl(context, url, options = {}) {
+  assertSafeWanikaniRequestUrl(url, (value) => this.isSafeApiUrl(value));
+  return this.requestWithRateLimitRetry(context, url, options);
+  }
+  async requestWithRateLimitRetry(context, url, options) {
+  try {
+    return await this.requestAttempt(context, url, options);
+  } catch (error) {
+    const normalized = normalizeWanikaniError(error);
+    if (!isRateLimitError(normalized)) throw normalized;
+    await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
     try {
-      return await this.requestImpl(url, {
-        method: options.method ?? "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Wanikani-Revision": WANIKANI_REVISION,
-          Accept: "application/json",
-          "Content-Type": "application/json"
-        },
-        data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
-        responseType: "json",
-        timeoutMs: this.timeoutMs,
-        preferFetch: true,
-        allowDirectCrossOrigin: true,
-        proxyUrl: "",
-        allowPublicProxies: false,
-        allowConfiguredProxy: false,
-        credentials: "omit",
-        referrerPolicy: "no-referrer",
-        failureLabel: "WaniKani request",
-        statusFailureMessage: (status) => status === 401 ? "WaniKani token expired or was denied (401)." : status === 403 ? "WaniKani token lacks permission for this request (403)." : `WaniKani API request failed (${status}).`
-      });
-    } catch (error) {
-      const normalized = normalizeWanikaniError(error);
-      if (attempt2 === 0 && isRateLimitError(normalized)) {
-        attempt2 += 1;
-        await this.sleep(Math.max(2e3, this.minRequestIntervalMs * 2));
-        continue;
-      }
-      throw normalized;
+      return await this.requestAttempt(context, url, options);
+    } catch (retryError) {
+      throw normalizeWanikaniError(retryError);
     }
   }
+  }
+  async requestAttempt(context, url, options) {
+  await this.throttle();
+  return this.requestImpl(url, {
+    method: options.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${context.token}`,
+      "Wanikani-Revision": WANIKANI_REVISION,
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    data: options.body === void 0 ? void 0 : JSON.stringify(options.body),
+    responseType: "json",
+    timeoutMs: this.timeoutMs,
+    preferFetch: true,
+    allowDirectCrossOrigin: true,
+    proxyUrl: "",
+    allowPublicProxies: false,
+    allowConfiguredProxy: false,
+    credentials: "omit",
+    referrerPolicy: "no-referrer",
+    failureLabel: "WaniKani request",
+    statusFailureMessage: wanikaniStatusFailureMessage
+  });
   }
   throttle() {
   const scheduled2 = this.requestStartQueue.then(async () => {
@@ -53711,25 +53778,34 @@ class WanikaniClient {
   this.requestStartQueue = scheduled2.catch(() => void 0);
   return scheduled2;
   }
-  currentFingerprint() {
-  const fingerprint = this.tokenFingerprint();
-  if (!fingerprint) throw new WanikaniApiError("WaniKani API token is not set.");
-  if (this.verifiedFingerprint && this.verifiedFingerprint !== fingerprint) {
-    this.verifiedUser = null;
-    this.verifiedFingerprint = "";
-    this.pending.clear();
-    this.responseCache.clear();
+  accountContext() {
+  const token = this.getToken().trim();
+  if (!token) {
+    this.clear();
+    throw new WanikaniApiError("WaniKani API token is not set.");
   }
-  return fingerprint;
+  const fingerprint = fingerprintWanikaniToken(token);
+  if (fingerprint !== this.activeFingerprint) this.resetAccountContext(fingerprint);
+  const generation = this.contextGeneration;
+  return { token, fingerprint, generation, cacheNamespace: `${generation}:${fingerprint}` };
   }
-  invalidateReviewStateCaches() {
-  const fingerprint = this.tokenFingerprint();
-  const summaryKey = `${fingerprint}:${this.baseUrl}/summary`;
-  for (const key of this.responseCache.keys()) {
-    if (key === summaryKey || key.startsWith(`${fingerprint}:/assignments?`) || key.startsWith(`${fingerprint}:/review_statistics?`)) {
-      this.responseCache.delete(key);
-    }
+  resetAccountContext(fingerprint) {
+  this.contextGeneration += 1;
+  this.activeFingerprint = fingerprint;
+  this.verifiedUser = null;
+  this.verifiedContext = "";
+  this.pending.clear();
+  this.responseCache.clear();
   }
+  isCurrentContext(context) {
+  return context.generation === this.contextGeneration && context.fingerprint === this.activeFingerprint && context.token === this.getToken().trim();
+  }
+  invalidateReviewStateCaches(context) {
+  for (const key of this.currentReviewStateCacheKeys(context)) this.responseCache.delete(key);
+  }
+  currentReviewStateCacheKeys(context) {
+  if (!this.isCurrentContext(context)) return [];
+  return [...this.responseCache.keys()].filter((key) => isReviewStateCacheKey(key, context, this.baseUrl));
   }
   isSafeApiUrl(value) {
   try {
@@ -53741,7 +53817,52 @@ class WanikaniClient {
   }
   }
 }
-const KNOWN_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["free", "recurring", "lifetime"]);
+function permittedSubjectLevels(requested, maxLevel) {
+  if (!requested?.length) return Array.from({ length: maxLevel }, (_, index) => index + 1);
+  const levels = requested.filter((level) => level >= 1 && level <= maxLevel);
+  return levels.length ? levels : null;
+}
+function assertWanikaniPaginationUrl(url, visited, isSafe) {
+  if (!isSafe(url)) throw new WanikaniApiError("WaniKani returned an unsafe pagination URL.");
+  if (visited.has(url)) throw new WanikaniApiError("WaniKani pagination repeated a page URL.");
+  if (visited.size >= 1e3) throw new WanikaniApiError("WaniKani pagination exceeded the safety limit.");
+}
+function appendWanikaniCollectionPage(items, page) {
+  if (Array.isArray(page.data)) items.push(...page.data);
+  return typeof page.pages?.next_url === "string" ? page.pages.next_url : null;
+}
+function wanikaniStatusFailureMessage(status) {
+  if (status === 401) return "WaniKani token expired or was denied (401).";
+  if (status === 403) return "WaniKani token lacks permission for this request (403).";
+  return `WaniKani API request failed (${status}).`;
+}
+function isReviewStateCacheKey(key, context, baseUrl) {
+  if (key === `${context.cacheNamespace}:${baseUrl}/summary`) return true;
+  const collectionPrefixes = ["/assignments?", "/review_statistics?"];
+  return collectionPrefixes.some((path) => key.startsWith(`${context.cacheNamespace}:${path}`));
+}
+function wanikaniCacheTtl(cache) {
+  return cache.cacheTtlMs ?? 0;
+}
+function isCacheableWanikaniRequest(cacheTtlMs, method) {
+  return cacheTtlMs > 0 && method !== "POST";
+}
+function assertSafeWanikaniRequestUrl(url, isSafe) {
+  if (!isSafe(url)) throw new WanikaniApiError("Blocked a WaniKani request outside the official API origin.");
+}
+const PAID_SUBSCRIPTION_TYPES = /* @__PURE__ */ new Set(["recurring", "lifetime"]);
+function effectiveMaxLevelForUser(user) {
+  const subscription = user.subscription;
+  if (!hasPaidSubscription(subscription)) return FREE_TIER_MAX_LEVEL;
+  const granted = Number(subscription.max_level_granted);
+  if (!Number.isFinite(granted)) return FREE_TIER_MAX_LEVEL;
+  if (granted <= 0) return FREE_TIER_MAX_LEVEL;
+  return Math.min(60, granted);
+}
+function hasPaidSubscription(subscription) {
+  if (!subscription.active) return false;
+  return PAID_SUBSCRIPTION_TYPES.has(subscription.type);
+}
 function parseWanikaniUser(raw) {
   const record2 = isRecord$2(raw) ? isRecord$2(raw.data) ? raw.data : raw : {};
   const subscriptionRaw = isRecord$2(record2.subscription) ? record2.subscription : {};
@@ -54068,7 +54189,6 @@ const SOURCE_ROW_COPY_KEYS_BY_ID = {
   __immersion_kit__: { nameKey: "sourceNameImmersionKit", helpKey: "sourceHelpImmersionKit" },
   __kanji_stroke__: { nameKey: "sourceNameStrokePractice", helpKey: "sourceHelpStrokePractice" },
   __kanji_rtk__: { helpKey: "sourceHelpRtk" },
-  __kanji_uchisen__: { helpKey: "sourceHelpUchisen" },
   __kanji_wanikani__: { helpKey: "sourceHelpWanikaniKanji" },
   __kanji_dictionaries__: { nameKey: "sourceNameImportedKanjiDictionaries", helpKey: "sourceHelpImportedKanjiDictionaries" },
   __kanji_similar_words__: { nameKey: "sourceNameWordsUsingKanji", helpKey: "sourceHelpWordsUsingKanji" },
@@ -55655,50 +55775,449 @@ function freezeCopy(source) {
   )
   });
 }
-const CARD_SELECTOR = ".jpdb-reader-recommended-item";
+const CATALOG_BROWSE_PAGE_SIZE = 40;
+const CATALOG_BROWSE_CATEGORY_TEXT_KEYS = {
+  terms: "termDictionaries",
+  names: "nameDictionaries",
+  grammar: "grammarDictionaries",
+  kanji: "kanjiDictionaries",
+  frequency: "frequencyDictionaries",
+  pronunciation: "pronunciationDictionaries",
+  examples: "exampleDictionaries",
+  thesaurus: "thesaurusDictionaries",
+  encyclopedia: "encyclopediaDictionaries",
+  utility: "utilityDictionaries"
+};
+let cachedCatalogBrowseIndex;
+function createCatalogBrowseIndex(sections, learnerLanguage2) {
+  const entries2 = indexCatalogDictionaries(sections, learnerLanguage2);
+  return {
+  total: entries2.length,
+  select: (query, offset = 0) => selectCatalogBrowseWindow$1(sections, entries2, query, offset)
+  };
+}
+function catalogBrowseIndexForLanguageProfile(sections, learnerLanguage2, targetLanguage2) {
+  const profile = `${learnerLanguage2}:${targetLanguage2}`;
+  if (cachedCatalogBrowseIndex?.profile === profile) return cachedCatalogBrowseIndex.index;
+  const index = createCatalogBrowseIndex(sections, learnerLanguage2);
+  cachedCatalogBrowseIndex = { profile, index };
+  return index;
+}
 function normalizeSearchQuery(value) {
   return value.normalize("NFKC").toLocaleLowerCase().replace(/\s+/gu, " ").trim();
 }
-function applyCatalogBrowseFilter(section, query) {
-  const normalized = normalizeSearchQuery(query);
-  let visible = 0;
-  section.querySelectorAll("[data-catalog-browse-language]").forEach((shelf) => {
-  const language2 = shelfSearchText(shelf);
-  let shelfMatches = 0;
-  shelf.querySelectorAll("[data-catalog-browse-group]").forEach((group) => {
-    const heading = normalizeSearchQuery(group.querySelector("[data-catalog-browse-category]")?.textContent ?? "");
-    let matched = 0;
-    group.querySelectorAll(CARD_SELECTOR).forEach((card) => {
-      const matches = !normalized || cardMatches(card, `${heading} ${language2}`, normalized);
-      card.hidden = !matches;
-      if (matches) matched += 1;
-    });
-    group.hidden = matched === 0;
-    shelfMatches += matched;
-  });
-  shelf.hidden = shelfMatches === 0;
-  visible += shelfMatches;
-  });
-  const empty = section.querySelector("[data-catalog-browse-empty]");
-  if (empty) empty.hidden = visible > 0;
-  section.dataset.catalogBrowseFiltering = normalized ? "true" : "false";
-  return visible;
+function indexCatalogDictionaries(sections, learnerLanguage2) {
+  return sections.flatMap((section, sectionIndex) => section.groups.flatMap((group, groupIndex) => group.dictionaries.map((dictionary) => ({
+  sectionIndex,
+  groupIndex,
+  dictionary,
+  searchText: catalogDictionarySearchText(section, group.category, dictionary, learnerLanguage2)
+  }))));
 }
-function shelfSearchText(shelf) {
+function catalogDictionarySearchText(section, category, dictionary, learnerLanguage2) {
+  const learnerLocale = learnerLanguageById(learnerLanguage2).runtimeLocale;
   return normalizeSearchQuery([
-  shelf.querySelector("[data-catalog-browse-language-title]")?.textContent ?? "",
-  shelf.dataset.catalogBrowseLanguageEndonym ?? "",
-  shelf.dataset.catalogBrowseLanguage ?? ""
+  dictionary.name,
+  dictionary.catalogDictionaryId ?? "",
+  dictionary.definitionLanguage ?? "",
+  headwordLanguageName(section.headwordLanguage, learnerLocale),
+  headwordLanguageName(section.headwordLanguage, "en"),
+  headwordLanguageName(section.headwordLanguage, "ja"),
+  headwordLanguageEndonym(section.headwordLanguage),
+  section.headwordLanguage,
+  catalogBrowseCopy(learnerLanguage2).categories[category],
+  uiText("en", CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]),
+  uiText("ja", CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]),
+  catalogBrowseDescription(dictionary, learnerLocale),
+  catalogBrowseDescription(dictionary, "en"),
+  catalogBrowseDescription(dictionary, "ja")
   ].join(" "));
 }
-function catalogBrowseSection(root) {
-  return root.querySelector("[data-catalog-browse]");
+function selectCatalogBrowseWindow$1(sections, entries2, query, requestedOffset) {
+  const normalized = normalizeSearchQuery(query);
+  const matches = normalized ? entries2.filter((entry) => entry.searchText.includes(normalized)) : entries2;
+  const offset = boundedWindowOffset(requestedOffset, matches.length);
+  const visible = matches.slice(offset, offset + CATALOG_BROWSE_PAGE_SIZE);
+  return {
+  sections: groupVisibleCatalogDictionaries(sections, visible),
+  matchingCount: matches.length,
+  offset,
+  first: visible.length ? offset + 1 : 0,
+  last: offset + visible.length,
+  hasPrevious: offset > 0,
+  hasNext: offset + visible.length < matches.length
+  };
+}
+function boundedWindowOffset(requestedOffset, matchingCount) {
+  if (!matchingCount || !Number.isFinite(requestedOffset)) return 0;
+  const pageOffset = Math.max(0, Math.floor(requestedOffset / CATALOG_BROWSE_PAGE_SIZE) * CATALOG_BROWSE_PAGE_SIZE);
+  const lastOffset = Math.floor((matchingCount - 1) / CATALOG_BROWSE_PAGE_SIZE) * CATALOG_BROWSE_PAGE_SIZE;
+  return Math.min(pageOffset, lastOffset);
+}
+function groupVisibleCatalogDictionaries(sections, entries2) {
+  const byGroup = /* @__PURE__ */ new Map();
+  for (const entry of entries2) {
+  const key = `${entry.sectionIndex}:${entry.groupIndex}`;
+  const dictionaries2 = byGroup.get(key);
+  if (dictionaries2) dictionaries2.push(entry.dictionary);
+  else byGroup.set(key, [entry.dictionary]);
+  }
+  return sections.flatMap((section, sectionIndex) => {
+  const groups = section.groups.flatMap((group, groupIndex) => {
+    const dictionaries2 = byGroup.get(`${sectionIndex}:${groupIndex}`);
+    return dictionaries2?.length ? [{ ...group, dictionaries: dictionaries2 }] : [];
+  });
+  return groups.length ? [{ ...section, groups }] : [];
+  });
+}
+const AUTOFILL_IGNORE_ATTRIBUTE_HTML$1 = ' data-1p-ignore="true" data-lpignore="true" data-bwignore="true" data-protonpass-ignore="true" data-form-type="other"';
+const DICTIONARY_PLURAL_TEMPLATE_PATTERN = /^([\s\S]*?)\{count,\s*plural,\s*((?:(?:=?[a-z0-9]+)\s*\{[^{}]*\}\s*)+)\}([\s\S]*)$/iu;
+function renderRecommendedDictionaries(installed, learnerLanguage2 = "en", includeCatalogBrowse = true, targetLanguage2 = "ja", expandCatalogBrowse = true) {
+  const groups = [
+  ["terms", "Term dictionaries"],
+  ["kanji", "Kanji dictionaries"],
+  ["pitch", "Pitch dictionaries"],
+  ["pronunciation", "Pronunciation dictionaries"],
+  ["frequency", "Frequency dictionaries"]
+  ];
+  const catalogRecommendations = recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2);
+  return `
+        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage2, targetLanguage2)}
+        ${targetLanguage2 === "ja" ? `
+    <div class="jpdb-reader-recommended-title">Recommended Japanese dictionaries</div>
+    <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapeHtml$1(uiText("en", "dictionaryInstallQueueHelp"))}</div>
+    ${groups.map(([category, label]) => {
+  const dictionaries2 = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
+  if (!dictionaries2.length) return "";
+  return `
+                <div class="jpdb-reader-recommended-group">
+                    <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml$1(label)}</div>
+                    ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+                </div>
+            `;
+  }).join("")}` : ""}
+        ${includeCatalogBrowse ? renderCatalogBrowseSection(
+      catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2, targetLanguage2),
+      installed,
+      learnerLanguage2,
+      targetLanguage2,
+      expandCatalogBrowse
+    ) : ""}
+    `;
+}
+function renderCatalogBrowseSection(sections, installed, learnerLanguageId2, targetLanguage2, expanded) {
+  const groups = catalogBrowseSectionGroups(sections);
+  const count = groups.reduce((total, group) => total + group.dictionaries.length, 0);
+  if (!count) return "";
+  const learnerLanguage2 = learnerLanguageById(learnerLanguageId2);
+  const copy = catalogBrowseCopy(learnerLanguageId2);
+  const locale = learnerLanguage2.runtimeLocale;
+  const bytes = catalogBrowseTotalBytes(groups);
+  const installedIds = installedCatalogDictionaryIds(sections, installed);
+  return `
+        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-expanded="${expanded}" data-catalog-browse-count="${count}" data-catalog-browse-bytes="${bytes}" data-catalog-browse-learner-language="${escapeHtml$1(learnerLanguageId2)}" data-catalog-browse-target-language="${escapeHtml$1(targetLanguage2)}" data-catalog-browse-installed-ids="${escapeHtml$1(JSON.stringify([...installedIds]))}" data-catalog-browse-offset="0" lang="${escapeHtml$1(locale)}" dir="${learnerLanguage2.direction}">
+            <button class="jpdb-reader-catalog-browse-toggle" type="button" data-action="toggle-catalog-browse" aria-expanded="${expanded}"${catalogBrowseToggleControls(expanded)}>
+                <span class="jpdb-reader-catalog-browse-toggle-copy">
+                    <span class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml$1(copy.title)}</span>
+                    <span class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml$1(catalogBrowseSummaryText(copy.summary, locale, count, bytes))}</span>
+                </span>
+                <span class="jpdb-reader-catalog-browse-chevron" aria-hidden="true"></span>
+            </button>
+            ${renderExpandedCatalogBrowse(sections, learnerLanguageId2, targetLanguage2, locale, installedIds, copy, expanded)}
+        </section>
+    `;
+}
+function catalogBrowseToggleControls(expanded) {
+  return expanded ? ' aria-controls="jpdb-reader-catalog-browse-results"' : "";
+}
+function renderExpandedCatalogBrowse(sections, learnerLanguageId2, targetLanguage2, locale, installedIds, copy, expanded) {
+  if (!expanded) return "";
+  const initialWindow = catalogBrowseIndexForLanguageProfile(sections, learnerLanguageId2, targetLanguage2).select("");
+  return `<div class="jpdb-reader-catalog-browse-search" data-catalog-browse-search>
+        <label>
+            <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml$1(copy.searchLabel)}</span>
+            <input type="search" data-catalog-browse-filter autocomplete="off" aria-controls="jpdb-reader-catalog-browse-results"${AUTOFILL_IGNORE_ATTRIBUTE_HTML$1}>
+        </label>
+    </div>
+    <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
+        ${renderCatalogBrowseResultWindow(initialWindow, learnerLanguageId2, locale, installedIds)}
+    </div>
+    <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml$1(copy.noResults)}</div>`;
+}
+function renderCatalogBrowseResultWindow(window2, learnerLanguageId2, locale, installedIds) {
+  const copy = catalogBrowseCopyForLocale(learnerLanguageId2, locale);
+  return `
+        ${window2.sections.map((section) => renderCatalogBrowseLanguage(section, copy, locale, installedIds)).join("")}
+        ${renderCatalogBrowseNavigation(window2, copy, locale)}
+    `;
+}
+function renderCatalogBrowseLanguage(section, copy, locale, installedIds) {
+  const language2 = section.headwordLanguage;
+  return `
+        <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml$1(language2)}" data-catalog-browse-language-endonym="${escapeHtml$1(headwordLanguageEndonym(language2))}"${section.isTargetLanguage ? " data-catalog-browse-language-target" : ""}>
+            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml$1(headwordLanguageName(language2, locale))}</div>
+            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml$1(catalogBrowseLanguageNote(copy, headwordLanguageName(language2, locale)))}</div>
+            ${section.groups.map((group) => `
+                <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml$1(group.category)}">
+                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml$1(group.category)}">${escapeHtml$1(copy.categories[group.category])}</div>
+                    ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installedIds.has(dictionary.id), locale)).join("")}
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+function renderCatalogBrowseNavigation(window2, copy, locale) {
+  if (!window2.matchingCount) return "";
+  const progress = catalogBrowseRange(window2.first, window2.last, window2.matchingCount, locale);
+  const previousFirst = Math.max(1, window2.first - CATALOG_BROWSE_PAGE_SIZE);
+  const previousLast = Math.max(1, window2.first - 1);
+  const nextFirst = window2.last + 1;
+  const nextLast = Math.min(window2.matchingCount, window2.last + CATALOG_BROWSE_PAGE_SIZE);
+  const previous = window2.hasPrevious ? catalogBrowsePageButton("previous", previousFirst, previousLast, window2.matchingCount, copy.title, locale) : "";
+  const next = window2.hasNext ? catalogBrowsePageButton("next", nextFirst, nextLast, window2.matchingCount, copy.title, locale) : "";
+  return `<div class="jpdb-reader-catalog-browse-navigation" data-catalog-browse-navigation role="group" aria-label="${escapeHtml$1(copy.title)}">
+        ${previous}
+        <span class="jpdb-reader-help" data-catalog-browse-progress role="status" aria-live="polite">${escapeHtml$1(progress)}</span>
+        ${next}
+    </div>`;
+}
+function catalogBrowsePageButton(direction, first, last, total, title, locale) {
+  const range = catalogBrowseRange(first, last, total, locale);
+  return `<button class="jpdb-reader-btn" type="button" data-catalog-browse-page="${direction}" aria-label="${escapeHtml$1(`${title}: ${range}`)}">${escapeHtml$1(range)}</button>`;
+}
+function catalogBrowseRange(first, last, total, locale) {
+  return `${localizedNumber(first, locale)}–${localizedNumber(last, locale)} / ${localizedNumber(total, locale)}`;
+}
+function catalogBrowseCopyForLocale(learnerLanguageId2, locale) {
+  if (locale !== "ja") return catalogBrowseCopy(learnerLanguageId2);
+  return {
+  title: uiText("ja", "mirroredDictionaries"),
+  summary: uiText("ja", "mirroredDictionariesSummary"),
+  searchLabel: uiText("ja", "mirroredDictionarySearch"),
+  noResults: uiText("ja", "mirroredDictionarySearchNoResults"),
+  languageNote: uiText("ja", "mirroredDictionaryLanguageNote"),
+  categories: Object.fromEntries(
+    Object.keys(CATALOG_BROWSE_CATEGORY_TEXT_KEYS).map((category) => [category, uiText("ja", CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category])])
+  )
+  };
+}
+function catalogBrowseSummaryText(template, locale, count, bytes) {
+  return template.replaceAll("{count}", localizedNumber(count, locale)).replaceAll("{size}", formatDictionaryBytes(bytes, locale));
+}
+function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLanguageId2, targetLanguage2) {
+  if (!dictionaries2.length) return "";
+  const learnerLanguage2 = learnerLanguageById(learnerLanguageId2);
+  const messages = LOCALE_CATALOGS[learnerLanguageId2].messages;
+  const title = targetLanguage2 === "ja" ? messages.recommendedDictionariesTitle : headwordLanguageName(targetLanguage2, learnerLanguage2.runtimeLocale);
+  const size = completeDictionarySeedSize(dictionaries2, learnerLanguage2.runtimeLocale);
+  const countAndSize = formatDictionaryCountAndSize(messages.dictionaryCountAndSize, dictionaries2.length, size, learnerLanguage2.runtimeLocale);
+  return `
+        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId2}" data-catalog-recommendation-target="${escapeHtml$1(targetLanguage2)}" lang="${escapeHtml$1(learnerLanguage2.runtimeLocale)}" dir="${learnerLanguage2.direction}">
+            <div class="jpdb-reader-catalog-seed-title">${escapeHtml$1(title)}</div>
+            <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml$1(countAndSize)}</div>
+            ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
+        </section>
+    `;
+}
+function renderRecommendedDictionary(dictionary, installed, locale) {
+  const alreadyInstalled = typeof installed === "boolean" ? installed : isRecommendedDictionaryInstalled(dictionary, installed);
+  return `
+        <div class="jpdb-reader-recommended-item"${catalogRecommendationAttributes(dictionary)}>
+            <div>
+                <div class="jpdb-reader-recommended-name">
+                    <span>${escapeHtml$1(dictionary.name)}</span>
+                </div>
+                <div class="jpdb-reader-help">${escapeHtml$1(recommendedDictionaryDescription(dictionary, locale))}</div>
+                <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
+            </div>
+            ${recommendedDictionaryAction(dictionary, alreadyInstalled)}
+        </div>
+    `;
+}
+function recommendedDictionaryAction(dictionary, alreadyInstalled) {
+  if (dictionary.downloadUrl) {
+  return `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
+                ${alreadyInstalled ? "Update" : "Install"}
+            </button>`;
+  }
+  if (!dictionary.helpUrl) return "";
+  return `<a class="jpdb-reader-btn" href="${escapeHtml$1(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel$1("Guide")}</a>`;
+}
+function recommendedDictionaryDescription(dictionary, locale) {
+  const localized = localizedCatalogBrowseDescription(dictionary, locale);
+  if (localized !== void 0) return localized;
+  return staticRecommendedDictionaryDescription(dictionary);
+}
+function localizedCatalogBrowseDescription(dictionary, locale) {
+  if (!locale) return void 0;
+  if (dictionary.origin !== "catalog") return void 0;
+  return catalogBrowseDescription(dictionary, locale);
+}
+function staticRecommendedDictionaryDescription(dictionary) {
+  if (dictionary.description !== void 0) return dictionary.description;
+  if (dictionary.descriptionKey) return uiText("en", dictionary.descriptionKey);
+  return "";
+}
+function installedCatalogDictionaryIds(sections, installed) {
+  return new Set(sections.flatMap((section) => section.groups.flatMap((group) => group.dictionaries.filter((dictionary) => isRecommendedDictionaryInstalled(dictionary, installed)).map((dictionary) => dictionary.id))));
+}
+function catalogRecommendationAttributes(dictionary) {
+  if (dictionary.origin !== "catalog") return "";
+  return [
+  catalogDataAttribute("catalog-recommendation", dictionary.catalogDictionaryId),
+  catalogDataAttribute("learner-language", dictionary.learnerLanguage),
+  catalogDataAttribute("target-language", dictionary.targetLanguage),
+  catalogDataAttribute("headword-language", dictionary.headwordLanguage),
+  catalogDataAttribute("definition-language", dictionary.definitionLanguage),
+  catalogDataAttribute("translation-mode", dictionary.translationMode),
+  catalogShaAttribute(dictionary.sha256)
+  ].join("");
+}
+function catalogDataAttribute(name, value = "") {
+  return ` data-${name}="${escapeHtml$1(value)}"`;
+}
+function catalogShaAttribute(sha256 = "") {
+  if (!sha256) return "";
+  return catalogDataAttribute("sha256", sha256);
+}
+function externalButtonLabel$1(label) {
+  return `<span>${escapeHtml$1(label)}</span>${externalLinkIcon()}`;
+}
+function completeDictionarySeedSize(dictionaries2, locale) {
+  if (dictionaries2.some((dictionary) => dictionary.bytes === void 0)) return void 0;
+  const bytes = dictionaries2.reduce((total, dictionary) => total + (dictionary.bytes ?? 0), 0);
+  if (!bytes) return void 0;
+  const megabytes = bytes / (1024 * 1024);
+  if (megabytes >= 1) return `${localizedDecimal(megabytes, locale)} MB`;
+  return `${localizedDecimal(bytes / 1024, locale)} KB`;
+}
+function localizedDecimal(value, locale) {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value);
+}
+function formatDictionaryCountAndSize(template, count, size, locale) {
+  const plural = dictionaryPluralVariants(template, count, locale);
+  if (!plural) return size ? template.replace("{count}", localizedNumber(count, locale)).replace("{size}", size) : localizedNumber(count, locale);
+  if (!size) return plural.withoutSize;
+  return plural.withSize.replace("{size}", size).trim();
+}
+function dictionaryPluralVariants(template, count, locale) {
+  const plural = parseDictionaryPluralTemplate(template);
+  if (!plural) return malformedDictionaryPluralVariants(template, count, locale);
+  const branch = selectDictionaryPluralBranch(plural.branches, count, locale);
+  const countText = branch.replaceAll("#", localizedNumber(count, locale));
+  return {
+  withoutSize: `${plural.prefix}${countText}`.trim(),
+  withSize: `${plural.prefix}${countText}${plural.suffix}`
+  };
+}
+function parseDictionaryPluralTemplate(template) {
+  const match = DICTIONARY_PLURAL_TEMPLATE_PATTERN.exec(template);
+  if (!match) return void 0;
+  const [, prefix = "", branchSource = "", suffix = ""] = match;
+  const branches = new Map(
+  Array.from(branchSource.matchAll(/(=?[a-z0-9]+)\s*\{([^{}]*)\}/giu), (branch) => [branch[1], branch[2]])
+  );
+  return { prefix, branches, suffix };
+}
+function selectDictionaryPluralBranch(branches, count, locale) {
+  return branches.get(`=${count}`) ?? branches.get(pluralCategoryForCount(count, locale)) ?? branches.get("other") ?? String(count);
+}
+function malformedDictionaryPluralVariants(template, count, locale) {
+  if (!template.includes("{count, plural,")) return void 0;
+  const value = localizedNumber(count, locale);
+  return { withoutSize: value, withSize: value };
+}
+function pluralCategoryForCount(count, locale) {
+  try {
+  return new Intl.PluralRules(locale).select(count);
+  } catch {
+  return new Intl.PluralRules("en").select(count);
+  }
+}
+function localizedNumber(value, locale) {
+  try {
+  return new Intl.NumberFormat(locale).format(value);
+  } catch {
+  return new Intl.NumberFormat("en").format(value);
+  }
+}
+function isRecommendedDictionaryInstalled(dictionary, installed) {
+  return installed.some((item) => recommendedDictionaryMatchesInstalled(dictionary, item));
+}
+function recommendedDictionaryMatchesInstalled(dictionary, installed) {
+  if (dictionary.downloadUrl && installed.downloadUrl === dictionary.downloadUrl) return true;
+  const tokenSets = recommendedDictionaryMatchTokenSets(dictionary);
+  return [installed.title, installed.alias].map(dictionaryTitleTokens).some((tokens) => tokenSets.some((required) => required.every((token) => tokens.has(token))));
+}
+const RECOMMENDED_DICTIONARY_MATCH_TOKENS = {
+  jitendex: [["jitendex"]],
+  jmdict: [["jmdict"]],
+  jmnedict: [["jmnedict"]],
+  "wty-ja-ja": [["wty", "ja"]],
+  "pixiv-light": [["pixiv", "light"]],
+  kanjidic: [["kanjidic"]],
+  "jpdb-kanji": [["jpdb", "kanji"]],
+  "kanjium-pitch": [["kanjium", "pitch"], ["kanjium"], ["pitch", "accents"]],
+  jiten: [["jiten"]],
+  "jpdbv2-kana": [["jpdb", "v2"], ["jpdbv2"]],
+  bccwj: [["bccwj"]]
+};
+function recommendedDictionaryMatchTokenSets(dictionary) {
+  return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+}
+function dictionaryTitleTokens(value) {
+  return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
+}
+const CATALOG_BROWSE_PAGE_DELTAS = {
+  previous: -CATALOG_BROWSE_PAGE_SIZE,
+  next: CATALOG_BROWSE_PAGE_SIZE
+};
+const catalogBrowseSessions = /* @__PURE__ */ new WeakMap();
+function applyCatalogBrowseFilter(section, query, requestedOffset) {
+  const session = catalogBrowseSession(section);
+  const window2 = selectCatalogBrowseWindow(session, query, requestedOffset);
+  renderCatalogBrowseWindow(section, session, window2);
+  recordCatalogBrowseWindow(section, session, query, window2);
+  return window2.matchingCount;
+}
+function catalogBrowseMatchesQuery(section, query) {
+  return catalogBrowseSession(section).index.select(query).matchingCount > 0;
+}
+function selectCatalogBrowseWindow(session, query, requestedOffset) {
+  const normalized = normalizeSearchQuery(query);
+  const retainedOffset = normalized === session.normalizedQuery ? session.offset : 0;
+  return session.index.select(query, requestedOffset ?? retainedOffset);
+}
+function renderCatalogBrowseWindow(section, session, window2) {
+  const results = section.querySelector("[data-catalog-browse-results]");
+  if (!results) return;
+  setInnerHtml(results, renderCatalogBrowseResultWindow(
+  window2,
+  session.learnerLanguage,
+  catalogBrowseLocale(section, session.learnerLanguage),
+  session.installedIds
+  ));
+}
+function recordCatalogBrowseWindow(section, session, query, window2) {
+  const normalized = normalizeSearchQuery(query);
+  session.normalizedQuery = normalized;
+  session.offset = window2.offset;
+  section.dataset.catalogBrowseOffset = String(window2.offset);
+  section.dataset.catalogBrowseMatches = String(window2.matchingCount);
+  section.dataset.catalogBrowseRendered = String(window2.last - window2.first + (window2.last ? 1 : 0));
+  section.dataset.catalogBrowseFiltering = normalized ? "true" : "false";
+  const empty = section.querySelector("[data-catalog-browse-empty]");
+  if (empty) empty.hidden = window2.matchingCount > 0;
+  section.dispatchEvent(new CustomEvent("yomu-catalog-browse-rendered", { bubbles: true }));
+}
+function catalogBrowseLocale(section, learnerLanguage2) {
+  return section.lang || learnerLanguageById(learnerLanguage2).runtimeLocale;
 }
 function installCatalogBrowseFilter(root) {
-  const section = catalogBrowseSection(root);
+  const section = root.querySelector("[data-catalog-browse]");
   const input2 = section?.querySelector("[data-catalog-browse-filter]");
-  if (!section || !input2 || input2.dataset.catalogBrowseFilterBound === "true") return;
-  input2.dataset.catalogBrowseFilterBound = "true";
+  if (!section || !input2 || section.dataset.catalogBrowseBound === "true") return;
+  section.dataset.catalogBrowseBound = "true";
   input2.addEventListener("input", () => applyCatalogBrowseFilter(section, input2.value));
   input2.addEventListener("search", () => applyCatalogBrowseFilter(section, input2.value));
   input2.addEventListener("keydown", (event) => {
@@ -55706,19 +56225,64 @@ function installCatalogBrowseFilter(root) {
   event.preventDefault();
   applyCatalogBrowseFilter(section, input2.value);
   });
+  section.addEventListener("click", (event) => pageCatalogBrowse(section, input2, event));
+  applyCatalogBrowseFilter(section, input2.value, numericData(section.dataset.catalogBrowseOffset));
 }
-function cardMatches(card, context, query) {
-  const haystack = normalizeSearchQuery([
-  card.textContent ?? "",
-  card.dataset.catalogRecommendation ?? "",
-  card.dataset.definitionLanguage ?? ""
-  ].join(" "));
-  return haystack.includes(query) || context.includes(query);
+function pageCatalogBrowse(section, input2, event) {
+  const direction = catalogBrowsePageDirection(event);
+  if (!direction) return;
+  const session = catalogBrowseSession(section);
+  applyCatalogBrowseFilter(section, input2.value, session.offset + CATALOG_BROWSE_PAGE_DELTAS[direction]);
+  focusCatalogBrowsePageControl(section, input2, direction);
+}
+function catalogBrowsePageDirection(event) {
+  if (!(event.target instanceof Element)) return void 0;
+  const direction = event.target.closest("[data-catalog-browse-page]")?.dataset.catalogBrowsePage;
+  if (direction === "previous" || direction === "next") return direction;
+  return void 0;
+}
+function focusCatalogBrowsePageControl(section, input2, direction) {
+  const preferred = section.querySelector(`[data-catalog-browse-page="${direction}"]`);
+  const fallback = section.querySelector("[data-catalog-browse-page]");
+  (preferred ?? fallback ?? input2).focus();
+}
+function catalogBrowseSession(section) {
+  const active = catalogBrowseSessions.get(section);
+  if (active) return active;
+  const learnerLanguage2 = learnerLanguageId(section.dataset.catalogBrowseLearnerLanguage);
+  const targetLanguage2 = targetLanguageId(section.dataset.catalogBrowseTargetLanguage);
+  const sections = catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2, targetLanguage2);
+  const session = {
+  index: catalogBrowseIndexForLanguageProfile(sections, learnerLanguage2, targetLanguage2),
+  learnerLanguage: learnerLanguage2,
+  installedIds: installedCatalogIds(section.dataset.catalogBrowseInstalledIds),
+  normalizedQuery: "",
+  offset: numericData(section.dataset.catalogBrowseOffset)
+  };
+  catalogBrowseSessions.set(section, session);
+  return session;
+}
+function learnerLanguageId(value = "") {
+  return isLearnerLanguageId(value) ? value : "en";
+}
+function targetLanguageId(value = "") {
+  return isLearningTargetRosterId(value) ? value : "ja";
+}
+function installedCatalogIds(value = "") {
+  try {
+  const parsed = JSON.parse(value);
+  return new Set(Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string") : []);
+  } catch {
+  return /* @__PURE__ */ new Set();
+  }
+}
+function numericData(value = "0") {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
 }
 const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
 const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
 const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
-const KANJI_UCHISEN_SOURCE_ID = "__kanji_uchisen__";
 const KANJI_WANIKANI_SOURCE_ID = "__kanji_wanikani__";
 const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
 const KANJI_ORIGINS_SOURCE_ID = "__kanji_origins__";
@@ -55882,16 +56446,6 @@ function kanjiSourceRows(settings) {
     prefix: "kanjiImmersionKit",
     readonly: true,
     help: uiText(language2, "sourceHelpImmersionKit")
-  },
-  {
-    id: KANJI_UCHISEN_SOURCE_ID,
-    name: "Uchisen",
-    alias: settings.uchisenAlias,
-    enabled: settings.uchisenEnabled,
-    priority: settings.uchisenPriority,
-    prefix: "uchisen",
-    readonly: true,
-    help: uiText(language2, "sourceHelpUchisen")
   },
   {
     id: KANJI_WANIKANI_SOURCE_ID,
@@ -56097,6 +56651,13 @@ function populateStudyTargetSelect(select2, language2, selected) {
 function isSelectableStudyTarget(id) {
   return learningTargetRosterEntry(id).studyTargetReadiness !== "planned";
 }
+const SITE_CLEAR_BLOCKED_DICTIONARY_ACTIONS = /* @__PURE__ */ new Set([
+  "import-yomitan-dictionary",
+  "download-recommended-dictionary"
+]);
+function dictionaryActionBlockedDuringSiteClear(action, clearPending) {
+  return clearPending && SITE_CLEAR_BLOCKED_DICTIONARY_ACTIONS.has(action);
+}
 function renderLocalDictionaryStorageControls(settings) {
   const language2 = settings.interfaceLanguage;
   const text2 = settingsText(language2);
@@ -56270,6 +56831,60 @@ function trackExplicitModeChanges(selectElement) {
   const controls = selectElement.closest("[data-reading-annotation-controls]");
   if (controls) controls.dataset.readingAnnotationModeChanged = "true";
   });
+}
+function localizeCatalogBrowse(section, text2, interfaceLanguage) {
+  const localization = catalogBrowseLocalization(section, text2, interfaceLanguage);
+  section.lang = localization.locale;
+  section.dir = localization.direction;
+  replaceText(section, "[data-catalog-browse-title]", localization.title);
+  replaceText(section, "[data-catalog-browse-search-label]", localization.searchLabel);
+  replaceText(section, "[data-catalog-browse-empty]", localization.noResults);
+  localizeCatalogSummary(section, localization);
+  const filter = section.querySelector("[data-catalog-browse-filter]");
+  if (filter) applyCatalogBrowseFilter(section, filter.value);
+}
+function catalogBrowseLocalization(section, text2, interfaceLanguage) {
+  if (interfaceLanguage === "ja") return japaneseCatalogBrowseLocalization(text2);
+  return learnerCatalogBrowseLocalization(section.dataset.catalogBrowseLearnerLanguage);
+}
+function learnerCatalogBrowseLocalization(learnerValue = "") {
+  const learnerLanguageId2 = isLearnerLanguageId(learnerValue) ? learnerValue : "en";
+  const learnerLanguage2 = learnerLanguageById(learnerLanguageId2);
+  const copy = catalogBrowseCopy(learnerLanguageId2);
+  return {
+  locale: learnerLanguage2.runtimeLocale,
+  direction: learnerLanguage2.direction,
+  title: copy.title,
+  searchLabel: copy.searchLabel,
+  noResults: copy.noResults,
+  summary: copy.summary
+  };
+}
+function japaneseCatalogBrowseLocalization(text2) {
+  return {
+  locale: "ja",
+  direction: "ltr",
+  title: text2("mirroredDictionaries"),
+  searchLabel: text2("mirroredDictionarySearch"),
+  noResults: text2("mirroredDictionarySearchNoResults"),
+  summary: text2("mirroredDictionariesSummary")
+  };
+}
+function localizeCatalogSummary(section, localization) {
+  const count = catalogBrowseNumber(section.dataset.catalogBrowseCount);
+  const bytes = catalogBrowseNumber(section.dataset.catalogBrowseBytes);
+  replaceText(
+  section,
+  "[data-catalog-browse-summary]",
+  catalogBrowseSummaryText(localization.summary, localization.locale, count, bytes)
+  );
+}
+function catalogBrowseNumber(value = "0") {
+  return Number(value);
+}
+function replaceText(root, selector, value) {
+  const element2 = root.querySelector(selector);
+  if (element2) element2.replaceChildren(value);
 }
 const COLOR_SOURCE_CLASS_VALUES = ["status", "jpdb", "anki", "pitch"];
 function syncSubtitlePreview(form) {
@@ -56629,7 +57244,11 @@ function renderSettingsForm(settings, jpdbSettingsUrl, jitenSettingsUrl = DEFAUL
             ${renderAudioSettingsPanel(settings)}
             ${renderImmersionKitSettingsPanel(settings)}
             ${renderReaderSettingsPanel(settings)}
-            ${renderDictionariesSettingsPanel(settings, options.includeCatalogBrowse !== false)}
+            ${renderDictionariesSettingsPanel(
+      settings,
+      options.includeCatalogBrowse !== false,
+      options.expandCatalogBrowse !== false
+    )}
             ${renderBackupSettingsPanel(settings)}
             ${renderKanjiSettingsPanel(settings)}
             ${renderImageSettingsPanel(settings)}
@@ -57331,7 +57950,7 @@ function renderMiningSettingsPanel(settings) {
   html: renderAnkiStatusHtml(ankiStatus, settings.interfaceLanguage)
   });
 }
-function renderDictionariesSettingsPanel(settings, includeCatalogBrowse) {
+function renderDictionariesSettingsPanel(settings, includeCatalogBrowse, expandCatalogBrowse) {
   const language2 = settings.interfaceLanguage;
   const text2 = settingsText(language2);
   return `
@@ -57356,7 +57975,13 @@ function renderDictionariesSettingsPanel(settings, includeCatalogBrowse) {
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([], activeLearnerLanguageId(settings), includeCatalogBrowse, activeTargetLanguageId(settings))}
+                    ${renderRecommendedDictionaries(
+      [],
+      activeLearnerLanguageId(settings),
+      includeCatalogBrowse,
+      activeTargetLanguageId(settings),
+      expandCatalogBrowse
+    )}
                 </div>
                 <div class="jpdb-reader-help" data-import-status hidden></div>
                 <div class="jpdb-reader-help" data-help-key="backupMovedHelp">${escapedUiText(language2, "backupMovedHelp")}</div>
@@ -57581,8 +58206,8 @@ function syncLanguageProfileControls(form, language2) {
   setInnerHtml(targetSelect, renderStudyTargetOptions(language2, selectedTarget2));
   }
   const learnerSelect = form.querySelector('select[name="learnerLanguage"]');
-  const learnerLanguageId = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? learnerSelect.value : "en";
-  const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
+  const learnerLanguageId2 = learnerSelect && learnerLanguageByIdOrNull(learnerSelect.value) ? learnerSelect.value : "en";
+  const learnerLanguage2 = learnerLanguageById(learnerLanguageId2);
   const translationAvailable = googleTranslationLanguageCapability(learnerLanguage2.runtimeLocale).supported;
   if (learnerSelect) {
   learnerSelect.lang = learnerLanguage2.runtimeLocale;
@@ -57591,7 +58216,7 @@ function syncLanguageProfileControls(form, language2) {
   let visibleCount = 0;
   form.querySelectorAll("[data-definition-translation-row]").forEach((row) => {
   const definitionLanguages = new Set((row.dataset.definitionLanguages ?? "").split(/\s+/u).filter(Boolean));
-  const native = definitionLanguages.has(learnerLanguageId);
+  const native = definitionLanguages.has(learnerLanguageId2);
   row.hidden = native || !translationAvailable;
   const input2 = row.querySelector('input[name="definitionTranslationProviderIds"]');
   if (input2) input2.disabled = native || !translationAvailable;
@@ -58110,7 +58735,6 @@ function localizeSourceRows(form, text2) {
   replaceSourceHelp(form, /JPDB meanings shown/, text2("sourceHelpJpdb"));
   replaceSourceHelp(form, /Example sentences, images, and audio/, text2("sourceHelpImmersionKit"));
   replaceSourceHelp(form, /Remembering the Kanji/, text2("sourceHelpRtk"));
-  replaceSourceHelp(form, /Uchisen mnemonic/, text2("sourceHelpUchisen"));
   replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text2("sourceHelpImportedKanjiDictionary"));
   form.querySelectorAll("[data-source-enable-toggle]").forEach((input2) => {
   const row = input2.closest("[data-dictionary-source-row]");
@@ -58177,44 +58801,7 @@ function localizeRecommendedDictionaryGroups(form, text2) {
 function localizeCatalogBrowseSection(form, text2) {
   const section = form.querySelector("[data-catalog-browse]");
   if (!section) return;
-  const interfaceLanguage = resolveUiLanguageFromText(text2);
-  const learnerLanguageId = learnerLanguageByIdOrNull(section.dataset.catalogBrowseLearnerLanguage ?? "")?.id ?? "en";
-  const japaneseInterface = interfaceLanguage === "ja";
-  const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
-  const locale = japaneseInterface ? interfaceLanguage : learnerLanguage2.runtimeLocale;
-  const copy = japaneseInterface ? void 0 : catalogBrowseCopy(learnerLanguageId);
-  section.lang = locale;
-  section.dir = japaneseInterface ? "ltr" : learnerLanguage2.direction;
-  section.querySelector("[data-catalog-browse-title]")?.replaceChildren(copy?.title ?? text2("mirroredDictionaries"));
-  section.querySelector("[data-catalog-browse-search-label]")?.replaceChildren(copy?.searchLabel ?? text2("mirroredDictionarySearch"));
-  section.querySelector("[data-catalog-browse-empty]")?.replaceChildren(copy?.noResults ?? text2("mirroredDictionarySearchNoResults"));
-  section.querySelectorAll("[data-catalog-browse-category]").forEach((title) => {
-  const category = title.dataset.catalogBrowseCategory;
-  if (!category) return;
-  const label = copy ? copy.categories[category] : text2(CATALOG_BROWSE_CATEGORY_TEXT_KEYS[category]);
-  if (label) title.replaceChildren(label);
-  });
-  section.querySelectorAll("[data-catalog-browse-language]").forEach((shelf) => {
-  const language2 = shelf.dataset.catalogBrowseLanguage;
-  if (!language2) return;
-  const languageName = headwordLanguageName(language2, locale);
-  shelf.querySelector("[data-catalog-browse-language-title]")?.replaceChildren(languageName);
-  shelf.querySelector("[data-catalog-browse-language-note]")?.replaceChildren(
-    copy ? catalogBrowseLanguageNote(copy, languageName) : formatUiText(interfaceLanguage, "mirroredDictionaryLanguageNote", { language: languageName })
-  );
-  });
-  let count = 0;
-  let bytes = 0;
-  section.querySelectorAll(".jpdb-reader-recommended-item").forEach((item) => {
-  const dictionary = findRecommendedDictionary(item.querySelector("[data-dictionary-id]")?.dataset.dictionaryId ?? "");
-  if (!dictionary) return;
-  count += 1;
-  bytes += dictionary.bytes ?? 0;
-  item.querySelector(".jpdb-reader-help")?.replaceChildren(catalogBrowseDescription(dictionary, locale));
-  });
-  const summaryTemplate = copy?.summary ?? uiText("ja", "mirroredDictionariesSummary");
-  section.querySelector("[data-catalog-browse-summary]")?.replaceChildren(catalogBrowseSummaryText(summaryTemplate, locale, count, bytes));
-  applyCatalogBrowseFilter(section, section.querySelector("[data-catalog-browse-filter]")?.value ?? "");
+  localizeCatalogBrowse(section, text2, resolveUiLanguageFromText(text2));
 }
 function localizeRecommendedDictionaryDescriptions(form, text2) {
   RECOMMENDED_JAPANESE_DICTIONARIES.forEach((dictionary) => {
@@ -58714,23 +59301,48 @@ function activateSettingsPanel(form, panel) {
   applySettingsPanelState(form, normalizedPanel);
 }
 function applySettingsSearch(form, query) {
-  const searchInput = form.querySelector("[data-settings-search]");
-  const empty = form.querySelector("[data-settings-search-empty]");
   const normalizedQuery = normalizeSearchQuery(query);
-  if (searchInput && searchInput.value !== query) searchInput.value = query;
-  form.dataset.settingsSearching = normalizedQuery ? "true" : "false";
+  syncSettingsSearchInput(form, query);
+  form.dataset.settingsSearching = String(Boolean(normalizedQuery));
   if (!normalizedQuery) {
-  if (empty) empty.hidden = true;
+  setSettingsSearchEmptyVisibility(form, true);
   activateSettingsPanelWithoutClearingSearch(form, activeSettingsPanel(form));
   return;
   }
+  const visibleCount = filterSettingsSearchFieldsets(form, normalizedQuery);
+  setSettingsSearchEmptyVisibility(form, visibleCount > 0);
+}
+function syncSettingsSearchInput(form, query) {
+  const input2 = form.querySelector("[data-settings-search]");
+  if (input2 && input2.value !== query) input2.value = query;
+}
+function filterSettingsSearchFieldsets(form, normalizedQuery) {
   let visibleCount = 0;
   getSettingsPanelFieldsets(form).forEach((fieldset) => {
-  const matches = normalizeSearchQuery(fieldset.textContent ?? "").includes(normalizedQuery);
+  const matches = settingsFieldsetMatchesQuery(fieldset, normalizedQuery);
   fieldset.hidden = !matches;
   if (matches) visibleCount += 1;
   });
-  if (empty) empty.hidden = visibleCount > 0;
+  return visibleCount;
+}
+function settingsFieldsetMatchesQuery(fieldset, normalizedQuery) {
+  if (settingsFieldsetSearchText(fieldset).includes(normalizedQuery)) return true;
+  return settingsFieldsetCatalogMatchesQuery(fieldset, normalizedQuery);
+}
+function settingsFieldsetSearchText(fieldset) {
+  const indexedText = Array.from(
+  fieldset.querySelectorAll("[data-settings-search-index]"),
+  (element2) => element2.dataset.settingsSearchIndex ?? ""
+  ).join(" ");
+  return normalizeSearchQuery(`${fieldset.textContent ?? ""} ${indexedText}`);
+}
+function settingsFieldsetCatalogMatchesQuery(fieldset, normalizedQuery) {
+  const catalogue2 = fieldset.querySelector("[data-catalog-browse]");
+  return catalogue2 !== null && catalogBrowseMatchesQuery(catalogue2, normalizedQuery);
+}
+function setSettingsSearchEmptyVisibility(form, hasMatches) {
+  const empty = form.querySelector("[data-settings-search-empty]");
+  if (empty) empty.hidden = hasMatches;
 }
 function activateSettingsPanelWithoutClearingSearch(form, panel) {
   applySettingsPanelState(form, normalizeSettingsPanel(panel));
@@ -58863,13 +59475,13 @@ function renderDictionarySourceRows(settings) {
 }
 function renderDefinitionTranslationControls(settings) {
   const copy = multilingualSettingsCopy(settings.interfaceLanguage);
-  const learnerLanguageId = activeLearnerLanguageId(settings);
-  const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
+  const learnerLanguageId2 = activeLearnerLanguageId(settings);
+  const learnerLanguage2 = learnerLanguageById(learnerLanguageId2);
   const translationAvailable = googleTranslationLanguageCapability(learnerLanguage2.runtimeLocale).supported;
   const activeProfile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
   const enabled = new Set(activeProfile?.definitionTranslationProviderIds ?? []);
   const sources = definitionTranslationSources$1(settings);
-  const visibleCount = translationAvailable ? sources.filter((source) => !source.definitionLanguages.includes(learnerLanguageId)).length : 0;
+  const visibleCount = translationAvailable ? sources.filter((source) => !source.definitionLanguages.includes(learnerLanguageId2)).length : 0;
   return `
         <div class="jpdb-reader-settings-subsection jpdb-reader-definition-translation" data-definition-translation-controls>
             <div class="jpdb-reader-local-title" data-multilingual-copy="translationTitle">${escapeHtml$1(copy.translationTitle)}</div>
@@ -58877,7 +59489,7 @@ function renderDefinitionTranslationControls(settings) {
             <input type="hidden" name="definitionTranslationControlsPresent" value="1">
             <div class="jpdb-reader-definition-translation-list">
                 ${sources.map((source) => {
-      const isNative = source.definitionLanguages.includes(learnerLanguageId);
+      const isNative = source.definitionLanguages.includes(learnerLanguageId2);
       const disabled = isNative || !translationAvailable;
       return `
                     <label class="inline" data-definition-translation-row data-definition-languages="${escapeHtml$1(source.definitionLanguages.join(" "))}" ${disabled ? "hidden" : ""}>
@@ -58932,175 +59544,6 @@ function installedFrequencyDictionaryPreferences(settings, installed) {
   const installedFrequencyNames = new Set(installed.filter((dictionary) => dictionary.type === "frequency").map((dictionary) => dictionary.title));
   return settings.dictionaryPreferences.filter((preference) => preference.type === "frequency" && installedFrequencyNames.has(preference.name));
 }
-function renderRecommendedDictionaries(installed, learnerLanguage2 = "en", includeCatalogBrowse = true, targetLanguage2 = "ja") {
-  const groups = [
-  ["terms", "Term dictionaries"],
-  ["kanji", "Kanji dictionaries"],
-  ["pitch", "Pitch dictionaries"],
-  ["pronunciation", "Pronunciation dictionaries"],
-  ["frequency", "Frequency dictionaries"]
-  ];
-  const catalogRecommendations = recommendedDictionariesForLanguageProfile(learnerLanguage2, targetLanguage2);
-  return `
-        ${renderCatalogRecommendationSeed(catalogRecommendations, installed, learnerLanguage2, targetLanguage2)}
-        ${targetLanguage2 === "ja" ? `
-    <div class="jpdb-reader-recommended-title">Recommended Japanese dictionaries</div>
-    <div class="jpdb-reader-help jpdb-reader-recommended-note" data-recommended-dictionary-help>${escapedUiText("en", "dictionaryInstallQueueHelp")}</div>
-    ${groups.map(([category, label]) => {
-  const dictionaries2 = RECOMMENDED_JAPANESE_DICTIONARIES.filter((dictionary) => dictionary.category === category);
-  if (!dictionaries2.length) return "";
-  return `
-                <div class="jpdb-reader-recommended-group">
-                    <div class="jpdb-reader-recommended-group-title" data-recommended-category="${category}">${escapeHtml$1(label)}</div>
-                    ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
-                </div>
-            `;
-  }).join("")}` : ""}
-        ${includeCatalogBrowse ? renderCatalogBrowseSection(
-      catalogBrowseLanguageSectionsForLearnerLanguage(learnerLanguage2, targetLanguage2),
-      installed,
-      learnerLanguage2
-    ) : ""}
-    `;
-}
-function renderCatalogBrowseSection(sections, installed, learnerLanguageId) {
-  const groups = catalogBrowseSectionGroups(sections);
-  const count = groups.reduce((total, group) => total + group.dictionaries.length, 0);
-  if (!count) return "";
-  const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
-  const copy = catalogBrowseCopy(learnerLanguageId);
-  const locale = learnerLanguage2.runtimeLocale;
-  return `
-        <section class="jpdb-reader-catalog-browse" data-catalog-browse data-catalog-browse-learner-language="${escapeHtml$1(learnerLanguageId)}" lang="${escapeHtml$1(locale)}" dir="${learnerLanguage2.direction}">
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-title>${escapeHtml$1(copy.title)}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-browse-summary" data-catalog-browse-summary>${escapeHtml$1(catalogBrowseSummaryText(copy.summary, locale, count, catalogBrowseTotalBytes(groups)))}</div>
-            <div class="jpdb-reader-catalog-browse-search">
-                <label>
-                    <span class="jpdb-reader-settings-label-text" data-catalog-browse-search-label>${escapeHtml$1(copy.searchLabel)}</span>
-                    <input type="search" data-catalog-browse-filter autocomplete="off" aria-controls="jpdb-reader-catalog-browse-results"${AUTOFILL_IGNORE_ATTRIBUTE_HTML}>
-                </label>
-            </div>
-            <div id="jpdb-reader-catalog-browse-results" data-catalog-browse-results>
-                ${sections.map((section) => renderCatalogBrowseLanguage(section, copy, locale, installed)).join("")}
-            </div>
-            <div class="jpdb-reader-help" data-catalog-browse-empty role="status" aria-live="polite" hidden>${escapeHtml$1(copy.noResults)}</div>
-        </section>
-    `;
-}
-function renderCatalogBrowseLanguage(section, copy, locale, installed) {
-  const language2 = section.headwordLanguage;
-  return `
-        <div class="jpdb-reader-recommended-group jpdb-reader-catalog-browse-language" data-catalog-browse-language="${escapeHtml$1(language2)}" data-catalog-browse-language-endonym="${escapeHtml$1(headwordLanguageEndonym(language2))}"${section.isTargetLanguage ? " data-catalog-browse-language-target" : ""}>
-            <div class="jpdb-reader-recommended-title" data-catalog-browse-language-title>${escapeHtml$1(headwordLanguageName(language2, locale))}</div>
-            <div class="jpdb-reader-help" data-catalog-browse-language-note>${escapeHtml$1(catalogBrowseLanguageNote(copy, headwordLanguageName(language2, locale)))}</div>
-            ${section.groups.map((group) => `
-                <div class="jpdb-reader-recommended-group" data-catalog-browse-group="${escapeHtml$1(group.category)}">
-                    <div class="jpdb-reader-recommended-group-title" data-catalog-browse-category="${escapeHtml$1(group.category)}">${escapeHtml$1(copy.categories[group.category])}</div>
-                    ${group.dictionaries.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
-                </div>
-            `).join("")}
-        </div>
-    `;
-}
-const CATALOG_BROWSE_CATEGORY_TEXT_KEYS = {
-  terms: "termDictionaries",
-  names: "nameDictionaries",
-  grammar: "grammarDictionaries",
-  kanji: "kanjiDictionaries",
-  frequency: "frequencyDictionaries",
-  pronunciation: "pronunciationDictionaries",
-  examples: "exampleDictionaries",
-  thesaurus: "thesaurusDictionaries",
-  encyclopedia: "encyclopediaDictionaries",
-  utility: "utilityDictionaries"
-};
-function catalogBrowseSummaryText(template, locale, count, bytes) {
-  return template.replaceAll("{count}", localizedNumber(count, locale)).replaceAll("{size}", formatDictionaryBytes(bytes, locale));
-}
-function renderCatalogRecommendationSeed(dictionaries2, installed, learnerLanguageId, targetLanguage2) {
-  if (!dictionaries2.length) return "";
-  const learnerLanguage2 = learnerLanguageById(learnerLanguageId);
-  const messages = LOCALE_CATALOGS[learnerLanguageId].messages;
-  const title = targetLanguage2 === "ja" ? messages.recommendedDictionariesTitle : headwordLanguageName(targetLanguage2, learnerLanguage2.runtimeLocale);
-  const size = completeDictionarySeedSize(dictionaries2, learnerLanguage2.runtimeLocale);
-  const countAndSize = formatDictionaryCountAndSize(messages.dictionaryCountAndSize, dictionaries2.length, size, learnerLanguage2.runtimeLocale);
-  return `
-        <section class="jpdb-reader-recommended-group jpdb-reader-catalog-seed" data-catalog-recommendation-seed="${learnerLanguageId}" data-catalog-recommendation-target="${escapeHtml$1(targetLanguage2)}" lang="${escapeHtml$1(learnerLanguage2.runtimeLocale)}" dir="${learnerLanguage2.direction}">
-            <div class="jpdb-reader-catalog-seed-title">${escapeHtml$1(title)}</div>
-            <div class="jpdb-reader-help jpdb-reader-catalog-seed-summary">${escapeHtml$1(countAndSize)}</div>
-            ${dictionaries2.map((dictionary) => renderRecommendedDictionary(dictionary, installed)).join("")}
-        </section>
-    `;
-}
-function renderRecommendedDictionary(dictionary, installed) {
-  const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
-  const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
-                ${alreadyInstalled ? "Update" : "Install"}
-            </button>` : dictionary.helpUrl ? `<a class="jpdb-reader-btn" href="${escapeHtml$1(dictionary.helpUrl)}" target="_blank" rel="noopener" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-recommended-dictionary-guide>${externalButtonLabel("Guide")}</a>` : "";
-  const description = dictionary.description ?? (dictionary.descriptionKey ? uiText("en", dictionary.descriptionKey) : "");
-  const catalogAttributes = dictionary.origin === "catalog" ? ` data-catalog-recommendation="${escapeHtml$1(dictionary.catalogDictionaryId ?? "")}" data-learner-language="${escapeHtml$1(dictionary.learnerLanguage ?? "")}" data-target-language="${escapeHtml$1(dictionary.targetLanguage ?? "")}" data-headword-language="${escapeHtml$1(dictionary.headwordLanguage ?? "")}" data-definition-language="${escapeHtml$1(dictionary.definitionLanguage ?? "")}" data-translation-mode="${escapeHtml$1(dictionary.translationMode ?? "")}"${dictionary.sha256 ? ` data-sha256="${dictionary.sha256}"` : ""}` : "";
-  return `
-        <div class="jpdb-reader-recommended-item"${catalogAttributes}>
-            <div>
-                <div class="jpdb-reader-recommended-name">
-                    <span>${escapeHtml$1(dictionary.name)}</span>
-                </div>
-                <div class="jpdb-reader-help">${escapeHtml$1(description)}</div>
-                <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
-            </div>
-            ${action}
-        </div>
-    `;
-}
-function completeDictionarySeedSize(dictionaries2, locale) {
-  if (dictionaries2.some((dictionary) => dictionary.bytes === void 0)) return void 0;
-  const bytes = dictionaries2.reduce((total, dictionary) => total + (dictionary.bytes ?? 0), 0);
-  if (!bytes) return void 0;
-  const megabytes = bytes / (1024 * 1024);
-  const value = megabytes >= 1 ? megabytes : bytes / 1024;
-  const unit = megabytes >= 1 ? "MB" : "KB";
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 1 }).format(value)} ${unit}`;
-}
-function formatDictionaryCountAndSize(template, count, size, locale) {
-  const pluralStart = template.indexOf("{count, plural,");
-  if (pluralStart < 0) {
-  return size ? template.replace("{count}", localizedNumber(count, locale)).replace("{size}", size) : localizedNumber(count, locale);
-  }
-  const pluralEnd = matchingBraceIndex(template, pluralStart);
-  if (pluralEnd < 0) return localizedNumber(count, locale);
-  const branchSource = template.slice(pluralStart + "{count, plural,".length, pluralEnd);
-  const branches = new Map(Array.from(branchSource.matchAll(/(=?[a-z0-9]+)\s*\{([^{}]*)\}/giu), (match) => [match[1], match[2]]));
-  const exact = branches.get(`=${count}`);
-  const pluralCategory = pluralCategoryForCount(count, locale);
-  const branch = exact ?? branches.get(pluralCategory) ?? branches.get("other") ?? String(count);
-  const countText = branch.replaceAll("#", localizedNumber(count, locale));
-  if (!size) return `${template.slice(0, pluralStart)}${countText}`.trim();
-  return `${template.slice(0, pluralStart)}${countText}${template.slice(pluralEnd + 1)}`.replace("{size}", size).trim();
-}
-function matchingBraceIndex(value, start) {
-  let depth = 0;
-  for (let index = start; index < value.length; index += 1) {
-  if (value[index] === "{") depth += 1;
-  if (value[index] !== "}") continue;
-  depth -= 1;
-  if (depth === 0) return index;
-  }
-  return -1;
-}
-function pluralCategoryForCount(count, locale) {
-  try {
-  return new Intl.PluralRules(locale).select(count);
-  } catch {
-  return new Intl.PluralRules("en").select(count);
-  }
-}
-function localizedNumber(value, locale) {
-  try {
-  return new Intl.NumberFormat(locale).format(value);
-  } catch {
-  return new Intl.NumberFormat("en").format(value);
-  }
-}
 function installedDictionariesFromPreferences(preferences) {
   return preferences.map((preference) => ({
   title: preference.name,
@@ -59110,32 +59553,264 @@ function installedDictionariesFromPreferences(preferences) {
   type: preference.type
   }));
 }
-function isRecommendedDictionaryInstalled(dictionary, installed) {
-  return installed.some((item) => recommendedDictionaryMatchesInstalled(dictionary, item));
+function userFacingError(copyKey, options = {}) {
+  return Object.assign(
+  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
+  { name: "UserFacingError", yomuUiCopyKey: copyKey }
+  );
 }
-function recommendedDictionaryMatchesInstalled(dictionary, installed) {
-  if (dictionary.downloadUrl && installed.downloadUrl === dictionary.downloadUrl) return true;
-  const tokenSets = recommendedDictionaryMatchTokenSets(dictionary);
-  return [installed.title, installed.alias].map(dictionaryTitleTokens).some((tokens) => tokenSets.some((required) => required.every((token) => tokens.has(token))));
+function userFacingErrorText(language2, fallbackKey, error) {
+  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
+  const message = uiText(language2, copyKey);
+  return typeof message === "string" ? message : uiText(language2, fallbackKey);
 }
-const RECOMMENDED_DICTIONARY_MATCH_TOKENS = {
-  jitendex: [["jitendex"]],
-  jmdict: [["jmdict"]],
-  jmnedict: [["jmnedict"]],
-  "wty-ja-ja": [["wty", "ja"]],
-  "pixiv-light": [["pixiv", "light"]],
-  kanjidic: [["kanjidic"]],
-  "jpdb-kanji": [["jpdb", "kanji"]],
-  "kanjium-pitch": [["kanjium", "pitch"], ["kanjium"], ["pitch", "accents"]],
-  jiten: [["jiten"]],
-  "jpdbv2-kana": [["jpdb", "v2"], ["jpdbv2"]],
-  bccwj: [["bccwj"]]
-};
-function recommendedDictionaryMatchTokenSets(dictionary) {
-  return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+function userFacingCopyKeyOf(error) {
+  if (!error || typeof error !== "object") return void 0;
+  const copyKey = error.yomuUiCopyKey;
+  return typeof copyKey === "string" ? copyKey : void 0;
 }
-function dictionaryTitleTokens(value) {
-  return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
+function isUserFacingError(error) {
+  return userFacingCopyKeyOf(error) !== void 0;
+}
+function userFacingCopyKey(error) {
+  return userFacingCopyKeyOf(error);
+}
+function dictionaryStatusElements(form) {
+  return {
+  status: form.querySelector("[data-dictionary-status]"),
+  priorities: form.querySelector("[data-definition-source-editor]"),
+  lookupPills: form.querySelector(".jpdb-reader-lookup-links"),
+  recommended: form.querySelector("[data-recommended-dictionaries]")
+  };
+}
+function liveDictionarySettings(form, settings) {
+  const live = readFormSettings(new FormData(form), settings);
+  const missing = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
+  live.dictionaryPreferences = live.dictionaryPreferences.filter((item) => missing.delete(item.name));
+  live.dictionaryPreferences.push(...missing.values());
+  return live;
+}
+function liveDictionaryPanelContext(form, settings) {
+  return {
+  settings: liveDictionarySettings(form, settings),
+  learnerLanguage: selectedLearnerLanguage$1(form, settings),
+  targetLanguage: selectedTargetLanguage(form, settings)
+  };
+}
+function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2, targetLanguage2, expandCatalogBrowse) {
+  renderDictionaryStatusLine(elements.status, summary, settings);
+  renderDictionaryPriorities(elements.priorities, settings);
+  renderDictionaryLookupPills(elements.lookupPills, summary, settings, targetLanguage2);
+  renderDictionaryRecommendations(
+  elements.recommended,
+  summary,
+  learnerLanguage2,
+  targetLanguage2,
+  expandCatalogBrowse
+  );
+}
+function renderDictionaryStatusLine(element2, summary, settings) {
+  if (!element2) return;
+  element2.textContent = summary.dictionaries.length ? formatUiText(settings.interfaceLanguage, "dictionaryStatusSummary", {
+  dictionaries: summary.dictionaries.length.toLocaleString(),
+  terms: summary.terms.toLocaleString(),
+  kanji: summary.kanji.toLocaleString(),
+  metadata: summary.termMeta.toLocaleString()
+  }) : uiText(settings.interfaceLanguage, "noLocalDictionariesImported");
+}
+function renderDictionaryPriorities(element2, settings) {
+  if (!element2) return;
+  setInnerHtml(element2, renderDictionarySourceRows(settings));
+}
+function renderDictionaryLookupPills(element2, summary, settings, targetLanguage2) {
+  if (!element2) return;
+  setInnerHtml(element2, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage2));
+}
+function renderDictionaryRecommendations(element2, summary, learnerLanguage2, targetLanguage2, expandCatalogBrowse) {
+  if (!element2) return;
+  setInnerHtml(
+  element2,
+  renderRecommendedDictionaries(
+    summary.dictionaries,
+    learnerLanguage2,
+    true,
+    targetLanguage2,
+    expandCatalogBrowse
+  )
+  );
+}
+function selectedLearnerLanguage$1(form, settings) {
+  const value = form.querySelector('select[name="learnerLanguage"]')?.value;
+  return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
+}
+function selectedTargetLanguage(form, settings) {
+  const value = form.querySelector('select[name="targetLanguage"]')?.value;
+  return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
+}
+const COLLAPSED_CATALOG_BROWSE_RENDER = { expandCatalogBrowse: false };
+function captureDictionaryPanelView(form) {
+  const elements = dictionaryStatusElements(form);
+  return {
+  render: (summary, settings, learnerLanguage2, targetLanguage2) => {
+    renderDictionaryPanel(elements, summary, settings, learnerLanguage2, targetLanguage2);
+  },
+  showUnavailable: (error, language2) => {
+    if (elements.status) {
+      elements.status.textContent = userFacingErrorText(language2, "dictionaryStatusUnavailable", error);
+    }
+  }
+  };
+}
+async function refreshDictionaryPanel(request) {
+  const view = captureDictionaryPanelView(request.form);
+  try {
+  return await renderCurrentDictionaryPanel(view, request);
+  } catch (error) {
+  return handleDictionaryPanelRefreshError(view, request, error);
+  }
+}
+async function renderCurrentDictionaryPanel(view, request) {
+  const summary = await request.loadSummary();
+  if (!request.current()) return false;
+  await request.prepareSummary(summary);
+  if (!request.current()) return false;
+  await request.refreshStyles();
+  if (!request.current()) return false;
+  const context = request.renderContext();
+  view.render(summary, context.settings, context.learnerLanguage, context.targetLanguage);
+  request.afterRender();
+  return true;
+}
+function handleDictionaryPanelRefreshError(view, request, error) {
+  if (!request.current()) return false;
+  request.reportError(error);
+  view.showUnavailable(error, request.interfaceLanguage());
+  return false;
+}
+function handleCatalogBrowseDisclosureAction(action, form, control, refreshDictionaryStatus) {
+  if (action !== "toggle-catalog-browse") return false;
+  return toggleCatalogBrowseDisclosure(form, control, refreshDictionaryStatus).then(() => true);
+}
+function syncExpandedCatalogBrowseSearch(form, query) {
+  const section = form.querySelector('[data-catalog-browse-expanded="true"]');
+  const filter = section?.querySelector("[data-catalog-browse-filter]");
+  if (!section || !filter || filter.value === query) return;
+  filter.value = query;
+  applyCatalogBrowseFilter(section, query);
+}
+async function toggleCatalogBrowseDisclosure(form, control, refreshDictionaryStatus) {
+  const section = control?.closest("[data-catalog-browse]");
+  if (!section) return;
+  const button2 = actionButton(control);
+  if (section.dataset.catalogBrowseExpanded === "true") {
+  collapseCatalogBrowse(section, button2);
+  return;
+  }
+  await expandCatalogBrowseDisclosure(form, section, button2, refreshDictionaryStatus);
+}
+async function expandCatalogBrowseDisclosure(form, section, button2, refreshDictionaryStatus) {
+  setCatalogBrowseExpansionPending(section, button2);
+  const refreshed = await refreshDictionaryStatus();
+  if (!form.isConnected) return;
+  const controls = expandedCatalogBrowseControls(refreshed, form);
+  if (!controls) {
+  collapseCurrentCatalogBrowse(form, section, button2);
+  return;
+  }
+  seedCatalogBrowseFilterFromSettings(form, controls.section, controls.filter);
+  controls.filter.focus();
+}
+function catalogBrowseRenderState(recommended) {
+  if (!recommended) return collapsedCatalogBrowseState();
+  const section = recommended.querySelector("[data-catalog-browse]");
+  if (!section) return collapsedCatalogBrowseState();
+  return catalogBrowseSectionRenderState(section);
+}
+function catalogBrowseSectionRenderState(section) {
+  const filter = section.querySelector("[data-catalog-browse-filter]");
+  return {
+  expanded: section.dataset.catalogBrowseExpanded === "true",
+  query: catalogBrowseFilterQuery(filter),
+  offset: catalogBrowseOffset(section),
+  filterFocused: catalogBrowseFilterFocused(filter)
+  };
+}
+function collapsedCatalogBrowseState() {
+  return { expanded: false, query: "", offset: 0, filterFocused: false };
+}
+function catalogBrowseFilterQuery(filter) {
+  return filter?.value ?? "";
+}
+function catalogBrowseOffset(section) {
+  return Number(section.dataset.catalogBrowseOffset ?? 0);
+}
+function catalogBrowseFilterFocused(filter) {
+  return filter !== null && filter.ownerDocument.activeElement === filter;
+}
+function renderDictionaryPanel(elements, summary, settings, learnerLanguage2, targetLanguage2) {
+  const browseState = catalogBrowseRenderState(elements.recommended);
+  renderDictionaryStatusElements(
+  elements,
+  summary,
+  settings,
+  learnerLanguage2,
+  targetLanguage2,
+  browseState.expanded
+  );
+  if (!elements.recommended) return;
+  restoreCatalogBrowseState(elements.recommended, browseState);
+}
+function restoreCatalogBrowseState(recommended, state) {
+  const controls = catalogBrowseControls(recommended);
+  if (!controls.section || !controls.filter) return;
+  controls.filter.value = state.query;
+  applyCatalogBrowseFilter(controls.section, state.query, state.offset);
+  if (state.filterFocused) controls.filter.focus();
+}
+function actionButton(control) {
+  return control instanceof HTMLButtonElement ? control : control?.closest("button") ?? null;
+}
+function collapseCatalogBrowse(section, button2) {
+  section.dataset.catalogBrowseExpanded = "false";
+  section.querySelector("[data-catalog-browse-search]")?.remove();
+  section.querySelector("[data-catalog-browse-results]")?.remove();
+  section.querySelector("[data-catalog-browse-empty]")?.remove();
+  button2?.setAttribute("aria-expanded", "false");
+  button2?.removeAttribute("aria-controls");
+  button2?.removeAttribute("aria-busy");
+  button2?.removeAttribute("disabled");
+  button2?.focus();
+}
+function collapseCurrentCatalogBrowse(form, fallbackSection, fallbackButton) {
+  const current = catalogBrowseControls(form);
+  collapseCatalogBrowse(current.section ?? fallbackSection, current.button ?? fallbackButton);
+}
+function catalogBrowseControls(root) {
+  const section = root.querySelector("[data-catalog-browse]");
+  return {
+  section,
+  button: section?.querySelector('[data-action="toggle-catalog-browse"]') ?? null,
+  filter: section?.querySelector("[data-catalog-browse-filter]") ?? null
+  };
+}
+function expandedCatalogBrowseControls(refreshed, form) {
+  if (!refreshed) return null;
+  const controls = catalogBrowseControls(form);
+  if (!controls.section || !controls.filter) return null;
+  return { ...controls, section: controls.section, filter: controls.filter };
+}
+function setCatalogBrowseExpansionPending(section, button2) {
+  section.dataset.catalogBrowseExpanded = "true";
+  button2?.setAttribute("aria-expanded", "true");
+  button2?.setAttribute("aria-controls", "jpdb-reader-catalog-browse-results");
+  button2?.setAttribute("aria-busy", "true");
+  button2?.setAttribute("disabled", "true");
+}
+function seedCatalogBrowseFilterFromSettings(form, section, filter) {
+  const query = form.querySelector("[data-settings-search]")?.value.trim() ?? "";
+  if (!query) return;
+  filter.value = query;
+  applyCatalogBrowseFilter(section, query);
 }
 const log$a = Logger.scope("SettingsFileIO");
 function recommendedDictionaryFilename(dictionary) {
@@ -59208,28 +59883,6 @@ function downloadBlob(blob, filename) {
 }
 function dateStamp() {
   return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
-}
-function userFacingError(copyKey, options = {}) {
-  return Object.assign(
-  new Error(options.diagnostic ?? uiText("en", copyKey), { cause: options.cause }),
-  { name: "UserFacingError", yomuUiCopyKey: copyKey }
-  );
-}
-function userFacingErrorText(language2, fallbackKey, error) {
-  const copyKey = userFacingCopyKey(error) ?? fallbackKey;
-  const message = uiText(language2, copyKey);
-  return typeof message === "string" ? message : uiText(language2, fallbackKey);
-}
-function userFacingCopyKeyOf(error) {
-  if (!error || typeof error !== "object") return void 0;
-  const copyKey = error.yomuUiCopyKey;
-  return typeof copyKey === "string" ? copyKey : void 0;
-}
-function isUserFacingError(error) {
-  return userFacingCopyKeyOf(error) !== void 0;
-}
-function userFacingCopyKey(error) {
-  return userFacingCopyKeyOf(error);
 }
 function bindLiveSettingsSync(form, dependencies) {
   let adoptedSettings = snapshotLiveSettings(dependencies.getSettings());
@@ -65651,6 +66304,15 @@ ${glossaryKey}`;
   function hasMeasuredRect(rect) {
     return Boolean(rect.width || rect.height || rect.top || rect.right || rect.bottom || rect.left);
   }
+  function settingsDialogTrigger(activeElement) {
+    if (!(activeElement instanceof HTMLElement)) return void 0;
+    if (activeElement.closest(".jpdb-reader-settings")) return void 0;
+    return activeElement;
+  }
+  function runCredentialDependentSettingsRefreshes(extensionPageRequired, refreshes) {
+    if (extensionPageRequired) return;
+    for (const refresh of refreshes) refresh();
+  }
   const AUTHENTICATION_INFO_PERMISSION = "authenticationInfo";
   const AUTHENTICATION_FIELDS = [
     "apiKey",
@@ -65719,49 +66381,6 @@ ${glossaryKey}`;
     } catch {
       return false;
     }
-  }
-  function dictionaryStatusElements(form) {
-    return {
-      status: form.querySelector("[data-dictionary-status]"),
-      priorities: form.querySelector("[data-definition-source-editor]"),
-      lookupPills: form.querySelector(".jpdb-reader-lookup-links"),
-      recommended: form.querySelector("[data-recommended-dictionaries]")
-    };
-  }
-  function liveDictionarySettings(form, settings) {
-    const live = readFormSettings(new FormData(form), settings);
-    const missing = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
-    live.dictionaryPreferences = live.dictionaryPreferences.filter((item) => missing.delete(item.name));
-    live.dictionaryPreferences.push(...missing.values());
-    return live;
-  }
-  function renderDictionaryStatusElements(elements, summary, settings, learnerLanguage2, targetLanguage2) {
-    if (elements.status) {
-      elements.status.textContent = summary.dictionaries.length ? formatUiText(settings.interfaceLanguage, "dictionaryStatusSummary", {
-        dictionaries: summary.dictionaries.length.toLocaleString(),
-        terms: summary.terms.toLocaleString(),
-        kanji: summary.kanji.toLocaleString(),
-        metadata: summary.termMeta.toLocaleString()
-      }) : uiText(settings.interfaceLanguage, "noLocalDictionariesImported");
-    }
-    if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.lookupPills) {
-      setInnerHtml(elements.lookupPills, renderLookupPillsEditor(settings, summary.dictionaries, targetLanguage2));
-    }
-    if (elements.recommended) {
-      setInnerHtml(
-        elements.recommended,
-        renderRecommendedDictionaries(summary.dictionaries, learnerLanguage2, true, targetLanguage2)
-      );
-    }
-  }
-  function selectedLearnerLanguage$1(form, settings) {
-    const value = form.querySelector('select[name="learnerLanguage"]')?.value;
-    return value && isLearnerLanguageId(value) ? value : activeLearnerLanguageId(settings);
-  }
-  function selectedTargetLanguage(form, settings) {
-    const value = form.querySelector('select[name="targetLanguage"]')?.value;
-    return value && isLearningTargetRosterId(value) ? value : activeTargetLanguageId(settings);
   }
   function isSettingsCommandWord(word) {
     return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
@@ -65952,9 +66571,6 @@ ${glossaryKey}`;
   function shouldReenableSettingsAction(action) {
     return action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
   }
-  function setDictionaryStatusError(status, error, language2) {
-    if (status) status.textContent = userFacingErrorText(language2, "dictionaryStatusUnavailable", error);
-  }
   function isAnkiConnectSetupError(error) {
     if (isAnkiConnectAvailabilityError(error)) return true;
     const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
@@ -65985,12 +66601,13 @@ ${glossaryKey}`;
     settingsJapaneseParseRefreshFrame;
     settingsJapaneseParseRefreshTimer;
     open(panel) {
-      const trigger = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
+      const trigger = settingsDialogTrigger(document.activeElement);
       const form = this.createSettingsForm(panel);
       const backdrop = this.dependencies.createBackdrop();
       this.bindFormSubmit(form);
       installFocusedControlScrolling(form);
       this.bindSettingsSearch(form);
+      form.addEventListener("yomu-catalog-browse-rendered", () => this.onCatalogBrowseRendered(form));
       installCatalogBrowseFilter(form);
       this.bindSettingsTabs(form);
       this.bindLivePreview(form);
@@ -66006,14 +66623,20 @@ ${glossaryKey}`;
       this.syncJpdbStatus(form);
       void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
       void this.refreshAnkiConnectionStatus(form);
-      if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
-      if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form);
+      runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [
+        () => void this.refreshJpdbConnectionStatus(form),
+        () => void this.refreshWanikaniConnectionStatus(form)
+      ]);
       void this.refreshDictionaryStatus(form);
       this.publishedDictionaryLanguagesPromise = void 0;
       void this.refreshTargetDictionaryAvailability(form);
-      if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshDeckControls(form);
+      runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [() => void this.refreshDeckControls(form)]);
       if (panel === "help") void this.refreshYomuUpdateStatus(form);
       this.refreshSettingsJapaneseParse(form);
+    }
+    onCatalogBrowseRendered(form) {
+      this.syncRecommendedDictionaryInstallControls(form);
+      if (this.dictionarySiteStorageClearPending) this.setDictionaryImportsDisabledForSiteClear(form, true);
     }
     refreshLanguage(language2 = this.settings.interfaceLanguage) {
       const form = this.currentForm;
@@ -66092,7 +66715,7 @@ ${glossaryKey}`;
       form.setAttribute("aria-modal", "true");
       form.setAttribute("aria-label", SETTINGS_TITLE);
       form.tabIndex = -1;
-      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL));
+      setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
       localizeSettingsForm(form, this.settings.interfaceLanguage);
       if (panel) activateSettingsPanel(form, panel);
       return form;
@@ -66162,6 +66785,7 @@ ${glossaryKey}`;
       const input2 = form.querySelector("[data-settings-search]");
       input2?.addEventListener("input", () => {
         applySettingsSearch(form, input2.value);
+        syncExpandedCatalogBrowseSearch(form, input2.value);
       });
     }
     bindSettingsTabs(form) {
@@ -66877,17 +67501,17 @@ ${glossaryKey}`;
     }
     async refreshDictionaryStatus(form) {
       const id = ++this.dictionaryRefreshId;
-      const current = () => this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId;
-      const elements = dictionaryStatusElements(form);
-      try {
-        const summary = await this.dependencies.dictionaries.summary();
-        if (!current()) return;
-        await this.applyDictionaryStatus(form, elements, summary, current);
-      } catch (error) {
-        if (!current()) return;
-        log$3.warn("Dictionary status unavailable", error);
-        setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-      }
+      return refreshDictionaryPanel({
+        form,
+        current: () => this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId,
+        loadSummary: () => this.dependencies.dictionaries.summary(),
+        prepareSummary: (summary) => this.mergeDictionaryPreferencesFromSummary(summary),
+        refreshStyles: () => this.dependencies.refreshDictionaryStyles(),
+        renderContext: () => liveDictionaryPanelContext(form, this.settings),
+        afterRender: () => this.afterDictionaryPanelRendered(form),
+        interfaceLanguage: () => getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+        reportError: (error) => log$3.warn("Dictionary status unavailable", error)
+      });
     }
     async refreshYomuUpdateStatus(form) {
       const status = form.querySelector("[data-yomu-update-status]");
@@ -66933,19 +67557,7 @@ ${glossaryKey}`;
         this.refreshSettingsJapaneseParse(form);
       }
     }
-    async applyDictionaryStatus(form, elements, summary, current) {
-      await this.mergeDictionaryPreferencesFromSummary(summary);
-      if (!current()) return;
-      await this.dependencies.refreshDictionaryStyles();
-      if (!current()) return;
-      const live = liveDictionarySettings(form, this.settings);
-      renderDictionaryStatusElements(
-        elements,
-        summary,
-        live,
-        selectedLearnerLanguage$1(form, this.settings),
-        selectedTargetLanguage(form, this.settings)
-      );
+    afterDictionaryPanelRendered(form) {
       localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
       installCatalogBrowseFilter(form);
       this.syncRecommendedDictionaryInstallControls(form);
@@ -67232,10 +67844,16 @@ ${glossaryKey}`;
       setInnerHtml(list, renderAudioSubSourceList(index, merged, readAudioSources(data), language2));
     }
     async handleSettingsDictionaryAction(form, action, control, setStatus) {
-      if (this.dictionarySiteStorageClearPending && (action === "import-yomitan-dictionary" || action === "download-recommended-dictionary")) {
+      const disclosure = handleCatalogBrowseDisclosureAction(action, form, control, () => this.refreshDictionaryStatus(form));
+      if (disclosure) return disclosure;
+      if (dictionaryActionBlockedDuringSiteClear(action, this.dictionarySiteStorageClearPending)) {
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "clearLocalDictionarySiteStorageClearing"));
         return true;
       }
+      if (await this.handleDictionaryStorageAction(form, action, control, setStatus)) return true;
+      return this.handleDictionaryTransferAction(form, action, control, setStatus);
+    }
+    async handleDictionaryStorageAction(form, action, control, setStatus) {
       if (action === "clear-local-dictionary-site-storage") {
         await this.disableAndClearLocalDictionarySiteStorage(form, control, setStatus);
         return true;
@@ -67244,6 +67862,9 @@ ${glossaryKey}`;
         await this.deleteDictionaryFromSettings(form, control, setStatus);
         return true;
       }
+      return false;
+    }
+    async handleDictionaryTransferAction(form, action, control, setStatus) {
       if (action === "import-yomitan-dictionary") {
         await this.importDictionaryFromSettings(form, setStatus);
         return true;
@@ -68005,6 +68626,108 @@ ${glossaryKey}`;
       }
     });
   }
+  class OnboardingTargetChoice {
+    element;
+    select;
+    error;
+    constructor(settings, language2, labelText, requiredText2) {
+      this.element = document.createElement("label");
+      this.element.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language";
+      const label = document.createElement("span");
+      label.dataset.onboardingMultilingualCopy = "targetLanguage";
+      label.textContent = labelText;
+      this.select = document.createElement("select");
+      this.select.name = "targetLanguage";
+      this.select.setAttribute("autocomplete", "language");
+      this.select.required = true;
+      this.select.setAttribute("aria-required", "true");
+      populateTargetSelect(this.select, language2, initialTarget(settings));
+      this.error = document.createElement("span");
+      this.error.className = "jpdb-reader-onboarding-target-required";
+      this.error.id = "jpdb-reader-onboarding-target-required";
+      this.error.setAttribute("role", "status");
+      this.error.textContent = requiredText2;
+      this.select.setAttribute("aria-describedby", this.error.id);
+      this.element.append(label, this.select, this.error);
+    }
+    selectedTarget() {
+      const selected = learningTargetRosterIdForTag(this.select.value);
+      return selected && isSelectableStudyTarget(selected) ? selected : null;
+    }
+    localize(language2) {
+      populateTargetSelect(this.select, language2, this.selectedTarget());
+    }
+    syncAvailability(panel, targetOwnedOptions, requiredText2, selectedTarget2 = this.selectedTarget()) {
+      const hasTarget = selectedTarget2 !== null;
+      this.select.setCustomValidity(hasTarget ? "" : requiredText2);
+      this.error.hidden = hasTarget;
+      this.error.textContent = requiredText2;
+      if (targetOwnedOptions) {
+        targetOwnedOptions.hidden = !hasTarget;
+        targetOwnedOptions.disabled = !hasTarget;
+      }
+      panel?.querySelectorAll("[data-onboarding-action]").forEach((action) => {
+        const requiresTarget = action.dataset.onboardingAction !== "close";
+        action.disabled = requiresTarget && !hasTarget;
+        action.setAttribute("aria-disabled", String(requiresTarget && !hasTarget));
+      });
+    }
+    syncLanguageFamily(panel, selectedTarget2 = this.selectedTarget()) {
+      const selected = selectedTarget2 ? this.select.selectedOptions[0] : void 0;
+      if (!selected) {
+        this.select.removeAttribute("lang");
+        this.select.removeAttribute("dir");
+        syncLanguageFamilyDom(panel, "");
+        return;
+      }
+      this.select.lang = selected.lang;
+      this.select.dir = selected.dir;
+      syncLanguageFamilyDom(panel, selected.value);
+    }
+    reportValidity() {
+      return this.select.reportValidity();
+    }
+  }
+  function updateOnboardingLanguageProfile(settings, learnerLanguage2, targetLanguage2, interfaceLanguage) {
+    const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage2);
+    const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage2);
+    const activated = activateLanguageProfileForOutputLanguage(
+      settings.languageProfiles,
+      settings.activeLanguageProfileId,
+      learnerLanguageTag,
+      {
+        targetLanguage: targetLanguageTag,
+        uiLocale: interfaceLanguage,
+        parserProvider: settings.parserProvider
+      }
+    );
+    return {
+      activeLanguageProfileId: activated.activeProfileId,
+      languageProfiles: activated.profiles.map((profile) => profile.id === activated.activeProfileId ? {
+        ...profile,
+        outputLanguage: learnerLanguageTag,
+        learnerLanguage: learnerLanguageTag,
+        targetLanguage: targetLanguageTag,
+        uiLocale: interfaceLanguage,
+        parserProvider: settings.parserProvider
+      } : profile)
+    };
+  }
+  function initialTarget(settings) {
+    if (!settings.learningTargetChosen) return null;
+    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
+    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja";
+  }
+  function populateTargetSelect(select2, language2, selected) {
+    populateStudyTargetSelect(select2, language2, selected ?? "ja");
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = uiText(language2, "onboardingChooseTarget");
+    placeholder.disabled = true;
+    placeholder.selected = selected === null;
+    select2.prepend(placeholder);
+    if (selected === null) select2.value = "";
+  }
   const log$2 = Logger.scope("Onboarding");
   const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
   const ONBOARDING_FEATURE_KEYS = [
@@ -68026,7 +68749,8 @@ ${glossaryKey}`;
     backdrop;
     languageSelect;
     learnerLanguageSelect;
-    targetLanguageSelect;
+    targetChoice;
+    targetOwnedOptions;
     themeSwitch;
     accentColorInput;
     pendingAccentPreviewColor;
@@ -68043,23 +68767,41 @@ ${glossaryKey}`;
      * "{language} text on webpages" (b20).
      */
     text(key) {
-      return settingsText(this.options.getSettings().interfaceLanguage)(key);
+      const language2 = this.options.getSettings().interfaceLanguage;
+      const selectedTarget2 = this.targetChoice?.selectedTarget();
+      if (selectedTarget2) return settingsText(language2, selectedTarget2)(key);
+      const message = uiText(language2, key);
+      return message.includes("{language}") ? formatUiText(language2, key, { language: uiText(language2, "onboardingUnselectedTargetName") }) : message;
     }
     pageScanModeInputs = [];
     ocrModeInputs = [];
     manualPageScanShortcutInput;
     manualPageScanShortcutLabel;
     hoverLookupShortcutInput;
+    completionPromise = Promise.resolve();
+    resolveCompletion;
+    onboardingEntrySettings;
     async showIfNeeded() {
-      if (this.options.getSettings().onboardingSeen) {
+      const settings = this.options.getSettings();
+      if (settings.onboardingSeen && settings.learningTargetChosen) {
         return false;
       }
       this.show();
       return true;
     }
+    async waitForCompletion() {
+      const settings = this.options.getSettings();
+      if (settings.onboardingSeen && settings.learningTargetChosen) return;
+      await this.completionPromise;
+    }
     show() {
-      log$2.info("Showing onboarding", { language: this.options.getSettings().interfaceLanguage });
+      const entrySettings = this.onboardingEntrySettings ?? this.options.getSettings();
+      log$2.info("Showing onboarding", { language: entrySettings.interfaceLanguage });
       this.close();
+      this.onboardingEntrySettings = entrySettings;
+      this.completionPromise = new Promise((resolve) => {
+        this.resolveCompletion = resolve;
+      });
       this.backdrop = document.createElement("div");
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
       this.backdrop.dataset.jpdbReaderRoot = "true";
@@ -68076,7 +68818,7 @@ ${glossaryKey}`;
       closeButton.title = this.text("closeOnboarding");
       closeButton.setAttribute("aria-label", this.text("closeOnboarding"));
       setInnerHtml(closeButton, closeIcon());
-      closeButton.addEventListener("click", () => void this.complete(false));
+      closeButton.addEventListener("click", () => this.dismiss());
       const eyebrow = element("div", "jpdb-reader-onboarding-eyebrow", this.text("onboardingEyebrow"));
       const title = element("h2", "", APP_NAME);
       const copy = element(
@@ -68116,23 +68858,13 @@ ${glossaryKey}`;
         this.learnerLanguageSelect?.append(option);
       });
       learnerLanguage2.append(learnerLanguageText, this.learnerLanguageSelect);
-      const targetLanguage2 = document.createElement("label");
-      targetLanguage2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-target-language";
-      const targetLanguageText = element(
-        "span",
-        "",
-        onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage
-      );
-      targetLanguageText.dataset.onboardingMultilingualCopy = "targetLanguage";
-      this.targetLanguageSelect = document.createElement("select");
-      this.targetLanguageSelect.name = "targetLanguage";
-      this.targetLanguageSelect.setAttribute("autocomplete", "language");
-      populateStudyTargetSelect(
-        this.targetLanguageSelect,
+      this.targetChoice = new OnboardingTargetChoice(
+        this.options.getSettings(),
         this.options.getSettings().interfaceLanguage,
-        onboardingTargetLanguage(this.options.getSettings())
+        onboardingLanguageProfileCopy(this.options.getSettings().interfaceLanguage).targetLanguage,
+        this.text("onboardingTargetRequired")
       );
-      targetLanguage2.append(targetLanguageText, this.targetLanguageSelect);
+      const initialTarget2 = this.targetChoice.selectedTarget();
       const language2 = document.createElement("label");
       language2.className = "jpdb-reader-onboarding-language jpdb-reader-onboarding-interface-language";
       const languageText = element("span", "", this.text("onboardingLanguage"));
@@ -68152,7 +68884,7 @@ ${glossaryKey}`;
       language2.append(languageText, this.languageSelect);
       const preferences = document.createElement("div");
       preferences.className = "jpdb-reader-onboarding-preferences";
-      preferences.append(learnerLanguage2, targetLanguage2, language2, this.createThemeToggle());
+      preferences.append(learnerLanguage2, this.targetChoice.element, language2, this.createThemeToggle());
       const accentPicker = document.createElement("fieldset");
       accentPicker.className = "jpdb-reader-onboarding-accent";
       const accentLegend = document.createElement("legend");
@@ -68188,6 +68920,7 @@ ${glossaryKey}`;
       basics.append(preferences, accentPicker);
       const immersionOptions = document.createElement("fieldset");
       immersionOptions.className = "jpdb-reader-onboarding-options";
+      this.targetOwnedOptions = immersionOptions;
       const immersionLegend = document.createElement("legend");
       immersionLegend.textContent = this.text("onboardingImmersionOptions");
       this.hoverLookupShortcutInput = shortcutTextInput(
@@ -68294,12 +69027,12 @@ ${glossaryKey}`;
         const selected = learnerLanguageById(learnerLanguage22);
         log$2.info("Onboarding learner language changed", {
           learnerLanguage: learnerLanguage22,
-          targetLanguage: this.targetLanguageSelect?.value
+          targetLanguage: this.targetChoice?.select.value
         });
         this.learnerLanguageSelect?.setAttribute("lang", selected.runtimeLocale);
         this.learnerLanguageSelect?.setAttribute("dir", selected.direction);
       });
-      this.targetLanguageSelect.addEventListener("change", () => this.syncTargetLanguageSelection());
+      this.targetChoice.select.addEventListener("change", () => this.syncTargetLanguageSelection());
       this.panel.addEventListener("click", (event) => {
         this.handleWordLookup(event);
       });
@@ -68308,14 +69041,20 @@ ${glossaryKey}`;
         if (this.handleWordLookup(event)) event.preventDefault();
       });
       this.panel.append(closeButton, eyebrow, title, copy, basics, actions, immersionOptions, featureList);
-      syncLanguageFamilyDom(this.panel, this.targetLanguageSelect.value);
+      this.targetChoice.syncAvailability(
+        this.panel,
+        this.targetOwnedOptions,
+        this.text("onboardingTargetRequired"),
+        initialTarget2
+      );
+      this.targetChoice.syncLanguageFamily(this.panel, initialTarget2);
       this.syncThemeSwitch();
       this.syncAccentPicker(this.accentColorInput.value);
       this.syncManualPageScanShortcut();
       applyOverlayPageScale(this.panel);
       document.body.append(this.backdrop, this.panel);
       this.panel.focus();
-      this.annotateJapanese();
+      if (initialTarget2 === "ja") this.annotateJapanese();
     }
     annotateJapanese() {
       if (this.panel) this.options.parseJapanese(this.panel);
@@ -68333,24 +69072,34 @@ ${glossaryKey}`;
       return true;
     }
     syncTargetLanguageSelection() {
-      const select2 = this.targetLanguageSelect;
-      if (!select2) return;
-      const selected = select2.selectedOptions[0];
-      if (!selected) return;
-      select2.lang = selected.lang;
-      select2.dir = selected.dir;
-      this.syncYoutubeImmersionChoice(selected.value);
-      syncLanguageFamilyDom(this.panel, selected.value);
+      const choice = this.targetChoice;
+      const panel = this.panel;
+      if (!choice || !panel) return;
+      const selectedTarget2 = choice.selectedTarget();
+      choice.syncAvailability(
+        panel,
+        this.targetOwnedOptions,
+        this.text("onboardingTargetRequired"),
+        selectedTarget2
+      );
+      choice.syncLanguageFamily(panel, selectedTarget2);
+      this.syncYoutubeImmersionChoice(selectedTarget2);
       this.localize(this.options.getSettings().interfaceLanguage);
     }
+    dismiss() {
+      this.close();
+      this.resolveCompletion?.();
+      this.resolveCompletion = void 0;
+    }
     syncYoutubeImmersionChoice(targetLanguage2) {
+      if (!targetLanguage2) return;
       const input2 = this.youtubeImmersionInput;
       if (!input2) return;
       if (this.youtubeImmersionChoiceTouched) return;
       input2.checked = defaultYoutubeImmersionChoice(this.options.getSettings(), targetLanguage2);
     }
     localize(language2) {
-      const text2 = settingsText(language2, this.targetLanguageSelect?.value);
+      const text2 = (key) => this.text(key);
       const panel = this.panel;
       if (!panel) return;
       panel.setAttribute("aria-label", text2("welcomeLabel"));
@@ -68397,16 +69146,7 @@ ${glossaryKey}`;
         const option = this.languageSelect?.querySelector(`option[value="${value}"]`);
         if (option) option.textContent = text22;
       });
-      if (this.targetLanguageSelect) {
-        populateStudyTargetSelect(
-          this.targetLanguageSelect,
-          language2,
-          selectedTargetId(
-            this.targetLanguageSelect,
-            onboardingTargetLanguage(this.options.getSettings())
-          )
-        );
-      }
+      this.targetChoice?.localize(language2);
       const features = Array.from(panel.querySelectorAll(".jpdb-reader-onboarding-features > li"));
       features.forEach((feature, index) => {
         const [headingKey, bodyKey] = ONBOARDING_FEATURE_KEYS[index] ?? ONBOARDING_FEATURE_KEYS[0];
@@ -68418,37 +69158,78 @@ ${glossaryKey}`;
       const closeButton = panel.querySelector('[data-onboarding-action="close"]');
       closeButton?.setAttribute("aria-label", text2("closeOnboarding"));
       closeButton?.setAttribute("title", text2("closeOnboarding"));
+      this.targetChoice?.syncAvailability(
+        panel,
+        this.targetOwnedOptions,
+        this.text("onboardingTargetRequired")
+      );
       this.syncThemeSwitch();
-      this.annotateJapanese();
+      if (this.targetChoice?.selectedTarget() === "ja") this.annotateJapanese();
     }
     async complete(openSettings) {
+      const targetLanguage2 = this.targetChoice?.selectedTarget();
+      if (!targetLanguage2) {
+        this.reportMissingTarget();
+        return;
+      }
+      await this.persistCompletedOnboarding(openSettings, targetLanguage2);
+    }
+    reportMissingTarget() {
+      this.targetChoice?.syncAvailability(
+        this.panel,
+        this.targetOwnedOptions,
+        this.text("onboardingTargetRequired"),
+        null
+      );
+      this.targetChoice?.reportValidity();
+    }
+    async persistCompletedOnboarding(openSettings, targetLanguage2) {
       const done = log$2.time("Onboarding complete", { openSettings });
-      const installOfflineDictionaries = this.offlineDictionariesInput?.checked === true;
+      const installOfflineDictionaries = this.shouldInstallOfflineDictionaries();
       const previousSettings = this.options.getSettings();
-      const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries);
+      const intentBaseline = this.onboardingIntentBaseline(previousSettings);
+      const settings = this.completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2);
       try {
-        this.options.setSettings(settings);
         await saveSettings(settings, {
           persistPreferredJapaneseSiteLanguage: previousSettings.preferJapaneseSiteLanguage !== settings.preferJapaneseSiteLanguage,
           // Every field the onboarding panel's own controls moved. It used to
           // declare only the 17 allowlisted keys, so a theme or hotkey chosen
           // here was not intent and a legacy store could replay the old one.
-          explicitUserChoiceKeys: changedSettingsKeys(previousSettings, settings)
+          explicitUserChoiceKeys: changedSettingsKeys(intentBaseline, settings)
         });
-        this.close();
-        await this.options.onComplete?.(settings);
-        if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
-        this.openPostOnboardingSettings(openSettings);
+        this.options.setSettings(settings);
+        await this.commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries);
         log$2.info("Onboarding completed", { openSettings, installOfflineDictionaries, language: settings.interfaceLanguage });
       } catch (error) {
-        this.options.onPersistenceFailed?.(previousSettings);
+        this.notifyPersistenceFailed(previousSettings);
         log$2.warn("Onboarding completion failed", { openSettings, error });
         throw error;
       } finally {
         done();
       }
     }
-    completedOnboardingSettings(openSettings, installOfflineDictionaries) {
+    shouldInstallOfflineDictionaries() {
+      return this.offlineDictionariesInput?.checked === true;
+    }
+    onboardingIntentBaseline(previousSettings) {
+      return this.onboardingEntrySettings ?? previousSettings;
+    }
+    notifyPersistenceFailed(previousSettings) {
+      this.options.onPersistenceFailed?.(previousSettings);
+    }
+    async commitCompletedOnboarding(settings, openSettings, installOfflineDictionaries) {
+      this.close();
+      await this.options.onComplete?.(settings);
+      if (installOfflineDictionaries) this.options.installOfflineDictionaries?.();
+      this.openPostOnboardingSettings(openSettings);
+      this.finishCompletionWaiter();
+    }
+    finishCompletionWaiter() {
+      const resolve = this.resolveCompletion;
+      this.resolveCompletion = void 0;
+      resolve?.();
+    }
+    completedOnboardingSettings(openSettings, installOfflineDictionaries, targetLanguage2) {
       const current = this.options.getSettings();
       const pageScanMode = selectedMode(this.pageScanModeInputs, pageScanModeFromSettings(current));
       const ocrMode = selectedMode(this.ocrModeInputs, ocrInteractionModeFromSettings(current));
@@ -68457,11 +69238,7 @@ ${glossaryKey}`;
         this.learnerLanguageSelect,
         onboardingLearnerLanguage(current)
       );
-      const targetLanguage2 = selectedTargetId(
-        this.targetLanguageSelect,
-        onboardingTargetLanguage(current)
-      );
-      const languageProfileSelection = updateActiveOnboardingLanguageProfile(
+      const languageProfileSelection = updateOnboardingLanguageProfile(
         current,
         learnerLanguage2,
         targetLanguage2,
@@ -68470,6 +69247,7 @@ ${glossaryKey}`;
       return {
         ...current,
         onboardingSeen: true,
+        learningTargetChosen: true,
         jpdbDefinitionsEnabled: true,
         localDictionariesEnabled: openSettings !== true || installOfflineDictionaries,
         youtubeImmersionEnabled: checkboxValue(
@@ -68512,7 +69290,8 @@ ${glossaryKey}`;
       this.backdrop = void 0;
       this.languageSelect = void 0;
       this.learnerLanguageSelect = void 0;
-      this.targetLanguageSelect = void 0;
+      this.targetChoice = void 0;
+      this.targetOwnedOptions = void 0;
       this.themeSwitch = void 0;
       this.accentColorInput = void 0;
       this.youtubeImmersionInput = void 0;
@@ -68524,6 +69303,7 @@ ${glossaryKey}`;
       this.manualPageScanShortcutInput = void 0;
       this.manualPageScanShortcutLabel = void 0;
       this.hoverLookupShortcutInput = void 0;
+      this.onboardingEntrySettings = void 0;
     }
     createThemeToggle() {
       const wrapper = document.createElement("div");
@@ -68649,39 +69429,6 @@ ${glossaryKey}`;
   function selectedLearnerLanguage(select2, fallback) {
     const value = select2?.value;
     return value && isLearnerLanguageId(value) ? value : fallback;
-  }
-  function onboardingTargetLanguage(settings) {
-    const profile = activeLanguageProfile(settings.languageProfiles, settings.activeLanguageProfileId);
-    return learningTargetRosterIdForTag(profile?.targetLanguage) ?? "ja";
-  }
-  function selectedTargetId(select2, fallback) {
-    const selected = learningTargetRosterIdForTag(select2?.value);
-    return selected && isSelectableStudyTarget(selected) ? selected : fallback;
-  }
-  function updateActiveOnboardingLanguageProfile(settings, learnerLanguage2, targetLanguage2, interfaceLanguage) {
-    const learnerLanguageTag = canonicalTagForSlice1Language(learnerLanguage2);
-    const targetLanguageTag = canonicalTagForLearningTarget(targetLanguage2);
-    const activated = activateLanguageProfileForOutputLanguage(
-      settings.languageProfiles,
-      settings.activeLanguageProfileId,
-      learnerLanguageTag,
-      {
-        targetLanguage: targetLanguageTag,
-        uiLocale: interfaceLanguage,
-        parserProvider: settings.parserProvider
-      }
-    );
-    return {
-      activeLanguageProfileId: activated.activeProfileId,
-      languageProfiles: activated.profiles.map((profile) => profile.id === activated.activeProfileId ? {
-        ...profile,
-        outputLanguage: learnerLanguageTag,
-        learnerLanguage: learnerLanguageTag,
-        targetLanguage: targetLanguageTag,
-        uiLocale: interfaceLanguage,
-        parserProvider: settings.parserProvider
-      } : profile)
-    };
   }
   function element(tag, className, text2) {
     const node = document.createElement(tag);

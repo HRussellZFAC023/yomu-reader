@@ -10,7 +10,6 @@ import {
     JpdbClient,
     JpdbPublicPitchClient,
     JpdbVocabularyClient,
-    KANJI_UCHISEN_SOURCE_ID,
     POPOVER_CORE_CSS,
     PublicProxyWorker,
     ReaderApp,
@@ -76,6 +75,64 @@ import type {
 } from './fixtures';
 
 registerReaderHelpersCleanup();
+
+type FetchMock = {
+    mock: { calls: Array<[RequestInfo | URL, ...unknown[]]> };
+};
+
+async function expectSuccessfulCorsFallback(
+    fetchMock: FetchMock,
+    target: string,
+    proxyUrl: string,
+    expectedUrl: string,
+): Promise<void> {
+    const response = await fetchWithCorsFallbacks(target, proxyUrl, {
+        allowDirectCrossOrigin: true,
+        credentials: 'omit',
+    });
+    expect(await response.text()).toBe('ok');
+    expectFetchUrls(fetchMock, [expectedUrl]);
+}
+
+function stubSuccessfulPublicAudioFetch() {
+    const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => (
+        Promise.resolve(new Response('audio', { status: 200 }))
+    ));
+    vi.stubGlobal('fetch', upstreamFetch);
+    return upstreamFetch;
+}
+
+function fetchThroughPublicProxyWorker(request: Request): Promise<Response> {
+    return PublicProxyWorker.fetch(request, {}, { waitUntil: vi.fn() });
+}
+
+function expectPublicAudioProxyRequest(response: Response, upstreamFetch: FetchMock): void {
+    const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
+    expect(response.status).toBe(200);
+    expect(upstreamRequest.url).toBe('https://jpdb.io/static/v/m1/e9cac7e3d132');
+    expect(upstreamRequest.headers.get('x-access')).toBe("please don't steal these files");
+    expect(upstreamRequest.headers.get('x-forcecaf')).toBe('1');
+}
+
+async function withImmersionFakeTimers(testBody: () => Promise<void>): Promise<void> {
+    vi.useFakeTimers();
+    try {
+        await testBody();
+    } finally {
+        document.body.replaceChildren();
+        vi.useRealTimers();
+    }
+}
+
+async function expectLazyImmersionSearchAfterOpening(
+    container: HTMLDetailsElement,
+    search: unknown,
+): Promise<void> {
+    await vi.advanceTimersByTimeAsync(500);
+    expect(search).not.toHaveBeenCalled();
+    await openLazyImmersionSource(container);
+    expect(search).toHaveBeenCalledTimes(1);
+}
 
 describe('reader helpers', () => {
     it('keeps subtitle CSS from overriding settings dictionary source layouts', () => {
@@ -298,10 +355,7 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, '', { allowDirectCrossOrigin: true, credentials: 'omit' });
-
-            expect(await response.text()).toBe('ok');
-            expectFetchUrls(fetchMock, [target]);
+            await expectSuccessfulCorsFallback(fetchMock, target, '', target);
         } finally {
             restoreBrowser();
             vi.unstubAllGlobals();
@@ -333,10 +387,7 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, '', { allowDirectCrossOrigin: true, credentials: 'omit' });
-
-            expect(await response.text()).toBe('ok');
-            expectFetchUrls(fetchMock, [builtInEdgeProxyUrlFor(target)]);
+            await expectSuccessfulCorsFallback(fetchMock, target, '', builtInEdgeProxyUrlFor(target));
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(jishoAudioTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
@@ -412,8 +463,8 @@ describe('reader helpers', () => {
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/kanji/%E5%9B%B3'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://jpdb.io/static/v/m1/e9cac7e3d132'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://uchisen.com/kanji/%E5%9B%B3'))).toBe(true);
-        expect(isAllowedPublicProxyTarget('GET', new URL('https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg'))).toBe(true);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://uchisen.com/kanji/%E5%9B%B3'))).toBe(false);
+        expect(isAllowedPublicProxyTarget('GET', new URL('https://ik.imagekit.io/uchisen/generated/saved/generated_sample.jpg'))).toBe(false);
         expect(isAllowedPublicProxyTarget('HEAD', new URL('https://api.jiten.moe/api/vocabulary/123/0/info'))).toBe(true);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip'))).toBe(false);
         expect(isAllowedPublicProxyTarget('GET', new URL('https://release-assets.githubusercontent.com/github-production-release-asset/123/asset-id?sig=github-signed'))).toBe(false);
@@ -460,11 +511,10 @@ describe('reader helpers', () => {
     });
 
     it('injects JPDB public audio access headers through the public Worker', async () => {
-        const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
-        vi.stubGlobal('fetch', upstreamFetch);
+        const upstreamFetch = stubSuccessfulPublicAudioFetch();
 
         try {
-            const preflight = await PublicProxyWorker.fetch(
+            const preflight = await fetchThroughPublicProxyWorker(
                 new Request(`https://proxy.test/?url=${encodeURIComponent('https://jpdb.io/static/v/m1/e9cac7e3d132')}`, {
                     method: 'OPTIONS',
                     headers: {
@@ -473,48 +523,33 @@ describe('reader helpers', () => {
                         'Access-Control-Request-Headers': 'x-forcecaf',
                     },
                 }),
-                {},
-                { waitUntil: vi.fn() },
             );
-            const response = await PublicProxyWorker.fetch(
+            const response = await fetchThroughPublicProxyWorker(
                 new Request(`https://proxy.test/?url=${encodeURIComponent('https://jpdb.io/static/v/m1/e9cac7e3d132')}`, {
                     headers: {
                         'X-Access': "please don't steal these files",
                         'X-ForceCAF': '1',
                     },
                 }),
-                {},
-                { waitUntil: vi.fn() },
             );
 
-            const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
             expect(preflight.headers.get('access-control-allow-headers')).not.toContain('x-access');
             expect(preflight.headers.get('access-control-allow-headers')).toContain('x-forcecaf');
-            expect(response.status).toBe(200);
-            expect(upstreamRequest.url).toBe('https://jpdb.io/static/v/m1/e9cac7e3d132');
-            expect(upstreamRequest.headers.get('x-access')).toBe("please don't steal these files");
-            expect(upstreamRequest.headers.get('x-forcecaf')).toBe('1');
+            expectPublicAudioProxyRequest(response, upstreamFetch);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
     it('adds JPDB public audio access headers in the public Worker when the browser request omits them', async () => {
-        const upstreamFetch = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
-        vi.stubGlobal('fetch', upstreamFetch);
+        const upstreamFetch = stubSuccessfulPublicAudioFetch();
 
         try {
-            const response = await PublicProxyWorker.fetch(
+            const response = await fetchThroughPublicProxyWorker(
                 new Request(`https://proxy.test/?url=${encodeURIComponent('https://jpdb.io/static/v/m1/e9cac7e3d132')}&x-forcecaf=1`),
-                {},
-                { waitUntil: vi.fn() },
             );
 
-            const upstreamRequest = upstreamFetch.mock.calls[0]?.[0] as unknown as Request;
-            expect(response.status).toBe(200);
-            expect(upstreamRequest.url).toBe('https://jpdb.io/static/v/m1/e9cac7e3d132');
-            expect(upstreamRequest.headers.get('x-access')).toBe("please don't steal these files");
-            expect(upstreamRequest.headers.get('x-forcecaf')).toBe('1');
+            expectPublicAudioProxyRequest(response, upstreamFetch);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -573,22 +608,6 @@ describe('reader helpers', () => {
         expect(definitionSourceRows(DEFAULT_SETTINGS).map(row => row.id)).toEqual(expect.arrayContaining([STUDY_TRANSLATION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID]));
         expect(translationOnlyIds).toContain(STUDY_TRANSLATION_SOURCE_ID);
         expect(translationOnlyIds).not.toContain(STUDY_GRAMMAR_SOURCE_ID);
-    });
-
-    it('adds Uchisen to kanji source ordering', () => {
-        const form = document.createElement('form');
-        form.innerHTML = renderSettingsForm({
-            ...DEFAULT_SETTINGS,
-            uchisenPriority: 1,
-        }, 'https://jpdb.io/settings');
-
-        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
-
-        expect(saved.uchisenEnabled).toBe(true);
-        expect(saved.uchisenPriority).toBe(1);
-        expect(kanjiSourceRows(saved).map(row => row.id)).toContain(KANJI_UCHISEN_SOURCE_ID);
-        expect(orderedKanjiSourceIds(saved)[1]).toBe(KANJI_UCHISEN_SOURCE_ID);
-        expect(orderedKanjiSourceIds({ ...saved, uchisenEnabled: false })).not.toContain(KANJI_UCHISEN_SOURCE_ID);
     });
 
     it('adds Immersion Kit to kanji source ordering', () => {
@@ -1456,24 +1475,14 @@ describe('reader helpers', () => {
         expect(search.mock.calls[0]?.[2]).toEqual(expect.objectContaining({ signal: first.signal }));
     });
 
-    it('does not start lazy Immersion Kit popup searches until the source is opened', async () => {
-        vi.useFakeTimers();
-        try {
+    it('does not start lazy Immersion Kit popup searches until the source is opened', () => (
+        withImmersionFakeTimers(async () => {
             const { search, controller, popover, container } = lazyImmersionSearchFixture(false);
 
             controller.installLazyLoad(popover, card);
-            await vi.advanceTimersByTimeAsync(500);
-
-            expect(search).not.toHaveBeenCalled();
-
-            await openLazyImmersionSource(container);
-
-            expect(search).toHaveBeenCalledTimes(1);
-        } finally {
-            document.body.replaceChildren();
-            vi.useRealTimers();
-        }
-    });
+            await expectLazyImmersionSearchAfterOpening(container, search);
+        })
+    ));
 
     it('loads the open Immersion Kit source even when it sits below the popover fold', async () => {
         vi.useFakeTimers();
@@ -1495,26 +1504,16 @@ describe('reader helpers', () => {
         }
     });
 
-    it('cancels scheduled lazy Immersion Kit popup searches when the source closes', async () => {
-        vi.useFakeTimers();
-        try {
+    it('cancels scheduled lazy Immersion Kit popup searches when the source closes', () => (
+        withImmersionFakeTimers(async () => {
             const { search, controller, popover, container } = lazyImmersionSearchFixture(true);
 
             controller.installLazyLoad(popover, card);
             container.open = false;
             container.dispatchEvent(new Event('toggle'));
-            await vi.advanceTimersByTimeAsync(500);
-
-            expect(search).not.toHaveBeenCalled();
-
-            await openLazyImmersionSource(container);
-
-            expect(search).toHaveBeenCalledTimes(1);
-        } finally {
-            document.body.replaceChildren();
-            vi.useRealTimers();
-        }
-    });
+            await expectLazyImmersionSearchAfterOpening(container, search);
+        })
+    ));
 
     it('aborts in-flight lazy Immersion Kit popup searches when the source closes and can retry', async () => {
         vi.useFakeTimers();
@@ -1768,12 +1767,12 @@ describe('reader helpers', () => {
 });
 
 function mockCompensatedRedditRoot(root: HTMLElement, rectScale: number): void {
-    root.dataset.jpdbReaderScaleAdapter = 'apple-touch-page-scale';
-    root.dataset.jpdbReaderScaleCompensation = '0.625';
-    Object.defineProperties(root, {
-        offsetWidth: { configurable: true, value: 400 },
-        offsetHeight: { configurable: true, value: 600 },
+    Object.assign(root.dataset, {
+        jpdbReaderScaleAdapter: 'apple-touch-page-scale',
+        jpdbReaderScaleCompensation: '0.625',
     });
+    Object.defineProperty(root, 'offsetWidth', { configurable: true, value: 400 });
+    Object.defineProperty(root, 'offsetHeight', { configurable: true, value: 600 });
     root.getBoundingClientRect = () => scaledTestRect(0, 0, 400, 600, rectScale);
 }
 

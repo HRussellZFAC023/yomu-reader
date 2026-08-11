@@ -124,7 +124,6 @@ const SHORTCUT_SETTING_NAMES = [
 const KANJI_ADDON_SOURCE_ROWS = [
     ['jpdbKanji', 'jpdbKanjiEnabled', 'jpdbKanjiPriority', 'jpdbKanjiAlias'],
     ['kanjiImmersionKit', 'kanjiImmersionKitEnabled', 'kanjiImmersionKitPriority', 'kanjiImmersionKitAlias'],
-    ['uchisen', 'uchisenEnabled', 'uchisenPriority', 'uchisenAlias'],
     ['wanikaniKanji', 'wanikaniKanjiEnabled', 'wanikaniKanjiPriority', 'wanikaniKanjiAlias'],
     ['rtk', 'rtkEnabled', 'rtkPriority', 'rtkAlias'],
     ['kanjivg', 'kanjivgEnabled', 'kanjivgPriority', 'kanjivgAlias'],

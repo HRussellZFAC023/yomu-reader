@@ -6,6 +6,7 @@ import {
     setActiveLearningTargetLanguage,
 } from '../../src/reader/languages/active';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
+import { newTabCardFromSrsReviewable } from '../../src/reader/newtab/srs-card-adapter';
 import { newTabCardTarget } from '../../src/reader/newtab/study-queue';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { rebuildReaderDeckEventStream } from '../../src/reader/srs/account-sync';
@@ -28,6 +29,10 @@ function srsCard(overrides: Partial<JPDBCard>): JPDBCard {
         wordWithReading: null,
         ...overrides,
     };
+}
+
+function cardLanguage(card: JPDBCard): string {
+    return card.language ?? 'ja';
 }
 
 function controllerWithAdapters(
@@ -208,6 +213,8 @@ describe('Academy Reader Study queue selection', () => {
 });
 
 describe('multilingual Academy Reader Study loop', () => {
+    let mountedController: NewTabController | undefined;
+
     beforeEach(() => {
         localStorage.clear();
         sessionStorage.clear();
@@ -216,6 +223,8 @@ describe('multilingual Academy Reader Study loop', () => {
     });
 
     afterEach(() => {
+        mountedController?.destroy();
+        mountedController = undefined;
         resetActiveLearningTargetLanguage();
         document.body.replaceChildren();
     });
@@ -259,6 +268,7 @@ describe('multilingual Academy Reader Study loop', () => {
         }, {
             'yomu-local': adapter,
         });
+        mountedController = controller;
         const internals = controller as unknown as {
             allWords: JPDBCard[];
             visibleWords: JPDBCard[];
@@ -267,7 +277,6 @@ describe('multilingual Academy Reader Study loop', () => {
             renderEnabledContent(): DocumentFragment;
             renderWord(root: HTMLElement, card: JPDBCard): void;
             setStudyStepOverrideForCurrentCard(id: string): void;
-            srsReviewableToNewTabCard(card: (typeof unscoped.cards)[number]): JPDBCard;
             loadSrsAdapterWords(source: 'yomu-local', limit?: number): Promise<{ cards: JPDBCard[] }>;
             submitGrade(card: JPDBCard, grade: 'pass'): Promise<unknown>;
         };
@@ -277,13 +286,12 @@ describe('multilingual Academy Reader Study loop', () => {
         root.append(internals.renderEnabledContent());
         document.body.append(root);
 
-        try {
-            expect.soft(selectNewTabStudyPool(unscoped.cards.map(card => internals.srsReviewableToNewTabCard(card)))
-                .map(card => card.language ?? 'ja')).toEqual(['es']);
+        expect.soft(selectNewTabStudyPool(unscoped.cards.map(card => newTabCardFromSrsReviewable(card)!))
+                .map(cardLanguage)).toEqual(['es']);
             const loaded = await internals.loadSrsAdapterWords('yomu-local', 1);
             expect.soft(loaded.cards.map(card => card.spelling)).toEqual(['agua']);
             const spanishReviewable = unscoped.cards.find(card => card.language === 'es')!;
-            const spanish = internals.srsReviewableToNewTabCard(spanishReviewable);
+            const spanish = newTabCardFromSrsReviewable(spanishReviewable)!;
             internals.allWords = [spanish];
             internals.visibleWords = [spanish];
             internals.sourceLabel = 'Academy';
@@ -291,24 +299,24 @@ describe('multilingual Academy Reader Study loop', () => {
             internals.setStudyStepOverrideForCurrentCard('recall-cloze');
             internals.renderWord(root, spanish);
 
-            const study = root.querySelector<HTMLElement>('[data-newtab-study]');
-            const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]');
-            expect.soft(study?.dataset.newtabStudyFlow?.split(' ')).toContain('recall-cloze');
-            expect.soft(study?.dataset.newtabStudyStep).toBe('recall-cloze');
-            expect.soft(prompt?.lang).toBe('es');
-            expect.soft(prompt?.textContent).toContain('Bebo ');
-            expect.soft(prompt?.textContent).toContain('.');
-            expect.soft(prompt?.textContent).not.toContain('agua');
-            expect.soft(prompt?.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
-            expect.soft(study?.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
-            expect.soft(study?.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
+            const study = root.querySelector<HTMLElement>('[data-newtab-study]')!;
+            const prompt = root.querySelector<HTMLElement>('[data-newtab-prompt]')!;
+            expect.soft(study.dataset.newtabStudyFlow?.split(' ')).toContain('recall-cloze');
+            expect.soft(study.dataset.newtabStudyStep).toBe('recall-cloze');
+            expect.soft(prompt.lang).toBe('es');
+            expect.soft(prompt.textContent).toContain('Bebo ');
+            expect.soft(prompt.textContent).toContain('.');
+            expect.soft(prompt.textContent).not.toContain('agua');
+            expect.soft(prompt.querySelector('.jpdb-reader-newtab-recall-gap')).not.toBeNull();
+            expect.soft(study.querySelector('[data-study-step-kind="listen-pitch"]')).toBeNull();
+            expect.soft(study.querySelector('[data-study-step-kind="speaking"]')).toBeNull();
             // Listen/Speak are pitch drills and this card has no pitch contour;
             // that is not an audio capability gap because Spanish owns TTS.
             const spanishTarget = newTabCardTarget(spanish);
             expect.soft(spanishTarget.capabilities.audio).toBe(true);
             expect.soft(spanishTarget.experiences.audio).toBe('speech-synthesis');
             expect.soft(spanishTarget.audio.recordedWordAudio).toBe(false);
-            expect.soft(study?.querySelector('[data-study-unavailable-modes]')).toBeNull();
+            expect.soft(study.querySelector('[data-study-unavailable-modes]')).toBeNull();
 
             await internals.submitGrade(spanish, 'pass');
 
@@ -332,8 +340,5 @@ describe('multilingual Academy Reader Study loop', () => {
 
             const eventStream = Object.values(snapshot.cards).map(card => ({ version: 1, kind: 'card', card }));
             expect.soft(rebuildReaderDeckEventStream(eventStream)).toEqual(snapshot);
-        } finally {
-            controller.destroy();
-        }
     });
 });

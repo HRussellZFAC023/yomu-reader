@@ -27,6 +27,10 @@ import type {
     ImmersionKitExample,
     JPDBCard,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
 
 describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
     registerNewTabReviewCleanup();
@@ -443,6 +447,122 @@ describe('new tab review — stats, My Cards & kanji-doodle grading', () => {
         } finally {
             controller.destroy();
             document.body.replaceChildren();
+        }
+    });
+
+    it('keeps My Cards on the active target before provider caps and legacy-card normalization', async () => {
+        setActiveLearningTargetLanguage('es');
+        const listDeckCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], source: 'jpdb' }),
+        ]);
+        const listNewTabCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '暗記', reading: 'あんき', cardState: ['due'], source: 'anki', reviewSource: 'anki' }),
+        ]);
+        const listDecks = vi.fn(async () => []);
+        const listStudyBatchCards = vi.fn(async () => [
+            newTabTestCard({ spelling: '辞書', reading: 'じしょ', cardState: ['due'], source: 'jiten', reviewSource: 'jiten-api' }),
+        ]);
+        const bunproQueue = vi.fn();
+        const wanikaniQueue = vi.fn();
+        const queue = vi.fn(async () => ({
+            providerId: 'yomu-local' as const,
+            fetchedAt: Date.now(),
+            dueCount: 1,
+            newCount: 0,
+            reviewCount: 1,
+            cards: [{
+                providerId: 'yomu-local' as const,
+                providerCardId: 'es-agua',
+                kind: 'vocabulary' as const,
+                expression: 'agua',
+                reading: 'agua',
+                language: 'es' as const,
+                meanings: [{ glosses: ['water'], partOfSpeech: ['noun'] }],
+                state: ['due' as const],
+            }],
+        }));
+        const spanishSettings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            jitenApiKey: 'jiten-key',
+            ankiEnabled: true,
+            newTabAnkiEnabled: true,
+            newTabJpdbDeck: 'stale-japanese-deck',
+            yomuLocalSrsEnabled: true,
+            languageProfiles: DEFAULT_SETTINGS.languageProfiles.map(profile => ({
+                ...profile,
+                targetLanguage: 'es' as const,
+            })),
+        };
+        const controller = newTabApiSourceController(spanishSettings, {
+            jpdb: { listDeckCards, listDecks } as never,
+            jiten: { listStudyBatchCards } as never,
+            anki: { listNewTabCards } as never,
+            srsAdapters: {
+                bunpro: { label: 'Bunpro', hasCredential: () => true, queue: bunproQueue, stats: vi.fn(), review: vi.fn() },
+                wanikani: { label: 'WaniKani', hasCredential: () => true, queue: wanikaniQueue, stats: vi.fn(), review: vi.fn() },
+                'yomu-local': { label: 'Academy', hasCredential: () => true, queue, stats: vi.fn(), review: vi.fn() },
+            } as never,
+        });
+        try {
+            const internals = controller as unknown as {
+                browseSourceFilters: Set<string>;
+                invalidateForTargetChange(): void;
+            };
+            internals.browseSourceFilters.add('jpdb');
+            internals.invalidateForTargetChange();
+            const root = renderBoundNewTabSearchRoot(controller);
+            await waitForExpect(() => {
+                const rows = [...root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-browse-row')];
+                expect(rows).toHaveLength(1);
+                expect(rows[0]?.textContent).toContain('agua');
+                expect(rows[0]?.querySelector<HTMLElement>('.jpdb-reader-newtab-browse-term')?.lang).toBe('es');
+            });
+            expect(queue).toHaveBeenCalledWith(expect.any(Number), { language: 'es' });
+            expect(listDeckCards).not.toHaveBeenCalled();
+            expect(listDecks).not.toHaveBeenCalled();
+            expect(listStudyBatchCards).not.toHaveBeenCalled();
+            expect(listNewTabCards).not.toHaveBeenCalled();
+            expect(bunproQueue).not.toHaveBeenCalled();
+            expect(wanikaniQueue).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+            resetActiveLearningTargetLanguage();
+        }
+    });
+
+    it('discards a Japanese My Cards response that resolves after the target changes', async () => {
+        let resolveDeckCards!: (cards: JPDBCard[]) => void;
+        const listDeckCards = vi.fn(() => new Promise<JPDBCard[]>(resolve => {
+            resolveDeckCards = resolve;
+        }));
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+        }, {
+            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+        });
+        const internals = controller as unknown as {
+            browsePool?: JPDBCard[];
+            loadBrowsePool(): Promise<JPDBCard[]>;
+            invalidateForTargetChange(): void;
+        };
+        try {
+            const pending = internals.loadBrowsePool();
+            await waitForExpect(() => expect(listDeckCards).toHaveBeenCalled());
+
+            setActiveLearningTargetLanguage('es');
+            internals.invalidateForTargetChange();
+            resolveDeckCards([
+                newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], source: 'jpdb' }),
+            ]);
+
+            await expect(pending).resolves.toEqual([]);
+            expect(internals.browsePool).toBeUndefined();
+        } finally {
+            controller.destroy();
+            resetActiveLearningTargetLanguage();
         }
     });
 

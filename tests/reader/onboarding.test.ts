@@ -7,9 +7,27 @@ import {
     PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
     SETTINGS_STORAGE_KEY,
 } from '../../src/reader/settings/index';
+import { SETTINGS_INTENT_LEDGER_STORAGE_KEY } from '../../src/reader/settings/intent-ledger';
 import type { ReaderSettings } from '../../src/reader/app/types';
 
 const PAGE_SCAN_LEGEND = 'Japanese text on webpages';
+
+function offlineDictionaryOnboardingHarness(): {
+    controller: OnboardingController;
+    installOfflineDictionaries: ReturnType<typeof vi.fn>;
+    settings: () => ReaderSettings;
+} {
+    let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+    const installOfflineDictionaries = vi.fn();
+    const controller = new OnboardingController({
+        getSettings: () => settings,
+        setSettings: nextSettings => { settings = nextSettings; },
+        showSettings: vi.fn(),
+        parseJapanese: vi.fn(),
+        installOfflineDictionaries,
+    });
+    return { controller, installOfflineDictionaries, settings: () => settings };
+}
 
 describe('OnboardingController', () => {
     afterEach(() => {
@@ -19,7 +37,7 @@ describe('OnboardingController', () => {
         vi.unstubAllGlobals();
     });
 
-    it('shows immersion options and keeps Japanese-site navigation opt-in', async () => {
+    it('requires an explicit target before showing target-owned options or completing', async () => {
         let settings: ReaderSettings = {
             ...DEFAULT_SETTINGS,
             onboardingSeen: false,
@@ -31,14 +49,36 @@ describe('OnboardingController', () => {
             settings = nextSettings;
         });
         const showSettings = vi.fn();
+        const parseJapanese = vi.fn();
+        const installOfflineDictionaries = vi.fn();
         const controller = new OnboardingController({
             getSettings: () => settings,
             setSettings,
             showSettings,
-            parseJapanese: vi.fn(),
+            parseJapanese,
+            installOfflineDictionaries,
         });
 
         await expect(controller.showIfNeeded()).resolves.toBe(true);
+
+        const targetLanguage = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+        const targetOwnedOptions = document.querySelector<HTMLFieldSetElement>('.jpdb-reader-onboarding-options')!;
+        const completeButton = document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!;
+        expect(targetLanguage.value).toBe('');
+        expect(targetLanguage.selectedOptions[0]?.textContent).toBe('Choose a learning language…');
+        expect(targetOwnedOptions.hidden).toBe(true);
+        expect(targetOwnedOptions.disabled).toBe(true);
+        expect(completeButton.disabled).toBe(true);
+        expect(parseJapanese).not.toHaveBeenCalled();
+        expect(installOfflineDictionaries).not.toHaveBeenCalled();
+        expect(document.body.textContent).toContain('your learning language');
+        let completionResolved = false;
+        void controller.waitForCompletion().then(() => { completionResolved = true; });
+        await Promise.resolve();
+        expect(completionResolved).toBe(false);
+
+        targetLanguage.value = 'ja';
+        targetLanguage.dispatchEvent(new Event('change', { bubbles: true }));
 
         const youtubeFilter = document.querySelector<HTMLInputElement>('input[name="youtubeImmersionEnabled"]')!;
         const siteLanguage = document.querySelector<HTMLInputElement>('input[name="preferJapaneseSiteLanguage"]')!;
@@ -54,6 +94,10 @@ describe('OnboardingController', () => {
         const featureText = () => Array.from(document.querySelectorAll('.jpdb-reader-onboarding-features > li span'), item => String(item.textContent));
         expect(youtubeFilter.checked).toBe(true);
         expect(siteLanguage.checked).toBe(false);
+        expect(targetOwnedOptions.hidden).toBe(false);
+        expect(targetOwnedOptions.disabled).toBe(false);
+        expect(completeButton.disabled).toBe(false);
+        expect(parseJapanese).toHaveBeenCalled();
         expect(pageScanAuto.checked).toBe(true);
         expect(pageScanManual.checked).toBe(false);
         expect(document.body.textContent).toContain(PAGE_SCAN_LEGEND);
@@ -101,14 +145,17 @@ describe('OnboardingController', () => {
         accentColor!.dispatchEvent(new Event('change', { bubbles: true }));
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
         await settleAsyncHandlers();
+        await controller.waitForCompletion();
 
         expect(settings.onboardingSeen).toBe(true);
+        expect(settings.learningTargetChosen).toBe(true);
         expect(settings.youtubeImmersionEnabled).toBe(false);
         expect(settings.youtubeImmersionEnabledChosen).toBe(true);
         expect(settings.preferJapaneseSiteLanguage).toBe(true);
         expect(settings.manualScanEnabled).toBe(true);
         expect(settings.theme).toBe('dark');
         expect(settings.accentColor).toBe('#336699');
+        expect(completionResolved).toBe(true);
         expect(showSettings).toHaveBeenCalledWith('dictionaries');
         expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
         expect(JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY)!)).toMatchObject({
@@ -123,20 +170,105 @@ describe('OnboardingController', () => {
         )).toBe(true);
     });
 
-    it('offers a default-on offline dictionary download and starts it on completion', async () => {
+    it('dismisses without choosing, keeps Yomu inert, and asks again later', async () => {
         let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
+        const setSettings = vi.fn((next: ReaderSettings) => { settings = next; });
+        const parseJapanese = vi.fn();
         const installOfflineDictionaries = vi.fn();
+        const hostAction = document.createElement('button');
+        const hostClicked = vi.fn();
+        hostAction.addEventListener('click', hostClicked);
+        document.body.append(hostAction);
         const controller = new OnboardingController({
             getSettings: () => settings,
-            setSettings: nextSettings => {
-                settings = nextSettings;
-            },
+            setSettings,
             showSettings: vi.fn(),
-            parseJapanese: vi.fn(),
+            parseJapanese,
             installOfflineDictionaries,
         });
 
+        await controller.showIfNeeded();
+        const completion = controller.waitForCompletion();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')!.click();
+        await completion;
+
+        expect(document.querySelector('.jpdb-reader-onboarding')).toBeNull();
+        expect(setSettings).not.toHaveBeenCalled();
+        expect(parseJapanese).not.toHaveBeenCalled();
+        expect(installOfflineDictionaries).not.toHaveBeenCalled();
+        expect(settings).toMatchObject({ onboardingSeen: false, learningTargetChosen: false });
+        hostAction.click();
+        expect(hostClicked).toHaveBeenCalledTimes(1);
+
         await expect(controller.showIfNeeded()).resolves.toBe(true);
+        expect(document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')?.value).toBe('');
+    });
+
+    it('records live previews and the completed target profile as explicit intent', async () => {
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            onboardingSeen: false,
+            learningTargetChosen: false,
+            interfaceLanguage: 'en',
+            theme: 'light',
+        };
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: nextSettings => { settings = nextSettings; },
+            showSettings: vi.fn(),
+            parseJapanese: vi.fn(),
+        });
+
+        await controller.showIfNeeded();
+        let interfaceLanguage = document.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+        interfaceLanguage.value = 'ja';
+        interfaceLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        document.querySelector<HTMLButtonElement>('[data-onboarding-theme-switch]')!.click();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#2563eb"]')!.click();
+        const dismissed = controller.waitForCompletion();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="close"]')!.click();
+        await dismissed;
+        expect(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY)).toBeNull();
+
+        await controller.showIfNeeded();
+        const learnerLanguage = document.querySelector<HTMLSelectElement>('select[name="learnerLanguage"]')!;
+        learnerLanguage.value = 'ko';
+        learnerLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        chooseOnboardingTarget('es');
+        interfaceLanguage = document.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+        interfaceLanguage.value = 'en';
+        interfaceLanguage.dispatchEvent(new Event('change', { bubbles: true }));
+        document.querySelector<HTMLButtonElement>('[data-onboarding-theme-switch]')!.click();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-accent="#5ea780"]')!.click();
+        document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!.click();
+        await settleAsyncHandlers();
+        await controller.waitForCompletion();
+
+        const activeProfile = settings.languageProfiles.find(profile => profile.id === settings.activeLanguageProfileId);
+        expect(activeProfile).toMatchObject({
+            learnerLanguage: 'ko',
+            targetLanguage: 'es',
+            uiLocale: 'en',
+        });
+        const ledger = JSON.parse(localStorage.getItem(SETTINGS_INTENT_LEDGER_STORAGE_KEY) ?? '{}');
+        expect(ledger.records).toMatchObject({
+            interfaceLanguage: { value: 'en' },
+            theme: { value: 'light' },
+            accentColor: { value: '#5ea780' },
+            learningTargetChosen: { value: true },
+            activeLanguageProfileId: { value: settings.activeLanguageProfileId },
+            languageProfiles: { seq: expect.any(Number) },
+        });
+    });
+
+    it.each([
+        { enabled: true, expectedDownloads: 1 },
+        { enabled: false, expectedDownloads: 0 },
+    ])('honours offline dictionary download choice $enabled', async ({ enabled, expectedDownloads }) => {
+        const { controller, installOfflineDictionaries, settings } = offlineDictionaryOnboardingHarness();
+
+        await expect(controller.showIfNeeded()).resolves.toBe(true);
+        chooseOnboardingTarget('ja');
 
         const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
         expect(offlineDownload?.checked).toBe(true);
@@ -146,13 +278,14 @@ describe('OnboardingController', () => {
         expect(uiText('ja', 'onboardingInstallOfflineDictionaries'))
             .toBe('この言語のスターター辞書をダウンロード');
 
+        offlineDownload!.checked = enabled;
         document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
         await settleAsyncHandlers();
 
-        expect(installOfflineDictionaries).toHaveBeenCalledTimes(1);
+        expect(installOfflineDictionaries).toHaveBeenCalledTimes(expectedDownloads);
         // The API-key path must not switch local dictionaries off while the
         // offline download it just requested is installing them.
-        expect(settings.localDictionariesEnabled).toBe(true);
+        expect(settings().localDictionariesEnabled).toBe(enabled);
     });
 
     it('keeps first-run dictionary progress visible in Reader and Study after onboarding closes', () => {
@@ -160,30 +293,6 @@ describe('OnboardingController', () => {
             const source = readFileSync(sourcePath, 'utf8');
             expect(source).toContain('onProgress: message => this.toast(message)');
         }
-    });
-
-    it('skips the offline download when the user unchecks it', async () => {
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'en' };
-        const installOfflineDictionaries = vi.fn();
-        const controller = new OnboardingController({
-            getSettings: () => settings,
-            setSettings: nextSettings => {
-                settings = nextSettings;
-            },
-            showSettings: vi.fn(),
-            parseJapanese: vi.fn(),
-            installOfflineDictionaries,
-        });
-
-        await expect(controller.showIfNeeded()).resolves.toBe(true);
-
-        const offlineDownload = document.querySelector<HTMLInputElement>('input[name="onboardingInstallOfflineDictionaries"]');
-        offlineDownload!.checked = false;
-        document.querySelector<HTMLButtonElement>('[data-onboarding-action="api-key"]')?.click();
-        await settleAsyncHandlers();
-
-        expect(installOfflineDictionaries).not.toHaveBeenCalled();
-        expect(settings.localDictionariesEnabled).toBe(false);
     });
 
     it('does not offer to replace new tabs in extension or userscript onboarding', async () => {
@@ -205,4 +314,10 @@ describe('OnboardingController', () => {
 
 function settleAsyncHandlers(): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+function chooseOnboardingTarget(target: string): void {
+    const select = document.querySelector<HTMLSelectElement>('select[name="targetLanguage"]')!;
+    select.value = target;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
 }

@@ -26,10 +26,50 @@ import {
     waitForExpect,
 } from './fixtures';
 import type {
+    NewTabControllerOptions,
     NewTabSettings,
     JPDBCard,
     JPDBGrade,
 } from './fixtures';
+import {
+    resetActiveLearningTargetLanguage,
+    setActiveLearningTargetLanguage,
+} from '../../../src/reader/languages/active';
+
+type JpdbDeckOption = {
+    id: string;
+    name: string;
+    vocabularyCount?: number;
+    knownCoverage?: number;
+};
+
+function newTabJpdbBrowseController(listDeckCards: NewTabControllerOptions['jpdb']['listDeckCards']) {
+    return newTabApiSourceController({
+        ...DEFAULT_SETTINGS,
+        apiKey: 'jpdb-key',
+    }, {
+        jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
+    });
+}
+
+function newTabJpdbDeckSelectorFixture(
+    settings: NewTabSettings,
+    listDecks: () => Promise<JpdbDeckOption[]>,
+) {
+    const controller = newTabPromptController(settings);
+    const internals = controller as unknown as {
+        dependencies: { jpdb: { listDecks?: () => Promise<JpdbDeckOption[]> } };
+        populateDeckSelector(select: HTMLSelectElement, currentSettings: NewTabSettings): Promise<void>;
+    };
+    internals.dependencies.jpdb.listDecks = vi.fn(listDecks);
+    const select = document.createElement('select');
+    document.body.append(select);
+    return {
+        controller,
+        select,
+        populate: () => internals.populateDeckSelector(select, settings),
+    };
+}
 
 describe('new tab review — session progress, grade bar & deck selectors', () => {
     registerNewTabReviewCleanup();
@@ -698,12 +738,7 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 11, source: 'jpdb', reviewSource: 'jpdb-api' }),
             newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 12, source: 'jpdb', reviewSource: 'jpdb-api' }),
         ]);
-        const controller = newTabApiSourceController({
-            ...DEFAULT_SETTINGS,
-            apiKey: 'jpdb-key',
-        }, {
-            jpdb: { listDeckCards, listDecks: vi.fn(async () => []) } as never,
-        });
+        const controller = newTabJpdbBrowseController(listDeckCards);
         try {
             await controller.renderPage();
             const select = document.querySelector<HTMLSelectElement>('[data-newtab-filter-select]')!;
@@ -719,6 +754,40 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             const internals = controller as unknown as { visibleWords: Array<{ spelling: string }> };
             await waitForExpect(() => {
                 expect(internals.visibleWords.map(card => card.spelling)).toEqual(['読む']);
+            });
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
+    it('keeps the newest Show-only selection when an older pool load resolves later', async () => {
+        resetNewTabReviewStorage();
+        const olderPool = deferred<JPDBCard[]>();
+        const due = newTabTestCard({ spelling: '書く', reading: 'かく', cardState: ['due'], vid: 12, source: 'jpdb', reviewSource: 'jpdb-api' });
+        const known = newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 11, source: 'jpdb', reviewSource: 'jpdb-api' });
+        const blacklisted = newTabTestCard({ spelling: '消す', reading: 'けす', cardState: ['blacklisted'], vid: 13, source: 'jpdb', reviewSource: 'jpdb-api' });
+        const listDeckCards = vi.fn()
+            .mockResolvedValueOnce([due])
+            .mockImplementationOnce(() => olderPool.promise);
+        const controller = newTabJpdbBrowseController(listDeckCards);
+        try {
+            await controller.renderPage();
+            const select = document.querySelector<HTMLSelectElement>('[data-newtab-filter-select]')!;
+            select.value = 'known';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            await waitForExpect(() => expect(listDeckCards).toHaveBeenCalledTimes(2));
+
+            select.value = 'blacklisted';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            olderPool.resolve([known, due, blacklisted]);
+
+            const internals = controller as unknown as {
+                state: { filter: string };
+                visibleWords: Array<{ spelling: string }>;
+            };
+            await waitForExpect(() => {
+                expect(internals.state.filter).toBe('blacklisted');
+                expect(internals.visibleWords.map(card => card.spelling)).toEqual(['消す']);
             });
         } finally {
             resetNewTabReviewStorage();
@@ -834,30 +903,50 @@ describe('new tab review — session progress, grade bar & deck selectors', () =
             apiKey: 'jpdb-key',
             newTabJpdbDeck: 'deck',
         };
-        const decks = deferred<Array<{ id: string; name: string; vocabularyCount?: number; knownCoverage?: number }>>();
-        const controller = newTabPromptController(settings);
-        const internals = controller as unknown as {
-            dependencies: { jpdb: { listDecks?: () => Promise<Array<{ id: string; name: string; vocabularyCount?: number; knownCoverage?: number }>> } };
-            populateDeckSelector(select: HTMLSelectElement, settings: NewTabSettings): Promise<void>;
-        };
-        internals.dependencies.jpdb.listDecks = vi.fn(() => decks.promise);
-        const select = document.createElement('select');
-        document.body.append(select);
+        const decks = deferred<JpdbDeckOption[]>();
+        const { controller, select, populate } = newTabJpdbDeckSelectorFixture(settings, () => decks.promise);
 
         try {
-            const populate = internals.populateDeckSelector(select, settings);
+            const populated = populate();
             expect([...select.options].map(option => option.value)).toEqual(['deck']);
             expect(select.textContent).toBe('deck');
             expect(select.value).toBe('deck');
 
             decks.resolve([{ id: 'deck', name: '誕生日', vocabularyCount: 39, knownCoverage: 65.12 }]);
-            await populate;
+            await populated;
 
             expect([...select.options].map(option => option.textContent)).toContain('誕生日 · 39 · 65%');
             expect(select.value).toBe('deck');
         } finally {
             controller.destroy();
             document.body.replaceChildren();
+        }
+    });
+
+    it('does not let a delayed Japanese deck list overwrite a new target', async () => {
+        resetActiveLearningTargetLanguage();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            newTabJpdbDeck: 'all',
+        };
+        const decks = deferred<JpdbDeckOption[]>();
+        const { controller, select, populate } = newTabJpdbDeckSelectorFixture(settings, () => decks.promise);
+
+        try {
+            const japaneseRequest = populate();
+            expect(setActiveLearningTargetLanguage('es')).not.toBeNull();
+            await populate();
+            expect([...select.options].map(option => option.value)).toEqual(['all']);
+
+            decks.resolve([{ id: 'japanese-deck', name: 'Japanese deck' }]);
+            await japaneseRequest;
+            expect([...select.options].map(option => option.value)).toEqual(['all']);
+            expect(select.textContent).not.toContain('Japanese deck');
+        } finally {
+            resetActiveLearningTargetLanguage();
+            controller.destroy();
+            select.remove();
         }
     });
 

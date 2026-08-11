@@ -8,13 +8,16 @@ on:
     paths:
       - src/**
       - public/newtab/**
+      - public/pwa-icon-*.png
       - public/yomu-icon.svg
       - public/extension-icons/**
+      - docs/public/screenshots/study-pwa-*.png
       - package.json
       - package-lock.json
       - vite.config.ts
       - config/vite/newtab.config.ts
       - scripts/build-extension.mjs
+      - scripts/build-amo-source-package.mjs
       - scripts/lib/ci-utils.mjs
       - scripts/lib/extension-runtime-hardening.mjs
       - .github/workflows/build-extension.yml
@@ -35,16 +38,20 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: HRussellZFAC023/UserScript-Compiler
+          ref: 52b7fe463ae503c294421752002da568472dfe4a
           path: UserScript-Compiler
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version-file: 'yomu-reader/.nvmrc'
           cache: npm
           cache-dependency-path: |
             yomu-reader/package-lock.json
             UserScript-Compiler/package-lock.json
+
+      - name: Pin audited npm
+        run: npm install --global npm@11.9.0
 
       - name: Install compiler dependencies
         working-directory: UserScript-Compiler

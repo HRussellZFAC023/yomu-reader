@@ -88,7 +88,7 @@ export function currentJapaneseLookupScopeMatcher() {
 }
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../../src/reader/settings/form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../../src/reader/app/site-parsers';
-import { KANJI_STROKE_SOURCE_ID, KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../../src/reader/sources/sections';
+import { KANJI_STROKE_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../../src/reader/sources/sections';
 import { renderKanjiSourceMounts } from '../../../src/reader/runtime/kanji-source-mounts';
 import { StudySourceController } from '../../../src/reader/study/sources';
 import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from '../../../src/reader/study/tools';
@@ -99,7 +99,6 @@ import { collectPageSubtitleSources } from '../../../src/reader/subtitles/subtit
 import { createSubtitleVideoInsetAdapter } from '../../../src/reader/subtitles/subtitle-video-inset';
 import { discoverYouTubeCaptionTracks, getYouTubeCaptionTracks, getYouTubeVideoId, loadYouTubeTrackCues } from '../../../src/reader/subtitles/subtitle-youtube';
 import { applySubtitleNativeTrackModes } from '../../../src/reader/subtitles/subtitle-native-track-modes';
-import { installUchisenCarousel, loadUchisenImages, parseUchisenComponents, parseUchisenData, parseUchisenImages, parseUchisenKanjiKeyword } from '../../../src/reader/dictionaries/uchisen';
 import { compareSubtitleTrackOptions, isEnglishSubtitleTrack, isTargetLanguageSubtitleTrack, shouldReplaceWaitingNativeTrack } from '../../../src/reader/subtitles/subtitle-track-metadata';
 import { loadSubtitleTrackCues, type SubtitleTrackLoadable } from '../../../src/reader/subtitles/subtitle-track-loader';
 import { renderSubtitlePrimary } from '../../../src/reader/subtitles/subtitle-rendering';
@@ -1686,7 +1685,7 @@ export function stubTestLocation(href: string): TestLocationStub {
     return locationStub;
 }
 
-export function hostedNewTabLocationStub(): TestLocationStub {
+function hostedNewTabLocationStub(): TestLocationStub {
     return testLocationStub('https://hrussellzfac023.github.io/yomu-reader/newtab.html');
 }
 
@@ -1839,25 +1838,6 @@ export function stubJpdbFetchRoutes(routes: Record<string, string>) {
     });
     vi.stubGlobal('fetch', fetchMock);
     return fetchMock;
-}
-
-export async function mountTestUchisenCarousel(
-    kanji: string,
-    images: Parameters<typeof installUchisenCarousel>[2],
-    options?: Parameters<typeof installUchisenCarousel>[3],
-) {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(new Blob(['image'], { type: 'image/png' }), { status: 200 }))));
-    const mount = document.createElement('div');
-    document.body.append(mount);
-    const cleanupCarousel = await installUchisenCarousel(mount, kanji, images, options);
-    return {
-        mount,
-        cleanup: () => {
-            cleanupCarousel();
-            mount.remove();
-            vi.unstubAllGlobals();
-        },
-    };
 }
 
 export function graphNodeDataPosition(html: string, id: string): KanjiGraphPoint {
@@ -3137,7 +3117,6 @@ export {
     JpdbPublicPitchClient,
     JpdbVocabularyClient,
     KANJI_STROKE_SOURCE_ID,
-    KANJI_UCHISEN_SOURCE_ID,
     Logger,
     NEW_TAB_PAGE_URL,
     NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
@@ -3224,7 +3203,6 @@ export {
     installSettingsDrawerHandle,
     installSheetCloseButton,
     installSheetHandle,
-    installUchisenCarousel,
     installUserscriptHttpBridge,
     installUserscriptHttpBridgeWhenReady,
     isAllowedPublicProxyTarget,
@@ -3244,7 +3222,6 @@ export {
     kanjiSourceRows,
     loadSettings,
     loadSubtitleTrackCues,
-    loadUchisenImages,
     loadYouTubeTrackCues,
     localDictionaryLookupVariants,
     localizeSettingsForm,
@@ -3275,10 +3252,6 @@ export {
     parseKanjiVGSvg,
     parseRtkSearchIndex,
     parseSubtitleText,
-    parseUchisenComponents,
-    parseUchisenData,
-    parseUchisenImages,
-    parseUchisenKanjiKeyword,
     parseYomitanSettingsExport,
     planTranscriptHydrationIndexes,
     pointerTextLookupFromTextNode,

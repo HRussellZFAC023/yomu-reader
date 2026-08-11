@@ -1,7 +1,7 @@
 import { isYomuStorageBridgeHostedUrl } from '../app/pages';
 import { USERSCRIPT_STORAGE_BRIDGE_READY_EVENT } from '../app/constants';
 import { isBridgeManagedStorageKey, isPrivateManagedStorageKey } from '../app/managed-storage-keys';
-import { bridgeEventDetail } from './bridge-detail';
+import { bridgeEventDetail, normalizedBridgeEventDetail } from './bridge-detail';
 import { addWindowEventListener, createWindowCustomEvent, dispatchWindowEvent, removeWindowEventListener } from '../platform/window-events';
 
 // GM storage event bridge.
@@ -282,21 +282,6 @@ function storageBridgeResponseDetail(event: Event): StorageBridgeResponseDetail 
 function isGmStorageOp(value: unknown): value is GmStorageOp {
     return value === 'get' || value === 'set' || value === 'delete' || value === 'list'
         || value === 'clear-private-managed';
-}
-
-function normalizedBridgeEventDetail(event: Event): unknown {
-    let detail: unknown;
-    try {
-        detail = (event as CustomEvent).detail;
-    } catch {
-        return undefined;
-    }
-    if (typeof detail !== 'string') return detail;
-    try {
-        return JSON.parse(detail);
-    } catch {
-        return detail;
-    }
 }
 
 function addBridgeEventListener(type: string, listener: (event: Event) => void): () => void {

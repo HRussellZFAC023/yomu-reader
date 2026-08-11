@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
@@ -39,6 +40,44 @@ describe('hosted store install routes', () => {
             expect(homepage).toContain(`data-yomu-route="${route}"`);
             expect(homepage).toContain(url);
         }
+    });
+
+    it('keeps extension metadata language-neutral and stable update routes on the stores', () => {
+        const amoMetadata = JSON.parse(readFileSync('config/amo-metadata.json', 'utf8')) as {
+            summary: Record<string, string>;
+            description: Record<string, string>;
+            version: { approval_notes: string };
+        };
+        const compiler = JSON.parse(readFileSync('config/userscript-compiler.config.json', 'utf8')) as {
+            branding: { tagline: string };
+        };
+        const reviewNotes = readFileSync('docs/store-review-notes.md', 'utf8');
+
+        expect(amoMetadata.summary['en-US']).toContain('33 learning languages');
+        expect(amoMetadata.summary.ja).toContain('33の学習言語');
+        expect(amoMetadata.description['en-US']).toContain('All 33 learning targets');
+        expect(amoMetadata.description.ja).toContain('33の学習言語すべて');
+        expect(amoMetadata.description['en-US']).toContain('Japanese is the deepest target');
+        expect(amoMetadata.version.approval_notes).toContain('explicit learning-language choice');
+        expect(amoMetadata.version.approval_notes).toContain('Kanji 1 for Japanese and Word for non-Japanese targets');
+        expect(compiler.branding.tagline).toBe('Read your learning language anywhere.');
+        const chromeDescription = execFileSync(
+            process.execPath,
+            ['scripts/print-chrome-store-description.mjs'],
+            { encoding: 'utf8' },
+        );
+        expect(chromeDescription).toContain('Highlights\n- Target-aware pop-up lookup for 33 learning languages');
+        expect(chromeDescription).toContain('- No remote executable code and no sale of personal data\n\nSite access is needed');
+        expect(chromeDescription).not.toMatch(/<\/?(?:ul|li)>/u);
+        expect(reviewNotes).toContain('language-learning reader');
+        expect(reviewNotes).toContain('Japanese additionally supports');
+
+        for (const route of ['chrome', 'firefox'] as const) {
+            const page = readFileSync(`docs/public/store/${route}/index.html`, 'utf8');
+            expect(page).toContain(INSTALL_ROUTE_URLS[route]);
+            expect(page).not.toContain('/releases/latest');
+        }
+        expect(readFileSync('docs/public/store/safari/index.html', 'utf8')).toContain('/releases/latest');
     });
 
     it('leads the install page with both stores and keeps the userscript as the fallback', () => {

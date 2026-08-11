@@ -1,0 +1,55 @@
+import { aggregateRuntimeModules } from '../companions/aggregate-runtime-modules';
+
+// The aggregate runtime executes before the split userscript core. Keep one
+// authoritative settings implementation in that runtime; this facade retains
+// the ordinary named-import contract without injecting the 70+ KiB Module a
+// second time.
+const settings = aggregateRuntimeModules().settings;
+
+export const {
+    DEFAULT_AUDIO_SOURCES,
+    DEFAULT_NEW_TAB_STUDY_STEP_ORDER,
+    DEFAULT_OVERLAY_BACKGROUND_COLOR,
+    DEFAULT_POPUP_FONT_FAMILY,
+    DEFAULT_READER_FONT_FAMILY,
+    DEFAULT_SETTINGS,
+    EXPLICIT_USER_SETTINGS_STORAGE_KEY,
+    NO_EXPLICIT_USER_CHOICE,
+    PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+    SETTINGS_STORAGE_KEY,
+    SETTINGS_STORAGE_KEYS,
+    accessibleOcrBackgroundColor,
+    accessibleOcrBackgroundOpacity,
+    accentToRgba,
+    applyUrlBootstrapSettings,
+    beginSettingsResetGuard,
+    changedSettingsKeys,
+    coupledSettingsIntentKeys,
+    defaultDictionaryLookupLinks,
+    defaultLookupLinkMode,
+    deleteSettingsStorage,
+    effectiveFuriganaMode,
+    effectiveReaderColorSource,
+    effectiveReaderTextColorSource,
+    effectiveSubtitleColorSource,
+    effectiveSubtitleTextColorSource,
+    endSettingsResetGuard,
+    formatShortcutEvent,
+    isPopupLookupEnabled,
+    loadSettings,
+    matchesShortcut,
+    normalizeAudioSource,
+    normalizeAudioSubSources,
+    normalizeAudioSources,
+    normalizeDictionaryPreferences,
+    normalizeInterfaceLanguage,
+    normalizeOcrProvider,
+    normalizeReaderSettings,
+    promoteStrandedHostedSettingsToGmStorage,
+    sanitizeAccentColor,
+    saveSettings,
+    shortcutIsPressed,
+    shouldLookupAnkiStatus,
+    shouldLookupBunproWordStates,
+    subscribeToSettingsStorageChanges,
+} = settings;

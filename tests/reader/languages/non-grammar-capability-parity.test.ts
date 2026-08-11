@@ -234,6 +234,34 @@ describe('A47 non-grammar capability parity', () => {
         expect(requestBody).toMatchObject({ requests: [{ language: 'es' }] });
         expect(predictions).toEqual(['agua', 'aguja']);
     });
+
+    it('does not paint canonically equivalent target text as a reading annotation', () => {
+        const decomposedSurface = 'an\u0303o';
+        const spanish = learningTargetModuleFor('es')!;
+        expect(setActiveLearningTargetLanguage(spanish.language)).toBe(spanish);
+        const token = exactDictionaryReadingToken(decomposedSurface, spanish.language, 'año');
+        token.rubies = [{
+            text: 'año',
+            start: 0,
+            end: decomposedSurface.length,
+            length: decomposedSurface.length,
+        }];
+
+        expect(effectiveTokenRubies(decomposedSurface, token)).toEqual([]);
+    });
+
+    it('preserves an explicit provider ruby when a weak card reading equals the surface', () => {
+        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
+        const token = exactDictionaryReadingToken('漢字', 'ja', '漢字');
+        token.rubies = [{
+            text: 'かんじ',
+            start: 0,
+            end: 2,
+            length: 2,
+        }];
+
+        expect(effectiveTokenRubies('漢字', token)).toEqual(token.rubies);
+    });
 });
 
 function exactDictionaryReadingToken(surface: string, language: string, reading: string): JPDBToken {

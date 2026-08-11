@@ -10,6 +10,7 @@ import { primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 import { newTabAction } from './actions';
+import { newTabCardIdentityLanguage, newTabCardTarget } from './study-queue';
 
 export type BrowseFilter = 'all' | CardState;
 export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'bunpro' | 'wanikani' | 'yomu-local' | 'anki';
@@ -125,17 +126,36 @@ export function renderBrowseSourceChips(
 // Jiten's /srs/history newest-first chronology when review timestamps exist.
 export function sortBrowseCards(cards: JPDBCard[], sort: BrowseSortKey, descending: boolean): JPDBCard[] {
     const sorted = [...cards];
-    if (sort === 'alpha') {
-        sorted.sort((a, b) => (a.reading || a.spelling).localeCompare(b.reading || b.spelling, 'ja'));
-    } else if (sort === 'frequency') {
-        sorted.sort((a, b) => (a.frequencyRank ?? Number.MAX_SAFE_INTEGER) - (b.frequencyRank ?? Number.MAX_SAFE_INTEGER));
-    } else if (sort === 'history') {
-        sorted.sort((a, b) => compareHistoryOrder(a, b, descending));
-        return sorted;
-    } else {
-        sorted.sort((a, b) => queueOrderValue(a) - queueOrderValue(b));
-    }
-    return descending ? sorted.reverse() : sorted;
+    sorted.sort(browseSortComparator(sort, descending));
+    return descending && sort !== 'history' ? sorted.reverse() : sorted;
+}
+
+type BrowseComparator = (left: JPDBCard, right: JPDBCard) => number;
+
+const BROWSE_SORT_COMPARATORS: Record<Exclude<BrowseSortKey, 'history'>, BrowseComparator> = {
+    queue: (left, right) => queueOrderValue(left) - queueOrderValue(right),
+    alpha: compareBrowseAlpha,
+    frequency: (left, right) => browseFrequency(left) - browseFrequency(right),
+};
+
+function browseSortComparator(sort: BrowseSortKey, descending: boolean): BrowseComparator {
+    if (sort === 'history') return (left, right) => compareHistoryOrder(left, right, descending);
+    return BROWSE_SORT_COMPARATORS[sort];
+}
+
+function browseFrequency(card: JPDBCard): number {
+    return card.frequencyRank ?? Number.MAX_SAFE_INTEGER;
+}
+
+function compareBrowseAlpha(left: JPDBCard, right: JPDBCard): number {
+    const leftLanguage = newTabCardIdentityLanguage(left);
+    const rightLanguage = newTabCardIdentityLanguage(right);
+    const languageOrder = leftLanguage.localeCompare(rightLanguage, 'en');
+    if (languageOrder !== 0) return languageOrder;
+    return (left.reading || left.spelling).localeCompare(
+        right.reading || right.spelling,
+        newTabCardTarget(left).collationLocale,
+    );
 }
 
 function compareHistoryOrder(a: JPDBCard, b: JPDBCard, descending: boolean): number {
@@ -296,16 +316,10 @@ function renderBrowseBulkBar(copy: BrowseBulkCopy): HTMLElement {
 function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLanguage'], selectable = false, dueIn = ''): HTMLElement {
     const state = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
-    const reading = card.reading && card.reading !== card.spelling ? card.reading : '';
+    const reading = browseReading(card);
+    const target = newTabCardTarget(card);
     return el('li', { class: 'jpdb-reader-newtab-browse-item' },
-        selectable
-            ? el('input', {
-                type: 'checkbox',
-                class: 'jpdb-reader-newtab-browse-select',
-                dataset: { browseSelect: true, browseCardKey: cardKey(card) },
-                'aria-label': card.spelling,
-            })
-            : null,
+        renderBrowseSelection(card, selectable),
         el('button', {
             type: 'button',
             class: 'jpdb-reader-newtab-browse-row',
@@ -316,18 +330,44 @@ function renderBrowseRow(card: JPDBCard, language: ReaderSettings['interfaceLang
                 reading: card.reading,
             },
         },
-        el('span', { class: 'jpdb-reader-newtab-browse-term', lang: 'ja' },
+        el('span', {
+            class: 'jpdb-reader-newtab-browse-term',
+            lang: target.typography.contentLocale,
+            dir: target.direction,
+        },
             el('span', { class: 'jpdb-reader-newtab-browse-spelling' }, card.spelling),
-            reading ? el('span', { class: 'jpdb-reader-newtab-browse-reading' }, reading) : null,
+            renderBrowseText('jpdb-reader-newtab-browse-reading', reading),
         ),
-        meaning ? el('span', { class: 'jpdb-reader-newtab-browse-meaning' }, meaning) : null,
+        renderBrowseText('jpdb-reader-newtab-browse-meaning', meaning),
         el('span', { class: 'jpdb-reader-newtab-browse-state', dataset: { browseState: state } },
             el('span', { class: `jpdb-reader-state-dot jpdb-${state}` }),
             cardStateLabel(state, language),
-            card.frequencyRank ? ` · Top ${card.frequencyRank}` : '',
-            // Jiten Cards parity: due-in, where the provider's scheduler can
-            // answer exactly (Anki prop:due buckets).
-            dueIn ? ` · ${dueIn}` : '',
+            browseStateDetails(card, dueIn),
         )),
     );
+}
+
+function browseReading(card: JPDBCard): string {
+    return card.reading && card.reading !== card.spelling ? card.reading : '';
+}
+
+function renderBrowseSelection(card: JPDBCard, selectable: boolean): HTMLElement | null {
+    if (!selectable) return null;
+    return el('input', {
+        type: 'checkbox',
+        class: 'jpdb-reader-newtab-browse-select',
+        dataset: { browseSelect: true, browseCardKey: cardKey(card) },
+        'aria-label': card.spelling,
+    });
+}
+
+function renderBrowseText(className: string, text: string): HTMLElement | null {
+    return text ? el('span', { class: className }, text) : null;
+}
+
+function browseStateDetails(card: JPDBCard, dueIn: string): string {
+    const frequency = card.frequencyRank ? ` · Top ${card.frequencyRank}` : '';
+    // Jiten Cards parity: due-in, where the provider's scheduler can answer
+    // exactly (Anki prop:due buckets).
+    return frequency + (dueIn ? ` · ${dueIn}` : '');
 }

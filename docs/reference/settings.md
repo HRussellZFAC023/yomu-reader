@@ -10,7 +10,9 @@ Every setting Yomu stores is listed here, in the order the settings dialog prese
 
 Open the dialog from the Yomu button on any page.
 
-Each row gives the label the dialog shows, the explanation the dialog offers, the value a fresh install starts with, and the name the setting takes in an exported settings file.
+Fresh setup is language-neutral. Target-specific reading and Japanese-only preferences stay inactive until you explicitly choose a learning target. Some compatibility fields retain historical stored values; when one could look like a fresh Japanese default, the table states the effective gated behavior instead.
+
+Each row gives the label the dialog shows, the explanation the dialog offers, the stored default or effective fresh-install gate, and the name the setting takes in an exported settings file.
 
 This page is generated from the reader source, so it stays in step with the version you have installed.
 
@@ -159,7 +161,7 @@ Set a hover key. Blank means plain hover.
 | Hover close delay (ms) | — | `80` | `hoverCloseDelayMs` |
 | Show Yomu lookup popup | — | `hover` | `popupActivationMode` |
 | Show settings puck | — | on | `showFloatingButton` |
-| Japanese text on webpages | — | off | `annotationsPaused` |
+| Selected learning-language text on webpages | — | inactive until a learning target is explicitly chosen | `annotationsPaused` |
 | Furigana | — | Show on every parsed word (`all`) | `furiganaMode` |
 | Readings on clamped rows | — | Show (row grows) (`show`) | `clampedRowReadings` |
 | Not yet described | — | 3 entries | `furiganaHiddenStateGroups` |
@@ -205,6 +207,8 @@ Set a hover key. Blank means plain hover.
 
 ## Kanji (Sources tab)
 
+Uchisen is not an embedded kanji source. It remains available only as a disabled-by-default outbound lookup link; よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Older saved `uchisenEnabled`, `uchisenAlias`, and `uchisenPriority` fields are retained for settings compatibility but ignored.
+
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
 | Readings and components: shown in the popup | JPDB readings, components, and mnemonic. | on | `jpdbKanjiEnabled` |
@@ -213,9 +217,6 @@ Set a hover key. Blank means plain hover.
 | Immersion Kit: shown in the popup | Example sentences, images, and audio. | on | `kanjiImmersionKitEnabled` |
 | Immersion Kit: display name | Example sentences, images, and audio. | empty | `kanjiImmersionKitAlias` |
 | Immersion Kit: order in the popup | Example sentences, images, and audio. | `60` | `kanjiImmersionKitPriority` |
-| Uchisen: shown in the popup | Uchisen mnemonic image carousel. | on | `uchisenEnabled` |
-| Uchisen: display name | Uchisen mnemonic image carousel. | empty | `uchisenAlias` |
-| Uchisen: order in the popup | Uchisen mnemonic image carousel. | `50` | `uchisenPriority` |
 | WaniKani: shown in the popup | WaniKani kanji meaning/reading mnemonics, level, and SRS status. | on | `wanikaniKanjiEnabled` |
 | WaniKani: display name | WaniKani kanji meaning/reading mnemonics, level, and SRS status. | empty | `wanikaniKanjiAlias` |
 | WaniKani: order in the popup | WaniKani kanji meaning/reading mnemonics, level, and SRS status. | `55` | `wanikaniKanjiPriority` |
@@ -297,16 +298,16 @@ Reads nearby images. Google Lens needs no setup.
 
 ## YouTube (Media tab)
 
-Filter YouTube for Japanese and open Japanese versions of sites.
+Filter YouTube for the selected learning language. Japanese channel suggestions and Japanese-site navigation are available only after Japanese is explicitly chosen.
 
 | Setting | What it does | Default | Stored as |
 | --- | --- | --- | --- |
-| Japanese YouTube only | — | on | `youtubeImmersionEnabled` |
+| Filter YouTube to the selected learning language | — | stored on; inactive before target choice, then automatic for Japanese or opt-in for any other target | `youtubeImmersionEnabled` |
 | Not yet described | — | off | `youtubeImmersionEnabledChosen` |
 | Show hidden-video notice | — | on | `youtubeShowFilterNotice` |
-| Show Japanese channel suggestions | — | on | `youtubeShowChannelRecommendations` |
+| Show Japanese channel suggestions | — | stored on; inactive until Japanese is explicitly chosen | `youtubeShowChannelRecommendations` |
 | Not yet described | — | off | `youtubeShowChannelRecommendationsChosen` |
-| Open Japanese versions of sites | — | off | `preferJapaneseSiteLanguage` |
+| Open Japanese versions of sites | — | off; explicit opt-in after choosing Japanese | `preferJapaneseSiteLanguage` |
 
 ## Anki (Mining tab)
 
@@ -373,6 +374,7 @@ Yomu stores these the same way, and a settings export carries them. Some are wri
 | Jiten API key | — | empty | `jitenApiKey` |
 | Not yet described | — | empty | `bunproApiKey` |
 | Not yet described | — | off | `onboardingSeen` |
+| Learning target selected | Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off. | off | `learningTargetChosen` |
 | Not yet described | — | on | `similarKanjiWords` |
 | Not yet described | — | `40` | `similarKanjiWordsPriority` |
 | Not yet described | — | `https://audio.yomureader.com/?term={term}&r…` | `audioSourceUrl` |

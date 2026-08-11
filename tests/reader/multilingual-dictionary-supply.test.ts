@@ -7,6 +7,7 @@ import {
 } from '../../src/reader/dictionaries/catalog';
 import { catalogBrowseLanguageSections } from '../../src/reader/dictionaries/catalog-browse';
 import { recommendedDictionaryImportOptions } from '../../src/reader/dictionaries/recommended';
+import { applyCatalogBrowseFilter } from '../../src/reader/settings/catalog-browse-filter';
 import { renderSettingsForm } from '../../src/reader/settings/form';
 import { DEFAULT_SETTINGS, normalizeReaderSettings } from '../../src/reader/settings';
 
@@ -90,8 +91,13 @@ describe('multilingual dictionary supply', () => {
                 activeLanguageProfileId: profile.id,
             }),
             'https://jpdb.io/settings',
+            undefined,
+            { expandCatalogBrowse: true },
         );
-        const shelf = form.querySelector<HTMLElement>('[data-catalog-browse-language="es"]');
+        const browse = form.querySelector<HTMLElement>('[data-catalog-browse]')!;
+        expect(browse.querySelector('[data-catalog-recommendation="wty-es-es"]')).toBeNull();
+        expect(applyCatalogBrowseFilter(browse, 'wty-es-es')).toBeGreaterThan(0);
+        const shelf = browse.querySelector<HTMLElement>('[data-catalog-browse-language="es"]');
 
         expect(shelf).not.toBeNull();
         // The panel is written in the learner's own language, so the shelf a

@@ -108,7 +108,9 @@ const MANAGED_STATE_MANIFEST: readonly ManagedStateEntry[] = [
     { owner: 'study/grammar-knowledge', kind: 'gm', key: 'yomu.grammarPreferences.v1' },
     { owner: 'study/grammar-knowledge', kind: 'gm', prefix: 'yomu.grammarPreferences.v1:' },
     { owner: 'study/mining-context', kind: 'gm', prefix: 'yomu-mining-context:' },
-    { owner: 'dictionaries/uchisen-carousel', kind: 'gm', prefix: 'yomu-jpdb-uchisen-index:' },
+    // Retired Uchisen carousel index. Keep the prefix registered so Factory
+    // Reset still removes harmless selection keys left by older releases.
+    { owner: 'dictionaries/uchisen-carousel (retired)', kind: 'gm', prefix: 'yomu-jpdb-uchisen-index:' },
 
     // Popup / drawer geometry.
     { owner: 'popup/shell', kind: 'gm', key: 'jpdb-reader-sheet-height-ratio' },

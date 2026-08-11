@@ -128,7 +128,7 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         // The Greasy Fork listing is searched by this text — the name is よむ,
         // so without "Yomu" and feature keywords here the script is
         // unfindable by its romaji name.
-        description: 'Popup dictionary and study tools for Japanese plus 32 reading targets, with OCR and subtitles.',
+        description: 'Popup lookup and Study tools for 33 learning languages, with subtitles and OCR; Japanese adds furigana and pitch.',
         // See docs/store-review-notes.md before narrowing these; broad page
         // access is Yomu's core "read the selected target anywhere" behavior.
         match: userscriptMatchForCommand(command),
@@ -219,6 +219,9 @@ function readerResolveConfig(command: string) {
         alias['../study/mining-context'] = path.join(configRoot, 'src', 'reader', 'study', 'mining-context-companion.ts');
         alias['../study/sources'] = path.join(configRoot, 'src', 'reader', 'study', 'sources-companion.ts');
         alias['./lookup-links'] = path.join(configRoot, 'src', 'reader', 'settings', 'lookup-links-companion.ts');
+        const settingsCompanion = path.join(configRoot, 'src', 'reader', 'settings', 'index-companion.ts');
+        alias['../settings/index'] = settingsCompanion;
+        alias['../../settings/index'] = settingsCompanion;
         alias['../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');
         alias['../../app/i18n'] = path.join(configRoot, 'src', 'reader', 'app', 'i18n-companion.ts');
         // Userscript + hosted reader cannot use chrome.identity, so they get the

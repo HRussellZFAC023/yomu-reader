@@ -1,4 +1,4 @@
-import { gmStorageGet, gmStorageSet, withGmStorageLease } from '../app/storage';
+import { gmStorageDelete, gmStorageGet, gmStorageSet, withGmStorageLease } from '../app/storage';
 import { isHostedReaderRuntime } from '../app/runtime-presence';
 
 /**
@@ -30,9 +30,26 @@ export async function authoritativePreferredJapaneseSiteLanguage(
     });
 }
 
-export async function persistPreferredJapaneseSiteLanguage(value: boolean): Promise<void> {
-    if (isHostedReaderRuntime()) return;
+export async function persistPreferredJapaneseSiteLanguageWithSettings(
+    value: boolean,
+    persistSettings: () => Promise<void>,
+): Promise<void> {
+    if (isHostedReaderRuntime()) return persistSettings();
     await withGmStorageLease(PREFER_JAPANESE_SITE_LANGUAGE_STORAGE_LEASE, async () => {
+        const previous = await gmStorageGet<unknown>(
+            PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
+            undefined,
+        );
         await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, value);
+        try {
+            await persistSettings();
+        } catch (error) {
+            if (typeof previous === 'boolean') {
+                await gmStorageSet(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY, previous);
+            } else {
+                await gmStorageDelete(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY);
+            }
+            throw error;
+        }
     });
 }

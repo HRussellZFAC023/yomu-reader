@@ -24,6 +24,7 @@ const {
 const {
   GREASY_FORK_LIBRARIES,
   greasyForkLibraryPath,
+  immutableLibraryFileName,
   immutableLibraryUrl,
   immutableReaderCssUrl,
   readerCssResourceUrl,
@@ -44,6 +45,22 @@ const FULL_READER_CSS_MARKERS = [
   '.jpdb-subtitle-player',
   '.jpdb-ocr-layer',
 ];
+// Only executable/provider seams are retired. The disabled outbound dictionary
+// link, ignored legacy settings, and Uchisen colour token remain intentional.
+// Keep this narrower than /uchisen/i so the verifier does not outlaw those
+// inert compatibility and navigation surfaces.
+const RETIRED_UCHISEN_EXECUTABLE_SEAMS = [
+  ['live kanji source identity', /\b(?:KANJI_UCHISEN_SOURCE_ID|__kanji_uchisen__)\b/u],
+  ['extractor, renderer, or publisher implementation', /\b(?:absolute|attachRendered|canStart|canonical|default|empty|find|fit|format|generate|install|is|load|localized|main|mount|no|ordered|parse|plain|post|preferred|render|request|safe|storyBacked|unique|valid)[A-Za-z0-9]*Uchisen[A-Za-z0-9]*\b/u],
+  ['Uchisen-owned DOM state', /data-(?:newtab-)?uchisen\b/u],
+  ['provider write or image-proxy endpoint', /save_mnemonic\.php|(?:^|\/)generateimage(?:[/?#'"`]|$)|ik\.imagekit\.io\/uchisen/iu],
+  ['provider scrape proxy rule', /host\s*===?\s*['"]uchisen\.com['"]/u],
+  ['retired prompt corpus', /uchisen-image-prompt-replacements/iu],
+];
+const CURRENT_UCHISEN_COMPANION_ALIASES = [
+  'yomu-runtime.user.js',
+  'yomu-kanji-study.user.js',
+];
 
 if (!fileExists(DIST_USERSCRIPT_PATH)) fail(`${USERSCRIPT_RELATIVE_PATH} is missing. Run npm run build first.`);
 const MIN_READABLE_LINE_COUNT = 10_000;
@@ -53,6 +70,7 @@ const size = byteLengthUtf8(code);
 const lines = code.split(/\r?\n/);
 const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
 
+assertNoRetiredUchisenCurrentArtifacts();
 if (!code.startsWith('// ==UserScript==')) fail(`${USERSCRIPT_RELATIVE_PATH} is missing a userscript metadata block.`);
 if (!hasMetadataValue('version', packageJson.version)) fail('userscript version does not match package.json.');
 if (!hasMetadataValue('icon', 'https://yomureader.com/favicon-32x32.png')) fail('userscript icon metadata must use the raster favicon for userscript manager compatibility.');
@@ -70,6 +88,7 @@ assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
 assertCompanionRequireSriHashes();
 assertCompanionBuildVersions();
+assertAcademyBuildVersion();
 assertAnnotationsSplitBoundary();
 assertAudioSplitBoundary();
 assertWanikaniSplitBoundary();
@@ -138,6 +157,92 @@ function hasMetadataPattern(key, pattern) {
   return userscriptMetadataValues(code, key).some(value => pattern.test(value));
 }
 
+// Generated output is deliberately checked here instead of in Vitest. The
+// check orchestrator runs its test and build lanes concurrently, so a unit test
+// reading dist/ can race a rewrite and report a false pass or a truncated file.
+// `verify` is the serial join after build, docs sync, Academy build and docs
+// build, which makes these the exact bytes this release is about to publish.
+//
+// Do not glob docs/public/greasyfork: retained content-addressed companions are
+// immutable history for installed scripts. Only the mutable aliases and the
+// hashes derived from THIS build for content-addressed dependencies are current
+// release artifacts. Focused companions are published only through mutable
+// aliases, so requiring an unreferenced immutable copy would invent an asset.
+function assertNoRetiredUchisenCurrentArtifacts() {
+  const relativePaths = currentUchisenArtifactPaths();
+  const failures = retiredUchisenArtifactFailures(relativePaths);
+
+  if (failures.length > 0) {
+    fail([
+      'Current release artifacts still contain retired Uchisen executable seams:',
+      ...failures.map(failure => `  - ${failure}`),
+      'Run the complete build -> docs sync -> Academy build -> docs build sequence before verify.',
+      'Retained historical content-addressed assets are intentionally outside this gate.',
+    ].join('\n'));
+  }
+}
+
+function currentUchisenArtifactPaths() {
+  const corePaths = [USERSCRIPT_RELATIVE_PATH, 'docs/public/yomu.user.js'];
+  const paths = [
+    USERSCRIPT_RELATIVE_PATH,
+    'docs/public/yomu.user.js',
+    'docs/public/study/app.js',
+    'docs/public/academy/app.js',
+    ...corePaths.flatMap(currentCorePinnedCompanionPaths),
+    ...currentUchisenCompanionPaths(),
+  ];
+  return [...new Set(paths)];
+}
+
+function currentUchisenCompanionPaths() {
+  const immutableDependencies = new Set(userscriptRequireLibraries().map(library => library.fileName));
+  return CURRENT_UCHISEN_COMPANION_ALIASES.flatMap(fileName => [
+    ...mutableCompanionPaths(fileName),
+    ...requiredImmutableCompanionPaths(fileName, immutableDependencies),
+  ]);
+}
+
+function mutableCompanionPaths(fileName) {
+  return [
+    `dist/${greasyForkLibraryPath(fileName)}`,
+    `docs/public/${greasyForkLibraryPath(fileName)}`,
+  ];
+}
+
+function requiredImmutableCompanionPaths(fileName, immutableDependencies) {
+  if (!immutableDependencies.has(fileName)) return [];
+  const distPath = join(ROOT, `dist/${greasyForkLibraryPath(fileName)}`);
+  if (!fileExists(distPath)) return [];
+  const immutableName = immutableLibraryFileName(fileName, readText(distPath));
+  return [`docs/public/${greasyForkLibraryPath(immutableName)}`];
+}
+
+// Scan exactly what each current core header executes. A stale core can pin an
+// older retained hash even while the mutable alias is clean.
+function currentCorePinnedCompanionPaths(corePath) {
+  const absoluteCorePath = join(ROOT, corePath);
+  if (!fileExists(absoluteCorePath)) return [];
+  return userscriptMetadataValues(readText(absoluteCorePath), 'require')
+    .map(requireValue => /^https:\/\/yomureader\.com\/greasyfork\/(yomu-(?:runtime|kanji-study)\.[0-9a-f]{12}\.user\.js)(?:#|$)/u.exec(requireValue)?.[1])
+    .filter(Boolean)
+    .map(fileName => `docs/public/${greasyForkLibraryPath(fileName)}`);
+}
+
+function retiredUchisenArtifactFailures(relativePaths) {
+  return relativePaths.flatMap(retiredUchisenArtifactFailure);
+}
+
+function retiredUchisenArtifactFailure(relativePath) {
+  const artifactPath = join(ROOT, relativePath);
+  if (!fileExists(artifactPath)) return [`${relativePath} is missing`];
+  const artifact = readText(artifactPath);
+  return RETIRED_UCHISEN_EXECUTABLE_SEAMS.flatMap(([label, pattern]) => {
+    const match = pattern.exec(artifact);
+    return match ? [`${relativePath} contains ${label}: ${JSON.stringify(match[0])}`] : [];
+  });
+}
+
 function assertInjectedUserscriptWeight() {
   const report = userscriptWeightReport(ROOT);
   if (report.previousMaxInjectedBytes != null && report.maxInjectedBytes > report.previousMaxInjectedBytes) {
@@ -184,6 +289,16 @@ function assertCompanionBuildVersions() {
   }
   if (!companionCode.includes('const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}study/`;')) {
     fail(`${relativePath} does not query the canonical /study/version.json update endpoint.`);
+  }
+}
+
+function assertAcademyBuildVersion() {
+  const relativePath = 'docs/public/academy/app.js';
+  const academyPath = join(ROOT, relativePath);
+  if (!fileExists(academyPath)) fail(`${relativePath} is missing. Run npm run build:academy first.`);
+  const academyCode = readText(academyPath);
+  if (!academyCode.includes(`const CURRENT_YOMU_VERSION = "${packageJson.version}"`)) {
+    fail(`${relativePath} does not embed package version ${packageJson.version}; Academy Help would display the dev fallback.`);
   }
 }
 
@@ -360,9 +475,13 @@ function assertSplitBoundary(libraryId, label, signatures) {
   if (!fileExists(join(ROOT, relativePath))) fail(`${relativePath} is missing. Run npm run build first.`);
   const companionCode = readText(join(ROOT, relativePath));
   for (const [name, signature] of signatures) {
-    if (code.includes(signature)) fail(`ADR-0003 split regression: ${name} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
-    if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${name} is missing from ${relativePath}.`);
+    assertSplitSignature(relativePath, companionCode, name, signature);
   }
+}
+
+function assertSplitSignature(relativePath, companionCode, name, signature) {
+  if (generatedCodeMatches(code, signature)) fail(`ADR-0003 split regression: ${name} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
+  if (!generatedCodeMatches(companionCode, signature)) fail(`ADR-0003 split regression: ${name} is missing from ${relativePath}.`);
 }
 
 function assertAudioSplitBoundary() {
@@ -473,25 +592,23 @@ function assertKanjiStudySplitBoundary() {
 }
 
 function assertAnkiRenderSplitBoundary() {
-  const ankiLibrary = userscriptRequireLibraries()[0];
-  if (!ankiLibrary) fail('The distributed userscript runtime companion is missing while checking Yomu Anki.');
-  const libraryPath = join(ROOT, 'dist', greasyForkLibraryPath(ankiLibrary.fileName));
-  if (!fileExists(libraryPath)) fail(`dist/${greasyForkLibraryPath(ankiLibrary.fileName)} is missing. Run npm run build first.`);
-  const companionCode = readText(libraryPath);
-  const extractedSignatures = [
+  assertSplitBoundary('anki', 'Yomu Anki', [
     ['renderAnkiActionRow', 'function renderAnkiActionRow(ankiLookup,'],
     ['renderAnkiExistingSection', 'function renderAnkiExistingSection(ankiLookup,'],
     ['renderAnkiNewCardPreview', 'function renderAnkiNewCardPreview(card,'],
     ['pruneRedundantAnkiGlyphRepeats', 'function pruneRedundantAnkiGlyphRepeats(html)'],
     ['renderAnkiRenderedCardStudyBody', 'function renderAnkiRenderedCardStudyBody(card,'],
-    ['renderReviewButtons', 'function renderReviewButtons(settings,'],
-    ['reviewButtonGrades', 'function reviewButtonGrades(settings)'],
-  ];
+    // Rollup may suffix a colliding local parameter (for example `settings2`)
+    // after the aggregate runtime starts owning another settings namespace.
+    // Match the implementation's first parameter while excluding the core
+    // facade, whose generated signature is `renderReviewButtons(...args)`.
+    ['renderReviewButtons', /function renderReviewButtons\(settings\d*,/u],
+    ['reviewButtonGrades', /function reviewButtonGrades\(settings\d*\)/u],
+  ]);
+}
 
-  for (const [label, signature] of extractedSignatures) {
-    if (code.includes(signature)) fail(`ADR-0003 split regression: ${label} implementation leaked into ${USERSCRIPT_RELATIVE_PATH}.`);
-    if (!companionCode.includes(signature)) fail(`ADR-0003 split regression: ${label} is missing from dist/${greasyForkLibraryPath(ankiLibrary.fileName)}.`);
-  }
+function generatedCodeMatches(generatedCode, signature) {
+  return typeof signature === 'string' ? generatedCode.includes(signature) : signature.test(generatedCode);
 }
 
 // Runs before the artifact comparison below on purpose: a bundled dependency

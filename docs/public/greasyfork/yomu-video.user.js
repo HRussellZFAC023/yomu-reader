@@ -956,10 +956,10 @@ const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
 const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
 const LOAD_SUBTITLE_FILES_EVENT = "yomu-load-subtitle-files";
 function bridgeEventId(event) {
-  return safeReadString(normalizedBridgeEventDetail$1(event), "id");
+  return safeReadString(normalizedBridgeEventDetail(event), "id");
 }
 function bridgeResponseEventDetail(event) {
-  const detail = normalizedBridgeEventDetail$1(event);
+  const detail = normalizedBridgeEventDetail(event);
   const id = safeReadString(detail, "id");
   const kind = safeReadString(detail, "kind");
   if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
@@ -990,7 +990,7 @@ function bridgeEventJsonDetail(detail) {
   return void 0;
   }
 }
-function normalizedBridgeEventDetail$1(event) {
+function normalizedBridgeEventDetail(event) {
   const detail = safeEventDetail(event);
   if (typeof detail !== "string") return detail;
   try {
@@ -1085,20 +1085,6 @@ function storageBridgeResponseDetail(event) {
   keys: Array.isArray(record2.keys) ? record2.keys.filter((key) => typeof key === "string") : void 0,
   message: typeof record2.message === "string" ? record2.message : void 0
   };
-}
-function normalizedBridgeEventDetail(event) {
-  let detail;
-  try {
-  detail = event.detail;
-  } catch {
-  return void 0;
-  }
-  if (typeof detail !== "string") return detail;
-  try {
-  return JSON.parse(detail);
-  } catch {
-  return detail;
-  }
 }
 function addBridgeEventListener$1(type, listener) {
   const cleanups = [];
@@ -1328,7 +1314,9 @@ const MANAGED_STATE_MANIFEST = [
   { owner: "study/grammar-knowledge", kind: "gm", key: "yomu.grammarPreferences.v1" },
   { owner: "study/grammar-knowledge", kind: "gm", prefix: "yomu.grammarPreferences.v1:" },
   { owner: "study/mining-context", kind: "gm", prefix: "yomu-mining-context:" },
-  { owner: "dictionaries/uchisen-carousel", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
+  // Retired Uchisen carousel index. Keep the prefix registered so Factory
+  // Reset still removes harmless selection keys left by older releases.
+  { owner: "dictionaries/uchisen-carousel (retired)", kind: "gm", prefix: "yomu-jpdb-uchisen-index:" },
   // Popup / drawer geometry.
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-sheet-height-ratio" },
   { owner: "popup/shell", kind: "gm", key: "jpdb-reader-settings-drawer-height-ratio" },
@@ -6983,6 +6971,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     DEFAULT_ACCENT_COLOR,
     DEFAULT_OCR_BACKGROUND_OPACITY
   );
+  function hasOwn(value, key) {
+    return Boolean(value) && Object.prototype.hasOwnProperty.call(value, key);
+  }
   const DEFAULT_LANGUAGE_PROFILE_ID = "default-ja";
   const PROFILE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/u;
   const PARSER_PROVIDERS = /* @__PURE__ */ new Set(["local", "jiten", "jpdb", "auto"]);
@@ -7323,8 +7314,6 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
     if (host === "assets.languagepod101.com") return path === "/dictionary/japanese/audiomp3.php";
     if (host === "cdn.innovativelanguage.com") return path.includes("/learningcenter/audio/");
     if (KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(host)) return path.startsWith("/audio/");
-    if (host === "uchisen.com") return path.startsWith("/kanji/");
-    if (host === "ik.imagekit.io") return path.startsWith("/uchisen/generated/saved/");
     return IMMERSION_KIT_API_HOSTS.has(host) && path === "/search";
   }
   function isJpdbPublicLookupTarget(target, method) {
@@ -8180,6 +8169,9 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       onboardingLanguage: "Settings language",
       onboardingOutputLanguage: "Definition and translation language (output)",
       onboardingTargetLanguage: "Language you are reading (target)",
+      onboardingChooseTarget: "Choose a learning language…",
+      onboardingTargetRequired: "Choose a learning language before continuing.",
+      onboardingUnselectedTargetName: "your learning language",
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
       onboardingImmersionOptions: "Immersion defaults",
@@ -9048,7 +9040,6 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       immersionExampleControls: "Immersion Kit example controls",
       exampleSearchLinks: "Example searches",
       loadingKanjiDetails: "Loading kanji details...",
-      loadingMnemonicImages: "Loading mnemonic images...",
       lookupDialog: `${APP_NAME} lookup`,
       resizeLookupSheet: "Drag to resize lookup sheet, or tap to close",
       showMiningActions: "Show mining actions",
@@ -9331,22 +9322,7 @@ const FOUNDATION_GRAMMAR_BY_TARGET = Object.freeze({
       sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
       sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
-      sourceHelpUchisen: "Uchisen mnemonic image carousel.",
       sourceHelpWanikaniKanji: "WaniKani kanji meaning/reading mnemonics, level, and SRS status.",
-      uchisenMnemonicImages: "Uchisen mnemonic images",
-      uchisenMnemonicFor: "Uchisen mnemonic for {kanji}",
-      noUchisenImagesYet: "No Uchisen images yet.",
-      generateUchisenImage: "Generate image",
-      generateUchisenImageToggle: "Generate image +",
-      uchisenMnemonicStory: "Mnemonic story",
-      uchisenImagePrompt: "Image prompt",
-      uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
-      uchisenGeneratingImage: "Generating image...",
-      uchisenPublishingMnemonic: "Publishing mnemonic...",
-      uchisenGeneratedImage: "Uchisen image published.",
-      uchisenGenerateFailed: "Could not generate Uchisen image.",
-      uchisenLoginRequired: "Log in to Uchisen to generate images.",
-      noStoryAvailable: "No story available",
       sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
       sourceHelpWordsUsingKanji: "Related vocabulary.",
       sourceHelpComponentGraph: "Kanji facts, components, radical images.",
@@ -9435,6 +9411,9 @@ onboardingCopy	本文、字幕、画像の{language}をタップ可能にしま�
 onboardingLanguage	表示言語
 onboardingOutputLanguage	定義・翻訳の言語（出力）
 onboardingTargetLanguage	ページで読む言語（対象）
+onboardingChooseTarget	学習する言語を選ぶ…
+onboardingTargetRequired	続ける前に学習する言語を選んでください。
+onboardingUnselectedTargetName	学習中の言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
 onboardingImmersionOptions	没入設定の初期値
@@ -9492,7 +9471,6 @@ revealTranslation	翻訳を表示
 immersionExampleControls	イマージョンキット例文の操作
 exampleSearchLinks	例文検索リンク
 loadingKanjiDetails	漢字情報を読み込み中...
-loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
@@ -10610,22 +10588,7 @@ sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
 sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
-sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 sourceHelpWanikaniKanji	WaniKaniの漢字の意味・読みの覚え方、レベル、SRS状態です。
-uchisenMnemonicImages	Uchisen語呂合わせ画像
-uchisenMnemonicFor	{kanji}のUchisen語呂合わせ
-noUchisenImagesYet	Uchisen画像はまだありません。
-generateUchisenImage	画像を生成
-generateUchisenImageToggle	画像を生成 +
-uchisenMnemonicStory	語呂合わせストーリー
-uchisenImagePrompt	画像プロンプト
-uchisenGenerateHint	ストーリーとプロンプトを編集し、Uchisen画像を公開します。
-uchisenGeneratingImage	画像を生成中...
-uchisenPublishingMnemonic	語呂合わせを公開中...
-uchisenGeneratedImage	Uchisen画像を公開しました。
-uchisenGenerateFailed	Uchisen画像を生成できませんでした。
-uchisenLoginRequired	画像生成にはUchisenへのログインが必要です。
-noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
 sourceHelpComponentGraph	漢字情報、部品、部首画像です。
@@ -11964,6 +11927,43 @@ recommendedJiten	Jiten由来の頻度バッジです。
       subtitleSeekPadding: 0.08
     };
   }
+  function normalizeLearningTargetChosen(value, defaults) {
+    if (!value) return false;
+    if (hasOwn(value, "learningTargetChosen")) return value.learningTargetChosen === true;
+    if (value.onboardingSeen === true) return true;
+    return persistedProfilesChooseLearningTarget(value, defaults);
+  }
+  function persistedProfilesChooseLearningTarget(value, defaults) {
+    const profiles = value.languageProfiles;
+    if (!Array.isArray(profiles)) return false;
+    if (!profiles.some(isPersistedLanguageProfile)) return false;
+    const normalized = normalizeLanguageProfiles(
+      profiles,
+      value.activeLanguageProfileId,
+      {
+        outputLanguage: "en",
+        uiLocale: defaults.interfaceLanguage,
+        parserProvider: defaults.parserProvider
+      }
+    );
+    return normalized.profiles.some((profile) => languageProfileHasIndependentState(profile, defaults));
+  }
+  function isPersistedLanguageProfile(profile) {
+    return Boolean(
+      profile && typeof profile === "object" && "schemaVersion" in profile && isSupportedLanguageProfileSchemaVersion(profile.schemaVersion)
+    );
+  }
+  function languageProfileHasIndependentState(profile, defaults) {
+    return [
+      profile.id !== DEFAULT_LANGUAGE_PROFILE_ID,
+      profile.outputLanguage !== "en",
+      profile.targetLanguage !== SLICE1_TARGET_LANGUAGE,
+      profile.uiLocale !== defaults.interfaceLanguage,
+      profile.parserProvider !== defaults.parserProvider,
+      profile.dictionaries.installed.length > 0,
+      profile.definitionTranslationProviderIds.length > 0
+    ].includes(true);
+  }
   const PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY = "yomu:prefer-japanese-site-language:v1";
   function matchesShortcut(event, shortcut = "") {
     if (!shortcut) return false;
@@ -12082,6 +12082,7 @@ recommendedJiten	Jiten由来の頻度バッジです。
     bunproFrontendApiTokenExpiresAt: "",
     wanikaniApiToken: "",
     onboardingSeen: false,
+    learningTargetChosen: false,
     interfaceLanguage: "en",
     languageProfiles: [createDefaultLanguageProfile()],
     activeLanguageProfileId: DEFAULT_LANGUAGE_PROFILE_ID,
@@ -12119,7 +12120,8 @@ recommendedJiten	Jiten由来の頻度バッジです。
     kanjiImmersionKitEnabled: true,
     kanjiImmersionKitAlias: "",
     kanjiImmersionKitPriority: 60,
-    uchisenEnabled: true,
+    uchisenEnabled: false,
+    // Ignored legacy field; only the outbound link remains.
     uchisenAlias: "",
     uchisenPriority: 50,
     wanikaniKanjiEnabled: true,
@@ -12620,22 +12622,53 @@ recommendedJiten	Jiten由来の頻度バッジです。
     return sources.flatMap((ruby) => kanjiOnlyRubySegments(surface, token, ruby));
   }
   function sourceTokenRubies(surface, token) {
-    if (token.rubies.length) return token.rubies;
-    const reading = token.card.reading.trim();
-    if (!surface || !reading || reading === surface) return [];
+    if (token.rubies.length) return explicitTokenRubies(surface, token);
+    const reading = distinctTokenReading(surface, token);
+    if (!reading) return [];
     if (surface.trim() === token.card.spelling.trim()) {
       return [{ text: reading, start: token.start, end: token.end, length: token.length }];
     }
-    if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana" || !KANJI_RE.test(surface) || !READING_KANA_ONLY_RE.test(reading)) return [];
+    return inferredTokenRubies(surface, reading, token);
+  }
+  function explicitTokenRubies(surface, token) {
+    return explicitRubyReadingMatchesSurface(surface, token) ? [] : token.rubies;
+  }
+  function distinctTokenReading(surface, token) {
+    if (!surface) return null;
+    const reading = trimmedTokenReading(token);
+    if (!reading) return null;
+    if (reading.normalize("NFC") === surface.normalize("NFC")) return null;
+    return reading;
+  }
+  function trimmedTokenReading(token) {
+    return token.card.reading?.trim() ?? "";
+  }
+  function inferredTokenRubies(surface, reading, token) {
+    if (learningTargetForToken(token).typing.answerNormalizer !== "japanese-kana") return [];
+    if (!KANJI_RE.test(surface)) return [];
+    if (!READING_KANA_ONLY_RE.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-    if (inferred.length) {
-      return inferred.map((ruby) => ({
-        ...ruby,
-        start: token.start + ruby.start,
-        end: token.start + ruby.end
-      }));
+    return inferred.map((ruby) => ({
+      ...ruby,
+      start: token.start + ruby.start,
+      end: token.start + ruby.end
+    }));
+  }
+  function explicitRubyReadingMatchesSurface(surface, token) {
+    const ranges = token.rubies.flatMap((ruby) => {
+      const range = localRubyRange(surface, token, ruby);
+      return range ? [{ ...range, text: ruby.text }] : [];
+    }).sort((first, second) => first.start - second.start);
+    if (!ranges.length) return false;
+    let cursor = 0;
+    let reconstructed = "";
+    for (const range of ranges) {
+      if (range.start < cursor) return false;
+      reconstructed += surface.slice(cursor, range.start) + range.text;
+      cursor = range.end;
     }
-    return [];
+    reconstructed += surface.slice(cursor);
+    return reconstructed.normalize("NFC") === surface.normalize("NFC");
   }
   function learningTargetForToken(token) {
     return learningTargetModuleFor(token.card.language) ?? activeLearningTarget();
@@ -29991,6 +30024,7 @@ function installPreferredJapaneseSiteLanguageAfterStorageBarrier(revision) {
   }
   void readStoredPreferenceAsync().then((preference) => {
   if (revision !== preferenceRevision) return;
+  if (!preference) return;
   applyPreferredJapaneseSiteLanguageAtRevision(
     preference.enabled,
     false,
@@ -30014,27 +30048,63 @@ function applyPreferredJapaneseSiteLanguage(enabled, revertOnDisable = false, de
   );
 }
 function applyPreferredJapaneseSiteLanguageAtRevision(enabled, revertOnDisable, revision, deferCookieResponseReloadUntilPersisted = false, targetLanguage = "ja") {
-  if (typeof window === "undefined") return;
-  if (revision !== preferenceRevision) return;
-  const effectiveEnabled = enabled && languageFamilyIncludes("jp-only", targetLanguage);
-  const shouldRevert = !effectiveEnabled && (currentPreferenceEnabled || revertOnDisable);
+  if (!canApplyPreferenceRevision(revision)) return;
+  const effectiveEnabled = japaneseSitePreferenceEnabled(enabled, targetLanguage);
+  if (shouldIgnoreInactivePreference(effectiveEnabled, revertOnDisable)) {
+  cancelPreferredJapaneseSiteRedirectWatcher();
+  forgetSessionRedirectState();
+  return;
+  }
+  const shouldRevert = shouldRevertSitePreference(effectiveEnabled, revertOnDisable);
   currentPreferenceEnabled = effectiveEnabled;
   writeCachedPreferenceEnabled(effectiveEnabled);
   applyPageContextJapanesePreferences(effectiveEnabled, revision);
   if (effectiveEnabled) {
+  enablePreferredJapaneseSiteLanguage(revision);
+  return;
+  }
+  disablePreferredJapaneseSiteLanguage(shouldRevert, deferCookieResponseReloadUntilPersisted);
+}
+function canApplyPreferenceRevision(revision) {
+  return typeof window !== "undefined" && revision === preferenceRevision;
+}
+function japaneseSitePreferenceEnabled(enabled, targetLanguage) {
+  return enabled && languageFamilyIncludes("jp-only", targetLanguage);
+}
+function shouldRevertSitePreference(effectiveEnabled, revertOnDisable) {
+  if (effectiveEnabled) return false;
+  return currentPreferenceEnabled || revertOnDisable;
+}
+function shouldIgnoreInactivePreference(effectiveEnabled, revertOnDisable) {
+  if (effectiveEnabled) return false;
+  return !hasJapaneseSitePreferenceProvenance(revertOnDisable);
+}
+function hasJapaneseSitePreferenceProvenance(revertOnDisable) {
+  if (currentPreferenceEnabled) return true;
+  if (revertOnDisable) return true;
+  if (readCachedPreferenceEnabled() === true) return true;
+  return deferredCookieResponseReload;
+}
+function enablePreferredJapaneseSiteLanguage(revision) {
   deferredCookieResponseReload = false;
   applySitePreferenceCookies();
   schedulePreferredJapaneseSiteRedirect(revision);
-  return;
-  }
+}
+function disablePreferredJapaneseSiteLanguage(shouldRevert, deferCookieResponseReloadUntilPersisted) {
   const clearedSiteCookie = clearSitePreferenceCookies();
   const shouldReloadCookieShapedResponse = clearedSiteCookie || deferredCookieResponseReload;
   deferredCookieResponseReload = deferCookieResponseReloadUntilPersisted ? shouldReloadCookieShapedResponse : false;
   cancelPreferredJapaneseSiteRedirectWatcher();
-  if (!shouldRevert) forgetSessionRedirectState();
-  if (shouldRevert && !attemptPreferredDefaultSiteRedirect() && shouldReloadCookieShapedResponse) {
-  reloadCurrentLocation();
+  finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse);
+}
+function finishDisabledSiteNavigation(shouldRevert, shouldReloadCookieShapedResponse) {
+  if (!shouldRevert) {
+  forgetSessionRedirectState();
+  return;
   }
+  if (attemptPreferredDefaultSiteRedirect()) return;
+  if (!shouldReloadCookieShapedResponse) return;
+  reloadCurrentLocation();
 }
 function preferredJapaneseSiteUrl(sourceHref, root) {
   const current = parseHttpUrl(sourceHref);
@@ -30072,6 +30142,10 @@ async function readStoredPreferenceAsync() {
   PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY,
   void 0
   );
+  const storedSettings = await readStoredSettingsAsync();
+  return sitePreference(preferredLanguage, storedSettings, cachedPreferenceFallback());
+}
+async function readStoredSettingsAsync() {
   let storedSettings;
   for (const key of SETTINGS_STORAGE_KEYS) {
   const stored = await gmStorageGet(key, void 0);
@@ -30079,16 +30153,30 @@ async function readStoredPreferenceAsync() {
   storedSettings = stored;
   break;
   }
+  return storedSettings;
+}
+function cachedPreferenceFallback() {
   const cached = readCachedPreferenceEnabled();
-  return sitePreference(
-  preferredLanguage,
-  storedSettings,
-  typeof cached === "boolean" ? cached : DEFAULT_SETTINGS.preferJapaneseSiteLanguage
-  );
+  return typeof cached === "boolean" ? cached : void 0;
 }
 function sitePreference(dedicated, settings, fallback) {
-  const enabled = typeof dedicated === "boolean" ? dedicated : typeof settings?.preferJapaneseSiteLanguage === "boolean" ? settings.preferJapaneseSiteLanguage : fallback;
-  return typeof enabled === "boolean" ? { enabled, targetLanguage: targetLanguageOf(settings) } : void 0;
+  const enabled = storedSitePreferenceEnabled(dedicated, settings, fallback);
+  if (typeof enabled !== "boolean") return void 0;
+  if (enabled === true && !storedSettingsChooseLearningTarget(settings)) return void 0;
+  return { enabled, targetLanguage: targetLanguageOf(settings) };
+}
+function storedSitePreferenceEnabled(dedicated, settings, fallback) {
+  if (typeof dedicated === "boolean") return dedicated;
+  if (typeof settings?.preferJapaneseSiteLanguage === "boolean") {
+  return settings.preferJapaneseSiteLanguage;
+  }
+  return fallback;
+}
+function storedSettingsChooseLearningTarget(settings) {
+  return normalizeLearningTargetChosen(settings ?? null, {
+  interfaceLanguage: DEFAULT_SETTINGS.interfaceLanguage,
+  parserProvider: DEFAULT_SETTINGS.parserProvider
+  });
 }
 function readCachedPreferenceEnabled() {
   try {

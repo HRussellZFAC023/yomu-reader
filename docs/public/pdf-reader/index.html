@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Yomu PDF Reader — read Japanese PDFs with popup lookup</title>
-  <meta name="description" content="A free in-browser Japanese PDF reader. Open a PDF from your computer, press any word for its reading and meaning, and mine sentences to Anki or JPDB. Scanned pages work with image reading on. The file stays on your device.">
+  <title>Yomu PDF Reader — read PDFs in your learning language</title>
+  <meta name="description" content="A free in-browser PDF reader for your selected learning language. Open a local PDF, choose any word for target-aware lookup, and mine sentences. Scanned pages work with OCR, and the file stays on your device.">
   <link rel="canonical" href="https://yomureader.com/pdf-reader/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="よむ">
-  <meta property="og:title" content="Yomu PDF Reader — read Japanese PDFs with popup lookup">
-  <meta property="og:description" content="Open a PDF from your computer, press any word for its reading and meaning, and mine sentences to Anki or JPDB. Free, in your browser.">
+  <meta property="og:title" content="Yomu PDF Reader — read PDFs in your learning language">
+  <meta property="og:description" content="Open a local PDF, choose any word for target-aware lookup, and mine sentences without uploading the file.">
   <meta property="og:url" content="https://yomureader.com/pdf-reader/">
   <meta property="og:image" content="https://yomureader.com/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Yomu PDF Reader — read Japanese PDFs with popup lookup">
-  <meta name="twitter:description" content="Open a PDF from your computer, press any word for its reading and meaning, and mine sentences to Anki or JPDB. Free, in your browser.">
+  <meta name="twitter:title" content="Yomu PDF Reader — read PDFs in your learning language">
+  <meta name="twitter:description" content="Open a local PDF, choose any word for target-aware lookup, and mine sentences without uploading the file.">
   <meta name="twitter:image" content="https://yomureader.com/og-image.png">
   <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
@@ -26,7 +26,6 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Read any PDF with よむ popup lookup, mining and OCR.">
   <!-- Applies the reader's theme and accent before the first paint; stamped from
        src/reader/core/hosted-appearance-boot.ts by scripts/sync-docs-userscript.cjs. -->
   <script>/* yomu:appearance-boot:start */"use strict";(()=>{var H="#000000";function b(t){return/^#[0-9a-f]{6}$/i.test(t)?t.toLowerCase():H}function A(t,n,e=b){let o=x(t,e),r=x(n,e),s=Math.max(o,r),a=Math.min(o,r);return(s+.05)/(a+.05)}function x(t,n=b){let[e,o,r]=f(t,n).map(s=>{let a=s/255;return a<=.03928?a/12.92:((a+.055)/1.055)**2.4});return .2126*e+.7152*o+.0722*r}function E(t,n,e,o=b){let r=f(t,o),s=f(n,o);return`#${r.map((a,d)=>Math.round(a+(s[d]-a)*e).toString(16).padStart(2,"0")).join("")}`}function f(t,n=b){let e=b(n(t));return[parseInt(e.slice(1,3),16),parseInt(e.slice(3,5),16),parseInt(e.slice(5,7),16)]}function _(t,n,e=b){let[o,r,s]=f(t,e);return`rgba(${o}, ${r}, ${s}, ${Math.max(0,Math.min(1,n)).toFixed(2)})`}var c={accent:"#5ea780",black:"#000000",white:"#ffffff",readableInk:"#11161d",pageBgDark:"#181b20",pageBgLight:"#ffffff"},S=4.5,y=4.5,C=3.5;function g(t,n=c.accent){return w(t)??n}function w(t){if(typeof t!="string")return;let n=t.trim();if(/^#[0-9a-f]{6}$/i.test(n))return n.toLowerCase();let e=/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(n);return e?`#${e[1]}${e[1]}${e[2]}${e[2]}${e[3]}${e[3]}`.toLowerCase():void 0}function m(t){let n=i(t,c.readableInk),e=i(t,c.white),o=n>=e?c.readableInk:c.white;return Math.max(n,e)>=S?o:i(t,c.black)>=e?c.black:c.white}function T(t,n){let e=g(t),o=n?c.pageBgDark:c.pageBgLight,r=p(e,o,y),s=n?c.white:c.black,a=p(h(e,s,.18),o,C),d=p(h(e,c.black,.18),o,C),l=_(e,n?.22:.16,g),u=m(e),v=m(r),R=m(a);return{"--yomu-accent":e,"--yomu-accent-readable":r,"--yomu-accent-ink":u,"--yomu-brand-ink":v,"--yomu-brand-hover-ink":R,"--vp-c-brand-1":r,"--vp-c-brand-2":a,"--vp-c-brand-3":e,"--vp-c-brand-soft":l,"--vp-button-brand-border":r,"--vp-button-brand-bg":e,"--vp-button-brand-text":u,"--vp-button-brand-hover-border":a,"--vp-button-brand-hover-bg":a,"--vp-button-brand-hover-text":u,"--vp-button-brand-active-border":d,"--vp-button-brand-active-bg":d,"--vp-button-brand-active-text":u,"--vp-home-hero-name-color":r,"--accent":e,"--accent-ink":u,"--accent-soft":l,"--jpdb-reader-accent":e,"--jpdb-reader-accent-readable":r,"--jpdb-reader-accent-text":u,"--jpdb-reader-accent-soft":l}}function p(t,n,e){let o=g(t);if(i(o,n)>=e)return o;let r=N(n);for(let s=.08;s<=1;s+=.08){let a=h(o,r,s);if(i(a,n)>=e)return a}return r}function N(t){return i(t,c.black)>i(t,c.white)?c.black:c.white}function i(t,n){return A(t,n,g)}function h(t,n,e){return E(t,n,e,g)}var P="jpdb-popup-reader-settings",M="vitepress-theme-appearance",O="yomu-page-theme";function I(t){let n=document.documentElement,e=$(),o=L(e),r=o==="auto"?D():o==="dark",s=T(e.accentColor,r);for(let[a,d]of Object.entries(s))n.style.setProperty(a,d);t==="docs"?(n.classList.toggle("dark",r),document.querySelector('meta[name="theme-color"]')?.setAttribute("content",s["--yomu-accent"]),B(M,o==="auto"?"auto":r?"dark":"light")):(n.classList.toggle("yomu-page-theme-dark",r),n.classList.toggle("yomu-page-theme-light",!r))}function $(){try{let t=JSON.parse(localStorage.getItem(P)||"{}");return t&&typeof t=="object"&&!Array.isArray(t)?t:{}}catch{return{}}}function L(t){return k(t.theme)??k(j(O))??"auto"}function k(t){return t==="auto"||t==="dark"||t==="light"?t:void 0}function D(){try{return window.matchMedia("(prefers-color-scheme: dark)").matches}catch{return!1}}function j(t){try{return localStorage.getItem(t)}catch{return null}}function B(t,n){try{localStorage.setItem(t,n)}catch{}}try{I("surface")}catch{}})();/* yomu:appearance-boot:end */</script>
@@ -837,7 +836,7 @@
     const installedRuntimeMarkerId = 'jpdb-reader-installed-runtime';
     const runtimeCompanionFiles = [
       // yomu:runtime-companions:start
-      'greasyfork/yomu-runtime.842f0c0f5bbe.user.js',
+      'greasyfork/yomu-runtime.fa6595fe3a19.user.js',
       // yomu:runtime-companions:end
     ];
     const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };

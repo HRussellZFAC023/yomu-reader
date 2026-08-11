@@ -9,7 +9,6 @@
         "scripts/academy-asset-ledger.mjs:validateLedger": 34,
         "scripts/academy-listening-task-bindings.mjs:main": 42,
         "scripts/academy-production-workflow.mjs:<callback:withLock>": 53,
-        "scripts/build-extension.mjs:verifyStorePackage": 43,
         "scripts/dictionaries/coverage.mjs:assertUpstreamCoverage": 35,
         "scripts/lib/academy-workflow-model.mjs:validateApprovalAttestation": 65,
         "scripts/lib/academy-workflow-model.mjs:validateProof": 91,

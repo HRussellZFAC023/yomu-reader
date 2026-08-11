@@ -3,7 +3,8 @@
 // mokuro's own "OCR enabled" toggle is its `displayOCR` setting, stored per
 // profile in localStorage `profiles` and read once into a Svelte store at app
 // init (never re-read from localStorage). So:
-//   • We default it OFF exactly once, at document-start, BEFORE mokuro reads it
+//   • After the learner has explicitly chosen a Yomu target, we default it OFF
+//     exactly once, at document-start, BEFORE mokuro reads it
 //     — mokuro then hides its lower-quality text boxes and the reader runs its
 //     own sharper, more touch-friendly OCR instead. After that one-time default
 //     the user's mokuro toggle is respected (turning it back on makes the reader

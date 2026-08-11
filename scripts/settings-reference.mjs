@@ -21,9 +21,11 @@
 //     `src/reader/sources/sections.ts`.
 //   * A setting with no control anywhere falls back to an i18n entry keyed by its
 //     own name.
-// Nothing is invented. A setting with no wording in any of those places is marked
-// "Not yet described" and stays in the table: an admitted gap costs a learner less
-// than a confident guess.
+// FRESH_INSTALL_PRESENTATION below owns the small set of deliberate reference-level
+// overrides where historical stored values are not the behavior a fresh learner
+// experiences. Outside that policy, nothing is invented. A setting with no wording
+// in any of those places is marked "Not yet described" and stays in the table: an
+// admitted gap costs a learner less than a confident guess.
 //
 //   node scripts/settings-reference.mjs           # write the page
 //   node scripts/settings-reference.mjs --check   # fail if the page is stale
@@ -39,6 +41,33 @@ export const SETTINGS_REFERENCE_PAGE = path.join(ROOT, 'docs', 'reference', 'set
 
 const NOT_DESCRIBED = 'Not yet described';
 const NO_DESCRIPTION = '—';
+const IGNORED_COMPATIBILITY_SETTINGS = new Set([
+    'uchisenEnabled',
+    'uchisenAlias',
+    'uchisenPriority',
+]);
+const LEARNING_TARGET_CHOSEN_LABEL = 'Learning target selected';
+const LEARNING_TARGET_CHOSEN_DESCRIPTION = 'Records whether you chose a learning target. Until you do, target-specific reading, dictionary, OCR, and Study work stays off.';
+const UCHISEN_RETIREMENT_COPY = 'Uchisen is not an embedded kanji source. It remains available only as a disabled-by-default outbound lookup link; よむ does not fetch or render its pages, mnemonic stories, images, keywords, or components. Older saved `uchisenEnabled`, `uchisenAlias`, and `uchisenPriority` fields are retained for settings compatibility but ignored.';
+const FRESH_INSTALL_PRESENTATION = new Map([
+    ['annotationsPaused', {
+        label: 'Selected learning-language text on webpages',
+        value: 'inactive until a learning target is explicitly chosen',
+    }],
+    ['youtubeImmersionEnabled', {
+        label: 'Filter YouTube to the selected learning language',
+        value: 'stored on; inactive before target choice, then automatic for Japanese or opt-in for any other target',
+    }],
+    ['youtubeShowChannelRecommendations', {
+        value: 'stored on; inactive until Japanese is explicitly chosen',
+    }],
+    ['preferJapaneseSiteLanguage', {
+        value: 'off; explicit opt-in after choosing Japanese',
+    }],
+]);
+const REFERENCE_SECTION_HELP = new Map([
+    ['YouTube', 'Filter YouTube for the selected learning language. Japanese channel suggestions and Japanese-site navigation are available only after Japanese is explicitly chosen.'],
+]);
 // The page's own words, in one place. Each of these, plus the four column labels
 // and the marker above, has a Japanese entry keyed by the exact English string in
 // docs/.vitepress/locales/docs-prose-catalog.ts. Change one and add the matching entry.
@@ -46,7 +75,8 @@ const PAGE_COPY = Object.freeze({
     description: 'Every Yomu setting, its default, and the part of the settings dialog that holds it.',
     intro: 'Every setting Yomu stores is listed here, in the order the settings dialog presents them.',
     open: 'Open the dialog from the Yomu button on any page.',
-    columns: 'Each row gives the label the dialog shows, the explanation the dialog offers, the value a fresh install starts with, and the name the setting takes in an exported settings file.',
+    freshSetup: 'Fresh setup is language-neutral. Target-specific reading and Japanese-only preferences stay inactive until you explicitly choose a learning target. Some compatibility fields retain historical stored values; when one could look like a fresh Japanese default, the table states the effective gated behavior instead.',
+    columns: 'Each row gives the label the dialog shows, the explanation the dialog offers, the stored default or effective fresh-install gate, and the name the setting takes in an exported settings file.',
     generated: 'This page is generated from the reader source, so it stays in step with the version you have installed.',
     gaps: `Some rows say ${NOT_DESCRIBED}. That marks a real stored setting whose wording is still to be written, shown as a gap rather than filled with a guess.`,
     unplacedTitle: 'Settings without a section of their own',
@@ -78,12 +108,19 @@ export async function settingsReference() {
 function formSections(form) {
     const tabLabels = new Map([...form.querySelectorAll('button[data-action="settings-panel"][data-panel]')]
         .map(button => [button.dataset.panel, collapse(button.textContent)]));
-    return [...form.querySelectorAll('fieldset[data-settings-panel]')].map(fieldset => ({
-        tab: tabLabels.get(fieldset.dataset.settingsPanel) ?? fieldset.dataset.settingsPanel,
-        title: collapse(directLegend(fieldset)?.textContent ?? ''),
-        help: sectionHelp(fieldset),
-        fieldset,
-    }));
+    return [...form.querySelectorAll('fieldset[data-settings-panel]')].map(fieldset => {
+        const title = collapse(directLegend(fieldset)?.textContent ?? '');
+        return {
+            tab: tabLabels.get(fieldset.dataset.settingsPanel) ?? fieldset.dataset.settingsPanel,
+            title,
+            help: referenceSectionHelp(title, fieldset),
+            fieldset,
+        };
+    });
+}
+
+function referenceSectionHelp(title, fieldset) {
+    return REFERENCE_SECTION_HELP.get(title) ?? sectionHelp(fieldset);
 }
 
 function directLegend(fieldset) {
@@ -207,42 +244,92 @@ function flatten(settings) {
 
 function settingRows(source, controls, writers) {
     const values = flatten(source.defaults);
-    return Object.keys(values).map(key => {
+    return Object.keys(values).filter(key => !IGNORED_COMPATIBILITY_SETTINGS.has(key)).map(key => {
         const wording = settingWording(key, controls, writers, source);
-        return {
+        return Object.assign({
             key,
             label: wording.label || NOT_DESCRIBED,
             described: Boolean(wording.label),
             description: wording.description || NO_DESCRIPTION,
             section: wording.section,
             value: formatValue(JSON.parse(values[key] ?? 'null'), wording.control),
-        };
+        }, FRESH_INSTALL_PRESENTATION.get(key));
     });
 }
 
+const SETTING_WORDING_POLICIES = Object.freeze([
+    learningTargetSettingWording,
+    directlyControlledSettingWording,
+    sourceSettingWording,
+    solelyWrittenSettingWording,
+]);
+const NO_CONTROL_WRITERS = Object.freeze([]);
+
 function settingWording(key, controls, writers, source) {
-    const own = controls.get(key);
-    if (own) return { label: own.label, section: own.section, description: '', control: own };
+    const context = { key, controls, writers, source };
+    for (const policy of SETTING_WORDING_POLICIES) {
+        const wording = policy(context);
+        if (wording) return wording;
+    }
+    return sharedSettingWording(context);
+}
 
-    const row = sourceRowWording(key, controls, source.sourceRows);
-    if (row) return row;
+function learningTargetSettingWording({ key }) {
+    return key === 'learningTargetChosen' ? {
+        label: LEARNING_TARGET_CHOSEN_LABEL,
+        description: LEARNING_TARGET_CHOSEN_DESCRIPTION,
+        section: null,
+        control: null,
+    } : null;
+}
 
+function directlyControlledSettingWording({ key, controls }) {
+    return controlSettingWording(controls.get(key));
+}
+
+function sourceSettingWording({ key, controls, source }) {
+    return sourceRowWording(key, controls, source.sourceRows);
+}
+
+function solelyWrittenSettingWording({ key, controls, writers }) {
     // One control, and that control writes nothing else: its label names this key
     // and only this key. Anything less exact would put another setting's label on
     // this row. The Jiten and JPDB credential fields both reach `apiKey`, for
     // instance, so neither may claim it.
-    const written = writers.get(key) ?? [];
-    const sole = written.length === 1 && keysWrittenBy(written[0], writers) === 1
-        ? controls.get(written[0])
-        : null;
-    if (sole) return { label: sole.label, section: sole.section, description: '', control: sole };
+    return controlSettingWording(controls.get(soleWriterName(key, writers)));
+}
 
+function sharedSettingWording({ key, controls, writers, source }) {
     // Otherwise the key is one of several a control writes, or it is a list edited
     // through repeated rows. Every candidate label there names a different setting,
     // so take this key's own i18n entry and, failing that, name no label at all.
     // The section is still known, which is most of what a reader came for.
+    const written = writtenControlNames(key, writers);
     const shared = written.map(name => controls.get(name)).find(Boolean);
-    return { label: source.uiCopy[key] ?? '', section: shared?.section ?? null, description: '', control: null };
+    return { label: settingUiCopy(key, source), section: controlSection(shared), description: '', control: null };
+}
+
+function controlSettingWording(control) {
+    return control ? { label: control.label, section: control.section, description: '', control } : null;
+}
+
+function writtenControlNames(key, writers) {
+    return writers.get(key) ?? NO_CONTROL_WRITERS;
+}
+
+function soleWriterName(key, writers) {
+    const written = writtenControlNames(key, writers);
+    if (written.length !== 1) return null;
+    if (keysWrittenBy(written[0], writers) !== 1) return null;
+    return written[0];
+}
+
+function settingUiCopy(key, source) {
+    return source.uiCopy[key] ?? '';
+}
+
+function controlSection(control) {
+    return control?.section ?? null;
 }
 
 function keysWrittenBy(name, writers) {
@@ -302,12 +389,7 @@ function optionLabel(value, control) {
 }
 
 function renderPage(sections, rows) {
-    const grouped = new Map(sections.map(section => [section, []]));
-    const unplaced = [];
-    for (const row of rows) {
-        if (row.section && grouped.has(row.section)) grouped.get(row.section).push(row);
-        else unplaced.push(row);
-    }
+    const { grouped, unplaced } = groupRowsBySection(sections, rows);
     // One paragraph per line, and no counts in the prose. Every English string on a
     // docs page needs a Japanese entry keyed by that exact string, so a sentence
     // must not carry a number that moves the next time a setting is added.
@@ -324,6 +406,8 @@ function renderPage(sections, rows) {
         '',
         PAGE_COPY.open,
         '',
+        PAGE_COPY.freshSetup,
+        '',
         PAGE_COPY.columns,
         '',
         PAGE_COPY.generated,
@@ -332,19 +416,40 @@ function renderPage(sections, rows) {
         '',
     ];
 
-    for (const [section, sectionRows] of grouped) {
-        if (!sectionRows.length) continue;
-        lines.push(`## ${sectionHeading(section)}`, '');
-        if (section.help) lines.push(section.help, '');
-        lines.push(...table(sectionRows));
-    }
-
-    if (unplaced.length) {
-        lines.push(`## ${PAGE_COPY.unplacedTitle}`, '', PAGE_COPY.unplaced, '');
-        lines.push(...table(unplaced));
-    }
+    for (const [section, sectionRows] of grouped) lines.push(...renderSection(section, sectionRows));
+    lines.push(...renderUnplacedRows(unplaced));
 
     return `${lines.join('\n').trimEnd()}\n`;
+}
+
+function groupRowsBySection(sections, rows) {
+    const grouped = new Map(sections.map(section => [section, []]));
+    const unplaced = [];
+    for (const row of rows) {
+        const sectionRows = row.section ? grouped.get(row.section) : undefined;
+        if (sectionRows) sectionRows.push(row);
+        else unplaced.push(row);
+    }
+    return { grouped, unplaced };
+}
+
+function renderSection(section, rows) {
+    if (!rows.length) return [];
+    const lines = [`## ${sectionHeading(section)}`, ''];
+    if (section.help) lines.push(section.help, '');
+    if (section.title === 'Kanji') lines.push(UCHISEN_RETIREMENT_COPY, '');
+    return [...lines, ...table(rows)];
+}
+
+function renderUnplacedRows(rows) {
+    if (!rows.length) return [];
+    return [
+        `## ${PAGE_COPY.unplacedTitle}`,
+        '',
+        PAGE_COPY.unplaced,
+        '',
+        ...table(rows),
+    ];
 }
 
 // Section name, plus the tab that reveals it when the two differ. Plain text

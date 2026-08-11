@@ -318,6 +318,12 @@ export interface ReaderSettings {
     bunproFrontendApiTokenExpiresAt: string;
     wanikaniApiToken: string;
     onboardingSeen: boolean;
+    /**
+     * True only after the learner has explicitly confirmed a learning target.
+     * Pre-1.9 stored settings migrate to true so their existing target remains
+     * authoritative; a genuinely fresh profile starts false and fails closed.
+     */
+    learningTargetChosen: boolean;
     interfaceLanguage: InterfaceLanguage;
     /**
      * Versioned multilingual profiles. Root-level language/parser settings

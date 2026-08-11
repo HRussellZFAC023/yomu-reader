@@ -248,6 +248,31 @@ describe('settings persist across sites (message-based GM store)', () => {
         expect((await loadSettings()).preferJapaneseSiteLanguage).toBe(false);
     });
 
+    it('rolls back an explicit site-language scalar when the paired target settings write fails', async () => {
+        const store = new Map<string, unknown>();
+        installSharedMessageBasedGm(store);
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            if (key === SETTINGS_STORAGE_KEY) throw new Error('settings blob rejected');
+            store.set(key, JSON.parse(JSON.stringify(value)));
+        }));
+
+        await expect(saveSettings({
+            ...DEFAULT_SETTINGS,
+            learningTargetChosen: true,
+            onboardingSeen: true,
+            preferJapaneseSiteLanguage: true,
+        }, {
+            persistPreferredJapaneseSiteLanguage: true,
+            explicitUserChoiceKeys: [
+                'learningTargetChosen',
+                'onboardingSeen',
+                'preferJapaneseSiteLanguage',
+            ],
+        })).rejects.toThrow(/GM storage write failed/);
+
+        expect(store.has(PREFERRED_JAPANESE_SITE_LANGUAGE_STORAGE_KEY)).toBe(false);
+    });
+
     // GitHub #36 (mirrormc), the half with the broad blast radius. Recovery from an
     // older storage key inferred "the learner never set this" from "the value equals
     // the default", so ANY field reset to its default could be replayed from a legacy

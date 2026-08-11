@@ -1,17 +1,17 @@
 {
-    "src/reader/newtab/controller.ts": 10730,
-    "src/reader/app/main.ts": 10406,
-    "src/reader/subtitles/controller.ts": 8460,
+    "src/reader/newtab/controller.ts": 10654,
+    "src/reader/app/main.ts": 10396,
+    "src/reader/subtitles/controller.ts": 8454,
     "src/reader/dom/index.ts": 7914,
     "src/reader/ocr/controller.ts": 4899,
-    "src/reader/settings/form.ts": 3257,
-    "src/reader/settings/dialog-controller.ts": 2812,
+    "src/reader/settings/form.ts": 2992,
+    "src/reader/settings/dialog-controller.ts": 2807,
     "src/reader/subtitles/youtube.ts": 2692,
-    "src/reader/app/i18n.ts": 2658,
-    "src/reader/newtab/runtime.ts": 2596,
+    "src/reader/app/i18n.ts": 2632,
+    "src/reader/newtab/runtime.ts": 2573,
     "src/reader/dictionaries/yomitan/index.ts": 2360,
-    "src/reader/settings/index.ts": 2306,
     "src/reader/app/site-parsers.ts": 2243,
     "src/academy/domain/world-locations.ts": 2225,
-    "src/reader/anki/client.ts": 2138
+    "src/reader/settings/index.ts": 2199,
+    "src/reader/anki/client.ts": 2127
 }

@@ -66,6 +66,12 @@ import {
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
 import { installCatalogBrowseFilter } from './catalog-browse-filter';
+import {
+    COLLAPSED_CATALOG_BROWSE_RENDER,
+    handleCatalogBrowseDisclosureAction,
+    refreshDictionaryPanel,
+    syncExpandedCatalogBrowseSearch,
+} from './catalog-browse-disclosure';
 import { ankiModelUpdatePromptTarget, applyAnkiModelUpdatePrompt } from './anki-mining-panel';
 import { updateAnkiTagsEditor } from './form-tags';
 import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsAuthRedirectResult, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
@@ -90,6 +96,8 @@ import { markDictionaryReplicaFresh, requestDictionaryReplicaPurge } from '../di
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { AcademyAccountSyncSettingsController } from './academy-account-sync';
 import { installFocusedControlScrolling } from './focused-control-scrolling';
+import { runCredentialDependentSettingsRefreshes, settingsDialogTrigger } from './dialog-open-policy';
+import { dictionaryActionBlockedDuringSiteClear } from './local-dictionary-storage-form';
 import {
     firefoxAuthenticationInfoRequiresExtensionPage,
     requestFirefoxAuthenticationInfoForChangedSettings,
@@ -98,12 +106,8 @@ import {
     type FirefoxAuthenticationInfoConsent,
 } from './firefox-data-consent';
 import {
-    dictionaryStatusElements,
-    liveDictionarySettings,
-    renderDictionaryStatusElements,
-    selectedLearnerLanguage,
+    liveDictionaryPanelContext,
     selectedTargetLanguage,
-    type DictionaryStatusElements,
     type DictionaryStatusSummary,
 } from './dictionary-status-view';
 
@@ -430,10 +434,6 @@ function shouldReenableSettingsAction(action: string): boolean {
     return action === 'download-recommended-dictionary' || action === 'delete-yomitan-dictionary';
 }
 
-function setDictionaryStatusError(status: HTMLElement | null, error: unknown, language: InterfaceLanguage): void {
-    if (status) status.textContent = userFacingErrorText(language, 'dictionaryStatusUnavailable', error);
-}
-
 function isAnkiConnectSetupError(error: unknown): boolean {
     if (isAnkiConnectAvailabilityError(error)) return true;
     const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
@@ -467,15 +467,13 @@ export class SettingsDialogController {
     }
 
     open(panel?: string): void {
-        const trigger = document.activeElement instanceof HTMLElement
-            && !document.activeElement.closest('.jpdb-reader-settings')
-            ? document.activeElement
-            : undefined;
+        const trigger = settingsDialogTrigger(document.activeElement);
         const form = this.createSettingsForm(panel);
         const backdrop = this.dependencies.createBackdrop();
         this.bindFormSubmit(form);
         installFocusedControlScrolling(form);
         this.bindSettingsSearch(form);
+        form.addEventListener('yomu-catalog-browse-rendered', () => this.onCatalogBrowseRendered(form));
         installCatalogBrowseFilter(form);
         this.bindSettingsTabs(form);
         this.bindLivePreview(form);
@@ -491,16 +489,21 @@ export class SettingsDialogController {
         this.syncJpdbStatus(form);
         void this.academyAccountSync.refresh(form, this.settings.interfaceLanguage);
         void this.refreshAnkiConnectionStatus(form);
-        if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshJpdbConnectionStatus(form);
-        if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshWanikaniConnectionStatus(form);
+        runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [
+            () => void this.refreshJpdbConnectionStatus(form), () => void this.refreshWanikaniConnectionStatus(form),
+        ]);
         void this.refreshDictionaryStatus(form);
         this.publishedDictionaryLanguagesPromise = undefined;
         void this.refreshTargetDictionaryAvailability(form);
-        if (!firefoxAuthenticationInfoRequiresExtensionPage()) void this.refreshDeckControls(form);
+        runCredentialDependentSettingsRefreshes(firefoxAuthenticationInfoRequiresExtensionPage(), [() => void this.refreshDeckControls(form)]);
         if (panel === 'help') void this.refreshYomuUpdateStatus(form);
         this.refreshSettingsJapaneseParse(form);
     }
 
+    private onCatalogBrowseRendered(form: HTMLFormElement): void {
+        this.syncRecommendedDictionaryInstallControls(form);
+        if (this.dictionarySiteStorageClearPending) this.setDictionaryImportsDisabledForSiteClear(form, true);
+    }
     refreshLanguage(language = this.settings.interfaceLanguage): void {
         const form = this.currentForm;
         if (!form?.isConnected) return;
@@ -588,7 +591,7 @@ export class SettingsDialogController {
         form.setAttribute('aria-modal', 'true');
         form.setAttribute('aria-label', SETTINGS_TITLE);
         form.tabIndex = -1;
-        setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL));
+        setInnerHtml(form, renderSettingsForm(this.settings, JPDB_SETTINGS_URL, JITEN_SETTINGS_URL, COLLAPSED_CATALOG_BROWSE_RENDER));
         localizeSettingsForm(form, this.settings.interfaceLanguage);
         if (panel) activateSettingsPanel(form, panel);
         return form;
@@ -666,6 +669,7 @@ export class SettingsDialogController {
         const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
         input?.addEventListener('input', () => {
             applySettingsSearch(form, input.value);
+            syncExpandedCatalogBrowseSearch(form, input.value);
         });
     }
 
@@ -1449,19 +1453,19 @@ export class SettingsDialogController {
         this.setAnkiStatusLine(form, { message, tone, action, state, details });
     }
 
-    private async refreshDictionaryStatus(form: HTMLFormElement): Promise<void> {
+    private async refreshDictionaryStatus(form: HTMLFormElement): Promise<boolean> {
         const id = ++this.dictionaryRefreshId;
-        const current = () => this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId;
-        const elements = dictionaryStatusElements(form);
-        try {
-            const summary = await this.dependencies.dictionaries.summary();
-            if (!current()) return;
-            await this.applyDictionaryStatus(form, elements, summary, current);
-        } catch (error) {
-            if (!current()) return;
-            log.warn('Dictionary status unavailable', error);
-            setDictionaryStatusError(elements.status, error, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        }
+        return refreshDictionaryPanel({
+            form,
+            current: () => this.currentForm === form && form.isConnected && id === this.dictionaryRefreshId,
+            loadSummary: () => this.dependencies.dictionaries.summary(),
+            prepareSummary: summary => this.mergeDictionaryPreferencesFromSummary(summary),
+            refreshStyles: () => this.dependencies.refreshDictionaryStyles(),
+            renderContext: () => liveDictionaryPanelContext(form, this.settings),
+            afterRender: () => this.afterDictionaryPanelRendered(form),
+            interfaceLanguage: () => getFormInterfaceLanguage(form, this.settings.interfaceLanguage),
+            reportError: error => log.warn('Dictionary status unavailable', error),
+        });
     }
 
     private async refreshYomuUpdateStatus(form: HTMLFormElement): Promise<void> {
@@ -1512,27 +1516,8 @@ export class SettingsDialogController {
         }
     }
 
-    private async applyDictionaryStatus(
-        form: HTMLFormElement,
-        elements: DictionaryStatusElements,
-        summary: DictionaryStatusSummary,
-        current: () => boolean,
-    ): Promise<void> {
-        await this.mergeDictionaryPreferencesFromSummary(summary);
-        if (!current()) return;
-        await this.dependencies.refreshDictionaryStyles();
-        if (!current()) return;
-        const live = liveDictionarySettings(form, this.settings);
-        renderDictionaryStatusElements(
-            elements,
-            summary,
-            live,
-            selectedLearnerLanguage(form, this.settings),
-            selectedTargetLanguage(form, this.settings),
-        );
+    private afterDictionaryPanelRendered(form: HTMLFormElement): void {
         localizeSettingsForm(form, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
-        // The Sources panel re-renders its whole dictionary block here, so the
-        // filter input is a brand-new element that needs rebinding.
         installCatalogBrowseFilter(form);
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
@@ -1882,11 +1867,17 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsDictionaryAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
-        if (this.dictionarySiteStorageClearPending
-            && (action === 'import-yomitan-dictionary' || action === 'download-recommended-dictionary')) {
+        const disclosure = handleCatalogBrowseDisclosureAction(action, form, control, () => this.refreshDictionaryStatus(form));
+        if (disclosure) return disclosure;
+        if (dictionaryActionBlockedDuringSiteClear(action, this.dictionarySiteStorageClearPending)) {
             setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'clearLocalDictionarySiteStorageClearing'));
             return true;
         }
+        if (await this.handleDictionaryStorageAction(form, action, control, setStatus)) return true;
+        return this.handleDictionaryTransferAction(form, action, control, setStatus);
+    }
+
+    private async handleDictionaryStorageAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         if (action === 'clear-local-dictionary-site-storage') {
             await this.disableAndClearLocalDictionarySiteStorage(form, control, setStatus);
             return true;
@@ -1895,6 +1886,10 @@ export class SettingsDialogController {
             await this.deleteDictionaryFromSettings(form, control, setStatus);
             return true;
         }
+        return false;
+    }
+
+    private async handleDictionaryTransferAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
         if (action === 'import-yomitan-dictionary') {
             await this.importDictionaryFromSettings(form, setStatus);
             return true;

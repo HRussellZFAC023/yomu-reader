@@ -15,6 +15,7 @@ function settingsForTarget(targetLanguage: string): ReaderSettings {
     const profile = DEFAULT_SETTINGS.languageProfiles[0]!;
     return normalizeReaderSettings({
         ...DEFAULT_SETTINGS,
+        learningTargetChosen: true,
         activeLanguageProfileId: profile.id,
         languageProfiles: [{ ...profile, targetLanguage }],
     } as Partial<ReaderSettings>);
@@ -285,7 +286,6 @@ describe('lookup target generations', () => {
     });
 
     it('does not enter later fallback stages after the target generation becomes stale', async () => {
-        const candidatesPending = deferred<Map<string, JPDBCard>>();
         const transportPending = deferred<JPDBToken[][]>();
         const batchTransportPending = deferred<JPDBToken[][]>();
         const app = new ReaderApp() as unknown as {
@@ -293,25 +293,14 @@ describe('lookup target generations', () => {
             jiten: { parse(): Promise<JPDBToken[][]> };
             jitenPublicVocabulary: { lookupMany(): Promise<Map<string, JPDBCard>> };
             cardLookup: {
-                publicLookupCard(...args: unknown[]): Promise<JPDBCard | undefined>;
-                publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined>;
                 lookupFallbackApiCard(card: JPDBCard): Promise<JPDBCard | undefined>;
                 publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>>;
             };
             destroy(): void;
         };
         app.settings = { ...DEFAULT_SETTINGS, jitenApiKey: 'ak_test' };
-        const lookupMany = vi.fn(() => candidatesPending.promise);
+        const lookupMany = vi.fn(async () => new Map<string, JPDBCard>());
         app.jitenPublicVocabulary = { lookupMany };
-        const publicLookupCard = vi.fn(async () => CARD);
-        app.cardLookup.publicLookupCard = publicLookupCard;
-
-        const candidate = app.cardLookup.publicLookupFirstCandidateTerm(['猫']);
-        expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
-        expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
-        candidatesPending.resolve(new Map());
-        await expect(candidate).resolves.toBeUndefined();
-        expect(publicLookupCard).not.toHaveBeenCalled();
 
         const parse = vi.fn(() => transportPending.promise);
         app.jiten = { parse };
@@ -320,9 +309,8 @@ describe('lookup target generations', () => {
         expect(setActiveLearningTargetLanguage('ja')).not.toBeNull();
         transportPending.reject(new Error('No configured proxy.'));
         await expect(fallback).resolves.toBeUndefined();
-        expect(lookupMany).toHaveBeenCalledTimes(1);
+        expect(lookupMany).not.toHaveBeenCalled();
 
-        lookupMany.mockClear();
         app.jiten = { parse: vi.fn(() => batchTransportPending.promise) };
         const batch = app.cardLookup.publicLookupFallbackCards([CARD]);
         expect(setActiveLearningTargetLanguage('ko')).not.toBeNull();
