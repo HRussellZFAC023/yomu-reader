@@ -1320,7 +1320,13 @@ describe('new tab review — Immersion Kit card & doodle strokes', () => {
             expect(clicks).toHaveBeenCalledTimes(1);
             expect(trace.textContent).toBe('Hide trace');
 
-            const duplicateClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            const duplicateClick = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 25,
+                clientY: 18,
+                detail: 1,
+            });
             trace.dispatchEvent(duplicateClick);
             expect(duplicateClick.defaultPrevented).toBe(true);
             expect(clicks).toHaveBeenCalledTimes(1);

@@ -939,7 +939,13 @@ describe('reader helpers', () => {
             expect(up.defaultPrevented).toBe(true);
             expect(clicks).toHaveBeenCalledTimes(1);
 
-            const duplicateClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            const duplicateClick = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 25,
+                clientY: 18,
+                detail: 1,
+            });
             link.dispatchEvent(duplicateClick);
             expect(duplicateClick.defaultPrevented).toBe(true);
             expect(clicks).toHaveBeenCalledTimes(1);
@@ -985,7 +991,13 @@ describe('reader helpers', () => {
             expect(traceUp.defaultPrevented).toBe(true);
             expect(trace.textContent).toBe('Hide trace');
 
-            const duplicateTraceClick = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+            const duplicateTraceClick = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 25,
+                clientY: 18,
+                detail: 1,
+            });
             trace.dispatchEvent(duplicateTraceClick);
             expect(duplicateTraceClick.defaultPrevented).toBe(true);
             expect(trace.textContent).toBe('Hide trace');

@@ -3754,8 +3754,8 @@ function matchesTap(control, tap) {
 return control?.target === tap.target && control.root === tap.root;
 }
 function invalidateMovedTap(state, event) {
-if (state.tap?.pointerId !== event.pointerId) return;
-if (!tapWithinSlop(state.tap, event)) state.tap = void 0;
+if (!state.tap || state.tap.pointerId !== event.pointerId) return;
+if (!tapWithinSlop(state.tap, event)) delete state.tap;
 }
 function clearPointerTap(state, event) {
 if (state.tap?.pointerId === event.pointerId) state.tap = void 0;

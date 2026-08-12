@@ -14363,8 +14363,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return control?.target === tap.target && control.root === tap.root;
   }
   function invalidateMovedTap(state2, event) {
-    if (state2.tap?.pointerId !== event.pointerId) return;
-    if (!tapWithinSlop(state2.tap, event)) state2.tap = void 0;
+    if (!state2.tap || state2.tap.pointerId !== event.pointerId) return;
+    if (!tapWithinSlop(state2.tap, event)) delete state2.tap;
   }
   function clearPointerTap(state2, event) {
     if (state2.tap?.pointerId === event.pointerId) state2.tap = void 0;

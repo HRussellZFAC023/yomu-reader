@@ -226,8 +226,8 @@ function matchesTap(
 }
 
 function invalidateMovedTap(state: { tap?: ControlPointerTap }, event: PointerEvent): void {
-    if (state.tap?.pointerId !== event.pointerId) return;
-    if (!tapWithinSlop(state.tap, event)) state.tap = undefined;
+    if (!state.tap || state.tap.pointerId !== event.pointerId) return;
+    if (!tapWithinSlop(state.tap, event)) delete state.tap;
 }
 
 function clearPointerTap(state: { tap?: ControlPointerTap }, event: PointerEvent): void {
